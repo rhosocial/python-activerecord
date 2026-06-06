@@ -1,5 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_table_name_type_validation.py
 """Tests for table_name type validation in CreateTableExpression and DropTableExpression."""
+
 import pytest
 from rhosocial.activerecord.backend.expression import (
     TableExpression,
@@ -19,17 +20,15 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression accepts string table_name."""
         columns = [
             ColumnDefinition(
-                name="id",
-                data_type="INTEGER",
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
-        
+
         expr = CreateTableExpression(dummy_dialect, "users", columns)
         assert isinstance(expr.table, TableExpression)
         assert expr.table.name == "users"
         assert expr.table.schema_name is None
-        
+
         # Test backward compatibility property
         assert expr.table_name == "users"
 
@@ -37,12 +36,10 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression accepts TableExpression object."""
         columns = [
             ColumnDefinition(
-                name="id",
-                data_type="INTEGER",
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
-        
+
         table = TableExpression(dummy_dialect, "users")
         expr = CreateTableExpression(dummy_dialect, table, columns)
         assert expr.table is table
@@ -52,18 +49,16 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression accepts TableExpression with schema_name."""
         columns = [
             ColumnDefinition(
-                name="id",
-                data_type="INTEGER",
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
-        
+
         table = TableExpression(dummy_dialect, "users", schema_name="public")
         expr = CreateTableExpression(dummy_dialect, table, columns)
         assert expr.table is table
         assert expr.table.name == "users"
         assert expr.table.schema_name == "public"
-        
+
         sql, params = expr.to_sql()
         assert '"public"."users"' in sql
 
@@ -71,12 +66,10 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for invalid table_name type."""
         columns = [
             ColumnDefinition(
-                name="id",
-                data_type="INTEGER",
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
-        
+
         # Test with integer
         with pytest.raises(TypeError) as exc_info:
             CreateTableExpression(dummy_dialect, 123, columns)
@@ -86,12 +79,10 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for None table_name."""
         columns = [
             ColumnDefinition(
-                name="id",
-                data_type="INTEGER",
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
-        
+
         with pytest.raises(TypeError) as exc_info:
             CreateTableExpression(dummy_dialect, None, columns)
         assert "table must be str or TableExpression, got NoneType" in str(exc_info.value)
@@ -100,12 +91,10 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for list table_name."""
         columns = [
             ColumnDefinition(
-                name="id",
-                data_type="INTEGER",
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
-        
+
         with pytest.raises(TypeError) as exc_info:
             CreateTableExpression(dummy_dialect, ["users"], columns)
         assert "table must be str or TableExpression, got list" in str(exc_info.value)
@@ -114,12 +103,10 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for dict table_name."""
         columns = [
             ColumnDefinition(
-                name="id",
-                data_type="INTEGER",
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
-        
+
         with pytest.raises(TypeError) as exc_info:
             CreateTableExpression(dummy_dialect, {"name": "users"}, columns)
         assert "table must be str or TableExpression, got dict" in str(exc_info.value)
@@ -134,7 +121,7 @@ class TestDropTableExpressionTypeValidation:
         assert isinstance(expr.table, TableExpression)
         assert expr.table.name == "users"
         assert expr.table.schema_name is None
-        
+
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE "users"'
         assert params == ()
@@ -153,7 +140,7 @@ class TestDropTableExpressionTypeValidation:
         assert expr.table is table
         assert expr.table.name == "users"
         assert expr.table.schema_name == "public"
-        
+
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE IF EXISTS "public"."users" CASCADE'
         assert params == ()
@@ -189,7 +176,7 @@ class TestDropTableExpressionTypeValidation:
         expr = DropTableExpression(dummy_dialect, table)
         assert expr.table.name == "users"
         assert expr.table.alias == "u"
-        
+
         # Note: DROP TABLE includes alias if TableExpression has one
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE "users" AS "u"'

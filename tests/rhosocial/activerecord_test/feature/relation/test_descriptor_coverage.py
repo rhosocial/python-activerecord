@@ -3,29 +3,33 @@
 Targeted tests to cover uncovered code paths in descriptors.py and async_descriptors.py.
 Also identifies dead code.
 """
-import sys
-import inspect
-from typing import ClassVar, ForwardRef, Any, Optional, List, Dict
+
+from typing import ClassVar, ForwardRef
 
 import pytest
 from pydantic import BaseModel
 
 from rhosocial.activerecord.relation.base import RelationManagementMixin
 from rhosocial.activerecord.relation.descriptors import (
-    BelongsTo, HasOne, HasMany, RelationDescriptor,
-    RelationshipValidator, DefaultIRelationLoader, _evaluate_forward_ref,
+    BelongsTo,
+    HasOne,
+    HasMany,
+    DefaultIRelationLoader,
+    _evaluate_forward_ref,
 )
 from rhosocial.activerecord.relation.async_descriptors import (
-    AsyncBelongsTo, AsyncHasOne, AsyncHasMany, AsyncRelationDescriptor,
-    AsyncRelationshipValidator, AsyncDefaultRelationLoader,
+    AsyncBelongsTo,
+    AsyncHasMany,
+    AsyncDefaultRelationLoader,
 )
 from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache
-from rhosocial.activerecord.relation.interfaces import IRelationLoader, IAsyncRelationLoader
+from rhosocial.activerecord.relation.interfaces import IRelationLoader
 
 
 # ==============================================================================
 # 1. __init__ validation paths
 # ==============================================================================
+
 
 class TestDescriptorInit:
     """Cover __init__ validation branches."""
@@ -51,6 +55,7 @@ class TestDescriptorInit:
 # 2. __set_name__ type checking
 # ==============================================================================
 
+
 class TestSetNameTypeCheck:
     """Cover the type-check guard in __set_name__."""
 
@@ -59,7 +64,7 @@ class TestSetNameTypeCheck:
         from rhosocial.activerecord.interface import IAsyncActiveRecord
 
         # Use type() to bypass Pydantic's metaclass
-        FakeAsyncModel = type('FakeAsyncModel', (IAsyncActiveRecord,), {})
+        FakeAsyncModel = type("FakeAsyncModel", (IAsyncActiveRecord,), {})
         desc = BelongsTo(foreign_key="x_id")
         with pytest.raises(TypeError, match="Sync relation descriptor.*cannot be used on async model"):
             desc.__set_name__(FakeAsyncModel, "test_rel")
@@ -69,7 +74,7 @@ class TestSetNameTypeCheck:
         from rhosocial.activerecord.interface import IActiveRecord
 
         # Use type() to bypass Pydantic's metaclass
-        FakeSyncModel = type('FakeSyncModel', (IActiveRecord,), {})
+        FakeSyncModel = type("FakeSyncModel", (IActiveRecord,), {})
         desc = AsyncBelongsTo(foreign_key="x_id")
         with pytest.raises(TypeError, match="Async relation descriptor.*cannot be used on sync model"):
             desc.__set_name__(FakeSyncModel, "test_rel")
@@ -79,6 +84,7 @@ class TestSetNameTypeCheck:
 # 3. __get__ class-level access
 # ==============================================================================
 
+
 class TestDescriptorGetClassLevel:
     """Cover __get__ with instance=None path."""
 
@@ -86,16 +92,12 @@ class TestDescriptorGetClassLevel:
         class Dept(RelationManagementMixin, BaseModel):
             id: int
             name: str
-            employees: ClassVar[HasMany["Emp"]] = HasMany(
-                foreign_key="dept_id", inverse_of="department"
-            )
+            employees: ClassVar[HasMany["Emp"]] = HasMany(foreign_key="dept_id", inverse_of="department")
 
         class Emp(RelationManagementMixin, BaseModel):
             id: int
             dept_id: int
-            department: ClassVar[BelongsTo["Dept"]] = BelongsTo(
-                foreign_key="dept_id", inverse_of="employees"
-            )
+            department: ClassVar[BelongsTo["Dept"]] = BelongsTo(foreign_key="dept_id", inverse_of="employees")
 
         descriptor = Dept.__dict__["employees"]
         result = descriptor.__get__(None, Dept)
@@ -105,16 +107,12 @@ class TestDescriptorGetClassLevel:
         class Dept(RelationManagementMixin, BaseModel):
             id: int
             name: str
-            employees: ClassVar[AsyncHasMany["Emp"]] = AsyncHasMany(
-                foreign_key="dept_id", inverse_of="department"
-            )
+            employees: ClassVar[AsyncHasMany["Emp"]] = AsyncHasMany(foreign_key="dept_id", inverse_of="department")
 
         class Emp(RelationManagementMixin, BaseModel):
             id: int
             dept_id: int
-            department: ClassVar[AsyncBelongsTo["Dept"]] = AsyncBelongsTo(
-                foreign_key="dept_id", inverse_of="employees"
-            )
+            department: ClassVar[AsyncBelongsTo["Dept"]] = AsyncBelongsTo(foreign_key="dept_id", inverse_of="employees")
 
         descriptor = Dept.__dict__["employees"]
         result = descriptor.__get__(None, Dept)
@@ -125,22 +123,19 @@ class TestDescriptorGetClassLevel:
 # 4. __delete__
 # ==============================================================================
 
+
 class TestDescriptorDelete:
     """Cover __delete__ path."""
 
     def test_sync_delete_clears_cache(self):
         class Owner(RelationManagementMixin, BaseModel):
             id: int
-            items: ClassVar[HasMany["Item"]] = HasMany(
-                foreign_key="owner_id", inverse_of="owner"
-            )
+            items: ClassVar[HasMany["Item"]] = HasMany(foreign_key="owner_id", inverse_of="owner")
 
         class Item(RelationManagementMixin, BaseModel):
             id: int
             owner_id: int
-            owner: ClassVar[BelongsTo["Owner"]] = BelongsTo(
-                foreign_key="owner_id", inverse_of="items"
-            )
+            owner: ClassVar[BelongsTo["Owner"]] = BelongsTo(foreign_key="owner_id", inverse_of="items")
 
         instance = Owner(id=1)
         InstanceCache.set(instance, "items", [Item(id=1, owner_id=1)], CacheConfig())
@@ -153,16 +148,12 @@ class TestDescriptorDelete:
     def test_async_delete_clears_cache(self):
         class Owner(RelationManagementMixin, BaseModel):
             id: int
-            items: ClassVar[AsyncHasMany["Item"]] = AsyncHasMany(
-                foreign_key="owner_id", inverse_of="owner"
-            )
+            items: ClassVar[AsyncHasMany["Item"]] = AsyncHasMany(foreign_key="owner_id", inverse_of="owner")
 
         class Item(RelationManagementMixin, BaseModel):
             id: int
             owner_id: int
-            owner: ClassVar[AsyncBelongsTo["Owner"]] = AsyncBelongsTo(
-                foreign_key="owner_id", inverse_of="items"
-            )
+            owner: ClassVar[AsyncBelongsTo["Owner"]] = AsyncBelongsTo(foreign_key="owner_id", inverse_of="items")
 
         instance = Owner(id=1)
         InstanceCache.set(instance, "items", [Item(id=1, owner_id=1)], CacheConfig())
@@ -176,6 +167,7 @@ class TestDescriptorDelete:
 # ==============================================================================
 # 5. _load_relation paths (cache hit, loader error)
 # ==============================================================================
+
 
 class FakeSyncLoader(IRelationLoader):
     def __init__(self, return_value=None, raise_error=False):
@@ -206,9 +198,7 @@ class TestLoadRelation:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[BelongsTo["Target"]] = BelongsTo(
-                foreign_key="target_id", loader=loader
-            )
+            target: ClassVar[BelongsTo["Target"]] = BelongsTo(foreign_key="target_id", loader=loader)
 
         instance = Source(id=1, target_id=1)
         # Pre-set cache
@@ -229,9 +219,7 @@ class TestLoadRelation:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[BelongsTo["Target"]] = BelongsTo(
-                foreign_key="target_id", loader=loader
-            )
+            target: ClassVar[BelongsTo["Target"]] = BelongsTo(foreign_key="target_id", loader=loader)
 
         instance = Source(id=1, target_id=1)
         result = instance.target()
@@ -247,9 +235,7 @@ class TestLoadRelation:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[BelongsTo["Target"]] = BelongsTo(
-                foreign_key="target_id", loader=loader
-            )
+            target: ClassVar[BelongsTo["Target"]] = BelongsTo(foreign_key="target_id", loader=loader)
 
         instance = Source(id=1, target_id=1)
         result = instance.target()
@@ -266,9 +252,7 @@ class TestLoadRelation:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(
-                foreign_key="target_id", loader=loader
-            )
+            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(foreign_key="target_id", loader=loader)
 
         instance = Source(id=1, target_id=1)
         InstanceCache.set(instance, "target", data, CacheConfig())
@@ -280,6 +264,7 @@ class TestLoadRelation:
 # 6. _create_relation_method with args — exercises dead self._query path
 # ==============================================================================
 
+
 class TestCreateRelationMethodNoArgs:
     """_create_relation_method no longer accepts args (dead code removed)."""
 
@@ -290,9 +275,7 @@ class TestCreateRelationMethodNoArgs:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[BelongsTo["Target"]] = BelongsTo(
-                foreign_key="target_id"
-            )
+            target: ClassVar[BelongsTo["Target"]] = BelongsTo(foreign_key="target_id")
 
         instance = Source(id=1, target_id=1)
         method = Source.target.__get__(instance, Source)
@@ -307,9 +290,7 @@ class TestCreateRelationMethodNoArgs:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(
-                foreign_key="target_id"
-            )
+            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(foreign_key="target_id")
 
         instance = Source(id=1, target_id=1)
         method = Source.target.__get__(instance, Source)
@@ -320,6 +301,7 @@ class TestCreateRelationMethodNoArgs:
 # ==============================================================================
 # 7. _evaluate_forward_ref
 # ==============================================================================
+
 
 class TestEvaluateForwardRef:
     """Cover _evaluate_forward_ref function."""
@@ -342,6 +324,7 @@ class TestEvaluateForwardRef:
 
     def test_evaluate_forward_ref_with_module_scope(self):
         """Test that forward ref resolves using module globals."""
+
         class DummyModel(RelationManagementMixin, BaseModel):
             id: int
 
@@ -354,55 +337,47 @@ class TestEvaluateForwardRef:
 # 8. RelationshipValidator / AsyncRelationshipValidator
 # ==============================================================================
 
+
 class TestRelationshipValidatorPaths:
     """Cover RelationshipValidator validation branches."""
 
     def test_valid_belongs_to_has_many_pair(self):
         class Dept(RelationManagementMixin, BaseModel):
             id: int
-            employees: ClassVar[HasMany["Emp"]] = HasMany(
-                foreign_key="dept_id", inverse_of="department"
-            )
+            employees: ClassVar[HasMany["Emp"]] = HasMany(foreign_key="dept_id", inverse_of="department")
 
         class Emp(RelationManagementMixin, BaseModel):
             id: int
             dept_id: int
-            department: ClassVar[BelongsTo["Dept"]] = BelongsTo(
-                foreign_key="dept_id", inverse_of="employees"
-            )
+            department: ClassVar[BelongsTo["Dept"]] = BelongsTo(foreign_key="dept_id", inverse_of="employees")
+
         # Trigger validation by accessing relation
         Emp(id=1, dept_id=1).department()
 
     def test_valid_belongs_to_has_one_pair(self):
         class User(RelationManagementMixin, BaseModel):
             id: int
-            profile: ClassVar[HasOne["Profile"]] = HasOne(
-                foreign_key="user_id", inverse_of="user"
-            )
+            profile: ClassVar[HasOne["Profile"]] = HasOne(foreign_key="user_id", inverse_of="user")
 
         class Profile(RelationManagementMixin, BaseModel):
             id: int
             user_id: int
-            user: ClassVar[BelongsTo["User"]] = BelongsTo(
-                foreign_key="user_id", inverse_of="profile"
-            )
+            user: ClassVar[BelongsTo["User"]] = BelongsTo(foreign_key="user_id", inverse_of="profile")
+
         # Trigger validation
         Profile(id=1, user_id=1).user()
 
     def test_invalid_has_many_has_many_pair(self):
         """HasMany↔HasMany should fail validation on relation access."""
+
         class A(RelationManagementMixin, BaseModel):
             id: int
-            bs: ClassVar[HasMany["B"]] = HasMany(
-                foreign_key="a_id", inverse_of="a"
-            )
+            bs: ClassVar[HasMany["B"]] = HasMany(foreign_key="a_id", inverse_of="a")
 
         class B(RelationManagementMixin, BaseModel):
             id: int
             a_id: int
-            a: ClassVar[HasMany["A"]] = HasMany(
-                foreign_key="a_id", inverse_of="bs"
-            )
+            a: ClassVar[HasMany["A"]] = HasMany(foreign_key="a_id", inverse_of="bs")
 
         # Validation is lazy — triggered on relation access
         with pytest.raises(ValueError, match="Invalid relationship pair"):
@@ -410,18 +385,16 @@ class TestRelationshipValidatorPaths:
 
     def test_auto_set_inverse_of(self):
         """When inverse_of is None on the related model, it should be auto-set."""
+
         class A(RelationManagementMixin, BaseModel):
             id: int
-            bs: ClassVar[HasMany["B"]] = HasMany(
-                foreign_key="a_id", inverse_of="a"
-            )
+            bs: ClassVar[HasMany["B"]] = HasMany(foreign_key="a_id", inverse_of="a")
 
         class B(RelationManagementMixin, BaseModel):
             id: int
             a_id: int
-            a: ClassVar[BelongsTo["A"]] = BelongsTo(
-                foreign_key="a_id"
-            )
+            a: ClassVar[BelongsTo["A"]] = BelongsTo(foreign_key="a_id")
+
         # Trigger validation by accessing the relation
         A(id=1).bs()
         assert B.get_relation("a").inverse_of == "bs"
@@ -429,24 +402,19 @@ class TestRelationshipValidatorPaths:
     def test_async_valid_belongs_to_has_many_pair(self):
         class Dept(RelationManagementMixin, BaseModel):
             id: int
-            employees: ClassVar[AsyncHasMany["Emp"]] = AsyncHasMany(
-                foreign_key="dept_id", inverse_of="department"
-            )
+            employees: ClassVar[AsyncHasMany["Emp"]] = AsyncHasMany(foreign_key="dept_id", inverse_of="department")
 
         class Emp(RelationManagementMixin, BaseModel):
             id: int
             dept_id: int
-            department: ClassVar[AsyncBelongsTo["Dept"]] = AsyncBelongsTo(
-                foreign_key="dept_id", inverse_of="employees"
-            )
+            department: ClassVar[AsyncBelongsTo["Dept"]] = AsyncBelongsTo(foreign_key="dept_id", inverse_of="employees")
 
     def test_missing_inverse_relationship(self):
         """Inverse name does not exist on related model."""
+
         class A(RelationManagementMixin, BaseModel):
             id: int
-            bs: ClassVar[HasMany["B"]] = HasMany(
-                foreign_key="a_id", inverse_of="nonexistent"
-            )
+            bs: ClassVar[HasMany["B"]] = HasMany(foreign_key="a_id", inverse_of="nonexistent")
 
         class B(RelationManagementMixin, BaseModel):
             id: int
@@ -457,11 +425,10 @@ class TestRelationshipValidatorPaths:
 
     def test_non_relation_inverse(self):
         """Inverse exists but is not a RelationDescriptor."""
+
         class A(RelationManagementMixin, BaseModel):
             id: int
-            bs: ClassVar[HasMany["B"]] = HasMany(
-                foreign_key="a_id", inverse_of="a"
-            )
+            bs: ClassVar[HasMany["B"]] = HasMany(foreign_key="a_id", inverse_of="a")
 
         class B(RelationManagementMixin, BaseModel):
             id: int
@@ -473,11 +440,10 @@ class TestRelationshipValidatorPaths:
 
     def test_async_missing_inverse_relationship(self):
         """Inverse name does not exist on related model."""
+
         class A(RelationManagementMixin, BaseModel):
             id: int
-            bs: ClassVar[AsyncHasMany["B"]] = AsyncHasMany(
-                foreign_key="a_id", inverse_of="nonexistent"
-            )
+            bs: ClassVar[AsyncHasMany["B"]] = AsyncHasMany(foreign_key="a_id", inverse_of="nonexistent")
 
         class B(RelationManagementMixin, BaseModel):
             id: int
@@ -489,21 +455,17 @@ class TestRelationshipValidatorPaths:
     def test_async_auto_set_inverse_of(self):
         class A(RelationManagementMixin, BaseModel):
             id: int
-            bs: ClassVar[AsyncHasMany["B"]] = AsyncHasMany(
-                foreign_key="a_id", inverse_of="a"
-            )
+            bs: ClassVar[AsyncHasMany["B"]] = AsyncHasMany(foreign_key="a_id", inverse_of="a")
 
         class B(RelationManagementMixin, BaseModel):
             id: int
             a_id: int
-            a: ClassVar[AsyncBelongsTo["A"]] = AsyncBelongsTo(
-                foreign_key="a_id"
-            )
+            a: ClassVar[AsyncBelongsTo["A"]] = AsyncBelongsTo(foreign_key="a_id")
+
         # Trigger validation via get_related_model directly (avoids coroutine)
         desc = A.get_relation("bs")
         desc.get_related_model(A)
         assert B.get_relation("a").inverse_of == "bs"
-
 
     def test_inconsistent_inverse_wrong_owner(self):
         """Trigger 'Inconsistent inverse' by validating with an unrelated owner.
@@ -514,18 +476,15 @@ class TestRelationshipValidatorPaths:
         from __set_name__, which always passes the actual owner class.
         Do NOT replicate this pattern in application code.
         """
+
         class A(RelationManagementMixin, BaseModel):
             id: int
-            bs: ClassVar[HasMany["B"]] = HasMany(
-                foreign_key="a_id", inverse_of="a"
-            )
+            bs: ClassVar[HasMany["B"]] = HasMany(foreign_key="a_id", inverse_of="a")
 
         class B(RelationManagementMixin, BaseModel):
             id: int
             a_id: int
-            a: ClassVar[BelongsTo["A"]] = BelongsTo(
-                foreign_key="a_id", inverse_of="bs"
-            )
+            a: ClassVar[BelongsTo["A"]] = BelongsTo(foreign_key="a_id", inverse_of="bs")
 
         # After B's validation, A.bs.inverse_of was auto-set to 'a'.
         # Now call A.bs's validator with an unrelated owner class C.
@@ -541,18 +500,15 @@ class TestRelationshipValidatorPaths:
         WARNING: Same unnatural scenario as the sync version. Do NOT replicate
         in application code.
         """
+
         class A(RelationManagementMixin, BaseModel):
             id: int
-            bs: ClassVar[AsyncHasMany["B"]] = AsyncHasMany(
-                foreign_key="a_id", inverse_of="a"
-            )
+            bs: ClassVar[AsyncHasMany["B"]] = AsyncHasMany(foreign_key="a_id", inverse_of="a")
 
         class B(RelationManagementMixin, BaseModel):
             id: int
             a_id: int
-            a: ClassVar[AsyncBelongsTo["A"]] = AsyncBelongsTo(
-                foreign_key="a_id", inverse_of="bs"
-            )
+            a: ClassVar[AsyncBelongsTo["A"]] = AsyncBelongsTo(foreign_key="a_id", inverse_of="bs")
 
         class C(RelationManagementMixin, BaseModel):
             id: int
@@ -564,6 +520,7 @@ class TestRelationshipValidatorPaths:
 # ==============================================================================
 # 9. DefaultIRelationLoader & AsyncDefaultRelationLoader — basic init
 # ==============================================================================
+
 
 class TestDefaultLoadersInit:
     """Default loaders are created internally; verify existence."""
@@ -585,6 +542,7 @@ class TestDefaultLoadersInit:
 # 10. _create_query_method coverage via descriptor
 # ==============================================================================
 
+
 class TestCreateQueryMethod:
     """Cover _create_query_method for both BelongsTo and HasOne/HasMany."""
 
@@ -595,12 +553,9 @@ class TestCreateQueryMethod:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[BelongsTo["Target"]] = BelongsTo(
-                foreign_key="target_id"
-            )
+            target: ClassVar[BelongsTo["Target"]] = BelongsTo(foreign_key="target_id")
 
         assert hasattr(Source, "target_query")
-        query_method = Source.target_query
         # Calling requires a proper instance with backend → skip call, just check existence.
 
     def test_async_query_method_exists(self):
@@ -610,9 +565,7 @@ class TestCreateQueryMethod:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(
-                foreign_key="target_id"
-            )
+            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(foreign_key="target_id")
 
         assert hasattr(Source, "target_query")
 
@@ -620,6 +573,7 @@ class TestCreateQueryMethod:
 # ==============================================================================
 # 11. batch_load on RelationDescriptor / AsyncRelationDescriptor
 # ==============================================================================
+
 
 class TestDescriptorBatchLoad:
     """Cover RelationDescriptor.batch_load with empty records."""
@@ -642,6 +596,7 @@ class TestDescriptorBatchLoad:
 # 12. log method with offset
 # ==============================================================================
 
+
 class TestLogMethod:
     """Cover the log method's offset handling."""
 
@@ -655,6 +610,7 @@ class TestLogMethod:
 # 13. Resolve model type from annotations with ClassVar
 # ==============================================================================
 
+
 class TestResolveModel:
     """Cover _resolve_model with different annotation patterns."""
 
@@ -665,9 +621,7 @@ class TestResolveModel:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[BelongsTo["Target"]] = BelongsTo(
-                foreign_key="target_id"
-            )
+            target: ClassVar[BelongsTo["Target"]] = BelongsTo(foreign_key="target_id")
 
         desc = Source.get_relation("target")
         model = desc.get_related_model(Source)
@@ -680,9 +634,7 @@ class TestResolveModel:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(
-                foreign_key="target_id"
-            )
+            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(foreign_key="target_id")
 
         desc = Source.get_relation("target")
         model = desc.get_related_model(Source)
@@ -692,6 +644,7 @@ class TestResolveModel:
 # ==============================================================================
 # 14. clear_cache on the bound relation method
 # ==============================================================================
+
 
 class TestRelationMethodClearCache:
     """Cover the clear_cache lambda on relation methods."""
@@ -703,9 +656,7 @@ class TestRelationMethodClearCache:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[BelongsTo["Target"]] = BelongsTo(
-                foreign_key="target_id"
-            )
+            target: ClassVar[BelongsTo["Target"]] = BelongsTo(foreign_key="target_id")
 
         instance = Source(id=1, target_id=1)
         InstanceCache.set(instance, "target", Target(id=1), CacheConfig())
@@ -720,9 +671,7 @@ class TestRelationMethodClearCache:
         class Source(RelationManagementMixin, BaseModel):
             id: int
             target_id: int
-            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(
-                foreign_key="target_id"
-            )
+            target: ClassVar[AsyncBelongsTo["Target"]] = AsyncBelongsTo(foreign_key="target_id")
 
         instance = Source(id=1, target_id=1)
         InstanceCache.set(instance, "target", Target(id=1), CacheConfig())

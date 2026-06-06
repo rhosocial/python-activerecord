@@ -107,11 +107,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         instance.reset_tracking()
 
         if derived_fields:
-            col_to_field = {
-                df.column_name: name
-                for name, df in derived_fields.items()
-                if df.column_name is not None
-            }
+            col_to_field = {df.column_name: name for name, df in derived_fields.items() if df.column_name is not None}
             for name in derived_fields:
                 instance.__dict__[name] = None
             for k, v in extra_data.items():
@@ -524,9 +520,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
-            update_opts = UpdateOptions(table=self.table_name(),
-                                        schema_name=self.schema_name(),
-                                        data=data, where=where_predicate)
+            update_opts = UpdateOptions(
+                table=self.table_name(), schema_name=self.schema_name(), data=data, where=where_predicate
+            )
             result = backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
@@ -537,7 +533,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             delete_opts = DeleteOptions(
                 table=self.table_name(),
                 schema_name=self.schema_name(),
-                where=where_predicate, returning_columns=returning_columns
+                where=where_predicate,
+                returning_columns=returning_columns,
             )
             result = backend.delete(delete_opts)
         affected_rows = result.affected_rows
@@ -678,11 +675,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         instance.reset_tracking()
 
         if derived_fields:
-            col_to_field = {
-                df.column_name: name
-                for name, df in derived_fields.items()
-                if df.column_name is not None
-            }
+            col_to_field = {df.column_name: name for name, df in derived_fields.items() if df.column_name is not None}
             for name in derived_fields:
                 instance.__dict__[name] = None
             for k, v in extra_data.items():
@@ -1095,9 +1088,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
-            update_opts = UpdateOptions(table=self.table_name(),
-                                        schema_name=self.schema_name(),
-                                        data=data, where=where_predicate)
+            update_opts = UpdateOptions(
+                table=self.table_name(), schema_name=self.schema_name(), data=data, where=where_predicate
+            )
             result = await backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
@@ -1108,7 +1101,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             delete_opts = DeleteOptions(
                 table=self.table_name(),
                 schema_name=self.schema_name(),
-                where=where_predicate, returning_columns=returning_columns
+                where=where_predicate,
+                returning_columns=returning_columns,
             )
             result = await backend.delete(delete_opts)
         affected_rows = result.affected_rows

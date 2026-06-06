@@ -9,20 +9,23 @@ Tests cover:
   - Parameter type conversion
   - Tier 2 (old SQLite version) RETURNING fast-fail
 """
+
 import pytest
 import pytest_asyncio
 from datetime import datetime
-from decimal import Decimal
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, InsertExpression, UpdateExpression, DeleteExpression,
-    TableExpression, ValuesSource, ComparisonPredicate,
-    ReturningClause,
+    Column,
+    Literal,
+    InsertExpression,
+    UpdateExpression,
+    DeleteExpression,
+    ValuesSource,
+    ComparisonPredicate,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.result import QueryResult
 
 
 # ──────────────────────────────────────────────
@@ -84,18 +87,18 @@ async def async_backend_no_returning(tmp_path):
 # Helpers
 # ──────────────────────────────────────────────
 
+
 def _make_insert_expr(dialect, name, email):
     """Build a single-row InsertExpression for users table."""
-    source = ValuesSource(dialect, values_list=[
-        [Literal(dialect, name), Literal(dialect, email)]
-    ])
+    source = ValuesSource(dialect, values_list=[[Literal(dialect, name), Literal(dialect, email)]])
     return InsertExpression(dialect, into="users", columns=["name", "email"], source=source)
 
 
 def _make_update_expr(dialect, pk_val, new_name):
     """Build an UpdateExpression: SET name=? WHERE id=?"""
     return UpdateExpression(
-        dialect, table="users",
+        dialect,
+        table="users",
         assignments={"name": Literal(dialect, new_name)},
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
@@ -104,7 +107,8 @@ def _make_update_expr(dialect, pk_val, new_name):
 def _make_delete_expr(dialect, pk_val):
     """Build a DeleteExpression: DELETE FROM users WHERE id=?"""
     return DeleteExpression(
-        dialect, tables="users",
+        dialect,
+        tables="users",
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
 
@@ -113,8 +117,10 @@ async def _async_count_rows(backend, table="users"):
     """Async SELECT COUNT(*) helper."""
     from rhosocial.activerecord.backend.options import ExecutionOptions
     from rhosocial.activerecord.backend.schema import StatementType
+
     result = await backend.execute(
-        f"SELECT COUNT(*) as cnt FROM {table}", None,
+        f"SELECT COUNT(*) as cnt FROM {table}",
+        None,
         options=ExecutionOptions(stmt_type=StatementType.DQL),
     )
     return result.data[0]["cnt"]
@@ -132,24 +138,26 @@ async def _async_collect_batches(async_iterator):
 # Async: INSERT
 # ══════════════════════════════════════════════
 
+
 @pytest.mark.asyncio
 class TestAsyncBatchDMLInsert:
     """Async INSERT tests."""
 
-    @pytest.mark.parametrize("row_count, batch_size, expected_batches", [
-        pytest.param(10, 100, 1, id="all_in_one_batch"),
-        pytest.param(10, 10, 1, id="exact_batch_boundary"),
-        pytest.param(11, 5, 3, id="uneven_batches_5_5_1"),
-        pytest.param(1, 100, 1, id="single_row"),
-        pytest.param(3, 1, 3, id="batch_size_1"),
-    ])
+    @pytest.mark.parametrize(
+        "row_count, batch_size, expected_batches",
+        [
+            pytest.param(10, 100, 1, id="all_in_one_batch"),
+            pytest.param(10, 10, 1, id="exact_batch_boundary"),
+            pytest.param(11, 5, 3, id="uneven_batches_5_5_1"),
+            pytest.param(1, 100, 1, id="single_row"),
+            pytest.param(3, 1, 3, id="batch_size_1"),
+        ],
+    )
     async def test_insert_batch_counts(self, async_backend_with_users, row_count, batch_size, expected_batches):
         dialect = async_backend_with_users.dialect
         exprs = [_make_insert_expr(dialect, f"user{i}", f"user{i}@test.com") for i in range(row_count)]
 
-        batches = await _async_collect_batches(
-            async_backend_with_users.execute_batch_dml(exprs, batch_size=batch_size)
-        )
+        batches = await _async_collect_batches(async_backend_with_users.execute_batch_dml(exprs, batch_size=batch_size))
 
         assert len(batches) == expected_batches
         total_affected = sum(b.total_affected_rows for b in batches)
@@ -160,9 +168,7 @@ class TestAsyncBatchDMLInsert:
         dialect = async_backend_with_users.dialect
         exprs = [_make_insert_expr(dialect, f"u{i}", f"u{i}@t.com") for i in range(7)]
 
-        batches = await _async_collect_batches(
-            async_backend_with_users.execute_batch_dml(exprs, batch_size=3)
-        )
+        batches = await _async_collect_batches(async_backend_with_users.execute_batch_dml(exprs, batch_size=3))
 
         assert [b.batch_index for b in batches] == [0, 1, 2]
         assert [b.batch_size for b in batches] == [3, 3, 1]
@@ -171,9 +177,7 @@ class TestAsyncBatchDMLInsert:
         dialect = async_backend_with_users.dialect
         exprs = [_make_insert_expr(dialect, f"u{i}", f"u{i}@t.com") for i in range(3)]
 
-        batches = await _async_collect_batches(
-            async_backend_with_users.execute_batch_dml(exprs)
-        )
+        batches = await _async_collect_batches(async_backend_with_users.execute_batch_dml(exprs))
 
         for b in batches:
             assert b.has_returning is False
@@ -185,7 +189,9 @@ class TestAsyncBatchDMLInsert:
 
         batches = await _async_collect_batches(
             async_backend_with_users.execute_batch_dml(
-                exprs, batch_size=3, returning_columns=["id", "name"],
+                exprs,
+                batch_size=3,
+                returning_columns=["id", "name"],
             )
         )
 
@@ -212,15 +218,14 @@ class TestAsyncBatchDMLInsert:
         assert len(set(ids)) == 3  # all unique
 
     async def test_empty_expressions(self, async_backend_with_users):
-        batches = await _async_collect_batches(
-            async_backend_with_users.execute_batch_dml([])
-        )
+        batches = await _async_collect_batches(async_backend_with_users.execute_batch_dml([]))
         assert batches == []
 
 
 # ══════════════════════════════════════════════
 # Async: UPDATE
 # ══════════════════════════════════════════════
+
 
 @pytest.mark.asyncio
 class TestAsyncBatchDMLUpdate:
@@ -234,6 +239,7 @@ class TestAsyncBatchDMLUpdate:
             sql, params = expr.to_sql()
             from rhosocial.activerecord.backend.options import ExecutionOptions
             from rhosocial.activerecord.backend.schema import StatementType
+
             await backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DML))
         return list(range(1, n + 1))
 
@@ -242,9 +248,7 @@ class TestAsyncBatchDMLUpdate:
         dialect = async_backend_with_users.dialect
         exprs = [_make_update_expr(dialect, pk, f"updated{pk}") for pk in ids]
 
-        batches = await _async_collect_batches(
-            async_backend_with_users.execute_batch_dml(exprs, batch_size=5)
-        )
+        batches = await _async_collect_batches(async_backend_with_users.execute_batch_dml(exprs, batch_size=5))
 
         total = sum(b.total_affected_rows for b in batches)
         assert total == 10
@@ -257,7 +261,8 @@ class TestAsyncBatchDMLUpdate:
 
         batches = await _async_collect_batches(
             async_backend_with_users.execute_batch_dml(
-                exprs, returning_columns=["id", "name"],
+                exprs,
+                returning_columns=["id", "name"],
             )
         )
 
@@ -273,6 +278,7 @@ class TestAsyncBatchDMLUpdate:
 # Async: DELETE
 # ══════════════════════════════════════════════
 
+
 @pytest.mark.asyncio
 class TestAsyncBatchDMLDelete:
     """Async DELETE tests."""
@@ -284,6 +290,7 @@ class TestAsyncBatchDMLDelete:
             sql, params = expr.to_sql()
             from rhosocial.activerecord.backend.options import ExecutionOptions
             from rhosocial.activerecord.backend.schema import StatementType
+
             await backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DML))
         return list(range(1, n + 1))
 
@@ -292,9 +299,7 @@ class TestAsyncBatchDMLDelete:
         dialect = async_backend_with_users.dialect
         exprs = [_make_delete_expr(dialect, pk) for pk in ids]
 
-        batches = await _async_collect_batches(
-            async_backend_with_users.execute_batch_dml(exprs, batch_size=4)
-        )
+        batches = await _async_collect_batches(async_backend_with_users.execute_batch_dml(exprs, batch_size=4))
 
         total = sum(b.total_affected_rows for b in batches)
         assert total == 10
@@ -308,7 +313,8 @@ class TestAsyncBatchDMLDelete:
 
         batches = await _async_collect_batches(
             async_backend_with_users.execute_batch_dml(
-                exprs, returning_columns=["id", "name"],
+                exprs,
+                returning_columns=["id", "name"],
             )
         )
 
@@ -320,6 +326,7 @@ class TestAsyncBatchDMLDelete:
 # Async: Type conversion (executemany path)
 # ══════════════════════════════════════════════
 
+
 @pytest.mark.asyncio
 class TestAsyncBatchDMLTypeConversion:
     """Verify parameter type conversion works in the executemany path."""
@@ -329,24 +336,31 @@ class TestAsyncBatchDMLTypeConversion:
         test_uuid = uuid4()
         test_dt = datetime(2025, 1, 15, 10, 30, 0)
 
-        source = ValuesSource(dialect, values_list=[
-            [Literal(dialect, str(test_uuid)), Literal(dialect, test_dt.isoformat()),
-             Literal(dialect, "123.45"), Literal(dialect, 1)]
-        ])
+        source = ValuesSource(
+            dialect,
+            values_list=[
+                [
+                    Literal(dialect, str(test_uuid)),
+                    Literal(dialect, test_dt.isoformat()),
+                    Literal(dialect, "123.45"),
+                    Literal(dialect, 1),
+                ]
+            ],
+        )
         exprs = [
-            InsertExpression(dialect, into="typed_data",
-                             columns=["uuid_col", "dt_col", "dec_col", "bool_col"], source=source)
+            InsertExpression(
+                dialect, into="typed_data", columns=["uuid_col", "dt_col", "dec_col", "bool_col"], source=source
+            )
         ]
 
-        batches = await _async_collect_batches(
-            async_backend_with_typed.execute_batch_dml(exprs)
-        )
+        batches = await _async_collect_batches(async_backend_with_typed.execute_batch_dml(exprs))
         assert batches[0].total_affected_rows == 1
 
 
 # ══════════════════════════════════════════════
 # Async: Tier 2 RETURNING fast-fail
 # ══════════════════════════════════════════════
+
 
 @pytest.mark.asyncio
 class TestAsyncBatchDMLTier2:
@@ -356,9 +370,7 @@ class TestAsyncBatchDMLTier2:
         dialect = async_backend_no_returning.dialect
         exprs = [_make_insert_expr(dialect, f"u{i}", f"u{i}@t.com") for i in range(3)]
 
-        batches = await _async_collect_batches(
-            async_backend_no_returning.execute_batch_dml(exprs)
-        )
+        batches = await _async_collect_batches(async_backend_no_returning.execute_batch_dml(exprs))
         assert sum(b.total_affected_rows for b in batches) == 3
 
     async def test_insert_with_returning_raises(self, async_backend_no_returning):
@@ -366,6 +378,4 @@ class TestAsyncBatchDMLTier2:
         exprs = [_make_insert_expr(dialect, "u0", "u0@t.com")]
 
         with pytest.raises(UnsupportedFeatureError):
-            await _async_collect_batches(
-                async_backend_no_returning.execute_batch_dml(exprs, returning_columns=["id"])
-            )
+            await _async_collect_batches(async_backend_no_returning.execute_batch_dml(exprs, returning_columns=["id"]))

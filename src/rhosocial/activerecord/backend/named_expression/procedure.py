@@ -48,6 +48,7 @@ Usage:
     >>> runner = ProcedureRunner("myapp.procedures.monthly_report")
     >>> result = runner.run(dialect, {"month": "2026-03"})
 """
+
 import inspect
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -69,7 +70,7 @@ class TransactionMode(Enum):
 class StepKind(str, Enum):
     """Kind of procedure step."""
 
-    SINGLE   = "single"
+    SINGLE = "single"
     PARALLEL = "parallel"
 
 
@@ -88,17 +89,17 @@ class TraceEntry:
     kind: StepKind
     index: int
 
-    qualified_name: Optional[str]    = None
-    params: Dict[str, Any]           = field(default_factory=dict)
-    bind: Optional[str]              = None
-    output: bool                     = False
+    qualified_name: Optional[str] = None
+    params: Dict[str, Any] = field(default_factory=dict)
+    bind: Optional[str] = None
+    output: bool = False
 
-    sub_steps: List["TraceEntry"]    = field(default_factory=list)
-    max_concurrency: Optional[int]   = None
+    sub_steps: List["TraceEntry"] = field(default_factory=list)
+    max_concurrency: Optional[int] = None
 
-    status: Optional[str]            = None
-    error: Optional[str]             = None
-    elapsed_ms: Optional[float]      = None
+    status: Optional[str] = None
+    error: Optional[str] = None
+    elapsed_ms: Optional[float] = None
 
 
 @dataclass
@@ -110,12 +111,12 @@ class ProcedureResult:
     aborted: bool = False
     abort_reason: Optional[str] = None
 
-    static_trace: List[TraceEntry]   = field(default_factory=list)
+    static_trace: List[TraceEntry] = field(default_factory=list)
     instance_trace: List[TraceEntry] = field(default_factory=list)
 
-    dialect_name: Optional[str]      = None
-    backend_name: Optional[str]      = None
-    backend_hint: Optional[str]      = None
+    dialect_name: Optional[str] = None
+    backend_name: Optional[str] = None
+    backend_hint: Optional[str] = None
 
     @property
     def success(self) -> bool:
@@ -127,6 +128,7 @@ class ProcedureResult:
         procedure_name: str = "Procedure",
     ) -> str:
         from .diagram import ProcedureDiagram
+
         return ProcedureDiagram.from_result(self, procedure_name).to_mermaid(kind)
 
 
@@ -256,28 +258,28 @@ class ProcedureContext:
     ) -> Dict[str, Any]:
         """Execute a named query and optionally bind the result.
 
-        For TransactionMode.STEP, each execute call runs in its own transaction
-        and commits after execution.
+                For TransactionMode.STEP, each execute call runs in its own transaction
+                and commits after execution.
 
-        Args:
-            qualified_name: Fully qualified name of the named query.
-            params: Parameters to pass to the named query.
-            bind: Optional variable name to bind the result to.
-            output: Mark this result as an output to be returned.
+                Args:
+                    qualified_name: Fully qualified name of the named query.
+                    params: Parameters to pass to the named query.
+                    bind: Optional variable name to bind the result to.
+                    output: Mark this result as an output to be returned.
 
-        Returns:
-            Dict containing:
-                - data: List of row dictionaries
-                - affected_rows: Number of rows affected
-                - sql: The generated SQL
-                - params: The SQL parameters
+                Returns:
+                    Dict containing:
+                        - data: List of row dictionaries
+                        - affected_rows: Number of rows affected
+                        - sql: The generated SQL
+                        - params: The SQL parameters
 
-        Example:
-            >>> ctx.execute(
-            ...     "myapp.queries.active_users",
-...             params={"limit": 50},
-            ...             bind="users",
-            ... )
+                Example:
+                    >>> ctx.execute(
+                    ...     "myapp.queries.active_users",
+        ...             params={"limit": 50},
+                    ...             bind="users",
+                    ... )
         """
         import time as time_module
 
@@ -294,17 +296,19 @@ class ProcedureContext:
             _status, _error = "error", type(exc).__name__
             raise
         finally:
-            self._trace.append(TraceEntry(
-                kind=StepKind.SINGLE,
-                index=self._trace_index,
-                qualified_name=qualified_name,
-                params=dict(params),
-                bind=bind,
-                output=output,
-                status=_status,
-                error=_error,
-                elapsed_ms=(time_module.monotonic() - _start) * 1000,
-            ))
+            self._trace.append(
+                TraceEntry(
+                    kind=StepKind.SINGLE,
+                    index=self._trace_index,
+                    qualified_name=qualified_name,
+                    params=dict(params),
+                    bind=bind,
+                    output=output,
+                    status=_status,
+                    error=_error,
+                    elapsed_ms=(time_module.monotonic() - _start) * 1000,
+                )
+            )
             self._trace_index += 1
 
         if self._transaction_mode == TransactionMode.STEP:
@@ -476,17 +480,19 @@ class ProcedureContext:
                     s, e = "error", type(exc).__name__
                     results.append(None)
                     first_exc.append(exc)
-                sub_entries.append(TraceEntry(
-                    kind=StepKind.SINGLE,
-                    index=i,
-                    qualified_name=step.qualified_name,
-                    params=dict(step.params),
-                    bind=step.bind,
-                    output=step.output,
-                    status=s,
-                    error=e,
-                    elapsed_ms=(time_module.monotonic() - t) * 1000,
-                ))
+                sub_entries.append(
+                    TraceEntry(
+                        kind=StepKind.SINGLE,
+                        index=i,
+                        qualified_name=step.qualified_name,
+                        params=dict(step.params),
+                        bind=step.bind,
+                        output=step.output,
+                        status=s,
+                        error=e,
+                        elapsed_ms=(time_module.monotonic() - t) * 1000,
+                    )
+                )
             if first_exc:
                 raise first_exc[0]
         else:
@@ -506,9 +512,7 @@ class ProcedureContext:
                     timings[idx] = (time_module.monotonic() - t) * 1000
 
             with ThreadPoolExecutor(max_workers=limit) as executor:
-                futures = [
-                    executor.submit(_run, i, step) for i, step in enumerate(steps)
-                ]
+                futures = [executor.submit(_run, i, step) for i, step in enumerate(steps)]
                 for fut in futures:
                     try:
                         fut.result()
@@ -517,41 +521,47 @@ class ProcedureContext:
 
             for i, r in enumerate(results):
                 if r is not None:
-                    sub_entries.append(TraceEntry(
-                        kind=StepKind.SINGLE,
-                        index=i,
-                        qualified_name=steps[i].qualified_name,
-                        params=dict(steps[i].params),
-                        bind=steps[i].bind,
-                        output=steps[i].output,
-                        status="ok",
-                        elapsed_ms=timings[i],
-                    ))
+                    sub_entries.append(
+                        TraceEntry(
+                            kind=StepKind.SINGLE,
+                            index=i,
+                            qualified_name=steps[i].qualified_name,
+                            params=dict(steps[i].params),
+                            bind=steps[i].bind,
+                            output=steps[i].output,
+                            status="ok",
+                            elapsed_ms=timings[i],
+                        )
+                    )
                 else:
-                    sub_entries.append(TraceEntry(
-                        kind=StepKind.SINGLE,
-                        index=i,
-                        qualified_name=steps[i].qualified_name,
-                        params=dict(steps[i].params),
-                        bind=steps[i].bind,
-                        output=steps[i].output,
-                        status="error",
-                        error=type(exc_by_idx[i]).__name__ if i in exc_by_idx else "unknown",
-                        elapsed_ms=timings[i],
-                    ))
+                    sub_entries.append(
+                        TraceEntry(
+                            kind=StepKind.SINGLE,
+                            index=i,
+                            qualified_name=steps[i].qualified_name,
+                            params=dict(steps[i].params),
+                            bind=steps[i].bind,
+                            output=steps[i].output,
+                            status="error",
+                            error=type(exc_by_idx[i]).__name__ if i in exc_by_idx else "unknown",
+                            elapsed_ms=timings[i],
+                        )
+                    )
 
             if exc_by_idx:
                 raise exc_by_idx[min(exc_by_idx.keys())]
 
         overall = "error" if any(e.status == "error" for e in sub_entries) else "ok"
-        self._trace.append(TraceEntry(
-            kind=StepKind.PARALLEL,
-            index=self._trace_index,
-            sub_steps=sub_entries,
-            max_concurrency=limit,
-            status=overall,
-            elapsed_ms=(time_module.monotonic() - _start) * 1000,
-        ))
+        self._trace.append(
+            TraceEntry(
+                kind=StepKind.PARALLEL,
+                index=self._trace_index,
+                sub_steps=sub_entries,
+                max_concurrency=limit,
+                status=overall,
+                elapsed_ms=(time_module.monotonic() - _start) * 1000,
+            )
+        )
         self._trace_index += 1
 
         return [r for r in results if r is not None]
@@ -650,17 +660,19 @@ class AsyncProcedureContext:
             _status, _error = "error", type(exc).__name__
             raise
         finally:
-            self._trace.append(TraceEntry(
-                kind=StepKind.SINGLE,
-                index=self._trace_index,
-                qualified_name=qualified_name,
-                params=dict(params),
-                bind=bind,
-                output=output,
-                status=_status,
-                error=_error,
-                elapsed_ms=(time_module.monotonic() - _start) * 1000,
-            ))
+            self._trace.append(
+                TraceEntry(
+                    kind=StepKind.SINGLE,
+                    index=self._trace_index,
+                    qualified_name=qualified_name,
+                    params=dict(params),
+                    bind=bind,
+                    output=output,
+                    status=_status,
+                    error=_error,
+                    elapsed_ms=(time_module.monotonic() - _start) * 1000,
+                )
+            )
             self._trace_index += 1
 
         if self._transaction_mode == TransactionMode.STEP:
@@ -716,6 +728,7 @@ class AsyncProcedureContext:
 
     async def abort(self, procedure_name: str, reason: str) -> None:
         from .exceptions import ProcedureAbortedError
+
         raise ProcedureAbortedError(procedure_name, reason)
 
     async def parallel(
@@ -772,17 +785,19 @@ class AsyncProcedureContext:
                     s, e = "error", type(exc).__name__
                     results.append(None)
                     first_exc.append(exc)
-                sub_entries.append(TraceEntry(
-                    kind=StepKind.SINGLE,
-                    index=i,
-                    qualified_name=step.qualified_name,
-                    params=dict(step.params),
-                    bind=step.bind,
-                    output=step.output,
-                    status=s,
-                    error=e,
-                    elapsed_ms=(time_module.monotonic() - t) * 1000,
-                ))
+                sub_entries.append(
+                    TraceEntry(
+                        kind=StepKind.SINGLE,
+                        index=i,
+                        qualified_name=step.qualified_name,
+                        params=dict(step.params),
+                        bind=step.bind,
+                        output=step.output,
+                        status=s,
+                        error=e,
+                        elapsed_ms=(time_module.monotonic() - t) * 1000,
+                    )
+                )
             if first_exc:
                 raise first_exc[0]
         else:
@@ -815,17 +830,19 @@ class AsyncProcedureContext:
             results = [r[1] for r in task_results_sorted]
             first_async_exc = None
             for idx, _result, status, error, elapsed, exc in task_results_sorted:
-                sub_entries.append(TraceEntry(
-                    kind=StepKind.SINGLE,
-                    index=idx,
-                    qualified_name=steps[idx].qualified_name,
-                    params=dict(steps[idx].params),
-                    bind=steps[idx].bind,
-                    output=steps[idx].output,
-                    status=status,
-                    error=error,
-                    elapsed_ms=elapsed,
-                ))
+                sub_entries.append(
+                    TraceEntry(
+                        kind=StepKind.SINGLE,
+                        index=idx,
+                        qualified_name=steps[idx].qualified_name,
+                        params=dict(steps[idx].params),
+                        bind=steps[idx].bind,
+                        output=steps[idx].output,
+                        status=status,
+                        error=error,
+                        elapsed_ms=elapsed,
+                    )
+                )
                 if exc is not None and first_async_exc is None:
                     first_async_exc = exc
 
@@ -833,14 +850,16 @@ class AsyncProcedureContext:
                 raise first_async_exc
 
         overall = "error" if any(e.status == "error" for e in sub_entries) else "ok"
-        self._trace.append(TraceEntry(
-            kind=StepKind.PARALLEL,
-            index=self._trace_index,
-            sub_steps=sub_entries,
-            max_concurrency=limit,
-            status=overall,
-            elapsed_ms=(time_module.monotonic() - _start) * 1000,
-        ))
+        self._trace.append(
+            TraceEntry(
+                kind=StepKind.PARALLEL,
+                index=self._trace_index,
+                sub_steps=sub_entries,
+                max_concurrency=limit,
+                status=overall,
+                elapsed_ms=(time_module.monotonic() - _start) * 1000,
+            )
+        )
         self._trace_index += 1
 
         return [r for r in results if r is not None]
@@ -907,7 +926,7 @@ class Procedure:
             Dict mapping parameter names to type annotations and defaults.
         """
         params = {}
-        for name, annotation in getattr(cls, '__annotations__', {}).items():
+        for name, annotation in getattr(cls, "__annotations__", {}).items():
             if name == "run":
                 continue
             default = getattr(cls, name, inspect.Parameter.empty)
@@ -932,6 +951,7 @@ class Procedure:
             Mermaid diagram string
         """
         from .diagram import ProcedureDiagram
+
         return ProcedureDiagram.from_procedure(cls, dialect=dialect).to_mermaid(kind)
 
 
@@ -952,9 +972,9 @@ class _BaseProcedureRunner:
         parts = qualified_name.rsplit(".", 1)
         if len(parts) != 2:
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError(
-                f"Invalid qualified name '{qualified_name}'. "
-                "Must be in format 'module.path.ClassName'"
+                f"Invalid qualified name '{qualified_name}'. Must be in format 'module.path.ClassName'"
             )
         return parts[0], parts[1]
 
@@ -970,20 +990,16 @@ class _BaseProcedureRunner:
         try:
             module = importlib.import_module(self._module_name)
         except ModuleNotFoundError as e:
-            raise NamedExpressionModuleNotFoundError(
-                self._module_name, f"Module not found: {e}"
-            ) from None
+            raise NamedExpressionModuleNotFoundError(self._module_name, f"Module not found: {e}") from None
 
         if not hasattr(module, self._class_name):
-            raise NamedExpressionError(
-                f"Procedure '{self._class_name}' not found "
-                f"in module '{self._module_name}'"
-            )
+            raise NamedExpressionError(f"Procedure '{self._class_name}' not found in module '{self._module_name}'")
         return getattr(module, self._class_name)
 
     def describe(self) -> Dict[str, Any]:
         if not self._procedure_class:
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError("Procedure not loaded. Call load() first.")
         return {
             "qualified_name": self._qualified_name,
@@ -1015,7 +1031,7 @@ class AsyncProcedure:
     @classmethod
     def get_parameters(cls) -> Dict[str, Any]:
         params = {}
-        for name, annotation in getattr(cls, '__annotations__', {}).items():
+        for name, annotation in getattr(cls, "__annotations__", {}).items():
             if name == "run":
                 continue
             default = getattr(cls, name, inspect.Parameter.empty)
@@ -1027,9 +1043,7 @@ class AsyncProcedure:
         return params
 
     @classmethod
-    async def static_diagram(
-        cls, kind: str = "flowchart", dialect: Any = None
-    ) -> str:
+    async def static_diagram(cls, kind: str = "flowchart", dialect: Any = None) -> str:
         """Generate a static diagram without executing the procedure (async).
 
         Args:
@@ -1041,9 +1055,7 @@ class AsyncProcedure:
         """
         from .diagram import ProcedureDiagram
 
-        return (
-            await ProcedureDiagram.from_async_procedure(cls, dialect=dialect)
-        ).to_mermaid(kind)
+        return (await ProcedureDiagram.from_async_procedure(cls, dialect=dialect)).to_mermaid(kind)
 
 
 class ProcedureRunner(_BaseProcedureRunner):
@@ -1069,8 +1081,7 @@ class ProcedureRunner(_BaseProcedureRunner):
             from .exceptions import NamedExpressionError
 
             raise NamedExpressionError(
-                f"'{self._class_name}' must inherit from Procedure. "
-                "For async procedures use AsyncProcedureRunner."
+                f"'{self._class_name}' must inherit from Procedure. For async procedures use AsyncProcedureRunner."
             )
 
         self._procedure_class = cls
@@ -1100,24 +1111,29 @@ class ProcedureRunner(_BaseProcedureRunner):
 
         if not self._procedure_class:
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError("Procedure not loaded. Call load() first.")
 
         if backend is None:
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError("backend is required.")
 
         dialect = getattr(backend, "dialect", None)
         if dialect is None:
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError("backend must have a 'dialect' attribute.")
 
         backend_execute = getattr(backend, "execute", None)
         if backend_execute is None or not callable(backend_execute):
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError("backend must have an 'execute' method.")
 
         if inspect.iscoroutinefunction(backend_execute):
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError(
                 f"Backend '{type(backend).__name__}' has async execute method, "
                 f"but ProcedureRunner requires a sync backend. "
@@ -1147,6 +1163,7 @@ class ProcedureRunner(_BaseProcedureRunner):
                 stmt_type = getattr(expr, "statement_type", None)
                 if stmt_type:
                     from rhosocial.activerecord.backend.options import ExecutionOptions
+
                     raw = backend_execute(sql, params_sql, options=ExecutionOptions(stmt_type=stmt_type))
                 else:
                     raw = backend_execute(sql, params_sql)
@@ -1241,8 +1258,7 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
             from .exceptions import NamedExpressionError
 
             raise NamedExpressionError(
-                f"'{self._class_name}' must inherit from AsyncProcedure. "
-                "For sync procedures use ProcedureRunner."
+                f"'{self._class_name}' must inherit from AsyncProcedure. For sync procedures use ProcedureRunner."
             )
 
         self._procedure_class = cls
@@ -1272,24 +1288,29 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
 
         if not self._procedure_class:
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError("Procedure not loaded. Call load() first.")
 
         if backend is None:
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError("backend is required.")
 
         dialect = getattr(backend, "dialect", None)
         if dialect is None:
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError("backend must have a 'dialect' attribute.")
 
         backend_execute = getattr(backend, "execute", None)
         if backend_execute is None or not callable(backend_execute):
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError("backend must have an 'execute' method.")
 
         if not inspect.iscoroutinefunction(backend_execute):
             from .exceptions import NamedExpressionError
+
             raise NamedExpressionError(
                 f"Backend '{type(backend).__name__}' has sync execute method, "
                 f"but AsyncProcedureRunner requires an async backend. "
@@ -1311,9 +1332,7 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         except Exception:
             pass
 
-        async def execute_callback(
-            fqn: str, dial: Any, params: Dict[str, Any]
-        ) -> Dict[str, Any]:
+        async def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
             expr = resolve_named_expression(fqn, dial, params)
             sql, params_sql = expr.to_sql()
             data, affected_rows = [], 0
@@ -1321,6 +1340,7 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
                 stmt_type = getattr(expr, "statement_type", None)
                 if stmt_type:
                     from rhosocial.activerecord.backend.options import ExecutionOptions
+
                     raw = await backend_execute(sql, params_sql, options=ExecutionOptions(stmt_type=stmt_type))
                 else:
                     raw = await backend_execute(sql, params_sql)
@@ -1335,9 +1355,7 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
                 "affected_rows": affected_rows,
             }
 
-        ctx = AsyncProcedureContext(
-            dialect, execute_callback, transaction_mode, backend
-        )
+        ctx = AsyncProcedureContext(dialect, execute_callback, transaction_mode, backend)
         result = ProcedureResult()
         in_transaction = False
 

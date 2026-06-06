@@ -6,8 +6,8 @@ import time
 
 import pytest
 
-from rhosocial.activerecord.logging import LoggingConfig, SummarizerConfig
-from rhosocial.activerecord.logging.mixin import LoggingMixin, BackendLoggingMixin
+from rhosocial.activerecord.logging import LoggingConfig
+from rhosocial.activerecord.logging.mixin import LoggingMixin
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 
 
@@ -19,7 +19,7 @@ class TestLoggingMixinLevelGating:
             pass
 
         stream = io.StringIO()
-        logger = logging.getLogger('test.gating.no_output')
+        logger = logging.getLogger("test.gating.no_output")
         logger.handlers.clear()
         logger.setLevel(logging.WARNING)
         logger.propagate = False
@@ -41,7 +41,7 @@ class TestLoggingMixinLevelGating:
             pass
 
         stream = io.StringIO()
-        logger = logging.getLogger('test.gating.enabled')
+        logger = logging.getLogger("test.gating.enabled")
         logger.handlers.clear()
         logger.setLevel(logging.DEBUG)
         logger.propagate = False
@@ -63,7 +63,7 @@ class TestLoggingMixinLevelGating:
             pass
 
         stream = io.StringIO()
-        logger = logging.getLogger('test.gating.log_data')
+        logger = logging.getLogger("test.gating.log_data")
         logger.handlers.clear()
         logger.setLevel(logging.WARNING)
         logger.propagate = False
@@ -85,7 +85,7 @@ class TestLoggingMixinLevelGating:
             pass
 
         stream = io.StringIO()
-        logger = logging.getLogger('test.gating.log_data_enabled')
+        logger = logging.getLogger("test.gating.log_data_enabled")
         logger.handlers.clear()
         logger.setLevel(logging.DEBUG)
         logger.propagate = False
@@ -106,10 +106,11 @@ class TestLoggingMixinLevelGating:
 
     def test_log_performance_with_disabled_level(self):
         """Level gating should avoid frame walk, keeping disabled-level call overhead minimal."""
+
         class PerfModel(LoggingMixin):
             pass
 
-        logger = logging.getLogger('test.gating.perf')
+        logger = logging.getLogger("test.gating.perf")
         logger.handlers.clear()
         logger.setLevel(logging.WARNING)
         logger.propagate = False

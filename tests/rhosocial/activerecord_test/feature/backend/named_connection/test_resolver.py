@@ -9,8 +9,9 @@ This test module covers:
 - list_named_connections_in_module function
 - SQLite-specific: memory vs file connections
 """
+
 import types
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 import pytest
 
 from rhosocial.activerecord.backend.named_connection.resolver import (
@@ -149,9 +150,7 @@ class TestNamedConnectionResolverResolve:
 
         module.file_db = file_db
         with patch("importlib.import_module", return_value=module):
-            config = NamedConnectionResolver("test_connections.file_db").load().resolve(
-                {"path": "/tmp/custom.sqlite"}
-            )
+            config = NamedConnectionResolver("test_connections.file_db").load().resolve({"path": "/tmp/custom.sqlite"})
             assert isinstance(config, SQLiteConnectionConfig)
             assert config.database == "/tmp/custom.sqlite"
 
@@ -255,9 +254,7 @@ class TestResolveNamedConnection:
 
         module.memory_db = memory_db
         with patch("importlib.import_module", return_value=module):
-            config = resolve_named_connection(
-                "test_connections.memory_db", {}
-            )
+            config = resolve_named_connection("test_connections.memory_db", {})
             assert isinstance(config, SQLiteInMemoryConfig)
 
 

@@ -5,6 +5,7 @@ Tests for SQLiteDialect column constraint handling methods.
 These tests validate the refactored constraint handler methods that use
 a strategy pattern with dictionary dispatch to reduce cognitive complexity.
 """
+
 import pytest
 from unittest.mock import Mock, MagicMock
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -63,10 +64,7 @@ class TestColumnConstraintHandlers:
     def test_handle_default_constraint_with_simple_value(self):
         """Test DEFAULT constraint handler with simple value."""
         dialect = SQLiteDialect()
-        constraint = ColumnConstraint(
-            constraint_type=ColumnConstraintType.DEFAULT,
-            default_value="test_default"
-        )
+        constraint = ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value="test_default")
 
         sql, params = dialect._handle_default_constraint(constraint)
 
@@ -81,10 +79,7 @@ class TestColumnConstraintHandlers:
         # Use spec to make isinstance check work
         mock_expr = MagicMock(spec=bases.BaseExpression)
         mock_expr.to_sql.return_value = ("CURRENT_TIMESTAMP", ())
-        constraint = ColumnConstraint(
-            constraint_type=ColumnConstraintType.DEFAULT,
-            default_value=mock_expr
-        )
+        constraint = ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value=mock_expr)
 
         sql, params = dialect._handle_default_constraint(constraint)
 
@@ -94,10 +89,7 @@ class TestColumnConstraintHandlers:
     def test_handle_default_constraint_missing_value(self):
         """Test DEFAULT constraint handler raises error when value is missing."""
         dialect = SQLiteDialect()
-        constraint = ColumnConstraint(
-            constraint_type=ColumnConstraintType.DEFAULT,
-            default_value=None
-        )
+        constraint = ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value=None)
 
         with pytest.raises(ValueError, match="DEFAULT constraint must have a default value"):
             dialect._handle_default_constraint(constraint)
@@ -107,10 +99,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         mock_condition = Mock()
         mock_condition.to_sql.return_value = ("age > 0", ())
-        constraint = ColumnConstraint(
-            constraint_type=ColumnConstraintType.CHECK,
-            check_condition=mock_condition
-        )
+        constraint = ColumnConstraint(constraint_type=ColumnConstraintType.CHECK, check_condition=mock_condition)
 
         sql, params = dialect._handle_check_constraint(constraint)
 
@@ -120,10 +109,7 @@ class TestColumnConstraintHandlers:
     def test_handle_check_constraint_without_condition(self):
         """Test CHECK constraint handler without condition returns empty."""
         dialect = SQLiteDialect()
-        constraint = ColumnConstraint(
-            constraint_type=ColumnConstraintType.CHECK,
-            check_condition=None
-        )
+        constraint = ColumnConstraint(constraint_type=ColumnConstraintType.CHECK, check_condition=None)
 
         sql, params = dialect._handle_check_constraint(constraint)
 
@@ -134,8 +120,7 @@ class TestColumnConstraintHandlers:
         """Test FOREIGN KEY constraint handler."""
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(
-            constraint_type=ColumnConstraintType.FOREIGN_KEY,
-            foreign_key_reference=("users", ["id"])
+            constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"])
         )
 
         sql, params = dialect._handle_foreign_key_constraint(constraint)
@@ -147,8 +132,7 @@ class TestColumnConstraintHandlers:
         """Test FOREIGN KEY constraint with multiple columns."""
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(
-            constraint_type=ColumnConstraintType.FOREIGN_KEY,
-            foreign_key_reference=("orders", ["user_id", "order_id"])
+            constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("orders", ["user_id", "order_id"])
         )
 
         sql, params = dialect._handle_foreign_key_constraint(constraint)
@@ -159,10 +143,7 @@ class TestColumnConstraintHandlers:
     def test_handle_foreign_key_constraint_missing_reference(self):
         """Test FOREIGN KEY constraint handler raises error when reference is missing."""
         dialect = SQLiteDialect()
-        constraint = ColumnConstraint(
-            constraint_type=ColumnConstraintType.FOREIGN_KEY,
-            foreign_key_reference=None
-        )
+        constraint = ColumnConstraint(constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=None)
 
         with pytest.raises(ValueError, match="Foreign key constraint must have a foreign_key_reference"):
             dialect._handle_foreign_key_constraint(constraint)
@@ -218,10 +199,7 @@ class TestFormatColumnDefinition:
     def test_format_column_definition_basic(self):
         """Test basic column definition without constraints."""
         dialect = SQLiteDialect()
-        col_def = ColumnDefinition(
-            name="id",
-            data_type="INTEGER"
-        )
+        col_def = ColumnDefinition(name="id", data_type="INTEGER")
 
         sql, params = dialect.format_column_definition(col_def)
 
@@ -234,7 +212,7 @@ class TestFormatColumnDefinition:
         col_def = ColumnDefinition(
             name="id",
             data_type="INTEGER",
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY)]
+            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY)],
         )
 
         sql, params = dialect.format_column_definition(col_def)
@@ -251,7 +229,7 @@ class TestFormatColumnDefinition:
             constraints=[
                 ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE),
-            ]
+            ],
         )
 
         sql, params = dialect.format_column_definition(col_def)
@@ -265,12 +243,7 @@ class TestFormatColumnDefinition:
         col_def = ColumnDefinition(
             name="status",
             data_type="VARCHAR(50)",
-            constraints=[
-                ColumnConstraint(
-                    constraint_type=ColumnConstraintType.DEFAULT,
-                    default_value="active"
-                )
-            ]
+            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value="active")],
         )
 
         sql, params = dialect.format_column_definition(col_def)
@@ -287,12 +260,7 @@ class TestFormatColumnDefinition:
         col_def = ColumnDefinition(
             name="age",
             data_type="INTEGER",
-            constraints=[
-                ColumnConstraint(
-                    constraint_type=ColumnConstraintType.CHECK,
-                    check_condition=mock_condition
-                )
-            ]
+            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.CHECK, check_condition=mock_condition)],
         )
 
         sql, params = dialect.format_column_definition(col_def)
@@ -308,10 +276,9 @@ class TestFormatColumnDefinition:
             data_type="INTEGER",
             constraints=[
                 ColumnConstraint(
-                    constraint_type=ColumnConstraintType.FOREIGN_KEY,
-                    foreign_key_reference=("users", ["id"])
+                    constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"])
                 )
-            ]
+            ],
         )
 
         sql, params = dialect.format_column_definition(col_def)
@@ -329,12 +296,12 @@ class TestFormatColumnDefinition:
             name="full_name",
             data_type="VARCHAR(255)",
             generated_expression=mock_expr,
-            generated_type=GeneratedColumnType.VIRTUAL
+            generated_type=GeneratedColumnType.VIRTUAL,
         )
 
         sql, params = dialect.format_column_definition(col_def)
 
-        assert sql == '"full_name" VARCHAR(255) GENERATED ALWAYS AS (first_name || \' \' || last_name) VIRTUAL'
+        assert sql == "\"full_name\" VARCHAR(255) GENERATED ALWAYS AS (first_name || ' ' || last_name) VIRTUAL"
         assert params == ()
 
     def test_format_column_definition_with_all_constraint_types(self):
@@ -350,7 +317,7 @@ class TestFormatColumnDefinition:
                 ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value=0.0),
                 ColumnConstraint(constraint_type=ColumnConstraintType.CHECK, check_condition=mock_condition),
-            ]
+            ],
         )
 
         sql, params = dialect.format_column_definition(col_def)
@@ -364,7 +331,7 @@ class TestFormatColumnDefinition:
         col_def = ColumnDefinition(
             name="optional_field",
             data_type="VARCHAR(100)",
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.NULL)]
+            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.NULL)],
         )
 
         sql, params = dialect.format_column_definition(col_def)

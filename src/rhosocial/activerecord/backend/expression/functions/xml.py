@@ -49,16 +49,8 @@ def xmlparse(
     preserve_whitespace: bool = False,
 ) -> XMLParseExpression:
     """Create a SQL/XML XMLPARSE expression."""
-    document_type = (
-        XMLParseDocumentType.DOCUMENT
-        if document
-        else XMLParseDocumentType.CONTENT
-    )
-    whitespace_option = (
-        XMLWhitespaceOption.PRESERVE
-        if preserve_whitespace
-        else None
-    )
+    document_type = XMLParseDocumentType.DOCUMENT if document else XMLParseDocumentType.CONTENT
+    whitespace_option = XMLWhitespaceOption.PRESERVE if preserve_whitespace else None
     return XMLParseExpression(
         dialect,
         _as_expression(dialect, content),
@@ -75,16 +67,8 @@ def xmlserialize(
     preserve_whitespace: bool = False,
 ) -> XMLSerializeExpression:
     """Create a SQL/XML XMLSERIALIZE expression."""
-    document_type = (
-        XMLSerializeDocumentType.DOCUMENT
-        if document
-        else XMLSerializeDocumentType.CONTENT
-    )
-    whitespace_option = (
-        XMLWhitespaceOption.PRESERVE
-        if preserve_whitespace
-        else None
-    )
+    document_type = XMLSerializeDocumentType.DOCUMENT if document else XMLSerializeDocumentType.CONTENT
+    whitespace_option = XMLWhitespaceOption.PRESERVE if preserve_whitespace else None
     return XMLSerializeExpression(
         dialect,
         _as_expression(dialect, content),

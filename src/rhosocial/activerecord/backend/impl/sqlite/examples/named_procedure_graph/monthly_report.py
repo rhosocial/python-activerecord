@@ -24,6 +24,7 @@ Usage:
             --params '{"month": "2026-04"}' \\
             --dry-run
 """
+
 from rhosocial.activerecord.backend.named_expression import (
     ProcedureGraph,
     StepNode,

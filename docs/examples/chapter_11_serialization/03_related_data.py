@@ -18,8 +18,10 @@ import json
 
 # --- Models ---
 
+
 class User(ActiveRecord):
     """User model with posts relationship."""
+
     __table_name__ = "users"
     id: Optional[int] = None
     username: str
@@ -28,7 +30,7 @@ class User(ActiveRecord):
     created_at: Optional[datetime] = None
 
     # Relationships
-    posts: ClassVar[HasMany['Post']] = HasMany(foreign_key='author_id')
+    posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="author_id")
 
     @property
     def display_name(self) -> str:
@@ -38,6 +40,7 @@ class User(ActiveRecord):
 
 class Post(ActiveRecord):
     """Post model with author and comments relationships."""
+
     __table_name__ = "posts"
     id: Optional[int] = None
     author_id: int
@@ -47,8 +50,8 @@ class Post(ActiveRecord):
     created_at: Optional[datetime] = None
 
     # Relationships
-    author: ClassVar[BelongsTo['User']] = BelongsTo(foreign_key='author_id')
-    comments: ClassVar[HasMany['Comment']] = HasMany(foreign_key='post_id')
+    author: ClassVar[BelongsTo["User"]] = BelongsTo(foreign_key="author_id")
+    comments: ClassVar[HasMany["Comment"]] = HasMany(foreign_key="post_id")
 
     @property
     def excerpt(self) -> str:
@@ -58,6 +61,7 @@ class Post(ActiveRecord):
 
 class Comment(ActiveRecord):
     """Comment model."""
+
     __table_name__ = "comments"
     id: Optional[int] = None
     post_id: int
@@ -66,9 +70,11 @@ class Comment(ActiveRecord):
     created_at: Optional[datetime] = None
 
     # Relationships
-    post: ClassVar[BelongsTo['Post']] = BelongsTo(foreign_key='post_id')
+    post: ClassVar[BelongsTo["Post"]] = BelongsTo(foreign_key="post_id")
+
 
 # --- Helper Functions ---
+
 
 def print_json(data: dict, title: str = ""):
     """Pretty print JSON data."""
@@ -76,7 +82,9 @@ def print_json(data: dict, title: str = ""):
         print(f"\n{title}:")
     print(json.dumps(data, indent=2, default=str))
 
+
 # --- Main Execution ---
+
 
 def main():
     print("=" * 60)
@@ -84,14 +92,15 @@ def main():
     print("=" * 60)
 
     # Configure database
-    config = SQLiteConnectionConfig(database=':memory:')
+    config = SQLiteConnectionConfig(database=":memory:")
     User.configure(config, SQLiteBackend)
     Post.configure(config, SQLiteBackend)
     Comment.configure(config, SQLiteBackend)
 
     # Create tables
     backend = User.backend()
-    backend.execute("""
+    backend.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50),
@@ -99,10 +108,13 @@ def main():
             bio TEXT,
             created_at TIMESTAMP
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     post_backend = Post.backend()
-    post_backend.execute("""
+    post_backend.execute(
+        """
         CREATE TABLE posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             author_id INTEGER,
@@ -111,10 +123,13 @@ def main():
             published BOOLEAN,
             created_at TIMESTAMP
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     comment_backend = Comment.backend()
-    comment_backend.execute("""
+    comment_backend.execute(
+        """
         CREATE TABLE comments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             post_id INTEGER,
@@ -122,15 +137,12 @@ def main():
             content TEXT,
             created_at TIMESTAMP
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     # Create test data
-    user = User(
-        username="alice",
-        email="alice@example.com",
-        bio="Software developer",
-        created_at=datetime.now()
-    )
+    user = User(username="alice", email="alice@example.com", bio="Software developer", created_at=datetime.now())
     user.save()
 
     post1 = Post(
@@ -138,7 +150,7 @@ def main():
         title="First Post",
         content="This is my first post about Python and ActiveRecord patterns.",
         published=True,
-        created_at=datetime.now()
+        created_at=datetime.now(),
     )
     post1.save()
 
@@ -147,17 +159,14 @@ def main():
         title="Second Post",
         content="Today I want to share some thoughts about clean code practices.",
         published=True,
-        created_at=datetime.now()
+        created_at=datetime.now(),
     )
     post2.save()
 
     # Add comments
     for i in range(3):
         Comment(
-            post_id=post1.id,
-            author_name=f"reader{i}",
-            content=f"Great post #{i+1}!",
-            created_at=datetime.now()
+            post_id=post1.id, author_name=f"reader{i}", content=f"Great post #{i + 1}!", created_at=datetime.now()
         ).save()
 
     # 1. Basic serialization (no relationships)
@@ -175,11 +184,11 @@ def main():
     print("-" * 40)
 
     user_data = user.model_dump()
-    user_data['display_name'] = user.display_name  # Manually add computed property
+    user_data["display_name"] = user.display_name  # Manually add computed property
     print(f"display_name: {user_data['display_name']}")
 
     post_data = post1.model_dump()
-    post_data['excerpt'] = post1.excerpt  # Manually add computed property
+    post_data["excerpt"] = post1.excerpt  # Manually add computed property
     print("\nPost computed property:")
     print(f"excerpt: {post_data['excerpt']}")
 
@@ -191,7 +200,7 @@ def main():
     def serialize_user_with_posts(user: User) -> dict:
         """Serialize user with their posts."""
         data = user.model_dump()
-        data['posts'] = [p.model_dump() for p in user.posts()]
+        data["posts"] = [p.model_dump() for p in user.posts()]
         return data
 
     user_with_posts = serialize_user_with_posts(user)
@@ -205,8 +214,8 @@ def main():
     def serialize_post_full(post: Post) -> dict:
         """Serialize post with author and comments."""
         data = post.model_dump()
-        data['author'] = post.author().model_dump(include={'id', 'username', 'email'})
-        data['comments'] = [c.model_dump() for c in post.comments()]
+        data["author"] = post.author().model_dump(include={"id", "username", "email"})
+        data["comments"] = [c.model_dump() for c in post.comments()]
         return data
 
     post_full = serialize_post_full(post1)
@@ -219,24 +228,24 @@ def main():
 
     def user_summary(user: User) -> dict:
         """Lightweight user summary for lists."""
-        data = user.model_dump(include={'id', 'username'})
-        data['display_name'] = user.display_name  # Add computed property
+        data = user.model_dump(include={"id", "username"})
+        data["display_name"] = user.display_name  # Add computed property
         return data
 
     def post_summary(post: Post) -> dict:
         """Lightweight post summary for lists."""
-        data = post.model_dump(include={'id', 'title', 'published', 'created_at'})
-        data['excerpt'] = post.excerpt  # Add computed property
-        data['author'] = user_summary(post.author())
+        data = post.model_dump(include={"id", "title", "published", "created_at"})
+        data["excerpt"] = post.excerpt  # Add computed property
+        data["author"] = user_summary(post.author())
         # Get comment count
         comments = list(post.comments())
-        data['comment_count'] = len(comments)
+        data["comment_count"] = len(comments)
         return data
 
     def user_detail(user: User) -> dict:
         """Full user detail with posts."""
-        data = user.model_dump(exclude={'bio'})
-        data['posts'] = [post_summary(p) for p in user.posts()]
+        data = user.model_dump(exclude={"bio"})
+        data["posts"] = [post_summary(p) for p in user.posts()]
         return data
 
     summary = user_summary(user)
@@ -244,6 +253,7 @@ def main():
 
     detail = user_detail(user)
     print_json(detail, "User detail with post summaries")
+
 
 if __name__ == "__main__":
     main()

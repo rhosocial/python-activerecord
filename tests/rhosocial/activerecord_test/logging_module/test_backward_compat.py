@@ -2,7 +2,6 @@
 """Tests for backward compatibility of the logging system."""
 
 import logging
-import pytest
 
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.logging import (
@@ -16,13 +15,13 @@ class TestBackwardCompatibility:
 
     def test_dunder_logger_attribute_exists(self):
         """Test that __logger__ class attribute still exists."""
-        assert hasattr(ActiveRecord, '__logger__')
+        assert hasattr(ActiveRecord, "__logger__")
 
     def test_set_logger_method_exists(self):
         """Test that set_logger method exists and works."""
-        assert hasattr(ActiveRecord, 'set_logger')
+        assert hasattr(ActiveRecord, "set_logger")
 
-        custom_logger = logging.getLogger('test_custom')
+        custom_logger = logging.getLogger("test_custom")
         ActiveRecord.set_logger(custom_logger)
 
         assert ActiveRecord.get_logger() is custom_logger
@@ -32,7 +31,7 @@ class TestBackwardCompatibility:
 
     def test_get_logger_method_exists(self):
         """Test that get_logger method exists."""
-        assert hasattr(ActiveRecord, 'get_logger')
+        assert hasattr(ActiveRecord, "get_logger")
 
         logger = ActiveRecord.get_logger()
         assert logger is not None
@@ -40,11 +39,11 @@ class TestBackwardCompatibility:
 
     def test_log_method_exists(self):
         """Test that log method exists."""
-        assert hasattr(ActiveRecord, 'log')
+        assert hasattr(ActiveRecord, "log")
 
     def test_setup_logger_method_exists(self):
         """Test that setup_logger method exists."""
-        assert hasattr(ActiveRecord, 'setup_logger')
+        assert hasattr(ActiveRecord, "setup_logger")
 
     def test_log_method_works(self, caplog):
         """Test that log method works correctly."""
@@ -68,7 +67,7 @@ class TestBackwardCompatibility:
 
     def test_class_level_logger_override(self):
         """Test that setting __logger__ directly still works."""
-        custom_logger = logging.getLogger('direct_set_test')
+        custom_logger = logging.getLogger("direct_set_test")
 
         # Store original
         original_logger = ActiveRecord.__logger__

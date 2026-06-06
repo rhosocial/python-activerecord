@@ -10,18 +10,25 @@ Tests cover:
 
 For async tests, see sqlite_async/test_batch_dql.py.
 """
+
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, TableExpression, WildcardExpression,
-    ComparisonPredicate, SetOperationExpression,
+    Column,
+    Literal,
+    TableExpression,
+    WildcardExpression,
+    ComparisonPredicate,
+    SetOperationExpression,
 )
 from rhosocial.activerecord.backend.expression.statements import QueryExpression
 from rhosocial.activerecord.backend.expression.query_sources import (
-    WithQueryExpression, CTEExpression,
+    WithQueryExpression,
+    CTEExpression,
 )
 from rhosocial.activerecord.backend.expression.query_parts import (
-    WhereClause, OrderByClause, LimitOffsetClause,
+    WhereClause,
+    OrderByClause,
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -70,6 +77,7 @@ def backend_with_empty_table(sqlite_backend):
 # Helpers
 # ──────────────────────────────────────────────
 
+
 def _select_all_expr(dialect, table="items", order_col="id"):
     """Build: SELECT * FROM items ORDER BY id"""
     return QueryExpression(
@@ -103,24 +111,26 @@ def _collect_pages(iterator):
 # Sync: Pagination
 # ══════════════════════════════════════════════
 
+
 class TestBatchDQLPagination:
     """Tests fetchmany pagination behavior."""
 
-    @pytest.mark.parametrize("page_size, expected_pages, last_page_size", [
-        pytest.param(25, 4, 25, id="exact_4_pages"),
-        pytest.param(30, 4, 10, id="uneven_30_30_30_10"),
-        pytest.param(200, 1, 100, id="single_page_oversized"),
-        pytest.param(1, 100, 1, id="page_size_1"),
-        pytest.param(100, 1, 100, id="exact_one_page"),
-        pytest.param(99, 2, 1, id="just_over_one_page"),
-    ])
+    @pytest.mark.parametrize(
+        "page_size, expected_pages, last_page_size",
+        [
+            pytest.param(25, 4, 25, id="exact_4_pages"),
+            pytest.param(30, 4, 10, id="uneven_30_30_30_10"),
+            pytest.param(200, 1, 100, id="single_page_oversized"),
+            pytest.param(1, 100, 1, id="page_size_1"),
+            pytest.param(100, 1, 100, id="exact_one_page"),
+            pytest.param(99, 2, 1, id="just_over_one_page"),
+        ],
+    )
     def test_page_counts(self, backend_with_items, page_size, expected_pages, last_page_size):
         dialect = backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = _collect_pages(
-            backend_with_items.execute_batch_dql(expr, page_size=page_size)
-        )
+        pages = _collect_pages(backend_with_items.execute_batch_dql(expr, page_size=page_size))
 
         assert len(pages) == expected_pages
         # Last page size
@@ -133,9 +143,7 @@ class TestBatchDQLPagination:
         dialect = backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = _collect_pages(
-            backend_with_items.execute_batch_dql(expr, page_size=30)
-        )
+        pages = _collect_pages(backend_with_items.execute_batch_dql(expr, page_size=30))
 
         assert [p.page_index for p in pages] == [0, 1, 2, 3]
 
@@ -143,9 +151,7 @@ class TestBatchDQLPagination:
         dialect = backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = _collect_pages(
-            backend_with_items.execute_batch_dql(expr, page_size=30)
-        )
+        pages = _collect_pages(backend_with_items.execute_batch_dql(expr, page_size=30))
 
         # First 3 pages: has_more=True; last page: has_more=False
         for p in pages[:-1]:
@@ -156,9 +162,7 @@ class TestBatchDQLPagination:
         dialect = backend_with_empty_table.dialect
         expr = _select_all_expr(dialect)
 
-        pages = _collect_pages(
-            backend_with_empty_table.execute_batch_dql(expr, page_size=10)
-        )
+        pages = _collect_pages(backend_with_empty_table.execute_batch_dql(expr, page_size=10))
 
         assert pages == []
 
@@ -166,9 +170,7 @@ class TestBatchDQLPagination:
         dialect = backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = _collect_pages(
-            backend_with_items.execute_batch_dql(expr, page_size=50)
-        )
+        pages = _collect_pages(backend_with_items.execute_batch_dql(expr, page_size=50))
 
         first_row = pages[0].data[0]
         assert "id" in first_row
@@ -183,9 +185,7 @@ class TestBatchDQLPagination:
         dialect = backend_with_items.dialect
         expr = _select_where_expr(dialect, "electronics")
 
-        pages = _collect_pages(
-            backend_with_items.execute_batch_dql(expr, page_size=50)
-        )
+        pages = _collect_pages(backend_with_items.execute_batch_dql(expr, page_size=50))
 
         total = sum(p.page_size for p in pages)
         # 100 items, 3 categories, ~34 electronics
@@ -199,6 +199,7 @@ class TestBatchDQLPagination:
 # Sync: Cursor lifecycle
 # ══════════════════════════════════════════════
 
+
 class TestBatchDQLCursorLifecycle:
     """Tests that cursor is properly closed in all scenarios."""
 
@@ -207,14 +208,13 @@ class TestBatchDQLCursorLifecycle:
         dialect = backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = _collect_pages(
-            backend_with_items.execute_batch_dql(expr, page_size=50)
-        )
+        pages = _collect_pages(backend_with_items.execute_batch_dql(expr, page_size=50))
         assert len(pages) == 2
 
         # New query should work fine (no dangling cursor)
         result = backend_with_items.execute(
-            "SELECT COUNT(*) as cnt FROM items", None,
+            "SELECT COUNT(*) as cnt FROM items",
+            None,
             options=ExecutionOptions(stmt_type=StatementType.DQL),
         )
         assert result.data[0]["cnt"] == 100
@@ -225,7 +225,7 @@ class TestBatchDQLCursorLifecycle:
         expr = _select_all_expr(dialect)
 
         consumed = 0
-        for page in backend_with_items.execute_batch_dql(expr, page_size=10):
+        for _page in backend_with_items.execute_batch_dql(expr, page_size=10):
             consumed += 1
             if consumed == 2:
                 break
@@ -233,7 +233,8 @@ class TestBatchDQLCursorLifecycle:
 
         # New query should work (cursor was cleaned up)
         result = backend_with_items.execute(
-            "SELECT COUNT(*) as cnt FROM items", None,
+            "SELECT COUNT(*) as cnt FROM items",
+            None,
             options=ExecutionOptions(stmt_type=StatementType.DQL),
         )
         assert result.data[0]["cnt"] == 100
@@ -243,7 +244,7 @@ class TestBatchDQLCursorLifecycle:
         dialect = backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        for page in backend_with_items.execute_batch_dql(expr, page_size=10):
+        for _page in backend_with_items.execute_batch_dql(expr, page_size=10):
             break  # Immediately
 
         # Backend still usable
@@ -255,7 +256,7 @@ class TestBatchDQLCursorLifecycle:
         expr = _select_all_expr(dialect)
 
         with pytest.raises(RuntimeError, match="test error"):
-            for page in backend_with_items.execute_batch_dql(expr, page_size=10):
+            for _page in backend_with_items.execute_batch_dql(expr, page_size=10):
                 raise RuntimeError("test error")
 
         # Backend still usable
@@ -264,7 +265,8 @@ class TestBatchDQLCursorLifecycle:
 
 def _count_rows_dql(backend):
     result = backend.execute(
-        "SELECT COUNT(*) as cnt FROM items", None,
+        "SELECT COUNT(*) as cnt FROM items",
+        None,
         options=ExecutionOptions(stmt_type=StatementType.DQL),
     )
     return result.data[0]["cnt"]
@@ -274,6 +276,7 @@ def _count_rows_dql(backend):
 # Sync: DQLExpression type coverage
 # ══════════════════════════════════════════════
 
+
 class TestBatchDQLExpressionTypes:
     """Tests that all DQLExpression variants work with execute_batch_dql."""
 
@@ -281,9 +284,7 @@ class TestBatchDQLExpressionTypes:
         """Basic QueryExpression."""
         dialect = backend_with_items.dialect
         expr = _select_all_expr(dialect)
-        pages = _collect_pages(
-            backend_with_items.execute_batch_dql(expr, page_size=50)
-        )
+        pages = _collect_pages(backend_with_items.execute_batch_dql(expr, page_size=50))
         assert sum(p.page_size for p in pages) == 100
 
     def test_with_query_expression_cte(self, backend_with_items):
@@ -312,9 +313,7 @@ class TestBatchDQLExpressionTypes:
 
         with_expr = WithQueryExpression(dialect, ctes=[cte], main_query=main_query)
 
-        pages = _collect_pages(
-            backend_with_items.execute_batch_dql(with_expr, page_size=20)
-        )
+        pages = _collect_pages(backend_with_items.execute_batch_dql(with_expr, page_size=20))
 
         total = sum(p.page_size for p in pages)
         assert total > 0
@@ -332,7 +331,9 @@ class TestBatchDQLExpressionTypes:
             from_=TableExpression(dialect, "items"),
             where=WhereClause(
                 dialect,
-                condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Literal(dialect, "electronics")),
+                condition=ComparisonPredicate(
+                    dialect, "=", Column(dialect, "category"), Literal(dialect, "electronics")
+                ),
             ),
         )
         right = QueryExpression(
@@ -346,9 +347,7 @@ class TestBatchDQLExpressionTypes:
         )
         union_expr = SetOperationExpression(dialect, left=left, right=right, operation="UNION ALL")
 
-        pages = _collect_pages(
-            backend_with_items.execute_batch_dql(union_expr, page_size=20)
-        )
+        pages = _collect_pages(backend_with_items.execute_batch_dql(union_expr, page_size=20))
 
         total = sum(p.page_size for p in pages)
         # electronics (~34) + books (~33) = ~67

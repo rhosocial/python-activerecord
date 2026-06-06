@@ -25,19 +25,20 @@ from rhosocial.activerecord.connection.pool import (
 
 def execute_sql(backend, sql: str, params=None):
     """Helper to execute SQL with proper options."""
-    options = ExecutionOptions(stmt_type=StatementType.DDL if 'CREATE' in sql.upper() else StatementType.DML)
+    options = ExecutionOptions(stmt_type=StatementType.DDL if "CREATE" in sql.upper() else StatementType.DML)
     return backend.execute(sql, params or (), options=options)
 
 
 async def async_execute_sql(backend, sql: str, params=None):
     """Helper to execute SQL asynchronously with proper options."""
-    options = ExecutionOptions(stmt_type=StatementType.DDL if 'CREATE' in sql.upper() else StatementType.DML)
+    options = ExecutionOptions(stmt_type=StatementType.DDL if "CREATE" in sql.upper() else StatementType.DML)
     return await backend.execute(sql, params or (), options=options)
 
 
 # Sync Test Model (named to avoid pytest collection warning)
 class ContextTestUser(IntegerPKMixin, ActiveRecord):
     """Test User model for context awareness tests."""
+
     __table_name__ = "ctx_test_users"
 
     id: Optional[int] = None
@@ -48,6 +49,7 @@ class ContextTestUser(IntegerPKMixin, ActiveRecord):
 # Async Test Model
 class AsyncContextTestUser(IntegerPKMixin, AsyncActiveRecord):
     """Test Async User model for context awareness tests."""
+
     __table_name__ = "async_ctx_test_users"
 
     id: Optional[int] = None
@@ -69,9 +71,7 @@ class TestSyncActiveRecordContextAwareness:
     def test_backend_returns_context_backend_in_connection(self, shared_sqlite_db_path):
         """Test that backend() returns context backend in connection context."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
@@ -90,9 +90,7 @@ class TestSyncActiveRecordContextAwareness:
     def test_backend_returns_context_backend_in_transaction(self, shared_sqlite_db_path):
         """Test that backend() returns context backend in transaction context."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
@@ -114,9 +112,7 @@ class TestSyncActiveRecordContextAwareness:
     def test_crud_in_transaction_context(self, shared_sqlite_db_path):
         """Test CRUD operations work in transaction context."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
@@ -125,17 +121,22 @@ class TestSyncActiveRecordContextAwareness:
 
             # Create test table
             with pool.connection() as backend:
-                execute_sql(backend, """
+                execute_sql(
+                    backend,
+                    """
                     CREATE TABLE ctx_test_users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
                         email TEXT NOT NULL
                     )
-                """)
+                """,
+                )
 
             with pool.transaction() as backend:
                 # Insert
-                execute_sql(backend, "INSERT INTO ctx_test_users (name, email) VALUES (?, ?)", ("Alice", "alice@test.com"))
+                execute_sql(
+                    backend, "INSERT INTO ctx_test_users (name, email) VALUES (?, ?)", ("Alice", "alice@test.com")
+                )
                 execute_sql(backend, "INSERT INTO ctx_test_users (name, email) VALUES (?, ?)", ("Bob", "bob@test.com"))
 
             # Verify committed
@@ -148,9 +149,7 @@ class TestSyncActiveRecordContextAwareness:
     def test_transaction_rollback_on_error(self, shared_sqlite_db_path):
         """Test that transaction rolls back on error."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
@@ -159,22 +158,29 @@ class TestSyncActiveRecordContextAwareness:
 
             # Create test table
             with pool.connection() as backend:
-                execute_sql(backend, """
+                execute_sql(
+                    backend,
+                    """
                     CREATE TABLE ctx_test_users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
                         email TEXT NOT NULL
                     )
-                """)
+                """,
+                )
 
             # Insert initial data
             with pool.transaction() as backend:
-                execute_sql(backend, "INSERT INTO ctx_test_users (name, email) VALUES (?, ?)", ("Alice", "alice@test.com"))
+                execute_sql(
+                    backend, "INSERT INTO ctx_test_users (name, email) VALUES (?, ?)", ("Alice", "alice@test.com")
+                )
 
             # Attempt to insert but fail
             try:
                 with pool.transaction() as backend:
-                    execute_sql(backend, "INSERT INTO ctx_test_users (name, email) VALUES (?, ?)", ("Bob", "bob@test.com"))
+                    execute_sql(
+                        backend, "INSERT INTO ctx_test_users (name, email) VALUES (?, ?)", ("Bob", "bob@test.com")
+                    )
                     raise ValueError("Simulated error")
             except ValueError:
                 pass
@@ -189,9 +195,7 @@ class TestSyncActiveRecordContextAwareness:
     def test_nested_connection_contexts_reuse(self, shared_sqlite_db_path):
         """Test that nested connection contexts reuse the same backend."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
@@ -213,9 +217,7 @@ class TestSyncActiveRecordContextAwareness:
     def test_active_query_backend_context_awareness(self, shared_sqlite_db_path):
         """Test that ActiveQuery.backend() is context aware."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
@@ -250,14 +252,14 @@ class TestAsyncActiveRecordContextAwareness:
     async def test_backend_returns_context_backend_in_connection(self, shared_sqlite_db_path):
         """Test that backend() returns context backend in async connection context."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(
+                SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend
+            )
 
             async with pool.context():
                 async with pool.connection() as conn_backend:
@@ -276,14 +278,14 @@ class TestAsyncActiveRecordContextAwareness:
     async def test_backend_returns_context_backend_in_transaction(self, shared_sqlite_db_path):
         """Test that backend() returns context backend in async transaction context."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(
+                SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend
+            )
 
             async with pool.context():
                 async with pool.transaction() as tx_backend:
@@ -305,29 +307,36 @@ class TestAsyncActiveRecordContextAwareness:
     async def test_crud_in_transaction_context(self, shared_sqlite_db_path):
         """Test CRUD operations work in async transaction context."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(
+                SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend
+            )
 
             # Create test table
             async with pool.connection() as backend:
-                await async_execute_sql(backend, """
+                await async_execute_sql(
+                    backend,
+                    """
                     CREATE TABLE async_ctx_test_users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
                         email TEXT NOT NULL
                     )
-                """)
+                """,
+                )
 
             async with pool.transaction() as backend:
                 # Insert
-                await async_execute_sql(backend, "INSERT INTO async_ctx_test_users (name, email) VALUES (?, ?)", ("Alice", "alice@test.com"))
-                await async_execute_sql(backend, "INSERT INTO async_ctx_test_users (name, email) VALUES (?, ?)", ("Bob", "bob@test.com"))
+                await async_execute_sql(
+                    backend, "INSERT INTO async_ctx_test_users (name, email) VALUES (?, ?)", ("Alice", "alice@test.com")
+                )
+                await async_execute_sql(
+                    backend, "INSERT INTO async_ctx_test_users (name, email) VALUES (?, ?)", ("Bob", "bob@test.com")
+                )
 
             # Verify committed
             async with pool.connection() as backend:
@@ -344,33 +353,40 @@ class TestAsyncActiveRecordContextAwareness:
     async def test_transaction_rollback_on_error(self, shared_sqlite_db_path):
         """Test that async transaction rolls back on error."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(
+                SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend
+            )
 
             # Create test table
             async with pool.connection() as backend:
-                await async_execute_sql(backend, """
+                await async_execute_sql(
+                    backend,
+                    """
                     CREATE TABLE async_ctx_test_users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
                         email TEXT NOT NULL
                     )
-                """)
+                """,
+                )
 
             # Insert initial data
             async with pool.transaction() as backend:
-                await async_execute_sql(backend, "INSERT INTO async_ctx_test_users (name, email) VALUES (?, ?)", ("Alice", "alice@test.com"))
+                await async_execute_sql(
+                    backend, "INSERT INTO async_ctx_test_users (name, email) VALUES (?, ?)", ("Alice", "alice@test.com")
+                )
 
             # Attempt to insert but fail
             try:
                 async with pool.transaction() as backend:
-                    await async_execute_sql(backend, "INSERT INTO async_ctx_test_users (name, email) VALUES (?, ?)", ("Bob", "bob@test.com"))
+                    await async_execute_sql(
+                        backend, "INSERT INTO async_ctx_test_users (name, email) VALUES (?, ?)", ("Bob", "bob@test.com")
+                    )
                     raise ValueError("Simulated error")
             except ValueError:
                 pass
@@ -390,14 +406,14 @@ class TestAsyncActiveRecordContextAwareness:
     async def test_nested_connection_contexts_reuse(self, shared_sqlite_db_path):
         """Test that nested async connection contexts reuse the same backend."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(
+                SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend
+            )
 
             async with pool.connection() as outer_conn:
                 outer_backend = AsyncContextTestUser.backend()
@@ -419,14 +435,14 @@ class TestAsyncActiveRecordContextAwareness:
     async def test_active_query_backend_context_awareness(self, shared_sqlite_db_path):
         """Test that AsyncActiveQuery.backend() is context aware."""
         config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
+            min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(
+                SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend
+            )
 
             async with pool.connection() as conn_backend:
                 query = AsyncContextTestUser.query()
@@ -460,11 +476,7 @@ class TestCTEQueryContextAwareness:
         """Test that CTEQuery.backend() is context aware."""
         from rhosocial.activerecord.query import CTEQuery
 
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool(config)
 
         try:
@@ -495,11 +507,7 @@ class TestSetOperationQueryContextAwareness:
 
     def test_set_operation_query_backend_context_awareness(self):
         """Test that SetOperationQuery.backend() is context aware."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool(config)
 
         try:

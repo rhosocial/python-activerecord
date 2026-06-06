@@ -7,6 +7,7 @@ async transaction management for SQLite using aiosqlite.
 Note: Tests use direct connection operations (backend._connection) to avoid
 autocommit issues with aiosqlite's execute method.
 """
+
 import logging
 import sqlite3
 import pytest
@@ -65,7 +66,7 @@ class TestAsyncSQLiteTransactionManagerInit:
         manager = AsyncSQLiteTransactionManager(async_backend)
         assert manager._logger is not None
         assert isinstance(manager._logger, logging.Logger)
-        assert manager._logger.name == 'rhosocial.activerecord.transaction'
+        assert manager._logger.name == "rhosocial.activerecord.transaction"
 
 
 @pytest.mark.asyncio
@@ -74,7 +75,7 @@ class TestAsyncSQLiteTransactionBasics:
 
     async def test_begin_transaction(self, transaction_manager):
         """Test async begin transaction."""
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             await transaction_manager.begin()
             assert transaction_manager.is_active is True
             assert transaction_manager._transaction_level == 1
@@ -82,12 +83,13 @@ class TestAsyncSQLiteTransactionBasics:
             # Verify log records
             assert mock_log.call_count >= 2
             mock_log.assert_any_call(logging.DEBUG, "Beginning transaction (level 0)")
-            mock_log.assert_any_call(logging.INFO,
-                                     "Starting new transaction with isolation level IsolationLevel.SERIALIZABLE")
+            mock_log.assert_any_call(
+                logging.INFO, "Starting new transaction with isolation level IsolationLevel.SERIALIZABLE"
+            )
 
     async def test_commit_transaction(self, transaction_manager, async_backend):
         """Test async commit transaction."""
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             await transaction_manager.begin()
             # Use raw connection to execute SQL within transaction
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (1, 'test')")
@@ -105,11 +107,11 @@ class TestAsyncSQLiteTransactionBasics:
             result = await cursor.fetchone()
             assert result is not None
             assert result[0] == 1
-            assert result[1] == 'test'
+            assert result[1] == "test"
 
     async def test_rollback_transaction(self, transaction_manager, async_backend):
         """Test async rollback transaction."""
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             await transaction_manager.begin()
             # Use raw connection to execute SQL within transaction
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (1, 'test')")
@@ -133,14 +135,15 @@ class TestAsyncSQLiteNestedTransactions:
 
     async def test_nested_transactions(self, transaction_manager, async_backend):
         """Test async nested transactions using savepoints."""
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             # First level transaction
             await transaction_manager.begin()
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (1, 'level1')")
 
             # Verify first level transaction log
-            mock_log.assert_any_call(logging.INFO,
-                                     "Starting new transaction with isolation level IsolationLevel.SERIALIZABLE")
+            mock_log.assert_any_call(
+                logging.INFO, "Starting new transaction with isolation level IsolationLevel.SERIALIZABLE"
+            )
             mock_log.reset_mock()
 
             # Second level transaction (savepoint)
@@ -163,7 +166,7 @@ class TestAsyncSQLiteNestedTransactions:
             rows = await cursor.fetchall()
             assert len(rows) == 1
             assert rows[0][0] == 1
-            assert rows[0][1] == 'level1'
+            assert rows[0][1] == "level1"
 
             # Commit first level transaction
             await transaction_manager.commit()
@@ -234,7 +237,7 @@ class TestAsyncSQLiteIsolationLevel:
 
     async def test_unsupported_isolation_level(self, transaction_manager):
         """Test async unsupported isolation level."""
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log"):
             # SQLite does not support READ_COMMITTED
             with pytest.raises(Exception) as exc_info:
                 transaction_manager.isolation_level = IsolationLevel.READ_COMMITTED
@@ -246,7 +249,7 @@ class TestAsyncSQLiteIsolationLevel:
         # Begin transaction
         await transaction_manager.begin()
 
-        with patch.object(transaction_manager, 'log'):
+        with patch.object(transaction_manager, "log"):
             # Try to change isolation level
             with pytest.raises(Exception) as exc_info:
                 transaction_manager.isolation_level = IsolationLevel.SERIALIZABLE
@@ -263,14 +266,14 @@ class TestAsyncSQLiteSavepointOperations:
 
     async def test_savepoint_operations(self, transaction_manager, async_backend):
         """Test async savepoint operations."""
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             # Begin main transaction
             await transaction_manager.begin()
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (1, 'base')")
             mock_log.reset_mock()
 
             # Create savepoint
-            sp1 = await transaction_manager.savepoint("sp1")
+            await transaction_manager.savepoint("sp1")
             await async_backend._connection.execute("INSERT INTO test (id, value) VALUES (2, 'sp1')")
 
             # Verify savepoint creation log
@@ -290,7 +293,7 @@ class TestAsyncSQLiteSavepointOperations:
             rows = await cursor.fetchall()
             assert len(rows) == 1
             assert rows[0][0] == 1
-            assert rows[0][1] == 'base'
+            assert rows[0][1] == "base"
             mock_log.reset_mock()
 
             # Add new data
@@ -312,7 +315,7 @@ class TestAsyncSQLiteSavepointOperations:
             rows = await cursor.fetchall()
             assert len(rows) == 2
             assert rows[0][0] == 1
-            assert rows[0][1] == 'base'
+            assert rows[0][1] == "base"
             assert rows[1][0] == 4
 
     async def test_auto_savepoint_name(self, transaction_manager):
@@ -347,7 +350,7 @@ class TestAsyncSQLiteTransactionErrors:
 
     async def test_commit_without_active_transaction(self, transaction_manager):
         """Test async commit without active transaction."""
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.commit()
 
@@ -356,7 +359,7 @@ class TestAsyncSQLiteTransactionErrors:
 
     async def test_rollback_without_active_transaction(self, transaction_manager):
         """Test async rollback without active transaction."""
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.rollback()
 
@@ -365,7 +368,7 @@ class TestAsyncSQLiteTransactionErrors:
 
     async def test_savepoint_without_active_transaction(self, transaction_manager):
         """Test async creating savepoint without active transaction."""
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.savepoint("sp1")
 
@@ -377,7 +380,7 @@ class TestAsyncSQLiteTransactionErrors:
         # Begin transaction
         await transaction_manager.begin()
 
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.release("nonexistent")
 
@@ -392,7 +395,7 @@ class TestAsyncSQLiteTransactionErrors:
         # Begin transaction
         await transaction_manager.begin()
 
-        with patch.object(transaction_manager, 'log') as mock_log:
+        with patch.object(transaction_manager, "log") as mock_log:
             with pytest.raises(TransactionError) as exc_info:
                 await transaction_manager.rollback_to("nonexistent")
 
@@ -453,7 +456,7 @@ class TestAsyncSQLiteLogger:
         # Test setting to None uses default logger
         transaction_manager.logger = None
         assert transaction_manager.logger is not None
-        assert transaction_manager.logger.name == 'rhosocial.activerecord.transaction'
+        assert transaction_manager.logger.name == "rhosocial.activerecord.transaction"
 
         # Test setting non-logger value
         with pytest.raises(ValueError):
@@ -461,12 +464,12 @@ class TestAsyncSQLiteLogger:
 
     async def test_log_method(self, transaction_manager):
         """Test log method."""
-        with patch.object(transaction_manager._logger, 'log') as mock_log:
+        with patch.object(transaction_manager._logger, "log") as mock_log:
             transaction_manager.log(logging.INFO, "Test message")
             mock_log.assert_called_once_with(logging.INFO, "Test message")
 
-            transaction_manager.log(logging.ERROR, "Error %s", "details", extra={'key': 'value'})
-            mock_log.assert_called_with(logging.ERROR, "Error %s", "details", extra={'key': 'value'})
+            transaction_manager.log(logging.ERROR, "Error %s", "details", extra={"key": "value"})
+            mock_log.assert_called_with(logging.ERROR, "Error %s", "details", extra={"key": "value"})
 
 
 @pytest.mark.asyncio
@@ -482,10 +485,7 @@ class TestAsyncSQLiteSupportsSavepoint:
 class TestAsyncSQLiteMultipleSavepoints:
     """Tests for async multiple savepoints."""
 
-    @pytest.mark.skipif(
-        sqlite3.sqlite_version_info < (3, 6, 8),
-        reason="SQLite 3.6.8+ required for savepoint"
-    )
+    @pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 6, 8), reason="SQLite 3.6.8+ required for savepoint")
     async def test_multiple_savepoints(self, transaction_manager, async_backend):
         """Test multiple savepoints."""
         # Begin transaction
@@ -526,7 +526,7 @@ class TestAsyncSQLiteMultipleSavepoints:
         cursor = await async_backend._connection.execute("SELECT * FROM test")
         row = await cursor.fetchone()
         assert row[0] == 1
-        assert row[1] == 'value1'
+        assert row[1] == "value1"
 
 
 @pytest.mark.asyncio
@@ -575,7 +575,7 @@ class TestAsyncSQLiteMixedSavepointTransactions:
         cursor = await async_backend._connection.execute("SELECT * FROM test")
         row = await cursor.fetchone()
         assert row[0] == 1
-        assert row[1] == 'main'
+        assert row[1] == "main"
 
 
 @pytest.mark.asyncio
@@ -593,8 +593,8 @@ class TestAsyncSQLiteTransactionErrorHandling:
         manager = AsyncSQLiteTransactionManager(backend)
 
         # Mock the execute method to raise errors
-        with patch.object(backend, 'execute', side_effect=sqlite3.Error("Mock error")):
-            with patch.object(manager, 'log') as mock_log:
+        with patch.object(backend, "execute", side_effect=sqlite3.Error("Mock error")):
+            with patch.object(manager, "log") as mock_log:
                 # Test begin failure
                 with pytest.raises(TransactionError) as exc_info:
                     await manager.begin()
@@ -606,8 +606,8 @@ class TestAsyncSQLiteTransactionErrorHandling:
         # Test commit failure (manually set transaction level)
         manager._transaction_level = 1
 
-        with patch.object(backend, 'execute', side_effect=sqlite3.Error("Mock error")):
-            with patch.object(manager, 'log') as mock_log:
+        with patch.object(backend, "execute", side_effect=sqlite3.Error("Mock error")):
+            with patch.object(manager, "log") as mock_log:
                 with pytest.raises(TransactionError) as exc_info:
                     await manager.commit()
 
@@ -619,8 +619,8 @@ class TestAsyncSQLiteTransactionErrorHandling:
                 assert manager._transaction_level == 1
 
         # Test rollback failure
-        with patch.object(backend, 'execute', side_effect=sqlite3.Error("Mock error")):
-            with patch.object(manager, 'log') as mock_log:
+        with patch.object(backend, "execute", side_effect=sqlite3.Error("Mock error")):
+            with patch.object(manager, "log") as mock_log:
                 with pytest.raises(TransactionError) as exc_info:
                     await manager.rollback()
 
@@ -633,21 +633,24 @@ class TestAsyncSQLiteTransactionErrorHandling:
 
         # Test savepoint failure
         manager._transaction_level = 1  # Ensure we're in a "transaction"
-        with patch.object(backend, 'execute', side_effect=sqlite3.Error("Mock error")):
-            with patch.object(manager, 'log') as mock_log:
+        with patch.object(backend, "execute", side_effect=sqlite3.Error("Mock error")):
+            with patch.object(manager, "log") as mock_log:
                 with pytest.raises(TransactionError) as exc_info:
                     await manager.savepoint("sp1")
 
                 assert "Failed to create savepoint" in str(exc_info.value)
-                assert any("Failed to create savepoint" in str(call) for call in mock_log.call_args_list
-                           if call[0][0] == logging.ERROR)
+                assert any(
+                    "Failed to create savepoint" in str(call)
+                    for call in mock_log.call_args_list
+                    if call[0][0] == logging.ERROR
+                )
 
         # Manually add savepoint to active list to test subsequent operations
         manager._active_savepoints.append("sp1")
 
         # Test release failure
-        with patch.object(backend, 'execute', side_effect=sqlite3.Error("Mock error")):
-            with patch.object(manager, 'log') as mock_log:
+        with patch.object(backend, "execute", side_effect=sqlite3.Error("Mock error")):
+            with patch.object(manager, "log") as mock_log:
                 with pytest.raises(TransactionError) as exc_info:
                     await manager.release("sp1")
 
@@ -656,8 +659,8 @@ class TestAsyncSQLiteTransactionErrorHandling:
 
         # Test rollback_to failure
         manager._active_savepoints.append("sp1")  # Re-add for test
-        with patch.object(backend, 'execute', side_effect=sqlite3.Error("Mock error")):
-            with patch.object(manager, 'log') as mock_log:
+        with patch.object(backend, "execute", side_effect=sqlite3.Error("Mock error")):
+            with patch.object(manager, "log") as mock_log:
                 with pytest.raises(TransactionError) as exc_info:
                     await manager.rollback_to("sp1")
 

@@ -47,6 +47,7 @@ _ORDERS_DDL = """
 # Model definitions
 # ---------------------------------------------------------------------------
 
+
 class User(ActiveRecord):
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -65,6 +66,7 @@ class Order(ActiveRecord):
 
 class Product(ActiveRecord):
     """A third model used only in the startup-assertion demo."""
+
     __table_name__ = "products"
     c: ClassVar[FieldProxy] = FieldProxy()
     id: Optional[int] = None
@@ -74,6 +76,7 @@ class Product(ActiveRecord):
 # ---------------------------------------------------------------------------
 # Demo 1: configure() called once at startup
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_configure_once() -> None:
     """configure() is a class-level, one-shot operation.
@@ -108,11 +111,11 @@ def demonstrate_configure_once() -> None:
     user.save()
     Order(user_id=user.id, total=49.99).save()
 
-    users  = User.query().all()
+    users = User.query().all()
     orders = Order.query().all()
     print(f"\nUsers : {[u.name for u in users]}")
     print(f"Orders: {[o.total for o in orders]}")
-    assert len(users)  == 1
+    assert len(users) == 1
     assert len(orders) == 1
     print("\n✓ configure() called once at startup per model class; both work correctly.")
 
@@ -120,6 +123,7 @@ def demonstrate_configure_once() -> None:
 # ---------------------------------------------------------------------------
 # Demo 2: per-process isolation (simulate post_fork pattern)
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_per_process_isolation() -> None:
     """Each simulated 'worker process' receives its own backend.
@@ -133,7 +137,7 @@ def demonstrate_per_process_isolation() -> None:
     print("=" * 60)
 
     results = {}
-    errors  = []
+    errors = []
 
     def worker(worker_id: int) -> None:
         """Simulate a Gunicorn worker that configures its own backend."""
@@ -151,10 +155,7 @@ def demonstrate_per_process_isolation() -> None:
             WorkerUser.configure(config, SQLiteBackend)
             WorkerUser.backend().execute(_USERS_DDL, options=_DDL_OPTS)
 
-            WorkerUser(
-                name=f"Worker{worker_id}",
-                email=f"w{worker_id}@example.com"
-            ).save()
+            WorkerUser(name=f"Worker{worker_id}", email=f"w{worker_id}@example.com").save()
 
             rows = WorkerUser.query().all()
             results[worker_id] = [r.name for r in rows]
@@ -175,8 +176,7 @@ def demonstrate_per_process_isolation() -> None:
     print("\nPer-worker query results (each worker sees only its own data):")
     for wid in sorted(results):
         print(f"  Worker {wid}: {results[wid]}")
-        assert results[wid] == [f"Worker{wid}"], \
-            f"Worker {wid} saw unexpected data: {results[wid]}"
+        assert results[wid] == [f"Worker{wid}"], f"Worker {wid} saw unexpected data: {results[wid]}"
 
     print("\n✓ Each worker's in-memory database is fully isolated.")
 
@@ -184,6 +184,7 @@ def demonstrate_per_process_isolation() -> None:
 # ---------------------------------------------------------------------------
 # Demo 3: startup assertion catches misconfigured models
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_startup_assertion() -> None:
     """assert_all_configured() detects missing configure() calls before
@@ -198,9 +199,7 @@ def demonstrate_startup_assertion() -> None:
 
     def assert_all_configured(models):
         unconfigured = [
-            cls.__name__
-            for cls in models
-            if "__backend__" not in cls.__dict__ or cls.__dict__["__backend__"] is None
+            cls.__name__ for cls in models if "__backend__" not in cls.__dict__ or cls.__dict__["__backend__"] is None
         ]
         if unconfigured:
             raise RuntimeError(
@@ -235,6 +234,7 @@ def demonstrate_startup_assertion() -> None:
 # Demo 4: separate backends for different model classes
 # ---------------------------------------------------------------------------
 
+
 def demonstrate_separate_backends() -> None:
     """Two model classes can be configured with different backends.
 
@@ -248,6 +248,7 @@ def demonstrate_separate_backends() -> None:
 
     class UserMetric(ActiveRecord):
         """Analytics model -- separate backend, same table structure."""
+
         __table_name__ = "users"
         id: Optional[int] = None
         name: str
@@ -261,14 +262,13 @@ def demonstrate_separate_backends() -> None:
 
     UserMetric(name="Metric-Alice", email="metric-alice@analytics.com").save()
 
-    primary_rows  = User.query().all()         # Alice from Demo 1
+    primary_rows = User.query().all()  # Alice from Demo 1
     analytics_rows = UserMetric.query().all()  # Metric-Alice from this demo
 
     print(f"\nPrimary DB (User)      : {[r.name for r in primary_rows]}")
     print(f"Analytics DB (Metric)  : {[r.name for r in analytics_rows]}")
 
-    assert User.__backend__ is not UserMetric.__backend__, \
-        "User and UserMetric should have separate backends"
+    assert User.__backend__ is not UserMetric.__backend__, "User and UserMetric should have separate backends"
     assert any(r.name == "Alice" for r in primary_rows)
     assert any(r.name == "Metric-Alice" for r in analytics_rows)
 

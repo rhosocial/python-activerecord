@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.introspection.status import StatusCategory
 from .connection import add_connection_args, create_backend
 from .output import create_provider, RICH_AVAILABLE
 
-OUTPUT_CHOICES = ['table', 'json', 'csv', 'tsv']
+OUTPUT_CHOICES = ["table", "json", "csv", "tsv"]
 
 STATUS_TYPES = ["all", "config", "performance", "storage", "databases"]
 
@@ -20,8 +20,8 @@ STATUS_TYPES = ["all", "config", "performance", "storage", "databases"]
 def create_parser(subparsers):
     """Create the status subcommand parser."""
     parser = subparsers.add_parser(
-        'status',
-        help='Display server status overview',
+        "status",
+        help="Display server status overview",
         epilog="""Examples:
   # Show complete status overview
   %(prog)s status all --db-file mydb.sqlite
@@ -43,10 +43,11 @@ def create_parser(subparsers):
 
     # Output format (all, but 'all' type falls back to json for csv/tsv)
     parser.add_argument(
-        '-o', '--output',
+        "-o",
+        "--output",
         choices=OUTPUT_CHOICES,
-        default='table',
-        help='Output format (default: table)',
+        default="table",
+        help="Output format (default: table)",
     )
 
     # Connection arguments
@@ -54,17 +55,18 @@ def create_parser(subparsers):
 
     # Verbosity
     parser.add_argument(
-        '-v', '--verbose',
-        action='count',
+        "-v",
+        "--verbose",
+        action="count",
         default=0,
-        help='Increase verbosity for additional columns.',
+        help="Increase verbosity for additional columns.",
     )
 
     # Rich display options
     parser.add_argument(
-        '--rich-ascii',
-        action='store_true',
-        help='Use ASCII characters for rich table borders.',
+        "--rich-ascii",
+        action="store_true",
+        help="Use ASCII characters for rich table borders.",
     )
 
     # status-specific arguments
@@ -127,13 +129,14 @@ def handle(args):
 # Internal helper functions
 # ---------------------------------------------------------------------------
 
+
 def _serialize_for_output(obj):
     """Serialize object for JSON output."""
     if obj is None:
         return None
-    if hasattr(obj, 'model_dump'):
+    if hasattr(obj, "model_dump"):
         try:
-            result = obj.model_dump(mode='json')
+            result = obj.model_dump(mode="json")
             return _serialize_for_output(result)
         except TypeError:
             result = obj.model_dump()
@@ -182,8 +185,7 @@ def _display_status_rich(status, verbose: int = 0):
     console.print()
 
     # Configuration section
-    config_items = [item for item in status.configuration
-                    if item.category == StatusCategory.CONFIGURATION]
+    config_items = [item for item in status.configuration if item.category == StatusCategory.CONFIGURATION]
     if config_items:
         console.print("[bold green]Configuration[/bold green]")
         config_table = Table(show_header=True, header_style="bold")
@@ -196,18 +198,14 @@ def _display_status_rich(status, verbose: int = 0):
         for item in config_items:
             row = [item.name, str(item.value)]
             if verbose >= 1:
-                row.extend([
-                    item.description or "",
-                    "Yes" if item.is_readonly else "No"
-                ])
+                row.extend([item.description or "", "Yes" if item.is_readonly else "No"])
             config_table.add_row(*row)
 
         console.print(config_table)
         console.print()
 
     # Performance section
-    perf_items = [item for item in status.configuration
-                  if item.category == StatusCategory.PERFORMANCE]
+    perf_items = [item for item in status.configuration if item.category == StatusCategory.PERFORMANCE]
     if perf_items:
         console.print("[bold green]Performance[/bold green]")
         perf_table = Table(show_header=True, header_style="bold")

@@ -49,14 +49,13 @@ Usage Example:
 Note:
     This is a backend CLI feature.
 """
+
 import argparse
 import importlib
-import inspect
 import json
 import sys
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Optional
 
-from .exceptions import NamedExpressionError
 from .graph_resolver import (
     NamedProcedureGraphResolver,
     list_procedure_graphs_in_module,
@@ -65,7 +64,6 @@ from .graph_runner import (
     AsyncProcedureGraphRunner,
     ProcedureGraphRunner,
 )
-from .procedure_graph import TransactionMode
 
 
 def _replace_prog_placeholder(docstring: str, prog: str = None) -> str:
@@ -128,7 +126,7 @@ def _add_named_procedure_graph_arguments(parser: argparse.ArgumentParser) -> Non
         "--params",
         dest="params_json",
         default="{}",
-        help="Graph parameters as JSON string. Example: '{\"month\": \"2026-04\"}'",
+        help='Graph parameters as JSON string. Example: \'{"month": "2026-04"}\'',
     )
     parser.add_argument(
         "--describe",
@@ -245,6 +243,7 @@ def handle_named_procedure_graph(
             )
             try:
                 import asyncio
+
                 graph = resolver.build(dialect, params)
                 result = asyncio.run(runner.run(graph, params))
             finally:
@@ -359,7 +358,7 @@ def _handle_describe(qualified_name: str, provider: Any, show_waves: bool = Fals
             pass
 
         graph = resolver.build(DummyDialect(), None)
-        print(f"\nWaves (topological layers):")
+        print("\nWaves (topological layers):")
         for i, wave in enumerate(graph.waves()):
             wave_names = [n.name for n in wave]
             print(f"  Wave {i}: {wave_names}")

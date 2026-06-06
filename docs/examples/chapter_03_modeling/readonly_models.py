@@ -47,6 +47,7 @@ _USERS_DDL = """
 # ReadOnlyMixin (as described in the article)
 # ---------------------------------------------------------------------------
 
+
 class ReadOnlyMixin:
     """Mix into any ActiveRecord subclass to make it read-only."""
 
@@ -59,9 +60,7 @@ class ReadOnlyMixin:
         )
 
     def delete(self, *args, **kwargs):
-        raise TypeError(
-            f"{type(self).__name__} is a read-only model and cannot be deleted."
-        )
+        raise TypeError(f"{type(self).__name__} is a read-only model and cannot be deleted.")
 
     @classmethod
     def bulk_create(cls, *args, **kwargs):
@@ -72,8 +71,10 @@ class ReadOnlyMixin:
 # Shared field Mixin (DRY field definitions)
 # ---------------------------------------------------------------------------
 
+
 class UserFields(BaseModel):
     """Shared field definitions for writable and read-only user models."""
+
     id: Optional[int] = None
     name: str
     email: str
@@ -85,14 +86,17 @@ class UserFields(BaseModel):
 # Model classes
 # ---------------------------------------------------------------------------
 
+
 class User(UserFields, ActiveRecord):
     """Writable business model -- primary database."""
+
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
 
 class UserAnalytics(ReadOnlyMixin, UserFields, ActiveRecord):
     """Read-only analytics model -- analytics replica."""
+
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
@@ -115,6 +119,7 @@ class UserAnalytics(ReadOnlyMixin, UserFields, ActiveRecord):
 # ---------------------------------------------------------------------------
 # Demo 1: ReadOnlyMixin blocks all write operations
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_readonly_protection() -> None:
     """save(), delete(), and bulk_create() all raise TypeError immediately.
@@ -163,6 +168,7 @@ def demonstrate_readonly_protection() -> None:
 # Demo 2: read-only model + writable model on separate backends
 # ---------------------------------------------------------------------------
 
+
 def demonstrate_separate_backends() -> None:
     """User writes to the primary DB; UserAnalytics reads from a replica.
 
@@ -174,7 +180,7 @@ def demonstrate_separate_backends() -> None:
     print("DEMO 2 — Writable model (primary) + read-only model (replica)")
     print("=" * 60)
 
-    primary_config   = SQLiteConnectionConfig(database=":memory:")
+    primary_config = SQLiteConnectionConfig(database=":memory:")
     analytics_config = SQLiteConnectionConfig(database=":memory:")
 
     User.configure(primary_config, SQLiteBackend)
@@ -184,31 +190,25 @@ def demonstrate_separate_backends() -> None:
     UserAnalytics.backend().execute(_USERS_DDL, options=_DDL_OPTS)
 
     # Write via the writable model
-    User(
-        name="Alice",
-        email="alice@example.com",
-        created_at=datetime.now().isoformat(),
-        signup_days_ago=10
-    ).save()
+    User(name="Alice", email="alice@example.com", created_at=datetime.now().isoformat(), signup_days_ago=10).save()
 
     # Simulate replication by inserting the same row directly into the replica
     UserAnalytics.backend().execute(
-        "INSERT INTO users (name, email, created_at, signup_days_ago) "
-        "VALUES (?, ?, ?, ?)",
-        ("Alice", "alice@replica.com",
-         datetime.now().isoformat(), 10),
+        "INSERT INTO users (name, email, created_at, signup_days_ago) VALUES (?, ?, ?, ?)",
+        ("Alice", "alice@replica.com", datetime.now().isoformat(), 10),
         options=_DML_OPTS,
     )
 
-    primary_rows  = User.query().all()
-    replica_rows  = UserAnalytics.query().all()
+    primary_rows = User.query().all()
+    replica_rows = UserAnalytics.query().all()
 
     print(f"\nPrimary DB  (User)         : {[r.name for r in primary_rows]}")
     print(f"Replica DB  (UserAnalytics): {[r.name for r in replica_rows]}")
 
-    assert User.__backend__ is not UserAnalytics.__backend__, \
+    assert User.__backend__ is not UserAnalytics.__backend__, (
         "Writable and read-only models must have separate backends"
-    assert len(primary_rows)  == 1
+    )
+    assert len(primary_rows) == 1
     assert len(replica_rows) == 1
 
     print("\n✓ Writable and read-only models use fully separate backends.")
@@ -217,6 +217,7 @@ def demonstrate_separate_backends() -> None:
 # ---------------------------------------------------------------------------
 # Demo 3: derived / computed fields via @property
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_computed_fields() -> None:
     """@property fields compute metrics in Python without any schema change."""
@@ -228,15 +229,14 @@ def demonstrate_computed_fields() -> None:
     # Re-use the analytics backend from Demo 2
     # Insert test records with different signup ages
     test_users = [
-        ("Brand-New",  "new@example.com",      5),
-        ("Regular",    "regular@example.com", 180),
-        ("Veteran",    "veteran@example.com",  500),
+        ("Brand-New", "new@example.com", 5),
+        ("Regular", "regular@example.com", 180),
+        ("Veteran", "veteran@example.com", 500),
     ]
     for name, email, days in test_users:
         # Use direct SQL to avoid ReadOnlyMixin blocking save()
         UserAnalytics.backend().execute(
-            "INSERT INTO users (name, email, created_at, signup_days_ago) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO users (name, email, created_at, signup_days_ago) VALUES (?, ?, ?, ?)",
             (name, email, (datetime.now() - timedelta(days=days)).isoformat(), days),
             options=_DML_OPTS,
         )
@@ -249,8 +249,7 @@ def demonstrate_computed_fields() -> None:
     print(f"\n{'Name':<15} {'signup_days_ago':>16} {'is_new_user':>12} {'tier':>10}")
     print("-" * 60)
     for row in rows:
-        print(f"{row.name:<15} {row.signup_days_ago or 0:>16} "
-              f"{str(row.is_new_user):>12} {row.tier:>10}")
+        print(f"{row.name:<15} {row.signup_days_ago or 0:>16} {str(row.is_new_user):>12} {row.tier:>10}")
 
     by_name = {r.name: r for r in rows}
     assert by_name["Brand-New"].is_new_user is True
@@ -267,6 +266,7 @@ def demonstrate_computed_fields() -> None:
 # Demo 4: shared field Mixin keeps definitions DRY
 # ---------------------------------------------------------------------------
 
+
 def demonstrate_shared_fields() -> None:
     """Both User and UserAnalytics have the same fields from UserFields."""
 
@@ -274,18 +274,17 @@ def demonstrate_shared_fields() -> None:
     print("DEMO 4 — Shared field Mixin (DRY field definitions)")
     print("=" * 60)
 
-    user_fields     = list(User.model_fields.keys())
+    user_fields = list(User.model_fields.keys())
     analytics_fields = list(UserAnalytics.model_fields.keys())
 
     print(f"\nUser fields          : {user_fields}")
     print(f"UserAnalytics fields : {analytics_fields}")
 
-    assert user_fields == analytics_fields, \
-        "Both models must expose the same set of stored fields"
+    assert user_fields == analytics_fields, "Both models must expose the same set of stored fields"
 
     # @property fields are NOT in model_fields (they are not stored)
     assert "is_new_user" not in UserAnalytics.model_fields
-    assert "tier"        not in UserAnalytics.model_fields
+    assert "tier" not in UserAnalytics.model_fields
     assert hasattr(UserAnalytics, "is_new_user")
     assert hasattr(UserAnalytics, "tier")
 

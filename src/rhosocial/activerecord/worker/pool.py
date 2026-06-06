@@ -28,6 +28,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 # Resource monitoring support
 try:
     import resource
+
     _HAS_RESOURCE = True
 except ImportError:
     _HAS_RESOURCE = False  # Windows doesn't have resource module
@@ -53,31 +54,36 @@ _STOP = "<<STOP>>"  # Worker exit sentinel (via mp.Queue, must be pickle-able)
 
 # ── Enums ────────────────────────────────────────────────────────────────────
 
+
 class PoolState(Enum):
     """Pool state machine for shutdown flow."""
-    RUNNING = auto()   # Normal operation, accepting tasks
+
+    RUNNING = auto()  # Normal operation, accepting tasks
     DRAINING = auto()  # Rejecting new tasks, waiting for in-flight tasks (STOP sentinels sent)
     STOPPING = auto()  # graceful_timeout expired, SIGTERM sent
-    KILLING = auto()   # term_timeout expired, sending SIGKILL
-    STOPPED = auto()   # All workers terminated
+    KILLING = auto()  # term_timeout expired, sending SIGKILL
+    STOPPED = auto()  # All workers terminated
 
 
 class StopSignal(Enum):
     """Worker stop signal levels (from gentle to forced)."""
-    SENTINEL = auto()   # STOP sentinel (queue-level): Worker exits after completing current task
+
+    SENTINEL = auto()  # STOP sentinel (queue-level): Worker exits after completing current task
     TERMINATE = auto()  # SIGTERM: Python default is immediate exit
-    KILL = auto()       # SIGKILL: Cannot be caught, immediate termination
+    KILL = auto()  # SIGKILL: Cannot be caught, immediate termination
 
 
 class WorkerEvent(Enum):
     """Worker lifecycle events for hook registration."""
+
     WORKER_START = auto()  # Worker process startup
-    WORKER_STOP = auto()   # Worker process shutdown
-    TASK_START = auto()    # Task execution start
-    TASK_END = auto()      # Task execution end (success or failure)
+    WORKER_STOP = auto()  # Worker process shutdown
+    TASK_START = auto()  # Task execution start
+    TASK_END = auto()  # Task execution end (success or failure)
 
 
 # ── Statistics ────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class PoolStats:
@@ -87,33 +93,35 @@ class PoolStats:
     All statistics are point-in-time snapshots and may be stale immediately
     after retrieval in a busy pool.
     """
+
     # Worker statistics
-    total_workers: int = 0           # Configured number of workers
-    alive_workers: int = 0           # Currently alive workers
-    worker_restarts: int = 0         # Worker restart count (after crash recovery)
-    worker_crashes: int = 0          # Worker crash count (unexpected termination)
+    total_workers: int = 0  # Configured number of workers
+    alive_workers: int = 0  # Currently alive workers
+    worker_restarts: int = 0  # Worker restart count (after crash recovery)
+    worker_crashes: int = 0  # Worker crash count (unexpected termination)
 
     # Task statistics
-    tasks_submitted: int = 0         # Total tasks submitted
-    tasks_completed: int = 0         # Successfully completed tasks
-    tasks_failed: int = 0            # Failed tasks (exception thrown)
-    tasks_orphaned: int = 0          # Orphaned tasks (lost due to worker crash)
+    tasks_submitted: int = 0  # Total tasks submitted
+    tasks_completed: int = 0  # Successfully completed tasks
+    tasks_failed: int = 0  # Failed tasks (exception thrown)
+    tasks_orphaned: int = 0  # Orphaned tasks (lost due to worker crash)
 
     # Queue statistics
-    tasks_pending: int = 0           # Tasks waiting in queue
-    tasks_in_flight: int = 0         # Tasks currently executing
+    tasks_pending: int = 0  # Tasks waiting in queue
+    tasks_in_flight: int = 0  # Tasks currently executing
 
     # Time statistics
-    uptime: float = 0.0              # Pool uptime in seconds
-    total_task_duration: float = 0.0 # Sum of all task durations
-    avg_task_duration: float = 0.0   # Average task duration
+    uptime: float = 0.0  # Pool uptime in seconds
+    total_task_duration: float = 0.0  # Sum of all task durations
+    avg_task_duration: float = 0.0  # Average task duration
 
     # Memory statistics
-    total_memory_delta: int = 0      # Total memory delta in bytes
-    avg_memory_delta_mb: float = 0.0 # Average memory delta in MB
+    total_memory_delta: int = 0  # Total memory delta in bytes
+    avg_memory_delta_mb: float = 0.0  # Average memory delta in MB
 
 
 # ── Hook Context Types ───────────────────────────────────────────────────────
+
 
 @dataclass
 class WorkerContext:
@@ -129,6 +137,7 @@ class WorkerContext:
         data: User-attached data storage (persisted across hooks and tasks)
         event_loop: Event loop instance (available in async mode)
     """
+
     worker_id: int
     pid: int
     pool_id: str
@@ -158,6 +167,7 @@ class TaskContext:
         memory_end: Memory usage at task end (bytes, RSS)
         data: User-attached data storage (task-scoped)
     """
+
     task_id: str
     worker_ctx: WorkerContext
     fn_name: str = ""
@@ -170,7 +180,7 @@ class TaskContext:
     error: Optional[Exception] = None
     # Resource monitoring
     memory_start: int = 0  # RSS in bytes at task start
-    memory_end: int = 0    # RSS in bytes at task end
+    memory_end: int = 0  # RSS in bytes at task end
     # User data storage
     data: Dict[str, Any] = field(default_factory=dict)
 
@@ -189,11 +199,7 @@ class TaskContext:
         """Memory delta in megabytes."""
         return self.memory_delta / (1024 * 1024)
 
-    def log_summary(
-        self,
-        logger: Optional[logging.Logger] = None,
-        level: int = logging.INFO
-    ) -> None:
+    def log_summary(self, logger: Optional[logging.Logger] = None, level: int = logging.INFO) -> None:
         """
         Log a summary of task execution.
 
@@ -205,11 +211,7 @@ class TaskContext:
             logger = logging.getLogger(__name__)
 
         status = "SUCCESS" if self.success else "FAILED"
-        msg = (
-            f"Task[{self.task_id[:8]}] {status} | "
-            f"fn={self.fn_name}, "
-            f"duration={self.duration:.3f}s"
-        )
+        msg = f"Task[{self.task_id[:8]}] {status} | fn={self.fn_name}, duration={self.duration:.3f}s"
         if self.memory_start > 0:
             msg += f", memory_delta={self.memory_delta_mb:+.2f}MB"
         if not self.success and self.error:
@@ -235,6 +237,7 @@ AnyTaskHook = Union[TaskHook, AsyncTaskHook, str]
 
 # ── Exceptions ───────────────────────────────────────────────────────────────
 
+
 class PoolDrainingError(RuntimeError):
     """Pool is in shutdown flow, no longer accepting new tasks."""
 
@@ -248,6 +251,7 @@ class WorkerCrashedError(RuntimeError):
 
 
 # ── WorkerHandle ─────────────────────────────────────────────────────────────
+
 
 class WorkerHandle:
     """
@@ -309,6 +313,7 @@ class WorkerHandle:
 
 
 # ── WorkerRegistry ───────────────────────────────────────────────────────────
+
 
 class WorkerRegistry:
     """
@@ -389,14 +394,16 @@ class WorkerRegistry:
 
 # ── ShutdownReport ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class ShutdownReport:
     """Return value of shutdown(), describing the shutdown process."""
-    duration: float          # Total shutdown time (seconds)
-    final_phase: str         # Phase where shutdown completed: "graceful" / "terminate" / "kill"
-    tasks_in_flight: int     # Tasks executing when shutdown started (not including queued)
-    tasks_killed: int        # Workers still holding tasks after SIGKILL (upper bound on lost tasks)
-    workers_killed: int      # Workers with exitcode == -9 (SIGKILL'd)
+
+    duration: float  # Total shutdown time (seconds)
+    final_phase: str  # Phase where shutdown completed: "graceful" / "terminate" / "kill"
+    tasks_in_flight: int  # Tasks executing when shutdown started (not including queued)
+    tasks_killed: int  # Workers still holding tasks after SIGKILL (upper bound on lost tasks)
+    workers_killed: int  # Workers with exitcode == -9 (SIGKILL'd)
 
     def __str__(self) -> str:
         return (
@@ -409,6 +416,7 @@ class ShutdownReport:
 
 
 # ── Worker Process Entry Point (must be top-level function, spawn requires pickle) ────
+
 
 def _get_memory_usage() -> int:
     """
@@ -426,7 +434,7 @@ def _get_memory_usage() -> int:
         rusage = resource.getrusage(resource.RUSAGE_SELF)
         # ru_maxrss is in kilobytes on Linux, bytes on macOS
         # We normalize to bytes
-        if hasattr(os, 'uname') and os.uname().sysname == 'Darwin':
+        if hasattr(os, "uname") and os.uname().sysname == "Darwin":
             # macOS: ru_maxrss is already in bytes
             return rusage.ru_maxrss
         else:
@@ -436,6 +444,7 @@ def _get_memory_usage() -> int:
         # Windows: try to use psutil if available, otherwise return 0
         try:
             import psutil
+
             return psutil.Process(os.getpid()).memory_info().rss
         except ImportError:
             return 0
@@ -451,14 +460,12 @@ def _import_hook(path: str) -> Callable:
     Returns:
         The imported callable function
     """
-    module_path, fn_name = path.rsplit('.', 1)
+    module_path, fn_name = path.rsplit(".", 1)
     module = importlib.import_module(module_path)
     return getattr(module, fn_name)
 
 
-def _resolve_hooks(
-    hooks: Optional[Union[AnyWorkerHook, AnyTaskHook, List, Tuple]]
-) -> List[Union[Callable, Tuple]]:
+def _resolve_hooks(hooks: Optional[Union[AnyWorkerHook, AnyTaskHook, List, Tuple]]) -> List[Union[Callable, Tuple]]:
     """
     Resolve hook specifications to a list of hooks.
 
@@ -650,8 +657,8 @@ def _worker_entry(
 
     # Enforce no mixing of sync and async hooks
     if is_async and len(sync_hooks) > 0:
-        async_names = [getattr(h, '__qualname__', str(h)) for h in async_hooks]
-        sync_names = [getattr(h, '__qualname__', str(h)) for h in sync_hooks]
+        async_names = [getattr(h, "__qualname__", str(h)) for h in async_hooks]
+        sync_names = [getattr(h, "__qualname__", str(h)) for h in sync_hooks]
         raise TypeError(
             f"Cannot mix sync and async hooks. "
             f"Async hooks: {async_names}, Sync hooks: {sync_names}. "
@@ -659,17 +666,9 @@ def _worker_entry(
         )
 
     if is_async:
-        _run_async_worker(
-            ctx, conn,
-            start_hooks, stop_hooks,
-            task_start_hooks, task_end_hooks
-        )
+        _run_async_worker(ctx, conn, start_hooks, stop_hooks, task_start_hooks, task_end_hooks)
     else:
-        _run_sync_worker(
-            ctx, conn,
-            start_hooks, stop_hooks,
-            task_start_hooks, task_end_hooks
-        )
+        _run_sync_worker(ctx, conn, start_hooks, stop_hooks, task_start_hooks, task_end_hooks)
 
 
 def _run_sync_worker(
@@ -713,7 +712,7 @@ def _run_sync_worker(
             task_ctx = TaskContext(
                 task_id=task_id,
                 worker_ctx=ctx,
-                fn_name=getattr(fn, '__qualname__', str(fn)),
+                fn_name=getattr(fn, "__qualname__", str(fn)),
                 args=args,
                 kwargs=kwargs,
                 start_time=time.monotonic(),
@@ -746,17 +745,32 @@ def _run_sync_worker(
             task_ctx.memory_end = _get_memory_usage()
 
             if exc is None:
-                conn.send((
-                    "ok", task_id, value,
-                    ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
-                    task_ctx.memory_start, task_ctx.memory_end
-                ))
+                conn.send(
+                    (
+                        "ok",
+                        task_id,
+                        value,
+                        ctx.worker_id,
+                        task_ctx.start_time,
+                        task_ctx.end_time,
+                        task_ctx.memory_start,
+                        task_ctx.memory_end,
+                    )
+                )
             else:
-                conn.send((
-                    "error", task_id, exc, tb_str,
-                    ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
-                    task_ctx.memory_start, task_ctx.memory_end
-                ))
+                conn.send(
+                    (
+                        "error",
+                        task_id,
+                        exc,
+                        tb_str,
+                        ctx.worker_id,
+                        task_ctx.start_time,
+                        task_ctx.end_time,
+                        task_ctx.memory_start,
+                        task_ctx.memory_end,
+                    )
+                )
 
             # Execute TASK_END hooks
             if task_end_hooks:
@@ -799,9 +813,7 @@ def _run_async_worker(
             while True:
                 try:
                     # Use executor to avoid blocking event loop on conn.recv
-                    msg = loop.run_until_complete(
-                        loop.run_in_executor(None, conn.recv)
-                    )
+                    msg = loop.run_until_complete(loop.run_in_executor(None, conn.recv))
                 except (EOFError, OSError):
                     break
 
@@ -817,7 +829,7 @@ def _run_async_worker(
                 task_ctx = TaskContext(
                     task_id=task_id,
                     worker_ctx=ctx,
-                    fn_name=getattr(fn, '__qualname__', str(fn)),
+                    fn_name=getattr(fn, "__qualname__", str(fn)),
                     args=args,
                     kwargs=kwargs,
                     start_time=time.monotonic(),
@@ -851,17 +863,32 @@ def _run_async_worker(
                 task_ctx.memory_end = _get_memory_usage()
 
                 if exc is None:
-                    conn.send((
-                        "ok", task_id, value,
-                        ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
-                        task_ctx.memory_start, task_ctx.memory_end
-                    ))
+                    conn.send(
+                        (
+                            "ok",
+                            task_id,
+                            value,
+                            ctx.worker_id,
+                            task_ctx.start_time,
+                            task_ctx.end_time,
+                            task_ctx.memory_start,
+                            task_ctx.memory_end,
+                        )
+                    )
                 else:
-                    conn.send((
-                        "error", task_id, exc, tb_str,
-                        ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
-                        task_ctx.memory_start, task_ctx.memory_end
-                    ))
+                    conn.send(
+                        (
+                            "error",
+                            task_id,
+                            exc,
+                            tb_str,
+                            ctx.worker_id,
+                            task_ctx.start_time,
+                            task_ctx.end_time,
+                            task_ctx.memory_start,
+                            task_ctx.memory_end,
+                        )
+                    )
 
                 # Execute TASK_END hooks
                 if task_end_hooks:
@@ -878,6 +905,7 @@ def _run_async_worker(
 
 
 # ── Future ────────────────────────────────────────────────────────────────────
+
 
 class Future:
     """
@@ -1045,6 +1073,7 @@ class Future:
 
 # ── WorkerPool ────────────────────────────────────────────────────────────────
 
+
 class WorkerPool:
     """
     Spawn-mode Resident Worker Pool with Graceful Shutdown.
@@ -1158,7 +1187,7 @@ class WorkerPool:
         # ★ Last Worker death time, triggers orphan scan (avoid false positives on busy queues)
         self._last_worker_death: float = 0.0
 
-        self._registry = WorkerRegistry()   # Independent lock, never nested with self._lock
+        self._registry = WorkerRegistry()  # Independent lock, never nested with self._lock
 
         # Hook storage: Dict[WorkerEvent, List[Tuple[name, hook]]]
         self._hooks: Dict[WorkerEvent, List[Tuple[str, Union[AnyWorkerHook, AnyTaskHook]]]] = {
@@ -1195,7 +1224,10 @@ class WorkerPool:
 
         logger.info(
             "WorkerPool initializing | pool_id=%s, n_workers=%d, check_interval=%.2fs, orphan_timeout=%.2fs",
-            self._pool_id, n_workers, check_interval, self._orphan_timeout
+            self._pool_id,
+            n_workers,
+            check_interval,
+            self._orphan_timeout,
         )
 
         # Start Worker processes
@@ -1203,13 +1235,11 @@ class WorkerPool:
             self._start_worker(wid)
 
         # Start Supervisor background thread
-        self._sv_thread = threading.Thread(
-            target=self._supervise, daemon=True, name="pool-supervisor"
-        )
+        self._sv_thread = threading.Thread(target=self._supervise, daemon=True, name="pool-supervisor")
         self._sv_thread.start()
         logger.info(
-            "WorkerPool started | %d workers started, supervisor thread active (workers will report ready after initialization)",
-            self._registry.alive_count()
+            "WorkerPool started | %d workers started, supervisor thread active (workers will report ready after initialization)",  # noqa: E501
+            self._registry.alive_count(),
         )
 
     # ── Internal: Hook Validation ────────────────────────────────────────────
@@ -1245,10 +1275,7 @@ class WorkerPool:
 
     # ── Internal: Process Management ────────────────────────────────────────
 
-    def _serialize_hooks(
-        self,
-        event: WorkerEvent
-    ) -> Optional[Union[str, List[Tuple[str, Any]]]]:
+    def _serialize_hooks(self, event: WorkerEvent) -> Optional[Union[str, List[Tuple[str, Any]]]]:
         """
         Serialize hooks for passing to Worker process.
 
@@ -1310,12 +1337,12 @@ class WorkerPool:
             name=f"worker-{wid}",
         )
         p.start()
-        handle = self._registry.add(wid, p)      # registry._lock only
+        handle = self._registry.add(wid, p)  # registry._lock only
 
         # Close child_conn in parent process (Worker owns it now)
         child_conn.close()
 
-        with self._lock:                          # self._lock only (no nesting)
+        with self._lock:  # self._lock only (no nesting)
             self._worker_pipes[wid] = (parent_conn, child_conn)
             self._worker_task_count[wid] = 0
             self._worker_task[wid] = None
@@ -1358,7 +1385,7 @@ class WorkerPool:
         not yet claimed by any Worker.
         """
         with self._lock:
-                return len(self._task_enqueue_time)
+            return len(self._task_enqueue_time)
 
     @property
     def in_flight_tasks(self) -> int:
@@ -1444,11 +1471,7 @@ class WorkerPool:
             warnings.append(f"Pool not running: {self._state.name}")
 
         dead_workers = stats.total_workers - stats.alive_workers
-        healthy = (
-            self._state == PoolState.RUNNING
-            and stats.alive_workers > 0
-            and len(warnings) == 0
-        )
+        healthy = self._state == PoolState.RUNNING and stats.alive_workers > 0 and len(warnings) == 0
 
         return {
             "healthy": healthy,
@@ -1527,10 +1550,7 @@ class WorkerPool:
             name = f"hook_{len(self._hooks[event])}"
 
         self._hooks[event].append((name, hook))
-        logger.debug(
-            "Registered hook | event=%s, name=%s, hook_type=%s",
-            event.name, name, type(hook).__name__
-        )
+        logger.debug("Registered hook | event=%s, name=%s, hook_type=%s", event.name, name, type(hook).__name__)
         return name
 
     def unregister_hook(self, event: WorkerEvent, name: str) -> bool:
@@ -1607,7 +1627,7 @@ class WorkerPool:
         Detect dead Workers, attribute failed tasks, restart processes.
         Lock safety: calls registry methods first, then acquires self._lock.
         """
-        dead_handles = self._registry.dead()    # registry._lock, not holding self._lock
+        dead_handles = self._registry.dead()  # registry._lock, not holding self._lock
 
         if not dead_handles:
             return
@@ -1617,7 +1637,7 @@ class WorkerPool:
 
             # Double-check: timeout path may have already put a new Worker in (new Worker is alive)
             # This race condition is rare and hard to trigger in tests
-            current = self._registry.get(wid)   # registry._lock (not holding self._lock)
+            current = self._registry.get(wid)  # registry._lock (not holding self._lock)
             if current and current.is_alive:
                 continue  # pragma: no cover
 
@@ -1634,7 +1654,7 @@ class WorkerPool:
                         pass  # Already closed
 
             # Attribute the task being executed
-            with self._lock:                    # self._lock (no nesting)
+            with self._lock:  # self._lock (no nesting)
                 lost_task_id = self._worker_task.pop(wid, None)
                 self._worker_start_time.pop(wid, None)
                 self._worker_ready[wid] = False  # Mark as not ready until restarted Worker reports ready
@@ -1651,7 +1671,8 @@ class WorkerPool:
             elif exitcode and exitcode < 0:
                 # Killed by signal (e.g., -9 = SIGKILL, -15 = SIGTERM)
                 import signal
-                sig_name = signal.Signals(-exitcode).name if hasattr(signal, 'Signals') else str(-exitcode)
+
+                sig_name = signal.Signals(-exitcode).name if hasattr(signal, "Signals") else str(-exitcode)
                 exit_reason = f"signal({sig_name})"
                 log_level = logging.WARNING
             else:
@@ -1662,15 +1683,17 @@ class WorkerPool:
             if lost_task_id:
                 logger.warning(
                     "Worker-%d (pid=%s) crashed while executing task %s (exit=%s)",
-                    wid, handle.pid, lost_task_id[:8], exit_reason
+                    wid,
+                    handle.pid,
+                    lost_task_id[:8],
+                    exit_reason,
                 )
                 with self._lock:
                     fut = self._futures.pop(lost_task_id, None)
                 if fut:  # pragma: no cover - Future may already be removed due to timeout
                     fut._reject(
                         WorkerCrashedError(
-                            f"Worker-{wid} (pid={handle.pid}) crashed "
-                            f"while executing task {lost_task_id!r}"
+                            f"Worker-{wid} (pid={handle.pid}) crashed while executing task {lost_task_id!r}"
                         ),
                         tb=f"Worker process terminated unexpectedly (exit={exit_reason})",
                     )
@@ -1680,7 +1703,9 @@ class WorkerPool:
                 logger.log(
                     log_level,
                     "Worker-%d (pid=%s) exited (exit=%s), no task was in progress",
-                    wid, handle.pid, exit_reason
+                    wid,
+                    handle.pid,
+                    exit_reason,
                 )
                 # Count as crash only if non-normal exit
                 if exitcode != 0:
@@ -1692,16 +1717,10 @@ class WorkerPool:
                 new_handle = self._start_worker(wid)
                 with self._stats_lock:
                     self._worker_restarts += 1
-                logger.info(
-                    "Worker-%d restarted (old_pid=%s, new_pid=%s)",
-                    wid, handle.pid, new_handle.pid
-                )
+                logger.info("Worker-%d restarted (old_pid=%s, new_pid=%s)", wid, handle.pid, new_handle.pid)
             else:
                 # During shutdown: don't restart, just clean registry
-                logger.debug(
-                    "Worker-%d removed from registry (pool state=%s)",
-                    wid, self._state.name
-                )
+                logger.debug("Worker-%d removed from registry (pool state=%s)", wid, self._state.name)
                 self._registry.remove(wid, signal=StopSignal.SENTINEL)
 
     # ── Internal: Supervisor Thread ─────────────────────────────────────────
@@ -1730,10 +1749,7 @@ class WorkerPool:
         """
         # Get all parent connections
         with self._lock:
-            parent_conns = {
-                wid: pipe[0]
-                for wid, pipe in self._worker_pipes.items()
-            }
+            parent_conns = {wid: pipe[0] for wid, pipe in self._worker_pipes.items()}
 
         if not parent_conns:
             time.sleep(0.05)  # No workers, brief sleep to avoid busy-wait
@@ -1741,7 +1757,7 @@ class WorkerPool:
 
         if sys.platform == "win32":
             # Windows: poll each connection
-            for wid, conn in parent_conns.items():
+            for _wid, conn in parent_conns.items():
                 try:
                     if conn.poll(0):  # Non-blocking check
                         msg = conn.recv()
@@ -1752,9 +1768,7 @@ class WorkerPool:
         else:
             # Unix: use select for multiplexed I/O
             try:
-                readable, _, _ = select.select(
-                    list(parent_conns.values()), [], [], 0.05
-                )
+                readable, _, _ = select.select(list(parent_conns.values()), [], [], 0.05)
                 for conn in readable:
                     try:
                         msg = conn.recv()
@@ -1776,19 +1790,13 @@ class WorkerPool:
             _, wid, pid = msg
             with self._lock:
                 self._worker_ready[wid] = True
-            logger.info(
-                "Worker-%d ready (pid=%d) | hooks initialized successfully",
-                wid, pid
-            )
+            logger.info("Worker-%d ready (pid=%d) | hooks initialized successfully", wid, pid)
             return
 
         if kind == "__worker_init_failed__":
             # Worker initialization failed (WORKER_START hook threw exception)
             _, wid, error, tb = msg
-            logger.error(
-                "Worker-%d initialization failed | error=%s\n%s",
-                wid, error, tb
-            )
+            logger.error("Worker-%d initialization failed | error=%s\n%s", wid, error, tb)
             # Worker will not start, no need to track it
             # _check_workers will detect it as dead and may attempt restart
             return
@@ -1803,10 +1811,7 @@ class WorkerPool:
                 self._task_enqueue_time.pop(task_id, None)  # No longer orphan-able
             handle = self._registry.get(wid)
             pid = handle.pid if handle else None
-            logger.debug(
-                "Task[%s] dequeued | Worker-%d (pid=%s)",
-                task_id[:8], wid, pid
-            )
+            logger.debug("Task[%s] dequeued | Worker-%d (pid=%s)", task_id[:8], wid, pid)
 
         elif kind == "__started__":
             # Execution actually begins, record start time for timeout tracking.
@@ -1816,10 +1821,7 @@ class WorkerPool:
                 self._worker_start_time[wid] = time.monotonic()
             handle = self._registry.get(wid)
             pid = handle.pid if handle else None
-            logger.debug(
-                "Task[%s] started | Worker-%d (pid=%s)",
-                task_id[:8], wid, pid
-            )
+            logger.debug("Task[%s] started | Worker-%d (pid=%s)", task_id[:8], wid, pid)
 
         elif kind == "ok":
             _, task_id, value, worker_id, start_time, end_time, memory_start, memory_end = msg
@@ -1838,8 +1840,7 @@ class WorkerPool:
                     self._total_task_duration += duration
                     self._total_memory_delta += memory_delta
                 logger.debug(
-                    "Task[%s] completed | Worker-%d (pid=%s) | duration=%.3fs",
-                    task_id[:8], worker_id, pid, duration
+                    "Task[%s] completed | Worker-%d (pid=%s) | duration=%.3fs", task_id[:8], worker_id, pid, duration
                 )
 
         elif kind == "error":
@@ -1856,7 +1857,11 @@ class WorkerPool:
                     self._tasks_failed += 1
                 logger.warning(
                     "Task[%s] failed | Worker-%d (pid=%s) | error=%s: %s",
-                    task_id[:8], worker_id, pid, type(exc).__name__, exc
+                    task_id[:8],
+                    worker_id,
+                    pid,
+                    type(exc).__name__,
+                    exc,
                 )
 
     def _find_worker_by_task(self, task_id: str) -> Optional[int]:
@@ -1915,9 +1920,7 @@ class WorkerPool:
 
         # Collect claimed task IDs (set by __dequeued__)
         with self._lock:
-            claimed = set(
-                tid for tid in self._worker_task.values() if tid is not None
-            )
+            claimed = set(tid for tid in self._worker_task.values() if tid is not None)
 
             # Find orphaned tasks
             orphans = []
@@ -1934,14 +1937,13 @@ class WorkerPool:
                 fut = self._futures.pop(task_id, None)
             if fut:
                 logger.warning(
-                    "Task[%s] orphaned (enqueued %.1fs ago, never claimed) | "
-                    "No ready workers available",
-                    task_id[:8], wait_time
+                    "Task[%s] orphaned (enqueued %.1fs ago, never claimed) | No ready workers available",
+                    task_id[:8],
+                    wait_time,
                 )
                 fut._reject(
                     WorkerCrashedError(
-                        f"Task {task_id!r} was orphaned - no ready workers available "
-                        f"after {wait_time:.1f}s"
+                        f"Task {task_id!r} was orphaned - no ready workers available after {wait_time:.1f}s"
                     ),
                     tb="Worker process terminated during task dispatch",
                 )
@@ -1970,8 +1972,7 @@ class WorkerPool:
         """
         if self._state != PoolState.RUNNING:
             raise PoolDrainingError(
-                f"Pool is {self._state.name} — no new tasks accepted. "
-                f"shutdown() was already called."
+                f"Pool is {self._state.name} — no new tasks accepted. shutdown() was already called."
             )
 
         # Wait for at least one Worker to be ready (with timeout)
@@ -1979,21 +1980,16 @@ class WorkerPool:
         start_wait = time.monotonic()
         while True:
             with self._lock:
-                wid = self._scheduler.select_worker(
-                    self._worker_task_count, self._worker_ready
-                )
+                wid = self._scheduler.select_worker(self._worker_task_count, self._worker_ready)
                 if wid is not None:
                     break
             # Check pool state
             if self._state != PoolState.RUNNING:
-                raise PoolDrainingError(
-                    f"Pool is {self._state.name} — no new tasks accepted."
-                )
+                raise PoolDrainingError(f"Pool is {self._state.name} — no new tasks accepted.")
             # Check timeout
             if time.monotonic() - start_wait > max_wait:
                 raise RuntimeError(
-                    f"No ready workers available after {max_wait}s. "
-                    f"Workers may have failed to initialize."
+                    f"No ready workers available after {max_wait}s. Workers may have failed to initialize."
                 )
             time.sleep(0.01)  # Brief sleep before retry
 
@@ -2083,7 +2079,7 @@ class WorkerPool:
         # Send STOP sentinel to all Worker Pipes
         # Each Worker reads sentinel after completing current task and exits voluntarily.
         with self._lock:
-            for wid, (parent_conn, _) in self._worker_pipes.items():
+            for _wid, (parent_conn, _) in self._worker_pipes.items():
                 try:
                     parent_conn.send(_STOP)
                 except (EOFError, OSError, ConnectionError):
@@ -2092,15 +2088,15 @@ class WorkerPool:
 
         logger.info(
             "Shutdown initiated | DRAINING (graceful_timeout=%.1fs, in_flight=%d)",
-            graceful_timeout, tasks_in_flight,
+            graceful_timeout,
+            tasks_in_flight,
         )
 
         deadline = time.monotonic() + graceful_timeout
         while time.monotonic() < deadline:
             if self._registry.alive_count() == 0:
                 logger.info(
-                    "DRAINING complete | all workers exited gracefully (duration=%.2fs)",
-                    time.monotonic() - start_time
+                    "DRAINING complete | all workers exited gracefully (duration=%.2fs)", time.monotonic() - start_time
                 )
                 break
             time.sleep(0.1)
@@ -2122,7 +2118,7 @@ class WorkerPool:
                 if self._registry.alive_count() == 0:
                     logger.info(
                         "STOPPING complete | all workers terminated via SIGTERM (duration=%.2fs)",
-                        time.monotonic() - start_time
+                        time.monotonic() - start_time,
                     )
                     break
                 time.sleep(0.1)
@@ -2183,15 +2179,9 @@ class WorkerPool:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._state == PoolState.RUNNING:
             if exc_type is not None:
-                logger.info(
-                    "WorkerPool context exiting with exception | %s: %s",
-                    exc_type.__name__, exc_val
-                )
+                logger.info("WorkerPool context exiting with exception | %s: %s", exc_type.__name__, exc_val)
             else:
                 logger.debug("WorkerPool context exiting normally")
             self.shutdown()
         else:
-            logger.debug(
-                "WorkerPool context exit | shutdown already in progress (state=%s)",
-                self._state.name
-            )
+            logger.debug("WorkerPool context exit | shutdown already in progress (state=%s)", self._state.name)

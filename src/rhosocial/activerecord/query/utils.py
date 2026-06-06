@@ -41,12 +41,12 @@ def convert_qmark_placeholder(dialect: "SQLDialectBase", sql: str) -> str:
         i = 0
         length = len(sql)
         while i < length:
-            if sql[i] == '\\' and i + 1 < length:
-                if sql[i + 1] == '\\':
-                    result.append('\\')
+            if sql[i] == "\\" and i + 1 < length:
+                if sql[i + 1] == "\\":
+                    result.append("\\")
                     i += 2
-                elif sql[i + 1] == '?':
-                    result.append('?')
+                elif sql[i + 1] == "?":
+                    result.append("?")
                     i += 2
                 else:
                     result.append(sql[i])
@@ -54,30 +54,30 @@ def convert_qmark_placeholder(dialect: "SQLDialectBase", sql: str) -> str:
             else:
                 result.append(sql[i])
                 i += 1
-        return ''.join(result)
+        return "".join(result)
 
     result = []
     i = 0
     length = len(sql)
     while i < length:
-        if sql[i] == '\\' and i + 1 < length:
-            if sql[i + 1] == '\\':
+        if sql[i] == "\\" and i + 1 < length:
+            if sql[i + 1] == "\\":
                 # \\ → preserve literal \
-                result.append('\\')
+                result.append("\\")
                 i += 2
-            elif sql[i + 1] == '?':
+            elif sql[i + 1] == "?":
                 # \? → preserve literal ?
-                result.append('?')
+                result.append("?")
                 i += 2
             else:
                 # \x where x is not ? or \ → preserve as-is
                 result.append(sql[i])
                 i += 1
-        elif sql[i] == '?':
+        elif sql[i] == "?":
             # Unescaped ? → replace with dialect placeholder
             result.append(placeholder)
             i += 1
         else:
             result.append(sql[i])
             i += 1
-    return ''.join(result)
+    return "".join(result)

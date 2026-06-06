@@ -8,11 +8,11 @@ Basic transaction control using transaction manager.
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
@@ -21,27 +21,35 @@ from rhosocial.activerecord.backend.expression import (
     TableExpression,
     WhereClause,
 )
-from rhosocial.activerecord.backend.expression.core import Literal, Column
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
 )
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
+from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name='accounts',
+    table_name="accounts",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-        ]),
-        ColumnDefinition('name', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ]),
-        ColumnDefinition('balance', 'REAL'),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+            ],
+        ),
+        ColumnDefinition(
+            "name",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+            ],
+        ),
+        ColumnDefinition("balance", "REAL"),
     ],
     if_not_exists=True,
 )
@@ -51,11 +59,14 @@ backend.execute(sql, params)
 
 insert = InsertExpression(
     dialect=dialect,
-    into='accounts',
-    columns=['name', 'balance'],
-    source=ValuesSource(dialect, [
-        [Literal(dialect, 'Alice'), Literal(dialect, 100)],
-    ]),
+    into="accounts",
+    columns=["name", "balance"],
+    source=ValuesSource(
+        dialect,
+        [
+            [Literal(dialect, "Alice"), Literal(dialect, 100)],
+        ],
+    ),
 )
 sql, params = insert.to_sql()
 print(f"Insert SQL: {sql}")
@@ -74,12 +85,15 @@ dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 with backend.transaction():
     update_expr = UpdateExpression(
         dialect=dialect,
-        table='accounts',
-        assignments={'balance': Literal(dialect, 50)},
+        table="accounts",
+        assignments={"balance": Literal(dialect, 50)},
         where=WhereClause(
             dialect,
             condition=ComparisonPredicate(
-                dialect, '=', Column(dialect, 'name'), Literal(dialect, 'Alice'),
+                dialect,
+                "=",
+                Column(dialect, "name"),
+                Literal(dialect, "Alice"),
             ),
         ),
     )
@@ -89,12 +103,15 @@ with backend.transaction():
 # Verify
 query = QueryExpression(
     dialect=dialect,
-    select=[Column(dialect, 'balance')],
-    from_=TableExpression(dialect, 'accounts'),
+    select=[Column(dialect, "balance")],
+    from_=TableExpression(dialect, "accounts"),
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
-            dialect, '=', Column(dialect, 'name'), Literal(dialect, 'Alice'),
+            dialect,
+            "=",
+            Column(dialect, "name"),
+            Literal(dialect, "Alice"),
         ),
     ),
 )

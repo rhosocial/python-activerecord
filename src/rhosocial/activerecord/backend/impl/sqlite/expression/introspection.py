@@ -9,7 +9,6 @@ ColumnInfoExpression with SQLite-specific parameters.
 from typing import Optional, TYPE_CHECKING
 
 from ....expression.introspection import ColumnInfoExpression
-from ....expression.bases import SQLQueryAndParams
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase

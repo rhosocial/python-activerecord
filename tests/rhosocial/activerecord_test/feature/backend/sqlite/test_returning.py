@@ -1,5 +1,4 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/test_returning.py
-import sys
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -13,11 +12,12 @@ from rhosocial.activerecord.backend.expression import ReturningClause, Column, L
 
 # --- Unit tests for ReturningClauseMixin ---
 
-class TestReturningClauseMixin:
 
+class TestReturningClauseMixin:
     @pytest.fixture
     def mixin_instance(self):
         """Creates an instance of a class that uses ReturningClauseMixin for testing."""
+
         class TestClass(ReturningClauseMixin):
             def __init__(self):
                 self.dialect = DummyDialect()
@@ -64,7 +64,7 @@ class TestReturningClauseMixin:
     def test_prepare_returning_clause(self, mixin_instance):
         sql = "INSERT INTO users (name) VALUES ('test')"
         returning_clause = ReturningClause(mixin_instance.dialect, expressions=[Column(mixin_instance.dialect, "id")])
-        returning_clause.to_sql = MagicMock(return_value=("RETURNING \"id\"", ()))
+        returning_clause.to_sql = MagicMock(return_value=('RETURNING "id"', ()))
         new_sql = mixin_instance._prepare_returning_clause(sql, returning_clause, StatementType.INSERT)
         assert new_sql == "INSERT INTO users (name) VALUES ('test') RETURNING \"id\""
 
@@ -74,8 +74,8 @@ class TestReturningClauseMixin:
         assert new_sql == sql
 
 
-
 # --- Integration tests for SQLite RETURNING functionality ---
+
 
 @pytest.fixture
 def backend():
@@ -90,13 +90,13 @@ def backend():
             email TEXT
         )
         """,
-        options=ExecutionOptions(stmt_type=StatementType.DDL)
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
     )
     yield backend
     backend.disconnect()
 
 
-@patch('sqlite3.sqlite_version_info', (3, 35, 0))
+@patch("sqlite3.sqlite_version_info", (3, 35, 0))
 def test_returning_with_insert(backend):
     """Tests INSERT with RETURNING on a supported version."""
     sql = "INSERT INTO users (name, email) VALUES (?, ?) RETURNING id, name"
@@ -109,13 +109,17 @@ def test_returning_with_insert(backend):
     # The important thing is that data is returned
     assert result.data is not None
     assert len(result.data) == 1
-    assert result.data[0]['id'] == 1
-    assert result.data[0]['name'] == 'Alice'
+    assert result.data[0]["id"] == 1
+    assert result.data[0]["name"] == "Alice"
 
-@patch('sqlite3.sqlite_version_info', (3, 35, 0))
+
+@patch("sqlite3.sqlite_version_info", (3, 35, 0))
 def test_returning_with_update(backend):
     """Tests UPDATE with RETURNING on a supported version."""
-    backend.execute("INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com')", options=ExecutionOptions(stmt_type=StatementType.DML))
+    backend.execute(
+        "INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com')",
+        options=ExecutionOptions(stmt_type=StatementType.DML),
+    )
 
     sql = "UPDATE users SET email = ? WHERE name = ? RETURNING id, email"
     params = ("bob_new@example.com", "Bob")
@@ -127,14 +131,17 @@ def test_returning_with_update(backend):
     # The important thing is that data is returned
     assert result.data is not None
     assert len(result.data) == 1
-    assert result.data[0]['id'] == 1
-    assert result.data[0]['email'] == 'bob_new@example.com'
+    assert result.data[0]["id"] == 1
+    assert result.data[0]["email"] == "bob_new@example.com"
 
 
-@patch('sqlite3.sqlite_version_info', (3, 35, 0))
+@patch("sqlite3.sqlite_version_info", (3, 35, 0))
 def test_returning_with_delete(backend):
     """Tests DELETE with RETURNING on a supported version."""
-    backend.execute("INSERT INTO users (name, email) VALUES ('Charlie', 'charlie@example.com')", options=ExecutionOptions(stmt_type=StatementType.DML))
+    backend.execute(
+        "INSERT INTO users (name, email) VALUES ('Charlie', 'charlie@example.com')",
+        options=ExecutionOptions(stmt_type=StatementType.DML),
+    )
 
     sql = "DELETE FROM users WHERE name = ? RETURNING id, name"
     params = ("Charlie",)
@@ -146,7 +153,5 @@ def test_returning_with_delete(backend):
     # The important thing is that data is returned
     assert result.data is not None
     assert len(result.data) == 1
-    assert result.data[0]['id'] == 1
-    assert result.data[0]['name'] == 'Charlie'
-
-
+    assert result.data[0]["id"] == 1
+    assert result.data[0]["name"] == "Charlie"

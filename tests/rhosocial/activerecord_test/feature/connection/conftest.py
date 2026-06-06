@@ -8,7 +8,7 @@ and session-aware connection pool classes with SQLite backends.
 
 import os
 import tempfile
-from typing import Generator, Type, Optional, Dict, Any
+from typing import Generator, Type, Optional
 
 import pytest
 
@@ -29,7 +29,8 @@ from rhosocial.activerecord.backend.schema import StatementType
 # Define test model classes
 class User(IntegerPKMixin, ActiveRecord):
     """Test User model."""
-    __table_name__ = 'users'
+
+    __table_name__ = "users"
 
     id: Optional[int] = None
     name: str
@@ -38,7 +39,8 @@ class User(IntegerPKMixin, ActiveRecord):
 
 class Post(IntegerPKMixin, ActiveRecord):
     """Test Post model."""
-    __table_name__ = 'posts'
+
+    __table_name__ = "posts"
 
     id: Optional[int] = None
     title: str
@@ -47,7 +49,8 @@ class Post(IntegerPKMixin, ActiveRecord):
 
 class Comment(IntegerPKMixin, ActiveRecord):
     """Test Comment model."""
-    __table_name__ = 'comments'
+
+    __table_name__ = "comments"
 
     id: Optional[int] = None
     content: str
@@ -56,7 +59,8 @@ class Comment(IntegerPKMixin, ActiveRecord):
 
 class AsyncUser(IntegerPKMixin, AsyncActiveRecord):
     """Test Async User model."""
-    __table_name__ = 'users'
+
+    __table_name__ = "users"
 
     id: Optional[int] = None
     name: str
@@ -65,7 +69,8 @@ class AsyncUser(IntegerPKMixin, AsyncActiveRecord):
 
 class AsyncPost(IntegerPKMixin, AsyncActiveRecord):
     """Test Async Post model."""
-    __table_name__ = 'posts'
+
+    __table_name__ = "posts"
 
     id: Optional[int] = None
     title: str
@@ -120,8 +125,9 @@ def async_backend_class() -> Type[AsyncSQLiteBackend]:
 
 
 @pytest.fixture
-def configured_backend(sqlite_config: SQLiteConnectionConfig,
-                       backend_class: Type[SQLiteBackend]) -> Generator[SQLiteBackend, None, None]:
+def configured_backend(
+    sqlite_config: SQLiteConnectionConfig, backend_class: Type[SQLiteBackend]
+) -> Generator[SQLiteBackend, None, None]:
     """Create and connect a backend for tests that need pre-configured backends."""
     backend = backend_class(**sqlite_config.model_dump())
     backend.connect()
@@ -153,6 +159,7 @@ def configured_backend(sqlite_config: SQLiteConnectionConfig,
 # ============================================================
 # Shared Database Path for Context Awareness Tests
 # ============================================================
+
 
 @pytest.fixture(scope="session")
 def shared_sqlite_db_path() -> Generator[str, None, None]:
@@ -194,9 +201,11 @@ def cleanup_shared_db_tables(shared_sqlite_db_path: str):
     try:
         backend.connect()
         # Clean up any leftover tables from previous tests
-        for table_name in ['ctx_test_users', 'async_ctx_test_users', 'pool_users', 'pool_posts']:
+        for table_name in ["ctx_test_users", "async_ctx_test_users", "pool_users", "pool_posts"]:
             try:
-                backend.execute(f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL))
+                backend.execute(
+                    f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL)
+                )
             except Exception:
                 pass
     finally:
@@ -206,6 +215,7 @@ def cleanup_shared_db_tables(shared_sqlite_db_path: str):
 # ============================================================
 # Session-Aware Connection Pool Fixtures
 # ============================================================
+
 
 @pytest.fixture
 def pool_config(sqlite_config: SQLiteConnectionConfig) -> PoolConfig:
@@ -217,9 +227,9 @@ def pool_config(sqlite_config: SQLiteConnectionConfig) -> PoolConfig:
         validate_on_borrow=True,
         validation_query="SELECT 1",
         backend_config={
-            'type': 'sqlite',
-            'database': sqlite_config.database,
-        }
+            "type": "sqlite",
+            "database": sqlite_config.database,
+        },
     )
 
 
@@ -241,9 +251,9 @@ def async_pool_config(sqlite_config: SQLiteConnectionConfig) -> PoolConfig:
         validate_on_borrow=True,
         validation_query="SELECT 1",
         backend_config={
-            'type': 'sqlite',
-            'database': sqlite_config.database,
-        }
+            "type": "sqlite",
+            "database": sqlite_config.database,
+        },
     )
 
 
@@ -262,7 +272,8 @@ def session_aware_user_model() -> Type[ActiveRecord]:
 
     class SessionAwareUser(IntegerPKMixin, SessionAwareMixin, ActiveRecord):
         """Session-aware User model for pool testing."""
-        __table_name__ = 'pool_users'
+
+        __table_name__ = "pool_users"
 
         id: Optional[int] = None
         name: str
@@ -278,7 +289,8 @@ def session_aware_post_model() -> Type[ActiveRecord]:
 
     class SessionAwarePost(IntegerPKMixin, SessionAwareMixin, ActiveRecord):
         """Session-aware Post model for pool testing."""
-        __table_name__ = 'pool_posts'
+
+        __table_name__ = "pool_posts"
 
         id: Optional[int] = None
         title: str
@@ -294,7 +306,8 @@ async def async_session_aware_user_model() -> Type[AsyncActiveRecord]:
 
     class AsyncSessionAwareUser(IntegerPKMixin, AsyncSessionAwareMixin, AsyncActiveRecord):
         """Async session-aware User model for pool testing."""
-        __table_name__ = 'pool_users'
+
+        __table_name__ = "pool_users"
 
         id: Optional[int] = None
         name: str

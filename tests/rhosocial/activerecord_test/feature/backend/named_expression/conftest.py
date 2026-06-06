@@ -4,6 +4,7 @@ Test fixtures for named query tests.
 
 This module provides fixtures for testing named query functionality.
 """
+
 import types
 from unittest.mock import MagicMock
 import pytest
@@ -14,9 +15,7 @@ def mock_dialect():
     """Create a mock dialect for testing."""
     dialect = MagicMock()
     dialect._prepare_value = MagicMock(side_effect=lambda v: v)
-    dialect._format_value = MagicMock(
-        side_effect=lambda v: f"'{v}'" if isinstance(v, str) else str(v)
-    )
+    dialect._format_value = MagicMock(side_effect=lambda v: f"'{v}'" if isinstance(v, str) else str(v))
     return dialect
 
 

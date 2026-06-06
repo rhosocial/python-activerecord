@@ -5,11 +5,11 @@ Connection pool configuration module.
 Provides PoolConfig dataclass for configuring connection pool parameters.
 """
 
-import logging
 from dataclasses import dataclass, field
 from typing import Callable, Literal, Optional, Any, Dict
 
 from rhosocial.activerecord.logging import get_logger as _get_framework_logger
+
 logger = _get_framework_logger("rhosocial.activerecord.connection.pool.config")
 
 # Connection mode type: auto-detect, persistent (long-lived), or transient (short-lived)
@@ -126,8 +126,7 @@ class PoolConfig:
         # Validate connection_mode
         if self.connection_mode not in ("auto", "persistent", "transient"):
             raise ValueError(
-                f"connection_mode must be 'auto', 'persistent', or 'transient', "
-                f"got {self.connection_mode!r}"
+                f"connection_mode must be 'auto', 'persistent', or 'transient', got {self.connection_mode!r}"
             )
 
         # Validate validation_query logic
@@ -139,9 +138,7 @@ class PoolConfig:
                     "validation_query or disable validation."
                 )
         elif not isinstance(self.validation_query, str):
-            raise TypeError(
-                f"validation_query must be str, got {type(self.validation_query).__name__}"
-            )
+            raise TypeError(f"validation_query must be str, got {type(self.validation_query).__name__}")
 
         # Warn if auto_connect/auto_disconnect set in persistent mode
         if self.connection_mode == "persistent":
@@ -152,7 +149,7 @@ class PoolConfig:
                     "Connections stay connected across acquire/release in persistent mode."
                 )
 
-    def clone(self, **updates) -> 'PoolConfig':
+    def clone(self, **updates) -> "PoolConfig":
         """Create a copy with optional field updates.
 
         Args:
@@ -162,20 +159,20 @@ class PoolConfig:
             New PoolConfig instance
         """
         config_dict = {
-            'min_size': self.min_size,
-            'max_size': self.max_size,
-            'timeout': self.timeout,
-            'idle_timeout': self.idle_timeout,
-            'max_lifetime': self.max_lifetime,
-            'close_timeout': self.close_timeout,
-            'validate_on_borrow': self.validate_on_borrow,
-            'validate_on_return': self.validate_on_return,
-            'validation_query': self.validation_query,
-            'connection_mode': self.connection_mode,
-            'auto_connect_on_acquire': self.auto_connect_on_acquire,
-            'auto_disconnect_on_release': self.auto_disconnect_on_release,
-            'backend_factory': self.backend_factory,
-            'backend_config': self.backend_config.copy(),
+            "min_size": self.min_size,
+            "max_size": self.max_size,
+            "timeout": self.timeout,
+            "idle_timeout": self.idle_timeout,
+            "max_lifetime": self.max_lifetime,
+            "close_timeout": self.close_timeout,
+            "validate_on_borrow": self.validate_on_borrow,
+            "validate_on_return": self.validate_on_return,
+            "validation_query": self.validation_query,
+            "connection_mode": self.connection_mode,
+            "auto_connect_on_acquire": self.auto_connect_on_acquire,
+            "auto_disconnect_on_release": self.auto_disconnect_on_release,
+            "backend_factory": self.backend_factory,
+            "backend_config": self.backend_config.copy(),
         }
         config_dict.update(updates)
         return PoolConfig(**config_dict)

@@ -7,11 +7,12 @@ from rhosocial.activerecord.backend.base.hooks import ExecutionHooksMixin, Async
 
 # --- Tests for ExecutionHooksMixin ---
 
-class TestExecutionHooksMixin:
 
+class TestExecutionHooksMixin:
     @pytest.fixture
     def mixin_instance(self):
         """Creates an instance of a class that uses ExecutionHooksMixin for testing."""
+
         class TestClass(ExecutionHooksMixin):
             def __init__(self):
                 self._connection = MagicMock()
@@ -68,13 +69,15 @@ class TestExecutionHooksMixin:
         mixin_instance._handle_execution_error(error)
         mixin_instance._handle_error.assert_called_once_with(error)
 
+
 # --- Tests for AsyncExecutionHooksMixin ---
 
-class TestAsyncExecutionHooksMixin:
 
+class TestAsyncExecutionHooksMixin:
     @pytest.fixture
     def async_mixin_instance(self):
         """Creates an instance of a class that uses AsyncExecutionHooksMixin for testing."""
+
         class AsyncTestClass(AsyncExecutionHooksMixin):
             def __init__(self):
                 self._connection = AsyncMock()

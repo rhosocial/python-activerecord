@@ -6,7 +6,6 @@ This module tests the list_views, get_view_info, and view_exists methods
 for retrieving view metadata.
 """
 
-import pytest
 
 from rhosocial.activerecord.backend.introspection.types import (
     ViewInfo,

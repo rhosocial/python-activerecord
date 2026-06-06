@@ -22,8 +22,6 @@ class LogDataMode(str, Enum):
     FULL = "full"
 
 
-
-
 def normalize_log_data_mode(mode: Optional[object]) -> Optional[LogDataMode]:
     if mode is None:
         return None
@@ -151,28 +149,28 @@ class LoggingConfig:
     _lock: Any = field(default=None, repr=False, compare=False, init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, '_lock', threading.RLock())
+        object.__setattr__(self, "_lock", threading.RLock())
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Override setattr to invalidate cached summarizers when config changes."""
-        if name == 'log_data_mode':
+        if name == "log_data_mode":
             value = normalize_log_data_mode(value)
-        if name == 'summarizer_config':
-            lock = self.__dict__.get('_lock') if '__dict__' in dir(self) else None
+        if name == "summarizer_config":
+            lock = self.__dict__.get("_lock") if "__dict__" in dir(self) else None
             if lock is not None:
                 with lock:
-                    object.__setattr__(self, '_summarizer', None)
-                    object.__setattr__(self, '_logger_summarizers', {})
+                    object.__setattr__(self, "_summarizer", None)
+                    object.__setattr__(self, "_logger_summarizers", {})
             else:
-                object.__setattr__(self, '_summarizer', None)
-                object.__setattr__(self, '_logger_summarizers', {})
-        if name in ('default_level', 'propagate', 'auto_setup', 'formatter'):
-            lock = self.__dict__.get('_lock') if '__dict__' in dir(self) else None
+                object.__setattr__(self, "_summarizer", None)
+                object.__setattr__(self, "_logger_summarizers", {})
+        if name in ("default_level", "propagate", "auto_setup", "formatter"):
+            lock = self.__dict__.get("_lock") if "__dict__" in dir(self) else None
             if lock is not None:
                 with lock:
-                    object.__setattr__(self, '_configured_loggers', set())
+                    object.__setattr__(self, "_configured_loggers", set())
             else:
-                object.__setattr__(self, '_configured_loggers', set())
+                object.__setattr__(self, "_configured_loggers", set())
         object.__setattr__(self, name, value)
 
     @staticmethod
@@ -194,7 +192,7 @@ class LoggingConfig:
         with self._lock:
             if logger_name is None:
                 if self._summarizer is None:
-                    object.__setattr__(self, '_summarizer', DataSummarizer(self.summarizer_config))
+                    object.__setattr__(self, "_summarizer", DataSummarizer(self.summarizer_config))
                 return self._summarizer
 
             # Find matching logger config (supports hierarchical matching)
@@ -205,13 +203,13 @@ class LoggingConfig:
                 if logger_name not in self._logger_summarizers:
                     new_dict = dict(self._logger_summarizers)
                     new_dict[logger_name] = DataSummarizer(logger_config.summarizer_config)
-                    object.__setattr__(self, '_logger_summarizers', new_dict)
+                    object.__setattr__(self, "_logger_summarizers", new_dict)
                 return self._logger_summarizers[logger_name]
             else:
                 # Use global summarizer
                 return self.get_summarizer()
 
-    def _find_logger_config(self, logger_name: str) -> Optional['LoggerConfig']:
+    def _find_logger_config(self, logger_name: str) -> Optional["LoggerConfig"]:
         """Find the most specific LoggerConfig for a given logger name.
 
         Performs hierarchical matching: for logger 'rhosocial.activerecord.model.User',
@@ -232,9 +230,9 @@ class LoggingConfig:
             return self.loggers[logger_name]
 
         # Check parent loggers (hierarchical matching)
-        parts = logger_name.split('.')
+        parts = logger_name.split(".")
         for i in range(len(parts) - 1, 0, -1):
-            parent_name = '.'.join(parts[:i])
+            parent_name = ".".join(parts[:i])
             if parent_name in self.loggers:
                 return self.loggers[parent_name]
 
@@ -264,7 +262,7 @@ class LoggingConfig:
         effective_mode = self.resolve_log_data_mode(logger_name)
 
         if effective_mode is LogDataMode.HIDDEN:
-            return '<hidden>'
+            return "<hidden>"
         if effective_mode is LogDataMode.FULL:
             return data
         if effective_mode is LogDataMode.KEYS_ONLY:
@@ -319,9 +317,9 @@ class LoggingConfig:
         """
         config.log_data_mode = normalize_log_data_mode(config.log_data_mode)
         self.loggers[config.name] = config
-        lock = self.__dict__.get('_lock') if '__dict__' in dir(self) else None
+        lock = self.__dict__.get("_lock") if "__dict__" in dir(self) else None
         if lock is not None:
             with lock:
-                object.__setattr__(self, '_logger_summarizers', {})
+                object.__setattr__(self, "_logger_summarizers", {})
         else:
-            object.__setattr__(self, '_logger_summarizers', {})
+            object.__setattr__(self, "_logger_summarizers", {})

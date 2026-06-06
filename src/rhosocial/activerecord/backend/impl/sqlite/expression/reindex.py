@@ -60,13 +60,9 @@ class SQLiteReindexExpression(BaseExpression):
                 or if expressions is True with other parameters.
         """
         if expressions and (index_name or table_name):
-            raise ValueError(
-                "REINDEX EXPRESSIONS cannot be combined with index_name or table_name"
-            )
+            raise ValueError("REINDEX EXPRESSIONS cannot be combined with index_name or table_name")
         if index_name and table_name:
-            raise ValueError(
-                "Cannot specify both index_name and table_name for REINDEX"
-            )
+            raise ValueError("Cannot specify both index_name and table_name for REINDEX")
 
         super().__init__(dialect)
         self.index_name = index_name

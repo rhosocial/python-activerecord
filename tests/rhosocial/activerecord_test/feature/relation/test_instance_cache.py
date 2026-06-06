@@ -5,9 +5,8 @@ Granular tests for InstanceCache functionality.
 These tests cover the instance-level caching mechanism specific to python-activerecord,
 which is distinct from the RelationCache (class-level cache).
 """
-import pytest
+
 import time
-from typing import ClassVar, Any, Optional, List, Dict
 
 from pydantic import BaseModel
 
@@ -31,6 +30,7 @@ class TestInstanceCache:
 
     def test_get_instance_cache_creates_cache(self):
         """Test that get_instance_cache creates cache dict if not exists."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -42,6 +42,7 @@ class TestInstanceCache:
 
     def test_get_instance_cache_returns_existing(self):
         """Test that get_instance_cache returns existing cache."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -55,6 +56,7 @@ class TestInstanceCache:
 
     def test_instance_cache_isolation_between_relations(self):
         """Test that different relations have isolated caches."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -74,6 +76,7 @@ class TestInstanceCache:
 
     def test_instance_cache_isolation_between_instances(self):
         """Test that different instances have isolated caches."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -91,6 +94,7 @@ class TestInstanceCache:
 
     def test_instance_cache_set_and_get(self):
         """Test basic set and get operations."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -104,6 +108,7 @@ class TestInstanceCache:
 
     def test_instance_cache_disabled(self):
         """Test that caching is disabled when config.enabled is False."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -117,6 +122,7 @@ class TestInstanceCache:
 
     def test_instance_cache_get_no_entry(self):
         """Test get returns None when no entry exists."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -128,6 +134,7 @@ class TestInstanceCache:
 
     def test_instance_cache_expiration(self):
         """Test cache entry expiration."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -146,6 +153,7 @@ class TestInstanceCache:
 
     def test_instance_cache_expiration_disabled(self):
         """Test that entries with no TTL never expire."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -161,6 +169,7 @@ class TestInstanceCache:
 
     def test_instance_cache_delete(self):
         """Test cache entry deletion."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -177,6 +186,7 @@ class TestInstanceCache:
 
     def test_instance_cache_delete_nonexistent(self):
         """Test delete on nonexistent entry doesn't raise."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -186,6 +196,7 @@ class TestInstanceCache:
 
     def test_instance_cache_clear(self):
         """Test clearing cache for a specific relation."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -205,6 +216,7 @@ class TestInstanceCache:
 
     def test_instance_cache_clear_disabled(self):
         """Test that clear does nothing when caching is disabled."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -216,6 +228,7 @@ class TestInstanceCache:
 
     def test_instance_cache_with_complex_values(self):
         """Test caching complex objects like lists and dicts."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -233,6 +246,7 @@ class TestInstanceCache:
 
     def test_instance_cache_with_none_value(self):
         """Test caching None values."""
+
         class TestModel(BaseModel):
             id: int
 
@@ -246,6 +260,7 @@ class TestInstanceCache:
 
     def test_multiple_relations_on_same_instance(self):
         """Test multiple relations with different configs."""
+
         class TestModel(BaseModel):
             id: int
 

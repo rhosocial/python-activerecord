@@ -2,6 +2,7 @@
 """
 Bridge file for derived field feature tests from the testsuite.
 """
+
 from rhosocial.activerecord.testsuite.feature.derived_field.conftest import (  # noqa: F401
     product_class,
     product_form_a_class,

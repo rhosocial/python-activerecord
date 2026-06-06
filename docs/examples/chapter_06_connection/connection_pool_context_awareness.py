@@ -34,11 +34,7 @@ class UserRepository:
             raise RuntimeError("No connection in current context")
 
         options = ExecutionOptions(stmt_type=StatementType.DQL)
-        result = backend.execute(
-            "SELECT * FROM users WHERE id = ?",
-            [user_id],
-            options=options
-        )
+        result = backend.execute("SELECT * FROM users WHERE id = ?", [user_id], options=options)
         return result.data[0] if result.data else None
 
     def create(self, name: str, email: str) -> int:
@@ -48,16 +44,12 @@ class UserRepository:
             raise RuntimeError("No connection in current context")
 
         options = ExecutionOptions(stmt_type=StatementType.DML)
-        backend.execute(
-            "INSERT INTO users (name, email) VALUES (?, ?)",
-            [name, email],
-            options=options
-        )
+        backend.execute("INSERT INTO users (name, email) VALUES (?, ?)", [name, email], options=options)
 
         # Get the last insert ID
         options = ExecutionOptions(stmt_type=StatementType.DQL)
         result = backend.execute("SELECT last_insert_rowid() as id", [], options=options)
-        return result.data[0]['id']
+        return result.data[0]["id"]
 
     def count(self) -> int:
         """Count all users."""
@@ -67,7 +59,7 @@ class UserRepository:
 
         options = ExecutionOptions(stmt_type=StatementType.DQL)
         result = backend.execute("SELECT COUNT(*) as count FROM users", [], options=options)
-        return result.data[0]['count']
+        return result.data[0]["count"]
 
 
 class OrderRepository:
@@ -80,15 +72,11 @@ class OrderRepository:
             raise RuntimeError("No connection in current context")
 
         options = ExecutionOptions(stmt_type=StatementType.DML)
-        backend.execute(
-            "INSERT INTO orders (user_id, amount) VALUES (?, ?)",
-            [user_id, amount],
-            options=options
-        )
+        backend.execute("INSERT INTO orders (user_id, amount) VALUES (?, ?)", [user_id, amount], options=options)
 
         options = ExecutionOptions(stmt_type=StatementType.DQL)
         result = backend.execute("SELECT last_insert_rowid() as id", [], options=options)
-        return result.data[0]['id']
+        return result.data[0]["id"]
 
     def find_by_user(self, user_id: int):
         """Find all orders for a user."""
@@ -97,11 +85,7 @@ class OrderRepository:
             raise RuntimeError("No connection in current context")
 
         options = ExecutionOptions(stmt_type=StatementType.DQL)
-        result = backend.execute(
-            "SELECT * FROM orders WHERE user_id = ?",
-            [user_id],
-            options=options
-        )
+        result = backend.execute("SELECT * FROM orders WHERE user_id = ?", [user_id], options=options)
         return result.data
 
 
@@ -165,31 +149,35 @@ def main():
 
     try:
         # Setup
-        config = PoolConfig(
-            min_size=2,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=db_path)
-        )
+        config = PoolConfig(min_size=2, max_size=5, backend_factory=lambda: SQLiteBackend(database=db_path))
         pool = BackendPool(config)
 
         # Create tables
         with pool.connection() as backend:
             options = ExecutionOptions(stmt_type=StatementType.DDL)
-            backend.execute("""
+            backend.execute(
+                """
                 CREATE TABLE users (
                     id INTEGER PRIMARY KEY,
                     name TEXT NOT NULL,
                     email TEXT UNIQUE
                 )
-            """, [], options=options)
-            backend.execute("""
+            """,
+                [],
+                options=options,
+            )
+            backend.execute(
+                """
                 CREATE TABLE orders (
                     id INTEGER PRIMARY KEY,
                     user_id INTEGER NOT NULL,
                     amount REAL NOT NULL,
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 )
-            """, [], options=options)
+            """,
+                [],
+                options=options,
+            )
 
         # -----------------------------------------------------------
         # Example 1: Pool context
@@ -225,7 +213,9 @@ def main():
 
                 # Direct SQL for demo
                 options = ExecutionOptions(stmt_type=StatementType.DML)
-                backend.execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Demo", "demo@example.com"], options=options)
+                backend.execute(
+                    "INSERT INTO users (name, email) VALUES (?, ?)", ["Demo", "demo@example.com"], options=options
+                )
 
                 # Repository method
                 user = user_repo.find_by_id(1)
@@ -255,7 +245,9 @@ def main():
 
                 # Execute some operations
                 options = ExecutionOptions(stmt_type=StatementType.DML)
-                backend.execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Alice", "alice@example.com"], options=options)
+                backend.execute(
+                    "INSERT INTO users (name, email) VALUES (?, ?)", ["Alice", "alice@example.com"], options=options
+                )
                 print("Inserted user Alice")
 
             print_context_state("After transaction (committed)")
@@ -292,11 +284,7 @@ def main():
         with pool.context():
             print("Creating user with order in transaction:")
             with pool.transaction():
-                user_id, order_id = service.create_user_with_order(
-                    name="Bob",
-                    email="bob@example.com",
-                    amount=99.99
-                )
+                user_id, order_id = service.create_user_with_order(name="Bob", email="bob@example.com", amount=99.99)
                 print(f"\nUser ID: {user_id}, Order ID: {order_id}")
                 # Auto commit
 
@@ -321,7 +309,11 @@ def main():
                     backend = get_current_backend()
 
                     # Insert user
-                    backend.execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Charlie", "charlie@example.com"], options=options)
+                    backend.execute(
+                        "INSERT INTO users (name, email) VALUES (?, ?)",
+                        ["Charlie", "charlie@example.com"],
+                        options=options,
+                    )
                     print("  User inserted...")
 
                     # Simulate error

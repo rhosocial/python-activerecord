@@ -1,5 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_expressions_transaction.py
 """Tests for transaction expression classes."""
+
 import pytest
 from rhosocial.activerecord.backend.expression.transaction import (
     BeginTransactionExpression,
@@ -100,7 +101,7 @@ class TestBeginTransactionExpression:
         params = expr.get_params()
         assert params["isolation_level"] == IsolationLevel.SERIALIZABLE
         assert params["mode"] == TransactionMode.READ_ONLY
-        assert params["deferrable"] == True
+        assert params["deferrable"]
 
     def test_sqlite_read_only_raises_error(self):
         """Test SQLite READ ONLY raises UnsupportedTransactionModeError."""
@@ -317,8 +318,8 @@ class TestSetTransactionExpression:
         params = expr.get_params()
         assert params["isolation_level"] == IsolationLevel.SERIALIZABLE
         assert params["mode"] == TransactionMode.READ_ONLY
-        assert params["session"] == True
-        assert params["deferrable"] == True
+        assert params["session"]
+        assert params["deferrable"]
 
     def test_get_params_empty(self, dummy_dialect: DummyDialect):
         """Test get_params returns empty dict when nothing set."""
@@ -330,12 +331,15 @@ class TestSetTransactionExpression:
 class TestAllIsolationLevels:
     """Tests for all isolation levels."""
 
-    @pytest.mark.parametrize("level,expected_name", [
-        (IsolationLevel.READ_UNCOMMITTED, "READ UNCOMMITTED"),
-        (IsolationLevel.READ_COMMITTED, "READ COMMITTED"),
-        (IsolationLevel.REPEATABLE_READ, "REPEATABLE READ"),
-        (IsolationLevel.SERIALIZABLE, "SERIALIZABLE"),
-    ])
+    @pytest.mark.parametrize(
+        "level,expected_name",
+        [
+            (IsolationLevel.READ_UNCOMMITTED, "READ UNCOMMITTED"),
+            (IsolationLevel.READ_COMMITTED, "READ COMMITTED"),
+            (IsolationLevel.REPEATABLE_READ, "REPEATABLE READ"),
+            (IsolationLevel.SERIALIZABLE, "SERIALIZABLE"),
+        ],
+    )
     def test_isolation_level_names(self, dummy_dialect: DummyDialect, level, expected_name):
         """Test all isolation level names are correctly formatted."""
         expr = BeginTransactionExpression(dummy_dialect)

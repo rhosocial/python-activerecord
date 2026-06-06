@@ -4,7 +4,6 @@
 import io
 import logging
 
-import pytest
 from rhosocial.activerecord.logging.summarizer import (
     SummarizerConfig,
     DataSummarizer,
@@ -21,8 +20,8 @@ class TestSummarizerConfig:
         assert config.max_bytes_length == 64
         assert config.max_dict_items == 10
         assert config.max_depth == 5
-        assert 'password' in config.sensitive_fields
-        assert 'token' in config.sensitive_fields
+        assert "password" in config.sensitive_fields
+        assert "token" in config.sensitive_fields
 
     def test_custom_config(self):
         """Test custom configuration values."""
@@ -207,7 +206,7 @@ class TestDataSummarizer:
 
     def test_custom_sensitive_fields(self):
         """Test custom sensitive fields configuration."""
-        config = SummarizerConfig(sensitive_fields={'custom_secret', 'private_data'})
+        config = SummarizerConfig(sensitive_fields={"custom_secret", "private_data"})
         summarizer = DataSummarizer(config)
 
         data = {
@@ -242,7 +241,7 @@ class TestLoggingIntegration:
 
     def test_logging_config_summarizer(self):
         """Test LoggingConfig.get_summarizer()."""
-        from rhosocial.activerecord.logging import LoggingConfig, LogDataMode
+        from rhosocial.activerecord.logging import LoggingConfig
 
         config = LoggingConfig()
         summarizer = config.get_summarizer()
@@ -275,7 +274,7 @@ class TestLoggingIntegration:
         # Test hidden mode
         config.log_data_mode = LogDataMode.HIDDEN
         result = config.summarize_data(data)
-        assert result == '<hidden>'
+        assert result == "<hidden>"
 
     def test_logging_config_custom_summarizer_config(self):
         """Test custom summarizer configuration in LoggingConfig."""
@@ -300,31 +299,31 @@ class TestLoggingIntegration:
         from rhosocial.activerecord.logging.summarizer import DataSummarizer
 
         config = SummarizerConfig(
-            sensitive_fields={'password', 'email', 'api_key'},
+            sensitive_fields={"password", "email", "api_key"},
             field_maskers={
                 # Show first char of local part
-                'email': lambda v: v.split('@')[0][:1] + '***@' + v.split('@')[1] if '@' in str(v) else '***',
-                'password': lambda v: '*' * min(len(str(v)), 8),
-            }
+                "email": lambda v: v.split("@")[0][:1] + "***@" + v.split("@")[1] if "@" in str(v) else "***",
+                "password": lambda v: "*" * min(len(str(v)), 8),
+            },
         )
         summarizer = DataSummarizer(config)
 
         data = {
-            'username': 'john',
-            'password': 'mysecret123',
-            'email': 'john@example.com',
-            'api_key': 'sk-12345',
+            "username": "john",
+            "password": "mysecret123",
+            "email": "john@example.com",
+            "api_key": "sk-12345",
         }
         result = summarizer.summarize(data)
 
         # email uses custom masker (first char of local part)
-        assert result['email'] == 'j***@example.com'
+        assert result["email"] == "j***@example.com"
         # password uses custom masker (8 asterisks)
-        assert result['password'] == '********'
+        assert result["password"] == "********"
         # api_key uses default mask_placeholder
-        assert result['api_key'] == '***MASKED***'
+        assert result["api_key"] == "***MASKED***"
         # username is not masked
-        assert result['username'] == 'john'
+        assert result["username"] == "john"
 
     def test_callable_mask_placeholder(self):
         """Test callable mask_placeholder."""
@@ -332,16 +331,15 @@ class TestLoggingIntegration:
         from rhosocial.activerecord.logging.summarizer import DataSummarizer
 
         config = SummarizerConfig(
-            sensitive_fields={'password', 'token'},
-            mask_placeholder=lambda v: f'<{len(str(v))} chars hidden>'
+            sensitive_fields={"password", "token"}, mask_placeholder=lambda v: f"<{len(str(v))} chars hidden>"
         )
         summarizer = DataSummarizer(config)
 
-        data = {'password': 'secret123', 'token': 'abc123xyz'}
+        data = {"password": "secret123", "token": "abc123xyz"}
         result = summarizer.summarize(data)
 
-        assert result['password'] == '<9 chars hidden>'
-        assert result['token'] == '<9 chars hidden>'
+        assert result["password"] == "<9 chars hidden>"
+        assert result["token"] == "<9 chars hidden>"
 
     def test_field_masker_takes_precedence(self):
         """Test that field_maskers take precedence over mask_placeholder."""
@@ -349,21 +347,21 @@ class TestLoggingIntegration:
         from rhosocial.activerecord.logging.summarizer import DataSummarizer
 
         config = SummarizerConfig(
-            sensitive_fields={'password', 'email'},
-            mask_placeholder='[DEFAULT]',
+            sensitive_fields={"password", "email"},
+            mask_placeholder="[DEFAULT]",
             field_maskers={
-                'password': lambda v: '[PASSWORD]',
-            }
+                "password": lambda v: "[PASSWORD]",
+            },
         )
         summarizer = DataSummarizer(config)
 
-        data = {'password': 'secret', 'email': 'test@example.com'}
+        data = {"password": "secret", "email": "test@example.com"}
         result = summarizer.summarize(data)
 
         # password uses field_masker
-        assert result['password'] == '[PASSWORD]'
+        assert result["password"] == "[PASSWORD]"
         # email uses global mask_placeholder
-        assert result['email'] == '[DEFAULT]'
+        assert result["email"] == "[DEFAULT]"
 
     def test_field_maskers_case_insensitive(self):
         """Test that field_maskers are case-insensitive."""
@@ -371,19 +369,19 @@ class TestLoggingIntegration:
         from rhosocial.activerecord.logging.summarizer import DataSummarizer
 
         config = SummarizerConfig(
-            sensitive_fields={'Password', 'EMAIL'},
+            sensitive_fields={"Password", "EMAIL"},
             field_maskers={
-                'PASSWORD': lambda v: '[PWD]',
-                'email': lambda v: '[MAIL]',
-            }
+                "PASSWORD": lambda v: "[PWD]",
+                "email": lambda v: "[MAIL]",
+            },
         )
         summarizer = DataSummarizer(config)
 
-        data = {'password': 'secret', 'Email': 'test@example.com'}
+        data = {"password": "secret", "Email": "test@example.com"}
         result = summarizer.summarize(data)
 
-        assert result['password'] == '[PWD]'
-        assert result['Email'] == '[MAIL]'
+        assert result["password"] == "[PWD]"
+        assert result["Email"] == "[MAIL]"
 
     def test_field_masker_exception_fallback(self):
         """Test that masker falls back to default on exception."""
@@ -394,19 +392,19 @@ class TestLoggingIntegration:
             raise ValueError("Intentional error")
 
         config = SummarizerConfig(
-            sensitive_fields={'password'},
-            mask_placeholder='[FALLBACK]',
+            sensitive_fields={"password"},
+            mask_placeholder="[FALLBACK]",
             field_maskers={
-                'password': bad_masker,
-            }
+                "password": bad_masker,
+            },
         )
         summarizer = DataSummarizer(config)
 
-        data = {'password': 'secret'}
+        data = {"password": "secret"}
         result = summarizer.summarize(data)
 
         # Should fall back to mask_placeholder when masker raises
-        assert result['password'] == '[FALLBACK]'
+        assert result["password"] == "[FALLBACK]"
 
 
 class TestMaskerExceptionLogging:
@@ -414,13 +412,14 @@ class TestMaskerExceptionLogging:
 
     def test_field_masker_exception_logs_warning(self):
         """field_masker raising exception should log a warning."""
+
         def bad_masker(v):
             raise ValueError("Intentional masker error")
 
         config = SummarizerConfig(
-            sensitive_fields={'password'},
-            mask_placeholder='[FALLBACK]',
-            field_maskers={'password': bad_masker},
+            sensitive_fields={"password"},
+            mask_placeholder="[FALLBACK]",
+            field_maskers={"password": bad_masker},
         )
         summarizer = DataSummarizer(config)
 
@@ -434,10 +433,10 @@ class TestMaskerExceptionLogging:
 
         try:
             summarizer_logger.propagate = True
-            result = summarizer.summarize({'password': 'secret'})
+            result = summarizer.summarize({"password": "secret"})
 
             # Should fall back to mask_placeholder
-            assert result['password'] == '[FALLBACK]'
+            assert result["password"] == "[FALLBACK]"
             # Should have a warning in the output
             output = stream.getvalue()
             assert "Field masker" in output
@@ -449,7 +448,7 @@ class TestMaskerExceptionLogging:
     def test_global_mask_placeholder_exception_logs_warning(self):
         """Global mask_placeholder callable raising exception should log a warning."""
         config = SummarizerConfig(
-            sensitive_fields={'token'},
+            sensitive_fields={"token"},
             mask_placeholder=lambda v: 1 / 0,
         )
         summarizer = DataSummarizer(config)
@@ -461,10 +460,10 @@ class TestMaskerExceptionLogging:
         summarizer_logger.addHandler(handler)
 
         try:
-            result = summarizer.summarize({'token': 'abc'})
+            result = summarizer.summarize({"token": "abc"})
 
             # Should fall back to "***MASKED***"
-            assert result['token'] == '***MASKED***'
+            assert result["token"] == "***MASKED***"
             # Should have a warning in the output
             output = stream.getvalue()
             assert "mask_placeholder" in output
@@ -474,8 +473,8 @@ class TestMaskerExceptionLogging:
     def test_successful_masker_does_not_log_warning(self):
         """A working masker should not produce any warning."""
         config = SummarizerConfig(
-            sensitive_fields={'email'},
-            field_maskers={'email': lambda v: v[0] + '***@' + v.split('@')[1]},
+            sensitive_fields={"email"},
+            field_maskers={"email": lambda v: v[0] + "***@" + v.split("@")[1]},
         )
         summarizer = DataSummarizer(config)
 
@@ -486,9 +485,9 @@ class TestMaskerExceptionLogging:
         summarizer_logger.addHandler(handler)
 
         try:
-            result = summarizer.summarize({'email': 'test@example.com'})
+            result = summarizer.summarize({"email": "test@example.com"})
 
-            assert result['email'] == 't***@example.com'
+            assert result["email"] == "t***@example.com"
             assert stream.getvalue() == ""
         finally:
             summarizer_logger.removeHandler(handler)
@@ -585,4 +584,3 @@ class TestSummarizerCoverage:
         result = summarizer.mask_sensitive(data)
         assert result[0]["password"] == "***MASKED***"
         assert result[1]["name"] == "visible"
-

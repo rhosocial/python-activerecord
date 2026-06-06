@@ -4,8 +4,5 @@ Bridge file for transaction isolation tests.
 
 Imports tests from testsuite and makes them discoverable by pytest.
 """
-from rhosocial.activerecord.testsuite.feature.query.worker.conftest import (
-    order_fixtures_for_worker,
-    async_order_fixtures_for_worker,
-)
-from rhosocial.activerecord.testsuite.feature.query.worker.test_transaction_isolation import *
+
+from rhosocial.activerecord.testsuite.feature.query.worker.test_transaction_isolation import *  # noqa: F403

@@ -14,7 +14,14 @@ from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause, ValuesSource
 from ..expression.predicates import InPredicate, ComparisonPredicate
 from ..expression.advanced_functions import CaseExpression
-from ..options import ExecutionOptions, InsertOptions, UpdateOptions, DeleteOptions, BulkInsertOptions, BulkUpdateOptions
+from ..options import (
+    ExecutionOptions,
+    InsertOptions,
+    UpdateOptions,
+    DeleteOptions,
+    BulkInsertOptions,
+    BulkUpdateOptions,
+)
 from ..result import QueryResult
 from ..schema import StatementType
 from ..type_adapter import SQLTypeAdapter
@@ -75,7 +82,8 @@ class SQLOperationsMixin:
         insert_expr = InsertExpression(
             dialect=self.dialect,
             into=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
+            if options.schema_name
+            else options.table,
             source=values_source,
             columns=list(options.data.keys()),
             returning=returning_clause,
@@ -133,7 +141,8 @@ class SQLOperationsMixin:
         update_expr = UpdateExpression(
             dialect=self.dialect,
             table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
+            if options.schema_name
+            else options.table,
             assignments=assignments,
             where=options.where,
             returning=returning_clause,
@@ -178,8 +187,10 @@ class SQLOperationsMixin:
         delete_expr = DeleteExpression(
             dialect=self.dialect,
             tables=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
-            where=options.where, returning=returning_clause
+            if options.schema_name
+            else options.table,
+            where=options.where,
+            returning=returning_clause,
         )
 
         sql, params = delete_expr.to_sql()
@@ -274,13 +285,15 @@ class SQLOperationsMixin:
         returning_clause = None
         if options.returning_columns:
             from ..expression import Column as ExprColumn
+
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
         insert_expr = InsertExpression(
             dialect=self.dialect,
             into=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
+            if options.schema_name
+            else options.table,
             source=values_source,
             columns=options.columns,
             returning=returning_clause,
@@ -323,9 +336,7 @@ class SQLOperationsMixin:
         for field_name, values in options.field_values.items():
             cases = []
             for pk_val, field_val in zip(options.pk_values, values):
-                condition = ComparisonPredicate(
-                    self.dialect, "=", pk_col, Literal(self.dialect, pk_val)
-                )
+                condition = ComparisonPredicate(self.dialect, "=", pk_col, Literal(self.dialect, pk_val))
                 result_expr = Literal(self.dialect, field_val)
                 cases.append((condition, result_expr))
             case_expr = CaseExpression(self.dialect, cases=cases)
@@ -337,7 +348,8 @@ class SQLOperationsMixin:
         update_expr = UpdateExpression(
             dialect=self.dialect,
             table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
+            if options.schema_name
+            else options.table,
             assignments=assignments,
             where=where_predicate,
         )
@@ -395,7 +407,8 @@ class AsyncSQLOperationsMixin:
         insert_expr = InsertExpression(
             dialect=self.dialect,
             into=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
+            if options.schema_name
+            else options.table,
             source=values_source,
             columns=list(options.data.keys()),
             returning=returning_clause,
@@ -450,7 +463,8 @@ class AsyncSQLOperationsMixin:
         update_expr = UpdateExpression(
             dialect=self.dialect,
             table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
+            if options.schema_name
+            else options.table,
             assignments=assignments,
             where=options.where,
             returning=returning_clause,
@@ -492,8 +506,10 @@ class AsyncSQLOperationsMixin:
         delete_expr = DeleteExpression(
             dialect=self.dialect,
             tables=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
-            where=options.where, returning=returning_clause
+            if options.schema_name
+            else options.table,
+            where=options.where,
+            returning=returning_clause,
         )
 
         sql, params = delete_expr.to_sql()
@@ -586,13 +602,15 @@ class AsyncSQLOperationsMixin:
         returning_clause = None
         if options.returning_columns:
             from ..expression import Column as ExprColumn
+
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
         insert_expr = InsertExpression(
             dialect=self.dialect,
             into=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
+            if options.schema_name
+            else options.table,
             source=values_source,
             columns=options.columns,
             returning=returning_clause,
@@ -629,9 +647,7 @@ class AsyncSQLOperationsMixin:
         for field_name, values in options.field_values.items():
             cases = []
             for pk_val, field_val in zip(options.pk_values, values):
-                condition = ComparisonPredicate(
-                    self.dialect, "=", pk_col, Literal(self.dialect, pk_val)
-                )
+                condition = ComparisonPredicate(self.dialect, "=", pk_col, Literal(self.dialect, pk_val))
                 result_expr = Literal(self.dialect, field_val)
                 cases.append((condition, result_expr))
             case_expr = CaseExpression(self.dialect, cases=cases)
@@ -643,7 +659,8 @@ class AsyncSQLOperationsMixin:
         update_expr = UpdateExpression(
             dialect=self.dialect,
             table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
-            if options.schema_name else options.table,
+            if options.schema_name
+            else options.table,
             assignments=assignments,
             where=where_predicate,
         )

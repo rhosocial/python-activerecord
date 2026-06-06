@@ -13,11 +13,7 @@ IMPORTANT:
 # 1. Import the fixtures from the testsuite's conftest.
 #    This makes the fixtures defined in the testsuite available to the tests
 #    when they are run in the context of this backend project.
-from rhosocial.activerecord.testsuite.feature.basic.conftest import (
-    type_test_model,
-    async_type_test_model,
-)
 
 # 2. Import all test classes and functions from the generic test file.
 #    This pulls in the actual test logic that will be executed.
-from rhosocial.activerecord.testsuite.feature.basic.test_fields import *
+from rhosocial.activerecord.testsuite.feature.basic.test_fields import *  # noqa: F403

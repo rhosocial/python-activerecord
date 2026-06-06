@@ -96,6 +96,7 @@ if __name__ == "__main__":
 
     # Cleanup: remove temp files created by URI-based shared cache
     import os
+
     cache_file = "persistent_db"
     if os.path.exists(cache_file):
         os.unlink(cache_file)

@@ -56,7 +56,7 @@ class LoggingMixin:
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
         # Give each subclass its own LoggingConfig unless it explicitly defines one
-        if '__logging_config__' not in cls.__dict__:
+        if "__logging_config__" not in cls.__dict__:
             cls.__logging_config__ = LoggingConfig()
 
     @classmethod
@@ -73,7 +73,7 @@ class LoggingMixin:
         Returns:
             logging.Logger: The logger instance for this class.
         """
-        if hasattr(cls, '__logger__') and cls.__logger__ is not None:
+        if hasattr(cls, "__logger__") and cls.__logger__ is not None:
             return cls.__logger__
 
         logger_name = cls._get_logger_name()
@@ -101,7 +101,7 @@ class LoggingMixin:
 
         # Check if this is a library class or user-defined class
         module = cls.__module__
-        if module.startswith('rhosocial.activerecord'):
+        if module.startswith("rhosocial.activerecord"):
             # Library class: use semantic naming
             return f"{_LOGGER_MODEL}.{cls.__name__}"
         else:
@@ -207,13 +207,7 @@ class LoggingMixin:
             logger.log(level, msg, *args, **kwargs)
 
     @classmethod
-    def log_data(
-        cls,
-        level: int,
-        msg: str,
-        data: Any,
-        **kwargs
-    ) -> None:
+    def log_data(cls, level: int, msg: str, data: Any, **kwargs) -> None:
         """Log a message with data, automatically summarizing if needed.
 
         This method provides intelligent data logging that prevents
@@ -263,7 +257,7 @@ class BackendLoggingMixin:
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
-        if '__logging_config__' not in cls.__dict__:
+        if "__logging_config__" not in cls.__dict__:
             cls.__logging_config__ = LoggingConfig()
 
     def _get_logger_name(self) -> str:
@@ -282,10 +276,10 @@ class BackendLoggingMixin:
 
         # Check if this is a library backend
         module = self.__class__.__module__
-        if module.startswith('rhosocial.activerecord'):
+        if module.startswith("rhosocial.activerecord"):
             # Extract backend type from class name (SQLiteBackend -> sqlite)
             class_name = self.__class__.__name__
-            backend_type = class_name.replace('Backend', '').lower()
+            backend_type = class_name.replace("Backend", "").lower()
             return f"{_LOGGER_BACKEND}.{backend_type}"
         else:
             # Custom backend: use module namespace
@@ -357,19 +351,13 @@ class BackendLoggingMixin:
             self.logger.log(level, msg, *args, **kwargs)
 
     def _get_logging_config(self) -> LoggingConfig:
-        return getattr(self, '_logging_config', None) or self.__logging_config__
+        return getattr(self, "_logging_config", None) or self.__logging_config__
 
     def summarize_log_data(self, data: Any) -> Any:
         logger_name = self._get_logger_name()
         return self._get_logging_config().summarize_data(data, logger_name)
 
-    def log_data(
-        self,
-        level: int,
-        msg: str,
-        data: Any,
-        **kwargs
-    ) -> None:
+    def log_data(self, level: int, msg: str, data: Any, **kwargs) -> None:
         """Log a message with data, automatically summarizing if needed.
 
         This method provides intelligent data logging that prevents

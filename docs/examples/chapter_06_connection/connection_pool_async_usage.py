@@ -43,11 +43,7 @@ async def worker(pool: AsyncBackendPool, worker_id: int):
     """Simulate a worker that uses the pool."""
     async with pool.connection() as backend:
         options = ExecutionOptions(stmt_type=StatementType.DQL)
-        result = await backend.execute(
-            "SELECT * FROM items WHERE worker_id = ?",
-            [worker_id],
-            options=options
-        )
+        result = await backend.execute("SELECT * FROM items WHERE worker_id = ?", [worker_id], options=options)
         print(f"Worker {worker_id}: found {len(result.data)} items")
         await asyncio.sleep(0.1)  # Simulate work
         return worker_id, len(result.data)
@@ -63,15 +59,11 @@ class AsyncItemRepository:
             raise RuntimeError("No connection in current context")
 
         options = ExecutionOptions(stmt_type=StatementType.DML)
-        await backend.execute(
-            "INSERT INTO items (name, worker_id) VALUES (?, ?)",
-            [name, worker_id],
-            options=options
-        )
+        await backend.execute("INSERT INTO items (name, worker_id) VALUES (?, ?)", [name, worker_id], options=options)
 
         options = ExecutionOptions(stmt_type=StatementType.DQL)
         result = await backend.execute("SELECT last_insert_rowid() as id", [], options=options)
-        return result.data[0]['id']
+        return result.data[0]["id"]
 
     async def count(self) -> int:
         """Count all items."""
@@ -81,7 +73,7 @@ class AsyncItemRepository:
 
         options = ExecutionOptions(stmt_type=StatementType.DQL)
         result = await backend.execute("SELECT COUNT(*) as count FROM items", [], options=options)
-        return result.data[0]['count']
+        return result.data[0]["count"]
 
 
 async def main():
@@ -96,11 +88,7 @@ async def main():
 
     try:
         # Create async connection pool
-        config = PoolConfig(
-            min_size=2,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=db_path)
-        )
+        config = PoolConfig(min_size=2, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=db_path))
         pool = AsyncBackendPool(config)
 
         print(f"\nPool created: {pool}")
@@ -108,13 +96,17 @@ async def main():
         # Create table
         async with pool.connection() as backend:
             options = ExecutionOptions(stmt_type=StatementType.DDL)
-            await backend.execute("""
+            await backend.execute(
+                """
                 CREATE TABLE items (
                     id INTEGER PRIMARY KEY,
                     name TEXT NOT NULL,
                     worker_id INTEGER
                 )
-            """, [], options=options)
+            """,
+                [],
+                options=options,
+            )
 
         # -----------------------------------------------------------
         # Example 1: Basic async connection context
@@ -185,7 +177,9 @@ async def main():
         async with pool.connection() as backend:
             options = ExecutionOptions(stmt_type=StatementType.DML)
             for i in range(3, 11):
-                await backend.execute("INSERT INTO items (name, worker_id) VALUES (?, ?)", [f"Item{i}", i % 3 + 1], options=options)
+                await backend.execute(
+                    "INSERT INTO items (name, worker_id) VALUES (?, ?)", [f"Item{i}", i % 3 + 1], options=options
+                )
 
         print("Running 5 concurrent workers...")
         tasks = [worker(pool, i) for i in range(1, 6)]
@@ -224,7 +218,7 @@ async def main():
             async with pool.connection() as backend:
                 options = ExecutionOptions(stmt_type=StatementType.DQL)
                 result = await backend.execute("SELECT COUNT(*) as count FROM items", [], options=options)
-                count_before = result.data[0]['count']
+                count_before = result.data[0]["count"]
                 print(f"Items before: {count_before}")
 
             # Failed transaction
@@ -247,7 +241,7 @@ async def main():
             async with pool.connection() as backend:
                 options = ExecutionOptions(stmt_type=StatementType.DQL)
                 result = await backend.execute("SELECT COUNT(*) as count FROM items", [], options=options)
-                count_after = result.data[0]['count']
+                count_after = result.data[0]["count"]
                 print(f"Items after rollback: {count_after}")
 
                 if count_before == count_after:
@@ -270,7 +264,7 @@ async def main():
         print(f"Current in use: {stats.current_in_use}")
 
         health = await pool.health_check()
-        print(f"\nHealth check:")
+        print("\nHealth check:")
         print(f"  Healthy: {health['healthy']}")
         print(f"  Utilization: {health['utilization']:.1%}")
 

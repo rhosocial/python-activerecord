@@ -2,7 +2,7 @@
 """SQL/XML expression constructors."""
 
 from enum import Enum
-from typing import List, Optional, Sequence, TYPE_CHECKING
+from typing import Optional, Sequence, TYPE_CHECKING
 
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
 

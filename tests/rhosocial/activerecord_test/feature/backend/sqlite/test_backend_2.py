@@ -45,7 +45,8 @@ class TestSQLiteBackendCoveragePart2:
 
         # Create test table and data
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        backend.execute("""
+        backend.execute(
+            """
             CREATE TABLE test (
                 id INTEGER,
                 name TEXT,
@@ -54,28 +55,33 @@ class TestSQLiteBackendCoveragePart2:
                 data TEXT,
                 uuid_col TEXT
             )
-        """, options=options)
+        """,
+            options=options,
+        )
 
         test_uuid = uuid.uuid4()
         insert_options = ExecutionOptions(stmt_type=StatementType.INSERT)
-        backend.execute(f"""
+        backend.execute(
+            f"""
             INSERT INTO test VALUES
             (1, 'test', '2024-01-01 10:00:00', 1, '{{"key": "value"}}', '{test_uuid}')
-        """, options=insert_options)
+        """,
+            options=insert_options,
+        )
 
         # Get adapters from the backend's registry.
         # These are the standard adapters registered by StorageBackendBase.
         datetime_adapter = backend.adapter_registry.get_adapter(datetime, str)
         bool_adapter = backend.adapter_registry.get_adapter(bool, int)
         json_adapter = backend.adapter_registry.get_adapter(dict, str)
-        uuid_adapter = backend.adapter_registry.get_adapter(uuid.UUID, str) # Standard UUID adapter
+        uuid_adapter = backend.adapter_registry.get_adapter(uuid.UUID, str)  # Standard UUID adapter
 
         # Explicitly define column adapters with (adapter_instance, target_py_type) tuples
         column_adapters_for_test = {
             "created_at": (datetime_adapter, datetime),
             "is_active": (bool_adapter, bool),
             "data": (json_adapter, dict),
-            "uuid_col": (uuid_adapter, uuid.UUID)
+            "uuid_col": (uuid_adapter, uuid.UUID),
         }
 
         # Test with explicit adapters
@@ -86,7 +92,7 @@ class TestSQLiteBackendCoveragePart2:
         assert result["is_active"] is True  # Boolean conversion
         assert isinstance(result["data"], dict)  # JSON conversion
         assert result["data"] == {"key": "value"}
-        assert isinstance(result["uuid_col"], uuid.UUID) # UUID conversion
+        assert isinstance(result["uuid_col"], uuid.UUID)  # UUID conversion
         assert result["uuid_col"] == test_uuid
 
         # Test that `MockConverter` still works with the new system, as long as it's a valid adapter.
@@ -96,18 +102,16 @@ class TestSQLiteBackendCoveragePart2:
         class MockAdapter:
             def from_database(self, value, target_type=None):
                 return f"adapted:{value}"
+
             # Add supported_types property to make it a valid SQLTypeAdapter
             @property
             def supported_types(self):
-                return {} # Not relevant for this mock
+                return {}  # Not relevant for this mock
 
         mock_adapter_instance = MockAdapter()
-        column_adapters_mock = {
-            "name": (mock_adapter_instance, str)
-        }
+        column_adapters_mock = {"name": (mock_adapter_instance, str)}
         result = backend.fetch_one("SELECT * FROM test", column_adapters=column_adapters_mock)
         assert result["name"] == "adapted:test"
-
 
         # Test with invalid adapter (no from_database method or not SQLTypeAdapter protocol)
         class InvalidAdapter:
@@ -115,14 +119,14 @@ class TestSQLiteBackendCoveragePart2:
             pass
 
         column_adapters_invalid = {
-            "name": (InvalidAdapter(), str) # This will cause an error in TypeAdaptionMixin
+            "name": (InvalidAdapter(), str)  # This will cause an error in TypeAdaptionMixin
         }
 
         # The TypeAdaptionMixin expects adapter to conform to SQLTypeAdapter protocol
         # which has `from_database`. If not, `getattr(adapter, "from_database")` will fail.
         # So we should expect a TypeError if an invalid adapter is provided.
         # The original test expected a fallback, but the new system is stricter.
-        with pytest.raises(AttributeError): # Or TypeError depending on where it fails
+        with pytest.raises(AttributeError):  # Or TypeError depending on where it fails
             backend.fetch_one("SELECT * FROM test", column_adapters=column_adapters_invalid)
 
         backend.disconnect()
@@ -135,23 +139,15 @@ class TestSQLiteBackendCoveragePart2:
         # Create a mock cursor that returns tuples instead of sqlite3.Row objects
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [(1, "test", True)]
-        mock_cursor.description = [
-            ("id",), ("name",), ("is_active",)
-        ]
+        mock_cursor.description = [("id",), ("name",), ("is_active",)]
 
         # Get adapters from the backend's registry for consistency
         bool_adapter = backend.adapter_registry.get_adapter(bool, int)
 
         # Explicitly define column adapters with (adapter_instance, target_py_type) tuples
-        column_adapters_for_test = {
-            "is_active": (bool_adapter, bool)
-        }
+        column_adapters_for_test = {"is_active": (bool_adapter, bool)}
 
-        result = backend._process_result_set(
-            mock_cursor,
-            is_select=True,
-            column_adapters=column_adapters_for_test
-        )
+        result = backend._process_result_set(mock_cursor, is_select=True, column_adapters=column_adapters_for_test)
 
         assert len(result) == 1
         assert result[0]["id"] == 1
@@ -170,16 +166,9 @@ class TestSQLiteBackendCoveragePart2:
         backend.execute("CREATE TABLE test (id INTEGER, name TEXT)", options=options)
 
         # Test batch insert
-        params_list = [
-            (1, "test1"),
-            (2, "test2"),
-            (3, "test3")
-        ]
+        params_list = [(1, "test1"), (2, "test2"), (3, "test3")]
 
-        result = backend.execute_many(
-            "INSERT INTO test (id, name) VALUES (?, ?)",
-            params_list
-        )
+        result = backend.execute_many("INSERT INTO test (id, name) VALUES (?, ?)", params_list)
 
         assert result.affected_rows == 3
         assert result.duration > 0
@@ -191,18 +180,12 @@ class TestSQLiteBackendCoveragePart2:
         assert rows[2]["name"] == "test3"
 
         # Test with empty params list
-        result = backend.execute_many(
-            "INSERT INTO test (id, name) VALUES (?, ?)",
-            []
-        )
+        result = backend.execute_many("INSERT INTO test (id, name) VALUES (?, ?)", [])
         assert result.affected_rows == 0
 
         # Test error handling
-        with pytest.raises(Exception):
-            backend.execute_many(
-                "INSERT INTO invalid_table VALUES (?, ?)",
-                [(1, "test")]
-            )
+        with pytest.raises(Exception):  # noqa: B017
+            backend.execute_many("INSERT INTO invalid_table VALUES (?, ?)", [(1, "test")])
 
         backend.disconnect()
 
@@ -218,10 +201,7 @@ class TestSQLiteBackendCoveragePart2:
         params_list = [(1, "test")]
 
         # Should work with auto-connected connection
-        backend.execute_many(
-            "INSERT INTO test VALUES (?, ?)",
-            params_list
-        )
+        backend.execute_many("INSERT INTO test VALUES (?, ?)", params_list)
 
         assert backend._connection is not None
 
@@ -269,10 +249,6 @@ class TestSQLiteBackendCoveragePart2:
 
         # Should re-raise the exception
         with pytest.raises(sqlite3.ProgrammingError):
-            backend._process_result_set(
-                cursor,
-                is_select=True,
-                column_adapters=None
-            )
+            backend._process_result_set(cursor, is_select=True, column_adapters=None)
 
         backend.disconnect()

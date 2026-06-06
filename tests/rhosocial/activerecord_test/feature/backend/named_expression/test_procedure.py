@@ -8,8 +8,8 @@ This test module covers:
 - ProcedureRunner execution
 - TransactionMode
 """
+
 import types
-from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 
@@ -27,7 +27,6 @@ from rhosocial.activerecord.backend.named_expression.procedure import (
 from rhosocial.activerecord.backend.named_expression.exceptions import (
     NamedExpressionError,
 )
-from rhosocial.activerecord.backend.named_expression.resolver import resolve_named_expression
 
 
 class TestProcedureClass:
@@ -70,7 +69,8 @@ class TestProcedureContextInit:
 
     def test_init_with_transaction_mode(self, mock_dialect):
         """Test initialization with custom transaction mode."""
-        callback = lambda *a: None
+        def callback(*a):
+            return None
         ctx = ProcedureContext(mock_dialect, callback, TransactionMode.STEP)
 
         assert ctx._transaction_mode == TransactionMode.STEP
@@ -227,7 +227,7 @@ class TestProcedureRunnerLoad:
 
     def test_load_module_not_found(self):
         """Test loading fails when module doesn't exist."""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             ProcedureRunner("nonexistent.module.Proc").load()
 
 
@@ -240,6 +240,7 @@ class TestProcedureRunnerDescribe:
 
         class DocProcedure(Procedure):
             """Test procedure docstring."""
+
             month: str
 
         module.DocProcedure = DocProcedure
@@ -448,7 +449,6 @@ class TestAsyncProcedureRunnerRun:
     @pytest.mark.asyncio
     async def test_run_rejects_sync_backend(self):
         """Test AsyncProcedureRunner.run() rejects sync backend."""
-        import asyncio
         from unittest.mock import MagicMock
         from rhosocial.activerecord.backend.named_expression import NamedExpressionError
 
@@ -486,6 +486,7 @@ class TestAsyncProcedureContextExecute:
 
     def test_async_context_init_with_callback(self, mock_dialect):
         """Test AsyncProcedureContext supports async callback."""
+
         async def async_callback(fqn, dial, params):
             return {}
 
@@ -494,6 +495,7 @@ class TestAsyncProcedureContextExecute:
 
     def test_async_context_bindings_attribute_exists(self, mock_dialect):
         """Test AsyncProcedureContext has bindings attribute."""
+
         async def async_callback(fqn, dial, params):
             return {}
 
@@ -502,6 +504,7 @@ class TestAsyncProcedureContextExecute:
 
     def test_async_context_log_method_exists(self, mock_dialect):
         """Test AsyncProcedureContext has log() method."""
+
         async def async_callback(fqn, dial, params):
             return {}
 
@@ -510,6 +513,7 @@ class TestAsyncProcedureContextExecute:
 
     def test_async_context_abort_method_exists(self, mock_dialect):
         """Test AsyncProcedureContext has abort() method."""
+
         async def async_callback(fqn, dial, params):
             return {}
 
@@ -644,7 +648,6 @@ class TestProcedureContextParallel:
         """Test parallel with no steps returns empty list."""
         from rhosocial.activerecord.backend.named_expression.procedure import (
             ProcedureContext,
-            ParallelStep,
         )
 
         mock_dialect = MagicMock()
@@ -743,13 +746,15 @@ class TestProcedureResultDiagram:
         )
 
         result = ProcedureResult()
-        result.static_trace.append(TraceEntry(
-            kind=StepKind.SINGLE,
-            index=0,
-            qualified_name="test.query",
-            params={"id": 1},
-            status="ok",
-        ))
+        result.static_trace.append(
+            TraceEntry(
+                kind=StepKind.SINGLE,
+                index=0,
+                qualified_name="test.query",
+                params={"id": 1},
+                status="ok",
+            )
+        )
 
         diagram = result.diagram("flowchart")
         assert "flowchart" in diagram.lower() or "graph" in diagram.lower()
@@ -763,13 +768,15 @@ class TestProcedureResultDiagram:
         )
 
         result = ProcedureResult()
-        result.static_trace.append(TraceEntry(
-            kind=StepKind.SINGLE,
-            index=0,
-            qualified_name="test.query",
-            params={"id": 1},
-            status="ok",
-        ))
+        result.static_trace.append(
+            TraceEntry(
+                kind=StepKind.SINGLE,
+                index=0,
+                qualified_name="test.query",
+                params={"id": 1},
+                status="ok",
+            )
+        )
 
         diagram = result.diagram("sequence")
         assert "sequence" in diagram.lower() or "participant" in diagram.lower()
@@ -810,7 +817,6 @@ class TestAsyncProcedureContextParallel:
         """Test async parallel with no steps returns empty list."""
         from rhosocial.activerecord.backend.named_expression.procedure import (
             AsyncProcedureContext,
-            ParallelStep,
         )
 
         mock_dialect = MagicMock()

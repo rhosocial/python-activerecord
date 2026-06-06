@@ -211,11 +211,7 @@ class TestCacheKeys:
     def test_cache_key_generation(self, sqlite_backend):
         """Test that cache keys are generated correctly."""
         intro = sqlite_backend.introspector
-        key = intro._make_cache_key(
-            IntrospectionScope.TABLE,
-            "users",
-            schema="main"
-        )
+        key = intro._make_cache_key(IntrospectionScope.TABLE, "users", schema="main")
 
         assert "table" in key
         assert "users" in key
@@ -224,11 +220,7 @@ class TestCacheKeys:
     def test_cache_key_with_extra(self, sqlite_backend):
         """Test cache key with extra component."""
         intro = sqlite_backend.introspector
-        key = intro._make_cache_key(
-            IntrospectionScope.TABLE,
-            schema="main",
-            extra="True"
-        )
+        key = intro._make_cache_key(IntrospectionScope.TABLE, schema="main", extra="True")
 
         assert "table" in key
         assert "True" in key

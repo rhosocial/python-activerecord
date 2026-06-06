@@ -1,8 +1,10 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_trigger.py
-import pytest
 from rhosocial.activerecord.backend.expression.statements import (
-    CreateTriggerExpression, DropTriggerExpression,
-    TriggerTiming, TriggerEvent, TriggerLevel
+    CreateTriggerExpression,
+    DropTriggerExpression,
+    TriggerTiming,
+    TriggerEvent,
+    TriggerLevel,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -18,7 +20,7 @@ class TestCreateTriggerStatements:
             table_name="users",
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.INSERT],
-            function_name="set_created_at"
+            function_name="set_created_at",
         )
         sql, params = create_trigger.to_sql()
 
@@ -41,7 +43,7 @@ class TestCreateTriggerStatements:
             table_name="orders",
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.UPDATE],
-            function_name="log_update"
+            function_name="log_update",
         )
         sql, params = create_trigger.to_sql()
 
@@ -57,7 +59,7 @@ class TestCreateTriggerStatements:
             table_name="logs",
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.DELETE],
-            function_name="cleanup_old_logs"
+            function_name="cleanup_old_logs",
         )
         sql, params = create_trigger.to_sql()
 
@@ -72,7 +74,7 @@ class TestCreateTriggerStatements:
             table_name="user_view",
             timing=TriggerTiming.INSTEAD_OF,
             events=[TriggerEvent.INSERT],
-            function_name="handle_insert"
+            function_name="handle_insert",
         )
         sql, params = create_trigger.to_sql()
 
@@ -87,7 +89,7 @@ class TestCreateTriggerStatements:
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.INSERT],
             function_name="f",
-            if_not_exists=True
+            if_not_exists=True,
         )
         sql, params = create_trigger.to_sql()
 
@@ -101,7 +103,7 @@ class TestCreateTriggerStatements:
             table_name="audit",
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.INSERT, TriggerEvent.UPDATE, TriggerEvent.DELETE],
-            function_name="log_change"
+            function_name="log_change",
         )
         sql, params = create_trigger.to_sql()
 
@@ -116,7 +118,7 @@ class TestCreateTriggerStatements:
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             update_columns=["status", "amount"],
-            function_name="validate_update"
+            function_name="validate_update",
         )
         sql, params = create_trigger.to_sql()
 
@@ -133,7 +135,7 @@ class TestCreateTriggerStatements:
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.INSERT],
             function_name="count_inserts",
-            level=TriggerLevel.STATEMENT
+            level=TriggerLevel.STATEMENT,
         )
         sql, params = create_trigger.to_sql()
 
@@ -148,7 +150,7 @@ class TestCreateTriggerStatements:
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             function_name="capture_old_new",
-            referencing="OLD AS old_row NEW AS new_row"
+            referencing="OLD AS old_row NEW AS new_row",
         )
         sql, params = create_trigger.to_sql()
 
@@ -161,11 +163,7 @@ class TestDropTriggerStatements:
 
     def test_basic_drop_trigger(self, dummy_dialect: DummyDialect):
         """Tests basic DROP TRIGGER."""
-        drop_trigger = DropTriggerExpression(
-            dummy_dialect,
-            trigger_name="old_trigger",
-            table_name="users"
-        )
+        drop_trigger = DropTriggerExpression(dummy_dialect, trigger_name="old_trigger", table_name="users")
         sql, params = drop_trigger.to_sql()
 
         assert sql == 'DROP TRIGGER "old_trigger" ON "users"'
@@ -173,10 +171,7 @@ class TestDropTriggerStatements:
 
     def test_drop_trigger_without_table(self, dummy_dialect: DummyDialect):
         """Tests DROP TRIGGER without table name."""
-        drop_trigger = DropTriggerExpression(
-            dummy_dialect,
-            trigger_name="old_trigger"
-        )
+        drop_trigger = DropTriggerExpression(dummy_dialect, trigger_name="old_trigger")
         sql, params = drop_trigger.to_sql()
 
         assert sql == 'DROP TRIGGER "old_trigger"'
@@ -185,10 +180,7 @@ class TestDropTriggerStatements:
     def test_drop_trigger_if_exists(self, dummy_dialect: DummyDialect):
         """Tests DROP TRIGGER IF EXISTS."""
         drop_trigger = DropTriggerExpression(
-            dummy_dialect,
-            trigger_name="maybe_exists",
-            table_name="users",
-            if_exists=True
+            dummy_dialect, trigger_name="maybe_exists", table_name="users", if_exists=True
         )
         sql, params = drop_trigger.to_sql()
 
@@ -197,11 +189,7 @@ class TestDropTriggerStatements:
 
     def test_drop_trigger_if_exists_without_table(self, dummy_dialect: DummyDialect):
         """Tests DROP TRIGGER IF EXISTS without table name."""
-        drop_trigger = DropTriggerExpression(
-            dummy_dialect,
-            trigger_name="maybe_exists",
-            if_exists=True
-        )
+        drop_trigger = DropTriggerExpression(dummy_dialect, trigger_name="maybe_exists", if_exists=True)
         sql, params = drop_trigger.to_sql()
 
         assert "IF EXISTS" in sql

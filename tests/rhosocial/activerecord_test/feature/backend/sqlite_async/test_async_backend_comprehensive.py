@@ -7,7 +7,6 @@ comprehensive coverage of async functionality.
 """
 
 import os
-import sys
 import tempfile
 import asyncio
 from unittest.mock import patch
@@ -16,11 +15,9 @@ import pytest
 import pytest_asyncio
 import aiofiles.os
 
-from rhosocial.activerecord.backend.errors import (
-    DatabaseError, QueryError, TransactionError, OperationalError
-)
+from rhosocial.activerecord.backend.errors import DatabaseError, QueryError, TransactionError
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend, AsyncSQLiteTransactionManager
+from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.transaction import IsolationLevel
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -33,7 +30,8 @@ class TestAsyncSQLiteBackendBasic:
     async def temp_db_path(self):
         """Create temporary database file path"""
         import aiofiles.os
-        fd, path = tempfile.mkstemp(suffix='.db')
+
+        fd, path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         yield path
         # Cleanup
@@ -43,7 +41,7 @@ class TestAsyncSQLiteBackendBasic:
             except OSError:
                 pass
         # Clean up related WAL and SHM files
-        for ext in ['-wal', '-shm']:
+        for ext in ["-wal", "-shm"]:
             wal_path = path + ext
             if await aiofiles.os.path.exists(wal_path):
                 try:
@@ -102,84 +100,83 @@ class TestAsyncSQLiteBackendBasic:
         """Test with in-memory database"""
         # Create table
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        result = await memory_backend.execute("""
+        result = await memory_backend.execute(
+            """
                                        CREATE TABLE test
                                        (
                                            id   INTEGER PRIMARY KEY,
                                            name TEXT
                                        )
-                                       """, options=options)
+                                       """,
+            options=options,
+        )
 
         # Insert data
         options = ExecutionOptions(stmt_type=StatementType.DML)
-        result = await memory_backend.execute(
-            "INSERT INTO test (name) VALUES (?)",
-            params=("test",),
-            options=options
-        )
+        result = await memory_backend.execute("INSERT INTO test (name) VALUES (?)", params=("test",), options=options)
         assert result.affected_rows == 1
         assert result.last_insert_id is not None
 
         # Query data
         row = await memory_backend.fetch_one("SELECT * FROM test WHERE id = ?", params=(result.last_insert_id,))
         assert row is not None
-        assert row['name'] == "test"
+        assert row["name"] == "test"
 
     @pytest.mark.asyncio
     async def test_execute_query(self, backend):
         """Test executing queries"""
         # Create table
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE users
                               (
                                   id    INTEGER PRIMARY KEY,
                                   name  TEXT NOT NULL,
                                   email TEXT
                               )
-                              """, options=options)
+                              """,
+            options=options,
+        )
 
         # Insert data
         options = ExecutionOptions(stmt_type=StatementType.DML)
         result = await backend.execute(
-            "INSERT INTO users (name, email) VALUES (?, ?)",
-            params=("Alice", "alice@example.com"),
-            options=options
+            "INSERT INTO users (name, email) VALUES (?, ?)", params=("Alice", "alice@example.com"), options=options
         )
         assert result.affected_rows == 1
         assert result.last_insert_id is not None
 
         # Query data
         options = ExecutionOptions(stmt_type=StatementType.DQL)
-        result = await backend.execute(
-            "SELECT * FROM users WHERE name = ?",
-            params=("Alice",),
-            options=options
-        )
+        result = await backend.execute("SELECT * FROM users WHERE name = ?", params=("Alice",), options=options)
         assert result.data is not None
         assert len(result.data) == 1
-        assert result.data[0]['name'] == "Alice"
+        assert result.data[0]["name"] == "Alice"
 
     @pytest.mark.asyncio
     async def test_fetch_one(self, backend):
         """Test fetch_one method"""
         # Create and populate table
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE items
                               (
                                   id    INTEGER PRIMARY KEY,
                                   value TEXT
                               )
-                              """, options=options)
-        
+                              """,
+            options=options,
+        )
+
         options = ExecutionOptions(stmt_type=StatementType.DML)
         await backend.execute("INSERT INTO items (value) VALUES ('test1'), ('test2')", options=options)
 
         # Fetch one
         row = await backend.fetch_one("SELECT * FROM items WHERE value = ?", params=("test1",))
         assert row is not None
-        assert row['value'] == "test1"
+        assert row["value"] == "test1"
 
         # Fetch non-existent
         row = await backend.fetch_one("SELECT * FROM items WHERE value = ?", params=("nonexistent",))
@@ -190,23 +187,26 @@ class TestAsyncSQLiteBackendBasic:
         """Test fetch_all method"""
         # Create and populate table
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE items
                               (
                                   id    INTEGER PRIMARY KEY,
                                   value TEXT
                               )
-                              """, options=options)
-        
+                              """,
+            options=options,
+        )
+
         options = ExecutionOptions(stmt_type=StatementType.DML)
         await backend.execute("INSERT INTO items (value) VALUES ('test1'), ('test2'), ('test3')", options=options)
 
         # Fetch all
         rows = await backend.fetch_all("SELECT * FROM items ORDER BY value")
         assert len(rows) == 3
-        assert rows[0]['value'] == "test1"
-        assert rows[1]['value'] == "test2"
-        assert rows[2]['value'] == "test3"
+        assert rows[0]["value"] == "test1"
+        assert rows[1]["value"] == "test2"
+        assert rows[2]["value"] == "test3"
 
         # Fetch with condition
         rows = await backend.fetch_all("SELECT * FROM items WHERE value LIKE ?", params=("test%",))
@@ -215,10 +215,7 @@ class TestAsyncSQLiteBackendBasic:
     @pytest_asyncio.fixture
     async def pragma_backend(self, temp_db_path):
         """Create an async SQLite backend with specific PRAGMA settings"""
-        config = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas={"synchronous": "NORMAL", "cache_size": "5000"}
-        )
+        config = SQLiteConnectionConfig(database=temp_db_path, pragmas={"synchronous": "NORMAL", "cache_size": "5000"})
         backend = AsyncSQLiteBackend(connection_config=config)
         await backend.connect()
         yield backend
@@ -246,7 +243,7 @@ class TestAsyncSQLiteBackendBasic:
         assert pragma_backend.pragmas["cache_size"] == "5000"
 
         # Query actual pragma values
-        options = ExecutionOptions(stmt_type=StatementType.DQL)
+        ExecutionOptions(stmt_type=StatementType.DQL)
         result = await pragma_backend.fetch_one("PRAGMA synchronous")
         assert result["synchronous"] == 1  # NORMAL = 1
 
@@ -272,7 +269,7 @@ class TestAsyncSQLiteBackendBasic:
         options = ExecutionOptions(stmt_type=StatementType.DML)
         await backend.execute("INSERT INTO test (id) VALUES (1)", options=options)
 
-        with pytest.raises(Exception):  # Should raise IntegrityError
+        with pytest.raises(Exception):  # Should raise IntegrityError  # noqa: B017
             await backend.execute("INSERT INTO test (id) VALUES (1)", options=options)
 
     @pytest.mark.asyncio
@@ -285,14 +282,17 @@ class TestAsyncSQLiteBackendBasic:
 
             # Create table and insert data
             options = ExecutionOptions(stmt_type=StatementType.DDL)
-            await backend.execute("""
+            await backend.execute(
+                """
                                   CREATE TABLE test
                                   (
                                       id    INTEGER PRIMARY KEY,
                                       value TEXT
                                   )
-                                  """, options=options)
-            
+                                  """,
+                options=options,
+            )
+
             options = ExecutionOptions(stmt_type=StatementType.DML)
             await backend.execute("INSERT INTO test (value) VALUES (?)", params=("test",), options=options)
 
@@ -317,7 +317,7 @@ class TestAsyncSQLiteBackendBasic:
     @pytest.mark.asyncio
     async def test_delete_on_close(self):
         """Test delete_on_close option"""
-        fd, path = tempfile.mkstemp(suffix='.db')
+        fd, path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
 
         try:
@@ -341,27 +341,27 @@ class TestAsyncSQLiteBackendBasic:
             if await aiofiles.os.path.exists(path):
                 await aiofiles.os.remove(path)
 
-
     @pytest.mark.asyncio
     async def test_concurrent_operations(self, memory_backend):
         """Test multiple concurrent operations"""
         # Create table
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await memory_backend.execute("""
+        await memory_backend.execute(
+            """
                               CREATE TABLE concurrent_test
                               (
                                   id    INTEGER PRIMARY KEY,
                                   value TEXT
                               )
-                              """, options=options)
+                              """,
+            options=options,
+        )
 
         # Run multiple inserts concurrently
         async def insert_value(i):
             options = ExecutionOptions(stmt_type=StatementType.DML)
             await memory_backend.execute(
-                "INSERT INTO concurrent_test (value) VALUES (?)",
-                params=(f"value{i}",),
-                options=options
+                "INSERT INTO concurrent_test (value) VALUES (?)", params=(f"value{i}",), options=options
             )
 
         # Note: SQLite doesn't support true concurrent writes, but this tests the async interface
@@ -377,37 +377,34 @@ class TestAsyncSQLiteBackendBasic:
     async def test_parameterized_queries(self, backend):
         """Test different parameter formats"""
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE param_test
                               (
                                   id    INTEGER PRIMARY KEY,
                                   name  TEXT,
                                   value INTEGER
                               )
-                              """, options=options)
+                              """,
+            options=options,
+        )
 
         # Tuple params
         options = ExecutionOptions(stmt_type=StatementType.DML)
         result = await backend.execute(
-            "INSERT INTO param_test (name, value) VALUES (?, ?)",
-            params=("test1", 100),
-            options=options
+            "INSERT INTO param_test (name, value) VALUES (?, ?)", params=("test1", 100), options=options
         )
         assert result.affected_rows == 1
 
         # Tuple params (replacing dict params since SQLite uses positional placeholders)
         result = await backend.execute(
-            "INSERT INTO param_test (name, value) VALUES (?, ?)",
-            params=("test2", 200),
-            options=options
+            "INSERT INTO param_test (name, value) VALUES (?, ?)", params=("test2", 200), options=options
         )
         assert result.affected_rows == 1
 
         # List params
         result = await backend.execute(
-            "INSERT INTO param_test (name, value) VALUES (?, ?)",
-            params=["test3", 300],
-            options=options
+            "INSERT INTO param_test (name, value) VALUES (?, ?)", params=["test3", 300], options=options
         )
         assert result.affected_rows == 1
 
@@ -435,7 +432,7 @@ class TestAsyncExecuteMany:
     @pytest_asyncio.fixture
     async def temp_db_path(self):
         """Create temporary database file path"""
-        fd, path = tempfile.mkstemp(suffix='.db')
+        fd, path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         yield path
         # Cleanup
@@ -444,7 +441,7 @@ class TestAsyncExecuteMany:
                 await aiofiles.os.remove(path)
             except OSError:
                 pass
-        for ext in ['-wal', '-shm']:
+        for ext in ["-wal", "-shm"]:
             wal_path = path + ext
             if await aiofiles.os.path.exists(wal_path):
                 try:
@@ -462,7 +459,8 @@ class TestAsyncExecuteMany:
 
         # Create test tables
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE users
                               (
                                   id     INTEGER PRIMARY KEY,
@@ -470,9 +468,12 @@ class TestAsyncExecuteMany:
                                   email  TEXT,
                                   active INTEGER
                               )
-                              """, options=options)
+                              """,
+            options=options,
+        )
 
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE posts
                               (
                                   id      INTEGER PRIMARY KEY,
@@ -481,7 +482,9 @@ class TestAsyncExecuteMany:
                                   content TEXT,
                                   FOREIGN KEY (user_id) REFERENCES users (id)
                               )
-                              """, options=options)
+                              """,
+            options=options,
+        )
 
         yield backend
         await backend.disconnect()
@@ -492,19 +495,16 @@ class TestAsyncExecuteMany:
         users = [
             (1, "User 1", "user1@example.com", 1),
             (2, "User 2", "user2@example.com", 1),
-            (3, "User 3", "user3@example.com", 0)
+            (3, "User 3", "user3@example.com", 0),
         ]
 
-        result = await backend.execute_many(
-            "INSERT INTO users (id, name, email, active) VALUES (?, ?, ?, ?)",
-            users
-        )
+        result = await backend.execute_many("INSERT INTO users (id, name, email, active) VALUES (?, ?, ?, ?)", users)
 
         assert result.affected_rows == 3
         assert result.duration > 0
 
         # Verify data
-        options = ExecutionOptions(stmt_type=StatementType.DQL)
+        ExecutionOptions(stmt_type=StatementType.DQL)
         rows = await backend.fetch_all("SELECT * FROM users ORDER BY id")
         assert len(rows) == 3
         assert rows[0]["name"] == "User 1"
@@ -519,25 +519,19 @@ class TestAsyncExecuteMany:
             [
                 (1, "User 1", "user1@example.com", 1),
                 (2, "User 2", "user2@example.com", 1),
-                (3, "User 3", "user3@example.com", 1)
-            ]
+                (3, "User 3", "user3@example.com", 1),
+            ],
         )
 
         # Batch update
-        updates = [
-            ("Updated User 1", 1),
-            ("Updated User 3", 3)
-        ]
+        updates = [("Updated User 1", 1), ("Updated User 3", 3)]
 
-        result = await backend.execute_many(
-            "UPDATE users SET name = ? WHERE id = ?",
-            updates
-        )
+        result = await backend.execute_many("UPDATE users SET name = ? WHERE id = ?", updates)
 
         assert result.affected_rows == 2
 
         # Verify updates
-        options = ExecutionOptions(stmt_type=StatementType.DQL)
+        ExecutionOptions(stmt_type=StatementType.DQL)
         user1 = await backend.fetch_one("SELECT * FROM users WHERE id = 1")
         user2 = await backend.fetch_one("SELECT * FROM users WHERE id = 2")
         user3 = await backend.fetch_one("SELECT * FROM users WHERE id = 3")
@@ -549,10 +543,7 @@ class TestAsyncExecuteMany:
     @pytest.mark.asyncio
     async def test_empty_params_list(self, backend):
         """Test execute_many with empty params list"""
-        result = await backend.execute_many(
-            "INSERT INTO users (id, name) VALUES (?, ?)",
-            []
-        )
+        result = await backend.execute_many("INSERT INTO users (id, name) VALUES (?, ?)", [])
 
         assert result.affected_rows == 0
         assert result.duration >= 0
@@ -565,27 +556,24 @@ class TestAsyncExecuteMany:
     async def test_params_mismatch(self, backend):
         """Test execute_many with mismatched parameters"""
         # Too few parameters
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             await backend.execute_many(
                 "INSERT INTO users (id, name, email) VALUES (?, ?, ?)",
-                [(1, "User 1")]  # Missing email
+                [(1, "User 1")],  # Missing email
             )
 
         # Too many parameters
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             await backend.execute_many(
                 "INSERT INTO users (id, name) VALUES (?, ?)",
-                [(1, "User 1", "extra@example.com")]  # Extra parameter
+                [(1, "User 1", "extra@example.com")],  # Extra parameter
             )
 
     @pytest.mark.asyncio
     async def test_table_not_exists(self, backend):
         """Test execute_many with non-existent table"""
         with pytest.raises((DatabaseError, QueryError)) as exc_info:
-            await backend.execute_many(
-                "INSERT INTO nonexistent (id, name) VALUES (?, ?)",
-                [(1, "Test"), (2, "Test 2")]
-            )
+            await backend.execute_many("INSERT INTO nonexistent (id, name) VALUES (?, ?)", [(1, "Test"), (2, "Test 2")])
 
         assert "no such table" in str(exc_info.value).lower()
 
@@ -595,11 +583,7 @@ class TestAsyncExecuteMany:
         # Try to insert posts with non-existent user_ids
         with pytest.raises(DatabaseError) as exc_info:
             await backend.execute_many(
-                "INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)",
-                [
-                    (1, 99, "Title 1"),
-                    (2, 100, "Title 2")
-                ]
+                "INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)", [(1, 99, "Title 1"), (2, 100, "Title 2")]
             )
 
         assert "foreign key constraint" in str(exc_info.value).lower()
@@ -614,8 +598,8 @@ class TestAsyncExecuteMany:
                 "INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)",
                 [
                     (1, 1, "Title 1"),  # Valid
-                    (2, 999, "Title 2")  # Invalid
-                ]
+                    (2, 999, "Title 2"),  # Invalid
+                ],
             )
 
         assert "foreign key constraint" in str(exc_info.value).lower()
@@ -630,8 +614,7 @@ class TestAsyncExecuteMany:
         large_batch = [(i, f"User {i}", f"user{i}@example.com", 1) for i in range(1, 101)]  # Smaller batch for testing
 
         result = await backend.execute_many(
-            "INSERT INTO users (id, name, email, active) VALUES (?, ?, ?, ?)",
-            large_batch
+            "INSERT INTO users (id, name, email, active) VALUES (?, ?, ?, ?)", large_batch
         )
 
         assert result.affected_rows == 100
@@ -646,28 +629,19 @@ class TestAsyncExecuteMany:
         # Insert test data
         await backend.execute_many(
             "INSERT INTO users (id, name, active) VALUES (?, ?, ?)",
-            [(1, "User 1", 1), (2, "User 2", 1), (3, "User 3", 0)]
+            [(1, "User 1", 1), (2, "User 2", 1), (3, "User 3", 0)],
         )
 
         # UPDATE that affects some rows
-        result = await backend.execute_many(
-            "UPDATE users SET name = ? WHERE active = ?",
-            [("Active User", 1)]
-        )
+        result = await backend.execute_many("UPDATE users SET name = ? WHERE active = ?", [("Active User", 1)])
         assert result.affected_rows == 2
 
         # UPDATE that affects no rows
-        result = await backend.execute_many(
-            "UPDATE users SET name = ? WHERE id > ?",
-            [("No one", 100)]
-        )
+        result = await backend.execute_many("UPDATE users SET name = ? WHERE id > ?", [("No one", 100)])
         assert result.affected_rows == 0
 
         # UPDATE with multiple parameter sets
-        result = await backend.execute_many(
-            "UPDATE users SET active = ? WHERE id = ?",
-            [(0, 1), (0, 2)]
-        )
+        result = await backend.execute_many("UPDATE users SET active = ? WHERE id = ?", [(0, 1), (0, 2)])
         assert result.affected_rows == 2
 
     @pytest_asyncio.fixture
@@ -678,13 +652,16 @@ class TestAsyncExecuteMany:
         await backend.connect()
         # Create table for the test
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE concurrent
                               (
                                   id    INTEGER PRIMARY KEY,
                                   value TEXT
                               )
-                              """, options=options)
+                              """,
+            options=options,
+        )
         yield backend
         await backend.disconnect()
 
@@ -692,8 +669,7 @@ class TestAsyncExecuteMany:
     async def test_execute_many_duration_tracking(self, backend):
         """Test that duration is tracked for execute_many"""
         result = await backend.execute_many(
-            "INSERT INTO users (id, name) VALUES (?, ?)",
-            [(1, "User 1"), (2, "User 2"), (3, "User 3")]
+            "INSERT INTO users (id, name) VALUES (?, ?)", [(1, "User 1"), (2, "User 2"), (3, "User 3")]
         )
 
         assert result.duration > 0
@@ -702,22 +678,16 @@ class TestAsyncExecuteMany:
     @pytest.mark.asyncio
     async def test_concurrent_execute_many(self, memory_backend_for_concurrent):
         """Test concurrent execute_many operations"""
+
         # Run multiple execute_many concurrently
         async def batch_insert(start_id, count):
             params = [(start_id + i, f"value{start_id + i}") for i in range(count)]
-            await memory_backend_for_concurrent.execute_many(
-                "INSERT INTO concurrent (id, value) VALUES (?, ?)",
-                params
-            )
+            await memory_backend_for_concurrent.execute_many("INSERT INTO concurrent (id, value) VALUES (?, ?)", params)
 
         # Note: SQLite may serialize these due to locking
-        tasks = [
-            batch_insert(1, 10),
-            batch_insert(11, 10),
-            batch_insert(21, 10)
-        ]
+        tasks = [batch_insert(1, 10), batch_insert(11, 10), batch_insert(21, 10)]
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
         # At least one batch should succeed
         count = await memory_backend_for_concurrent.fetch_one("SELECT COUNT(*) as count FROM concurrent")
@@ -730,7 +700,7 @@ class TestAsyncSQLiteTransaction:
     @pytest_asyncio.fixture
     async def temp_db_path(self):
         """Create temporary database file path"""
-        fd, path = tempfile.mkstemp(suffix='.db')
+        fd, path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         yield path
         # Cleanup
@@ -739,7 +709,7 @@ class TestAsyncSQLiteTransaction:
                 await aiofiles.os.remove(path)
             except OSError:
                 pass
-        for ext in ['-wal', '-shm']:
+        for ext in ["-wal", "-shm"]:
             wal_path = path + ext
             if await aiofiles.os.path.exists(wal_path):
                 try:
@@ -757,13 +727,16 @@ class TestAsyncSQLiteTransaction:
 
         # Create test table
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE test
                               (
                                   id    INTEGER PRIMARY KEY,
                                   value TEXT
                               )
-                              """, options=options)
+                              """,
+            options=options,
+        )
 
         yield backend
         await backend.disconnect()
@@ -800,7 +773,7 @@ class TestAsyncSQLiteTransaction:
         options = ExecutionOptions(stmt_type=StatementType.DQL)
         row = await backend.fetch_one("SELECT * FROM test WHERE value = ?", params=("test",))
         assert row is not None
-        assert row['value'] == "test"
+        assert row["value"] == "test"
 
     @pytest.mark.asyncio
     async def test_begin_rollback(self, backend):
@@ -880,7 +853,7 @@ class TestAsyncSQLiteTransaction:
         # Verify outer committed
         row = await backend.fetch_one("SELECT * FROM test WHERE id = 1")
         assert row is not None
-        assert row['value'] == "outer"
+        assert row["value"] == "outer"
 
     @pytest.mark.asyncio
     async def test_multiple_nested_levels(self, backend):
@@ -916,8 +889,8 @@ class TestAsyncSQLiteTransaction:
         # Verify final state
         rows = await backend.fetch_all("SELECT * FROM test ORDER BY id")
         assert len(rows) == 2
-        assert rows[0]['value'] == "level1"
-        assert rows[1]['value'] == "level2"
+        assert rows[0]["value"] == "level1"
+        assert rows[1]["value"] == "level2"
 
     @pytest.mark.asyncio
     async def test_savepoint_operations(self, backend):
@@ -927,11 +900,11 @@ class TestAsyncSQLiteTransaction:
         await backend.execute("INSERT INTO test (id, value) VALUES (1, 'base')", options=options)
 
         # Create savepoint
-        sp1 = await backend.transaction_manager.savepoint("sp1")
+        await backend.transaction_manager.savepoint("sp1")
         await backend.execute("INSERT INTO test (id, value) VALUES (2, 'sp1')", options=options)
 
         # Create second savepoint
-        sp2 = await backend.transaction_manager.savepoint("sp2")
+        await backend.transaction_manager.savepoint("sp2")
         await backend.execute("INSERT INTO test (id, value) VALUES (3, 'sp2')", options=options)
 
         # Rollback to first savepoint
@@ -940,7 +913,7 @@ class TestAsyncSQLiteTransaction:
         # Verify rollback
         rows = await backend.fetch_all("SELECT * FROM test ORDER BY id")
         assert len(rows) == 1
-        assert rows[0]['value'] == "base"
+        assert rows[0]["value"] == "base"
 
         # Add new data
         await backend.execute("INSERT INTO test (id, value) VALUES (4, 'after-rollback')", options=options)
@@ -954,8 +927,8 @@ class TestAsyncSQLiteTransaction:
         # Verify final state
         rows = await backend.fetch_all("SELECT * FROM test ORDER BY id")
         assert len(rows) == 2
-        assert rows[0]['value'] == "base"
-        assert rows[1]['value'] == "after-rollback"
+        assert rows[0]["value"] == "base"
+        assert rows[1]["value"] == "after-rollback"
 
     @pytest.mark.asyncio
     async def test_auto_savepoint_name(self, backend):
@@ -1095,21 +1068,21 @@ class TestAsyncSQLiteTransaction:
 
         # Verify 3 rows
         rows = await backend.fetch_all("SELECT COUNT(*) as cnt FROM test")
-        assert rows[0]['cnt'] == 3
+        assert rows[0]["cnt"] == 3
 
         # Rollback nested
         await backend.rollback_transaction()
 
         # Verify 2 rows
         rows = await backend.fetch_all("SELECT COUNT(*) as cnt FROM test")
-        assert rows[0]['cnt'] == 2
+        assert rows[0]["cnt"] == 2
 
         # Rollback to manual savepoint
         await backend.transaction_manager.rollback_to(sp1)
 
         # Verify 1 row
         rows = await backend.fetch_all("SELECT COUNT(*) as cnt FROM test")
-        assert rows[0]['cnt'] == 1
+        assert rows[0]["cnt"] == 1
 
         # Commit main
         await backend.commit_transaction()
@@ -1117,7 +1090,7 @@ class TestAsyncSQLiteTransaction:
         # Verify final state
         rows = await backend.fetch_all("SELECT * FROM test")
         assert len(rows) == 1
-        assert rows[0]['value'] == "main"
+        assert rows[0]["value"] == "main"
 
     @pytest.mark.asyncio
     async def test_transaction_level_counter(self, backend):
@@ -1156,13 +1129,16 @@ class TestAsyncSQLiteTransaction:
 
         # Create table
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await backend1.execute("""
+        await backend1.execute(
+            """
                                CREATE TABLE concurrent
                                (
                                    id    INTEGER PRIMARY KEY,
                                    value TEXT
                                )
-                               """, options=options)
+                               """,
+            options=options,
+        )
 
         # Run two transactions concurrently
         async def trans1():
@@ -1185,12 +1161,17 @@ class TestAsyncSQLiteTransaction:
         assert len(rows) >= 1
 
 
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import (
-    InsertExpression, ValuesSource, Literal, Column, ReturningClause,
-    UpdateExpression, DeleteExpression
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError  # noqa: E402
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    InsertExpression,
+    ValuesSource,
+    Literal,
+    Column,
+    ReturningClause,
+    UpdateExpression,
+    DeleteExpression,
 )
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect  # noqa: E402
 
 
 class TestAsyncReturning:
@@ -1217,7 +1198,7 @@ class TestAsyncReturning:
             into="users",
             columns=["name"],
             source=ValuesSource(dialect, values_list=[[Literal(dialect, "test")]]),
-            returning=ReturningClause(dialect, expressions=[Column(dialect, "id")])
+            returning=ReturningClause(dialect, expressions=[Column(dialect, "id")]),
         )
 
         # 3. Assert that to_sql() raises the correct exception
@@ -1225,64 +1206,68 @@ class TestAsyncReturning:
             insert_expr.to_sql()
 
     @pytest.mark.asyncio
-    @patch('aiosqlite.sqlite_version', '3.35.0')
+    @patch("aiosqlite.sqlite_version", "3.35.0")
     async def test_returning_with_insert(self, backend):
         """Test RETURNING with INSERT"""
         # Use the backend's dialect
         dialect = backend.dialect
-        
+
         # Create table
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE users
                               (
                                   id    INTEGER PRIMARY KEY AUTOINCREMENT,
                                   name  TEXT,
                                   email TEXT
                               )
-                              """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+                              """,
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
 
         # Create an InsertExpression with a ReturningClause
         insert_expr = InsertExpression(
             dialect=dialect,
             into="users",
             columns=["name", "email"],
-            source=ValuesSource(dialect, values_list=[[Literal(dialect, "Alice"), Literal(dialect, "alice@example.com")]]),
-            returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name")])
+            source=ValuesSource(
+                dialect, values_list=[[Literal(dialect, "Alice"), Literal(dialect, "alice@example.com")]]
+            ),
+            returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name")]),
         )
-        
+
         sql, params = insert_expr.to_sql()
 
         # Execute the query, using DQL to fetch returning data
-        result = await backend.execute(
-            sql,
-            params=params,
-            options=ExecutionOptions(stmt_type=StatementType.DQL)
-        )
+        result = await backend.execute(sql, params=params, options=ExecutionOptions(stmt_type=StatementType.DQL))
 
         assert result.affected_rows == 1
         assert result.data is not None
         assert len(result.data) == 1
-        assert result.data[0]['id'] == 1
-        assert result.data[0]['name'] == 'Alice'
+        assert result.data[0]["id"] == 1
+        assert result.data[0]["name"] == "Alice"
 
     @pytest.mark.asyncio
-    @patch('aiosqlite.sqlite_version', '3.35.0')
+    @patch("aiosqlite.sqlite_version", "3.35.0")
     async def test_returning_with_update(self, backend):
         """Test RETURNING with UPDATE"""
         dialect = backend.dialect
         # Create and populate table
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE users
                               (
                                   id    INTEGER PRIMARY KEY,
                                   name  TEXT,
                                   email TEXT
                               )
-                              """, options=ExecutionOptions(stmt_type=StatementType.DDL))
-        
+                              """,
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
+
         await backend.execute(
             "INSERT INTO users (id, name, email) VALUES (1, 'Original', 'old@example.com')",
-            options=ExecutionOptions(stmt_type=StatementType.DML)
+            options=ExecutionOptions(stmt_type=StatementType.DML),
         )
 
         # Update with RETURNING
@@ -1291,76 +1276,78 @@ class TestAsyncReturning:
             table="users",
             assignments={"name": Literal(dialect, "Updated"), "email": Literal(dialect, "new@example.com")},
             where=Column(dialect, "id") == Literal(dialect, 1),
-            returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")])
+            returning=ReturningClause(
+                dialect, expressions=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")]
+            ),
         )
         sql, params = update_expr.to_sql()
 
-        result = await backend.execute(
-            sql,
-            params=params,
-            options=ExecutionOptions(stmt_type=StatementType.DQL)
-        )
+        result = await backend.execute(sql, params=params, options=ExecutionOptions(stmt_type=StatementType.DQL))
 
         assert result.affected_rows == 1
         assert result.data is not None
         assert len(result.data) == 1
-        assert result.data[0]['id'] == 1
-        assert result.data[0]['name'] == 'Updated'
-        assert result.data[0]['email'] == 'new@example.com'
+        assert result.data[0]["id"] == 1
+        assert result.data[0]["name"] == "Updated"
+        assert result.data[0]["email"] == "new@example.com"
 
     @pytest.mark.asyncio
-    @patch('aiosqlite.sqlite_version', '3.35.0')
+    @patch("aiosqlite.sqlite_version", "3.35.0")
     async def test_returning_with_delete(self, backend):
         """Test RETURNING with DELETE"""
         dialect = backend.dialect
         # Create and populate table
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE users
                               (
                                   id   INTEGER PRIMARY KEY,
                                   name TEXT
                               )
-                              """, options=ExecutionOptions(stmt_type=StatementType.DDL))
-        
-        await backend.execute("INSERT INTO users (id, name) VALUES (1, 'ToDelete')", options=ExecutionOptions(stmt_type=StatementType.DML))
+                              """,
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
+
+        await backend.execute(
+            "INSERT INTO users (id, name) VALUES (1, 'ToDelete')", options=ExecutionOptions(stmt_type=StatementType.DML)
+        )
 
         # Delete with RETURNING
         delete_expr = DeleteExpression(
             dialect=dialect,
             tables="users",
             where=Column(dialect, "id") == Literal(dialect, 1),
-            returning=ReturningClause(dialect, expressions=[Column(dialect, "name")])
+            returning=ReturningClause(dialect, expressions=[Column(dialect, "name")]),
         )
         sql, params = delete_expr.to_sql()
-        
-        result = await backend.execute(
-            sql,
-            params=params,
-            options=ExecutionOptions(stmt_type=StatementType.DQL)
-        )
+
+        result = await backend.execute(sql, params=params, options=ExecutionOptions(stmt_type=StatementType.DQL))
 
         assert result.affected_rows == 1
         assert result.data is not None
         assert len(result.data) == 1
-        assert result.data[0]['name'] == 'ToDelete'
+        assert result.data[0]["name"] == "ToDelete"
 
         # Verify deleted
         row = await backend.fetch_one("SELECT * FROM users WHERE id = 1")
         assert row is None
 
     @pytest.mark.asyncio
-    @patch('aiosqlite.sqlite_version', '3.35.0')
+    @patch("aiosqlite.sqlite_version", "3.35.0")
     async def test_returning_invalid_columns(self, backend):
         """Test RETURNING with invalid column names follows SQLite's quirky behavior."""
         dialect = backend.dialect
         # Create table
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE users
                               (
                                   id   INTEGER PRIMARY KEY,
                                   name TEXT
                               )
-                              """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+                              """,
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
 
         # Create an InsertExpression with an invalid column in the ReturningClause
         insert_expr = InsertExpression(
@@ -1368,40 +1355,48 @@ class TestAsyncReturning:
             into="users",
             columns=["name"],
             source=ValuesSource(dialect, values_list=[[Literal(dialect, "test")]]),
-            returning=ReturningClause(dialect, expressions=[Column(dialect, "invalid_column")])
+            returning=ReturningClause(dialect, expressions=[Column(dialect, "invalid_column")]),
         )
         sql, params = insert_expr.to_sql()
 
         # SQLite does not raise an error for invalid columns in RETURNING.
         # Instead, it returns the column name as a string value.
-        result = await backend.execute(
-            sql,
-            params=params,
-            options=ExecutionOptions(stmt_type=StatementType.DQL)
-        )
+        result = await backend.execute(sql, params=params, options=ExecutionOptions(stmt_type=StatementType.DQL))
 
         assert result.data is not None
         assert len(result.data) == 1
-        assert result.data[0]['invalid_column'] == 'invalid_column'
+        assert result.data[0]["invalid_column"] == "invalid_column"
 
     @pytest.mark.asyncio
-    @patch('aiosqlite.sqlite_version', '3.35.0')
+    @patch("aiosqlite.sqlite_version", "3.35.0")
     async def test_returning_multiple_rows(self, backend):
         """Test RETURNING with operations affecting multiple rows"""
         dialect = backend.dialect
         # Create and populate table
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE users
                               (
                                   id     INTEGER PRIMARY KEY,
                                   name   TEXT,
                                   active INTEGER
                               )
-                              """, options=ExecutionOptions(stmt_type=StatementType.DDL))
-        
-        await backend.execute("INSERT INTO users (id, name, active) VALUES (1, 'User1', 1)", options=ExecutionOptions(stmt_type=StatementType.DML))
-        await backend.execute("INSERT INTO users (id, name, active) VALUES (2, 'User2', 1)", options=ExecutionOptions(stmt_type=StatementType.DML))
-        await backend.execute("INSERT INTO users (id, name, active) VALUES (3, 'User3', 0)", options=ExecutionOptions(stmt_type=StatementType.DML))
+                              """,
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
+
+        await backend.execute(
+            "INSERT INTO users (id, name, active) VALUES (1, 'User1', 1)",
+            options=ExecutionOptions(stmt_type=StatementType.DML),
+        )
+        await backend.execute(
+            "INSERT INTO users (id, name, active) VALUES (2, 'User2', 1)",
+            options=ExecutionOptions(stmt_type=StatementType.DML),
+        )
+        await backend.execute(
+            "INSERT INTO users (id, name, active) VALUES (3, 'User3', 0)",
+            options=ExecutionOptions(stmt_type=StatementType.DML),
+        )
 
         # Update multiple rows with RETURNING
         update_expr = UpdateExpression(
@@ -1409,36 +1404,34 @@ class TestAsyncReturning:
             table="users",
             assignments={"active": Literal(dialect, 0)},
             where=Column(dialect, "active") == Literal(dialect, 1),
-            returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name")])
+            returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name")]),
         )
         sql, params = update_expr.to_sql()
 
-        result = await backend.execute(
-            sql,
-            params=params,
-            options=ExecutionOptions(stmt_type=StatementType.DQL)
-        )
+        result = await backend.execute(sql, params=params, options=ExecutionOptions(stmt_type=StatementType.DQL))
 
         assert result.affected_rows == 2
         assert result.data is not None
         assert len(result.data) == 2
-        returned_ids = {row['id'] for row in result.data}
+        returned_ids = {row["id"] for row in result.data}
         assert returned_ids == {1, 2}
 
-
     @pytest.mark.asyncio
-    @patch('aiosqlite.sqlite_version', '3.35.0')
+    @patch("aiosqlite.sqlite_version", "3.35.0")
     async def test_returning_with_transaction(self, backend):
         """Test RETURNING within transaction"""
         dialect = backend.dialect
         # Create table
-        await backend.execute("""
+        await backend.execute(
+            """
                               CREATE TABLE users
                               (
                                   id   INTEGER PRIMARY KEY AUTOINCREMENT,
                                   name TEXT
                               )
-                              """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+                              """,
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
 
         # Transaction with RETURNING
         async with backend.transaction():
@@ -1447,25 +1440,21 @@ class TestAsyncReturning:
                 into="users",
                 columns=["name"],
                 source=ValuesSource(dialect, values_list=[[Literal(dialect, "TransUser")]]),
-                returning=ReturningClause(dialect, expressions=[Column(dialect, "id")])
+                returning=ReturningClause(dialect, expressions=[Column(dialect, "id")]),
             )
             sql, params = insert_expr.to_sql()
-            
-            result = await backend.execute(
-                sql,
-                params=params,
-                options=ExecutionOptions(stmt_type=StatementType.DQL)
-            )
+
+            result = await backend.execute(sql, params=params, options=ExecutionOptions(stmt_type=StatementType.DQL))
 
             assert result.affected_rows == 1
             assert result.data is not None
             assert len(result.data) == 1
-            assert result.data[0]['id'] == 1
+            assert result.data[0]["id"] == 1
 
         # Verify committed
         row = await backend.fetch_one("SELECT * FROM users WHERE name = ?", params=("TransUser",))
         assert row is not None
-        assert row['id'] == 1
+        assert row["id"] == 1
 
 
 class TestAsyncColumnMapping:
@@ -1506,13 +1495,14 @@ class TestAsyncColumnMapping:
         """
         backend = async_mapped_table_backend
         from datetime import datetime
-        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-        
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
         column_to_field_mapping = {
             "user_id": "user_pk",
             "name": "full_name",
             "email": "user_email",
-            "created_at": "created_timestamp"
+            "created_at": "created_timestamp",
         }
 
         sql = "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)"
@@ -1521,7 +1511,7 @@ class TestAsyncColumnMapping:
         result = await backend.execute(
             sql=sql,
             params=params,
-            options=ExecutionOptions(stmt_type=StatementType.DML, column_mapping=column_to_field_mapping)
+            options=ExecutionOptions(stmt_type=StatementType.DML, column_mapping=column_to_field_mapping),
         )
 
         assert result.affected_rows == 1
@@ -1533,11 +1523,15 @@ class TestAsyncColumnMapping:
         """
         backend = async_mapped_table_backend
         from datetime import datetime
-        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-        
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
         options = ExecutionOptions(stmt_type=StatementType.DML)
-        await backend.execute("INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
-                              ("Jane Doe Async", "jane.doe.async@example.com", now_str), options=options)
+        await backend.execute(
+            "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
+            ("Jane Doe Async", "jane.doe.async@example.com", now_str),
+            options=options,
+        )
 
         sql = "UPDATE mapped_users SET name = ? WHERE user_id = ?"
         params = ("Jane Smith Async", 1)
@@ -1558,23 +1552,20 @@ class TestAsyncColumnMapping:
         """
         backend = async_mapped_table_backend
         from datetime import datetime
-        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-        
-        column_to_field_mapping = {
-            "user_id": "user_pk",
-            "name": "full_name",
-            "email": "user_email"
-        }
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+        column_to_field_mapping = {"user_id": "user_pk", "name": "full_name", "email": "user_email"}
 
         options = ExecutionOptions(stmt_type=StatementType.DML)
-        await backend.execute("INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
-                              ("Async Fetch Test", "asyncfetch@example.com", now_str), options=options)
+        await backend.execute(
+            "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
+            ("Async Fetch Test", "asyncfetch@example.com", now_str),
+            options=options,
+        )
 
         fetch_options = ExecutionOptions(stmt_type=StatementType.DQL, column_mapping=column_to_field_mapping)
-        result = await backend.execute(
-            "SELECT * FROM mapped_users WHERE user_id = 1",
-            options=fetch_options
-        )
+        result = await backend.execute("SELECT * FROM mapped_users WHERE user_id = 1", options=fetch_options)
         fetched_row = result.data[0] if result.data else None
 
         assert fetched_row is not None
@@ -1591,11 +1582,15 @@ class TestAsyncColumnMapping:
         """
         backend = async_mapped_table_backend
         from datetime import datetime
-        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
         options = ExecutionOptions(stmt_type=StatementType.DML)
-        await backend.execute("INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
-                              ("Async No Map", "asyncnomap@example.com", now_str), options=options)
+        await backend.execute(
+            "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
+            ("Async No Map", "asyncnomap@example.com", now_str),
+            options=options,
+        )
 
         fetch_options = ExecutionOptions(stmt_type=StatementType.DQL)
         result = await backend.execute("SELECT * FROM mapped_users WHERE user_id = 1", options=fetch_options)
@@ -1616,36 +1611,28 @@ class TestAsyncColumnMapping:
         backend = async_mapped_table_backend
         from datetime import datetime
         import uuid
-        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         test_uuid = uuid.uuid4()
 
-        column_to_field_mapping = {
-            "user_id": "pk",
-            "name": "full_name",
-            "user_uuid": "uuid",
-            "is_active": "active"
-        }
+        column_to_field_mapping = {"user_id": "pk", "name": "full_name", "user_uuid": "uuid", "is_active": "active"}
 
         uuid_adapter = backend.adapter_registry.get_adapter(uuid.UUID, str)
         bool_adapter = backend.adapter_registry.get_adapter(bool, int)
 
-        column_adapters = {
-            "user_uuid": (uuid_adapter, uuid.UUID),
-            "is_active": (bool_adapter, bool)
-        }
+        column_adapters = {"user_uuid": (uuid_adapter, uuid.UUID), "is_active": (bool_adapter, bool)}
 
         options = ExecutionOptions(stmt_type=StatementType.DML)
         await backend.execute(
             "INSERT INTO mapped_users (name, email, created_at, user_uuid, is_active) VALUES (?, ?, ?, ?, ?)",
             ("Async Combined", "asynccombined@example.com", now_str, str(test_uuid), 1),
-            options=options
+            options=options,
         )
 
-        fetch_options = ExecutionOptions(stmt_type=StatementType.DQL, column_mapping=column_to_field_mapping, column_adapters=column_adapters)
-        result = await backend.execute(
-            "SELECT * FROM mapped_users WHERE user_id = 1",
-            options=fetch_options
+        fetch_options = ExecutionOptions(
+            stmt_type=StatementType.DQL, column_mapping=column_to_field_mapping, column_adapters=column_adapters
         )
+        result = await backend.execute("SELECT * FROM mapped_users WHERE user_id = 1", options=fetch_options)
 
         fetched_row = result.data[0] if result.data else None
         assert fetched_row is not None
@@ -1655,7 +1642,7 @@ class TestAsyncColumnMapping:
         assert "active" in fetched_row
         assert "name" not in fetched_row
         assert "user_uuid" not in fetched_row
-        
+
         assert fetched_row["full_name"] == "Async Combined"
         # The adapter should convert the UUID string from the DB back to a UUID object.
         assert fetched_row["uuid"] == test_uuid

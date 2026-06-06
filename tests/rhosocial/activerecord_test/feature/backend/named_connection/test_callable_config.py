@@ -8,7 +8,6 @@ can be passed directly as the config argument.
 
 import pytest
 from typing import Optional
-from unittest.mock import MagicMock, patch
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
@@ -27,9 +26,11 @@ from rhosocial.activerecord.connection.manager import BackendManager, AsyncBacke
 # Test Models
 # ============================================================
 
+
 class CallableUser(IntegerPKMixin, ActiveRecord):
     """Test User model for callable config tests."""
-    __table_name__ = 'callable_users'
+
+    __table_name__ = "callable_users"
 
     id: Optional[int] = None
     name: str
@@ -37,7 +38,8 @@ class CallableUser(IntegerPKMixin, ActiveRecord):
 
 class AsyncCallableUser(IntegerPKMixin, AsyncActiveRecord):
     """Test async User model for callable config tests."""
-    __table_name__ = 'callable_users'
+
+    __table_name__ = "callable_users"
 
     id: Optional[int] = None
     name: str
@@ -46,6 +48,7 @@ class AsyncCallableUser(IntegerPKMixin, AsyncActiveRecord):
 # ============================================================
 # Fixtures
 # ============================================================
+
 
 @pytest.fixture(autouse=True)
 async def cleanup_async_backend():
@@ -66,6 +69,7 @@ async def cleanup_async_backend():
 # Callable config fixtures
 # ============================================================
 
+
 def memory_config():
     """A simple callable returning in-memory SQLite config."""
     return SQLiteInMemoryConfig()
@@ -75,6 +79,7 @@ def file_config_with_suffix(suffix: str = ".sqlite"):
     """A callable returning file-based SQLite config with a suffix parameter."""
     import tempfile
     import os
+
     fd, db_path = tempfile.mkstemp(suffix=suffix)
     os.close(fd)
     return SQLiteConnectionConfig(database=db_path, delete_on_close=True)
@@ -82,6 +87,7 @@ def file_config_with_suffix(suffix: str = ".sqlite"):
 
 class ConfigFactory:
     """A callable class returning SQLite config."""
+
     def __call__(self):
         return SQLiteInMemoryConfig()
 
@@ -89,6 +95,7 @@ class ConfigFactory:
 # ============================================================
 # configure() tests - sync
 # ============================================================
+
 
 class TestConfigureWithCallable:
     """Tests for BaseActiveRecord.configure() with callable config."""
@@ -114,6 +121,7 @@ class TestConfigureWithCallable:
     def test_configure_with_partial(self):
         """configure() accepts functools.partial for parameterized callables."""
         from functools import partial
+
         CallableUser.configure(partial(file_config_with_suffix, suffix=".test"), SQLiteBackend)
         assert isinstance(CallableUser.__connection_config__, SQLiteConnectionConfig)
 
@@ -137,6 +145,7 @@ class TestConfigureWithCallable:
 # ============================================================
 # configure() tests - async
 # ============================================================
+
 
 class TestAsyncConfigureWithCallable:
     """Tests for AsyncBaseActiveRecord.configure() with callable config."""
@@ -172,6 +181,7 @@ class TestAsyncConfigureWithCallable:
 # BackendGroup tests - sync
 # ============================================================
 
+
 class TestBackendGroupWithCallable:
     """Tests for BackendGroup with callable config."""
 
@@ -205,6 +215,7 @@ class TestBackendGroupWithCallable:
 # BackendGroup tests - async
 # ============================================================
 
+
 class TestAsyncBackendGroupWithCallable:
     """Tests for AsyncBackendGroup with callable config."""
 
@@ -225,6 +236,7 @@ class TestAsyncBackendGroupWithCallable:
 # ============================================================
 # BackendManager tests
 # ============================================================
+
 
 class TestBackendManagerWithCallable:
     """Tests for BackendManager.create_group() with callable config."""

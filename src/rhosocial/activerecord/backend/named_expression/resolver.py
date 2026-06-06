@@ -40,10 +40,11 @@ Note:
     This is a backend feature. It is independent of ActiveRecord or ActiveQuery
     and is designed for CLI and script-based query execution.
 """
+
 import inspect
 import importlib
 import re
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
 
@@ -98,8 +99,17 @@ def _classify(expr: BaseExpression) -> List[str]:
     st = expr.statement_type
     tag_map = [
         ({StatementType.DQL, StatementType.SELECT}, "DQL"),
-        ({StatementType.DML, StatementType.INSERT, StatementType.UPDATE,
-          StatementType.DELETE, StatementType.MERGE, StatementType.TRUNCATE}, "DML"),
+        (
+            {
+                StatementType.DML,
+                StatementType.INSERT,
+                StatementType.UPDATE,
+                StatementType.DELETE,
+                StatementType.MERGE,
+                StatementType.TRUNCATE,
+            },
+            "DML",
+        ),
         ({StatementType.DDL}, "DDL"),
         ({StatementType.TCL}, "TCL"),
         ({StatementType.CALL, StatementType.EXECUTE}, "CALL"),
@@ -108,7 +118,7 @@ def _classify(expr: BaseExpression) -> List[str]:
     return [next((lbl for types, lbl in tag_map if st in types), "OTHER")]
 
 
-from typing import get_origin, get_args, Union
+from typing import get_origin, get_args, Union  # noqa: E402
 
 _PLACEHOLDER_VALUES: Dict[type, Any] = {
     int: 1,
@@ -470,11 +480,7 @@ class NamedExpressionResolver:
                 continue
             param_info: Dict[str, Any] = {
                 "name": name,
-                "type": (
-                    str(param.annotation)
-                    if param.annotation != inspect.Parameter.empty
-                    else "Any"
-                ),
+                "type": (str(param.annotation) if param.annotation != inspect.Parameter.empty else "Any"),
                 "has_default": param.default != inspect.Parameter.empty,
             }
             if param.default != inspect.Parameter.empty:
@@ -564,8 +570,7 @@ class NamedExpressionResolver:
         if extra_params:
             raise NamedExpressionInvalidParameterError(
                 list(extra_params)[0],
-                f"Unknown parameter(s): {', '.join(extra_params)}. "
-                f"Available parameters: {list(param_names)}",
+                f"Unknown parameter(s): {', '.join(extra_params)}. Available parameters: {list(param_names)}",
             )
 
         try:
@@ -578,13 +583,11 @@ class NamedExpressionResolver:
                     unknown_param = match.group(1)
                     raise NamedExpressionInvalidParameterError(
                         unknown_param,
-                        f"Unknown parameter '{unknown_param}'. "
-                        f"Available parameters: {list(resolved_params.keys())}",
+                        f"Unknown parameter '{unknown_param}'. Available parameters: {list(resolved_params.keys())}",
                     ) from None
             raise NamedExpressionInvalidParameterError(
                 "call",
-                f"Failed to call named expression: {e}. "
-                f"Check that all parameters are valid.",
+                f"Failed to call named expression: {e}. Check that all parameters are valid.",
             ) from None
         except ValueError as e:
             param_with_issue = None
@@ -593,10 +596,7 @@ class NamedExpressionResolver:
                     continue
                 try:
                     if isinstance(value, str):
-                        if (
-                            name in param_names
-                            and sig.parameters[name].annotation in (int,)
-                        ):
+                        if name in param_names and sig.parameters[name].annotation in (int,):
                             int(value)
                 except ValueError:
                     param_with_issue = name

@@ -2,7 +2,6 @@
 import logging
 import pytest
 import sqlite3
-import sys
 import uuid
 from datetime import datetime
 
@@ -44,9 +43,11 @@ def mapped_table_backend():
     log.info("Tearing down SQLite backend.")
     backend.disconnect()
 
+
 # =================================================================
 # Original tests from the previous successful run (RESTORED)
 # =================================================================
+
 
 def test_insert_and_returning_with_mapping(mapped_table_backend):
     """
@@ -54,27 +55,22 @@ def test_insert_and_returning_with_mapping(mapped_table_backend):
     column_mapping to map the resulting column names back to field names.
     """
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
+
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     column_to_field_mapping = {
         "user_id": "user_pk",
         "name": "full_name",
         "email": "user_email",
-        "created_at": "created_timestamp"
+        "created_at": "created_timestamp",
     }
 
     sql = "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)"
     params = ("John Doe", "john.doe@example.com", now_str)
 
     result = backend.execute(
-        sql,
-        params,
-        options=ExecutionOptions(
-            stmt_type=StatementType.INSERT,
-            column_mapping=column_to_field_mapping
-        )
+        sql, params, options=ExecutionOptions(stmt_type=StatementType.INSERT, column_mapping=column_to_field_mapping)
     )
 
     assert result is not None
@@ -87,13 +83,15 @@ def test_update_with_backend(mapped_table_backend):
     Tests that an update operation via execute() works correctly.
     """
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
-    backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
-    backend.execute("INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
-                    ("Jane Doe", "jane.doe@example.com", now_str),
-                    options=ExecutionOptions(stmt_type=StatementType.INSERT))
+    backend = mapped_table_backend
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+    backend.execute(
+        "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
+        ("Jane Doe", "jane.doe@example.com", now_str),
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
+    )
 
     sql = "UPDATE mapped_users SET name = ? WHERE user_id = ?"
     params = ("Jane Smith", 1)
@@ -112,24 +110,20 @@ def test_execute_fetch_with_mapping(mapped_table_backend):
     to return rows with field names as keys.
     """
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
+
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
-    column_to_field_mapping = {
-        "user_id": "user_pk",
-        "name": "full_name",
-        "email": "user_email"
-    }
+    column_to_field_mapping = {"user_id": "user_pk", "name": "full_name", "email": "user_email"}
 
-    backend.execute("INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
-                    ("Fetch Test", "fetch@example.com", now_str),
-                    options=ExecutionOptions(stmt_type=StatementType.INSERT))
+    backend.execute(
+        "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
+        ("Fetch Test", "fetch@example.com", now_str),
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
+    )
 
     fetched_row = backend.fetch_one(
-        "SELECT * FROM mapped_users WHERE user_id = 1",
-        (),
-        column_mapping=column_to_field_mapping
+        "SELECT * FROM mapped_users WHERE user_id = 1", (), column_mapping=column_to_field_mapping
     )
 
     assert fetched_row is not None
@@ -146,13 +140,15 @@ def test_execute_fetch_without_mapping(mapped_table_backend):
     with raw database column names as keys.
     """
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
-    backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
-    backend.execute("INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
-                    ("No Map", "nomap@example.com", now_str),
-                    options=ExecutionOptions(stmt_type=StatementType.INSERT))
+    backend = mapped_table_backend
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+    backend.execute(
+        "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
+        ("No Map", "nomap@example.com", now_str),
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
+    )
 
     fetched_row = backend.fetch_one("SELECT * FROM mapped_users WHERE user_id = 1")
 
@@ -163,42 +159,36 @@ def test_execute_fetch_without_mapping(mapped_table_backend):
     assert "user_pk" not in fetched_row
     assert fetched_row["name"] == "No Map"
 
+
 # =================================================================
 # New test case for combined adapters and mapping
 # =================================================================
+
 
 def test_fetch_with_combined_mapping_and_adapters(mapped_table_backend):
     """
     Tests that execute() correctly applies both column_mapping and column_adapters.
     """
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
+
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     test_uuid = uuid.uuid4()
 
     # Define mappings and adapters
-    column_to_field_mapping = {
-        "user_id": "pk",
-        "name": "full_name",
-        "user_uuid": "uuid",
-        "is_active": "active"
-    }
+    column_to_field_mapping = {"user_id": "pk", "name": "full_name", "user_uuid": "uuid", "is_active": "active"}
 
     # Get adapters from the backend's registry
     uuid_adapter = backend.adapter_registry.get_adapter(uuid.UUID, str)
     bool_adapter = backend.adapter_registry.get_adapter(bool, int)
 
-    column_adapters = {
-        "user_uuid": (uuid_adapter, uuid.UUID),
-        "is_active": (bool_adapter, bool)
-    }
+    column_adapters = {"user_uuid": (uuid_adapter, uuid.UUID), "is_active": (bool_adapter, bool)}
 
     # Insert data in DB-compatible format
     backend.execute(
         "INSERT INTO mapped_users (name, email, created_at, user_uuid, is_active) VALUES (?, ?, ?, ?, ?)",
         ("Combined Test", "combined@example.com", now_str, str(test_uuid), 1),
-        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
     )
 
     # Execute SELECT with both mapping and adapters
@@ -206,7 +196,7 @@ def test_fetch_with_combined_mapping_and_adapters(mapped_table_backend):
         "SELECT * FROM mapped_users WHERE user_id = 1",
         (),
         column_mapping=column_to_field_mapping,
-        column_adapters=column_adapters
+        column_adapters=column_adapters,
     )
     assert fetched_row is not None
 
@@ -236,17 +226,13 @@ def test_insert_with_returning_columns_sql_construction(mapped_table_backend):
     from rhosocial.activerecord.backend.base.operations import ReturningClause as BaseReturningClause
 
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # Create InsertOptions with returning_columns
     insert_options = InsertOptions(
         table="mapped_users",
-        data={
-            "name": "Returning Test",
-            "email": "returning@example.com",
-            "created_at": now_str
-        },
-        returning_columns=["user_id", "name", "email"]
+        data={"name": "Returning Test", "email": "returning@example.com", "created_at": now_str},
+        returning_columns=["user_id", "name", "email"],
     )
 
     # Replicate the SQL construction logic from SQLOperationsMixin.insert
@@ -261,12 +247,13 @@ def test_insert_with_returning_columns_sql_construction(mapped_table_backend):
         returning_clause = BaseReturningClause(backend.dialect, returning_expressions)
 
     from rhosocial.activerecord.backend.expression import InsertExpression
+
     insert_expr = InsertExpression(
         dialect=backend.dialect,
         into=insert_options.table,
         source=values_source,
         columns=columns,
-        returning=returning_clause
+        returning=returning_clause,
     )
 
     sql, params = insert_expr.to_sql()
@@ -280,10 +267,7 @@ def test_insert_with_returning_columns_sql_construction(mapped_table_backend):
     print(f"Parameters: {params}")
 
 
-@pytest.mark.skipif(
-    sqlite3.sqlite_version_info < (3, 35),
-    reason="RETURNING clause requires SQLite 3.35+"
-)
+@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_insert_with_returning_columns_execution(mapped_table_backend):
     """
     Tests that the insert operation with returning_columns executes correctly.
@@ -292,10 +276,9 @@ def test_insert_with_returning_columns_execution(mapped_table_backend):
     The important thing is that data is returned.
     """
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
 
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # Directly execute SQL with RETURNING clause
     sql = "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?) RETURNING user_id, name, email"
@@ -306,7 +289,7 @@ def test_insert_with_returning_columns_execution(mapped_table_backend):
         params,
         options=ExecutionOptions(
             stmt_type=StatementType.DQL,  # Use DQL to ensure result set is processed
-        )
+        ),
     )
 
     # Verify the result contains the returned data
@@ -335,29 +318,26 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
     from rhosocial.activerecord.backend.base.operations import ReturningClause as BaseReturningClause
 
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # First, insert a record to update
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
+
     backend.execute(
         "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
         ("Update Test", "update@example.com", now_str),
-        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
     )
 
     # Create UpdateOptions with returning_columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, '=', Column(backend.dialect, "name"), Literal(backend.dialect, "Update Test")
+        backend.dialect, "=", Column(backend.dialect, "name"), Literal(backend.dialect, "Update Test")
     )
     update_options = UpdateOptions(
         table="mapped_users",
-        data={
-            "name": "Updated Name",
-            "email": "updated@example.com"
-        },
+        data={"name": "Updated Name", "email": "updated@example.com"},
         where=where_predicate,
-        returning_columns=["user_id", "name", "email"]
+        returning_columns=["user_id", "name", "email"],
     )
 
     # Replicate the SQL construction logic from SQLOperationsMixin.update
@@ -367,16 +347,18 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
     returning_clause = None
     if update_options.returning_columns:
         from rhosocial.activerecord.backend.expression import Column as ExprColumn
+
         returning_expressions = [ExprColumn(backend.dialect, col) for col in update_options.returning_columns]
         returning_clause = BaseReturningClause(backend.dialect, returning_expressions)
 
     from rhosocial.activerecord.backend.expression import UpdateExpression
+
     update_expr = UpdateExpression(
         dialect=backend.dialect,
         table=update_options.table,
         assignments=assignments,
         where=update_options.where,
-        returning=returning_clause
+        returning=returning_clause,
     )
 
     sql, params = update_expr.to_sql()
@@ -390,10 +372,7 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
     print(f"Parameters: {params}")
 
 
-@pytest.mark.skipif(
-    sqlite3.sqlite_version_info < (3, 35),
-    reason="RETURNING clause requires SQLite 3.35+"
-)
+@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_update_with_returning_columns_execution(mapped_table_backend):
     """
     Tests that the update operation with returning_columns executes correctly.
@@ -402,16 +381,15 @@ def test_update_with_returning_columns_execution(mapped_table_backend):
     The important thing is that data is returned.
     """
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
 
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # First, insert a record to update
     backend.execute(
         "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
         ("Update Test", "update@example.com", now_str),
-        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
     )
 
     # Directly execute SQL with RETURNING clause
@@ -423,7 +401,7 @@ def test_update_with_returning_columns_execution(mapped_table_backend):
         params,
         options=ExecutionOptions(
             stmt_type=StatementType.DQL,  # Use DQL to ensure result set is processed
-        )
+        ),
     )
 
     # Verify the result contains the returned data
@@ -449,25 +427,23 @@ def test_delete_with_returning_columns_sql_construction(mapped_table_backend):
     from rhosocial.activerecord.backend.base.operations import ReturningClause as BaseReturningClause
 
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # First, insert a record to delete
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
+
     backend.execute(
         "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
         ("Delete Test", "delete@example.com", now_str),
-        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
     )
 
     # Create DeleteOptions with returning_columns
     where_predicate = ComparisonPredicate(
-        backend.dialect, '=', Column(backend.dialect, "name"), Literal(backend.dialect, "Delete Test")
+        backend.dialect, "=", Column(backend.dialect, "name"), Literal(backend.dialect, "Delete Test")
     )
     delete_options = DeleteOptions(
-        table="mapped_users",
-        where=where_predicate,
-        returning_columns=["user_id", "name", "email"]
+        table="mapped_users", where=where_predicate, returning_columns=["user_id", "name", "email"]
     )
 
     # Replicate the SQL construction logic from SQLOperationsMixin.delete
@@ -475,15 +451,14 @@ def test_delete_with_returning_columns_sql_construction(mapped_table_backend):
     returning_clause = None
     if delete_options.returning_columns:
         from rhosocial.activerecord.backend.expression import Column as ExprColumn
+
         returning_expressions = [ExprColumn(backend.dialect, col) for col in delete_options.returning_columns]
         returning_clause = BaseReturningClause(backend.dialect, returning_expressions)
 
     from rhosocial.activerecord.backend.expression import DeleteExpression
+
     delete_expr = DeleteExpression(
-        dialect=backend.dialect,
-        tables=delete_options.table,
-        where=delete_options.where,
-        returning=returning_clause
+        dialect=backend.dialect, tables=delete_options.table, where=delete_options.where, returning=returning_clause
     )
 
     sql, params = delete_expr.to_sql()
@@ -497,10 +472,7 @@ def test_delete_with_returning_columns_sql_construction(mapped_table_backend):
     print(f"Parameters: {params}")
 
 
-@pytest.mark.skipif(
-    sqlite3.sqlite_version_info < (3, 35),
-    reason="RETURNING clause requires SQLite 3.35+"
-)
+@pytest.mark.skipif(sqlite3.sqlite_version_info < (3, 35), reason="RETURNING clause requires SQLite 3.35+")
 def test_delete_with_returning_columns_execution(mapped_table_backend):
     """
     Tests that the delete operation with returning_columns executes correctly.
@@ -509,16 +481,15 @@ def test_delete_with_returning_columns_execution(mapped_table_backend):
     The important thing is that data is returned.
     """
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
 
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # First, insert a record to delete
     backend.execute(
         "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
         ("Delete Test", "delete@example.com", now_str),
-        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
     )
 
     # Directly execute SQL with RETURNING clause
@@ -530,7 +501,7 @@ def test_delete_with_returning_columns_execution(mapped_table_backend):
         params,
         options=ExecutionOptions(
             stmt_type=StatementType.DQL,  # Use DQL to ensure result set is processed
-        )
+        ),
     )
 
     # Verify the result contains the returned data
@@ -553,16 +524,15 @@ def test_returning_fetchall_impact_comparison(mapped_table_backend):
     causes fetchall() to be called, which affects the cursor.rowcount value.
     """
     from rhosocial.activerecord.backend.options import ExecutionOptions
-    from rhosocial.activerecord.backend.schema import StatementType
 
     backend = mapped_table_backend
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # Test INSERT with DQL (will call fetchall internally)
     backend.execute(
         "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
         ("Fetchall Test", "fetchall@example.com", now_str),
-        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
     )
 
     sql = "UPDATE mapped_users SET name = ? WHERE name = ? RETURNING user_id, name, email"
@@ -574,7 +544,7 @@ def test_returning_fetchall_impact_comparison(mapped_table_backend):
         params,
         options=ExecutionOptions(
             stmt_type=StatementType.DQL  # This will process result set and call fetchall
-        )
+        ),
     )
 
     # Verify that data is returned when using DQL (result set processing)
@@ -589,7 +559,7 @@ def test_returning_fetchall_impact_comparison(mapped_table_backend):
     backend.execute(
         "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
         ("No Fetchall Test", "nofetchall@example.com", now_str),
-        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
     )
 
     # Test UPDATE with DML and process_result_set=False
@@ -602,8 +572,8 @@ def test_returning_fetchall_impact_comparison(mapped_table_backend):
         params2,
         options=ExecutionOptions(
             stmt_type=StatementType.DML,  # DML type
-            process_result_set=False      # Explicitly set to False to not process result set
-        )
+            process_result_set=False,  # Explicitly set to False to not process result set
+        ),
     )
 
     # Verify that data is NOT returned when process_result_set is False
@@ -613,7 +583,7 @@ def test_returning_fetchall_impact_comparison(mapped_table_backend):
     backend.execute(
         "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
         ("Process Test", "processtest@example.com", now_str),
-        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
     )
 
     # Now test with process_result_set=True using a different record
@@ -625,8 +595,8 @@ def test_returning_fetchall_impact_comparison(mapped_table_backend):
         params3,
         options=ExecutionOptions(
             stmt_type=StatementType.DML,  # DML type
-            process_result_set=True       # Explicitly set to True to process result set
-        )
+            process_result_set=True,  # Explicitly set to True to process result set
+        ),
     )
 
     # Verify that data IS returned when process_result_set is True

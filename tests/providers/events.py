@@ -11,6 +11,7 @@ Its main responsibilities are:
     - Dropping any old tables and creating the necessary table schema.
 3.  Cleaning up any resources (like temporary database files) after a test runs.
 """
+
 import os
 import sys
 import logging
@@ -22,12 +23,12 @@ from rhosocial.activerecord.model import ActiveRecord
 logger = logging.getLogger(__name__)
 
 # Import the fixture selector utility
-from rhosocial.activerecord.testsuite.utils import select_fixture
+from rhosocial.activerecord.testsuite.utils import select_fixture  # noqa: E402
 
 # Import base version models (Python 3.8+)
-from rhosocial.activerecord.testsuite.feature.events.fixtures.models import (
+from rhosocial.activerecord.testsuite.feature.events.fixtures.models import (  # noqa: E402
     EventTestModel as EventTestModelBase,
-    EventTrackingModel as EventTrackingModelBase
+    EventTrackingModel as EventTrackingModelBase,
 )
 
 # Conditionally import Python 3.10+ models
@@ -37,7 +38,7 @@ if sys.version_info >= (3, 10):
     try:
         from rhosocial.activerecord.testsuite.feature.events.fixtures.models_py310 import (
             EventTestModel as EventTestModel310,
-            EventTrackingModel as EventTrackingModel310
+            EventTrackingModel as EventTrackingModel310,
         )
     except ImportError as e:
         logger.warning(f"Failed to import Python 3.10+ fixtures: {e}")
@@ -49,7 +50,7 @@ if sys.version_info >= (3, 11):
     try:
         from rhosocial.activerecord.testsuite.feature.events.fixtures.models_py311 import (
             EventTestModel as EventTestModel311,
-            EventTrackingModel as EventTrackingModel311
+            EventTrackingModel as EventTrackingModel311,
         )
     except ImportError as e:
         logger.warning(f"Failed to import Python 3.11+ fixtures: {e}")
@@ -61,7 +62,7 @@ if sys.version_info >= (3, 12):
     try:
         from rhosocial.activerecord.testsuite.feature.events.fixtures.models_py312 import (
             EventTestModel as EventTestModel312,
-            EventTrackingModel as EventTrackingModel312
+            EventTrackingModel as EventTrackingModel312,
         )
     except ImportError as e:
         logger.warning(f"Failed to import Python 3.12+ fixtures: {e}")
@@ -77,12 +78,17 @@ def _select_model_class(base_cls, py312_cls, py311_cls, py310_cls, model_name: s
 
 
 # Select models
-EventTestModel = _select_model_class(EventTestModelBase, EventTestModel312, EventTestModel311, EventTestModel310, "EventTestModel")
-EventTrackingModel = _select_model_class(EventTrackingModelBase, EventTrackingModel312, EventTrackingModel311, EventTrackingModel310, "EventTrackingModel")
+EventTestModel = _select_model_class(
+    EventTestModelBase, EventTestModel312, EventTestModel311, EventTestModel310, "EventTestModel"
+)
+EventTrackingModel = _select_model_class(
+    EventTrackingModelBase, EventTrackingModel312, EventTrackingModel311, EventTrackingModel310, "EventTrackingModel"
+)
 
-from rhosocial.activerecord.testsuite.feature.events.interfaces import IEventsProvider
+from rhosocial.activerecord.testsuite.feature.events.interfaces import IEventsProvider  # noqa: E402
+
 # ...and the scenarios are defined specifically for this backend.
-from .scenarios import get_enabled_scenarios, get_scenario
+from .scenarios import get_enabled_scenarios, get_scenario  # noqa: E402
 
 
 class EventsProvider(IEventsProvider):
@@ -90,7 +96,7 @@ class EventsProvider(IEventsProvider):
     This is the SQLite backend's implementation for the events features test group.
     It connects the generic tests in the testsuite with the actual SQLite database.
     """
-    
+
     def __init__(self):
         # Track the actual database file used for each scenario in the current test
         self._scenario_db_files = {}
@@ -103,48 +109,52 @@ class EventsProvider(IEventsProvider):
         """A generic helper method to handle the setup for any given model."""
         # 1. Get the backend class (SQLiteBackend) and connection config for the requested scenario.
         backend_class, original_config = get_scenario(scenario_name)
-        
+
         # Check if this is a file-based scenario, and if so, generate a unique filename
         import os
         import tempfile
         import uuid
+
         config = original_config  # default to the original config
-        
+
         if original_config.database != ":memory:":
             # For file-based scenarios, create a unique temporary file
             unique_filename = os.path.join(
-                tempfile.gettempdir(),
-                f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
+                tempfile.gettempdir(), f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
             )
-            
+
             # Store the actual database file used for this scenario in this test
             self._scenario_db_files[scenario_name] = unique_filename
-            
+
             # Create a new config with the unique database path
             from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+
             config = SQLiteConnectionConfig(
                 database=unique_filename,
                 delete_on_close=original_config.delete_on_close,
-                pragmas=original_config.pragmas
+                pragmas=original_config.pragmas,
             )
 
         # 2. Configure the generic model class with our specific backend and config.
         #    This is the key step that links the testsuite's model to our database.
         model_class.configure(config, backend_class)
-        
+
         # 3. Prepare the database schema. To ensure tests are isolated, we drop
         #    the table if it exists and recreate it from the schema file.
         from rhosocial.activerecord.backend.options import ExecutionOptions
         from rhosocial.activerecord.backend.schema import StatementType
+
         try:
-            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL))
+            model_class.__backend__.execute(
+                f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
         except Exception:
             # Ignore errors if the table doesn't exist, which is expected on the first run.
             pass
 
         schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
         model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
-        
+
         return model_class
 
     # --- Implementation of the IEventsProvider interface ---
@@ -160,9 +170,11 @@ class EventsProvider(IEventsProvider):
     def _load_sqlite_schema(self, filename: str) -> str:
         """Helper to load a SQL schema file from this project's fixtures."""
         # Schemas are stored in the centralized location for events feature.
-        schema_dir = os.path.join(os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "events", "schema")
+        schema_dir = os.path.join(
+            os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "events", "schema"
+        )
         schema_path = os.path.join(schema_dir, filename)
-        
+
         # If the specific schema file doesn't exist, fall back to a generic one
         if not os.path.exists(schema_path):
             # Handle specific cases
@@ -202,8 +214,8 @@ class EventsProvider(IEventsProvider):
                     updated_at TEXT
                 );
                 """
-        
-        with open(schema_path, 'r', encoding='utf-8') as f:
+
+        with open(schema_path, "r", encoding="utf-8") as f:
             return f.read()
 
     def cleanup_after_test(self, scenario_name: str):

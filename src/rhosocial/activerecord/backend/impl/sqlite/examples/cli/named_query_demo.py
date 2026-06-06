@@ -84,7 +84,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
 def run_cli_command(args):
     """Execute CLI command and print output."""
     cmd = [sys.executable, "-m", "rhosocial.activerecord.backend.impl.sqlite"] + args
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running: {' '.join(cmd)}")
     print("=" * 60)
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -100,46 +100,60 @@ def main():
 
     # 1. List all named queries in a module
     print("\n【1】List all named queries in module")
-    run_cli_command([
-        "named-expression",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions",
-        "--list",
-    ])
+    run_cli_command(
+        [
+            "named-expression",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions",
+            "--list",
+        ]
+    )
 
     # 2. View single query signature
     print("\n【2】View single query signature and parameters")
-    run_cli_command([
-        "named-expression",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
-        "--describe",
-    ])
+    run_cli_command(
+        [
+            "named-expression",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
+            "--describe",
+        ]
+    )
 
     # 3. Dry-run: render SQL only
     print("\n【3】Dry-run: render SQL, don't execute")
-    run_cli_command([
-        "named-expression",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
-        "--db-file", ":memory:",
-        "--dry-run",
-        "--param", "order_id=1",
-    ])
+    run_cli_command(
+        [
+            "named-expression",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
+            "--db-file",
+            ":memory:",
+            "--dry-run",
+            "--param",
+            "order_id=1",
+        ]
+    )
 
     # 4. Execute named query
     print("\n【4】Execute named query")
-    run_cli_command([
-        "named-expression",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
-        "--db-file", ":memory:",
-        "--param", "order_id=1",
-    ])
+    run_cli_command(
+        [
+            "named-expression",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
+            "--db-file",
+            ":memory:",
+            "--param",
+            "order_id=1",
+        ]
+    )
 
     # 5. View another query
     print("\n【5】View check_inventory query")
-    run_cli_command([
-        "named-expression",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.check_inventory",
-        "--describe",
-    ])
+    run_cli_command(
+        [
+            "named-expression",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.check_inventory",
+            "--describe",
+        ]
+    )
 
     print("\n" + "=" * 60)
     print("Demo complete!")

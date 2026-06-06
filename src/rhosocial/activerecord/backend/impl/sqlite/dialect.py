@@ -317,9 +317,9 @@ class SQLiteDialect(
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
-    def format_column(self, name: str, table: Optional[str] = None,
-                      alias: Optional[str] = None,
-                      schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+    def format_column(
+        self, name: str, table: Optional[str] = None, alias: Optional[str] = None, schema_name: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
         """Format column reference for SQLite.
 
         SQLite does not support schema-qualified column references in
@@ -490,13 +490,10 @@ class SQLiteDialect(
         not meaningful for SQLite and is silently ignored.
         """
         from rhosocial.activerecord.backend.expression.statements import ExplainType
+
         statement_sql, statement_params = expr.statement.to_sql()
         options = expr.options
-        if (
-            options is not None
-            and hasattr(options, "type")
-            and options.type == ExplainType.QUERY_PLAN
-        ):
+        if options is not None and hasattr(options, "type") and options.type == ExplainType.QUERY_PLAN:
             return f"EXPLAIN QUERY PLAN {statement_sql}", statement_params
         return f"EXPLAIN {statement_sql}", statement_params
 
@@ -560,13 +557,11 @@ class SQLiteDialect(
         When neither option is set, the standard INSERT INTO ... syntax is used
         (with ON CONFLICT / RETURNING appended as appropriate).
         """
-        or_replace = expr.dialect_options.get('or_replace', False)
-        or_ignore = expr.dialect_options.get('or_ignore', False)
+        or_replace = expr.dialect_options.get("or_replace", False)
+        or_ignore = expr.dialect_options.get("or_ignore", False)
 
         if or_replace and or_ignore:
-            raise ValueError(
-                "Cannot specify both 'or_replace' and 'or_ignore' in dialect_options."
-            )
+            raise ValueError("Cannot specify both 'or_replace' and 'or_ignore' in dialect_options.")
         if (or_replace or or_ignore) and expr.on_conflict is not None:
             raise ValueError(
                 "Cannot use 'or_replace'/'or_ignore' together with 'on_conflict'. "
@@ -630,8 +625,9 @@ class SQLiteDialect(
         if expr.returning:
             if not self.supports_returning_insert():
                 raise UnsupportedFeatureError(
-                    self.name, "RETURNING clause in INSERT",
-                    "This SQLite version does not support RETURNING in INSERT statements."
+                    self.name,
+                    "RETURNING clause in INSERT",
+                    "This SQLite version does not support RETURNING in INSERT statements.",
                 )
             returning_sql, returning_params = self.format_returning_clause(expr.returning)
             sql += f" {returning_sql}"
@@ -1387,9 +1383,7 @@ class SQLiteDialect(
         """
         return True
 
-    def format_begin_transaction(
-        self, expr: "BeginTransactionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
         """Format BEGIN TRANSACTION statement for SQLite.
 
         SQLite uses BEGIN {DEFERRED|IMMEDIATE|EXCLUSIVE} TRANSACTION syntax.
@@ -1416,7 +1410,7 @@ class SQLiteDialect(
             raise UnsupportedTransactionModeError(
                 feature="READ ONLY transactions",
                 backend="SQLite",
-                message="Consider using a separate read-only database connection."
+                message="Consider using a separate read-only database connection.",
             )
 
         # Check for explicit begin_type (SQLite-specific)
@@ -1426,9 +1420,7 @@ class SQLiteDialect(
             valid_types = ("DEFERRED", "IMMEDIATE", "EXCLUSIVE")
             bt_upper = begin_type.upper()
             if bt_upper not in valid_types:
-                raise ValueError(
-                    f"Invalid SQLite begin type: {begin_type}. Must be one of {valid_types}"
-                )
+                raise ValueError(f"Invalid SQLite begin type: {begin_type}. Must be one of {valid_types}")
             return f"BEGIN {bt_upper} TRANSACTION", ()
 
         # Map isolation level to BEGIN type

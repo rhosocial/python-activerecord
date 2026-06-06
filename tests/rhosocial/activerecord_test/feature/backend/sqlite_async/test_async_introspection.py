@@ -317,9 +317,7 @@ class TestAsyncIntrospectionCache:
         await async_backend_with_tables.introspector.list_tables()
         await async_backend_with_tables.introspector.list_columns("users")
 
-        async_backend_with_tables.introspector.invalidate_cache(
-            IntrospectionScope.TABLE
-        )
+        async_backend_with_tables.introspector.invalidate_cache(IntrospectionScope.TABLE)
 
     @pytest.mark.asyncio
     async def test_async_clear_cache(self, async_backend_with_tables):

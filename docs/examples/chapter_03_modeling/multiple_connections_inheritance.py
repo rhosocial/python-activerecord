@@ -52,12 +52,14 @@ class UserMetric(User):
     Empty subclass of User -- no new fields or methods.
     Intended to be connected to a separate analytics database.
     """
+
     pass
 
 
 # ---------------------------------------------------------------------------
 # Demo 1: both classes configured independently -> truly isolated
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_independent_connections() -> None:
     """Both User and UserMetric are configured with separate connections."""
@@ -92,13 +94,13 @@ def demonstrate_independent_connections() -> None:
     UserMetric(name="Bob", email="bob@analytics.com").save()
 
     # 6. Read back -- each model only sees its own database
-    user_rows   = User.query().all()
+    user_rows = User.query().all()
     metric_rows = UserMetric.query().all()
 
     print(f"\nPrimary DB   (User)      : {[r.name for r in user_rows]}")
     print(f"Analytics DB (UserMetric): {[r.name for r in metric_rows]}")
 
-    assert [r.name for r in user_rows]   == ["Alice"]
+    assert [r.name for r in user_rows] == ["Alice"]
     assert [r.name for r in metric_rows] == ["Bob"]
     print("\n✓ The two databases are completely isolated.")
 
@@ -106,6 +108,7 @@ def demonstrate_independent_connections() -> None:
 # ---------------------------------------------------------------------------
 # Demo 2: only User configured -> UserMetric silently inherits User's backend
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_silent_inheritance_trap() -> None:
     """Only the parent is configured; the subclass is used without configure().
@@ -142,7 +145,7 @@ def demonstrate_silent_inheritance_trap() -> None:
     User(name="Alice", email="alice@shared.com").save()
     FreshUserMetric(name="Bob", email="bob@shared.com").save()
 
-    user_rows   = User.query().all()
+    user_rows = User.query().all()
     metric_rows = FreshUserMetric.query().all()
 
     print(f"\nUser.query().all()           : {[r.name for r in user_rows]}")
@@ -156,6 +159,7 @@ def demonstrate_silent_inheritance_trap() -> None:
 # Demo 3: guard pattern to detect missing configure() at startup
 # ---------------------------------------------------------------------------
 
+
 def demonstrate_guard_pattern() -> None:
     """Show how a simple startup check catches the missing configure() early."""
 
@@ -165,6 +169,7 @@ def demonstrate_guard_pattern() -> None:
 
     class GuardedUserMetric(User):
         """Subclass that requires its own independent backend."""
+
         pass
 
     def assert_independently_configured(cls) -> None:
@@ -172,8 +177,7 @@ def demonstrate_guard_pattern() -> None:
         own_backend = cls.__dict__.get("__backend__")
         if own_backend is None:
             raise RuntimeError(
-                f"{cls.__name__} has no independent backend configured. "
-                f"Call {cls.__name__}.configure() before use."
+                f"{cls.__name__} has no independent backend configured. Call {cls.__name__}.configure() before use."
             )
 
     # Configure only the parent

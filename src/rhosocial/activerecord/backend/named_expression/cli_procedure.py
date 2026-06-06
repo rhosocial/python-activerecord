@@ -44,6 +44,7 @@ Note:
     This is a backend CLI feature. It is independent of ActiveRecord
     or ActiveQuery and is designed for CLI-based procedure execution.
 """
+
 import argparse
 import importlib
 import inspect
@@ -241,9 +242,9 @@ def handle_named_procedure(
                     try:
                         importlib.import_module(module_name)
                     except ModuleNotFoundError:
-                        raise NamedExpressionError(f"Module not found: {module_name}")
+                        raise NamedExpressionError(f"Module not found: {module_name}")  # noqa: B904
                 else:
-                    raise NamedExpressionError(f"Module not found: {module_name}")
+                    raise NamedExpressionError(f"Module not found: {module_name}")  # noqa: B904
 
             procedures = list_named_procedures_in_module(module_name)
 
@@ -303,6 +304,7 @@ def handle_named_procedure(
         try:
             backend = backend_async_factory()
             from .procedure import AsyncProcedureRunner
+
             runner = AsyncProcedureRunner(qualified_name).load()
 
             if args.dry_run:
@@ -317,9 +319,7 @@ def handle_named_procedure(
 
             from .procedure import ProcedureResult
 
-            result: ProcedureResult = await runner.run(
-                backend, user_params, transaction_mode
-            )
+            result: ProcedureResult = await runner.run(backend, user_params, transaction_mode)
 
             if result.logs:
                 print("Logs:")
@@ -356,6 +356,7 @@ def handle_named_procedure(
 
     if is_async:
         import asyncio
+
         asyncio.run(run_async())
         return
 
@@ -376,9 +377,7 @@ def handle_named_procedure(
 
         from .procedure import ProcedureResult
 
-        result: ProcedureResult = runner.run(
-            backend, user_params, transaction_mode
-        )
+        result: ProcedureResult = runner.run(backend, user_params, transaction_mode)
 
         if result.logs:
             print("Logs:")

@@ -53,8 +53,8 @@ class TestLoggingDefaults:
         assert get_default_logging_config().propagate is False
 
     def test_get_logger_function(self):
-        logger = get_logger('test_logger')
-        assert logger.name == 'test_logger'
+        logger = get_logger("test_logger")
+        assert logger.name == "test_logger"
 
     def test_reset_configuration(self):
         configure_logging(level=logging.WARNING, propagate=True)
@@ -98,27 +98,27 @@ class TestLoggingConfig:
 
     def test_get_logger_creates_logger(self):
         config = LoggingConfig()
-        logger = config.get_logger('test')
+        logger = config.get_logger("test")
 
-        assert logger.name == 'test'
+        assert logger.name == "test"
         assert logger.level == logging.DEBUG
         assert logger.propagate is False
 
     def test_get_logger_propagate_setting(self):
         config = LoggingConfig(propagate=True)
-        logger = config.get_logger('test_propagate')
+        logger = config.get_logger("test_propagate")
 
         assert logger.propagate is True
 
     def test_auto_setup_adds_handler(self):
         config = LoggingConfig(auto_setup=True)
-        logger = config.get_logger(f'test_auto_setup_{uuid.uuid4()}')
+        logger = config.get_logger(f"test_auto_setup_{uuid.uuid4()}")
 
         assert len(logger.handlers) > 0
         assert any(isinstance(h, logging.StreamHandler) for h in logger.handlers)
 
     def test_auto_setup_false_no_handler(self):
-        unique_name = f'test_no_auto_setup_{uuid.uuid4()}'
+        unique_name = f"test_no_auto_setup_{uuid.uuid4()}"
 
         config = LoggingConfig(auto_setup=False)
         logger = config.get_logger(unique_name)
@@ -133,6 +133,7 @@ class TestLoggingConfigThreadSafety:
     def test_concurrent_get_summarizer_returns_consistent_results(self):
         """Concurrent get_summarizer() calls should return consistent results without errors."""
         import threading
+
         config = LoggingConfig()
         results = []
         errors = []
@@ -156,12 +157,12 @@ class TestLoggingConfigThreadSafety:
     def test_concurrent_get_summarizer_with_logger_name(self):
         """Concurrent get_summarizer(logger_name) calls should not corrupt the dict."""
         import threading
-        from rhosocial.activerecord.logging import SummarizerConfig
+
         config = LoggingConfig()
         logger_names = [
-            'rhosocial.activerecord.backend.sqlite',
-            'rhosocial.activerecord.backend.mysql',
-            'rhosocial.activerecord.model.User',
+            "rhosocial.activerecord.backend.sqlite",
+            "rhosocial.activerecord.backend.mysql",
+            "rhosocial.activerecord.model.User",
         ]
         errors = []
 
@@ -171,10 +172,7 @@ class TestLoggingConfigThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=worker, args=(name,))
-            for name in logger_names * 7
-        ]
+        threads = [threading.Thread(target=worker, args=(name,)) for name in logger_names * 7]
         for t in threads:
             t.start()
         for t in threads:
@@ -190,6 +188,7 @@ class TestLoggingConfigThreadSafety:
         """Concurrent summarizer_config changes and get_summarizer calls should not crash."""
         import threading
         from rhosocial.activerecord.logging import SummarizerConfig
+
         config = LoggingConfig()
         errors = []
 
@@ -218,6 +217,7 @@ class TestLoggingConfigThreadSafety:
     def test_lock_prevents_stale_cache_after_config_change(self):
         """Cache should be cleared after summarizer_config change."""
         from rhosocial.activerecord.logging import SummarizerConfig
+
         config = LoggingConfig()
         original = config.get_summarizer()
         assert original.config.max_string_length == 100
@@ -234,7 +234,7 @@ class TestGetLoggerIdempotency:
     def test_get_logger_does_not_overwrite_level_on_second_call(self):
         """Second get_logger() call should not overwrite user-customized level."""
         config = LoggingConfig(default_level=logging.DEBUG)
-        name = f'test_idempotent_level_{uuid.uuid4()}'
+        name = f"test_idempotent_level_{uuid.uuid4()}"
         logging.getLogger(name).handlers.clear()
 
         logger = config.get_logger(name)
@@ -249,7 +249,7 @@ class TestGetLoggerIdempotency:
     def test_get_logger_adds_handler_only_once(self):
         """auto_setup should only add a handler on the first get_logger() call."""
         config = LoggingConfig(auto_setup=True)
-        name = f'test_handler_once_{uuid.uuid4()}'
+        name = f"test_handler_once_{uuid.uuid4()}"
         logging.getLogger(name).handlers.clear()
 
         logger1 = config.get_logger(name)
@@ -278,7 +278,6 @@ class TestLoggerConfigCoverage:
 
     def test_logger_config_create_logger(self):
         """Test LoggerConfig.create_logger() method."""
-        from rhosocial.activerecord.logging import LoggingConfig
         from rhosocial.activerecord.logging.config import LoggerConfig
 
         handler = logging.StreamHandler()

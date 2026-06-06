@@ -14,6 +14,7 @@ production use or distribution to end users.
 
 Uses aiosqlite library for async SQLite operations.
 """
+
 from sqlite3 import ProgrammingError
 
 import aiosqlite
@@ -23,8 +24,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union, Type
 
 from rhosocial.activerecord.backend.base import AsyncStorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
-from rhosocial.activerecord.backend.dialect import SQLDialectBase
-from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.result import QueryResult
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.errors import (
@@ -33,7 +32,8 @@ from rhosocial.activerecord.backend.errors import (
     IntegrityError,
     OperationalError,
     QueryError,
-    TransactionError, DeadlockError,
+    TransactionError,
+    DeadlockError,
 )
 from rhosocial.activerecord.backend.impl.sqlite.adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -51,7 +51,7 @@ class AsyncTransactionManager:
         self._savepoint_count = 0
         self._active_savepoints: List[str] = []
         self._isolation_level = IsolationLevel.SERIALIZABLE
-        self._logger = logger or logging.getLogger('transaction')
+        self._logger = logger or logging.getLogger("transaction")
 
     @property
     def is_active(self) -> bool:
@@ -67,7 +67,7 @@ class AsyncTransactionManager:
     def logger(self, logger: Optional[logging.Logger]):
         """Set logger"""
         if logger is None:
-            self._logger = logging.getLogger('transaction')
+            self._logger = logging.getLogger("transaction")
         elif not isinstance(logger, logging.Logger):
             raise ValueError("Logger must be a logging.Logger instance")
         else:
@@ -122,7 +122,7 @@ class AsyncTransactionManager:
             self._transaction_level += 1
         except Exception as e:
             self.log(logging.ERROR, f"Failed to begin transaction: {e}")
-            raise TransactionError(f"Failed to begin transaction: {e}")
+            raise TransactionError(f"Failed to begin transaction: {e}")  # noqa: B904
 
     async def commit(self):
         """Commit transaction"""
@@ -146,7 +146,7 @@ class AsyncTransactionManager:
             self._transaction_level -= 1
         except Exception as e:
             self.log(logging.ERROR, f"Failed to commit transaction: {e}")
-            raise TransactionError(f"Failed to commit transaction: {e}")
+            raise TransactionError(f"Failed to commit transaction: {e}")  # noqa: B904
 
     async def rollback(self):
         """Rollback transaction"""
@@ -170,7 +170,7 @@ class AsyncTransactionManager:
             self._transaction_level -= 1
         except Exception as e:
             self.log(logging.ERROR, f"Failed to rollback transaction: {e}")
-            raise TransactionError(f"Failed to rollback transaction: {e}")
+            raise TransactionError(f"Failed to rollback transaction: {e}")  # noqa: B904
 
     def savepoint(self, name: Optional[str] = None) -> str:
         """Create savepoint (sync method for compatibility)"""
@@ -195,7 +195,7 @@ class AsyncTransactionManager:
             return name
         except Exception as e:
             self.log(logging.ERROR, f"Failed to create savepoint {name}: {e}")
-            raise TransactionError(f"Failed to create savepoint {name}: {e}")
+            raise TransactionError(f"Failed to create savepoint {name}: {e}")  # noqa: B904
 
     async def release(self, name: str):
         """Release savepoint"""
@@ -211,7 +211,7 @@ class AsyncTransactionManager:
             self.log(logging.INFO, f"Releasing savepoint: {name}")
         except Exception as e:
             self.log(logging.ERROR, f"Failed to release savepoint {name}: {e}")
-            raise TransactionError(f"Failed to release savepoint {name}: {e}")
+            raise TransactionError(f"Failed to release savepoint {name}: {e}")  # noqa: B904
 
     async def rollback_to(self, name: str):
         """Rollback to savepoint"""
@@ -226,7 +226,7 @@ class AsyncTransactionManager:
             self.log(logging.INFO, f"Rolling back to savepoint: {name}")
         except Exception as e:
             self.log(logging.ERROR, f"Failed to rollback to savepoint {name}: {e}")
-            raise TransactionError(f"Failed to rollback to savepoint {name}: {e}")
+            raise TransactionError(f"Failed to rollback to savepoint {name}: {e}")  # noqa: B904
 
     def supports_savepoint(self) -> bool:
         """Check if savepoints are supported"""
@@ -237,7 +237,6 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
     """Async SQLite backend implementation for testing"""
 
     _sqlite_version_cache: Optional[Tuple[int, int, int]] = None
-
 
     async def _handle_error(self, error: Exception) -> None:
         error_msg = str(error)
@@ -279,10 +278,10 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
     _sqlite_version_cache: Optional[Tuple[int, int, int]] = None
 
     def __init__(
-            self,
-            connection_config: Optional[Union[ConnectionConfig, SQLiteConnectionConfig]] = None,
-            database: Optional[str] = None,
-            **kwargs
+        self,
+        connection_config: Optional[Union[ConnectionConfig, SQLiteConnectionConfig]] = None,
+        database: Optional[str] = None,
+        **kwargs,
     ):
         # Handle backwards compatibility with direct database parameter
         if connection_config is None and database is not None:
@@ -295,7 +294,7 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
             # Convert generic ConnectionConfig to SQLiteConnectionConfig
             connection_config = SQLiteConnectionConfig(
                 database=connection_config.database,
-                **{k: v for k, v in connection_config.__dict__.items() if k != 'database'}
+                **{k: v for k, v in connection_config.__dict__.items() if k != "database"},
             )
 
         super().__init__(connection_config=connection_config)
@@ -321,9 +320,9 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
                     self.adapter_registry.register(adapter, py_type, db_type, allow_override=True)
         self.logger.debug("Registered SQLite-specific type adapters.")
 
-    _default_suggestions_cache: Optional[Dict[Type, Tuple['SQLTypeAdapter', Type]]] = None
+    _default_suggestions_cache: Optional[Dict[Type, Tuple["SQLTypeAdapter", Type]]] = None
 
-    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple['SQLTypeAdapter', Type]]:
+    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple["SQLTypeAdapter", Type]]:
         """
         [Backend Implementation] Provides default type adapter suggestions for SQLite.
         """
@@ -331,7 +330,7 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
         if AsyncSQLiteBackend._default_suggestions_cache is not None:
             return AsyncSQLiteBackend._default_suggestions_cache
 
-        suggestions: Dict[Type, Tuple['SQLTypeAdapter', Type]] = {}
+        suggestions: Dict[Type, Tuple["SQLTypeAdapter", Type]] = {}
 
         # Step 2: Define a list of desired Python type to DB driver type mappings.
         from datetime import date, datetime, time
@@ -357,8 +356,10 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
             if adapter:
                 suggestions[py_type] = (adapter, db_type)
             else:
-                self.logger.debug(f"No adapter found for ({py_type.__name__}, {db_type.__name__}). "
-                                  "Suggestion will not be provided for this type.")
+                self.logger.debug(
+                    f"No adapter found for ({py_type.__name__}, {db_type.__name__}). "
+                    "Suggestion will not be provided for this type."
+                )
 
         # Step 4: Cache the constructed suggestions for future calls.
         AsyncSQLiteBackend._default_suggestions_cache = suggestions
@@ -373,7 +374,6 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
     def pragmas(self) -> Dict[str, str]:
         """Get pragma settings"""
         return self.config.pragmas.copy()
-
 
     @property
     def transaction_manager(self) -> AsyncTransactionManager:
@@ -392,7 +392,7 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
                 timeout=self.config.timeout,
                 detect_types=self.config.detect_types,
                 isolation_level=None,  # Manual transaction control
-                uri=self.config.uri
+                uri=self.config.uri,
             )
 
             # Enable dict row factory
@@ -403,7 +403,7 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
 
             self.logger.info(f"Connected to SQLite database: {self.config.database}")
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to database: {e}")
+            raise ConnectionError(f"Failed to connect to database: {e}")  # noqa: B904
 
     async def disconnect(self) -> None:
         """Disconnect from database"""
@@ -419,18 +419,15 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
                 await self._delete_database_files()
         except Exception as e:
             if self.config.delete_on_close:
-                raise ConnectionError(f"Failed to delete database files: {e}")
+                raise ConnectionError(f"Failed to delete database files: {e}")  # noqa: B904
             # Don't raise for disconnect errors, just log
             self.logger.warning(f"Error during disconnect: {e}")
 
     async def _delete_database_files(self):
         """Delete database files"""
         import aiofiles.os
-        files_to_delete = [
-            self.config.database,
-            f"{self.config.database}-wal",
-            f"{self.config.database}-shm"
-        ]
+
+        files_to_delete = [self.config.database, f"{self.config.database}-wal", f"{self.config.database}-shm"]
 
         for filepath in files_to_delete:
             if await aiofiles.os.path.exists(filepath):
@@ -448,6 +445,7 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
     async def _async_sleep(self, seconds: float):
         """Async sleep"""
         import asyncio
+
         await asyncio.sleep(seconds)
 
     async def _apply_pragmas(self):
@@ -471,10 +469,11 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
             try:
                 # Use sync execute since this is a sync method
                 import asyncio
+
                 loop = asyncio.get_event_loop()
                 loop.run_until_complete(self._connection.execute(f"PRAGMA {key} = {value}"))
             except Exception as e:
-                raise ConnectionError(f"Failed to set pragma {key}: {e}")
+                raise ConnectionError(f"Failed to set pragma {key}: {e}")  # noqa: B904
 
     def is_connected(self) -> bool:
         """Check if connected"""
@@ -502,13 +501,16 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
 
     def get_server_version(self) -> Tuple[int, int, int]:
         """Get SQLite version"""
-        if hasattr(AsyncSQLiteBackend, '_sqlite_version_cache') and AsyncSQLiteBackend._sqlite_version_cache is not None:
+        if (
+            hasattr(AsyncSQLiteBackend, "_sqlite_version_cache")
+            and AsyncSQLiteBackend._sqlite_version_cache is not None
+        ):
             return AsyncSQLiteBackend._sqlite_version_cache
 
         try:
             # Use aiosqlite.sqlite_version since it's the same for all connections
             version_str = aiosqlite.sqlite_version
-            parts = version_str.split('.')
+            parts = version_str.split(".")
             version = tuple(int(p) for p in parts[:3])
 
             # Pad with zeros if needed
@@ -530,8 +532,6 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
         version = self.get_server_version()
         self._dialect.version = version
 
-
-
     def _convert_params(self, params: Union[Dict[str, Any], Tuple, List]) -> Union[Tuple, List]:
         """Convert parameters for SQLite"""
         if isinstance(params, dict):
@@ -542,10 +542,10 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
     def _validate_column_name(self, name: str):
         """Validate column name for SQL injection"""
         # Remove quotes if present
-        clean_name = name.strip('"\'`')
+        clean_name = name.strip("\"'`")
 
         # Check for dangerous patterns
-        dangerous = [';', '--', 'DROP', 'DELETE', 'INSERT', 'UPDATE', 'UNION', 'SELECT']
+        dangerous = [";", "--", "DROP", "DELETE", "INSERT", "UPDATE", "UNION", "SELECT"]
         for pattern in dangerous:
             if pattern in clean_name.upper():
                 raise ValueError(f"Invalid column name: {name}")
@@ -578,7 +578,6 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
             await cursor.execute(sql)
         return cursor
 
-
     def _log_query_completion(self, stmt_type: StatementType, cursor, data, duration: float):
         """Log query completion information."""
         self.log(logging.DEBUG, f"Query completed: {stmt_type.name}, duration: {duration:.4f}s")
@@ -589,19 +588,12 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
         # For other queries, use cursor.rowcount
         if data is not None:  # This is a SELECT query result
             affected_rows = len(data) if data else 0
-            last_insert_id = getattr(cursor, 'lastrowid', None)
+            last_insert_id = getattr(cursor, "lastrowid", None)
         else:  # This is an INSERT/UPDATE/DELETE query
             affected_rows = cursor.rowcount
-            last_insert_id = getattr(cursor, 'lastrowid', None)
+            last_insert_id = getattr(cursor, "lastrowid", None)
 
-        return QueryResult(
-            data=data,
-            affected_rows=affected_rows,
-            last_insert_id=last_insert_id,
-            duration=duration
-        )
-
-
+        return QueryResult(data=data, affected_rows=affected_rows, last_insert_id=last_insert_id, duration=duration)
 
     async def _handle_auto_commit_if_needed(self):
         """Handle auto-commit if needed."""

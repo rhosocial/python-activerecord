@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
@@ -33,22 +33,17 @@ dialect = backend.dialect
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 # SQLiteMatchPredicate delegates to the SQLite dialect's FTS5 formatting.
-match_pred = SQLiteMatchPredicate(dialect, table='docs', query='Python')
+match_pred = SQLiteMatchPredicate(dialect, table="docs", query="Python")
 
-prefix_pred = SQLiteMatchPredicate(dialect, table='docs', query='prog*')
+prefix_pred = SQLiteMatchPredicate(dialect, table="docs", query="prog*")
 
-phrase_pred = SQLiteMatchPredicate(dialect, table='docs', query='"web frameworks"')
+phrase_pred = SQLiteMatchPredicate(dialect, table="docs", query='"web frameworks"')
 
-near_pred = SQLiteMatchPredicate(dialect, table='docs', query='Python NEAR web')
+near_pred = SQLiteMatchPredicate(dialect, table="docs", query="Python NEAR web")
 
-column_pred = SQLiteMatchPredicate(
-    dialect,
-    table='docs',
-    query='python',
-    columns=['title']
-)
+column_pred = SQLiteMatchPredicate(dialect, table="docs", query="python", columns=["title"])
 
-boolean_pred = SQLiteMatchPredicate(dialect, table='docs', query='Python NOT Django')
+boolean_pred = SQLiteMatchPredicate(dialect, table="docs", query="Python NOT Django")
 
 
 def execute_match_query(pred: SQLiteMatchPredicate) -> list:
@@ -56,7 +51,7 @@ def execute_match_query(pred: SQLiteMatchPredicate) -> list:
     query = QueryExpression(
         dialect=dialect,
         select=[WildcardExpression(dialect)],
-        from_=TableExpression(dialect, 'docs'),
+        from_=TableExpression(dialect, "docs"),
         where=pred,
     )
     sql, params = query.to_sql()

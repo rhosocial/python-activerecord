@@ -7,7 +7,7 @@ log messages while preserving useful information.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Set, Optional, Dict, List, Union, Callable, ClassVar
+from typing import Any, Set, Optional, Dict, Union, Callable, ClassVar
 import logging
 
 
@@ -42,11 +42,21 @@ class SummarizerConfig:
     max_depth: int = 5
     sensitive_fields: Set[str] = field(
         default_factory=lambda: {
-            'password', 'passwd', 'pwd',
-            'token', 'access_token', 'refresh_token', 'auth_token',
-            'secret', 'secret_key', 'api_key', 'apikey',
-            'credential', 'credentials',
-            'private_key', 'privatekey',
+            "password",
+            "passwd",
+            "pwd",
+            "token",
+            "access_token",
+            "refresh_token",
+            "auth_token",
+            "secret",
+            "secret_key",
+            "api_key",
+            "apikey",
+            "credential",
+            "credentials",
+            "private_key",
+            "privatekey",
         }
     )
     string_placeholder: str = "...[truncated, {length} chars total]"
@@ -85,19 +95,16 @@ class DataSummarizer:
             config: Optional configuration. Uses defaults if not provided.
         """
         self.config = config or SummarizerConfig()
-        self._sensitive_fields_lower = {
-            f.lower() for f in self.config.sensitive_fields
-        }
+        self._sensitive_fields_lower = {f.lower() for f in self.config.sensitive_fields}
         # Build lowercase mapping for field_maskers
-        self._field_maskers_lower = {
-            k.lower(): v for k, v in self.config.field_maskers.items()
-        }
+        self._field_maskers_lower = {k.lower(): v for k, v in self.config.field_maskers.items()}
 
     @classmethod
     def _get_module_logger(cls) -> logging.Logger:
         """Lazily obtain the module-level logger to avoid circular imports."""
         if cls._module_logger is None:
             from .defaults import get_logger as _get_framework_logger
+
             cls._module_logger = _get_framework_logger("rhosocial.activerecord.logging.summarizer")
         return cls._module_logger
 
@@ -134,8 +141,7 @@ class DataSummarizer:
                 return masker(value)
             except Exception as e:
                 self._get_module_logger().warning(
-                    "Field masker for '%s' raised %s: %s",
-                    field_name, type(e).__name__, e
+                    "Field masker for '%s' raised %s: %s", field_name, type(e).__name__, e
                 )
 
         # Use global mask_placeholder
@@ -143,10 +149,7 @@ class DataSummarizer:
             try:
                 return self.config.mask_placeholder(value)
             except Exception as e:
-                self._get_module_logger().warning(
-                    "Global mask_placeholder raised %s: %s",
-                    type(e).__name__, e
-                )
+                self._get_module_logger().warning("Global mask_placeholder raised %s: %s", type(e).__name__, e)
                 return "***MASKED***"
         else:
             return self.config.mask_placeholder
@@ -163,7 +166,7 @@ class DataSummarizer:
         if len(value) <= self.config.max_string_length:
             return value
 
-        truncated = value[:self.config.max_string_length]
+        truncated = value[: self.config.max_string_length]
         placeholder = self.config.string_placeholder.format(length=len(value))
         return truncated + placeholder
 
@@ -180,16 +183,11 @@ class DataSummarizer:
         if length <= self.config.max_bytes_length:
             return repr(value)
 
-        preview = value[:self.config.max_bytes_length]
+        preview = value[: self.config.max_bytes_length]
         placeholder = self.config.bytes_placeholder.format(length=length)
         return f"{preview!r}{placeholder}"
 
-    def summarize(
-        self,
-        data: Any,
-        depth: int = 0,
-        keys_only: bool = False
-    ) -> Any:
+    def summarize(self, data: Any, depth: int = 0, keys_only: bool = False) -> Any:
         """Recursively summarize a data structure.
 
         Args:
@@ -233,17 +231,12 @@ class DataSummarizer:
             repr_str = repr(data)
             if len(repr_str) > self.config.max_string_length:
                 type_hint = f"<{type(data).__name__}: " if self.config.show_type_hint else ""
-                return f"{type_hint}{repr_str[:self.config.max_string_length]}...[truncated]>"
+                return f"{type_hint}{repr_str[: self.config.max_string_length]}...[truncated]>"
             return repr_str
         except Exception:
             return f"<{type(data).__name__}: repr failed>"
 
-    def _summarize_dict(
-        self,
-        data: dict,
-        depth: int,
-        keys_only: bool
-    ) -> dict:
+    def _summarize_dict(self, data: dict, depth: int, keys_only: bool) -> dict:
         """Summarize a dictionary.
 
         Args:
@@ -261,8 +254,8 @@ class DataSummarizer:
             # Check if we've exceeded max items
             if i >= self.config.max_dict_items:
                 remaining = len(items) - i
-                placeholder = self.config.dict_placeholder.format(count=remaining)
-                result[self.config.dict_placeholder.split('{')[0].strip() or '...'] = f"{remaining} more items"
+                self.config.dict_placeholder.format(count=remaining)
+                result[self.config.dict_placeholder.split("{")[0].strip() or "..."] = f"{remaining} more items"
                 break
 
             # Mask sensitive fields
@@ -278,12 +271,7 @@ class DataSummarizer:
 
         return result
 
-    def _summarize_sequence(
-        self,
-        data: Union[list, tuple, set],
-        depth: int,
-        keys_only: bool
-    ) -> Union[list, str]:
+    def _summarize_sequence(self, data: Union[list, tuple, set], depth: int, keys_only: bool) -> Union[list, str]:
         """Summarize a sequence (list, tuple, or set).
 
         Args:
@@ -356,4 +344,3 @@ class DataSummarizer:
         elif isinstance(data, set):
             return {self.mask_sensitive(item) for item in data}
         return data
-

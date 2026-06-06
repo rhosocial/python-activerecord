@@ -5,11 +5,11 @@ Pytest configuration for async SQLite backend tests
 This configuration file sets up the async testing environment and provides
 common fixtures for all async tests.
 """
+
 import os
 import tempfile
 import pytest
 import pytest_asyncio
-import aiofiles.os
 
 from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -18,23 +18,20 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 def pytest_configure(config):
     """Configure pytest for async tests"""
     # Register custom markers
-    config.addinivalue_line(
-        "markers",
-        "asyncio: mark test as async (requires pytest-asyncio)"
-    )
+    config.addinivalue_line("markers", "asyncio: mark test as async (requires pytest-asyncio)")
 
 
 @pytest.fixture
 def temp_db_path():
     """Create temporary database file path"""
-    fd, path = tempfile.mkstemp(suffix='.db')
+    fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     yield path
     # Cleanup
     if os.path.exists(path):
         _retry_delete(path)
     # Clean up related WAL and SHM files
-    for ext in ['-wal', '-shm']:
+    for ext in ["-wal", "-shm"]:
         wal_path = path + ext
         if os.path.exists(wal_path):
             _retry_delete(wal_path)
@@ -43,6 +40,7 @@ def temp_db_path():
 def _retry_delete(file_path, max_retries=5, retry_delay=0.1):
     """Try to delete a file, retry if failed"""
     import time
+
     for attempt in range(max_retries):
         try:
             os.unlink(file_path)

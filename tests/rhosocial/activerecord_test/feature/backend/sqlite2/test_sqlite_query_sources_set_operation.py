@@ -1,8 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_query_sources_set_operation.py
-import pytest
-from rhosocial.activerecord.backend.expression import (
-    Column, Literal, Subquery, QueryExpression, TableExpression
-)
+from rhosocial.activerecord.backend.expression import Column, Subquery, QueryExpression, TableExpression
 from rhosocial.activerecord.backend.expression.query_sources import SetOperationExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -16,11 +13,7 @@ class TestSQLiteSetOperationExpression:
         right_query = Subquery(sqlite_dialect_3_8_0, "SELECT id, name FROM customers WHERE status = ?", ("active",))
 
         set_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="UNION",
-            alias="combined_results"
+            sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="UNION", alias="combined_results"
         )
 
         sql, params = set_op.to_sql()
@@ -39,7 +32,7 @@ class TestSQLiteSetOperationExpression:
             right=right_query,
             operation="UNION",
             alias="union_all_results",
-            all_=True  # This should add ALL to the operation
+            all_=True,  # This should add ALL to the operation
         )
 
         sql, params = set_op.to_sql()
@@ -53,11 +46,7 @@ class TestSQLiteSetOperationExpression:
         right_query = Subquery(sqlite_dialect_3_8_0, "SELECT id FROM table2 WHERE col2 = ?", ("value2",))
 
         set_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="INTERSECT",
-            alias="intersection"
+            sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="INTERSECT", alias="intersection"
         )
 
         sql, params = set_op.to_sql()
@@ -71,11 +60,7 @@ class TestSQLiteSetOperationExpression:
         right_query = Subquery(sqlite_dialect_3_8_0, "SELECT id FROM table2 WHERE archived = ?", (True,))
 
         set_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="EXCEPT",
-            alias="except_results"
+            sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="EXCEPT", alias="except_results"
         )
 
         sql, params = set_op.to_sql()
@@ -91,20 +76,12 @@ class TestSQLiteSetOperationExpression:
 
         # First set operation
         inner_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=query1,
-            right=query2,
-            operation="UNION",
-            alias="inner_union"
+            sqlite_dialect_3_8_0, left=query1, right=query2, operation="UNION", alias="inner_union"
         )
 
         # Outer set operation using the inner one
         outer_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=inner_op,
-            right=query3,
-            operation="UNION",
-            alias="outer_union"
+            sqlite_dialect_3_8_0, left=inner_op, right=query3, operation="UNION", alias="outer_union"
         )
 
         sql, params = outer_op.to_sql()
@@ -119,7 +96,7 @@ class TestSQLiteSetOperationExpression:
         left_query = QueryExpression(
             sqlite_dialect_3_8_0,
             select=[Column(sqlite_dialect_3_8_0, "id"), Column(sqlite_dialect_3_8_0, "name")],
-            from_=left_table
+            from_=left_table,
         )
 
         # Create complex right query
@@ -127,22 +104,18 @@ class TestSQLiteSetOperationExpression:
         right_query = QueryExpression(
             sqlite_dialect_3_8_0,
             select=[Column(sqlite_dialect_3_8_0, "id"), Column(sqlite_dialect_3_8_0, "name")],
-            from_=right_table
+            from_=right_table,
         )
 
         set_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="UNION",
-            alias="complex_union"
+            sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="UNION", alias="complex_union"
         )
 
         sql, params = set_op.to_sql()
 
         assert "UNION" in sql.upper()
-        assert '"users"' in sql or 'SELECT' in sql
-        assert '"customers"' in sql or 'SELECT' in sql
+        assert '"users"' in sql or "SELECT" in sql
+        assert '"customers"' in sql or "SELECT" in sql
         assert params == ()
 
     def test_set_operation_parameters_handling(self, sqlite_dialect_3_8_0: SQLiteDialect):
@@ -151,11 +124,7 @@ class TestSQLiteSetOperationExpression:
         right_query = Subquery(sqlite_dialect_3_8_0, "SELECT id FROM customers WHERE region = ?", ("west",))
 
         set_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="UNION",
-            alias="param_union"
+            sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="UNION", alias="param_union"
         )
 
         sql, params = set_op.to_sql()
@@ -170,11 +139,7 @@ class TestSQLiteSetOperationExpression:
         right_query = Subquery(sqlite_dialect_3_8_0, "SELECT col FROM table2", ())
 
         set_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="UNION",
-            alias="custom_alias"
+            sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="UNION", alias="custom_alias"
         )
 
         sql, params = set_op.to_sql()
@@ -190,11 +155,7 @@ class TestSQLiteSetOperationExpression:
 
         # Test with uppercase (normal case)
         set_op_upper = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="UNION",
-            alias="test"
+            sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="UNION", alias="test"
         )
 
         sql_upper, _ = set_op_upper.to_sql()
@@ -210,11 +171,7 @@ class TestSQLiteSetOperationExpression:
         for op in operations:
             # Test without ALL
             set_op = SetOperationExpression(
-                sqlite_dialect_3_8_0,
-                left=query1,
-                right=query2,
-                operation=op,
-                alias=f"test_{op.lower()}"
+                sqlite_dialect_3_8_0, left=query1, right=query2, operation=op, alias=f"test_{op.lower()}"
             )
 
             sql, params = set_op.to_sql()
@@ -223,12 +180,7 @@ class TestSQLiteSetOperationExpression:
 
             # Test with ALL
             set_op_all = SetOperationExpression(
-                sqlite_dialect_3_8_0,
-                left=query1,
-                right=query2,
-                operation=op,
-                alias=f"test_{op.lower()}_all",
-                all_=True
+                sqlite_dialect_3_8_0, left=query1, right=query2, operation=op, alias=f"test_{op.lower()}_all", all_=True
             )
 
             sql_all, params_all = set_op_all.to_sql()
@@ -241,12 +193,7 @@ class TestSQLiteSetOperationExpression:
         right_query = Subquery(sqlite_dialect_3_8_0, "SELECT id, name FROM customers WHERE status = ?", ("active",))
 
         # Create SetOperationExpression without alias
-        set_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="UNION"
-        )
+        set_op = SetOperationExpression(sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="UNION")
 
         sql, params = set_op.to_sql()
 
@@ -270,14 +217,14 @@ class TestSQLiteSetOperationExpression:
             left=left_query,
             right=right_query,
             operation="UNION",
-            order_by_clause=OrderByClause(sqlite_dialect_3_8_0, [Column(sqlite_dialect_3_8_0, "id")])
+            order_by_clause=OrderByClause(sqlite_dialect_3_8_0, [Column(sqlite_dialect_3_8_0, "id")]),
         )
 
         sql, params = set_op.to_sql()
 
         # Verify ORDER BY is present in the SQL
         assert "ORDER BY" in sql.upper()
-        assert '"id"' in sql or 'id' in sql
+        assert '"id"' in sql or "id" in sql
         # Verify parameters are still handled
         assert params == (18, "active")
 
@@ -294,7 +241,7 @@ class TestSQLiteSetOperationExpression:
             left=left_query,
             right=right_query,
             operation="UNION",
-            limit_offset_clause=LimitOffsetClause(sqlite_dialect_3_8_0, limit=10, offset=5)
+            limit_offset_clause=LimitOffsetClause(sqlite_dialect_3_8_0, limit=10, offset=5),
         )
 
         sql, params = set_op.to_sql()
@@ -304,7 +251,6 @@ class TestSQLiteSetOperationExpression:
         assert "OFFSET" in sql.upper()
         # Verify parameters are still handled (including limit and offset values)
         assert params == (18, "active", 10, 5)
-
 
     def test_set_operation_with_multiple_clauses(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test set operation with multiple clauses (ORDER BY, LIMIT). Excluding FOR UPDATE for SQLite."""
@@ -320,7 +266,7 @@ class TestSQLiteSetOperationExpression:
             right=right_query,
             operation="UNION",
             order_by_clause=OrderByClause(sqlite_dialect_3_8_0, [Column(sqlite_dialect_3_8_0, "name")]),
-            limit_offset_clause=LimitOffsetClause(sqlite_dialect_3_8_0, limit=5)
+            limit_offset_clause=LimitOffsetClause(sqlite_dialect_3_8_0, limit=5),
         )
 
         sql, params = set_op.to_sql()
@@ -340,20 +286,11 @@ class TestSQLiteSetOperationExpression:
         right_query = Subquery(sqlite_dialect_3_8_0, "SELECT id, name FROM customers WHERE status = ?", ("active",))
 
         # Create SetOperationExpression first
-        set_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="UNION"
-        )
+        set_op = SetOperationExpression(sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="UNION")
 
         # Wrap the set operation in an EXPLAIN expression
         explain_options = ExplainOptions()
-        explain_expr = ExplainExpression(
-            sqlite_dialect_3_8_0,
-            set_op,
-            explain_options
-        )
+        explain_expr = ExplainExpression(sqlite_dialect_3_8_0, set_op, explain_options)
 
         sql, params = explain_expr.to_sql()
 
@@ -372,20 +309,11 @@ class TestSQLiteSetOperationExpression:
         right_query = Subquery(sqlite_dialect_3_8_0, "SELECT id, name FROM customers WHERE status = ?", ("active",))
 
         # Create SetOperationExpression first
-        set_op = SetOperationExpression(
-            sqlite_dialect_3_8_0,
-            left=left_query,
-            right=right_query,
-            operation="UNION"
-        )
+        set_op = SetOperationExpression(sqlite_dialect_3_8_0, left=left_query, right=right_query, operation="UNION")
 
         # Wrap the set operation in an EXPLAIN QUERY PLAN expression
         explain_options = ExplainOptions(type=ExplainType.QUERY_PLAN)
-        explain_expr = ExplainExpression(
-            sqlite_dialect_3_8_0,
-            set_op,
-            explain_options
-        )
+        explain_expr = ExplainExpression(sqlite_dialect_3_8_0, set_op, explain_options)
 
         sql, params = explain_expr.to_sql()
 

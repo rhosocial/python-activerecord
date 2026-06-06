@@ -14,18 +14,21 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 ddl_opts = ExecutionOptions(stmt_type=StatementType.DDL)
 dml_opts = ExecutionOptions(stmt_type=StatementType.INSERT)
 dql_opts = ExecutionOptions(stmt_type=StatementType.DQL)
 
-from rhosocial.activerecord.backend.impl.sqlite.extension.extensions.rtree import get_rtree_extension
+from rhosocial.activerecord.backend.impl.sqlite.extension.extensions.rtree import get_rtree_extension  # noqa: E402
+
 rtree = get_rtree_extension()
+
 
 def exec_dql(sql: str, params: tuple = ()):
     return backend.execute(sql, params, options=dql_opts).data
+
 
 # ============================================================
 # SECTION 1: CREATE Virtual Table
@@ -34,11 +37,11 @@ print("=" * 60)
 print("1. R-Tree Virtual Table Creation")
 print("=" * 60)
 
-sql, _ = rtree.format_create_virtual_table('locations', dimensions=2)
+sql, _ = rtree.format_create_virtual_table("locations", dimensions=2)
 print(f"\n[1a] 2D R-Tree table: {sql}")
 backend.execute(sql, options=ddl_opts)
 
-sql, _ = rtree.format_create_virtual_table('volumes', dimensions=3)
+sql, _ = rtree.format_create_virtual_table("volumes", dimensions=3)
 print(f"[1b] 3D R-Tree table: {sql}")
 backend.execute(sql, options=ddl_opts)
 
@@ -57,10 +60,7 @@ locations = [
     (-122.5, -122.0, 37.5, 38.0),
 ]
 for vals in locations:
-    backend.execute(
-        "INSERT INTO locations(min0, max0, min1, max1) VALUES (?, ?, ?, ?)",
-        vals, options=dml_opts
-    )
+    backend.execute("INSERT INTO locations(min0, max0, min1, max1) VALUES (?, ?, ?, ?)", vals, options=dml_opts)
 print(f"    Inserted {len(locations)} locations")
 
 volumes = [
@@ -70,8 +70,7 @@ volumes = [
 ]
 for vals in volumes:
     backend.execute(
-        "INSERT INTO volumes(min0, max0, min1, max1, min2, max2) VALUES (?, ?, ?, ?, ?, ?)",
-        vals, options=dml_opts
+        "INSERT INTO volumes(min0, max0, min1, max1, min2, max2) VALUES (?, ?, ?, ?, ?, ?)", vals, options=dml_opts
     )
 print(f"    Inserted {len(volumes)} volumes")
 
@@ -82,19 +81,19 @@ print("\n" + "=" * 60)
 print("3. Range Queries via format_range_query()")
 print("=" * 60)
 
-sql, params = rtree.format_range_query('locations', [(-122.5, -122.0), (37.5, 38.0)])
+sql, params = rtree.format_range_query("locations", [(-122.5, -122.0), (37.5, 38.0)])
 print(f"\n[3a] 2D range (SF area): {len(exec_dql(sql, params))} result(s)")
 
-sql, params = rtree.format_range_query('locations', [(-75.0, -73.0), (40.0, 41.0)])
+sql, params = rtree.format_range_query("locations", [(-75.0, -73.0), (40.0, 41.0)])
 print(f"[3b] 2D range (NY area): {len(exec_dql(sql, params))} result(s)")
 
-sql, params = rtree.format_range_query('volumes', [(0, 20), (0, 20), (0, 20)])
+sql, params = rtree.format_range_query("volumes", [(0, 20), (0, 20), (0, 20)])
 r = exec_dql(sql, params)
 print(f"[3c] 3D range: {len(r)} result(s)")
 for row in r:
     print(f"      id={row['id']}")
 
-sql, params = rtree.format_range_query('locations', [(-180, -179), (0, 1)])
+sql, params = rtree.format_range_query("locations", [(-180, -179), (0, 1)])
 print(f"[3d] No-match range: {len(exec_dql(sql, params))} result(s) (expected 0)")
 
 # ============================================================
@@ -105,8 +104,9 @@ print("4. Range Query with Custom Column Names")
 print("=" * 60)
 
 sql, params = rtree.format_range_query(
-    'locations', [(-122.5, -122.0), (37.5, 38.0)],
-    column_names=[('"locations".min0', '"locations".max0'), ('"locations".min1', '"locations".max1')]
+    "locations",
+    [(-122.5, -122.0), (37.5, 38.0)],
+    column_names=[('"locations".min0', '"locations".max0'), ('"locations".min1', '"locations".max1')],
 )
 print(f"\n[4a] Custom column names: {len(exec_dql(sql, params))} result(s)")
 
@@ -117,17 +117,15 @@ print("\n" + "=" * 60)
 print("5. DROP R-Tree Virtual Table")
 print("=" * 60)
 
-sql, _ = rtree.format_drop_virtual_table('volumes')
+sql, _ = rtree.format_drop_virtual_table("volumes")
 backend.execute(sql, options=ddl_opts)
 print(f"\n[5a] Dropped 'volumes': {sql}")
 
-sql, _ = rtree.format_drop_virtual_table('locations', if_exists=True)
+sql, _ = rtree.format_drop_virtual_table("locations", if_exists=True)
 backend.execute(sql, options=ddl_opts)
 print(f"[5b] Dropped 'locations': {sql}")
 
-remaining = exec_dql(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-)
+remaining = exec_dql("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 print(f"\n    Remaining tables: {len(remaining)} (all clean)")
 
 # ============================================================

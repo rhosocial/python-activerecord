@@ -5,6 +5,7 @@ Concrete implementation of IBasicConnectionProvider for SQLite backend.
 This provider sets up connection pools and models for testing
 ActiveRecord context awareness.
 """
+
 import os
 import tempfile
 import uuid
@@ -19,12 +20,10 @@ from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
 from rhosocial.activerecord.testsuite.feature.basic.connection.interfaces import IBasicConnectionProvider
-from .scenarios import get_enabled_scenarios
 
 
 def _create_test_model_class(base_class, class_name: str):
     """Dynamically create a test model class."""
-    from pydantic import create_model
 
     # Create a new class that inherits from the base
     class TestModel(base_class):
@@ -36,6 +35,7 @@ def _create_test_model_class(base_class, class_name: str):
 
 class SyncTestUser(ActiveRecord):
     """Sync test user model for connection pool tests."""
+
     __table_name__ = "test_users"
     id: Optional[int] = None
     name: str
@@ -44,6 +44,7 @@ class SyncTestUser(ActiveRecord):
 
 class AsyncTestUser(AsyncActiveRecord):
     """Async test user model for connection pool tests."""
+
     __table_name__ = "test_users"
     id: Optional[int] = None
     name: str
@@ -65,14 +66,11 @@ class BasicConnectionProvider(IBasicConnectionProvider):
         """Returns available test scenarios."""
         # Use file-based database for connection pool tests because
         # auto_disconnect_on_release=True requires persistent storage
-        return ['file']
+        return ["file"]
 
     def _create_temp_db(self) -> str:
         """Create a temporary database file."""
-        db_path = os.path.join(
-            tempfile.gettempdir(),
-            f"test_connection_pool_{uuid.uuid4().hex}.sqlite"
-        )
+        db_path = os.path.join(tempfile.gettempdir(), f"test_connection_pool_{uuid.uuid4().hex}.sqlite")
         self._temp_files.append(db_path)
         return db_path
 
@@ -89,24 +87,23 @@ class BasicConnectionProvider(IBasicConnectionProvider):
         except Exception:
             pass
 
-        backend.execute("""
+        backend.execute(
+            """
             CREATE TABLE test_users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 email TEXT NOT NULL
             )
-        """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+        """,
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
 
     def setup_sync_pool_and_model(self, scenario_name: str) -> Tuple[BackendPool, Type[ActiveRecord]]:
         """Setup sync connection pool and model for context tests."""
         db_path = self._get_db_path(scenario_name)
 
         # Create connection pool with file-based database
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=db_path)
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: SQLiteBackend(database=db_path))
         pool = BackendPool.create(config)
 
         # Create table using pool's connection
@@ -115,10 +112,7 @@ class BasicConnectionProvider(IBasicConnectionProvider):
             self._active_backends.append(backend)
 
         # Configure model to use the SAME database file as the pool
-        SyncTestUser.configure(
-            SQLiteConnectionConfig(database=db_path),
-            SQLiteBackend
-        )
+        SyncTestUser.configure(SQLiteConnectionConfig(database=db_path), SQLiteBackend)
         self._active_backends.append(SyncTestUser.__backend__)
 
         return pool, SyncTestUser
@@ -126,11 +120,7 @@ class BasicConnectionProvider(IBasicConnectionProvider):
     async def setup_async_pool_and_model(self, scenario_name: str) -> Tuple[AsyncBackendPool, Type[AsyncActiveRecord]]:
         db_path = self._get_db_path(scenario_name)
 
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=db_path)
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=db_path))
 
         # Create pool
         pool = await AsyncBackendPool.create(config)
@@ -138,23 +128,25 @@ class BasicConnectionProvider(IBasicConnectionProvider):
         # Create table using pool's connection
         async with pool.connection() as backend:
             try:
-                await backend.execute("DROP TABLE IF EXISTS test_users", options=ExecutionOptions(stmt_type=StatementType.DDL))
+                await backend.execute(
+                    "DROP TABLE IF EXISTS test_users", options=ExecutionOptions(stmt_type=StatementType.DDL)
+                )
             except Exception:
                 pass
-            await backend.execute("""
+            await backend.execute(
+                """
                 CREATE TABLE test_users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     email TEXT NOT NULL
                 )
-            """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+            """,
+                options=ExecutionOptions(stmt_type=StatementType.DDL),
+            )
             self._active_async_backends.append(backend)
 
         # Configure model to use the SAME database file as the pool
-        await AsyncTestUser.configure(
-            SQLiteConnectionConfig(database=db_path),
-            AsyncSQLiteBackend
-        )
+        await AsyncTestUser.configure(SQLiteConnectionConfig(database=db_path), AsyncSQLiteBackend)
         self._active_async_backends.append(AsyncTestUser.__backend__)
 
         return pool, AsyncTestUser

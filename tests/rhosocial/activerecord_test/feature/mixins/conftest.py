@@ -7,4 +7,4 @@ against this backend implementation.
 """
 
 # Import the fixtures from the testsuite to make them available
-from rhosocial.activerecord.testsuite.feature.mixins.conftest import *
+from rhosocial.activerecord.testsuite.feature.mixins.conftest import *  # noqa: F403

@@ -10,6 +10,7 @@ Features:
 5. Disconnect after use
 6. Both sync and async task functions supported
 """
+
 from typing import Dict, Any
 import importlib
 
@@ -25,27 +26,39 @@ def _configure_models_from_params(params: dict) -> None:
     Args:
         params: Connection parameters provided by worker_connection_params fixture
     """
-    backend_module = importlib.import_module(params['backend_module'])
-    backend_class = getattr(backend_module, params['backend_class_name'])
+    backend_module = importlib.import_module(params["backend_module"])
+    backend_class = getattr(backend_module, params["backend_class_name"])
 
-    config_module = importlib.import_module(params['config_module'])
-    config_class = getattr(config_module, params['config_class_name'])
+    config_module = importlib.import_module(params["config_module"])
+    config_class = getattr(config_module, params["config_class_name"])
 
     config_keys = {
-        'database', 'delete_on_close', 'pragmas', 'uri', 'timeout',
-        'isolation_level', 'detect_types', 'check_same_thread',
-        'host', 'port', 'username', 'password', 'driver_type', 'options'
+        "database",
+        "delete_on_close",
+        "pragmas",
+        "uri",
+        "timeout",
+        "isolation_level",
+        "detect_types",
+        "check_same_thread",
+        "host",
+        "port",
+        "username",
+        "password",
+        "driver_type",
+        "options",
     }
-    config_dict = {k: v for k, v in params['config_dict'].items() if k in config_keys}
+    config_dict = {k: v for k, v in params["config_dict"].items() if k in config_keys}
 
     # Disable delete_on_close in Worker process to avoid deleting database on disconnect
-    if 'delete_on_close' in config_dict:
-        config_dict['delete_on_close'] = False
+    if "delete_on_close" in config_dict:
+        config_dict["delete_on_close"] = False
 
     config = config_class(**config_dict)
 
     # Only need to import and configure User, other models will share the backend
     from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User, Order, OrderItem
+
     User.configure(config, backend_class)
     # Ensure Order and OrderItem use the same backend
     Order.__backend__ = User.__backend__
@@ -63,41 +76,57 @@ async def _async_configure_models_from_params(params: dict) -> None:
     Args:
         params: Connection parameters provided by worker_connection_params fixture
     """
-    backend_module = importlib.import_module(params['backend_module'])
-    backend_class = getattr(backend_module, params['backend_class_name'])
+    backend_module = importlib.import_module(params["backend_module"])
+    backend_class = getattr(backend_module, params["backend_class_name"])
 
     # Convert sync backend to async backend if needed
     # e.g., SQLiteBackend -> AsyncSQLiteBackend, PostgresBackend -> AsyncPostgresBackend
-    if not backend_class.__name__.startswith('Async'):
-        async_backend_class_name = f'Async{backend_class.__name__}'
+    if not backend_class.__name__.startswith("Async"):
+        async_backend_class_name = f"Async{backend_class.__name__}"
         # Try to get from same module
         if hasattr(backend_module, async_backend_class_name):
             backend_class = getattr(backend_module, async_backend_class_name)
         else:
             # Try to get from parent module (e.g., postgres.backend.sync -> postgres.backend)
-            parent_module_name = '.'.join(params['backend_module'].split('.')[:-1])
+            parent_module_name = ".".join(params["backend_module"].split(".")[:-1])
             parent_module = importlib.import_module(parent_module_name)
             if hasattr(parent_module, async_backend_class_name):
                 backend_class = getattr(parent_module, async_backend_class_name)
 
-    config_module = importlib.import_module(params['config_module'])
-    config_class = getattr(config_module, params['config_class_name'])
+    config_module = importlib.import_module(params["config_module"])
+    config_class = getattr(config_module, params["config_class_name"])
 
     config_keys = {
-        'database', 'delete_on_close', 'pragmas', 'uri', 'timeout',
-        'isolation_level', 'detect_types', 'check_same_thread',
-        'host', 'port', 'username', 'password', 'driver_type', 'options'
+        "database",
+        "delete_on_close",
+        "pragmas",
+        "uri",
+        "timeout",
+        "isolation_level",
+        "detect_types",
+        "check_same_thread",
+        "host",
+        "port",
+        "username",
+        "password",
+        "driver_type",
+        "options",
     }
-    config_dict = {k: v for k, v in params['config_dict'].items() if k in config_keys}
+    config_dict = {k: v for k, v in params["config_dict"].items() if k in config_keys}
 
     # Disable delete_on_close in Worker process to avoid deleting database on disconnect
-    if 'delete_on_close' in config_dict:
-        config_dict['delete_on_close'] = False
+    if "delete_on_close" in config_dict:
+        config_dict["delete_on_close"] = False
 
     config = config_class(**config_dict)
 
     # Import async models
-    from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import AsyncUser, AsyncOrder, AsyncOrderItem
+    from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import (
+        AsyncUser,
+        AsyncOrder,
+        AsyncOrderItem,
+    )
+
     await AsyncUser.configure(config, backend_class)
     # Ensure Order and OrderItem use the same backend
     AsyncOrder.__backend__ = AsyncUser.__backend__
@@ -118,9 +147,9 @@ def create_order_with_items_task(params: dict) -> Dict[str, Any]:
         {'order_id': ..., 'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    user_id = params.pop('user_id')
-    order_number = params.pop('order_number')
-    items = params.pop('items', [])
+    user_id = params.pop("user_id")
+    order_number = params.pop("order_number")
+    items = params.pop("items", [])
 
     from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User, Order, OrderItem
 
@@ -135,19 +164,19 @@ def create_order_with_items_task(params: dict) -> Dict[str, Any]:
 
         try:
             # Create order
-            order = Order(user_id=user_id, order_number=order_number, status='pending')
+            order = Order(user_id=user_id, order_number=order_number, status="pending")
             order.save()
 
             # Create order items
-            total_amount = Decimal('0')
+            total_amount = Decimal("0")
             for item_data in items:
-                subtotal = Decimal(str(item_data['quantity'])) * Decimal(str(item_data['unit_price']))
+                subtotal = Decimal(str(item_data["quantity"])) * Decimal(str(item_data["unit_price"]))
                 item = OrderItem(
                     order_id=order.id,
-                    product_name=item_data['product_name'],
-                    quantity=item_data['quantity'],
-                    unit_price=Decimal(str(item_data['unit_price'])),
-                    subtotal=subtotal
+                    product_name=item_data["product_name"],
+                    quantity=item_data["quantity"],
+                    unit_price=Decimal(str(item_data["unit_price"])),
+                    subtotal=subtotal,
                 )
                 item.save()
                 total_amount += subtotal
@@ -159,13 +188,13 @@ def create_order_with_items_task(params: dict) -> Dict[str, Any]:
             # Commit transaction
             backend.commit_transaction()
 
-            return {'order_id': order.id, 'success': True}
+            return {"order_id": order.id, "success": True}
         except Exception as e:
             # Rollback transaction
             backend.rollback_transaction()
             raise e
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         User.backend().disconnect()
 
@@ -184,9 +213,9 @@ def transfer_balance_task(params: dict) -> Dict[str, Any]:
         {'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    from_user_id = params.pop('from_user_id')
-    to_user_id = params.pop('to_user_id')
-    amount = params.pop('amount')
+    from_user_id = params.pop("from_user_id")
+    to_user_id = params.pop("to_user_id")
+    amount = params.pop("amount")
 
     from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User
 
@@ -198,7 +227,7 @@ def transfer_balance_task(params: dict) -> Dict[str, Any]:
 
         try:
             # Query source user
-            from_user = User.find_one({'id': from_user_id})
+            from_user = User.find_one({"id": from_user_id})
             if not from_user:
                 raise ValueError(f"Source user {from_user_id} not found")
 
@@ -207,7 +236,7 @@ def transfer_balance_task(params: dict) -> Dict[str, Any]:
                 raise ValueError(f"Insufficient balance: {from_user.balance} < {amount}")
 
             # Query target user
-            to_user = User.find_one({'id': to_user_id})
+            to_user = User.find_one({"id": to_user_id})
             if not to_user:
                 raise ValueError(f"Target user {to_user_id} not found")
 
@@ -221,16 +250,12 @@ def transfer_balance_task(params: dict) -> Dict[str, Any]:
             # Commit transaction
             backend.commit_transaction()
 
-            return {
-                'success': True,
-                'from_balance': from_user.balance,
-                'to_balance': to_user.balance
-            }
+            return {"success": True, "from_balance": from_user.balance, "to_balance": to_user.balance}
         except Exception as e:
             backend.rollback_transaction()
             raise e
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         User.backend().disconnect()
 
@@ -248,24 +273,24 @@ def update_order_status_task(params: dict) -> Dict[str, Any]:
         {'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    order_id = params.pop('order_id')
-    new_status = params.pop('new_status')
+    order_id = params.pop("order_id")
+    new_status = params.pop("new_status")
 
     from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User, Order
 
     _configure_models_from_params(params)
 
     try:
-        order = Order.find_one({'id': order_id})
+        order = Order.find_one({"id": order_id})
         if not order:
-            return {'error': 'Order not found', 'success': False}
+            return {"error": "Order not found", "success": False}
 
         order.status = new_status
         order.save()
 
-        return {'success': True, 'order_id': order.id, 'status': new_status}
+        return {"success": True, "order_id": order.id, "status": new_status}
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         User.backend().disconnect()
 
@@ -282,7 +307,7 @@ def count_user_orders_task(params: dict) -> Dict[str, Any]:
         {'count': ..., 'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    user_id = params.pop('user_id')
+    user_id = params.pop("user_id")
 
     from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User, Order
 
@@ -290,9 +315,9 @@ def count_user_orders_task(params: dict) -> Dict[str, Any]:
 
     try:
         count = Order.query().where(Order.c.user_id == user_id).count()
-        return {'count': count, 'success': True}
+        return {"count": count, "success": True}
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         User.backend().disconnect()
 
@@ -309,7 +334,7 @@ def count_order_items_task(params: dict) -> Dict[str, Any]:
         {'count': ..., 'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    order_id = params.pop('order_id')
+    order_id = params.pop("order_id")
 
     from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User, OrderItem
 
@@ -317,9 +342,9 @@ def count_order_items_task(params: dict) -> Dict[str, Any]:
 
     try:
         count = OrderItem.query().where(OrderItem.c.order_id == order_id).count()
-        return {'count': count, 'success': True}
+        return {"count": count, "success": True}
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         User.backend().disconnect()
 
@@ -336,7 +361,7 @@ def calculate_order_total_task(params: dict) -> Dict[str, Any]:
         {'total': ..., 'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    order_id = params.pop('order_id')
+    order_id = params.pop("order_id")
 
     from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User, OrderItem
 
@@ -345,9 +370,9 @@ def calculate_order_total_task(params: dict) -> Dict[str, Any]:
     try:
         items = OrderItem.query().where(OrderItem.c.order_id == order_id).all()
         total = sum(item.subtotal for item in items)
-        return {'total': float(total), 'success': True}
+        return {"total": float(total), "success": True}
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         User.backend().disconnect()
 
@@ -371,11 +396,15 @@ async def async_create_order_with_items_task(params: dict) -> Dict[str, Any]:
         {'order_id': ..., 'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    user_id = params.pop('user_id')
-    order_number = params.pop('order_number')
-    items = params.pop('items', [])
+    user_id = params.pop("user_id")
+    order_number = params.pop("order_number")
+    items = params.pop("items", [])
 
-    from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import AsyncUser, AsyncOrder, AsyncOrderItem
+    from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import (
+        AsyncUser,
+        AsyncOrder,
+        AsyncOrderItem,
+    )
 
     await _async_configure_models_from_params(params)
 
@@ -388,19 +417,19 @@ async def async_create_order_with_items_task(params: dict) -> Dict[str, Any]:
 
         try:
             # Create order
-            order = AsyncOrder(user_id=user_id, order_number=order_number, status='pending')
+            order = AsyncOrder(user_id=user_id, order_number=order_number, status="pending")
             await order.save()
 
             # Create order items
-            total_amount = Decimal('0')
+            total_amount = Decimal("0")
             for item_data in items:
-                subtotal = Decimal(str(item_data['quantity'])) * Decimal(str(item_data['unit_price']))
+                subtotal = Decimal(str(item_data["quantity"])) * Decimal(str(item_data["unit_price"]))
                 item = AsyncOrderItem(
                     order_id=order.id,
-                    product_name=item_data['product_name'],
-                    quantity=item_data['quantity'],
-                    unit_price=Decimal(str(item_data['unit_price'])),
-                    subtotal=subtotal
+                    product_name=item_data["product_name"],
+                    quantity=item_data["quantity"],
+                    unit_price=Decimal(str(item_data["unit_price"])),
+                    subtotal=subtotal,
                 )
                 await item.save()
                 total_amount += subtotal
@@ -412,13 +441,13 @@ async def async_create_order_with_items_task(params: dict) -> Dict[str, Any]:
             # Commit transaction
             await backend.commit_transaction()
 
-            return {'order_id': order.id, 'success': True}
+            return {"order_id": order.id, "success": True}
         except Exception as e:
             # Rollback transaction
             await backend.rollback_transaction()
             raise e
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         await AsyncUser.backend().disconnect()
 
@@ -437,9 +466,9 @@ async def async_transfer_balance_task(params: dict) -> Dict[str, Any]:
         {'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    from_user_id = params.pop('from_user_id')
-    to_user_id = params.pop('to_user_id')
-    amount = params.pop('amount')
+    from_user_id = params.pop("from_user_id")
+    to_user_id = params.pop("to_user_id")
+    amount = params.pop("amount")
 
     from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import AsyncUser
 
@@ -451,7 +480,7 @@ async def async_transfer_balance_task(params: dict) -> Dict[str, Any]:
 
         try:
             # Query source user
-            from_user = await AsyncUser.find_one({'id': from_user_id})
+            from_user = await AsyncUser.find_one({"id": from_user_id})
             if not from_user:
                 raise ValueError(f"Source user {from_user_id} not found")
 
@@ -460,7 +489,7 @@ async def async_transfer_balance_task(params: dict) -> Dict[str, Any]:
                 raise ValueError(f"Insufficient balance: {from_user.balance} < {amount}")
 
             # Query target user
-            to_user = await AsyncUser.find_one({'id': to_user_id})
+            to_user = await AsyncUser.find_one({"id": to_user_id})
             if not to_user:
                 raise ValueError(f"Target user {to_user_id} not found")
 
@@ -474,16 +503,12 @@ async def async_transfer_balance_task(params: dict) -> Dict[str, Any]:
             # Commit transaction
             await backend.commit_transaction()
 
-            return {
-                'success': True,
-                'from_balance': from_user.balance,
-                'to_balance': to_user.balance
-            }
+            return {"success": True, "from_balance": from_user.balance, "to_balance": to_user.balance}
         except Exception as e:
             await backend.rollback_transaction()
             raise e
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         await AsyncUser.backend().disconnect()
 
@@ -500,7 +525,7 @@ async def async_count_user_orders_task(params: dict) -> Dict[str, Any]:
         {'count': ..., 'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    user_id = params.pop('user_id')
+    user_id = params.pop("user_id")
 
     from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import AsyncUser, AsyncOrder
 
@@ -508,9 +533,9 @@ async def async_count_user_orders_task(params: dict) -> Dict[str, Any]:
 
     try:
         count = await AsyncOrder.query().where(AsyncOrder.c.user_id == user_id).count()
-        return {'count': count, 'success': True}
+        return {"count": count, "success": True}
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         await AsyncUser.backend().disconnect()
 
@@ -527,7 +552,7 @@ async def async_calculate_order_total_task(params: dict) -> Dict[str, Any]:
         {'total': ..., 'success': True} or {'error': str, 'success': False}
     """
     params = params.copy()
-    order_id = params.pop('order_id')
+    order_id = params.pop("order_id")
 
     from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import AsyncUser, AsyncOrderItem
 
@@ -536,8 +561,8 @@ async def async_calculate_order_total_task(params: dict) -> Dict[str, Any]:
     try:
         items = await AsyncOrderItem.query().where(AsyncOrderItem.c.order_id == order_id).all()
         total = sum(item.subtotal for item in items)
-        return {'total': float(total), 'success': True}
+        return {"total": float(total), "success": True}
     except Exception as e:
-        return {'error': str(e), 'success': False}
+        return {"error": str(e), "success": False}
     finally:
         await AsyncUser.backend().disconnect()

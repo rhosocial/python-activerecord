@@ -109,6 +109,7 @@ class SQLiteBackendMixin:
             1 (connections cannot be safely shared across threads)
         """
         import sqlite3
+
         return sqlite3.threadsafety
 
     @property

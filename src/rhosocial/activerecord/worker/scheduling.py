@@ -26,9 +26,10 @@ class SchedulePolicy(Enum):
     Used to specify which scheduling strategy the WorkerPool should use
     for task distribution.
     """
+
     LEAST_TASKS = "least_tasks"  # Select Worker with fewest tasks
     ROUND_ROBIN = "round_robin"  # Rotate through Workers
-    RANDOM = "random"            # Random selection
+    RANDOM = "random"  # Random selection
 
 
 class SchedulingStrategy(ABC):

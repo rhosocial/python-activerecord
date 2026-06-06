@@ -16,11 +16,11 @@ class StatusCategory(Enum):
     """Categories for grouping server status items."""
 
     CONFIGURATION = "configuration"  # Configuration parameters
-    PERFORMANCE = "performance"      # Performance metrics
-    CONNECTION = "connection"        # Connection information
-    STORAGE = "storage"              # Storage information
-    SECURITY = "security"            # Security related
-    REPLICATION = "replication"      # Replication related
+    PERFORMANCE = "performance"  # Performance metrics
+    CONNECTION = "connection"  # Connection information
+    STORAGE = "storage"  # Storage information
+    SECURITY = "security"  # Security related
+    REPLICATION = "replication"  # Replication related
 
 
 @dataclass
@@ -583,19 +583,14 @@ class ServerOverview:
             Dictionary representation of the server overview
         """
         from dataclasses import asdict
+
         return {
             "server_version": self.server_version,
             "server_vendor": self.server_vendor,
             "server_name": self.server_name,
             "session": asdict(self.session) if self.session else None,
-            "configuration": [
-                {**asdict(item), "category": item.category.value}
-                for item in self.configuration
-            ],
-            "performance": [
-                {**asdict(item), "category": item.category.value}
-                for item in self.performance
-            ],
+            "configuration": [{**asdict(item), "category": item.category.value} for item in self.configuration],
+            "performance": [{**asdict(item), "category": item.category.value} for item in self.performance],
             "connections": asdict(self.connections),
             "storage": asdict(self.storage),
             "databases": [asdict(db) for db in self.databases],

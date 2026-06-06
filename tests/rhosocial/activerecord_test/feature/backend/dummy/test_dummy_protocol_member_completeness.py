@@ -7,8 +7,8 @@ This test ensures:
 2. All protocols have at least one member
 3. No two protocols share the same method name (no overlap)
 """
+
 import inspect
-from itertools import combinations
 from typing import Protocol
 
 import pytest
@@ -26,10 +26,7 @@ def get_all_protocol_methods(proto: type) -> set:
         val = proto.__dict__[name]
         if callable(val) or isinstance(val, (property, classmethod, staticmethod)):
             members.add(name)
-    members.update(
-        k for k in getattr(proto, "__annotations__", {})
-        if not k.startswith("_")
-    )
+    members.update(k for k in getattr(proto, "__annotations__", {}) if not k.startswith("_"))
     return members
 
 
@@ -45,7 +42,7 @@ class TestDummyProtocolMemberCompleteness:
         """Dynamically discover all Protocol classes in the protocols module."""
         protocol_classes = []
         for name, obj in inspect.getmembers(protocols, inspect.isclass):
-            if Protocol in getattr(obj, '__mro__', []) and name != 'Protocol':
+            if Protocol in getattr(obj, "__mro__", []) and name != "Protocol":
                 protocol_classes.append((name, obj))
         return protocol_classes
 
@@ -56,7 +53,7 @@ class TestDummyProtocolMemberCompleteness:
 
         for proto_name, proto_class in protocol_classes:
             for member_name, member in inspect.getmembers(proto_class):
-                if not member_name.startswith('_') and callable(member):
+                if not member_name.startswith("_") and callable(member):
                     if member_name not in all_methods:
                         all_methods[member_name] = []
                     all_methods[member_name].append(proto_name)
@@ -69,7 +66,7 @@ class TestDummyProtocolMemberCompleteness:
 
         dialect_methods = set()
         for member_name in dir(dialect):
-            if not member_name.startswith('_') and callable(getattr(dialect, member_name, None)):
+            if not member_name.startswith("_") and callable(getattr(dialect, member_name, None)):
                 dialect_methods.add(member_name)
 
         missing_methods = []
@@ -80,7 +77,8 @@ class TestDummyProtocolMemberCompleteness:
 
         assert len(missing_methods) == 0, (
             f"DummyDialect is missing {len(missing_methods)} method(s) defined in protocols:\n"
-            + "\n".join(f"  - {m}" for m in missing_methods) + "\n\n"
+            + "\n".join(f"  - {m}" for m in missing_methods)
+            + "\n\n"
             "Please update DummyDialect to implement these methods."
         )
 
@@ -88,16 +86,12 @@ class TestDummyProtocolMemberCompleteness:
         """Verify all protocols (except introspection) are implemented by DummyDialect."""
         protocol_classes = self.get_all_protocol_classes()
 
-        excluded = {'IntrospectionSupport'}
-        expected_protocols = {
-            name for name, cls in protocol_classes
-            if name not in excluded
-        }
+        excluded = {"IntrospectionSupport"}
+        expected_protocols = {name for name, cls in protocol_classes if name not in excluded}
 
         dummy_mro = dummy_dialect.DummyDialect.__mro__
         implemented = {
-            cls.__name__ for cls in dummy_mro
-            if issubclass(cls, Protocol) and cls.__name__ in expected_protocols
+            cls.__name__ for cls in dummy_mro if issubclass(cls, Protocol) and cls.__name__ in expected_protocols
         }
 
         missing = expected_protocols - implemented

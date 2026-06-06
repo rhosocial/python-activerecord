@@ -51,9 +51,7 @@ class TestAtomExpressionRoundtrip:
         restored = deserialize(serialize(col), dummy_dialect)
         assert restored.to_sql() == col.to_sql()
 
-    @pytest.mark.parametrize(
-        "value", [42, "hello", 3.14, None, True, False, ["a", "b", "c"]]
-    )
+    @pytest.mark.parametrize("value", [42, "hello", 3.14, None, True, False, ["a", "b", "c"]])
     def test_literal_roundtrip(self, dummy_dialect, value):
         lit = Literal(dummy_dialect, value)
         assert deserialize(serialize(lit), dummy_dialect).to_sql() == lit.to_sql()
@@ -63,15 +61,14 @@ class TestAtomExpressionRoundtrip:
         assert deserialize(serialize(w), dummy_dialect).to_sql() == w.to_sql()
 
     def test_function_call_roundtrip(self, dummy_dialect):
-        expr = FunctionCall(
-            dummy_dialect, "COUNT", WildcardExpression(dummy_dialect), is_distinct=True
-        )
+        expr = FunctionCall(dummy_dialect, "COUNT", WildcardExpression(dummy_dialect), is_distinct=True)
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
     def test_function_call_with_multiple_args(self, dummy_dialect):
         """Test FunctionCall with VAR_POSITIONAL *args parameter."""
         expr = FunctionCall(
-            dummy_dialect, "CONCAT",
+            dummy_dialect,
+            "CONCAT",
             Column(dummy_dialect, "first_name"),
             Column(dummy_dialect, "last_name"),
             Literal(dummy_dialect, " "),
@@ -96,12 +93,8 @@ class TestPredicateRoundtrip:
         assert deserialize(serialize(pred), dummy_dialect).to_sql() == pred.to_sql()
 
     def test_logical_predicate_roundtrip(self, dummy_dialect):
-        p1 = ComparisonPredicate(
-            dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active")
-        )
-        p2 = ComparisonPredicate(
-            dummy_dialect, ">", Column(dummy_dialect, "score"), Literal(dummy_dialect, 100)
-        )
+        p1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active"))
+        p2 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "score"), Literal(dummy_dialect, 100))
         combined = LogicalPredicate(dummy_dialect, "AND", p1, p2)
         assert deserialize(serialize(combined), dummy_dialect).to_sql() == combined.to_sql()
 
@@ -114,9 +107,7 @@ class TestPredicateRoundtrip:
         assert deserialize(serialize(combined), dummy_dialect).to_sql() == combined.to_sql()
 
     def test_in_predicate_roundtrip(self, dummy_dialect):
-        pred = InPredicate(
-            dummy_dialect, Column(dummy_dialect, "cat"), Literal(dummy_dialect, ["A", "B", "C"])
-        )
+        pred = InPredicate(dummy_dialect, Column(dummy_dialect, "cat"), Literal(dummy_dialect, ["A", "B", "C"]))
         assert deserialize(serialize(pred), dummy_dialect).to_sql() == pred.to_sql()
 
     def test_like_predicate_roundtrip(self, dummy_dialect):
@@ -173,9 +164,7 @@ class TestAggregateRoundtrip:
     """T5: Aggregate function round-trip test."""
 
     def test_aggregate_function_roundtrip(self, dummy_dialect):
-        expr = AggregateFunctionCall(
-            dummy_dialect, "SUM", Column(dummy_dialect, "amount"), alias="total"
-        )
+        expr = AggregateFunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount"), alias="total")
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
 
@@ -191,7 +180,7 @@ class TestQueryExpressionRoundtrip:
             from_=TableExpression(dummy_dialect, "users"),
             where=WhereClause(
                 dummy_dialect,
-                ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
+                ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18)),
             ),
             order_by=OrderByClause(dummy_dialect, expressions=[(Column(dummy_dialect, "name"), "ASC")]),
         )
@@ -225,9 +214,7 @@ class TestJsonSerializable:
     def test_json_serializable(self, dummy_dialect):
         """ExpressionSpec must be fully JSON-serializable"""
         expr = ComparisonPredicate(
-            dummy_dialect, "=",
-            Column(dummy_dialect, "status", table="orders"),
-            Literal(dummy_dialect, "paid")
+            dummy_dialect, "=", Column(dummy_dialect, "status", table="orders"), Literal(dummy_dialect, "paid")
         )
         spec = serialize(expr)
         dumped = json.dumps(spec)
@@ -263,17 +250,11 @@ class TestErrorHandling:
 
     def test_deserialize_unknown_type(self, dummy_dialect):
         with pytest.raises(ExpressionDeserializationError, match="NonExistentExpr"):
-            deserialize(
-                {"type": "fake.module.NonExistentExpr", "params": {}},
-                dummy_dialect
-            )
+            deserialize({"type": "fake.module.NonExistentExpr", "params": {}}, dummy_dialect)
 
     def test_deserialize_missing_required_param(self, dummy_dialect):
         with pytest.raises(ExpressionDeserializationError, match="Failed to reconstruct"):
-            deserialize({
-                "type": "rhosocial.activerecord.backend.expression.core.Column",
-                "params": {}
-            }, dummy_dialect)
+            deserialize({"type": "rhosocial.activerecord.backend.expression.core.Column", "params": {}}, dummy_dialect)
 
     def test_deserialize_invalid_spec_missing_type(self, dummy_dialect):
         with pytest.raises(ExpressionDeserializationError, match="missing 'type' field"):
@@ -290,15 +271,13 @@ class TestErrorHandling:
         ExpressionRegistry._registry["test.module.NotAnExpression"] = NotAnExpression
         try:
             with pytest.raises(ExpressionDeserializationError, match="not a BaseExpression subclass"):
-                deserialize({
-                    "type": "test.module.NotAnExpression",
-                    "params": {}
-                }, dummy_dialect)
+                deserialize({"type": "test.module.NotAnExpression", "params": {}}, dummy_dialect)
         finally:
             ExpressionRegistry._registry.pop("test.module.NotAnExpression", None)
 
     def test_reconstruct_by_name_type_error(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.serialization import _reconstruct_by_name
+
         with pytest.raises(ExpressionDeserializationError, match="Failed to reconstruct"):
             _reconstruct_by_name("Column", dummy_dialect, {"invalid_param": 123})
 
@@ -457,6 +436,7 @@ class TestErrorHandling:
         spec = serialize(expr)
 
         import json
+
         spec_json = json.dumps(spec)
         restored = deserialize(json.loads(spec_json), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
@@ -522,11 +502,10 @@ class TestErrorHandling:
         spec = serialize(expr)
 
         import json
+
         spec_json = json.dumps(spec)
         restored = deserialize(json.loads(spec_json), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
-
-    
 
     def test_expression_factory_serialize(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.serialization import ExpressionFactory
@@ -586,6 +565,7 @@ class TestExpressionFactoryAndRegistry:
 
     def test_expression_factory_from_spec(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression import Column
+
         col = Column(dummy_dialect, "name", table="users")
         spec = serialize(col)
         factory = ExpressionFactory(dummy_dialect)
@@ -605,10 +585,7 @@ class TestExpressionFactoryAndRegistry:
     def test_expression_factory_from_spec_invalid_module(self, dummy_dialect):
         factory = ExpressionFactory(dummy_dialect)
         with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
-            factory._create_from_spec({
-                "type": "fake.module.that.does.not.exist.NonExistent",
-                "params": {}
-            })
+            factory._create_from_spec({"type": "fake.module.that.does.not.exist.NonExistent", "params": {}})
 
 
 class TestExpressionRegistry:
@@ -616,6 +593,7 @@ class TestExpressionRegistry:
 
     def test_registry_lookup_found(self):
         from rhosocial.activerecord.backend.expression import Column
+
         result = ExpressionRegistry.lookup("Column")
         assert result is Column
 
@@ -629,6 +607,7 @@ class TestExpressionRegistry:
 
     def test_reconstruct_by_name_not_found(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.serialization import _reconstruct_by_name
+
         with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
             _reconstruct_by_name("NonExistentExpression", dummy_dialect, {})
 
@@ -639,8 +618,6 @@ class TestExpressionRegistry:
     def test_registry_lookup_not_found_3(self):
         with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
             ExpressionRegistry.lookup("NonExistentClass")
-
-    
 
 
 class TestExpressionFactory:
@@ -682,8 +659,7 @@ class TestQueryPartsRoundtrip:
 
     def test_order_by_clause_roundtrip(self, dummy_dialect):
         expr = OrderByClause(
-            dummy_dialect,
-            [(Column(dummy_dialect, "name"), "ASC"), (Column(dummy_dialect, "age"), "DESC")]
+            dummy_dialect, [(Column(dummy_dialect, "name"), "ASC"), (Column(dummy_dialect, "age"), "DESC")]
         )
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
@@ -701,6 +677,7 @@ class TestIntrospectionExpressionRoundtrip:
 
     def test_table_list_expression_default_params_schema_omitted(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import TableListExpression
+
         expr = TableListExpression(dummy_dialect)
         spec = serialize(expr)
         assert "schema" not in spec["params"]
@@ -709,6 +686,7 @@ class TestIntrospectionExpressionRoundtrip:
 
     def test_table_list_expression_with_schema_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import TableListExpression
+
         expr = TableListExpression(dummy_dialect, schema="main", include_views=False)
         spec = serialize(expr)
         assert spec["params"]["schema"] == "main"
@@ -717,53 +695,62 @@ class TestIntrospectionExpressionRoundtrip:
 
     def test_table_info_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import TableInfoExpression
+
         expr = TableInfoExpression(dummy_dialect, "users", schema="public")
         assert deserialize(serialize(expr), dummy_dialect).get_params() == expr.get_params()
 
     def test_column_info_expression_schema_omitted(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
+
         expr = ColumnInfoExpression(dummy_dialect, "users")
         spec = serialize(expr)
         assert "schema" not in spec["params"]
 
     def test_column_info_expression_with_schema_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
+
         expr = ColumnInfoExpression(dummy_dialect, "users", schema="main")
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_index_info_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import IndexInfoExpression
+
         expr = IndexInfoExpression(dummy_dialect, "users", "idx_users_name")
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_foreign_key_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import ForeignKeyExpression
+
         expr = ForeignKeyExpression(dummy_dialect, "users", "profiles")
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_view_list_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import ViewListExpression
+
         expr = ViewListExpression(dummy_dialect, schema="main")
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_view_info_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import ViewInfoExpression
+
         expr = ViewInfoExpression(dummy_dialect, "user_stats", schema="public")
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_trigger_list_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import TriggerListExpression
+
         expr = TriggerListExpression(dummy_dialect, schema="main")
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_trigger_info_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import TriggerInfoExpression
+
         expr = TriggerInfoExpression(dummy_dialect, "trg_update_user", schema="main")
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
@@ -780,9 +767,7 @@ class TestDDLRoundtrip:
             ColumnConstraintType,
         )
 
-        col_def = ColumnDefinition(
-            "id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
-        )
+        col_def = ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)])
         expr = CreateTableExpression(dummy_dialect, table="users", columns=[col_def])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()

@@ -216,9 +216,9 @@ class BasicConnectionMixin:
 
     def __post_init__(self):
         if self.username is None and self.user is not None:
-            object.__setattr__(self, 'username', self.user)
+            object.__setattr__(self, "username", self.user)
         elif self.username is not None and self.user is None:
-            object.__setattr__(self, 'user', self.username)
+            object.__setattr__(self, "user", self.username)
 
 
 @dataclass

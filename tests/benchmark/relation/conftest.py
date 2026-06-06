@@ -35,6 +35,7 @@ def pytest_configure(config):
 @dataclass
 class RelationBenchmarkContext:
     """Context for a single benchmark run."""
+
     user: Any
     post_class: Any
     scenario: str
@@ -76,7 +77,7 @@ class RelationBenchmarkContext:
 # Shared model + data setup (function-scoped so each test gets fresh data)
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="function")
-def _raw_models(user_post_comment_classes):
+def _raw_models(user_post_comment_classes):  # noqa: F811
     """Create a user + 100 posts + 200 comments under the same user."""
     user_cls, post_cls, comment_cls = user_post_comment_classes
     user = user_cls(name="Bench User", email="bench@example.com")

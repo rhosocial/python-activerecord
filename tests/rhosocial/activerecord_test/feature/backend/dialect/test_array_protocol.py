@@ -6,20 +6,18 @@ This test creates a dialect that does not support array operations and verifies 
 the corresponding formatting methods raise appropriate errors.
 """
 
-from rhosocial.activerecord.backend.dialect import (
-    SQLDialectBase, ArrayMixin, ArraySupport
-)
+from rhosocial.activerecord.backend.dialect import SQLDialectBase, ArrayMixin, ArraySupport
 
 
 class NoArrayDialect(SQLDialectBase, ArrayMixin, ArraySupport):
     """Dialect that does not support array operations."""
-    
+
     def supports_array_type(self) -> bool:
         return False
-    
+
     def supports_array_constructor(self) -> bool:
         return False
-    
+
     def supports_array_access(self) -> bool:
         return False
 
@@ -27,7 +25,7 @@ class NoArrayDialect(SQLDialectBase, ArrayMixin, ArraySupport):
 def test_no_array_dialect_does_not_support_features():
     """Test that no-array dialect properly indicates lack of array features."""
     dialect = NoArrayDialect()
-    
+
     # Verify protocol implementation
     assert isinstance(dialect, ArraySupport)
     assert not dialect.supports_array_type()

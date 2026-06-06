@@ -43,6 +43,7 @@ class InMemoryCache:
         if not config.enabled:
             return
         from ..cache import CacheEntry
+
         cache = self._get_cache(instance, relation_name)
         cache["entry"] = CacheEntry(value, config.ttl)
 

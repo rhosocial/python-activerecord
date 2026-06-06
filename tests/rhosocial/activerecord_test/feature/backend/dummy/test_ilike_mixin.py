@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/test_ilike_mixin.py
 """Tests for ILIKEMixin format methods."""
-import pytest
+
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression import Column
 

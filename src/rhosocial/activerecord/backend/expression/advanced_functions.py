@@ -64,9 +64,7 @@ class CaseExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
 class ExistsExpression(SQLPredicate):
     """Represents an EXISTS predicate (e.g., EXISTS(subquery))."""
 
-    def __init__(
-        self, dialect: "SQLDialectBase", subquery: Union["Subquery", "BaseExpression"], is_not: bool = False
-    ):
+    def __init__(self, dialect: "SQLDialectBase", subquery: Union["Subquery", "BaseExpression"], is_not: bool = False):
         super().__init__(dialect)
         # Automatically wrap BaseExpression in Subquery if needed
         if isinstance(subquery, Subquery):
@@ -86,9 +84,7 @@ class ExistsExpression(SQLPredicate):
 class AnyExpression(SQLPredicate):
     """Represents an ANY predicate (e.g., expr = ANY(array_expr) or expr > ANY(subquery))."""
 
-    def __init__(
-        self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"
-    ):
+    def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"):
         super().__init__(dialect)
         self.expr = expr
         self.op = op
@@ -102,9 +98,7 @@ class AnyExpression(SQLPredicate):
 class AllExpression(SQLPredicate):
     """Represents an ALL predicate (e.g., expr > ALL(array_expr) or expr = ALL(subquery))."""
 
-    def __init__(
-        self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"
-    ):
+    def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"):
         super().__init__(dialect)
         self.expr = expr
         self.op = op

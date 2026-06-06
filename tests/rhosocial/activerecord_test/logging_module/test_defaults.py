@@ -6,14 +6,12 @@ import logging
 import pytest
 
 from rhosocial.activerecord.logging import (
-    LoggingConfig,
     ActiveRecordFormatter,
     configure_logging,
     get_default_logging_config,
     get_logger,
     reset_default_logging_config,
 )
-from rhosocial.activerecord.logging.mixin import BackendLoggingMixin, LoggingMixin
 
 
 class TestConfigureLoggingFormatter:
@@ -130,7 +128,4 @@ class TestGetLoggerFromDefaults:
         formatter = ActiveRecordFormatter("CUSTOM: %(message)s")
         configure_logging(formatter=formatter, auto_setup=True)
         logger = get_logger("test_defaults_formatter")
-        assert any(
-            isinstance(h, logging.StreamHandler) and h.formatter is formatter
-            for h in logger.handlers
-        )
+        assert any(isinstance(h, logging.StreamHandler) and h.formatter is formatter for h in logger.handlers)

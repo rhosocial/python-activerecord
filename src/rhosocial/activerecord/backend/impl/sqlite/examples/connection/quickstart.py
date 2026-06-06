@@ -32,7 +32,7 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(connection_config=config)
 backend.connect()
 dialect = backend.dialect
@@ -51,22 +51,22 @@ def execute_expression(expression, options=None):
 def create_demo_tables():
     users_table = CreateTableExpression(
         dialect=dialect,
-        table='users',
+        table="users",
         columns=[
             ColumnDefinition(
-                'id',
-                'INTEGER',
+                "id",
+                "INTEGER",
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                     ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
                 ],
             ),
             ColumnDefinition(
-                'name',
-                'TEXT',
+                "name",
+                "TEXT",
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
             ),
-            ColumnDefinition('status', 'TEXT'),
+            ColumnDefinition("status", "TEXT"),
         ],
         if_not_exists=True,
     )
@@ -74,19 +74,19 @@ def create_demo_tables():
 
     logs_table = CreateTableExpression(
         dialect=dialect,
-        table='logs',
+        table="logs",
         columns=[
             ColumnDefinition(
-                'id',
-                'INTEGER',
+                "id",
+                "INTEGER",
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                     ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
                 ],
             ),
             ColumnDefinition(
-                'message',
-                'TEXT',
+                "message",
+                "TEXT",
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
             ),
         ],
@@ -98,13 +98,13 @@ def create_demo_tables():
 def seed_demo_data():
     insert_users = InsertExpression(
         dialect=dialect,
-        into='users',
-        columns=['name', 'status'],
+        into="users",
+        columns=["name", "status"],
         source=ValuesSource(
             dialect,
             [
-                [Literal(dialect, 'Alice'), Literal(dialect, 'active')],
-                [Literal(dialect, 'Bob'), Literal(dialect, 'inactive')],
+                [Literal(dialect, "Alice"), Literal(dialect, "active")],
+                [Literal(dialect, "Bob"), Literal(dialect, "inactive")],
             ],
         ),
     )
@@ -126,18 +126,18 @@ print(f"Is memory: {config.database == ':memory:'}")
 query = QueryExpression(
     dialect=dialect,
     select=[
-        Column(dialect, 'id'),
-        Column(dialect, 'name'),
-        Column(dialect, 'status'),
+        Column(dialect, "id"),
+        Column(dialect, "name"),
+        Column(dialect, "status"),
     ],
-    from_=TableExpression(dialect, 'users'),
+    from_=TableExpression(dialect, "users"),
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
             dialect,
-            '=',
-            Column(dialect, 'status'),
-            Literal(dialect, 'active'),
+            "=",
+            Column(dialect, "status"),
+            Literal(dialect, "active"),
         ),
     ),
 )
@@ -161,23 +161,24 @@ if result.data:
 filtered_query = QueryExpression(
     dialect=dialect,
     select=[
-        Column(dialect, 'id'),
-        Column(dialect, 'name'),
-        Column(dialect, 'status'),
+        Column(dialect, "id"),
+        Column(dialect, "name"),
+        Column(dialect, "status"),
     ],
-    from_=TableExpression(dialect, 'users'),
+    from_=TableExpression(dialect, "users"),
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
             dialect,
-            '=',
-            Column(dialect, 'id'),
+            "=",
+            Column(dialect, "id"),
             Literal(dialect, 1),
-        ) & ComparisonPredicate(
+        )
+        & ComparisonPredicate(
             dialect,
-            '=',
-            Column(dialect, 'status'),
-            Literal(dialect, 'active'),
+            "=",
+            Column(dialect, "status"),
+            Literal(dialect, "active"),
         ),
     ),
 )
@@ -190,16 +191,16 @@ print(f"Parameterized query result: {result.data}")
 with backend.transaction():
     insert_log = InsertExpression(
         dialect=dialect,
-        into='logs',
-        columns=['message'],
-        source=ValuesSource(dialect, [[Literal(dialect, 'quickstart transaction')]]),
+        into="logs",
+        columns=["message"],
+        source=ValuesSource(dialect, [[Literal(dialect, "quickstart transaction")]]),
     )
     execute_expression(insert_log)
 
 logs_query = QueryExpression(
     dialect=dialect,
-    select=[Column(dialect, 'id'), Column(dialect, 'message')],
-    from_=TableExpression(dialect, 'logs'),
+    select=[Column(dialect, "id"), Column(dialect, "message")],
+    from_=TableExpression(dialect, "logs"),
 )
 result = execute_expression(logs_query, dql_options)
 print(f"Transaction result: {result.data}")
@@ -210,8 +211,8 @@ print(f"Transaction result: {result.data}")
 try:
     invalid_query = QueryExpression(
         dialect=dialect,
-        select=[Column(dialect, 'id')],
-        from_=TableExpression(dialect, 'nonexistent_table'),
+        select=[Column(dialect, "id")],
+        from_=TableExpression(dialect, "nonexistent_table"),
     )
     execute_expression(invalid_query, dql_options)
 except Exception as error:
@@ -220,10 +221,10 @@ except Exception as error:
 # ============================================================
 # SECTION: Disconnect
 # ============================================================
-drop_logs = DropTableExpression(dialect=dialect, table='logs', if_exists=True)
+drop_logs = DropTableExpression(dialect=dialect, table="logs", if_exists=True)
 execute_expression(drop_logs, ddl_options)
 
-drop_users = DropTableExpression(dialect=dialect, table='users', if_exists=True)
+drop_users = DropTableExpression(dialect=dialect, table="users", if_exists=True)
 execute_expression(drop_users, ddl_options)
 
 backend.disconnect()

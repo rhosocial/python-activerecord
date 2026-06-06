@@ -11,17 +11,17 @@ Each action must be executed separately.
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -29,15 +29,23 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('name', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ]),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition(
+            "name",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+            ],
+        ),
     ],
     if_not_exists=True,
 )
@@ -46,9 +54,9 @@ backend.execute(sql, params)
 
 insert_expr = InsertExpression(
     dialect=dialect,
-    into='users',
-    columns=['name'],
-    source=ValuesSource(dialect, [[Literal(dialect, 'Alice')]]),
+    into="users",
+    columns=["name"],
+    source=ValuesSource(dialect, [[Literal(dialect, "Alice")]]),
 )
 sql, params = insert_expr.to_sql()
 backend.execute(sql, params)
@@ -56,26 +64,27 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     AlterTableExpression,
     ColumnDefinition,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
+from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # noqa: E402
     AddColumn,
     RenameColumn,
 )
 
 # Add a new column (separate statement for SQLite)
 add_col_action = AddColumn(
+    dialect=dialect,
     column=ColumnDefinition(
-        name='email',
-        data_type='TEXT',
+        name="email",
+        data_type="TEXT",
     ),
 )
 
 add_col_expr = AlterTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     actions=[add_col_action],
 )
 
@@ -87,13 +96,14 @@ print("Column added successfully")
 
 # Rename a column (separate statement for SQLite)
 rename_action = RenameColumn(
-    old_name='name',
-    new_name='full_name',
+    dialect=dialect,
+    old_name="name",
+    new_name="full_name",
 )
 
 rename_expr = AlterTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     actions=[rename_action],
 )
 
@@ -108,7 +118,7 @@ backend.execute(sql, params)
 print("Column renamed successfully")
 
 # Verify using introspector
-columns = backend.introspector.list_columns('users')
+columns = backend.introspector.list_columns("users")
 print("Table structure:")
 for col in columns:
     print(f"  {col.name} {col.data_type}")

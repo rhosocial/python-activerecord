@@ -152,9 +152,7 @@ class ExpressionSerializer:
 
         fqn = spec.get("type") or ""
         if not fqn:
-            raise ExpressionDeserializationError(
-                f"Invalid spec: missing 'type' field. Got: {spec}"
-            )
+            raise ExpressionDeserializationError(f"Invalid spec: missing 'type' field. Got: {spec}")
 
         if "." not in fqn:
             raise ExpressionDeserializationError(
@@ -164,23 +162,17 @@ class ExpressionSerializer:
         try:
             expr_class = ExpressionRegistry.lookup(fqn)
         except ExpressionDeserializationError as e:
-            raise ExpressionDeserializationError(
-                f"Cannot find expression class '{fqn}': {e}"
-            ) from e
+            raise ExpressionDeserializationError(f"Cannot find expression class '{fqn}': {e}") from e
 
         if not issubclass(expr_class, BaseExpression):
-            raise ExpressionDeserializationError(
-                f"'{fqn}' is not a BaseExpression subclass"
-            )
+            raise ExpressionDeserializationError(f"'{fqn}' is not a BaseExpression subclass")
 
         params = spec.get("params", {})
         deserialized_params = self._deserialize_value(params, dialect, depth + 1)
         try:
             return _reconstruct(expr_class, dialect, deserialized_params)
         except TypeError as e:
-            raise ExpressionDeserializationError(
-                f"Failed to reconstruct expression '{fqn}': {e}"
-            ) from e
+            raise ExpressionDeserializationError(f"Failed to reconstruct expression '{fqn}': {e}") from e
 
     def _deserialize_value(self, value: Any, dialect: "SQLDialectBase", depth: int) -> Any:
         """Recursively deserialize a value with depth tracking."""
@@ -192,10 +184,7 @@ class ExpressionSerializer:
 
         if isinstance(value, dict):
             if "__tuple__" in value:
-                return tuple(
-                    self._deserialize_value(item, dialect, depth + 1)
-                    for item in value["__tuple__"]
-                )
+                return tuple(self._deserialize_value(item, dialect, depth + 1) for item in value["__tuple__"])
             if "__expr__" in value:
                 inner_spec = {
                     "type": value["__expr__"].get("type"),
@@ -338,9 +327,7 @@ def _reconstruct_by_name(
     try:
         return _reconstruct(expr_class, dialect, params)
     except TypeError as e:
-        raise ExpressionDeserializationError(
-            f"Failed to reconstruct expression '{type_name}': {e}"
-        ) from e
+        raise ExpressionDeserializationError(f"Failed to reconstruct expression '{type_name}': {e}") from e
 
 
 class ExpressionRegistry:
@@ -387,18 +374,12 @@ class ExpressionRegistry:
             return cls._registry[fqn]
 
         if "." not in fqn:
-            matches = [
-                cls_
-                for key, cls_ in cls._registry.items()
-                if key.rsplit(".", 1)[-1] == fqn
-            ]
+            matches = [cls_ for key, cls_ in cls._registry.items() if key.rsplit(".", 1)[-1] == fqn]
             if len(matches) == 1:
                 return matches[0]
             if len(matches) > 1:
                 fqns = [k for k in cls._registry if k.rsplit(".", 1)[-1] == fqn]
-                raise ExpressionDeserializationError(
-                    f"Ambiguous short name '{fqn}': found in {fqns}. Use FQN."
-                )
+                raise ExpressionDeserializationError(f"Ambiguous short name '{fqn}': found in {fqns}. Use FQN.")
 
         raise ExpressionDeserializationError(
             f"Expression class '{fqn}' not found in registry. "
@@ -438,11 +419,7 @@ class ExpressionRegistry:
         for mod in modules:
             for name in dir(mod):
                 obj = getattr(mod, name, None)
-                if (
-                    isinstance(obj, type)
-                    and issubclass(obj, BaseExpression)
-                    and obj is not BaseExpression
-                ):
+                if isinstance(obj, type) and issubclass(obj, BaseExpression) and obj is not BaseExpression:
                     cls.register(obj)
 
         for _, modname, _ in pkgutil.walk_packages(
@@ -453,11 +430,7 @@ class ExpressionRegistry:
             sub_mod = importlib.import_module(modname)
             for name in dir(sub_mod):
                 obj = getattr(sub_mod, name, None)
-                if (
-                    isinstance(obj, type)
-                    and issubclass(obj, BaseExpression)
-                    and obj is not BaseExpression
-                ):
+                if isinstance(obj, type) and issubclass(obj, BaseExpression) and obj is not BaseExpression:
                     cls.register(obj)
 
 

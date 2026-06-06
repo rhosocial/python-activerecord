@@ -9,19 +9,16 @@ from enum import Enum
 from .connection import add_connection_args, create_backend
 from .output import create_provider
 
-OUTPUT_CHOICES = ['table', 'json', 'csv', 'tsv']
+OUTPUT_CHOICES = ["table", "json", "csv", "tsv"]
 
-INTROSPECT_TYPES = [
-    "tables", "views", "table", "columns",
-    "indexes", "foreign-keys", "triggers", "database"
-]
+INTROSPECT_TYPES = ["tables", "views", "table", "columns", "indexes", "foreign-keys", "triggers", "database"]
 
 
 def create_parser(subparsers):
     """Create the introspect subcommand parser."""
     parser = subparsers.add_parser(
-        'introspect',
-        help='Database introspection',
+        "introspect",
+        help="Database introspection",
         epilog="""Examples:
   # List all tables in database
   %(prog)s introspect tables --db-file mydb.sqlite
@@ -46,10 +43,11 @@ def create_parser(subparsers):
 
     # Output format (all)
     parser.add_argument(
-        '-o', '--output',
+        "-o",
+        "--output",
         choices=OUTPUT_CHOICES,
-        default='table',
-        help='Output format (default: table)',
+        default="table",
+        help="Output format (default: table)",
     )
 
     # Connection arguments
@@ -57,9 +55,9 @@ def create_parser(subparsers):
 
     # Rich display options
     parser.add_argument(
-        '--rich-ascii',
-        action='store_true',
-        help='Use ASCII characters for rich table borders.',
+        "--rich-ascii",
+        action="store_true",
+        help="Use ASCII characters for rich table borders.",
     )
 
     # introspect-specific arguments
@@ -164,13 +162,14 @@ def handle(args):
 # Internal helper functions
 # ---------------------------------------------------------------------------
 
+
 def _serialize_for_output(obj):
     """Serialize object for JSON output, handling non-serializable types."""
     if obj is None:
         return None
-    if hasattr(obj, 'model_dump'):
+    if hasattr(obj, "model_dump"):
         try:
-            result = obj.model_dump(mode='json')
+            result = obj.model_dump(mode="json")
             return _serialize_for_output(result)
         except TypeError:
             result = obj.model_dump()

@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 
 # --- Reusable Mixins ---
 
+
 class TimestampMixin:
     """Mixin that automatically manages created_at and updated_at timestamps.
 
@@ -32,19 +33,19 @@ class TimestampMixin:
     def _set_timestamps_on_insert(self, instance, data, **kwargs):
         """Set both created_at and updated_at for INSERT operations."""
         now = datetime.now(timezone.utc)
-        if hasattr(self, 'created_at'):
+        if hasattr(self, "created_at"):
             self.created_at = now
-            data['created_at'] = now
-        if hasattr(self, 'updated_at'):
+            data["created_at"] = now
+        if hasattr(self, "updated_at"):
             self.updated_at = now
-            data['updated_at'] = now
+            data["updated_at"] = now
 
     def _set_updated_at(self, instance, data, **kwargs):
         """Set updated_at for UPDATE operations."""
-        if hasattr(self, 'updated_at'):
+        if hasattr(self, "updated_at"):
             now = datetime.now(timezone.utc)
             self.updated_at = now
-            data['updated_at'] = now
+            data["updated_at"] = now
 
 
 class SoftDeleteMixin:
@@ -56,7 +57,7 @@ class SoftDeleteMixin:
 
     def _soft_delete(self, instance, **kwargs):
         """Prevent actual deletion, set deleted_at instead."""
-        if hasattr(self, 'deleted_at'):
+        if hasattr(self, "deleted_at"):
             self.deleted_at = datetime.now(timezone.utc)
             # Cancel the actual delete by raising an exception
             # or override delete() method
@@ -84,32 +85,38 @@ class AuditMixin:
 
     def _log_insert(self, instance, data, result, **kwargs):
         """Log INSERT operations."""
-        AuditMixin._audit_log.append({
-            'action': 'CREATE',
-            'model': self.__class__.__name__,
-            'id': self.id,
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        })
+        AuditMixin._audit_log.append(
+            {
+                "action": "CREATE",
+                "model": self.__class__.__name__,
+                "id": self.id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         print(f"  [Audit] CREATE: {self.__class__.__name__}#{self.id}")
 
     def _log_update(self, instance, data, dirty_fields, result, **kwargs):
         """Log UPDATE operations."""
-        AuditMixin._audit_log.append({
-            'action': 'UPDATE',
-            'model': self.__class__.__name__,
-            'id': self.id,
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        })
+        AuditMixin._audit_log.append(
+            {
+                "action": "UPDATE",
+                "model": self.__class__.__name__,
+                "id": self.id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         print(f"  [Audit] UPDATE: {self.__class__.__name__}#{self.id}")
 
     def _log_delete(self, instance, result, **kwargs):
         """Log DELETE operations."""
-        AuditMixin._audit_log.append({
-            'action': 'DELETE',
-            'model': self.__class__.__name__,
-            'id': self.id,
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        })
+        AuditMixin._audit_log.append(
+            {
+                "action": "DELETE",
+                "model": self.__class__.__name__,
+                "id": self.id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         print(f"  [Audit] DELETE: {self.__class__.__name__}#{self.id}")
 
     @classmethod
@@ -132,10 +139,13 @@ class CacheInvalidationMixin:
         print(f"  [Cache] Invalidating cache key: {cache_key}")
         # In real implementation: redis.delete(cache_key), etc.
 
+
 # --- Models using Mixins ---
+
 
 class User(TimestampMixin, AuditMixin, ActiveRecord):
     """User model with timestamp and audit support."""
+
     __table_name__ = "users"
     id: Optional[int] = None
     username: str
@@ -146,6 +156,7 @@ class User(TimestampMixin, AuditMixin, ActiveRecord):
 
 class Article(TimestampMixin, CacheInvalidationMixin, ActiveRecord):
     """Article model with timestamp and cache invalidation."""
+
     __table_name__ = "articles"
     id: Optional[int] = None
     title: str
@@ -154,7 +165,9 @@ class Article(TimestampMixin, CacheInvalidationMixin, ActiveRecord):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+
 # --- Main Execution ---
+
 
 def main():
     print("=" * 60)
@@ -162,12 +175,13 @@ def main():
     print("=" * 60)
 
     # Configure database
-    config = SQLiteConnectionConfig(database=':memory:')
+    config = SQLiteConnectionConfig(database=":memory:")
     User.configure(config, SQLiteBackend)
 
     # Create tables
     backend = User.backend()
-    backend.execute("""
+    backend.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50),
@@ -175,7 +189,9 @@ def main():
             created_at TIMESTAMP,
             updated_at TIMESTAMP
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     # 1. TimestampMixin demonstration
     print("\n" + "-" * 40)
@@ -210,7 +226,8 @@ def main():
     Article.configure(config, SQLiteBackend)
     # Create table using Article's backend
     article_backend = Article.backend()
-    article_backend.execute("""
+    article_backend.execute(
+        """
         CREATE TABLE articles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title VARCHAR(200),
@@ -219,7 +236,9 @@ def main():
             created_at TIMESTAMP,
             updated_at TIMESTAMP
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     article = Article(title="Hello World", content="My first article", author_id=1)
     article.save()
@@ -233,6 +252,7 @@ def main():
     print("-" * 40)
     for entry in AuditMixin.get_audit_log():
         print(f"  {entry['timestamp']}: {entry['action']} {entry['model']}#{entry['id']}")
+
 
 if __name__ == "__main__":
     main()

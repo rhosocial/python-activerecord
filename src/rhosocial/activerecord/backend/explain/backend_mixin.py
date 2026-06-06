@@ -71,6 +71,7 @@ class _ExplainMixinBase:
             A (sql_string, params_tuple) pair ready to pass to execute().
         """
         from ..expression.statements import ExplainExpression
+
         explain_expr = ExplainExpression(self.dialect, expression, options)  # type: ignore[attr-defined]
         return explain_expr.to_sql()
 

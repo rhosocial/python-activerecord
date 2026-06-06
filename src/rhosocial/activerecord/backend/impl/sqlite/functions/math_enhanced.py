@@ -37,7 +37,7 @@ def _convert_to_expression(
     elif isinstance(expr, str):
         # Try to parse as number first
         try:
-            return core.Literal(dialect, float(expr) if '.' in expr else int(expr))
+            return core.Literal(dialect, float(expr) if "." in expr else int(expr))
         except ValueError:
             # Not a number, treat as column name
             return core.Column(dialect, expr)

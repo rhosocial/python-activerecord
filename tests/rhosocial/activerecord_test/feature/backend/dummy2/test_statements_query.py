@@ -2,15 +2,26 @@
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, TableExpression, FunctionCall,
-    ComparisonPredicate, QueryExpression,  # Import new classes for window functions and advanced features
+    Column,
+    Literal,
+    TableExpression,
+    FunctionCall,
+    ComparisonPredicate,
+    QueryExpression,  # Import new classes for window functions and advanced features
     SelectModifier,  # Window-related classes
-    WindowFrameSpecification, WindowSpecification, WindowDefinition,
-    WindowClause, WindowFunctionCall,
+    WindowFrameSpecification,
+    WindowSpecification,
+    WindowDefinition,
+    WindowClause,
+    WindowFunctionCall,
     # Additional classes needed
 )
 from rhosocial.activerecord.backend.expression.query_parts import (
-    GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause, ForUpdateClause
+    GroupByHavingClause,
+    LimitOffsetClause,
+    OrderByClause,
+    QualifyClause,
+    ForUpdateClause,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -19,18 +30,21 @@ class TestQueryStatements:
     """Tests for QueryExpression and related functionality."""
 
     # --- QueryExpression with DISTINCT/ALL modifiers ---
-    @pytest.mark.parametrize("modifier, expected_prefix", [
-        (SelectModifier.DISTINCT, "SELECT DISTINCT"),
-        (SelectModifier.ALL, "SELECT ALL"),
-        (None, "SELECT"),  # No modifier
-    ])
+    @pytest.mark.parametrize(
+        "modifier, expected_prefix",
+        [
+            (SelectModifier.DISTINCT, "SELECT DISTINCT"),
+            (SelectModifier.ALL, "SELECT ALL"),
+            (None, "SELECT"),  # No modifier
+        ],
+    )
     def test_query_expression_select_modifier(self, dummy_dialect: DummyDialect, modifier, expected_prefix):
         """Tests QueryExpression with DISTINCT/ALL modifiers."""
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "category")],
             from_=TableExpression(dummy_dialect, "products"),
-            select_modifier=modifier
+            select_modifier=modifier,
         )
         sql, params = query.to_sql()
         assert sql.startswith(expected_prefix)
@@ -41,16 +55,13 @@ class TestQueryStatements:
     def test_query_expression_with_for_update_clause(self, dummy_dialect: DummyDialect):
         """Tests QueryExpression with FOR UPDATE clause."""
         for_update_clause = ForUpdateClause(
-            dummy_dialect,
-            of_columns=[Column(dummy_dialect, "id"), "name"],
-            nowait=False,
-            skip_locked=True
+            dummy_dialect, of_columns=[Column(dummy_dialect, "id"), "name"], nowait=False, skip_locked=True
         )
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "users"),
-            for_update=for_update_clause
+            for_update=for_update_clause,
         )
         sql, params = query.to_sql()
         assert 'SELECT "id", "name" FROM "users" FOR UPDATE OF "id", "name" SKIP LOCKED' == sql
@@ -59,16 +70,13 @@ class TestQueryStatements:
     def test_query_expression_with_for_update_nowait(self, dummy_dialect: DummyDialect):
         """Tests QueryExpression with FOR UPDATE NOWAIT."""
         for_update_clause = ForUpdateClause(
-            dummy_dialect,
-            of_columns=[Column(dummy_dialect, "id")],
-            nowait=True,
-            skip_locked=False
+            dummy_dialect, of_columns=[Column(dummy_dialect, "id")], nowait=True, skip_locked=False
         )
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=TableExpression(dummy_dialect, "locks"),
-            for_update=for_update_clause
+            for_update=for_update_clause,
         )
         sql, params = query.to_sql()
         assert 'SELECT "id" FROM "locks" FOR UPDATE OF "id" NOWAIT' == sql
@@ -79,18 +87,16 @@ class TestQueryStatements:
         """Tests WindowFunctionCall with inline window specification."""
         # Create a window specification
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")]),
         )
 
         # Create the window function call
         window_func = WindowFunctionCall(
-            dummy_dialect,
-            function_name="ROW_NUMBER",
-            window_spec=window_spec,
-            alias="row_num"
+            dummy_dialect, function_name="ROW_NUMBER", window_spec=window_spec, alias="row_num"
         )
 
         sql, params = window_func.to_sql()
@@ -102,19 +108,17 @@ class TestQueryStatements:
         """Tests WindowFunctionCall with frame specification."""
         # Create a frame specification
         frame_spec = WindowFrameSpecification(
-            dummy_dialect,
-            frame_type="ROWS",
-            start_frame="UNBOUNDED PRECEDING",
-            end_frame="CURRENT ROW"
+            dummy_dialect, frame_type="ROWS", start_frame="UNBOUNDED PRECEDING", end_frame="CURRENT ROW"
         )
 
         # Create a window specification with the frame
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "category")],
             order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "date")]),
-            frame=frame_spec
+            frame=frame_spec,
         )
 
         # Create a window function call
@@ -123,11 +127,11 @@ class TestQueryStatements:
             function_name="SUM",
             args=[Column(dummy_dialect, "amount")],
             window_spec=window_spec,
-            alias="running_total"
+            alias="running_total",
         )
 
         sql, params = window_func.to_sql()
-        expected = 'SUM("amount") OVER (PARTITION BY "category" ORDER BY "date" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "running_total"'
+        expected = 'SUM("amount") OVER (PARTITION BY "category" ORDER BY "date" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "running_total"'  # noqa: E501
         assert sql == expected
         assert params == ()
 
@@ -139,7 +143,7 @@ class TestQueryStatements:
             dummy_dialect,
             function_name="RANK",
             window_spec="sales_window",  # Reference to named window
-            alias="sales_rank"
+            alias="sales_rank",
         )
 
         sql, params = window_func.to_sql()
@@ -151,54 +155,42 @@ class TestQueryStatements:
         """Tests a complete query with WINDOW clause."""
         # Create a window specification
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         window_spec1 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")]),
         )
 
         # Create a window definition
-        window_def1 = WindowDefinition(
-            dummy_dialect,
-            name="dept_ranking",
-            specification=window_spec1
-        )
+        window_def1 = WindowDefinition(dummy_dialect, name="dept_ranking", specification=window_spec1)
 
         # Create a window specification with frame
         frame_spec = WindowFrameSpecification(
-            dummy_dialect,
-            frame_type="ROWS",
-            start_frame="UNBOUNDED PRECEDING",
-            end_frame="CURRENT ROW"
+            dummy_dialect, frame_type="ROWS", start_frame="UNBOUNDED PRECEDING", end_frame="CURRENT ROW"
         )
 
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         window_spec2 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "category")],
             order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "date")]),
-            frame=frame_spec
+            frame=frame_spec,
         )
 
-        window_def2 = WindowDefinition(
-            dummy_dialect,
-            name="running_total",
-            specification=window_spec2
-        )
+        window_def2 = WindowDefinition(dummy_dialect, name="running_total", specification=window_spec2)
 
         # Create a window clause
-        window_clause = WindowClause(
-            dummy_dialect,
-            definitions=[window_def1, window_def2]
-        )
+        window_clause = WindowClause(dummy_dialect, definitions=[window_def1, window_def2])
 
         # Create a query that would reference these named windows
-        query = QueryExpression(
+        QueryExpression(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "employee_name"),
                 # In a real query, these would reference the named windows
-                WindowFunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking")
+                WindowFunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking"),
             ],
             from_=TableExpression(dummy_dialect, "employees"),
             # Note: The WindowClause would need to be integrated into QueryExpression to be fully functional
@@ -206,17 +198,17 @@ class TestQueryStatements:
 
         # Since we are testing the window clause itself, let's test it independently
         window_sql, window_params = window_clause.to_sql()
-        assert 'WINDOW "dept_ranking" AS (PARTITION BY "department" ORDER BY "salary" DESC), "running_total" AS (PARTITION BY "category" ORDER BY "date" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)' == window_sql
+        assert (
+            'WINDOW "dept_ranking" AS (PARTITION BY "department" ORDER BY "salary" DESC), "running_total" AS (PARTITION BY "category" ORDER BY "date" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)'  # noqa: E501
+            == window_sql
+        )
         assert window_params == ()
 
     # --- Window classes individual tests ---
     def test_window_frame_specification_to_sql(self, dummy_dialect: DummyDialect):
         """Tests WindowFrameSpecification.to_sql method."""
         frame_spec = WindowFrameSpecification(
-            dummy_dialect,
-            frame_type="ROWS",
-            start_frame="UNBOUNDED PRECEDING",
-            end_frame="CURRENT ROW"
+            dummy_dialect, frame_type="ROWS", start_frame="UNBOUNDED PRECEDING", end_frame="CURRENT ROW"
         )
         sql, params = frame_spec.to_sql()
         expected = "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
@@ -224,11 +216,7 @@ class TestQueryStatements:
         assert params == ()
 
         # Test frame with single boundary (no BETWEEN)
-        frame_spec2 = WindowFrameSpecification(
-            dummy_dialect,
-            frame_type="RANGE",
-            start_frame="CURRENT ROW"
-        )
+        frame_spec2 = WindowFrameSpecification(dummy_dialect, frame_type="RANGE", start_frame="CURRENT ROW")
         sql2, params2 = frame_spec2.to_sql()
         expected2 = "RANGE CURRENT ROW"
         assert sql2 == expected2
@@ -238,10 +226,11 @@ class TestQueryStatements:
         """Tests WindowSpecification.to_sql method."""
         # Test with partition and order by
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")]),
         )
         sql, params = window_spec.to_sql()
         expected = 'PARTITION BY "department" ORDER BY "salary" DESC'
@@ -250,17 +239,15 @@ class TestQueryStatements:
 
         # Test with frame specification
         frame_spec = WindowFrameSpecification(
-            dummy_dialect,
-            frame_type="ROWS",
-            start_frame="CURRENT ROW",
-            end_frame="UNBOUNDED FOLLOWING"
+            dummy_dialect, frame_type="ROWS", start_frame="CURRENT ROW", end_frame="UNBOUNDED FOLLOWING"
         )
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         window_spec_with_frame = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "category")],
             order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "date")]),
-            frame=frame_spec
+            frame=frame_spec,
         )
         sql2, params2 = window_spec_with_frame.to_sql()
         expected2 = 'PARTITION BY "category" ORDER BY "date" ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING'
@@ -269,13 +256,13 @@ class TestQueryStatements:
 
         # Test with ORDER BY using tuples (expression, direction)
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         window_spec3 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "region")],
-            order_by=OrderByClause(dummy_dialect, [
-                (Column(dummy_dialect, "category"), "ASC"),
-                (Column(dummy_dialect, "price"), "DESC")
-            ])
+            order_by=OrderByClause(
+                dummy_dialect, [(Column(dummy_dialect, "category"), "ASC"), (Column(dummy_dialect, "price"), "DESC")]
+            ),
         )
         sql3, params3 = window_spec3.to_sql()
         expected3 = 'PARTITION BY "region" ORDER BY "category" ASC, "price" DESC'
@@ -286,18 +273,15 @@ class TestQueryStatements:
         """Tests WindowDefinition.to_sql method."""
         # Create a window specification
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")]),
         )
 
         # Create a window definition
-        window_def = WindowDefinition(
-            dummy_dialect,
-            name="dept_ranking",
-            specification=window_spec
-        )
+        window_def = WindowDefinition(dummy_dialect, name="dept_ranking", specification=window_spec)
         sql, params = window_def.to_sql()
         expected = '"dept_ranking" AS (PARTITION BY "department" ORDER BY "salary" DESC)'
         assert sql == expected
@@ -305,46 +289,47 @@ class TestQueryStatements:
 
         # Test with frame specification
         frame_spec = WindowFrameSpecification(
-            dummy_dialect,
-            frame_type="ROWS",
-            start_frame="UNBOUNDED PRECEDING",
-            end_frame="CURRENT ROW"
+            dummy_dialect, frame_type="ROWS", start_frame="UNBOUNDED PRECEDING", end_frame="CURRENT ROW"
         )
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         window_spec2 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "product_type")],
             order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "sales_date")]),
-            frame=frame_spec
+            frame=frame_spec,
         )
-        window_def2 = WindowDefinition(
-            dummy_dialect,
-            name="running_total",
-            specification=window_spec2
-        )
+        window_def2 = WindowDefinition(dummy_dialect, name="running_total", specification=window_spec2)
         sql2, params2 = window_def2.to_sql()
-        expected2 = '"running_total" AS (PARTITION BY "product_type" ORDER BY "sales_date" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)'
+        expected2 = '"running_total" AS (PARTITION BY "product_type" ORDER BY "sales_date" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)'  # noqa: E501
         assert sql2 == expected2
         assert params2 == ()
 
     # --- QueryExpression validation tests ---
     def test_query_expression_having_without_group_by_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that QueryExpression with GroupByHavingClause raises ValueError when HAVING is used without GROUP BY."""
-        having_condition = ComparisonPredicate(dummy_dialect, ">", FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")), Literal(dummy_dialect, 5))
+        """Tests that QueryExpression with GroupByHavingClause raises ValueError when HAVING is used without GROUP BY."""  # noqa: E501
+        having_condition = ComparisonPredicate(
+            dummy_dialect,
+            ">",
+            FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")),
+            Literal(dummy_dialect, 5),
+        )
 
         # The validation should happen in the GroupByHavingClause constructor itself, not in QueryExpression
         with pytest.raises(ValueError, match="HAVING clause requires GROUP BY clause"):
-            group_by_having = GroupByHavingClause(
+            GroupByHavingClause(
                 dummy_dialect,
                 group_by=None,  # No group_by specified
-                having=having_condition  # HAVING without GROUP BY should raise error
+                having=having_condition,  # HAVING without GROUP BY should raise error
             )
 
     def test_query_expression_offset_without_limit_with_support(self, dummy_dialect: DummyDialect, monkeypatch):
         """Tests QueryExpression with OFFSET without LIMIT where dialect supports it."""
+
         # Mock the dialect to return True for supports_offset_without_limit
         def mock_supports_offset_without_limit():
             return True
+
         monkeypatch.setattr(dummy_dialect, "supports_offset_without_limit", mock_supports_offset_without_limit)
 
         # Create a limit clause with just offset (some dialects support this)
@@ -355,17 +340,19 @@ class TestQueryStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=TableExpression(dummy_dialect, "users"),
-            limit_offset=limit_offset_clause  # Use limit/offset clause object with just offset
+            limit_offset=limit_offset_clause,  # Use limit/offset clause object with just offset
         )
         sql, params = query.to_sql()
         assert "OFFSET ?" in sql
         assert params == (10,)
 
     def test_query_expression_offset_without_limit_without_support(self, dummy_dialect: DummyDialect, monkeypatch):
-        """Tests that QueryExpression raises ValueError when OFFSET is used without LIMIT and dialect doesn't support it."""
+        """Tests that QueryExpression raises ValueError when OFFSET is used without LIMIT and dialect doesn't support it."""  # noqa: E501
+
         # Mock the dialect to return False for supports_offset_without_limit
         def mock_supports_offset_without_limit():
             return False
+
         monkeypatch.setattr(dummy_dialect, "supports_offset_without_limit", mock_supports_offset_without_limit)
 
         # Creating the LimitOffsetClause with offset only should raise error when dialect doesn't support it
@@ -377,18 +364,14 @@ class TestQueryStatements:
         """Tests QueryExpression with ORDER BY using simple expressions without directions."""
         # Create the ORDER BY clause object with simple expressions
         order_by_clause = OrderByClause(
-            dummy_dialect,
-            expressions=[
-                Column(dummy_dialect, "name"),
-                Column(dummy_dialect, "id")
-            ]
+            dummy_dialect, expressions=[Column(dummy_dialect, "name"), Column(dummy_dialect, "id")]
         )
 
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "users"),
-            order_by=order_by_clause
+            order_by=order_by_clause,
         )
         sql, params = query.to_sql()
         assert 'ORDER BY "name", "id"' in sql
@@ -401,28 +384,28 @@ class TestQueryStatements:
             dummy_dialect,
             ">",
             FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")),
-            Literal(dummy_dialect, 5)
+            Literal(dummy_dialect, 5),
         )
 
         # Create GROUP BY/HAVING clause (even if just GROUP BY)
         group_by_having = GroupByHavingClause(
             dummy_dialect,
             group_by=[Column(dummy_dialect, "category")],
-            having=None  # No HAVING clause here
+            having=None,  # No HAVING clause here
         )
 
         # Create QUALIFY clause
-        qualify_clause = QualifyClause(
-            dummy_dialect,
-            condition=qualify_condition
-        )
+        qualify_clause = QualifyClause(dummy_dialect, condition=qualify_condition)
 
         query = QueryExpression(
             dummy_dialect,
-            select=[Column(dummy_dialect, "category"), FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id"))],
+            select=[
+                Column(dummy_dialect, "category"),
+                FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")),
+            ],
             from_=TableExpression(dummy_dialect, "products"),
             group_by_having=group_by_having,  # Use new GROUP BY/HAVING clause object
-            qualify=qualify_clause   # Use new QUALIFY clause object
+            qualify=qualify_clause,  # Use new QUALIFY clause object
         )
         sql, params = query.to_sql()
         assert 'QUALIFY COUNT("id") > ?' in sql
@@ -445,17 +428,17 @@ class TestQueryStatements:
         assert params == ()
 
         # Test in_ method
-        in_pred = col.in_(['active', 'pending'])
+        in_pred = col.in_(["active", "pending"])
         sql, params = in_pred.to_sql()
         assert "IN (" in sql
-        assert params == ('active', 'pending')
+        assert params == ("active", "pending")
 
         # Test not_in method
-        not_in_pred = col.not_in(['deleted', 'banned'])
+        not_in_pred = col.not_in(["deleted", "banned"])
         sql, params = not_in_pred.to_sql()
         assert "NOT" in sql.upper()
         assert "IN (" in sql.upper()
-        assert params == ('deleted', 'banned')
+        assert params == ("deleted", "banned")
 
         # Test between method
         age_col = Column(dummy_dialect, "age")
@@ -567,12 +550,15 @@ class TestQueryStatements:
         assert "<=" in sql
         assert params == (25,)
 
-    @pytest.mark.parametrize("op, pattern, expected_sql_part", [
-        ("LIKE", "John%", '"name" LIKE ?'),
-        ("ILIKE", "JOHN%", '"name" ILIKE ?'),  # Case-insensitive like
-        ("LIKE", "%admin%", '"name" LIKE ?'),  # Contains pattern
-        ("LIKE", "test___", '"name" LIKE ?'),  # Pattern with wildcards
-    ])
+    @pytest.mark.parametrize(
+        "op, pattern, expected_sql_part",
+        [
+            ("LIKE", "John%", '"name" LIKE ?'),
+            ("ILIKE", "JOHN%", '"name" ILIKE ?'),  # Case-insensitive like
+            ("LIKE", "%admin%", '"name" LIKE ?'),  # Contains pattern
+            ("LIKE", "test___", '"name" LIKE ?'),  # Pattern with wildcards
+        ],
+    )
     def test_query_with_like_condition(self, dummy_dialect: DummyDialect, op, pattern, expected_sql_part):
         """Tests query with LIKE/ILIKE conditions."""
         name_col = Column(dummy_dialect, "name")
@@ -583,12 +569,7 @@ class TestQueryStatements:
         else:
             raise ValueError(f"Unsupported LIKE operation: {op}")
 
-        query = QueryExpression(
-            dummy_dialect,
-            select=[name_col],
-            from_="users",
-            where=like_condition
-        )
+        query = QueryExpression(dummy_dialect, select=[name_col], from_="users", where=like_condition)
         sql, params = query.to_sql()
 
         # The actual SQL will be: SELECT "name" FROM "users" WHERE "name" LIKE ?
@@ -606,17 +587,12 @@ class TestQueryStatements:
         age_condition = age_col > Literal(dummy_dialect, 18)
         combined_condition = like_condition & age_condition
 
-        query = QueryExpression(
-            dummy_dialect,
-            select=[name_col, age_col],
-            from_="users",
-            where=combined_condition
-        )
+        query = QueryExpression(dummy_dialect, select=[name_col, age_col], from_="users", where=combined_condition)
         sql, params = query.to_sql()
 
         assert 'SELECT "name", "age" FROM "users" WHERE' in sql
-        assert 'LIKE ?' in sql
-        assert '> ?' in sql
+        assert "LIKE ?" in sql
+        assert "> ?" in sql
         assert params == ("John%", 18)
 
     # --- Validation failure tests ---
@@ -628,7 +604,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],  # Valid initial value
-            from_=TableExpression(dummy_dialect, "users")
+            from_=TableExpression(dummy_dialect, "users"),
         )
         # Manually assign invalid type to trigger validation error
         query.select = "invalid"  # Invalid type - should be list
@@ -641,20 +617,21 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")  # Valid initial value
+            from_=TableExpression(dummy_dialect, "users"),  # Valid initial value
         )
         # Manually assign invalid type to trigger validation error
         query.from_ = 123  # Invalid type
 
-        with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
+        with pytest.raises(
+            TypeError,
+            match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>",  # noqa: E501
+        ):
             query.validate(strict=True)
 
     def test_query_expression_invalid_where_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid where parameter type."""
         query = QueryExpression(
-            dummy_dialect,
-            select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
         )
         # Manually assign invalid type to trigger validation error
         query.where = 456  # Invalid type - should be WhereClause or SQLPredicate
@@ -665,9 +642,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_group_by_having_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid group_by_having parameter type."""
         query = QueryExpression(
-            dummy_dialect,
-            select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
         )
         # Manually assign invalid type to trigger validation error
         query.group_by_having = 789  # Invalid type - should be GroupByHavingClause
@@ -678,9 +653,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_order_by_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid order_by parameter type."""
         query = QueryExpression(
-            dummy_dialect,
-            select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
         )
         # Manually assign invalid type to trigger validation error
         query.order_by = 999  # Invalid type - should be OrderByClause
@@ -691,9 +664,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_qualify_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid qualify parameter type."""
         query = QueryExpression(
-            dummy_dialect,
-            select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
         )
         # Manually assign invalid type to trigger validation error
         query.qualify = 111  # Invalid type - should be QualifyClause
@@ -704,9 +675,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_limit_offset_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid limit_offset parameter type."""
         query = QueryExpression(
-            dummy_dialect,
-            select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
         )
         # Manually assign invalid type to trigger validation error
         query.limit_offset = 222  # Invalid type - should be LimitOffsetClause
@@ -717,9 +686,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_for_update_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid for_update parameter type."""
         query = QueryExpression(
-            dummy_dialect,
-            select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
         )
         # Manually assign invalid type to trigger validation error
         query.for_update = 333  # Invalid type - should be ForUpdateClause
@@ -730,9 +697,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_select_modifier_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid select_modifier parameter type."""
         query = QueryExpression(
-            dummy_dialect,
-            select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
         )
         # Manually assign invalid type to trigger validation error
         query.select_modifier = "invalid"  # Invalid type - should be SelectModifier
@@ -743,9 +708,7 @@ class TestQueryStatements:
     def test_query_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression.validate with strict=False skips validation."""
         query = QueryExpression(
-            dummy_dialect,
-            select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
         )
         # Manually assign invalid type that would normally cause an error
         query.where = 999  # Invalid type - should be WhereClause or SQLPredicate
@@ -758,7 +721,7 @@ class TestQueryStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "email")],
             from_=TableExpression(dummy_dialect, "customers"),
-            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"),
         )
         query_valid.validate(strict=False)  # Should not raise any exception
         assert True  # Just to ensure the test passes
@@ -768,7 +731,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users")  # Valid initial value
+            from_=TableExpression(dummy_dialect, "users"),  # Valid initial value
         )
         # Manually assign invalid type that would normally cause an error
         query.from_ = 999  # Invalid type - should be str, TableExpression, etc.
@@ -777,7 +740,10 @@ class TestQueryStatements:
         query.validate(strict=False)  # Should not raise any exception
 
         # Verify that strict=True would raise an error for the same invalid parameter
-        with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
+        with pytest.raises(
+            TypeError,
+            match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>",  # noqa: E501
+        ):
             query.validate(strict=True)
 
     def test_query_expression_with_count_distinct(self, dummy_dialect: DummyDialect):
@@ -788,9 +754,7 @@ class TestQueryStatements:
         count_distinct_expr = count(dummy_dialect, Column(dummy_dialect, "category"), is_distinct=True)
 
         query = QueryExpression(
-            dummy_dialect,
-            select=[count_distinct_expr],
-            from_=TableExpression(dummy_dialect, "products")
+            dummy_dialect, select=[count_distinct_expr], from_=TableExpression(dummy_dialect, "products")
         )
         sql, params = query.to_sql()
 
@@ -809,8 +773,8 @@ class TestQueryStatements:
             from_=[
                 "users",  # String table name
                 TableExpression(dummy_dialect, "orders", alias="o"),  # TableExpression with alias
-                ValuesExpression(dummy_dialect, [("test",)], "values_alias", ["val"])  # ValuesExpression
-            ]
+                ValuesExpression(dummy_dialect, [("test",)], "values_alias", ["val"]),  # ValuesExpression
+            ],
         )
 
         sql, params = query.to_sql()
@@ -828,13 +792,16 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=[TableExpression(dummy_dialect, "users")]  # Valid initial value
+            from_=[TableExpression(dummy_dialect, "users")],  # Valid initial value
         )
 
         # Manually assign a list with an invalid type to trigger validation error
         query.from_ = ["users", 123]  # 123 is invalid type in list context
 
-        with pytest.raises(TypeError, match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
+        with pytest.raises(
+            TypeError,
+            match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>",  # noqa: E501
+        ):
             query.validate(strict=True)
 
     def test_query_expression_from_with_invalid_list_item_type_complex(self, dummy_dialect: DummyDialect):
@@ -844,13 +811,19 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=[TableExpression(dummy_dialect, "users")]  # Valid initial value
+            from_=[TableExpression(dummy_dialect, "users")],  # Valid initial value
         )
 
         # Manually assign a list with an invalid FunctionCall type to trigger validation error
-        query.from_ = [TableExpression(dummy_dialect, "users"), FunctionCall(dummy_dialect, "NOW")]  # FunctionCall is invalid in FROM context
+        query.from_ = [
+            TableExpression(dummy_dialect, "users"),
+            FunctionCall(dummy_dialect, "NOW"),
+        ]  # FunctionCall is invalid in FROM context
 
-        with pytest.raises(TypeError, match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*FunctionCall'>"):
+        with pytest.raises(
+            TypeError,
+            match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*FunctionCall'>",  # noqa: E501
+        ):
             query.validate(strict=True)
 
     # --- Wildcard (SELECT *) tests ---
@@ -859,9 +832,7 @@ class TestQueryStatements:
         from rhosocial.activerecord.backend.expression import WildcardExpression
 
         query = QueryExpression(
-            dummy_dialect,
-            select=[WildcardExpression(dummy_dialect)],
-            from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[WildcardExpression(dummy_dialect)], from_=TableExpression(dummy_dialect, "users")
         )
         sql, params = query.to_sql()
 
@@ -875,7 +846,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[WildcardExpression(dummy_dialect, table="users")],
-            from_=TableExpression(dummy_dialect, "users")
+            from_=TableExpression(dummy_dialect, "users"),
         )
         sql, params = query.to_sql()
 
@@ -888,14 +859,8 @@ class TestQueryStatements:
 
         query = QueryExpression(
             dummy_dialect,
-            select=[
-                WildcardExpression(dummy_dialect, table="users"),
-                Column(dummy_dialect, "name", "profiles")
-            ],
-            from_=[
-                TableExpression(dummy_dialect, "users"),
-                TableExpression(dummy_dialect, "profiles")
-            ]
+            select=[WildcardExpression(dummy_dialect, table="users"), Column(dummy_dialect, "name", "profiles")],
+            from_=[TableExpression(dummy_dialect, "users"), TableExpression(dummy_dialect, "profiles")],
         )
         sql, params = query.to_sql()
 
@@ -908,11 +873,7 @@ class TestQueryStatements:
 
         # Test COUNT(*) using WildcardExpression
         count_expr = count(dummy_dialect, WildcardExpression(dummy_dialect))
-        query = QueryExpression(
-            dummy_dialect,
-            select=[count_expr],
-            from_=TableExpression(dummy_dialect, "users")
-        )
+        query = QueryExpression(dummy_dialect, select=[count_expr], from_=TableExpression(dummy_dialect, "users"))
         sql, params = query.to_sql()
 
         assert sql == 'SELECT COUNT(*) FROM "users"'
@@ -925,11 +886,7 @@ class TestQueryStatements:
         # Test COUNT(table.*) using qualified WildcardExpression
         qualified_wildcard = WildcardExpression(dummy_dialect, table="users")
         count_expr = count(dummy_dialect, qualified_wildcard)
-        query = QueryExpression(
-            dummy_dialect,
-            select=[count_expr],
-            from_=TableExpression(dummy_dialect, "users")
-        )
+        query = QueryExpression(dummy_dialect, select=[count_expr], from_=TableExpression(dummy_dialect, "users"))
         sql, params = query.to_sql()
 
         # Note: COUNT(users.*) is not standard SQL, but this tests the integration
@@ -949,17 +906,16 @@ class TestQueryStatements:
         group_by_having = GroupByHavingClause(
             dummy_dialect,
             group_by=[Column(dummy_dialect, "name")],  # GROUP BY name
-            having=None  # No HAVING clause
+            having=None,  # No HAVING clause
         )
 
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), count_expr],  # SELECT name, count(*)
             from_=TableExpression(dummy_dialect, "users"),  # FROM users
-            group_by_having=group_by_having  # GROUP BY name
+            group_by_having=group_by_having,  # GROUP BY name
         )
         sql, params = query.to_sql()
 
         assert sql == 'SELECT "name", COUNT(*) FROM "users" GROUP BY "name"'
         assert params == ()
-

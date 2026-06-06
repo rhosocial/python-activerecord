@@ -8,7 +8,6 @@ for retrieving database metadata.
 
 import sqlite3
 
-import pytest
 
 from rhosocial.activerecord.backend.introspection.types import DatabaseInfo
 

@@ -5,6 +5,7 @@ Example procedures for testing.
 This module contains sample procedure definitions for testing
 the named procedure functionality.
 """
+
 import types
 from rhosocial.activerecord.backend.named_expression.procedure import (
     Procedure,
@@ -50,12 +51,15 @@ class MultiStepProcedure(Procedure):
     def run(self, ctx: ProcedureContext) -> None:
         ctx.log(f"Step 1: Starting procedure for month {self.month}")
 
-        ctx.bind("users", [
-            {"id": 1, "name": "Alice"},
-            {"id": 2, "name": "Bob"},
-        ])
+        ctx.bind(
+            "users",
+            [
+                {"id": 1, "name": "Alice"},
+                {"id": 2, "name": "Bob"},
+            ],
+        )
 
-        ctx.log(f"Step 2: Found {len(list(ctx.rows('users'))} users")
+        ctx.log(f"Step 2: Found {len(list(ctx.rows('users')))} users")
 
         for user in ctx.rows("users"):
             ctx.log(f"Processing user: {user['name']}")
@@ -81,25 +85,34 @@ class DataAggregationProcedure(Procedure):
     """Procedure that aggregates data from multiple queries."""
 
     def run(self, ctx: ProcedureContext) -> None:
-        ctx.bind("sales", [
-            {"product": "A", "amount": 100},
-            {"product": "B", "amount": 200},
-            {"product": "C", "amount": 150},
-        ])
+        ctx.bind(
+            "sales",
+            [
+                {"product": "A", "amount": 100},
+                {"product": "B", "amount": 200},
+                {"product": "C", "amount": 150},
+            ],
+        )
 
-        ctx.bind("returns", [
-            {"product": "A", "amount": 10},
-            {"product": "C", "amount": 20},
-        ])
+        ctx.bind(
+            "returns",
+            [
+                {"product": "A", "amount": 10},
+                {"product": "C", "amount": 20},
+            ],
+        )
 
         total_sales = sum(row["amount"] for row in ctx.rows("sales"))
         total_returns = sum(row["amount"] for row in ctx.rows("returns"))
 
-        ctx.bind("summary", {
-            "total_sales": total_sales,
-            "total_returns": total_returns,
-            "net": total_sales - total_returns,
-        })
+        ctx.bind(
+            "summary",
+            {
+                "total_sales": total_sales,
+                "total_returns": total_returns,
+                "net": total_sales - total_returns,
+            },
+        )
 
         ctx.log(f"Sales: {total_sales}, Returns: {total_returns}, Net: {total_sales - total_returns}")
 

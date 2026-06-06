@@ -1,7 +1,8 @@
 """
 Transaction operations: basic transaction, savepoint, etc.
 """
+
 META = {
-    'category': 'transaction',
-    'priority': 10,
+    "category": "transaction",
+    "priority": 10,
 }

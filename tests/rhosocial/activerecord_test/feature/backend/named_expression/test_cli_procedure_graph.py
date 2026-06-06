@@ -9,15 +9,12 @@ This test module covers:
 - _parse_json_arg function
 - _replace_prog_placeholder function
 """
+
 import argparse
-from argparse import Namespace
-from typing import List
-from unittest.mock import MagicMock, patch
 import pytest
 
 from rhosocial.activerecord.backend.named_expression.cli_procedure_graph import (
     create_named_procedure_graph_parser,
-    _add_named_procedure_graph_arguments,
     _parse_json_arg,
     _replace_prog_placeholder,
 )

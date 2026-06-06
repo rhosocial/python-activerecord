@@ -23,7 +23,7 @@ raw ``redis.Redis`` client.
 
 import os
 import re
-from typing import Dict, Optional, get_type_hints
+from typing import Dict
 
 import yaml
 
@@ -63,10 +63,7 @@ def _load_scenarios() -> Dict[str, dict]:
     if not raw:
         return {}
 
-    return {
-        name: {k: _interpolate_env(v) for k, v in conf.items()}
-        for name, conf in raw.items()
-    }
+    return {name: {k: _interpolate_env(v) for k, v in conf.items()} for name, conf in raw.items()}
 
 
 def register_redis_scenario(name: str, config: dict):

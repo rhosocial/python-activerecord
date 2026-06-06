@@ -3,27 +3,31 @@ import pytest
 from rhosocial.activerecord.backend.expression import Literal, Column, Identifier, RawSQLExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
+
 class TestBasicExpressions:
     """Tests for basic SQL expression components like Literals, Columns, and Identifiers."""
 
-    @pytest.mark.parametrize("value, expected_sql, expected_params", [
-        (123, "?", (123,)),
-        ("hello world", "?", ("hello world",)),
-        ("你好世界", "?", ("你好世界",)),  # Chinese
-        ("こんにちは世界", "?", ("こんにちは世界",)),  # Japanese
-        ("안녕하세요 세계", "?", ("안녕하세요 세계",)),  # Korean
-        ("Bonjour le monde", "?", ("Bonjour le monde",)),  # French
-        ("Hallo Welt", "?", ("Hallo Welt",)),  # German
-        ("Привет мир", "?", ("Привет мир",)),  # Russian
-        ("😀🎉🚀", "?", ("😀🎉🚀",)),  # Emoji
-        ("café naïve résumé", "?", ("café naïve résumé",)),  # Accented characters
-        ("مرحبا بالعالم", "?", ("مرحبا بالعالم",)),  # Arabic
-        ("हैलो वर्ल्ड", "?", ("हैलो वर्ल्ड",)),  # Hindi
-        (None, "?", (None,)),
-        (3.14, "?", (3.14,)),
-        (True, "?", (True,)),
-        ([1, 2, "three"], "?", ([1, 2, "three"],)),
-    ])
+    @pytest.mark.parametrize(
+        "value, expected_sql, expected_params",
+        [
+            (123, "?", (123,)),
+            ("hello world", "?", ("hello world",)),
+            ("你好世界", "?", ("你好世界",)),  # Chinese
+            ("こんにちは世界", "?", ("こんにちは世界",)),  # Japanese
+            ("안녕하세요 세계", "?", ("안녕하세요 세계",)),  # Korean
+            ("Bonjour le monde", "?", ("Bonjour le monde",)),  # French
+            ("Hallo Welt", "?", ("Hallo Welt",)),  # German
+            ("Привет мир", "?", ("Привет мир",)),  # Russian
+            ("😀🎉🚀", "?", ("😀🎉🚀",)),  # Emoji
+            ("café naïve résumé", "?", ("café naïve résumé",)),  # Accented characters
+            ("مرحبا بالعالم", "?", ("مرحبا بالعالم",)),  # Arabic
+            ("हैलो वर्ल्ड", "?", ("हैलो वर्ल्ड",)),  # Hindi
+            (None, "?", (None,)),
+            (3.14, "?", (3.14,)),
+            (True, "?", (True,)),
+            ([1, 2, "three"], "?", ([1, 2, "three"],)),
+        ],
+    )
     def test_literal_various_types(self, sqlite_dialect_3_8_0: SQLiteDialect, value, expected_sql, expected_params):
         """Test Literal with various data types."""
         literal = Literal(sqlite_dialect_3_8_0, value)

@@ -8,27 +8,27 @@ Create a table with primary key, auto-increment, and index.
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (  # noqa: E402
     IndexDefinition,
 )
 
 columns = [
     ColumnDefinition(
-        name='id',
-        data_type='INTEGER',
+        name="id",
+        data_type="INTEGER",
         constraints=[
             ColumnConstraint(
                 constraint_type=ColumnConstraintType.PRIMARY_KEY,
@@ -37,35 +37,35 @@ columns = [
         ],
     ),
     ColumnDefinition(
-        name='name',
-        data_type='TEXT',
+        name="name",
+        data_type="TEXT",
         constraints=[
             ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL),
         ],
     ),
     ColumnDefinition(
-        name='email',
-        data_type='TEXT',
+        name="email",
+        data_type="TEXT",
         constraints=[
             ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE),
         ],
     ),
     ColumnDefinition(
-        name='created_at',
-        data_type='TIMESTAMP',
+        name="created_at",
+        data_type="TIMESTAMP",
     ),
 ]
 
 indexes = [
     IndexDefinition(
-        name='idx_users_email',
-        columns=['email'],
+        name="idx_users_email",
+        columns=["email"],
     ),
 ]
 
 create_expr = CreateTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     columns=columns,
     indexes=indexes,
     if_not_exists=True,

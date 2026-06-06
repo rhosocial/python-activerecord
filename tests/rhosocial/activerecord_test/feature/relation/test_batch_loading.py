@@ -5,6 +5,7 @@ Tests for batch loading behavior in relations.
 These tests cover the batch loading functionality which is critical for
 avoiding N+1 query problems in python-activerecord.
 """
+
 import pytest
 from typing import ClassVar, Any, Optional, List, Dict
 
@@ -23,20 +24,14 @@ from rhosocial.activerecord.relation.interfaces import IRelationLoader
 class AuthorForBatch(RelationManagementMixin, BaseModel):
     id: int
     name: str
-    books: ClassVar[HasMany["BookForBatch"]] = HasMany(
-        foreign_key="author_id",
-        inverse_of="author"
-    )
+    books: ClassVar[HasMany["BookForBatch"]] = HasMany(foreign_key="author_id", inverse_of="author")
 
 
 class BookForBatch(RelationManagementMixin, BaseModel):
     id: int
     title: str
     author_id: int
-    author: ClassVar[BelongsTo["AuthorForBatch"]] = BelongsTo(
-        foreign_key="author_id",
-        inverse_of="books"
-    )
+    author: ClassVar[BelongsTo["AuthorForBatch"]] = BelongsTo(foreign_key="author_id", inverse_of="books")
 
 
 class RecordingBatchLoader(IRelationLoader):
@@ -72,7 +67,7 @@ class TestBatchLoading:
         author1 = AuthorForBatch(id=1, name="Author 1")
         author2 = AuthorForBatch(id=2, name="Author 2")
 
-        result = relation.batch_load([author1, author2], None)
+        relation.batch_load([author1, author2], None)
 
         assert len(loader.batch_loaded_instances) == 1
         assert len(loader.batch_loaded_instances[0]) == 2
@@ -94,7 +89,7 @@ class TestBatchLoading:
 
     def test_cached_results_not_loaded_again(self):
         """Test that cached results are not loaded again in batch."""
-        loader = RecordingBatchLoader()
+        RecordingBatchLoader()
         relation = AuthorForBatch.get_relation("books")
         relation._cache_config = CacheConfig()
 
@@ -131,13 +126,13 @@ class TestBatchLoading:
         InstanceCache.set(author1, "books", [{"id": 1, "title": "Book 1"}], CacheConfig())
         InstanceCache.set(author2, "books", [{"id": 2, "title": "Book 2"}], CacheConfig())
 
-        result = relation.batch_load([author1, author2], None)
+        relation.batch_load([author1, author2], None)
 
         assert len(loader.batch_loaded_instances) == 0
 
     def test_partial_cache_loads_remaining(self):
         """Test that only uncached instances are loaded."""
-        loader = RecordingBatchLoader()
+        RecordingBatchLoader()
         relation = AuthorForBatch.get_relation("books")
         relation._cache_config = CacheConfig()
 
@@ -158,16 +153,14 @@ class TestBelongsToBatchLoading:
 
     def test_belongs_to_batch_load(self):
         """Test BelongsTo relation batch loading."""
+
         class BatchLoader(IRelationLoader):
             def load(self, instance: Any) -> Optional[Any]:
                 return {"id": instance.author_id, "name": f"Author {instance.author_id}"}
 
             def batch_load(self, instances: List[Any], base_query: Any) -> Dict[int, Any]:
-                author_ids = {inst.author_id for inst in instances}
-                return {
-                    id(inst): {"id": inst.author_id, "name": f"Author {inst.author_id}"}
-                    for inst in instances
-                }
+                {inst.author_id for inst in instances}
+                return {id(inst): {"id": inst.author_id, "name": f"Author {inst.author_id}"} for inst in instances}
 
         loader = BatchLoader()
         relation = BookForBatch.get_relation("author")
@@ -188,22 +181,17 @@ class TestHasOneBatchLoading:
 
     def test_has_one_batch_load(self):
         """Test HasOne relation batch loading."""
+
         class ProfileForHasOne(RelationManagementMixin, BaseModel):
             id: int
             bio: str
             author_id: int
-            author: ClassVar[BelongsTo["AuthorForHasOne"]] = BelongsTo(
-                foreign_key="author_id",
-                inverse_of="profile"
-            )
+            author: ClassVar[BelongsTo["AuthorForHasOne"]] = BelongsTo(foreign_key="author_id", inverse_of="profile")
 
         class AuthorForHasOne(RelationManagementMixin, BaseModel):
             id: int
             name: str
-            profile: ClassVar[HasOne["ProfileForHasOne"]] = HasOne(
-                foreign_key="author_id",
-                inverse_of="author"
-            )
+            profile: ClassVar[HasOne["ProfileForHasOne"]] = HasOne(foreign_key="author_id", inverse_of="author")
 
         class HasOneBatchLoader(IRelationLoader):
             def load(self, instance: Any) -> Optional[Any]:
@@ -211,8 +199,7 @@ class TestHasOneBatchLoading:
 
             def batch_load(self, instances: List[Any], base_query: Any) -> Dict[int, Any]:
                 return {
-                    id(inst): {"id": inst.id, "bio": f"Bio for {inst.name}", "author_id": inst.id}
-                    for inst in instances
+                    id(inst): {"id": inst.id, "bio": f"Bio for {inst.name}", "author_id": inst.id} for inst in instances
                 }
 
         loader = HasOneBatchLoader()

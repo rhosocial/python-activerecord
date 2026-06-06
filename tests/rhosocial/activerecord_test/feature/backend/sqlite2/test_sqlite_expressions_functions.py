@@ -3,6 +3,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import FunctionCall, Column, Literal, count, sum_, avg, RawSQLExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
+
 class TestFunctionExpressions:
     """Tests for SQL function call expressions."""
 
@@ -13,14 +14,19 @@ class TestFunctionExpressions:
         assert sql == "NOW()"
         assert params == ()
 
-    @pytest.mark.parametrize("func_name, args_data, is_distinct, expected_sql, expected_params", [
-        ("LENGTH", ["some_text"], False, "LENGTH(?)", ("some_text",)),
-        ("CONCAT", [("Column", "first"), " ", ("Column", "last")], False, 'CONCAT("first", ?, "last")', (" ",)),
-        ("COALESCE", [("Column", "col1"), "default"], False, 'COALESCE("col1", ?)', ("default",)),
-        ("MAX", [("Column", "price")], False, 'MAX("price")', ()),
-        ("COUNT", ["*"], True, "COUNT(DISTINCT ?)", ("*",)),
-    ])
-    def test_function_with_args(self, sqlite_dialect_3_8_0: SQLiteDialect, func_name, args_data, is_distinct, expected_sql, expected_params):
+    @pytest.mark.parametrize(
+        "func_name, args_data, is_distinct, expected_sql, expected_params",
+        [
+            ("LENGTH", ["some_text"], False, "LENGTH(?)", ("some_text",)),
+            ("CONCAT", [("Column", "first"), " ", ("Column", "last")], False, 'CONCAT("first", ?, "last")', (" ",)),
+            ("COALESCE", [("Column", "col1"), "default"], False, 'COALESCE("col1", ?)', ("default",)),
+            ("MAX", [("Column", "price")], False, 'MAX("price")', ()),
+            ("COUNT", ["*"], True, "COUNT(DISTINCT ?)", ("*",)),
+        ],
+    )
+    def test_function_with_args(
+        self, sqlite_dialect_3_8_0: SQLiteDialect, func_name, args_data, is_distinct, expected_sql, expected_params
+    ):
         """Tests function calls with various arguments and distinct flag."""
         dialect_args = []
         for arg in args_data:
@@ -28,7 +34,7 @@ class TestFunctionExpressions:
                 dialect_args.append(Column(sqlite_dialect_3_8_0, arg[1]))
             else:
                 dialect_args.append(Literal(sqlite_dialect_3_8_0, arg))
-        
+
         func_call = FunctionCall(sqlite_dialect_3_8_0, func_name, *dialect_args, is_distinct=is_distinct)
         sql, params = func_call.to_sql()
         assert sql == expected_sql
@@ -48,7 +54,7 @@ class TestFunctionExpressions:
             "CONCAT",
             Column(sqlite_dialect_3_8_0, "first_name"),
             Literal(sqlite_dialect_3_8_0, " "),
-            Column(sqlite_dialect_3_8_0, "last_name")
+            Column(sqlite_dialect_3_8_0, "last_name"),
         )
         sql, params = func_call.to_sql()
         assert sql == 'CONCAT("first_name", ?, "last_name")'
@@ -68,21 +74,21 @@ class TestFunctionExpressions:
         # Test with string "*"
         func_call = count(sqlite_dialect_3_8_0, "*")
         sql, params = func_call.to_sql()
-        assert sql == 'COUNT(*)'
+        assert sql == "COUNT(*)"
         assert params == ()
 
         # Test with WildcardExpression
         wildcard = WildcardExpression(sqlite_dialect_3_8_0)
         func_call = count(sqlite_dialect_3_8_0, wildcard)
         sql, params = func_call.to_sql()
-        assert sql == 'COUNT(*)'
+        assert sql == "COUNT(*)"
         assert params == ()
 
     def test_count_star(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests the count function factory with star."""
         func_call = count(sqlite_dialect_3_8_0, "*")
         sql, params = func_call.to_sql()
-        assert sql == 'COUNT(*)'
+        assert sql == "COUNT(*)"
         assert params == ()
 
     def test_sum_function(self, sqlite_dialect_3_8_0: SQLiteDialect):
@@ -101,7 +107,9 @@ class TestFunctionExpressions:
 
     def test_function_with_distinct(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests a function call with distinct flag."""
-        func_call = FunctionCall(sqlite_dialect_3_8_0, "COUNT", Column(sqlite_dialect_3_8_0, "user_id"), is_distinct=True)
+        func_call = FunctionCall(
+            sqlite_dialect_3_8_0, "COUNT", Column(sqlite_dialect_3_8_0, "user_id"), is_distinct=True
+        )
         sql, params = func_call.to_sql()
         assert sql == 'COUNT(DISTINCT "user_id")'
         assert params == ()
@@ -111,5 +119,5 @@ class TestFunctionExpressions:
         raw_sql = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
         func_call = FunctionCall(sqlite_dialect_3_8_0, "DATE", raw_sql)
         sql, params = func_call.to_sql()
-        assert sql == 'DATE(CURRENT_TIMESTAMP)'
+        assert sql == "DATE(CURRENT_TIMESTAMP)"
         assert params == ()

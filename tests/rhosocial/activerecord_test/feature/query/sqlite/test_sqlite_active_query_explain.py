@@ -11,6 +11,7 @@ Note:
   included because the SetOperationQuery class does not currently implement
   an .explain() method.
 """
+
 import pytest
 from typing import List, Dict, Any
 
@@ -24,21 +25,21 @@ def _validate_explain_output(plan: List[Dict[str, Any]], test_name: str = ""):
     Helper to validate the structure of the EXPLAIN query plan for SQLite.
     """
     if test_name:
-        print(f"\nPlan for {test_name}: {plan}") # Debug print
-    
+        print(f"\nPlan for {test_name}: {plan}")  # Debug print
+
     assert isinstance(plan, list)
     assert len(plan) > 0
     for row in plan:
         assert isinstance(row, dict)
         # SQLite's EXPLAIN output typically includes these columns
-        assert 'addr' in row
-        assert 'opcode' in row
-        assert 'p1' in row
-        assert 'p2' in row
-        assert 'p3' in row
-        assert 'p4' in row
-        assert 'p5' in row
-        assert 'comment' in row
+        assert "addr" in row
+        assert "opcode" in row
+        assert "p1" in row
+        assert "p2" in row
+        assert "p3" in row
+        assert "p4" in row
+        assert "p5" in row
+        assert "comment" in row
 
 
 @pytest.mark.sqlite
@@ -62,6 +63,7 @@ class TestSqliteActiveQueryExplain:
         """Tests EXPLAIN on an aggregate query."""
         User, _, _ = order_fixtures
         from rhosocial.activerecord.backend.expression import functions
+
         plan = (
             User.query()
             .select(User.c.is_active, functions.count(User.query().backend().dialect, User.c.id).as_("count"))
@@ -74,13 +76,7 @@ class TestSqliteActiveQueryExplain:
     def test_explain_on_join_query(self, order_fixtures):
         """Tests EXPLAIN on a query with a JOIN clause."""
         User, Order, _ = order_fixtures
-        plan = (
-            User.query()
-            .join(Order, on=(User.c.id == Order.c.user_id))
-            .where(User.c.age > 25)
-            .explain()
-            .aggregate()
-        )
+        plan = User.query().join(Order, on=(User.c.id == Order.c.user_id)).where(User.c.age > 25).explain().aggregate()
         _validate_explain_output(plan, "Sync Join Query")
 
 
@@ -105,6 +101,7 @@ class TestAsyncSqliteActiveQueryExplain:
         """Tests EXPLAIN on an async aggregate query."""
         User, _, _ = async_order_fixtures
         from rhosocial.activerecord.backend.expression import functions
+
         plan = await (
             User.query()
             .select(User.c.is_active, functions.count(User.query().backend().dialect, User.c.id).as_("count"))
@@ -118,10 +115,6 @@ class TestAsyncSqliteActiveQueryExplain:
         """Tests EXPLAIN on an async query with a JOIN clause."""
         User, Order, _ = async_order_fixtures
         plan = await (
-            User.query()
-            .join(Order, on=(User.c.id == Order.c.user_id))
-            .where(User.c.age > 25)
-            .explain()
-            .aggregate()
+            User.query().join(Order, on=(User.c.id == Order.c.user_id)).where(User.c.age > 25).explain().aggregate()
         )
         _validate_explain_output(plan, "Async Join Query")

@@ -2,17 +2,23 @@
 """
 SQLite-specific tests for function factories including concat_op
 """
+
 import pytest
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, concat_op, QueryExpression, TableExpression,
+    Column,
+    Literal,
+    concat_op,
+    QueryExpression,
+    TableExpression,
     # Import other functions to test
-    count, sum_, avg, min_, max_,
-    lower, upper, concat, coalesce, length, substring,
-    replace, initcap, left, right, lpad, rpad, reverse, strpos,
-    abs_, round_, ceil, floor, sqrt, power, exp, log, sin, cos, tan,
-    now, current_date, current_time, year, month, day, hour, minute, second,
-    date_part, date_trunc, nullif, greatest, least, case,
-    row_number, rank, dense_rank, lag, lead, first_value, last_value, nth_value
+    count,
+    lower,
+    upper,
+    concat,
+    length,
+    substring,
+    abs_,
+    round_,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -62,13 +68,11 @@ class TestSQLiteConcatOp:
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "first_name"),
             Literal(sqlite_dialect_3_8_0, " "),
-            Column(sqlite_dialect_3_8_0, "last_name")
+            Column(sqlite_dialect_3_8_0, "last_name"),
         )
 
         query = QueryExpression(
-            sqlite_dialect_3_8_0,
-            select=[full_name_expr],
-            from_=TableExpression(sqlite_dialect_3_8_0, "users")
+            sqlite_dialect_3_8_0, select=[full_name_expr], from_=TableExpression(sqlite_dialect_3_8_0, "users")
         )
 
         sql, params = query.to_sql()

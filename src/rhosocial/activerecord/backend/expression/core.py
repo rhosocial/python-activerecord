@@ -55,7 +55,14 @@ class Column(
 ):
     """Represents a column in a SQL query."""
 
-    def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None, schema_name: Optional[str] = None):
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        name: str,
+        table: Optional[str] = None,
+        alias: Optional[str] = None,
+        schema_name: Optional[str] = None,
+    ):
         super().__init__(dialect)
         self.name = name
         self.table = table
@@ -233,6 +240,48 @@ class TableExpression(AliasableMixin, BaseExpression):
                 table_sql = f"{table_sql} {temporal_sql}"
                 params += temporal_params
         return table_sql, params
+
+
+class QualifiedIdentifierExpression(BaseExpression):
+    """Represents a schema-qualified identifier (e.g., schema.table_name, schema.function_name).
+
+    This is a general-purpose expression for any schema.name reference.
+    Since identifier formatting is universal (no dialect-specific behavior),
+    to_sql() directly generates the qualified name without delegating to
+    a dialect format method.
+
+    Attributes:
+        schema: Optional schema/namespace qualifier.
+        name: The identifier name.
+
+    Example:
+        >>> from rhosocial.activerecord.backend.impl.dummy import DummyDialect
+        >>> dialect = DummyDialect()
+        >>> qi = QualifiedIdentifierExpression(dialect, schema="partman", name="create_parent")
+        >>> qi.to_sql()
+        ('partman.create_parent', ())
+        >>> qi2 = QualifiedIdentifierExpression(dialect, schema=None, name="create_parent")
+        >>> qi2.to_sql()
+        ('create_parent', ())
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        schema: Optional[str] = None,
+        name: str = "",
+    ):
+        super().__init__(dialect)
+        self.schema = schema
+        self.name = name
+
+    def to_sql(self) -> "SQLQueryAndParams":
+        if self.schema:
+            return (
+                f"{self.dialect.format_identifier(self.schema)}.{self.dialect.format_identifier(self.name)}",
+                (),
+            )
+        return self.dialect.format_identifier(self.name), ()
 
 
 class WildcardExpression(SQLValueExpression):

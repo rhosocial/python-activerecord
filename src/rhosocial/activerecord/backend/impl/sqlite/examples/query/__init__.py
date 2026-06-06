@@ -1,7 +1,8 @@
 """
 Query operations: SELECT, JOIN, aggregate, etc.
 """
+
 META = {
-    'category': 'query',
-    'priority': 10,
+    "category": "query",
+    "priority": 10,
 }

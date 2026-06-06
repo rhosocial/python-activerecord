@@ -3,9 +3,8 @@
 Tests for the TypeCastingMixin functionality in core expression classes.
 This tests the cast() method for various expression classes.
 """
-from rhosocial.activerecord.backend.expression import (
-    Literal, Column, FunctionCall, Subquery
-)
+
+from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -41,7 +40,7 @@ class TestTypeCastingMixin:
         lit = Literal(dummy_dialect, "123")
         lit.cast("INTEGER")
         sql, params = lit.to_sql()
-        assert sql == 'CAST(? AS INTEGER)'
+        assert sql == "CAST(? AS INTEGER)"
         assert params == ("123",)
 
     def test_function_call_cast(self, dummy_dialect: DummyDialect):
@@ -121,20 +120,20 @@ class TestTypeCastingMixin:
         col.cast("INTEGER")
 
         # Verify TypeCastingMixin is inherited (for chaining)
-        assert hasattr(col, 'cast')
+        assert hasattr(col, "cast")
 
         # Verify AliasableMixin is inherited
-        assert hasattr(col, 'as_')
+        assert hasattr(col, "as_")
 
         # Verify ArithmeticMixin is inherited
-        assert hasattr(col, '__add__')
-        assert hasattr(col, '__sub__')
-        assert hasattr(col, '__mul__')
+        assert hasattr(col, "__add__")
+        assert hasattr(col, "__sub__")
+        assert hasattr(col, "__mul__")
 
         # Verify ComparisonMixin is inherited
-        assert hasattr(col, '__eq__')
-        assert hasattr(col, '__gt__')
-        assert hasattr(col, 'in_')
+        assert hasattr(col, "__eq__")
+        assert hasattr(col, "__gt__")
+        assert hasattr(col, "in_")
 
     def test_cast_with_table_qualified_column(self, dummy_dialect: DummyDialect):
         """Test type cast on table-qualified column."""
@@ -146,9 +145,7 @@ class TestTypeCastingMixin:
 
     def test_nested_function_cast(self, dummy_dialect: DummyDialect):
         """Test type cast on function result."""
-        inner_func = FunctionCall(dummy_dialect, "COALESCE",
-                                   Column(dummy_dialect, "price"),
-                                   Literal(dummy_dialect, 0))
+        inner_func = FunctionCall(dummy_dialect, "COALESCE", Column(dummy_dialect, "price"), Literal(dummy_dialect, 0))
         inner_func.cast("NUMERIC(10,2)")
         sql, params = inner_func.to_sql()
         assert sql == 'CAST(COALESCE("price", ?) AS NUMERIC(10,2))'
@@ -160,8 +157,8 @@ class TestTypeCastingMixin:
         col.cast("MONEY").as_("m").cast("NUMERIC")
         sql, params = col.to_sql()
         # The cast should wrap the previous expression
-        assert 'CAST(' in sql
-        assert 'AS NUMERIC)' in sql
+        assert "CAST(" in sql
+        assert "AS NUMERIC)" in sql
         assert params == ()
 
     def test_multiple_arithmetic_with_cast(self, dummy_dialect: DummyDialect):

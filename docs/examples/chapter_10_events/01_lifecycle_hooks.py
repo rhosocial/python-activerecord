@@ -17,8 +17,10 @@ from rhosocial.activerecord.backend.schema import StatementType
 
 # --- Models with Lifecycle Hooks ---
 
+
 class User(ActiveRecord):
     """User model with lifecycle hooks for auditing."""
+
     __table_name__ = "users"
     id: Optional[int] = None
     username: str
@@ -43,8 +45,8 @@ class User(ActiveRecord):
         self.created_at = now
         self.updated_at = now
         # Also update data dict to ensure values are saved
-        data['created_at'] = now
-        data['updated_at'] = now
+        data["created_at"] = now
+        data["updated_at"] = now
 
     def _after_insert_handler(self, instance, data, result, **kwargs):
         """Called after INSERT for new records."""
@@ -56,7 +58,7 @@ class User(ActiveRecord):
         print(f"           Changed fields: {dirty_fields}")
         now = datetime.now(timezone.utc)
         self.updated_at = now
-        data['updated_at'] = now
+        data["updated_at"] = now
 
     def _after_update_handler(self, instance, data, dirty_fields, result, **kwargs):
         """Called after UPDATE for existing records."""
@@ -71,7 +73,9 @@ class User(ActiveRecord):
         """Called after DELETE."""
         print(f"  [Hook] after_delete: User '{self.username}' deleted")
 
+
 # --- Main Execution ---
+
 
 def main():
     print("=" * 60)
@@ -79,12 +83,13 @@ def main():
     print("=" * 60)
 
     # Configure database
-    config = SQLiteConnectionConfig(database=':memory:')
+    config = SQLiteConnectionConfig(database=":memory:")
     User.configure(config, SQLiteBackend)
 
     # Create table
     backend = User.backend()
-    backend.execute("""
+    backend.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50),
@@ -92,7 +97,9 @@ def main():
             created_at TIMESTAMP,
             updated_at TIMESTAMP
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     # 1. Create a new user (triggers before_insert -> after_insert)
     print("\n" + "-" * 40)
@@ -123,6 +130,7 @@ def main():
 
     class StrictUser(ActiveRecord):
         """User with validation that can raise exceptions."""
+
         __table_name__ = "strict_users"
         id: Optional[int] = None
         username: str
@@ -143,13 +151,16 @@ def main():
 
     # Create table using StrictUser's backend
     strict_backend = StrictUser.backend()
-    strict_backend.execute("""
+    strict_backend.execute(
+        """
         CREATE TABLE strict_users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50),
             email VARCHAR(100)
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     try:
         admin = StrictUser(username="admin", email="admin@example.com")
@@ -163,6 +174,7 @@ def main():
     valid_user = StrictUser(username="john", email="john@example.com")
     valid_user.save()
     print(f"  Successfully created user with id={valid_user.id}")
+
 
 if __name__ == "__main__":
     main()

@@ -8,6 +8,7 @@ a BaseExpression that demonstrates a specific SQL clause.
 These are building-block examples that show how individual clauses
 compose into complete queries.
 """
+
 from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     Column,

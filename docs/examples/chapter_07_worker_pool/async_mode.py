@@ -11,7 +11,6 @@ This module demonstrates:
 
 import asyncio
 import logging
-from typing import Optional
 
 from rhosocial.activerecord.worker import (
     WorkerPool,
@@ -20,14 +19,12 @@ from rhosocial.activerecord.worker import (
 )
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
 # ============= Async hooks =============
+
 
 async def async_worker_init(ctx: WorkerContext):
     """Async hook for Worker initialization."""
@@ -37,7 +34,7 @@ async def async_worker_init(ctx: WorkerContext):
     await asyncio.sleep(0.01)
 
     # Store async resources in context
-    ctx.data['async_resource'] = f"async_conn_{ctx.worker_id}"
+    ctx.data["async_resource"] = f"async_conn_{ctx.worker_id}"
     print(f"[Async Worker-{ctx.worker_id}] Initialized with {ctx.data['async_resource']}")
 
 
@@ -48,7 +45,7 @@ async def async_worker_cleanup(ctx: WorkerContext):
     # Simulate async resource cleanup
     await asyncio.sleep(0.01)
 
-    resource = ctx.data.get('async_resource')
+    resource = ctx.data.get("async_resource")
     if resource:
         print(f"[Async Worker-{ctx.worker_id}] Released {resource}")
 
@@ -68,18 +65,19 @@ async def async_task_end(ctx: TaskContext):
 
 # ============= Async tasks =============
 
+
 async def async_query_task(ctx: TaskContext, query_id: int) -> dict:
     """Async task using Worker-level async resource."""
     # Access Worker-level async resource
-    resource = ctx.worker_ctx.data['async_resource']
+    resource = ctx.worker_ctx.data["async_resource"]
 
     # Simulate async database query
     await asyncio.sleep(0.01)
 
     return {
-        'query_id': query_id,
-        'resource': resource,
-        'worker_id': ctx.worker_ctx.worker_id,
+        "query_id": query_id,
+        "resource": resource,
+        "worker_id": ctx.worker_ctx.worker_id,
     }
 
 
@@ -91,15 +89,16 @@ async def async_computation_task(ctx: TaskContext, value: int) -> dict:
     result = value * 2
 
     # Store in task context
-    ctx.data['computed'] = result
+    ctx.data["computed"] = result
 
     return {
-        'input': value,
-        'output': result,
+        "input": value,
+        "output": result,
     }
 
 
 # ============= Sync task in async mode (WARNING) =============
+
 
 def sync_task_in_async_mode(ctx: TaskContext, value: int) -> int:
     """
@@ -109,6 +108,7 @@ def sync_task_in_async_mode(ctx: TaskContext, value: int) -> int:
     Use async tasks when all hooks are async.
     """
     import time
+
     time.sleep(0.01)  # This blocks the entire event loop!
     return value * 2
 
@@ -167,5 +167,5 @@ def main():
     print("\n=== All async mode examples completed ===")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

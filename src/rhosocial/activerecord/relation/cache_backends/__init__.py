@@ -10,7 +10,7 @@ Redis and serializer support are intentionally not introduced in this release.
 The implementation files are kept in-tree for follow-up external cache design.
 """
 
-from ._protocol import CacheBackend, T
+from ._protocol import CacheBackend, T  # noqa: F401
 from .in_memory import InMemoryCache
 
 # Not introduced in this release; keep source for follow-up external cache design.

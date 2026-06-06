@@ -17,8 +17,10 @@ from rhosocial.activerecord.backend.schema import StatementType
 
 # --- Models ---
 
+
 class User(ActiveRecord):
     """User model demonstrating event listener pattern."""
+
     __table_name__ = "users"
     id: Optional[int] = None
     username: str
@@ -46,7 +48,7 @@ class User(ActiveRecord):
         """Hash password before insert."""
         if self._plain_password and not self.password_hash:
             self.password_hash = f"hashed_{self._plain_password}"
-            data['password_hash'] = self.password_hash
+            data["password_hash"] = self.password_hash
             self._plain_password = None
             print(f"  [Listener] Password hashed for '{self.username}'")
 
@@ -54,7 +56,7 @@ class User(ActiveRecord):
         """Hash password before update (if changed)."""
         if self._plain_password:
             self.password_hash = f"hashed_{self._plain_password}"
-            data['password_hash'] = self.password_hash
+            data["password_hash"] = self.password_hash
             self._plain_password = None
             print(f"  [Listener] Password updated for '{self.username}'")
 
@@ -62,7 +64,7 @@ class User(ActiveRecord):
         """Set creation timestamp for new records."""
         now = datetime.now()
         self.created_at = now
-        data['created_at'] = now
+        data["created_at"] = now
         print(f"  [Listener] Timestamp set for '{self.username}'")
 
     def _log_insert(self, instance, data, result, **kwargs):
@@ -98,12 +100,15 @@ class AuditedModel(ActiveRecord):
 
 class Product(AuditedModel):
     """Product model inheriting audit functionality."""
+
     __table_name__ = "products"
     id: Optional[int] = None
     name: str
     price: float
 
+
 # --- Main Execution ---
+
 
 def main():
     print("=" * 60)
@@ -111,12 +116,13 @@ def main():
     print("=" * 60)
 
     # Configure database
-    config = SQLiteConnectionConfig(database=':memory:')
+    config = SQLiteConnectionConfig(database=":memory:")
     User.configure(config, SQLiteBackend)
 
     # Create tables
     backend = User.backend()
-    backend.execute("""
+    backend.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50),
@@ -124,7 +130,9 @@ def main():
             password_hash VARCHAR(100),
             created_at TIMESTAMP
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     # 1. Multiple listeners on same event
     print("\n" + "-" * 40)
@@ -143,13 +151,16 @@ def main():
 
     # Create table using Product's backend
     product_backend = Product.backend()
-    product_backend.execute("""
+    product_backend.execute(
+        """
         CREATE TABLE products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name VARCHAR(100),
             price REAL
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     product = Product(name="Widget", price=19.99)
     product.save()
@@ -179,6 +190,7 @@ def main():
     user3.set_password("pass789")
     print("\nSaving another instance (no temporary listener):")
     user3.save()
+
 
 if __name__ == "__main__":
     main()

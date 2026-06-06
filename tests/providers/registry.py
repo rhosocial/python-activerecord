@@ -24,6 +24,7 @@ When a test needs to check for a feature, it can use isinstance() checks
 against the appropriate protocol. Tests that require specific features
 can check protocol implementation before execution.
 """
+
 from rhosocial.activerecord.testsuite.core.registry import ProviderRegistry
 from .basic import BasicProvider
 from .events import EventsProvider

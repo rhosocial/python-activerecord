@@ -6,6 +6,7 @@ This test file verifies that DummyDialect implements all required protocols
 and their support methods correctly. Since DummyDialect is designed to be
 a full-featured SQL standard reference, all support methods should return True.
 """
+
 import pytest
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -34,6 +35,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_xmlquery() is True
         assert dialect.supports_xmlexists() is True
         assert dialect.supports_xmltable() is True
+
     # endregion
 
     # region Window Function Support
@@ -41,6 +43,7 @@ class TestDummyProtocolSupport:
         """Test WindowFunctionSupport protocol methods."""
         assert dialect.supports_window_functions() is True
         assert dialect.supports_window_frame_clause() is True
+
     # endregion
 
     # region CTE Support
@@ -49,6 +52,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_basic_cte() is True
         assert dialect.supports_recursive_cte() is True
         assert dialect.supports_materialized_cte() is True
+
     # endregion
 
     # region Advanced Grouping Support
@@ -57,12 +61,14 @@ class TestDummyProtocolSupport:
         assert dialect.supports_rollup() is True
         assert dialect.supports_cube() is True
         assert dialect.supports_grouping_sets() is True
+
     # endregion
 
     # region Returning Support
     def test_returning_support_methods(self, dialect):
         """Test ReturningSupport protocol methods."""
         assert dialect.supports_returning_clause() is True
+
     # endregion
 
     # region Upsert Support
@@ -70,12 +76,14 @@ class TestDummyProtocolSupport:
         """Test UpsertSupport protocol methods."""
         assert dialect.supports_upsert() is True
         assert dialect.get_upsert_syntax_type() == "ON CONFLICT"
+
     # endregion
 
     # region Lateral Join Support
     def test_lateral_join_support_methods(self, dialect):
         """Test LateralJoinSupport protocol methods."""
         assert dialect.supports_lateral_join() is True
+
     # endregion
 
     # region Array Support
@@ -84,6 +92,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_array_type() is True
         assert dialect.supports_array_constructor() is True
         assert dialect.supports_array_access() is True
+
     # endregion
 
     # region JSON Support
@@ -92,6 +101,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_json_type() is True
         assert dialect.get_json_access_operator() == "->"
         assert dialect.supports_json_table() is True
+
     # endregion
 
     # region Explain Support
@@ -100,36 +110,42 @@ class TestDummyProtocolSupport:
         assert dialect.supports_explain_analyze() is True
         assert dialect.supports_explain_format("JSON") is True
         assert dialect.supports_explain_format("TEXT") is True
+
     # endregion
 
     # region Filter Clause Support
     def test_filter_clause_support_methods(self, dialect):
         """Test FilterClauseSupport protocol methods."""
         assert dialect.supports_filter_clause() is True
+
     # endregion
 
     # region Ordered Set Aggregation Support
     def test_ordered_set_aggregation_support_methods(self, dialect):
         """Test OrderedSetAggregationSupport protocol methods."""
         assert dialect.supports_ordered_set_aggregation() is True
+
     # endregion
 
     # region Merge Support
     def test_merge_support_methods(self, dialect):
         """Test MergeSupport protocol methods."""
         assert dialect.supports_merge_statement() is True
+
     # endregion
 
     # region Temporal Table Support
     def test_temporal_table_support_methods(self, dialect):
         """Test TemporalTableSupport protocol methods."""
         assert dialect.supports_temporal_tables() is True
+
     # endregion
 
     # region Qualify Clause Support
     def test_qualify_clause_support_methods(self, dialect):
         """Test QualifyClauseSupport protocol methods."""
         assert dialect.supports_qualify_clause() is True
+
     # endregion
 
     # region Locking Support
@@ -137,12 +153,14 @@ class TestDummyProtocolSupport:
         """Test LockingSupport protocol methods."""
         assert dialect.supports_for_update() is True
         assert dialect.supports_for_update_skip_locked() is True
+
     # endregion
 
     # region Graph Support
     def test_graph_support_methods(self, dialect):
         """Test GraphSupport protocol methods."""
         assert dialect.supports_graph_match() is True
+
     # endregion
 
     # region Join Support
@@ -167,12 +185,14 @@ class TestDummyProtocolSupport:
         assert dialect.supports_set_operation_order_by() is True
         assert dialect.supports_set_operation_limit_offset() is True
         assert dialect.supports_set_operation_for_update() is True
+
     # endregion
 
     # region ILIKE Support
     def test_ilike_support_methods(self, dialect):
         """Test ILIKESupport protocol methods."""
         assert dialect.supports_ilike() is True
+
     # endregion
 
     # region Table DDL Support
@@ -185,6 +205,13 @@ class TestDummyProtocolSupport:
         assert dialect.supports_if_not_exists_table() is True
         assert dialect.supports_if_exists_table() is True
         assert dialect.supports_table_partitioning() is True
+        assert dialect.supports_partitioned_table_creation() is True
+        assert dialect.supports_range_table_partitioning() is True
+        assert dialect.supports_list_table_partitioning() is True
+        assert dialect.supports_hash_table_partitioning() is True
+        assert dialect.supports_key_table_partitioning() is True
+        assert dialect.supports_subpartitioning() is True
+        assert dialect.supports_partition_metadata_introspection() is False
         assert dialect.supports_table_tablespace() is True
         assert dialect.supports_drop_column() is True
         assert dialect.supports_alter_column_type() is True
@@ -192,6 +219,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_rename_table() is True
         assert dialect.supports_add_constraint() is True
         assert dialect.supports_drop_constraint() is True
+
     # endregion
 
     # region View DDL Support
@@ -208,6 +236,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_if_exists_view() is True
         assert dialect.supports_view_check_option() is True
         assert dialect.supports_cascade_view() is True
+
     # endregion
 
     # region Truncate DDL Support
@@ -217,6 +246,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_truncate_table_keyword() is True
         assert dialect.supports_truncate_restart_identity() is True
         assert dialect.supports_truncate_cascade() is True
+
     # endregion
 
     # region Schema DDL Support
@@ -228,6 +258,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_schema_if_exists() is True
         assert dialect.supports_schema_cascade() is True
         assert dialect.supports_schema_authorization() is True
+
     # endregion
 
     # region Index DDL Support
@@ -248,7 +279,7 @@ class TestDummyProtocolSupport:
         index_types = dialect.get_supported_index_types()
         assert isinstance(index_types, list)
         assert len(index_types) > 0
-        assert 'BTREE' in index_types
+        assert "BTREE" in index_types
 
     def test_fulltext_index_support_methods(self, dialect):
         """Test FULLTEXT index support methods."""
@@ -271,6 +302,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_sequence_cache() is True
         assert dialect.supports_sequence_order() is True
         assert dialect.supports_sequence_owned_by() is True
+
     # endregion
 
     # region Trigger DDL Support
@@ -284,6 +316,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_trigger_referencing() is True
         assert dialect.supports_trigger_when() is True
         assert dialect.supports_trigger_if_not_exists() is True
+
     # endregion
 
     # region Function DDL Support
@@ -294,12 +327,14 @@ class TestDummyProtocolSupport:
         assert dialect.supports_drop_function() is True
         assert dialect.supports_function_or_replace() is True
         assert dialect.supports_function_parameters() is True
+
     # endregion
 
     # region Base Dialect Methods
     def test_base_dialect_methods(self, dialect):
         """Test base dialect support methods not in protocols."""
         assert dialect.supports_offset_without_limit() is True
+
     # endregion
 
 
@@ -315,18 +350,38 @@ class TestDummyProtocolCompleteness:
         """Verify DummyDialect implements all expected protocols."""
         from rhosocial.activerecord.backend.dialect.protocols import (
             SQLXMLSupport,
-            SQLXMLParsingSupport, SQLXMLSerializationSupport,
-            SQLXMLConstructionSupport, SQLXMLAggregationSupport,
+            SQLXMLParsingSupport,
+            SQLXMLSerializationSupport,
+            SQLXMLConstructionSupport,
+            SQLXMLAggregationSupport,
             SQLXMLQueryingSupport,
-            WindowFunctionSupport, CTESupport, AdvancedGroupingSupport,
-            ReturningSupport, UpsertSupport, LateralJoinSupport,
-            ArraySupport, JSONSupport, ExplainSupport,
-            FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
-            TemporalTableSupport, QualifyClauseSupport, LockingSupport,
-            GraphSupport, JoinSupport, SetOperationSupport,
+            WindowFunctionSupport,
+            CTESupport,
+            AdvancedGroupingSupport,
+            ReturningSupport,
+            UpsertSupport,
+            LateralJoinSupport,
+            ArraySupport,
+            JSONSupport,
+            ExplainSupport,
+            FilterClauseSupport,
+            OrderedSetAggregationSupport,
+            MergeSupport,
+            TemporalTableSupport,
+            QualifyClauseSupport,
+            LockingSupport,
+            GraphSupport,
+            JoinSupport,
+            SetOperationSupport,
             # DDL Protocols
-            TableSupport, ViewSupport, TruncateSupport, SchemaSupport,
-            IndexSupport, SequenceSupport, TriggerSupport, FunctionSupport,
+            TableSupport,
+            ViewSupport,
+            TruncateSupport,
+            SchemaSupport,
+            IndexSupport,
+            SequenceSupport,
+            TriggerSupport,
+            FunctionSupport,
             ILIKESupport,
         )
 
@@ -386,12 +441,11 @@ class TestDummyProtocolCompleteness:
         for name, obj in inspect.getmembers(protocols_module, inspect.isclass):
             # Check if it's a Protocol with @runtime_checkable
             if (
-                hasattr(obj, '__protocol__') or  # Protocol classes have this
-                (hasattr(obj, '__mro__') and Protocol in obj.__mro__ and
-                 hasattr(obj, '__runtime_checkable__'))
+                hasattr(obj, "__protocol__")  # Protocol classes have this
+                or (hasattr(obj, "__mro__") and Protocol in obj.__mro__ and hasattr(obj, "__runtime_checkable__"))
             ):
                 # Exclude Protocol base class itself and any private classes
-                if obj is not Protocol and not name.startswith('_'):
+                if obj is not Protocol and not name.startswith("_"):
                     all_protocols.append((name, obj))
 
         # Verify DummyDialect implements each discovered protocol

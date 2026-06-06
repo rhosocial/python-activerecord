@@ -13,14 +13,14 @@ class TestSQLitePragma:
     @pytest.fixture
     def temp_db_path(self):
         """Create a temporary database file path"""
-        fd, path = tempfile.mkstemp(suffix='.db')
+        fd, path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         yield path
         # Cleanup
         if os.path.exists(path):
             os.unlink(path)
         # Cleanup related WAL and SHM files
-        for ext in ['-wal', '-shm']:
+        for ext in ["-wal", "-shm"]:
             wal_path = path + ext
             if os.path.exists(wal_path):
                 os.unlink(wal_path)
@@ -96,16 +96,9 @@ class TestSQLitePragma:
     def test_pragmas_via_constructor_kwargs(self, temp_db_path):
         """Test setting PRAGMAs via constructor kwargs"""
         # Create backend with custom PRAGMAs using SQLiteConnectionConfig
-        custom_pragmas = {
-            "cache_size": "5000",
-            "journal_mode": "MEMORY",
-            "synchronous": "NORMAL"
-        }
+        custom_pragmas = {"cache_size": "5000", "journal_mode": "MEMORY", "synchronous": "NORMAL"}
         # Create a SQLiteConnectionConfig instead of passing pragmas directly
-        config = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas=custom_pragmas
-        )
+        config = SQLiteConnectionConfig(database=temp_db_path, pragmas=custom_pragmas)
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
@@ -133,13 +126,8 @@ class TestSQLitePragma:
     def test_pragmas_via_config_pragmas(self, temp_db_path):
         """Test setting PRAGMAs via SQLiteConnectionConfig pragmas field"""
         # Create config with custom PRAGMAs
-        custom_pragmas = {
-            "synchronous": "OFF"
-        }
-        config = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas=custom_pragmas
-        )
+        custom_pragmas = {"synchronous": "OFF"}
+        config = SQLiteConnectionConfig(database=temp_db_path, pragmas=custom_pragmas)
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
@@ -158,7 +146,7 @@ class TestSQLitePragma:
         # Create a SQLiteConnectionConfig instead of passing pragmas directly
         config = SQLiteConnectionConfig(
             database=temp_db_path,
-            pragmas={"temp_store": "2"}  # Use numeric value to be more explicit
+            pragmas={"temp_store": "2"},  # Use numeric value to be more explicit
         )
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
@@ -175,9 +163,7 @@ class TestSQLitePragma:
     def test_pragmas_direct_setting(self, temp_db_path):
         """Test direct setting of PRAGMAs using set_pragma method"""
         # Create config with basic settings
-        sqlite_config = SQLiteConnectionConfig(
-            database=temp_db_path
-        )
+        sqlite_config = SQLiteConnectionConfig(database=temp_db_path)
         backend = SQLiteBackend(connection_config=sqlite_config)
         backend.connect()
 
@@ -226,10 +212,7 @@ class TestSQLitePragma:
     def test_case_sensitive_like_pragma(self, temp_db_path):
         """Test case_sensitive_like PRAGMA specifically"""
         # This is a functional test rather than just checking the PRAGMA value
-        config = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas={"case_sensitive_like": "ON"}
-        )
+        config = SQLiteConnectionConfig(database=temp_db_path, pragmas={"case_sensitive_like": "ON"})
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
@@ -239,8 +222,11 @@ class TestSQLitePragma:
         # Test with a sample table
         from rhosocial.activerecord.backend.options import ExecutionOptions
         from rhosocial.activerecord.backend.schema import StatementType
+
         backend.execute("CREATE TABLE test_case (text TEXT)", (), options=ExecutionOptions(stmt_type=StatementType.DDL))
-        backend.execute("INSERT INTO test_case VALUES ('ABC')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
+        backend.execute(
+            "INSERT INTO test_case VALUES ('ABC')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        )
 
         # With case_sensitive_like ON, case-sensitive search shouldn't find lowercase
         result = backend.fetch_all("SELECT * FROM test_case WHERE text LIKE 'abc'")
@@ -264,15 +250,8 @@ class TestSQLitePragma:
 
     def test_pragma_validation(self, temp_db_path):
         """Test that pragmas are being set correctly"""
-        test_pragmas = {
-            "synchronous": "NORMAL",
-            "journal_mode": "MEMORY",
-            "cache_size": "5000"
-        }
-        config = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas=test_pragmas
-        )
+        test_pragmas = {"synchronous": "NORMAL", "journal_mode": "MEMORY", "cache_size": "5000"}
+        config = SQLiteConnectionConfig(database=temp_db_path, pragmas=test_pragmas)
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
@@ -297,10 +276,7 @@ class TestSQLitePragma:
         # This test checks the priority between SQLiteConnectionConfig.pragmas and set_pragma method
 
         # 1. Only SQLiteConnectionConfig constructor pragmas
-        sqlite_config1 = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas={"synchronous": "OFF"}
-        )
+        sqlite_config1 = SQLiteConnectionConfig(database=temp_db_path, pragmas={"synchronous": "OFF"})
         backend1 = SQLiteBackend(connection_config=sqlite_config1)
         backend1.connect()
 
@@ -311,10 +287,7 @@ class TestSQLitePragma:
         backend2.set_pragma("synchronous", "NORMAL")
 
         # 3. Config pragmas + set_pragma (set_pragma should override config)
-        sqlite_config3 = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas={"synchronous": "FULL"}
-        )
+        sqlite_config3 = SQLiteConnectionConfig(database=temp_db_path, pragmas={"synchronous": "FULL"})
         backend3 = SQLiteBackend(connection_config=sqlite_config3)
         backend3.connect()
         backend3.set_pragma("synchronous", "NORMAL")
@@ -325,7 +298,7 @@ class TestSQLitePragma:
         sync3 = backend3.fetch_one("PRAGMA synchronous")["synchronous"]
 
         # Print values for debugging
-        print(f"\nPRAGMA priority test results:")
+        print("\nPRAGMA priority test results:")
         print(f"1. SQLiteConnectionConfig pragmas only: {sync1}")
         print(f"2. set_pragma only: {sync2}")
         print(f"3. Config.pragmas + set_pragma: {sync3}")
@@ -343,10 +316,7 @@ class TestSQLitePragma:
     def test_reconnect_preserves_pragmas(self, temp_db_path):
         """Test that PRAGMA settings are preserved on reconnection"""
         # Create backend with custom PRAGMAs
-        config = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas={"cache_size": "5000", "synchronous": "NORMAL"}
-        )
+        config = SQLiteConnectionConfig(database=temp_db_path, pragmas={"cache_size": "5000", "synchronous": "NORMAL"})
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
@@ -397,7 +367,7 @@ class TestSQLitePragma:
             uri=True,
             timeout=10.0,
             detect_types=0,  # No type detection
-            pragmas={"foreign_keys": "OFF"}
+            pragmas={"foreign_keys": "OFF"},
         )
 
         backend = SQLiteBackend(connection_config=sqlite_config)

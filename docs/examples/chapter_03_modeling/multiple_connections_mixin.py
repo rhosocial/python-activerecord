@@ -45,8 +45,10 @@ _DDL_OPTS = ExecutionOptions(stmt_type=StatementType.DDL)
 # declared in a plain Python class mixin are recognized without inheriting
 # BaseModel explicitly.
 
+
 class UserFieldsMixinA:
     """Shared user fields -- plain Python class style."""
+
     id: Optional[int] = None
     name: str
     email: str
@@ -54,12 +56,14 @@ class UserFieldsMixinA:
 
 class UserWithMixinA(UserFieldsMixinA, ActiveRecord):
     """Business-side model using the plain Python mixin."""
+
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
 
 class UserMetricWithMixinA(UserFieldsMixinA, ActiveRecord):
     """Analytics-side model using the plain Python mixin."""
+
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
@@ -70,8 +74,10 @@ class UserMetricWithMixinA(UserFieldsMixinA, ActiveRecord):
 # This style makes the shared fields more discoverable in IDEs and type
 # checkers, and is consistent with Pydantic's documented approach.
 
+
 class UserFieldsMixinB(BaseModel):
     """Shared user fields -- BaseModel subclass style."""
+
     id: Optional[int] = None
     name: str
     email: str
@@ -79,12 +85,14 @@ class UserFieldsMixinB(BaseModel):
 
 class UserWithMixinB(UserFieldsMixinB, ActiveRecord):
     """Business-side model using the BaseModel mixin."""
+
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
 
 class UserMetricWithMixinB(UserFieldsMixinB, ActiveRecord):
     """Analytics-side model using the BaseModel mixin."""
+
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
 
@@ -92,6 +100,7 @@ class UserMetricWithMixinB(UserFieldsMixinB, ActiveRecord):
 # ---------------------------------------------------------------------------
 # Demo 1: plain Python class mixin -- independent connections
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_plain_mixin() -> None:
     """User and UserMetric share fields via a plain Python mixin class.
@@ -122,12 +131,12 @@ def demonstrate_plain_mixin() -> None:
     UserWithMixinA(name="Alice", email="alice@primary.com").save()
     UserMetricWithMixinA(name="Bob", email="bob@analytics.com").save()
 
-    primary_rows   = UserWithMixinA.query().all()
+    primary_rows = UserWithMixinA.query().all()
     analytics_rows = UserMetricWithMixinA.query().all()
     print(f"\nPrimary DB   (UserWithMixinA)      : {[r.name for r in primary_rows]}")
     print(f"Analytics DB (UserMetricWithMixinA): {[r.name for r in analytics_rows]}")
 
-    assert [r.name for r in primary_rows]   == ["Alice"]
+    assert [r.name for r in primary_rows] == ["Alice"]
     assert [r.name for r in analytics_rows] == ["Bob"]
     print("\n✓ Plain Python class mixin: connections are fully independent.")
 
@@ -135,6 +144,7 @@ def demonstrate_plain_mixin() -> None:
 # ---------------------------------------------------------------------------
 # Demo 2: BaseModel subclass mixin -- independent connections
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_basemodel_mixin() -> None:
     """User and UserMetric share fields via a BaseModel-derived mixin.
@@ -166,12 +176,12 @@ def demonstrate_basemodel_mixin() -> None:
     UserWithMixinB(name="Carol", email="carol@primary.com").save()
     UserMetricWithMixinB(name="Dave", email="dave@analytics.com").save()
 
-    primary_rows   = UserWithMixinB.query().all()
+    primary_rows = UserWithMixinB.query().all()
     analytics_rows = UserMetricWithMixinB.query().all()
     print(f"\nPrimary DB   (UserWithMixinB)      : {[r.name for r in primary_rows]}")
     print(f"Analytics DB (UserMetricWithMixinB): {[r.name for r in analytics_rows]}")
 
-    assert [r.name for r in primary_rows]   == ["Carol"]
+    assert [r.name for r in primary_rows] == ["Carol"]
     assert [r.name for r in analytics_rows] == ["Dave"]
     print("\n✓ BaseModel subclass mixin: connections are fully independent.")
 
@@ -179,6 +189,7 @@ def demonstrate_basemodel_mixin() -> None:
 # ---------------------------------------------------------------------------
 # Demo 3: the key advantage -- missing configure() is never silent
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_no_silent_trap() -> None:
     """With the Mixin pattern, forgetting configure() raises an explicit error.
@@ -223,6 +234,7 @@ def demonstrate_no_silent_trap() -> None:
 # ---------------------------------------------------------------------------
 # Demo 4: shared fields are defined once -- DRY check
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_field_reuse() -> None:
     """Verify that both Mixin styles expose the same field set on both models."""

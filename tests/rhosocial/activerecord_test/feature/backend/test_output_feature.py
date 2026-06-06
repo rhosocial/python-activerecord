@@ -4,7 +4,7 @@ import json
 import csv
 import io as _io
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from rhosocial.activerecord.backend.output import JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
 from rhosocial.activerecord.backend.output_rich import RichOutputProvider
 
@@ -32,12 +32,14 @@ def _capture_output_logger(func, logger_name="rhosocial.activerecord.backend.out
         logger.setLevel(original_level)
         logger.propagate = original_propagate
 
+
 @pytest.fixture
 def sample_data():
     return [
         {"id": 1, "name": "Alice", "email": "alice@example.com"},
         {"id": 2, "name": "Bob", "email": "bob@example.com"},
     ]
+
 
 class TestJsonOutputProvider:
     def test_display_results(self, capsys, sample_data):
@@ -59,12 +61,13 @@ class TestJsonOutputProvider:
         output = _capture_output_logger(lambda: provider.display_query("SELECT * FROM users", is_async=False))
         assert "Executing synchronous query: SELECT * FROM users" in output
 
+
 class TestCsvOutputProvider:
     def test_display_results(self, capsys, sample_data):
         provider = CsvOutputProvider()
         provider.display_results(sample_data)
         captured = capsys.readouterr()
-        
+
         # The output should be a CSV string
         # We can read the captured output using the csv module
         output_file = _io.StringIO(captured.out)
@@ -85,6 +88,7 @@ class TestCsvOutputProvider:
         output = _capture_output_logger(lambda: provider.display_no_data())
         assert "No data returned for CSV output." in output
 
+
 class TestTsvOutputProvider:
     def test_display_results(self, capsys, sample_data):
         provider = TsvOutputProvider()
@@ -93,12 +97,12 @@ class TestTsvOutputProvider:
 
         # The output should be a TSV string
         output_file = _io.StringIO(captured.out)
-        reader = csv.reader(output_file, delimiter='	')
-        
+        reader = csv.reader(output_file, delimiter="	")
+
         # First row should be the headers
         headers = next(reader)
         assert headers == ["id", "name", "email"]
-        
+
         # Subsequent rows should match the sample data
         rows = list(reader)
         assert len(rows) == 2
@@ -110,6 +114,7 @@ class TestTsvOutputProvider:
         output = _capture_output_logger(lambda: provider.display_no_data())
         assert "No data returned for TSV output." in output
 
+
 class TestRichOutputProvider:
     @pytest.fixture
     def mock_console(self):
@@ -118,7 +123,7 @@ class TestRichOutputProvider:
     def test_display_results(self, mock_console, sample_data):
         provider = RichOutputProvider(console=mock_console)
         provider.display_results(sample_data)
-        
+
         # Check that the print method of the console was called
         mock_console.print.assert_called()
 

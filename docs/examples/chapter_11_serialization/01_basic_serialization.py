@@ -18,8 +18,10 @@ import json
 
 # --- Models ---
 
+
 class Product(ActiveRecord):
     """Product model with various field types."""
+
     __table_name__ = "products"
     id: Optional[int] = None
     name: str
@@ -32,6 +34,7 @@ class Product(ActiveRecord):
 
 class User(ActiveRecord):
     """User model for serialization examples."""
+
     __table_name__ = "users"
     id: Optional[int] = None
     username: str
@@ -40,7 +43,9 @@ class User(ActiveRecord):
     created_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
 
+
 # --- Main Execution ---
+
 
 def main():
     print("=" * 60)
@@ -48,13 +53,14 @@ def main():
     print("=" * 60)
 
     # Configure database
-    config = SQLiteConnectionConfig(database=':memory:')
+    config = SQLiteConnectionConfig(database=":memory:")
     Product.configure(config, SQLiteBackend)
     User.configure(config, SQLiteBackend)
 
     # Create tables
     backend = Product.backend()
-    backend.execute("""
+    backend.execute(
+        """
         CREATE TABLE products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name VARCHAR(100),
@@ -64,11 +70,14 @@ def main():
             created_at TIMESTAMP,
             metadata TEXT
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     # Create users table using User's backend
     user_backend = User.backend()
-    user_backend.execute("""
+    user_backend.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50),
@@ -77,7 +86,9 @@ def main():
             created_at TIMESTAMP,
             last_login TIMESTAMP
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     # 1. Basic model_dump()
     print("\n" + "-" * 40)
@@ -90,7 +101,7 @@ def main():
         quantity=100,
         is_available=True,
         created_at=datetime.now(),
-        metadata={"color": "blue", "weight": "1.5kg"}
+        metadata={"color": "blue", "weight": "1.5kg"},
     )
     product.save()
 
@@ -121,7 +132,7 @@ def main():
         email="alice@example.com",
         balance=Decimal("1250.50"),
         created_at=datetime(2024, 1, 15, 10, 30, 0),
-        last_login=datetime.now()
+        last_login=datetime.now(),
     )
     user.save()
 
@@ -137,11 +148,11 @@ def main():
     print("-" * 40)
 
     # 'python' mode returns Python objects (default)
-    python_data = user.model_dump(mode='python')
+    python_data = user.model_dump(mode="python")
     print(f"Python mode - balance type: {type(python_data['balance'])}")
 
     # 'json' mode returns JSON-serializable types
-    json_data = user.model_dump(mode='json')
+    json_data = user.model_dump(mode="json")
     print(f"JSON mode - balance type: {type(json_data['balance'])}")
     print(f"JSON mode - created_at: {json_data['created_at']}")
 
@@ -157,6 +168,7 @@ def main():
     # Deserialize back to model
     user_copy = User.model_validate_json(json_output)
     print(f"Deserialized: {user_copy.username}, balance={user_copy.balance}")
+
 
 if __name__ == "__main__":
     main()

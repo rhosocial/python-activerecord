@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/test_output_final.py
 import pytest
-import logging
 from rhosocial.activerecord.backend.output import CsvOutputProvider, TsvOutputProvider
+
 
 @pytest.mark.parametrize("provider_class", [CsvOutputProvider, TsvOutputProvider])
 def test_display_results_with_no_data(capsys, provider_class):
@@ -12,16 +12,18 @@ def test_display_results_with_no_data(capsys, provider_class):
     provider = provider_class()
     # Mock display_no_data to check if it's called
     from unittest.mock import MagicMock
+
     provider.display_no_data = MagicMock()
-    
+
     provider.display_results([])
-    
+
     # Check that display_no_data was called
     provider.display_no_data.assert_called_once()
-    
+
     # Check that nothing was written to stdout
     captured = capsys.readouterr()
     assert captured.out == ""
+
 
 @pytest.mark.parametrize("provider_class", [CsvOutputProvider, TsvOutputProvider])
 def test_format_value_with_none(provider_class):
