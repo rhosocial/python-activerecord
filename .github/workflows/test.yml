@@ -329,7 +329,7 @@ jobs:
         python -m pytest tests/
 
   test-python-315-experimental:
-    name: Run tests with Python ${{ matrix.python-version }} (experimental)
+    name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && ' free-threaded' || '' }} (experimental)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -339,8 +339,10 @@ jobs:
         include:
           - python-version: "3.15.0-beta.2"
             redis-version: "8.8"
-          - python-version: "3.15.0-beta.2-freethreaded"
+            freethreaded: false
+          - python-version: "3.15.0-beta.2"
             redis-version: "8.8"
+            freethreaded: true
 
     services:
       redis:
@@ -357,10 +359,11 @@ jobs:
     - name: Check out the repository
       uses: actions/checkout@v6
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python ${{ matrix.python-version }}${{ matrix.freethreaded && ' free-threaded' || '' }}
       uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
+        freethreaded: ${{ matrix.freethreaded }}
 
     - name: Install dependencies
       run: |
