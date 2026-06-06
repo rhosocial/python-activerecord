@@ -6,17 +6,17 @@ Cache stampede protection and proactive refresh are intentionally
 excluded from the framework.  These tests verify the metadata-building
 blocks that application code uses to implement its own strategy.
 """
+
 import pytest
 
 pytest.skip(
-    "CacheResult metadata is not introduced in this release; "
-    "source is kept for follow-up external cache design.",
+    "CacheResult metadata is not introduced in this release; source is kept for follow-up external cache design.",
     allow_module_level=True,
 )
 
-from pydantic import BaseModel
+from pydantic import BaseModel  # noqa: E402
 
-from rhosocial.activerecord.relation.cache import (
+from rhosocial.activerecord.relation.cache import (  # noqa: E402
     CacheConfig,
     CacheResult,
     InstanceCache,

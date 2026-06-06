@@ -16,6 +16,7 @@ from ..expression import bases
 from ..expression.bases import BaseExpression, ToSQLProtocol
 from ..expression.statements import ReturningClause
 
+
 class SQLXMLParsingMixin:
     """Mixin for SQL/XML parsing support."""
 
@@ -402,6 +403,7 @@ if TYPE_CHECKING:  # pragma: no cover
         LimitOffsetClause,
         ForUpdateClause,
     )
+    from ..expression.statements import PartitionClause
     from ..expression.graph import GraphEdgeDirection, MatchClause
     from ..expression.statements import (
         CreateTableExpression,
@@ -724,9 +726,7 @@ class ReturningMixin:
         Default is AND of all DML-specific returning support flags.
         """
         return (
-            self.supports_returning_insert()
-            and self.supports_returning_update()
-            and self.supports_returning_delete()
+            self.supports_returning_insert() and self.supports_returning_update() and self.supports_returning_delete()
         )
 
     def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
@@ -1165,8 +1165,7 @@ class GraphMixin:
         # Validate variable name: only alphanumeric and underscore allowed.
         if not re.fullmatch(r"[A-Za-z0-9_]+", variable):
             raise ValueError(
-                f"Invalid variable name '{variable}': "
-                "must contain only alphanumeric characters and underscores."
+                f"Invalid variable name '{variable}': must contain only alphanumeric characters and underscores."
             )
 
         sql = f"({variable} IS {self.format_identifier(table)})"
@@ -1190,8 +1189,7 @@ class GraphMixin:
         # Validate variable name: only alphanumeric and underscore allowed.
         if not re.fullmatch(r"[A-Za-z0-9_]+", variable):
             raise ValueError(
-                f"Invalid variable name '{variable}': "
-                "must contain only alphanumeric characters and underscores."
+                f"Invalid variable name '{variable}': must contain only alphanumeric characters and underscores."
             )
 
         from ..expression.graph import GraphEdgeDirection  # Import here to avoid circular import
@@ -1551,6 +1549,98 @@ class SetOperationMixin:
 # ============================================================
 
 
+class PartitionMixin:
+    """Mixin for table partitioning support.
+
+    Implements the PartitionSupport protocol with default behavior:
+    - All supports_*() methods return False by default
+    - format_partition_clause() raises UnsupportedFeatureError by default
+    """
+
+    def supports_table_partitioning(self) -> bool:
+        """Whether table partitioning is supported at the database level."""
+        return False
+
+    def supports_partitioned_table_creation(self) -> bool:
+        """Whether CREATE TABLE can create partitioned tables through this dialect."""
+        return False
+
+    def supports_range_table_partitioning(self) -> bool:
+        """Whether RANGE table partitioning is supported."""
+        return False
+
+    def supports_list_table_partitioning(self) -> bool:
+        """Whether LIST table partitioning is supported."""
+        return False
+
+    def supports_hash_table_partitioning(self) -> bool:
+        """Whether HASH table partitioning is supported."""
+        return False
+
+    def supports_key_table_partitioning(self) -> bool:
+        """Whether KEY table partitioning is supported."""
+        return False
+
+    def supports_subpartitioning(self) -> bool:
+        """Whether table subpartitioning is supported."""
+        return False
+
+    def supports_partition_metadata_introspection(self) -> bool:
+        """Whether partition metadata introspection is supported."""
+        return False
+
+    def format_partition_clause(self, expr: "PartitionClause") -> Tuple[str, tuple]:
+        """Format PARTITION BY clause from expression.
+
+        This default implementation generates standard SQL PARTITION BY
+        syntax. Dialects can override to add validation or custom behavior.
+
+        Args:
+            expr: PartitionClause with partition strategy and key.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from ..expression.statements import PartitionStrategy
+
+        if not self.supports_table_partitioning():
+            raise UnsupportedFeatureError(
+                self.name, "PARTITION BY clause", "This dialect does not support table partitioning."
+            )
+
+        partition = expr
+        strategy = partition.strategy
+        raw_strategy = strategy.value if isinstance(strategy, PartitionStrategy) else str(strategy)
+        key = partition.key
+        partition_cols = key.columns
+        key_expression = key.expression
+
+        # Validate strategy
+        valid_types = {item.value for item in PartitionStrategy}
+        # Also allow dialect-specific strategies (e.g., 'KEY' for MySQL)
+        if hasattr(expr, "dialect_options") and expr.dialect_options:
+            extra_strategies = expr.dialect_options.get("extra_strategies", set())
+            valid_types = valid_types | extra_strategies
+
+        normalized = raw_strategy.upper()
+        if normalized not in valid_types:
+            raise ValueError(
+                f"Invalid partition strategy '{raw_strategy}'. Must be one of: {', '.join(sorted(valid_types))}"
+            )
+
+        if key_expression is not None and partition_cols:
+            raise ValueError("Partition key cannot specify both columns and expression.")
+        if key_expression is None and not partition_cols:
+            raise ValueError("Partition key must specify columns or expression.")
+
+        if key_expression is not None:
+            key_sql, key_params = key_expression.to_sql()
+            return f" PARTITION BY {normalized} ({key_sql})", tuple(key_params)
+
+        cols_str = ", ".join(self.format_identifier(col) for col in partition_cols)
+        return f" PARTITION BY {normalized} ({cols_str})", ()
+
+
 class TableMixin:
     """Mixin for table DDL support."""
 
@@ -1576,10 +1666,6 @@ class TableMixin:
 
     def supports_if_exists_table(self) -> bool:
         """Whether DROP TABLE IF EXISTS is supported."""
-        return False
-
-    def supports_table_partitioning(self) -> bool:
-        """Whether table partitioning is supported."""
         return False
 
     def supports_table_tablespace(self) -> bool:
@@ -2329,9 +2415,7 @@ class FunctionMixin:
                     # Validate parameter name and type.
                     param_name = self.format_identifier(name)
                     if not re.fullmatch(r"[A-Za-z0-9\s(),]+", param_type):
-                        raise ValueError(
-                            f"Invalid parameter type '{param_type}'"
-                        )
+                        raise ValueError(f"Invalid parameter type '{param_type}'")
                     param_strs.append(f"{param_name} {param_type}")
                 elif param_type:
                     param_strs.append(param_type)

@@ -6,12 +6,8 @@ This test creates a dialect that does not support CTEs and verifies that
 the format_cte and format_with_query methods raise appropriate errors.
 """
 
-from rhosocial.activerecord.backend.dialect import (
-    SQLDialectBase, CTEMixin, CTESupport
-)
-from rhosocial.activerecord.backend.expression import (
-    Column, QueryExpression, TableExpression
-)
+from rhosocial.activerecord.backend.dialect import SQLDialectBase, CTEMixin, CTESupport
+from rhosocial.activerecord.backend.expression import Column, QueryExpression, TableExpression
 from rhosocial.activerecord.backend.expression.query_sources import CTEExpression, WithQueryExpression
 
 
@@ -55,18 +51,11 @@ def test_cte_expression_integration_reports_no_support():
 
     # Create a simple query to use in CTE
     query = QueryExpression(
-        dialect,
-        select=[Column(dialect, "id"), Column(dialect, "name")],
-        from_=TableExpression(dialect, "users")
+        dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=TableExpression(dialect, "users")
     )
 
     # Create CTE expression
-    cte = CTEExpression(
-        dialect,
-        name="user_cte",
-        query=query,
-        columns=["id", "name"]
-    )
+    CTEExpression(dialect, name="user_cte", query=query, columns=["id", "name"])
 
     # The dialect should report no CTE support
     assert not dialect.supports_basic_cte()
@@ -78,32 +67,17 @@ def test_with_query_expression_integration_reports_no_support():
 
     # Create a simple query to use in CTE
     query = QueryExpression(
-        dialect,
-        select=[Column(dialect, "id"), Column(dialect, "name")],
-        from_=TableExpression(dialect, "users")
+        dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=TableExpression(dialect, "users")
     )
 
     # Create CTE
-    cte = CTEExpression(
-        dialect,
-        name="user_cte",
-        query=query,
-        columns=["id", "name"]
-    )
+    cte = CTEExpression(dialect, name="user_cte", query=query, columns=["id", "name"])
 
     # Create main query that uses the CTE
-    main_query = QueryExpression(
-        dialect,
-        select=[Column(dialect, "id")],
-        from_=TableExpression(dialect, "user_cte")
-    )
+    main_query = QueryExpression(dialect, select=[Column(dialect, "id")], from_=TableExpression(dialect, "user_cte"))
 
     # Create WithQueryExpression
-    with_query = WithQueryExpression(
-        dialect,
-        ctes=[cte],
-        main_query=main_query
-    )
+    WithQueryExpression(dialect, ctes=[cte], main_query=main_query)
 
     # The dialect should report no CTE support
     assert not dialect.supports_basic_cte()

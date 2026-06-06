@@ -48,8 +48,8 @@ class SQLiteBackend(
         self,
         connection_config: Optional[Union[ConnectionConfig, SQLiteConnectionConfig]] = None,
         database: Optional[str] = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         logging_config = kwargs.pop("logging_config", None)
 
         if connection_config is None and database is not None:
@@ -91,19 +91,16 @@ class SQLiteBackend(
         """
         if "QUERY PLAN" in sql.upper():
             rows = [SQLiteExplainQueryPlanRow(**r) for r in raw_rows]
-            return SQLiteExplainQueryPlanResult(
-                raw_rows=raw_rows, sql=sql, duration=duration, rows=rows
-            )
+            return SQLiteExplainQueryPlanResult(raw_rows=raw_rows, sql=sql, duration=duration, rows=rows)
         rows = [SQLiteExplainRow(**r) for r in raw_rows]
-        return SQLiteExplainResult(
-            raw_rows=raw_rows, sql=sql, duration=duration, rows=rows
-        )
+        return SQLiteExplainResult(raw_rows=raw_rows, sql=sql, duration=duration, rows=rows)
 
-    def _create_introspector(self):
+    def _create_introspector(self) -> Any:
         from ..introspection import SyncSQLiteIntrospector
         from rhosocial.activerecord.backend.introspection.executor import (
             SyncIntrospectorExecutor,
         )
+
         return SyncSQLiteIntrospector(self, SyncIntrospectorExecutor(self))
 
     def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
@@ -275,7 +272,7 @@ class SQLiteBackend(
                     return False
             return False
 
-    def _get_cursor(self):
+    def _get_cursor(self) -> Any:
         """Get or create cursor for SQLite."""
         return self._connection.cursor()
 

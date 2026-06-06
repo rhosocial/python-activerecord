@@ -6,7 +6,6 @@ This module tests the list_triggers and get_trigger_info methods
 for retrieving trigger metadata.
 """
 
-import pytest
 
 from rhosocial.activerecord.backend.introspection.types import (
     TriggerInfo,

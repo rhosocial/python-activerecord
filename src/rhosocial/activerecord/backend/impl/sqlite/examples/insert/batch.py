@@ -10,12 +10,12 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import CreateTableExpression
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression import CreateTableExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -23,16 +23,24 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('name', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ]),
-        ColumnDefinition('email', 'TEXT'),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition(
+            "name",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+            ],
+        ),
+        ColumnDefinition("email", "TEXT"),
     ],
     if_not_exists=True,
 )
@@ -43,26 +51,26 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     InsertExpression,
     ValuesSource,
     TableExpression,
     QueryExpression,
 )
-from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression
+from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
 
 insert_expr = InsertExpression(
     dialect=dialect,
-    into=TableExpression(dialect, 'users'),
+    into=TableExpression(dialect, "users"),
     source=ValuesSource(
         dialect,
         [
-            [Literal(dialect, 'Alice'), Literal(dialect, 'alice@example.com')],
-            [Literal(dialect, 'Bob'), Literal(dialect, 'bob@example.com')],
-            [Literal(dialect, 'Charlie'), Literal(dialect, 'charlie@example.com')],
+            [Literal(dialect, "Alice"), Literal(dialect, "alice@example.com")],
+            [Literal(dialect, "Bob"), Literal(dialect, "bob@example.com")],
+            [Literal(dialect, "Charlie"), Literal(dialect, "charlie@example.com")],
         ],
     ),
-    columns=['name', 'email'],
+    columns=["name", "email"],
 )
 
 sql, params = insert_expr.to_sql()
@@ -79,7 +87,7 @@ print(f"Affected rows: {result.affected_rows}")
 verify_query = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, 'users'),
+    from_=TableExpression(dialect, "users"),
 )
 options = ExecutionOptions(stmt_type=StatementType.DQL)
 sql, params = verify_query.to_sql()

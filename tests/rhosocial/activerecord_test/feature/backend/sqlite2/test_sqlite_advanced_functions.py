@@ -2,14 +2,17 @@
 """
 Tests for the advanced SQL function expression components in advanced_functions.py
 """
+
 import pytest
-from rhosocial.activerecord.backend.expression import (
-    Column, Literal
-)
+from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CaseExpression, ExistsExpression,
-    AnyExpression, AllExpression, JSONExpression, ArrayExpression,
-    OrderedSetAggregation
+    CaseExpression,
+    ExistsExpression,
+    AnyExpression,
+    AllExpression,
+    JSONExpression,
+    ArrayExpression,
+    OrderedSetAggregation,
 )
 from rhosocial.activerecord.backend.expression.core import Subquery
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -39,7 +42,7 @@ class TestCaseExpression:
         case_expr = CaseExpression(
             sqlite_dialect_3_8_0,
             cases=[(condition1, result1), (condition2, result2)],
-            else_result=Literal(sqlite_dialect_3_8_0, "minor")
+            else_result=Literal(sqlite_dialect_3_8_0, "minor"),
         )
 
         sql, params = case_expr.to_sql()
@@ -54,9 +57,9 @@ class TestCaseExpression:
             value=value,
             cases=[
                 (Literal(sqlite_dialect_3_8_0, 1), Literal(sqlite_dialect_3_8_0, "Active")),
-                (Literal(sqlite_dialect_3_8_0, 0), Literal(sqlite_dialect_3_8_0, "Inactive"))
+                (Literal(sqlite_dialect_3_8_0, 0), Literal(sqlite_dialect_3_8_0, "Inactive")),
             ],
-            else_result=Literal(sqlite_dialect_3_8_0, "Unknown")
+            else_result=Literal(sqlite_dialect_3_8_0, "Unknown"),
         )
 
         sql, params = case_expr.to_sql()
@@ -107,7 +110,7 @@ class TestAnyAllExpression:
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "price"),
             ">",
-            Literal(sqlite_dialect_3_8_0, [100, 200, 300])
+            Literal(sqlite_dialect_3_8_0, [100, 200, 300]),
         )
         sql, params = any_expr.to_sql()
         # SQLite might convert ANY to other forms
@@ -117,10 +120,7 @@ class TestAnyAllExpression:
     def test_all_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test ALL expression functionality."""
         all_expr = AllExpression(
-            sqlite_dialect_3_8_0,
-            Column(sqlite_dialect_3_8_0, "price"),
-            ">",
-            Literal(sqlite_dialect_3_8_0, [50, 75])
+            sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), ">", Literal(sqlite_dialect_3_8_0, [50, 75])
         )
         sql, params = all_expr.to_sql()
         # This might be converted to a different form in SQLite
@@ -133,11 +133,7 @@ class TestJSONExpression:
 
     def test_json_extract_path(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test JSON path extraction."""
-        json_expr = JSONExpression(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.name"
-        )
+        json_expr = JSONExpression(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.name")
         sql, params = json_expr.to_sql()
         # In SQLite, this uses the -> operator
         assert "->" in sql
@@ -146,10 +142,7 @@ class TestJSONExpression:
     def test_json_extract_as_text(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test JSON path extraction as text."""
         json_expr = JSONExpression(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "metadata"),
-            "$.settings.theme",
-            operation="->>"
+            sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "metadata"), "$.settings.theme", operation="->>"
         )
         sql, params = json_expr.to_sql()
         # In SQLite, this uses the ->> operator
@@ -167,7 +160,11 @@ class TestArrayExpression:
         array_expr = ArrayExpression(
             sqlite_dialect_3_8_0,
             "CONSTRUCTOR",
-            elements=[Literal(sqlite_dialect_3_8_0, 1), Literal(sqlite_dialect_3_8_0, 2), Literal(sqlite_dialect_3_8_0, 3)]
+            elements=[
+                Literal(sqlite_dialect_3_8_0, 1),
+                Literal(sqlite_dialect_3_8_0, 2),
+                Literal(sqlite_dialect_3_8_0, 3),
+            ],
         )
         # Try to generate SQL - this should raise UnsupportedFeatureError in SQLite
         # The error is raised inside format_array_expression when checking supports_array_constructor
@@ -184,7 +181,7 @@ class TestArrayExpression:
             sqlite_dialect_3_8_0,
             "ACCESS",
             base_expr=Column(sqlite_dialect_3_8_0, "tags"),
-            index_expr=Literal(sqlite_dialect_3_8_0, 1)
+            index_expr=Literal(sqlite_dialect_3_8_0, 1),
         )
         # Try to generate SQL - this should raise UnsupportedFeatureError in SQLite
         with pytest.raises(UnsupportedFeatureError):
@@ -197,20 +194,21 @@ class TestOrderedSetAggregation:
     def test_ordered_set_aggregation_not_supported(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that ordered set aggregation is not supported in SQLite."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-        
+
         try:
             # PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary)
             from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
             expr = OrderedSetAggregation(
                 sqlite_dialect_3_8_0,
                 "PERCENTILE_CONT",
                 args=[Literal(sqlite_dialect_3_8_0, 0.5)],
                 order_by=OrderByClause(sqlite_dialect_3_8_0, [Column(sqlite_dialect_3_8_0, "salary")]),
-                alias="median_salary"
+                alias="median_salary",
             )
             expr.to_sql()
             # If we reach here, the exception was not raised
-            assert False, "Expected UnsupportedFeatureError for ordered set aggregation"
+            raise AssertionError("Expected UnsupportedFeatureError for ordered set aggregation")
         except UnsupportedFeatureError:
             # This is expected
             pass

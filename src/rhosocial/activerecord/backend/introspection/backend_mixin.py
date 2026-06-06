@@ -61,9 +61,7 @@ class IntrospectorBackendMixin:
             A SyncAbstractIntrospector for sync backends,
             or an AsyncAbstractIntrospector for async backends.
         """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} must implement _create_introspector()"
-        )
+        raise NotImplementedError(f"{self.__class__.__name__} must implement _create_introspector()")
 
     @property
     def introspector(self) -> Union["SyncAbstractIntrospector", "AsyncAbstractIntrospector"]:
@@ -72,10 +70,7 @@ class IntrospectorBackendMixin:
             self._introspector_instance = self._create_introspector()
         return self._introspector_instance
 
-    def set_introspector(
-        self,
-        introspector: Union["SyncAbstractIntrospector", "AsyncAbstractIntrospector"]
-    ) -> None:
+    def set_introspector(self, introspector: Union["SyncAbstractIntrospector", "AsyncAbstractIntrospector"]) -> None:
         """Inject a custom introspector (useful for testing or extension).
 
         Args:

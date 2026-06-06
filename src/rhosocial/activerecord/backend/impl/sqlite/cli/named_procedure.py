@@ -17,6 +17,7 @@ def create_parser(subparsers):
     containing only connection and output arguments.
     """
     from rhosocial.activerecord.backend.named_expression.cli_procedure import create_named_procedure_parser
+
     local_parent = create_connection_parent_parser()
     return create_named_procedure_parser(subparsers, local_parent)
 
@@ -49,6 +50,7 @@ def handle(args):
         def backend_async_factory():
             nonlocal async_backend
             from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+
             config = resolve_connection_config_from_args(args)
             config.check_same_thread = False
             async_backend = AsyncSQLiteBackend(connection_config=config)

@@ -7,11 +7,8 @@ This module tests the CLI parameter resolution priority:
 2. --named-connection + --conn-param
 3. Default: in-memory database
 """
-import os
-import tempfile
-import types
+
 from unittest.mock import MagicMock, patch
-import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
@@ -33,7 +30,9 @@ class TestConnectionConfigPriority:
         args = MockArgs()
         from rhosocial.activerecord.backend.impl.sqlite.cli.connection import resolve_connection_config_from_args
 
-        with patch("rhosocial.activerecord.backend.impl.sqlite.cli.connection.NamedConnectionResolver") as mock_resolver:
+        with patch(
+            "rhosocial.activerecord.backend.impl.sqlite.cli.connection.NamedConnectionResolver"
+        ):
             config = resolve_connection_config_from_args(args)
 
         assert config.database == ":memory:"
@@ -85,11 +84,9 @@ class TestConnectionConfigPriority:
             "rhosocial.activerecord.backend.impl.sqlite.cli.connection.NamedConnectionResolver",
             return_value=mock_resolver,
         ):
-            config = resolve_connection_config_from_args(args)
+            resolve_connection_config_from_args(args)
 
-        mock_resolver.resolve.assert_called_once_with(
-            {"database": "/custom/path.db", "timeout": "30"}
-        )
+        mock_resolver.resolve.assert_called_once_with({"database": "/custom/path.db", "timeout": "30"})
 
     def test_named_connection_overridden_by_db_file(self):
         """Test that --db-file overrides named connection's database."""

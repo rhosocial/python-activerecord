@@ -46,6 +46,7 @@ Warning:
     This module is for backend CLI tools. For programmatic access
     to named expressions, use NamedExpressionResolver directly.
 """
+
 import argparse
 import importlib
 import sys
@@ -166,7 +167,7 @@ def create_named_expression_parser(
         action="store_true",
         dest="list_queries",
         help="List all discoverable named expressions in the given module. "
-             "If a specific expression name is given, show detailed info.",
+        "If a specific expression name is given, show detailed info.",
     )
     ne_parser.add_argument(
         "--force",
@@ -314,8 +315,7 @@ def handle_named_expression(
 
             if not module_name and not example_name:
                 print(
-                    "Error: module name required for --list. "
-                    "Usage: <module_name> --list",
+                    "Error: module name required for --list. Usage: <module_name> --list",
                     file=sys.stderr,
                 )
                 sys.exit(1)
@@ -360,12 +360,11 @@ def handle_named_expression(
                         default_str = f" default={ps['default']}" if ps["has_default"] else ""
                         ann_warn = " ⚠" if not ps["annotated"] else ""
                         print(
-                            f"  {ps['name']:20} {ps['kind']:12}"
-                            f" {ps['annotation']:20}{default_str}{required}{ann_warn}"
+                            f"  {ps['name']:20} {ps['kind']:12} {ps['annotation']:20}{default_str}{required}{ann_warn}"
                         )
                     print()
                     print("Full Docstring:")
-                    print(_replace_prog_placeholder(matched['docstring']))
+                    print(_replace_prog_placeholder(matched["docstring"]))
                 else:
                     print(
                         f"Expression '{example_name}' not found in module '{module_name}'",
@@ -405,11 +404,9 @@ def handle_named_expression(
                     else:
                         print(f"\nTags: {tags_str}")
 
-            unannotated_count = sum(
-                1 for q in expressions for ps in q.get("param_specs", []) if not ps["annotated"]
-            )
+            unannotated_count = sum(1 for q in expressions for ps in q.get("param_specs", []) if not ps["annotated"])
             if unannotated_count > 0:
-                msg = f"Warning: {unannotated_count} parameter(s) without type annotations. Add type hints to suppress this warning."
+                msg = f"Warning: {unannotated_count} parameter(s) without type annotations. Add type hints to suppress this warning."  # noqa: E501
                 if hasattr(provider, "console"):
                     provider.console.print(f"[yellow]{msg}[/yellow]")
                 else:
@@ -457,8 +454,7 @@ def handle_named_expression(
 
     if is_async and not backend_async_factory:
         print(
-            "Error: --async requires asynchronous backend support. "
-            "Please provide async backend factory.",
+            "Error: --async requires asynchronous backend support. Please provide async backend factory.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -508,6 +504,7 @@ def handle_named_expression(
 
     if is_async:
         import asyncio
+
         asyncio.run(run_async())
         return
 
@@ -554,8 +551,17 @@ def _classify_expression(expression: Any) -> str:
     st = expression.statement_type
     tag_map = [
         ({StatementType.DQL, StatementType.SELECT}, "DQL"),
-        ({StatementType.DML, StatementType.INSERT, StatementType.UPDATE,
-          StatementType.DELETE, StatementType.MERGE, StatementType.TRUNCATE}, "DML"),
+        (
+            {
+                StatementType.DML,
+                StatementType.INSERT,
+                StatementType.UPDATE,
+                StatementType.DELETE,
+                StatementType.MERGE,
+                StatementType.TRUNCATE,
+            },
+            "DML",
+        ),
         ({StatementType.DDL}, "DDL"),
         ({StatementType.TCL}, "TCL"),
         ({StatementType.CALL, StatementType.EXECUTE}, "CALL"),

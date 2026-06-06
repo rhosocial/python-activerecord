@@ -2,10 +2,12 @@
 """
 Supplementary tests for SQLiteDialect formatting methods
 """
+
 import pytest
 from unittest.mock import Mock
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
 
 class TestSQLiteDialectFormatting:
     """Test SQLiteDialect formatting functionality"""
@@ -22,14 +24,17 @@ class TestSQLiteDialectFormatting:
         assert dialect.format_identifier('col"umn') == '"col""umn"'
         assert dialect.format_identifier('"quoted"') == '"""quoted"""'
 
-    @pytest.mark.parametrize("identifier,expected", [
-        ("simple", '"simple"'),
-        ("with_space", '"with_space"'),
-        ('with"quote', '"with""quote"'),
-        ('"already"quoted"', '"""already""quoted"""'),
-        ("with.dot", '"with.dot"'),
-        ("with-dash", '"with-dash"'),
-    ])
+    @pytest.mark.parametrize(
+        "identifier,expected",
+        [
+            ("simple", '"simple"'),
+            ("with_space", '"with_space"'),
+            ('with"quote', '"with""quote"'),
+            ('"already"quoted"', '"""already""quoted"""'),
+            ("with.dot", '"with.dot"'),
+            ("with-dash", '"with-dash"'),
+        ],
+    )
     def test_format_identifier_parametrized(self, identifier, expected):
         """Parametrized test for identifier formatting"""
         dialect = SQLiteDialect()
@@ -109,11 +114,14 @@ class TestSQLiteDialectFormatting:
         assert "GROUPING SETS" in str(exc_info.value)
         assert "SQLite" in str(exc_info.value)
 
-    @pytest.mark.parametrize("operation,expected_error_part", [
-        ("ROLLUP", "ROLLUP"),
-        ("CUBE", "CUBE"),
-        ("GROUPING SETS", "GROUPING SETS"),
-    ])
+    @pytest.mark.parametrize(
+        "operation,expected_error_part",
+        [
+            ("ROLLUP", "ROLLUP"),
+            ("CUBE", "CUBE"),
+            ("GROUPING SETS", "GROUPING SETS"),
+        ],
+    )
     def test_formatting_grouping_methods_unsupported(self, operation, expected_error_part):
         """Parametrized test for unsupported grouping formatting methods"""
         dialect = SQLiteDialect()
@@ -127,6 +135,7 @@ class TestSQLiteDialectFormatting:
         """Test array expression formatting error"""
         from unittest.mock import MagicMock
         from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
+
         dialect = SQLiteDialect()
 
         # Create a mock ArrayExpression to pass to format_array_expression
@@ -171,6 +180,7 @@ class TestSQLiteDialectFormatting:
         from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         from rhosocial.activerecord.backend.expression.core import Column
+
         mock_agg = OrderedSetAggregation(dialect, "func", [], OrderByClause(dialect, [Column(dialect, "test")]))
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
@@ -190,17 +200,21 @@ class TestSQLiteDialectFormatting:
         assert "QUALIFY clause" in str(exc_info.value)
         assert "SQLite does not support QUALIFY clause" in str(exc_info.value)
 
-    @pytest.mark.parametrize("operation,method_name,expected_error_part", [
-        ("operation", "format_array_expression", "Array operations"),
-        ("operation", "format_json_table_expression", "JSON_TABLE function"),
-        ("operation", "format_match_clause", "graph MATCH clause"),
-        ("operation", "format_ordered_set_aggregation", "ordered-set aggregate functions"),
-        ("operation", "format_qualify_clause", "QUALIFY clause"),
-    ])
+    @pytest.mark.parametrize(
+        "operation,method_name,expected_error_part",
+        [
+            ("operation", "format_array_expression", "Array operations"),
+            ("operation", "format_json_table_expression", "JSON_TABLE function"),
+            ("operation", "format_match_clause", "graph MATCH clause"),
+            ("operation", "format_ordered_set_aggregation", "ordered-set aggregate functions"),
+            ("operation", "format_qualify_clause", "QUALIFY clause"),
+        ],
+    )
     def test_formatting_methods_unsupported(self, operation, method_name, expected_error_part):
         """Parametrized test for unsupported formatting methods"""
         from unittest.mock import MagicMock
         from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
+
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
 
@@ -220,6 +234,7 @@ class TestSQLiteDialectFormatting:
                 from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
                 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
                 from rhosocial.activerecord.backend.expression.core import Column
+
                 mock_agg = OrderedSetAggregation(dialect, "func", [], OrderByClause(dialect, [Column(dialect, "test")]))
                 method(mock_agg)
             else:

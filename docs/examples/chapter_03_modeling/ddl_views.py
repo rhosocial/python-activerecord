@@ -9,7 +9,6 @@ Demonstrates DDL operations for views:
 """
 
 from typing import ClassVar
-from pydantic import Field
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
@@ -21,7 +20,6 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     TableExpression,
     Column,
-    Literal,
 )
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
@@ -31,6 +29,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 class User(ActiveRecord):
     """User Model for DDL view demo"""
+
     name: str
     email: str
     status: str = "active"
@@ -54,40 +53,20 @@ def main():
 
     # Create base table first
     user_columns = [
-        ColumnDefinition(
-            "id",
-            "INTEGER",
-            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
-        ),
-        ColumnDefinition(
-            "name",
-            "VARCHAR(100)",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-        ),
-        ColumnDefinition(
-            "email",
-            "VARCHAR(255)",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-        ),
-        ColumnDefinition("status", "VARCHAR(20)")
+        ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition("name", "VARCHAR(100)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("email", "VARCHAR(255)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("status", "VARCHAR(20)"),
     ]
 
-    create_users = CreateTableExpression(
-        dialect=dialect,
-        table_name="users",
-        columns=user_columns
-    )
+    create_users = CreateTableExpression(dialect=dialect, table_name="users", columns=user_columns)
     sql_str, params_str = create_users.to_sql()
     backend.execute(sql_str, params_str)
     print("Users table created.")
 
     # Insert some sample data
-    backend.execute(
-        "INSERT INTO users (id, name, email, status) VALUES (1, 'Alice', 'alice@example.com', 'active')"
-    )
-    backend.execute(
-        "INSERT INTO users (id, name, email, status) VALUES (2, 'Bob', 'bob@example.com', 'inactive')"
-    )
+    backend.execute("INSERT INTO users (id, name, email, status) VALUES (1, 'Alice', 'alice@example.com', 'active')")
+    backend.execute("INSERT INTO users (id, name, email, status) VALUES (2, 'Bob', 'bob@example.com', 'inactive')")
     backend.execute(
         "INSERT INTO users (id, name, email, status) VALUES (3, 'Charlie', 'charlie@example.com', 'active')"
     )
@@ -101,19 +80,11 @@ def main():
     # We use a simple SELECT without WHERE parameter.
     all_users_query = QueryExpression(
         dialect,
-        select=[
-            Column(dialect, "id"),
-            Column(dialect, "name"),
-            Column(dialect, "email")
-        ],
-        from_=TableExpression(dialect, "users")
+        select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
+        from_=TableExpression(dialect, "users"),
     )
 
-    create_active_view = CreateViewExpression(
-        dialect,
-        view_name="all_users",
-        query=all_users_query
-    )
+    create_active_view = CreateViewExpression(dialect, view_name="all_users", query=all_users_query)
 
     sql, params = create_active_view.to_sql()
     print("=== Create Basic View ===")
@@ -143,20 +114,15 @@ def main():
     # ============================================================
     user_details_query = QueryExpression(
         dialect,
-        select=[
-            Column(dialect, "id"),
-            Column(dialect, "name"),
-            Column(dialect, "email"),
-            Column(dialect, "status")
-        ],
-        from_=TableExpression(dialect, "users")
+        select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email"), Column(dialect, "status")],
+        from_=TableExpression(dialect, "users"),
     )
 
     create_aliased_view = CreateViewExpression(
         dialect,
         view_name="user_details",
         query=user_details_query,
-        column_aliases=["user_id", "full_name", "contact_email", "user_status"]
+        column_aliases=["user_id", "full_name", "contact_email", "user_status"],
     )
 
     sql, params = create_aliased_view.to_sql()
@@ -179,20 +145,10 @@ def main():
     # Example 3: Create view with OR REPLACE
     # ============================================================
     all_users_query = QueryExpression(
-        dialect,
-        select=[
-            Column(dialect, "id"),
-            Column(dialect, "name")
-        ],
-        from_=TableExpression(dialect, "users")
+        dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=TableExpression(dialect, "users")
     )
 
-    create_replace_view = CreateViewExpression(
-        dialect,
-        view_name="active_users",
-        query=all_users_query,
-        replace=True
-    )
+    create_replace_view = CreateViewExpression(dialect, view_name="active_users", query=all_users_query, replace=True)
 
     sql, params = create_replace_view.to_sql()
     print("=== Create View with OR REPLACE ===")
@@ -213,11 +169,7 @@ def main():
     # ============================================================
     # Example 4: Drop view
     # ============================================================
-    drop_view = DropViewExpression(
-        dialect,
-        view_name="user_details",
-        if_exists=True
-    )
+    drop_view = DropViewExpression(dialect, view_name="user_details", if_exists=True)
 
     sql, params = drop_view.to_sql()
     print("=== Drop View ===")

@@ -16,11 +16,10 @@ import json
 import logging
 import pickle
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, date, time, timedelta
 from enum import Enum
-from typing import (TYPE_CHECKING, Any, Callable, Dict, Generic, Optional,
-                    Protocol, TypeVar, Union)
+from typing import TYPE_CHECKING, Any, Dict, Generic, Optional, Protocol, TypeVar
 
 if TYPE_CHECKING:
     from ..cache import CacheConfig
@@ -34,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
     """JSON encoder that handles common Python types beyond the standard set."""
+
     def default(self, o: Any) -> Any:
         if isinstance(o, (datetime, date)):
             return {"__type__": "datetime", "value": o.isoformat()}
@@ -106,8 +106,7 @@ class CacheBackend(Protocol[T]):
         instance: Any,
         relation_name: str,
         config: CacheConfig,
-    ) -> Optional[T]:
-        ...
+    ) -> Optional[T]: ...
 
     def set(
         self,
@@ -115,16 +114,14 @@ class CacheBackend(Protocol[T]):
         relation_name: str,
         value: T,
         config: CacheConfig,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def delete(
         self,
         instance: Any,
         relation_name: str,
         config: Optional[CacheConfig] = None,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 def _msgpack_default(value: Any) -> Any:
@@ -193,19 +190,13 @@ class CacheSerializer:
     def __init__(self, format: str = "json"):
         normalized = self._FORMATS.get(format.lower())
         if normalized is None:
-            raise ValueError(
-                f"Unknown serializer format {format!r}. "
-                f"Choose from: {', '.join(self._FORMATS)}"
-            )
+            raise ValueError(f"Unknown serializer format {format!r}. Choose from: {', '.join(self._FORMATS)}")
         self._format = normalized
         if normalized == self.FORMAT_MSGPACK:
             try:
                 import msgpack  # noqa: F401
             except ImportError:
-                raise ImportError(
-                    "msgpack format requires the 'msgpack' package. "
-                    "Install it with: pip install msgpack"
-                )
+                raise ImportError("msgpack format requires the 'msgpack' package. Install it with: pip install msgpack")  # noqa: B904
         elif normalized == self.FORMAT_PICKLE:
             warnings.warn(
                 "Pickle deserialization is unsafe. Only use this format "
@@ -224,6 +215,7 @@ class CacheSerializer:
             return json.dumps(value, cls=_EnhancedJSONEncoder, ensure_ascii=False).encode("utf-8")
         elif self._format == self.FORMAT_MSGPACK:
             import msgpack
+
             return msgpack.dumps(value, default=_msgpack_default)
         else:
             return pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
@@ -233,6 +225,7 @@ class CacheSerializer:
             return json.loads(data.decode("utf-8"))
         elif self._format == self.FORMAT_MSGPACK:
             import msgpack
+
             return msgpack.loads(data, object_hook=_msgpack_object_hook)
         else:
             return pickle.loads(data)

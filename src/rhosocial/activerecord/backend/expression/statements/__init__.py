@@ -115,6 +115,13 @@ from .ddl_trigger import (
 # Function DDL
 from .ddl_function import CreateFunctionExpression, DropFunctionExpression
 
+# Partition DDL
+from .ddl_partition import (
+    PartitionStrategy,  # noqa: F811
+    PartitionKey,  # noqa: F811
+    PartitionClause,
+)
+
 # Re-export shared type alias
 from ._types import FromSourceType
 
@@ -150,6 +157,8 @@ __all__ = [
     "ColumnDefinition",
     "TableConstraintType",
     "ReferentialAction",
+    "PartitionStrategy",
+    "PartitionKey",
     "ConstraintValidation",
     "TableConstraint",
     "ForeignKeyConstraint",
@@ -206,6 +215,8 @@ __all__ = [
     # Function DDL
     "CreateFunctionExpression",
     "DropFunctionExpression",
+    # Partition DDL
+    "PartitionClause",
     # Type aliases
     "FromSourceType",
 ]

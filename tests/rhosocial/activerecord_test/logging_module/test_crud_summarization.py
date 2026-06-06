@@ -40,7 +40,7 @@ class Article(ActiveRecord):
 @pytest.fixture
 def temp_db():
     """Create a temporary database file."""
-    fd, path = tempfile.mkstemp(suffix='.db')
+    fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     yield path
     os.unlink(path)
@@ -54,7 +54,7 @@ def configured_logging():
         default_level=logging.DEBUG,
         summarizer_config=SummarizerConfig(
             max_string_length=50,
-            sensitive_fields={'secret_code', 'password', 'token'},
+            sensitive_fields={"secret_code", "password", "token"},
         ),
         log_data_mode=LogDataMode.SUMMARY,
     )
@@ -154,10 +154,7 @@ class TestSummarizerModes:
 
     def test_keys_only_mode(self):
         """Test keys_only mode shows only field names."""
-        config = SummarizerConfig(
-            max_string_length=50,
-            sensitive_fields={'secret_code', 'password'}
-        )
+        config = SummarizerConfig(max_string_length=50, sensitive_fields={"secret_code", "password"})
         summarizer = DataSummarizer(config)
 
         data = {
@@ -174,10 +171,7 @@ class TestSummarizerModes:
 
     def test_summary_mode_truncates_long_values(self):
         """Test summary mode truncates long values."""
-        config = SummarizerConfig(
-            max_string_length=20,
-            sensitive_fields={'secret_code', 'password'}
-        )
+        config = SummarizerConfig(max_string_length=20, sensitive_fields={"secret_code", "password"})
         summarizer = DataSummarizer(config)
 
         data = {
@@ -195,10 +189,7 @@ class TestSummarizerModes:
 
     def test_summary_mode_masks_sensitive_fields(self):
         """Test that sensitive fields are masked."""
-        config = SummarizerConfig(
-            max_string_length=50,
-            sensitive_fields={'password', 'token', 'api_key'}
-        )
+        config = SummarizerConfig(max_string_length=50, sensitive_fields={"password", "token", "api_key"})
         summarizer = DataSummarizer(config)
 
         data = {
@@ -217,10 +208,7 @@ class TestSummarizerModes:
 
     def test_mask_sensitive_preserves_other_data(self):
         """Test mask_sensitive preserves non-sensitive data."""
-        config = SummarizerConfig(
-            max_string_length=20,
-            sensitive_fields={'secret_code', 'password'}
-        )
+        config = SummarizerConfig(max_string_length=20, sensitive_fields={"secret_code", "password"})
         summarizer = DataSummarizer(config)
 
         data = {
@@ -292,4 +280,4 @@ class TestLogDataMethods:
 
         result = Article.get_logging_config().summarize_data({"title": "Test Article"})
 
-        assert result == '<hidden>'
+        assert result == "<hidden>"

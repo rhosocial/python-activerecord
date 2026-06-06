@@ -69,7 +69,7 @@ class SQLitePragmaMixin:
         "wal_checkpoint": "FULL",
     }
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize with default pragmas if none provided."""
         if not self.pragmas:
             self.pragmas = self.DEFAULT_PRAGMAS.copy()
@@ -112,7 +112,7 @@ class SQLiteConnectionConfig(ConnectionConfig, SQLitePragmaMixin, SQLiteDriverMi
     parameters and functionality.
     """
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize with default pragmas and ensure valid database."""
         SQLitePragmaMixin.__post_init__(self)
         if self.database is None:
@@ -230,7 +230,7 @@ class SQLiteInMemoryConfig(SQLiteConnectionConfig):
 
     database: str = SQLITE_MEMORY_DB
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize with memory-optimized pragmas."""
         super().__post_init__()
         # Override pragmas for memory database
@@ -241,7 +241,7 @@ class SQLiteInMemoryConfig(SQLiteConnectionConfig):
 class SQLiteTempFileConfig(SQLiteConnectionConfig):
     """Temporary file SQLite database configuration."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize with temporary file settings."""
         super().__post_init__()
         import tempfile

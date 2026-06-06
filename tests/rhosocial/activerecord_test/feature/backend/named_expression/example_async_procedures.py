@@ -5,6 +5,7 @@ Async example procedures for testing.
 This module contains sample async procedure definitions for testing
 the named procedure functionality with async execution.
 """
+
 import types
 from rhosocial.activerecord.backend.named_expression.procedure import (
     AsyncProcedure,
@@ -50,10 +51,13 @@ class AsyncMultiStepProcedure(AsyncProcedure):
     async def run(self, ctx: AsyncProcedureContext) -> None:
         await ctx.log(f"Step 1: Starting procedure for month {self.month}")
 
-        await ctx.bind("users", [
-            {"id": 1, "name": "Alice"},
-            {"id": 2, "name": "Bob"},
-        ])
+        await ctx.bind(
+            "users",
+            [
+                {"id": 1, "name": "Alice"},
+                {"id": 2, "name": "Bob"},
+            ],
+        )
 
         user_count = sum(1 async for _ in ctx.rows("users"))
         await ctx.log(f"Step 2: Found {user_count} users")
@@ -82,25 +86,34 @@ class AsyncDataAggregationProcedure(AsyncProcedure):
     """An async procedure that aggregates data from multiple queries."""
 
     async def run(self, ctx: AsyncProcedureContext) -> None:
-        await ctx.bind("sales", [
-            {"product": "A", "amount": 100},
-            {"product": "B", "amount": 200},
-            {"product": "C", "amount": 150},
-        ])
+        await ctx.bind(
+            "sales",
+            [
+                {"product": "A", "amount": 100},
+                {"product": "B", "amount": 200},
+                {"product": "C", "amount": 150},
+            ],
+        )
 
-        await ctx.bind("returns", [
-            {"product": "A", "amount": 10},
-            {"product": "C", "amount": 20},
-        ])
+        await ctx.bind(
+            "returns",
+            [
+                {"product": "A", "amount": 10},
+                {"product": "C", "amount": 20},
+            ],
+        )
 
         total_sales = sum(row["amount"] async for row in ctx.rows("sales"))
         total_returns = sum(row["amount"] async for row in ctx.rows("returns"))
 
-        await ctx.bind("summary", {
-            "total_sales": total_sales,
-            "total_returns": total_returns,
-            "net": total_sales - total_returns,
-        })
+        await ctx.bind(
+            "summary",
+            {
+                "total_sales": total_sales,
+                "total_returns": total_returns,
+                "net": total_sales - total_returns,
+            },
+        )
 
         await ctx.log(f"Sales: {total_sales}, Returns: {total_returns}, Net: {total_sales - total_returns}")
 

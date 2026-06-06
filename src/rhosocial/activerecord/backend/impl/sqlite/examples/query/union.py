@@ -14,27 +14,27 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
     DropTableExpression,
 )
-from rhosocial.activerecord.backend.expression.core import Literal, Column
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table='users',
+    table="users",
     columns=[
-        ColumnDefinition('id', 'INT'),
-        ColumnDefinition('name', 'TEXT'),
+        ColumnDefinition("id", "INT"),
+        ColumnDefinition("name", "TEXT"),
     ],
     if_not_exists=True,
 )
@@ -44,12 +44,15 @@ backend.execute(sql, params)
 
 insert = InsertExpression(
     dialect=dialect,
-    into='users',
-    columns=['id', 'name'],
-    source=ValuesSource(dialect, [
-        [Literal(dialect, 1), Literal(dialect, 'Alice')],
-        [Literal(dialect, 2), Literal(dialect, 'Bob')],
-    ]),
+    into="users",
+    columns=["id", "name"],
+    source=ValuesSource(
+        dialect,
+        [
+            [Literal(dialect, 1), Literal(dialect, "Alice")],
+            [Literal(dialect, 2), Literal(dialect, "Bob")],
+        ],
+    ),
 )
 sql, params = insert.to_sql()
 print(f"Insert SQL: {sql}")
@@ -58,7 +61,7 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: UNION (using SetOperationExpression)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     QueryExpression,
     TableExpression,
     SetOperationExpression,
@@ -67,20 +70,20 @@ from rhosocial.activerecord.backend.expression import (
 # First query
 query1 = QueryExpression(
     dialect=dialect,
-    select=[Column(dialect, 'name')],
-    from_=TableExpression(dialect, 'users'),
+    select=[Column(dialect, "name")],
+    from_=TableExpression(dialect, "users"),
 )
 
 query2 = QueryExpression(
     dialect=dialect,
-    select=[Literal(dialect, 'Charlie')],
+    select=[Literal(dialect, "Charlie")],
 )
 
 # Union
 union_expr = SetOperationExpression(
     dialect=dialect,
     left=query1,
-    operation='UNION',
+    operation="UNION",
     right=query2,
 )
 sql, params = union_expr.to_sql()
@@ -97,7 +100,7 @@ print(f"Result: {result.data}")
 union_all = SetOperationExpression(
     dialect=dialect,
     left=query1,
-    operation='UNION',
+    operation="UNION",
     all_=True,
     right=query2,
 )
@@ -109,7 +112,7 @@ print(f"UNION ALL result: {result.data}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table='users', if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table="users", if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

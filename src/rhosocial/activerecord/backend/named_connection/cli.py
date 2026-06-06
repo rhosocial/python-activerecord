@@ -31,6 +31,7 @@ Note:
     This module is for backend CLI tools. For programmatic access
     to named connections, use NamedConnectionResolver directly.
 """
+
 import argparse
 import sys
 from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
 # CLI-specific exceptions
 class NamedConnectionCliError(Exception):
     """Base exception for CLI-specific named connection errors."""
+
     pass
 
 
@@ -69,7 +71,7 @@ def parse_params(params: list) -> Dict[str, str]:
 
 def resolve_connection_config(
     args: Any,
-    named_connection_resolver_factory: Callable[[str], "NamedConnectionResolver"],
+    named_connection_resolver_factory: Callable[[str], "NamedConnectionResolver"],  # noqa: F821
 ) -> Optional["BaseConfig"]:
     """Resolve connection config from CLI arguments.
 
@@ -224,7 +226,7 @@ def create_named_connection_parser(
 
 def handle_named_connection(
     args: Any,
-    named_connection_resolver_factory: Callable[[str], "NamedConnectionResolver"],
+    named_connection_resolver_factory: Callable[[str], "NamedConnectionResolver"],  # noqa: F821
     provider: Any = None,
 ) -> None:
     """Handle named-connection subcommand execution.
@@ -251,6 +253,7 @@ def handle_named_connection(
 
         try:
             from . import list_named_connections_in_module
+
             connections = list_named_connections_in_module(module_name)
 
             if not connections:
@@ -289,7 +292,7 @@ def handle_named_connection(
             print(f"Signature: {info['signature']}")
             print("Parameters:")
             for name, param in info["parameters"].items():
-                default_str = f" default={param['default']}" if param['has_default'] else ""
+                default_str = f" default={param['default']}" if param["has_default"] else ""
                 print(f"  {name} {param['type']}{default_str}")
 
             if info.get("config_preview"):

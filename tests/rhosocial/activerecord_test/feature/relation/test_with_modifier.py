@@ -7,6 +7,7 @@ These tests specifically cover:
 2. Later parameters overwrite earlier ones
 3. Warning is issued when modifier is overwritten
 """
+
 import logging
 from typing import List, Optional, Any, Union, Tuple, Dict, Set
 from unittest.mock import MagicMock
@@ -14,7 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from rhosocial.activerecord.interface import IQuery
-from rhosocial.activerecord.query.relational import RelationalQueryMixin, RelationConfig
+from rhosocial.activerecord.query.relational import RelationalQueryMixin
 
 
 class MockQueryBase(IQuery):
@@ -30,6 +31,7 @@ class MockQueryBase(IQuery):
         self.offset_count = None
         from rhosocial.activerecord.backend.expression import WildcardExpression
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
         self.select_columns = [WildcardExpression(SQLiteDialect())]
         self._explain_enabled = False
         self._explain_options = None
@@ -43,25 +45,25 @@ class MockQueryBase(IQuery):
     def one_or_fail(self) -> Any:
         return None
 
-    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
+    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> "IQuery":
         return self
 
-    def or_where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
+    def or_where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> "IQuery":
         return self
 
-    def order_by(self, *clauses: str) -> 'IQuery':
+    def order_by(self, *clauses: str) -> "IQuery":
         return self
 
-    def join(self, join_clause: str) -> 'IQuery':
+    def join(self, join_clause: str) -> "IQuery":
         return self
 
-    def limit(self, count: int) -> 'IQuery':
+    def limit(self, count: int) -> "IQuery":
         return self
 
-    def offset(self, count: int) -> 'IQuery':
+    def offset(self, count: int) -> "IQuery":
         return self
 
-    def select(self, *columns: str, append: bool = False) -> 'IQuery':
+    def select(self, *columns: str, append: bool = False) -> "IQuery":
         return self
 
     def count(self) -> int:
@@ -76,45 +78,47 @@ class MockQueryBase(IQuery):
     def to_sql(self) -> Tuple[str, tuple]:
         return "", ()
 
-    def explain(self, *args, **kwargs) -> 'IQuery':
+    def explain(self, *args, **kwargs) -> "IQuery":
         return self
 
-    def between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':
+    def between(self, column: str, start: Any, end: Any) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def not_between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':
+    def not_between(self, column: str, start: Any, end: Any) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def start_or_group(self) -> 'IQuery[ModelT]':
+    def start_or_group(self) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def end_or_group(self) -> 'IQuery[ModelT]':
+    def end_or_group(self) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def in_list(self, column: str, values: Union[List[Any], Tuple[Any, ...]],
-                empty_result: bool = True) -> 'IQuery[ModelT]':
+    def in_list(
+        self, column: str, values: Union[List[Any], Tuple[Any, ...]], empty_result: bool = True
+    ) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def is_not_null(self, column: str) -> 'IQuery[ModelT]':
+    def is_not_null(self, column: str) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def is_null(self, column: str) -> 'IQuery[ModelT]':
+    def is_null(self, column: str) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def like(self, column: str, pattern: str) -> 'IQuery[ModelT]':
+    def like(self, column: str, pattern: str) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def not_like(self, column: str, pattern: str) -> 'IQuery[ModelT]':
+    def not_like(self, column: str, pattern: str) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def not_in(self, column: str, values: Union[List[Any], Tuple[Any, ...]],
-               empty_result: bool = False) -> 'IQuery[ModelT]':
+    def not_in(
+        self, column: str, values: Union[List[Any], Tuple[Any, ...]], empty_result: bool = False
+    ) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def query(self, conditions: Optional[Dict[str, Any]] = None) -> 'IQuery[ModelT]':
+    def query(self, conditions: Optional[Dict[str, Any]] = None) -> "IQuery[ModelT]":  # noqa: F821
         return self
 
-    def to_dict(self, include: Optional[Set[str]] = None, exclude: Optional[Set[str]] = None) -> 'IDictQuery[ModelT]':
+    def to_dict(self, include: Optional[Set[str]] = None, exclude: Optional[Set[str]] = None) -> "IDictQuery[ModelT]":  # noqa: F821
         return self
 
 
@@ -140,6 +144,7 @@ class TestModifierExpansionRule:
         - 'posts' -> None (intermediate, no modifier)
         - 'posts.comments' -> modifier (target, has modifier)
         """
+
         def my_modifier(q):
             return q.where("status = 'published'")
 
@@ -155,6 +160,7 @@ class TestModifierExpansionRule:
 
     def test_deep_nested_modifier_only_on_leaf(self, query):
         """Test deeply nested path - modifier only on the leaf."""
+
         def deep_modifier(q):
             return q.where("id > 0")
 
@@ -169,6 +175,7 @@ class TestModifierExpansionRule:
 
     def test_multiple_relations_each_with_own_modifier(self, query):
         """Test multiple relations each with their own modifier."""
+
         def modifier_a(q):
             q.name = "a"
             return q
@@ -189,6 +196,7 @@ class TestModifierExpansionRule:
 
     def test_simple_path_with_modifier(self, query):
         """Test simple path - modifier applies to the only relation."""
+
         def filter_modifier(q):
             return q.where("active = true")
 
@@ -209,6 +217,7 @@ class TestLaterParameterOverwritesEarlier:
 
     def test_later_modifier_overwrites_same_path(self, query):
         """Test that later modifier overwrites earlier one for the same path."""
+
         def modifier_v1(q):
             q.version = 1
             return q
@@ -238,6 +247,7 @@ class TestLaterParameterOverwritesEarlier:
         - 'posts.comments' -> m2 (overwritten!)
         - 'posts.comments.user' -> m2
         """
+
         def modifier_1(q):
             q.filter = "draft"
             return q
@@ -269,6 +279,7 @@ class TestLaterParameterOverwritesEarlier:
         - 'posts.comments' -> m1 (not overwritten because shorter path comes later)
         - 'posts.comments.user' -> m2
         """
+
         def modifier_1(q):
             q.filter = "draft"
             return q
@@ -298,6 +309,7 @@ class TestModifierOverwriteWarning:
 
     def test_warning_when_modifier_overwritten(self, query):
         """Test that warning is issued when modifier is overwritten."""
+
         def modifier_v1(q):
             return q.where("status = 'draft'")
 
@@ -315,6 +327,7 @@ class TestModifierOverwriteWarning:
 
     def test_warning_shows_function_names(self, query):
         """Test that warning shows function names for named functions."""
+
         def filter_draft(q):
             return q.where("status = 'draft'")
 
@@ -327,12 +340,13 @@ class TestModifierOverwriteWarning:
         )
 
         log_calls = [str(call) for call in query._log.call_args_list]
-        log_messages = ' '.join(log_calls)
+        log_messages = " ".join(log_calls)
         assert "filter_draft" in log_messages
         assert "filter_published" in log_messages
 
     def test_no_warning_when_same_modifier(self, query):
         """Test that no warning is issued when same modifier is used."""
+
         def same_modifier(q):
             return q.where("status = 'published'")
 
@@ -346,6 +360,7 @@ class TestModifierOverwriteWarning:
 
     def test_no_warning_when_overwriting_with_none(self, query):
         """Test that no warning when overwriting with None (explicit clear)."""
+
         def some_modifier(q):
             return q.where("status = 'published'")
 
@@ -359,6 +374,7 @@ class TestModifierOverwriteWarning:
 
     def test_warning_for_nested_path_overwrite(self, query):
         """Test warning when nested path overwrites parent path modifier."""
+
         def parent_modifier(q):
             return q.where("parent = true")
 
@@ -376,6 +392,7 @@ class TestModifierOverwriteWarning:
     def test_no_warning_for_different_paths(self, query, caplog):
         """Test that no warning for different relation paths."""
         with caplog.at_level(logging.WARNING):
+
             def modifier_a(q):
                 return q.where("a = 1")
 
@@ -399,6 +416,7 @@ class TestDocumentationExamples:
 
     def test_documentation_example_expansion(self, query):
         """Test the documentation example: ('posts.comments', modifier1) expands correctly."""
+
         def modifier1(q):
             return q.where("published = true")
 
@@ -411,6 +429,7 @@ class TestDocumentationExamples:
 
     def test_documentation_example_overwrite(self, query):
         """Test the documentation example: m2 overwrites m1 for posts.comments."""
+
         def m1(q):
             q.filter = "draft"
             return q
@@ -432,6 +451,7 @@ class TestDocumentationExamples:
 
     def test_documentation_correct_order(self, query):
         """Test the documentation correct order example."""
+
         def m1(q):
             q.filter = "draft"
             return q

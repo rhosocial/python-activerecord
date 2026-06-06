@@ -2,7 +2,6 @@
 from rhosocial.activerecord.backend.expression.statements import ExplainType, ExplainOptions, ExplainExpression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.expression.core import Literal
 
 
@@ -11,15 +10,12 @@ def test_format_explain_basic():
     dialect = SQLiteDialect()
 
     # Test basic EXPLAIN - need to create an ExplainExpression
-    sql = "SELECT * FROM users"
     from rhosocial.activerecord.backend.expression.core import TableExpression
     from rhosocial.activerecord.backend.expression.statements import QueryExpression
 
     # Create a query expression to explain
     query_expr = QueryExpression(
-        dialect=dialect,
-        select=[Literal(dialect, "*")],
-        from_=TableExpression(dialect, "users")
+        dialect=dialect, select=[Literal(dialect, "*")], from_=TableExpression(dialect, "users")
     )
 
     explain_expr = ExplainExpression(dialect, statement=query_expr)
@@ -40,7 +36,7 @@ def test_format_explain_query_plan():
         dialect=dialect,
         select=[Literal(dialect, "*")],
         from_=TableExpression(dialect, "users"),
-        where=Column(dialect, "id") == Literal(dialect, 1)
+        where=Column(dialect, "id") == Literal(dialect, 1),
     )
 
     options = ExplainOptions(analyze=False, type=ExplainType.QUERY_PLAN)
@@ -56,7 +52,6 @@ def test_format_explain_with_complex_sql():
     # Test with JOIN
     from rhosocial.activerecord.backend.expression.core import TableExpression, Column, Literal
     from rhosocial.activerecord.backend.expression.statements import QueryExpression
-    from rhosocial.activerecord.backend.expression.query_parts import JoinExpression, JoinType
 
     # Create a more complex query
     query_expr = QueryExpression(
@@ -71,11 +66,11 @@ def test_format_explain_with_complex_sql():
     assert "EXPLAIN" in explain_sql
 
     # Test with subquery
-    subquery_expr = QueryExpression(
+    QueryExpression(
         dialect=dialect,
         select=[Column(dialect, "user_id")],
         from_=TableExpression(dialect, "orders"),
-        where=Column(dialect, "total") > Literal(dialect, 100)
+        where=Column(dialect, "total") > Literal(dialect, 100),
     )
 
     main_query = QueryExpression(
@@ -94,21 +89,19 @@ def test_format_explain_with_complex_sql():
 def test_format_explain_with_options():
     """Test EXPLAIN formatting with different options"""
     dialect = SQLiteDialect()
-    sql = "SELECT * FROM users"
 
     from rhosocial.activerecord.backend.expression.core import TableExpression, Literal
     from rhosocial.activerecord.backend.expression.statements import QueryExpression
 
     # Create a query expression to explain
     query_expr = QueryExpression(
-        dialect=dialect,
-        select=[Literal(dialect, "*")],
-        from_=TableExpression(dialect, "users")
+        dialect=dialect, select=[Literal(dialect, "*")], from_=TableExpression(dialect, "users")
     )
 
     # Test different formats
     # Note: SQLite ignores format option but we still test the interface
     from rhosocial.activerecord.backend.expression.statements import ExplainFormat
+
     for format_type in [ExplainFormat.TEXT, ExplainFormat.JSON]:
         options = ExplainOptions(format=format_type)
         explain_expr = ExplainExpression(dialect, statement=query_expr, options=options)
@@ -134,17 +127,21 @@ def test_format_explain_integration():
     backend = SQLiteBackend(database=":memory:")
 
     # Create test table
-    backend.execute("""
+    backend.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL
         )
-    """, (), options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        (),
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     backend.execute(
         "INSERT INTO users (name) VALUES (?), (?)",
         ("test1", "test2"),
-        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+        options=ExecutionOptions(stmt_type=StatementType.INSERT),
     )
 
     # Test basic SELECT explain
@@ -152,7 +149,7 @@ def test_format_explain_integration():
     query_expr = QueryExpression(
         dialect=backend.dialect,
         select=[Literal(backend.dialect, "*")],
-        from_=TableExpression(backend.dialect, "users")
+        from_=TableExpression(backend.dialect, "users"),
         # No where clause to avoid parameter binding issues in EXPLAIN
     )
 
@@ -184,7 +181,7 @@ def test_format_explain_with_transactions():
     """Test EXPLAIN formatting within transactions"""
     from rhosocial.activerecord.backend.options import ExecutionOptions
     from rhosocial.activerecord.backend.schema import StatementType
-    from rhosocial.activerecord.backend.expression.core import TableExpression, Literal, Column
+    from rhosocial.activerecord.backend.expression.core import TableExpression, Literal
     from rhosocial.activerecord.backend.expression.statements import QueryExpression, ExplainExpression, ExplainOptions
     from rhosocial.activerecord.backend.expression.statements import ExplainType as ExpType  # Renamed to avoid conflict
 
@@ -192,17 +189,21 @@ def test_format_explain_with_transactions():
 
     with backend.transaction():
         # Create table and insert data
-        backend.execute("""
+        backend.execute(
+            """
             CREATE TABLE test (
                 id INTEGER PRIMARY KEY,
                 value TEXT
             )
-        """, (), options=ExecutionOptions(stmt_type=StatementType.DDL))
+        """,
+            (),
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
 
         backend.execute(
             "INSERT INTO test (value) VALUES (?), (?)",
             ("test1", "test2"),
-            options=ExecutionOptions(stmt_type=StatementType.INSERT)
+            options=ExecutionOptions(stmt_type=StatementType.INSERT),
         )
 
         # Test simple query
@@ -226,7 +227,7 @@ def test_format_explain_with_transactions():
             dialect=backend.dialect,
             select=[Literal(backend.dialect, "COUNT(*) as cnt")],
             from_=TableExpression(backend.dialect, "test"),
-            # group_by_having=GroupByHavingClause(backend.dialect, group_by=[Column(backend.dialect, "value")])  # Simplified
+            # group_by_having=GroupByHavingClause(backend.dialect, group_by=[Column(backend.dialect, "value")])  # Simplified  # noqa: E501
         )
 
         explain_expr = ExplainExpression(backend.dialect, statement=agg_query)
@@ -236,6 +237,8 @@ def test_format_explain_with_transactions():
         assert result is not None
 
     # The record has already existed when the transaction exited.
-    result = backend.execute("SELECT COUNT(*) as cnt FROM test", (), options=ExecutionOptions(stmt_type=StatementType.SELECT))
+    result = backend.execute(
+        "SELECT COUNT(*) as cnt FROM test", (), options=ExecutionOptions(stmt_type=StatementType.SELECT)
+    )
     # Note: The result structure may be different, so we adjust the assertion
     assert result is not None

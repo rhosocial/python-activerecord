@@ -13,19 +13,19 @@ This example demonstrates:
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     QueryExpression,
     TableExpression,
     InsertExpression,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -33,18 +33,30 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('email', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ]),
-        ColumnDefinition('username', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ]),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition(
+            "email",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+            ],
+        ),
+        ColumnDefinition(
+            "username",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+            ],
+        ),
     ],
     if_not_exists=True,
 )
@@ -54,14 +66,14 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import CreateIndexExpression
+from rhosocial.activerecord.backend.expression import CreateIndexExpression  # noqa: E402
 
 # 1. CREATE UNIQUE INDEX on a single column
 create_email_idx = CreateIndexExpression(
     dialect=dialect,
-    index_name='idx_users_email',
-    table_name='users',
-    columns=['email'],
+    index_name="idx_users_email",
+    table_name="users",
+    columns=["email"],
     unique=True,
     if_not_exists=True,
 )
@@ -72,9 +84,9 @@ print(f"Params: {params}")
 # 2. CREATE UNIQUE INDEX on multiple columns (composite unique)
 create_composite_idx = CreateIndexExpression(
     dialect=dialect,
-    index_name='idx_users_username_email',
-    table_name='users',
-    columns=['username', 'email'],
+    index_name="idx_users_username_email",
+    table_name="users",
+    columns=["username", "email"],
     unique=True,
     if_not_exists=True,
 )
@@ -98,11 +110,14 @@ print("Index created: idx_users_username_email (UNIQUE on username, email)")
 # Insert initial row
 insert_expr = InsertExpression(
     dialect=dialect,
-    into='users',
-    columns=['email', 'username'],
-    source=ValuesSource(dialect, [
-        [Literal(dialect, 'alice@example.com'), Literal(dialect, 'alice')],
-    ]),
+    into="users",
+    columns=["email", "username"],
+    source=ValuesSource(
+        dialect,
+        [
+            [Literal(dialect, "alice@example.com"), Literal(dialect, "alice")],
+        ],
+    ),
 )
 sql, params = insert_expr.to_sql()
 backend.execute(sql, params)
@@ -112,11 +127,14 @@ print("Inserted: alice@example.com / alice")
 try:
     duplicate_insert = InsertExpression(
         dialect=dialect,
-        into='users',
-        columns=['email', 'username'],
-        source=ValuesSource(dialect, [
-            [Literal(dialect, 'alice@example.com'), Literal(dialect, 'alice2')],
-        ]),
+        into="users",
+        columns=["email", "username"],
+        source=ValuesSource(
+            dialect,
+            [
+                [Literal(dialect, "alice@example.com"), Literal(dialect, "alice2")],
+            ],
+        ),
     )
     sql, params = duplicate_insert.to_sql()
     backend.execute(sql, params)
@@ -128,7 +146,7 @@ except Exception as e:
 verify_query = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, 'users'),
+    from_=TableExpression(dialect, "users"),
 )
 sql, params = verify_query.to_sql()
 result = backend.execute(sql, params)

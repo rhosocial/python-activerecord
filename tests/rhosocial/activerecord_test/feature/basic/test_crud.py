@@ -19,17 +19,8 @@ tests against our specific (SQLite) backend.
 # the fixtures here makes the dependency clear and can help with test discovery
 # in some IDEs. These fixtures are defined in the testsuite package and are
 # parameterized to run against the scenarios defined in `providers/scenarios.py`.
-from rhosocial.activerecord.testsuite.feature.basic.conftest import (
-    user_class,
-    type_case_class,
-    type_test_model,
-    validated_user_class,
-    async_user_class,
-    async_type_case_class,
-    async_validated_user_class,
-)
 
 # By importing *, we bring all the test functions (e.g., `test_create_user`)
 # from the generic testsuite file into this module's scope. `pytest` then
 # discovers and runs them as if they were defined directly in this file.
-from rhosocial.activerecord.testsuite.feature.basic.test_crud import *
+from rhosocial.activerecord.testsuite.feature.basic.test_crud import *  # noqa: F403

@@ -206,8 +206,7 @@ class TestSQLXMLMixin:
         sql, params = expr.to_sql()
 
         assert sql == (
-            'XMLTABLE(? PASSING "payload" COLUMNS '
-            '("id" INTEGER PATH ?, "name" VARCHAR(100) PATH ? DEFAULT ?))'
+            'XMLTABLE(? PASSING "payload" COLUMNS ("id" INTEGER PATH ?, "name" VARCHAR(100) PATH ? DEFAULT ?))'
         )
         assert params == ("/root/item", "@id", "name", "unknown")
 

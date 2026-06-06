@@ -20,13 +20,13 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
 
@@ -67,7 +67,7 @@ for table, cols, rows in sample_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.named_expression import (
+from rhosocial.activerecord.backend.named_expression import (  # noqa: E402
     Procedure,
     ProcedureContext,
     ParallelStep,
@@ -177,7 +177,7 @@ if __name__ == "__main__":
 # ============================================================
 # SECTION: Execution (run the expression)
 # ============================================================
-from rhosocial.activerecord.backend.named_expression import ProcedureRunner, TransactionMode
+from rhosocial.activerecord.backend.named_expression import ProcedureRunner, TransactionMode  # noqa: E402
 
 if __name__ == "__main__":
     runner = ProcedureRunner(

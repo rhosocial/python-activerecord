@@ -31,22 +31,30 @@ from rhosocial.activerecord.backend.expression.statements import (
 from rhosocial.activerecord.backend.expression.statements.explain import ExplainType, ExplainOptions
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('name', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ]),
-        ColumnDefinition('email', 'TEXT'),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition(
+            "name",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+            ],
+        ),
+        ColumnDefinition("email", "TEXT"),
     ],
     if_not_exists=True,
 )
@@ -55,24 +63,24 @@ backend.execute(sql, params)
 
 create_index = CreateIndexExpression(
     dialect=dialect,
-    index_name='idx_users_email',
-    table_name='users',
-    columns=['email'],
+    index_name="idx_users_email",
+    table_name="users",
+    columns=["email"],
     if_not_exists=True,
 )
 sql, params = create_index.to_sql()
 backend.execute(sql, params)
 
 users = [
-    ('Alice', 'alice@example.com'),
-    ('Bob', 'bob@example.com'),
-    ('Charlie', 'charlie@example.com'),
+    ("Alice", "alice@example.com"),
+    ("Bob", "bob@example.com"),
+    ("Charlie", "charlie@example.com"),
 ]
 for name, email in users:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into='users',
-        columns=['name', 'email'],
+        into="users",
+        columns=["name", "email"],
         source=ValuesSource(dialect, [[Literal(dialect, name), Literal(dialect, email)]]),
     )
     sql, params = insert_expr.to_sql()
@@ -85,10 +93,13 @@ for name, email in users:
 # 1. EXPLAIN QUERY PLAN for table scan (no index on name column)
 query1 = QueryExpression(
     dialect=dialect,
-    select=[Column(dialect, '*')],
-    from_=TableExpression(dialect, 'users'),
+    select=[Column(dialect, "*")],
+    from_=TableExpression(dialect, "users"),
     where=ComparisonPredicate(
-        dialect, '=', Column(dialect, 'name'), Literal(dialect, 'Alice'),
+        dialect,
+        "=",
+        Column(dialect, "name"),
+        Literal(dialect, "Alice"),
     ),
 )
 explain_scan = ExplainExpression(
@@ -106,10 +117,13 @@ for row in result.data:
 # 2. EXPLAIN QUERY PLAN for index search (email has index)
 query2 = QueryExpression(
     dialect=dialect,
-    select=[Column(dialect, '*')],
-    from_=TableExpression(dialect, 'users'),
+    select=[Column(dialect, "*")],
+    from_=TableExpression(dialect, "users"),
     where=ComparisonPredicate(
-        dialect, '=', Column(dialect, 'email'), Literal(dialect, 'alice@example.com'),
+        dialect,
+        "=",
+        Column(dialect, "email"),
+        Literal(dialect, "alice@example.com"),
     ),
 )
 explain_search = ExplainExpression(

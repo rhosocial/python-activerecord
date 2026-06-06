@@ -10,10 +10,9 @@ group.get_backend().context() or manual connect()/disconnect() calls.
 import pytest
 
 from rhosocial.activerecord.connection import BackendManager, AsyncBackendManager
+
 # Import models from local conftest using absolute path
-from rhosocial.activerecord_test.feature.connection.conftest import (
-    User, Post, Comment, AsyncUser, AsyncPost
-)
+from rhosocial.activerecord_test.feature.connection.conftest import User, Post, Comment, AsyncUser, AsyncPost
 
 
 class TestBackendManager:

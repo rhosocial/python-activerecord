@@ -4,12 +4,15 @@ Test for ReturningSupport protocol implementation.
 This test creates a dialect that does not support RETURNING clauses and verifies that
 the corresponding capability flags work correctly.
 """
+
 import pytest
 
 from rhosocial.activerecord.backend.dialect import (
-    SQLDialectBase, ReturningMixin, ReturningSupport, UnsupportedFeatureError
+    SQLDialectBase,
+    ReturningMixin,
+    ReturningSupport,
+    UnsupportedFeatureError,
 )
-from rhosocial.activerecord.backend.expression import Column
 
 
 class NoReturningDialect(SQLDialectBase, ReturningMixin, ReturningSupport):

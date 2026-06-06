@@ -1,17 +1,18 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_query_parts.py
 import pytest
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, FunctionCall, ComparisonPredicate,
-    WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause
+    Column,
+    Literal,
+    FunctionCall,
+    WhereClause,
+    GroupByHavingClause,
+    LimitOffsetClause,
+    OrderByClause,
 )
 from rhosocial.activerecord.backend.expression.predicates import (
-    InPredicate, BetweenPredicate, IsNullPredicate, LikePredicate, LogicalPredicate
+    LogicalPredicate,
 )
-from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraintType, TableConstraintType, ReferentialAction
-)
 
 
 class TestQueryParts:
@@ -31,7 +32,7 @@ class TestQueryParts:
         condition1 = Column(sqlite_dialect_3_8_0, "age") >= Literal(sqlite_dialect_3_8_0, 18)
         condition2 = Column(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "active")
         complex_condition = LogicalPredicate(sqlite_dialect_3_8_0, "AND", condition1, condition2)
-        
+
         where_clause = WhereClause(sqlite_dialect_3_8_0, condition=complex_condition)
         sql, params = where_clause.to_sql()
         assert sql.startswith("WHERE ")
@@ -40,14 +41,12 @@ class TestQueryParts:
     def test_group_by_having_clause(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test GROUP BY with HAVING clause."""
         group_by_columns = [Column(sqlite_dialect_3_8_0, "department")]
-        having_condition = FunctionCall(sqlite_dialect_3_8_0, "COUNT", Column(sqlite_dialect_3_8_0, "id")) > Literal(sqlite_dialect_3_8_0, 5)
-        
-        group_by_having = GroupByHavingClause(
-            sqlite_dialect_3_8_0,
-            group_by=group_by_columns,
-            having=having_condition
+        having_condition = FunctionCall(sqlite_dialect_3_8_0, "COUNT", Column(sqlite_dialect_3_8_0, "id")) > Literal(
+            sqlite_dialect_3_8_0, 5
         )
-        
+
+        group_by_having = GroupByHavingClause(sqlite_dialect_3_8_0, group_by=group_by_columns, having=having_condition)
+
         sql, params = group_by_having.to_sql()
         assert "GROUP BY" in sql.upper()
         assert "HAVING" in sql.upper()
@@ -55,11 +54,8 @@ class TestQueryParts:
 
     def test_order_by_clause_single(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test ORDER BY clause with single column."""
-        order_by = OrderByClause(
-            sqlite_dialect_3_8_0,
-            expressions=[Column(sqlite_dialect_3_8_0, "name")]
-        )
-        
+        order_by = OrderByClause(sqlite_dialect_3_8_0, expressions=[Column(sqlite_dialect_3_8_0, "name")])
+
         sql, params = order_by.to_sql()
         assert "ORDER BY" in sql.upper()
         assert '"name"' in sql
@@ -69,12 +65,9 @@ class TestQueryParts:
         """Test ORDER BY clause with multiple columns."""
         order_by = OrderByClause(
             sqlite_dialect_3_8_0,
-            expressions=[
-                Column(sqlite_dialect_3_8_0, "department"),
-                Column(sqlite_dialect_3_8_0, "salary")
-            ]
+            expressions=[Column(sqlite_dialect_3_8_0, "department"), Column(sqlite_dialect_3_8_0, "salary")],
         )
-        
+
         sql, params = order_by.to_sql()
         assert "ORDER BY" in sql.upper()
         assert '"department"' in sql
@@ -83,23 +76,16 @@ class TestQueryParts:
 
     def test_limit_offset_clause_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test LIMIT clause."""
-        limit_clause = LimitOffsetClause(
-            sqlite_dialect_3_8_0,
-            limit=10
-        )
-        
+        limit_clause = LimitOffsetClause(sqlite_dialect_3_8_0, limit=10)
+
         sql, params = limit_clause.to_sql()
         assert "LIMIT" in sql.upper()
         assert params == (10,)
 
     def test_limit_offset_clause_with_offset(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test LIMIT with OFFSET."""
-        limit_clause = LimitOffsetClause(
-            sqlite_dialect_3_8_0,
-            limit=10,
-            offset=20
-        )
-        
+        limit_clause = LimitOffsetClause(sqlite_dialect_3_8_0, limit=10, offset=20)
+
         sql, params = limit_clause.to_sql()
         assert "LIMIT" in sql.upper()
         assert "OFFSET" in sql.upper()
@@ -109,10 +95,7 @@ class TestQueryParts:
         """Test OFFSET only - this should raise an error in SQLite dialects that don't support it."""
         # In SQLite, offset requires limit, so this should raise an error
         with pytest.raises(ValueError, match="OFFSET clause requires LIMIT clause in SQLite dialect"):
-            LimitOffsetClause(
-                sqlite_dialect_3_8_0,
-                offset=20
-            )
+            LimitOffsetClause(sqlite_dialect_3_8_0, offset=20)
 
     def test_qualify_clause_not_supported(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that QUALIFY clause is not supported in SQLite."""

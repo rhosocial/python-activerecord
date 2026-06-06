@@ -5,7 +5,7 @@ These tests specifically focus on the correct parameterization of values,
 and implicitly test for SQL injection vulnerabilities by ensuring values
 are passed as parameters rather than embedded directly into the SQL string.
 """
-from typing import List, Any, Tuple
+
 
 import pytest
 
@@ -62,7 +62,7 @@ class TestSQLiteFormatLimitOffset:
     def test_format_offset_zero(self, dialect: SQLiteDialect):
         sql, params = dialect.format_limit_offset(offset=0)
         assert sql == "OFFSET ?"
-        assert params == [0] # When only offset is provided, SQLite just uses OFFSET
+        assert params == [0]  # When only offset is provided, SQLite just uses OFFSET
 
     def test_format_limit_sql_injection(self, dialect: SQLiteDialect):
         malicious_limit = "10; DROP TABLE users;"
@@ -74,7 +74,7 @@ class TestSQLiteFormatLimitOffset:
         malicious_offset = "5 UNION SELECT 1, 2, 3"
         sql, params = dialect.format_limit_offset(offset=malicious_offset)
         assert sql == "OFFSET ?"  # SQLite's behavior when only offset is given
-        assert params == [malicious_offset] # When only offset is provided, SQLite just uses OFFSET
+        assert params == [malicious_offset]  # When only offset is provided, SQLite just uses OFFSET
 
     def test_format_limit_offset_sql_injection_combined(self, dialect: SQLiteDialect):
         malicious_limit = "10; SELECT SLEEP(5)"

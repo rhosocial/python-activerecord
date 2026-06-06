@@ -19,9 +19,5 @@ tests against our specific (SQLite) backend.
 # the fixtures here makes the dependency clear and can help with test discovery
 # in some IDEs. These fixtures are defined in the testsuite package and are
 # parameterized to run against the scenarios defined in `providers/scenarios.py`.
-from rhosocial.activerecord.testsuite.feature.basic.conftest import (
-    validated_user,
-    async_validated_user,
-)
 
-from rhosocial.activerecord.testsuite.feature.basic.test_validation import *
+from rhosocial.activerecord.testsuite.feature.basic.test_validation import *  # noqa: F403

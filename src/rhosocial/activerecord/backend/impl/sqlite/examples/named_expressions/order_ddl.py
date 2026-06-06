@@ -5,6 +5,7 @@ DDL named expression examples — CREATE / ALTER / DROP.
 Each function takes 'dialect' as first parameter and returns
 a BaseExpression that implements Executable.
 """
+
 from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,

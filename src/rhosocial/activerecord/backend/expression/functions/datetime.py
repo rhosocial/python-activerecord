@@ -187,17 +187,13 @@ def second(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fu
     return FunctionCall(dialect, "SECOND", target_expr)
 
 
-def date_part(
-    dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpression"]
-) -> "DatePartExpression":
+def date_part(dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpression"]) -> "DatePartExpression":
     """Creates a DATE_PART expression."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     return DatePartExpression(dialect, field, target_expr)
 
 
-def date_trunc(
-    dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpression"]
-) -> "DateTruncExpression":
+def date_trunc(dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpression"]) -> "DateTruncExpression":
     """Creates a DATE_TRUNC expression."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     return DateTruncExpression(dialect, field, target_expr)
@@ -251,9 +247,7 @@ def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -
     return FunctionCall(dialect, "LOCALTIMESTAMP", niladic=True)
 
 
-def extract(
-    dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpression"]
-) -> "ExtractExpression":
+def extract(dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpression"]) -> "ExtractExpression":
     """Creates an EXTRACT expression."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     return ExtractExpression(dialect, field, target_expr)

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum, auto
-from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 # Base type aliases
 DatabaseValue = Union[str, int, float, bool, datetime, Decimal, bytes, None]

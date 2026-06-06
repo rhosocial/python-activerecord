@@ -30,6 +30,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 class User(ActiveRecord):
     """User Model for DDL demo"""
+
     username: str = Field(..., max_length=50)
     email: str
     is_active: bool = True
@@ -56,8 +57,7 @@ def print_table_info(introspector, table_name: str, label: str):
     table_info = introspector.get_table_info(table_name)
     if table_info and table_info.columns:
         for col in table_info.columns:
-            print(f"  Column: {col.name}, Type: {col.data_type}, "
-                  f"Nullable: {col.nullable}, PK: {col.is_primary_key}")
+            print(f"  Column: {col.name}, Type: {col.data_type}, Nullable: {col.nullable}, PK: {col.is_primary_key}")
     else:
         print(f"  Table '{table_name}' not found or has no columns")
     print()
@@ -79,33 +79,21 @@ def main():
     # Example 1: Create basic table
     # ============================================================
     user_columns = [
-        ColumnDefinition(
-            "id",
-            "INTEGER",
-            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
-        ),
-        ColumnDefinition(
-            "username",
-            "VARCHAR(50)",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-        ),
+        ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition("username", "VARCHAR(50)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
         ColumnDefinition(
             "email",
             "VARCHAR(100)",
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(ColumnConstraintType.UNIQUE)
-            ]
+                ColumnConstraint(ColumnConstraintType.UNIQUE),
+            ],
         ),
         ColumnDefinition("is_active", "BOOLEAN"),
-        ColumnDefinition("created_at", "TIMESTAMP")
+        ColumnDefinition("created_at", "TIMESTAMP"),
     ]
 
-    create_users = CreateTableExpression(
-        dialect=dialect,
-        table_name="users",
-        columns=user_columns
-    )
+    create_users = CreateTableExpression(dialect=dialect, table_name="users", columns=user_columns)
 
     sql, params = create_users.to_sql()
     print("=== Create Users Table ===")
@@ -128,15 +116,11 @@ def main():
         dialect=dialect,
         table_name="products",
         columns=[
-            ColumnDefinition(
-                "id",
-                "INTEGER",
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
-            ),
+            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
             ColumnDefinition("name", "VARCHAR(100)"),
-            ColumnDefinition("price", "REAL", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)])
+            ColumnDefinition("price", "REAL", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
         ],
-        if_not_exists=True
+        if_not_exists=True,
     )
 
     sql, params = create_products.to_sql()
@@ -161,9 +145,9 @@ def main():
         columns=[
             ColumnDefinition("session_id", "VARCHAR(50)"),
             ColumnDefinition("data", "TEXT"),
-            ColumnDefinition("expires_at", "TIMESTAMP")
+            ColumnDefinition("expires_at", "TIMESTAMP"),
         ],
-        temporary=True
+        temporary=True,
     )
 
     sql, params = create_temp.to_sql()
@@ -183,9 +167,7 @@ def main():
     # ============================================================
     # First create a table to drop
     create_to_drop = CreateTableExpression(
-        dialect=dialect,
-        table_name="old_table",
-        columns=[ColumnDefinition("id", "INTEGER")]
+        dialect=dialect, table_name="old_table", columns=[ColumnDefinition("id", "INTEGER")]
     )
     sql_str, params_str = create_to_drop.to_sql()
     backend.execute(sql_str, params_str)
@@ -194,11 +176,7 @@ def main():
     tables = introspector.list_tables()
     print(f"Tables: {[t.name for t in tables]}")
 
-    drop_old = DropTableExpression(
-        dialect,
-        table_name="old_table",
-        if_exists=True
-    )
+    drop_old = DropTableExpression(dialect, table_name="old_table", if_exists=True)
 
     sql, params = drop_old.to_sql()
     print("\n=== Drop Table ===")
@@ -219,16 +197,7 @@ def main():
     # Example 5: Alter table - Add column
     # ============================================================
     alter_add = AlterTableExpression(
-        dialect,
-        table_name="users",
-        actions=[
-            AddColumn(
-                ColumnDefinition(
-                    "phone",
-                    "VARCHAR(20)"
-                )
-            )
-        ]
+        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("phone", "VARCHAR(20)"))]
     )
 
     sql, params = alter_add.to_sql()
@@ -248,11 +217,7 @@ def main():
     # ============================================================
     # First add a column to drop
     alter_add_field = AlterTableExpression(
-        dialect,
-        table_name="users",
-        actions=[
-            AddColumn(ColumnDefinition("temp_field", "TEXT"))
-        ]
+        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("temp_field", "TEXT"))]
     )
     sql_str, params_str = alter_add_field.to_sql()
     backend.execute(sql_str, params_str)
@@ -261,11 +226,7 @@ def main():
     print_table_info(introspector, "users", "users table before dropping temp_field")
 
     alter_drop = AlterTableExpression(
-        dialect,
-        table_name="users",
-        actions=[
-            DropColumn("temp_field")
-        ]
+        dialect, table_name="users", actions=[DropColumn(dialect, column_name="temp_field")]
     )
 
     sql, params = alter_drop.to_sql()

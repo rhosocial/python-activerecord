@@ -6,12 +6,10 @@ This module tests the list_indexes, get_index_info, and get_primary_key methods
 for retrieving index metadata.
 """
 
-import pytest
 
 from rhosocial.activerecord.backend.introspection.types import (
     IndexInfo,
     IndexType,
-    IndexColumnInfo,
 )
 
 
@@ -119,7 +117,7 @@ class TestGetPrimaryKey:
             );
         """)
 
-        pk = sqlite_backend.introspector.get_primary_key("no_pk")
+        sqlite_backend.introspector.get_primary_key("no_pk")
 
         # Table without explicit PK
         # SQLite uses implicit rowid, but it's not exposed as primary key

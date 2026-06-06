@@ -35,20 +35,17 @@ class TestLoggingIsolation:
         root_logger = logging.getLogger()
         original_handlers = list(root_logger.handlers)
 
-        configure_logging(
-            level=logging.DEBUG,
-            formatter=ActiveRecordFormatter()
-        )
+        configure_logging(level=logging.DEBUG, formatter=ActiveRecordFormatter())
 
-        model_logger = LoggingMixin.__logging_config__.get_logger('rhosocial.activerecord.model')
+        model_logger = LoggingMixin.__logging_config__.get_logger("rhosocial.activerecord.model")
         model_logger.handlers[0].setFormatter(ActiveRecordFormatter())
 
         assert list(root_logger.handlers) == original_handlers
 
     def test_propagate_false_by_default(self):
         """Test that loggers do not propagate to root by default."""
-        model_logger = LoggingMixin.__logging_config__.get_logger('rhosocial.activerecord.model')
-        storage_logger = BackendLoggingMixin.__logging_config__.get_logger('rhosocial.activerecord.backend')
+        model_logger = LoggingMixin.__logging_config__.get_logger("rhosocial.activerecord.model")
+        storage_logger = BackendLoggingMixin.__logging_config__.get_logger("rhosocial.activerecord.backend")
 
         assert model_logger.propagate is False
         assert storage_logger.propagate is False
@@ -57,14 +54,14 @@ class TestLoggingIsolation:
         """Test that framework-level propagate can be enabled if user wants it."""
         configure_logging(propagate=True)
 
-        logger = get_logger('test_propagate_enabled')
+        logger = get_logger("test_propagate_enabled")
         assert logger.propagate is True
 
     def test_root_logger_not_affected_by_framework_logging(self, caplog):
         """Test that framework logs don't appear in root logger when propagate=False."""
         configure_logging(propagate=False, level=logging.DEBUG)
 
-        logger = get_logger('test_isolation_check')
+        logger = get_logger("test_isolation_check")
 
         with caplog.at_level(logging.DEBUG):
             logger.debug("Test debug message")
@@ -73,7 +70,7 @@ class TestLoggingIsolation:
 
     def test_custom_logger_not_modified_by_activerecord(self):
         """Test that a custom logger is not modified by ActiveRecord."""
-        custom_logger = logging.getLogger('my_custom_app')
+        custom_logger = logging.getLogger("my_custom_app")
         custom_logger.setLevel(logging.WARNING)
         original_level = custom_logger.level
 
@@ -81,5 +78,5 @@ class TestLoggingIsolation:
 
         assert custom_logger.level == original_level
 
-        ar_logger = LoggingMixin.__logging_config__.get_logger('rhosocial.activerecord.model')
+        ar_logger = LoggingMixin.__logging_config__.get_logger("rhosocial.activerecord.model")
         assert ar_logger.level == logging.DEBUG

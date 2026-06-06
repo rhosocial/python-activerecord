@@ -35,12 +35,8 @@ class TestSQLiteDateTimeIntervalExpressions:
             ("second", "%S"),
         ],
     )
-    def test_extract_datetime_fields(
-        self, sqlite_dialect_3_8_0: SQLiteDialect, field: str, fmt: str
-    ):
-        expr = extract(
-            sqlite_dialect_3_8_0, field, Column(sqlite_dialect_3_8_0, "created_at")
-        )
+    def test_extract_datetime_fields(self, sqlite_dialect_3_8_0: SQLiteDialect, field: str, fmt: str):
+        expr = extract(sqlite_dialect_3_8_0, field, Column(sqlite_dialect_3_8_0, "created_at"))
 
         sql, params = expr.to_sql()
 
@@ -48,9 +44,7 @@ class TestSQLiteDateTimeIntervalExpressions:
         assert params == ()
 
     def test_extract_literal_source_params(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        expr = extract(
-            sqlite_dialect_3_8_0, "month", Literal(sqlite_dialect_3_8_0, "2026-06-04")
-        )
+        expr = extract(sqlite_dialect_3_8_0, "month", Literal(sqlite_dialect_3_8_0, "2026-06-04"))
 
         sql, params = expr.to_sql()
 
@@ -58,9 +52,7 @@ class TestSQLiteDateTimeIntervalExpressions:
         assert params == ("2026-06-04",)
 
     def test_date_part_uses_extract_mapping(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        expr = date_part(
-            sqlite_dialect_3_8_0, "day", Column(sqlite_dialect_3_8_0, "created_at")
-        )
+        expr = date_part(sqlite_dialect_3_8_0, "day", Column(sqlite_dialect_3_8_0, "created_at"))
 
         sql, params = expr.to_sql()
 
@@ -78,12 +70,8 @@ class TestSQLiteDateTimeIntervalExpressions:
             ("second", "strftime('%Y-%m-%d %H:%M:%S', \"created_at\")"),
         ],
     )
-    def test_date_trunc_datetime_fields(
-        self, sqlite_dialect_3_8_0: SQLiteDialect, field: str, expected: str
-    ):
-        expr = date_trunc(
-            sqlite_dialect_3_8_0, field, Column(sqlite_dialect_3_8_0, "created_at")
-        )
+    def test_date_trunc_datetime_fields(self, sqlite_dialect_3_8_0: SQLiteDialect, field: str, expected: str):
+        expr = date_trunc(sqlite_dialect_3_8_0, field, Column(sqlite_dialect_3_8_0, "created_at"))
 
         sql, params = expr.to_sql()
 
@@ -97,9 +85,7 @@ class TestSQLiteDateTimeIntervalExpressions:
             expr.to_sql()
 
     def test_date_add_column_source(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        expr = date_add(
-            sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "created_at"), 1, "day"
-        )
+        expr = date_add(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "created_at"), 1, "day")
 
         sql, params = expr.to_sql()
 
@@ -132,9 +118,7 @@ class TestSQLiteDateTimeIntervalExpressions:
         assert params == ("2026-06-04 10:00:00", "+30 minute")
 
     def test_date_add_week_converts_to_days(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        expr = date_add(
-            sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "created_at"), 2, "week"
-        )
+        expr = date_add(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "created_at"), 2, "week")
 
         sql, params = expr.to_sql()
 
@@ -150,9 +134,7 @@ class TestSQLiteDateTimeIntervalExpressions:
             ("second", '((julianday("ended_at") - julianday("started_at")) * 86400)'),
         ],
     )
-    def test_date_diff_supported_units(
-        self, sqlite_dialect_3_8_0: SQLiteDialect, unit: str, expected: str
-    ):
+    def test_date_diff_supported_units(self, sqlite_dialect_3_8_0: SQLiteDialect, unit: str, expected: str):
         expr = date_diff(
             sqlite_dialect_3_8_0,
             unit,
@@ -166,9 +148,7 @@ class TestSQLiteDateTimeIntervalExpressions:
         assert params == ()
 
     @pytest.mark.parametrize("unit", ["month", "year"])
-    def test_date_diff_calendar_units_are_unsupported(
-        self, sqlite_dialect_3_8_0: SQLiteDialect, unit: str
-    ):
+    def test_date_diff_calendar_units_are_unsupported(self, sqlite_dialect_3_8_0: SQLiteDialect, unit: str):
         expr = date_diff(
             sqlite_dialect_3_8_0,
             unit,
@@ -192,9 +172,7 @@ class TestSQLiteDateTimeIntervalExpressions:
         assert normalize_datetime_field(field) is expected
 
     @pytest.mark.parametrize("field", ["", "   ", "quarter"])
-    def test_invalid_datetime_field_fails_during_construction(
-        self, sqlite_dialect_3_8_0: SQLiteDialect, field: str
-    ):
+    def test_invalid_datetime_field_fails_during_construction(self, sqlite_dialect_3_8_0: SQLiteDialect, field: str):
         with pytest.raises(ValueError):
             extract(
                 sqlite_dialect_3_8_0,
@@ -214,29 +192,21 @@ class TestSQLiteDateTimeIntervalExpressions:
         assert normalize_interval_unit(unit) is expected
 
     @pytest.mark.parametrize("unit", ["", "   ", "quarter"])
-    def test_invalid_interval_unit_fails_during_construction(
-        self, sqlite_dialect_3_8_0: SQLiteDialect, unit: str
-    ):
+    def test_invalid_interval_unit_fails_during_construction(self, sqlite_dialect_3_8_0: SQLiteDialect, unit: str):
         with pytest.raises(ValueError):
             interval(sqlite_dialect_3_8_0, 1, unit)
 
     @pytest.mark.parametrize("value", [True, "1"])
-    def test_invalid_interval_value_type_fails(
-        self, sqlite_dialect_3_8_0: SQLiteDialect, value
-    ):
+    def test_invalid_interval_value_type_fails(self, sqlite_dialect_3_8_0: SQLiteDialect, value):
         with pytest.raises(TypeError):
             interval(sqlite_dialect_3_8_0, value, "day")
 
     @pytest.mark.parametrize("value", [float("nan"), float("inf")])
-    def test_invalid_interval_value_must_be_finite(
-        self, sqlite_dialect_3_8_0: SQLiteDialect, value: float
-    ):
+    def test_invalid_interval_value_must_be_finite(self, sqlite_dialect_3_8_0: SQLiteDialect, value: float):
         with pytest.raises(ValueError):
             interval(sqlite_dialect_3_8_0, value, "day")
 
-    def test_interval_expression_rejects_extra_unit(
-        self, sqlite_dialect_3_8_0: SQLiteDialect
-    ):
+    def test_interval_expression_rejects_extra_unit(self, sqlite_dialect_3_8_0: SQLiteDialect):
         expr = interval(sqlite_dialect_3_8_0, 1, "day")
 
         with pytest.raises(ValueError):
@@ -247,9 +217,7 @@ class TestSQLiteDateTimeIntervalExpressions:
                 "day",
             )
 
-    def test_numeric_interval_requires_unit(
-        self, sqlite_dialect_3_8_0: SQLiteDialect
-    ):
+    def test_numeric_interval_requires_unit(self, sqlite_dialect_3_8_0: SQLiteDialect):
         with pytest.raises(ValueError):
             date_sub(
                 sqlite_dialect_3_8_0,
@@ -258,16 +226,15 @@ class TestSQLiteDateTimeIntervalExpressions:
             )
 
     def test_alias_and_cast(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        expr = extract(
-            sqlite_dialect_3_8_0, "year", Column(sqlite_dialect_3_8_0, "created_at")
-        ).cast("TEXT").as_("created_year")
+        expr = (
+            extract(sqlite_dialect_3_8_0, "year", Column(sqlite_dialect_3_8_0, "created_at"))
+            .cast("TEXT")
+            .as_("created_year")
+        )
 
         sql, params = expr.to_sql()
 
-        expected = (
-            'CAST(CAST(strftime(\'%Y\', "created_at") AS INTEGER) AS TEXT) '
-            'AS "created_year"'
-        )
+        expected = 'CAST(CAST(strftime(\'%Y\', "created_at") AS INTEGER) AS TEXT) AS "created_year"'
         assert sql == expected
         assert params == ()
 

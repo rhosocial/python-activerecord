@@ -14,11 +14,11 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     InsertExpression,
     ValuesSource,
     QueryExpression,
@@ -26,8 +26,8 @@ from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,
 )
-from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -35,20 +35,32 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table='users',
+    table="users",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('username', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-            ColumnConstraint(ColumnConstraintType.UNIQUE),
-        ]),
-        ColumnDefinition('email', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ]),
-        ColumnDefinition('login_count', 'INTEGER'),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition(
+            "username",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(ColumnConstraintType.UNIQUE),
+            ],
+        ),
+        ColumnDefinition(
+            "email",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+            ],
+        ),
+        ColumnDefinition("login_count", "INTEGER"),
     ],
     if_not_exists=True,
 )
@@ -59,12 +71,15 @@ backend.execute(sql, params)
 # Insert initial data
 insert_initial = InsertExpression(
     dialect=dialect,
-    into='users',
-    columns=['username', 'email', 'login_count'],
-    source=ValuesSource(dialect, [
-        [Literal(dialect, 'alice'), Literal(dialect, 'alice@example.com'), Literal(dialect, 5)],
-        [Literal(dialect, 'bob'), Literal(dialect, 'bob@example.com'), Literal(dialect, 3)],
-    ]),
+    into="users",
+    columns=["username", "email", "login_count"],
+    source=ValuesSource(
+        dialect,
+        [
+            [Literal(dialect, "alice"), Literal(dialect, "alice@example.com"), Literal(dialect, 5)],
+            [Literal(dialect, "bob"), Literal(dialect, "bob@example.com"), Literal(dialect, 3)],
+        ],
+    ),
 )
 sql, params = insert_initial.to_sql()
 backend.execute(sql, params)
@@ -73,7 +88,7 @@ backend.execute(sql, params)
 verify_query = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, 'users'),
+    from_=TableExpression(dialect, "users"),
 )
 options = ExecutionOptions(stmt_type=StatementType.DQL)
 sql, params = verify_query.to_sql()
@@ -92,13 +107,16 @@ for row in result.data or []:
 # Use dialect_options={'or_replace': True} to enable this SQLite-specific syntax.
 insert_or_replace = InsertExpression(
     dialect=dialect,
-    into='users',
-    columns=['username', 'email', 'login_count'],
-    source=ValuesSource(dialect, [
-        # 'alice' already exists with id=1; OR REPLACE will delete old row and insert new one
-        [Literal(dialect, 'alice'), Literal(dialect, 'alice_new@example.com'), Literal(dialect, 0)],
-    ]),
-    dialect_options={'or_replace': True},
+    into="users",
+    columns=["username", "email", "login_count"],
+    source=ValuesSource(
+        dialect,
+        [
+            # 'alice' already exists with id=1; OR REPLACE will delete old row and insert new one
+            [Literal(dialect, "alice"), Literal(dialect, "alice_new@example.com"), Literal(dialect, 0)],
+        ],
+    ),
+    dialect_options={"or_replace": True},
 )
 sql, params = insert_or_replace.to_sql()
 print(f"\nINSERT OR REPLACE SQL: {sql}")
@@ -109,15 +127,18 @@ print(f"Params: {params}")
 # Use dialect_options={'or_ignore': True} to enable this SQLite-specific syntax.
 insert_or_ignore = InsertExpression(
     dialect=dialect,
-    into='users',
-    columns=['username', 'email', 'login_count'],
-    source=ValuesSource(dialect, [
-        # 'bob' already exists; OR IGNORE will skip this row
-        [Literal(dialect, 'bob'), Literal(dialect, 'bob_new@example.com'), Literal(dialect, 10)],
-        # 'charlie' does not exist; this row will be inserted normally
-        [Literal(dialect, 'charlie'), Literal(dialect, 'charlie@example.com'), Literal(dialect, 1)],
-    ]),
-    dialect_options={'or_ignore': True},
+    into="users",
+    columns=["username", "email", "login_count"],
+    source=ValuesSource(
+        dialect,
+        [
+            # 'bob' already exists; OR IGNORE will skip this row
+            [Literal(dialect, "bob"), Literal(dialect, "bob_new@example.com"), Literal(dialect, 10)],
+            # 'charlie' does not exist; this row will be inserted normally
+            [Literal(dialect, "charlie"), Literal(dialect, "charlie@example.com"), Literal(dialect, 1)],
+        ],
+    ),
+    dialect_options={"or_ignore": True},
 )
 sql, params = insert_or_ignore.to_sql()
 print(f"\nINSERT OR IGNORE SQL: {sql}")
@@ -154,7 +175,7 @@ for row in result.data or []:
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table='users', if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table="users", if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

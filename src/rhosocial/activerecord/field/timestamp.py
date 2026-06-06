@@ -32,10 +32,7 @@ class TimestampMixin(IUpdateBehavior):
         self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
 
     def _set_timestamps_on_insert(
-        self,
-        instance: Union["IActiveRecord", "IAsyncActiveRecord"],
-        data: Dict[str, Any],
-        **kwargs
+        self, instance: Union["IActiveRecord", "IAsyncActiveRecord"], data: Dict[str, Any], **kwargs
     ) -> None:
         """Set both created_at and updated_at for INSERT operations.
 
@@ -53,14 +50,11 @@ class TimestampMixin(IUpdateBehavior):
         instance.created_at = now
         instance.updated_at = now
         # Also update the data dictionary to ensure timestamps are saved
-        data['created_at'] = now
-        data['updated_at'] = now
+        data["created_at"] = now
+        data["updated_at"] = now
 
     def _set_updated_at(
-        self,
-        instance: Union["IActiveRecord", "IAsyncActiveRecord"],
-        data: Dict[str, Any],
-        **kwargs
+        self, instance: Union["IActiveRecord", "IAsyncActiveRecord"], data: Dict[str, Any], **kwargs
     ) -> None:
         """Set updated_at for UPDATE operations.
 
@@ -76,7 +70,7 @@ class TimestampMixin(IUpdateBehavior):
         now = datetime.now(timezone.utc)
         instance.updated_at = now
         # Also update the data dictionary to ensure timestamp is saved
-        data['updated_at'] = now
+        data["updated_at"] = now
 
     def get_update_conditions(self):
         """Get additional WHERE conditions for UPDATE operations.

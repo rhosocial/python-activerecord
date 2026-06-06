@@ -29,11 +29,7 @@ def main():
 
     try:
         # Create connection pool
-        config = PoolConfig(
-            min_size=2,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=db_path)
-        )
+        config = PoolConfig(min_size=2, max_size=5, backend_factory=lambda: SQLiteBackend(database=db_path))
         pool = BackendPool(config)
 
         print(f"\nPool created: {pool}")
@@ -76,7 +72,7 @@ def main():
             result = backend.execute("SELECT * FROM users", [], options=options)
             print(f"Users: {[row for row in result.data]}")
 
-        print(f"Connection automatically released")
+        print("Connection automatically released")
 
         # -----------------------------------------------------------
         # Example 3: Transaction context manager
@@ -134,7 +130,7 @@ def main():
         print(f"Utilization rate: {stats.utilization_rate:.1%}")
 
         health = pool.health_check()
-        print(f"\nHealth check:")
+        print("\nHealth check:")
         print(f"  Healthy: {health['healthy']}")
         print(f"  Closed: {health['closed']}")
         print(f"  Stats: {health['stats']}")

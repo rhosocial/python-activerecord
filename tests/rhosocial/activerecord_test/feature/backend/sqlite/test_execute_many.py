@@ -22,7 +22,9 @@ class TestSQLiteExecuteMany:
         # Create test tables
         from rhosocial.activerecord.backend.options import ExecutionOptions
         from rhosocial.activerecord.backend.schema import StatementType
-        backend.execute("""
+
+        backend.execute(
+            """
                         CREATE TABLE users
                         (
                             id     INTEGER PRIMARY KEY,
@@ -30,9 +32,12 @@ class TestSQLiteExecuteMany:
                             email  TEXT,
                             active INTEGER
                         )
-                        """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+                        """,
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
 
-        backend.execute("""
+        backend.execute(
+            """
                         CREATE TABLE posts
                         (
                             id      INTEGER PRIMARY KEY,
@@ -41,7 +46,9 @@ class TestSQLiteExecuteMany:
                             content TEXT,
                             FOREIGN KEY (user_id) REFERENCES users (id)
                         )
-                        """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+                        """,
+            options=ExecutionOptions(stmt_type=StatementType.DDL),
+        )
 
         yield backend
         backend.disconnect()
@@ -52,14 +59,11 @@ class TestSQLiteExecuteMany:
         users = [
             (1, "User 1", "user1@example.com", 1),
             (2, "User 2", "user2@example.com", 1),
-            (3, "User 3", "user3@example.com", 0)
+            (3, "User 3", "user3@example.com", 0),
         ]
 
         # Execute batch insert
-        result = backend.execute_many(
-            "INSERT INTO users (id, name, email, active) VALUES (?, ?, ?, ?)",
-            users
-        )
+        result = backend.execute_many("INSERT INTO users (id, name, email, active) VALUES (?, ?, ?, ?)", users)
 
         # Verify result properties
         assert isinstance(result, QueryResult)
@@ -81,20 +85,14 @@ class TestSQLiteExecuteMany:
             [
                 (1, "User 1", "user1@example.com", 1),
                 (2, "User 2", "user2@example.com", 1),
-                (3, "User 3", "user3@example.com", 1)
-            ]
+                (3, "User 3", "user3@example.com", 1),
+            ],
         )
 
         # Execute batch update
-        updates = [
-            ("Updated User 1", 1),
-            ("Updated User 3", 3)
-        ]
+        updates = [("Updated User 1", 1), ("Updated User 3", 3)]
 
-        result = backend.execute_many(
-            "UPDATE users SET name = ? WHERE id = ?",
-            updates
-        )
+        result = backend.execute_many("UPDATE users SET name = ? WHERE id = ?", updates)
 
         # Verify result
         assert result.affected_rows == 2
@@ -110,10 +108,7 @@ class TestSQLiteExecuteMany:
 
     def test_empty_params_list(self, backend):
         """Test execute_many with empty params list"""
-        result = backend.execute_many(
-            "INSERT INTO users (id, name) VALUES (?, ?)",
-            []
-        )
+        result = backend.execute_many("INSERT INTO users (id, name) VALUES (?, ?)", [])
 
         # Should return a result with 0 affected rows
         assert result.affected_rows == 0
@@ -129,7 +124,7 @@ class TestSQLiteExecuteMany:
         with pytest.raises(Exception) as exc_info:
             backend.execute_many(
                 "INSERT INTO users (id, name, email) VALUES (?, ?, ?)",
-                [(1, "User 1")]  # Missing email parameter
+                [(1, "User 1")],  # Missing email parameter
             )
 
         # The exact exception type may vary by SQLite version, but should be an error
@@ -139,7 +134,7 @@ class TestSQLiteExecuteMany:
         with pytest.raises(Exception) as exc_info:
             backend.execute_many(
                 "INSERT INTO users (id, name) VALUES (?, ?)",
-                [(1, "User 1", "extra@example.com")]  # Extra parameter
+                [(1, "User 1", "extra@example.com")],  # Extra parameter
             )
 
         assert "Error" in str(exc_info) or "error" in str(exc_info).lower()
@@ -147,10 +142,7 @@ class TestSQLiteExecuteMany:
     def test_table_not_exists(self, backend):
         """Test execute_many with non-existent table"""
         with pytest.raises((DatabaseError, QueryError)) as exc_info:
-            backend.execute_many(
-                "INSERT INTO nonexistent (id, name) VALUES (?, ?)",
-                [(1, "Test"), (2, "Test 2")]
-            )
+            backend.execute_many("INSERT INTO nonexistent (id, name) VALUES (?, ?)", [(1, "Test"), (2, "Test 2")])
 
         # Should raise error about table not existing
         assert "no such table" in str(exc_info.value).lower()
@@ -161,23 +153,14 @@ class TestSQLiteExecuteMany:
 
         # In all Python versions, try to execute the SELECT statement
         try:
-            result = backend.execute_many(
-                "SELECT * FROM users WHERE id = ?",
-                [(1,), (2,), (3,)]
-            )
+            result = backend.execute_many("SELECT * FROM users WHERE id = ?", [(1,), (2,), (3,)])
             # If no error is reported, the verification result is None or the affected_rows is 0
             if result is not None:
                 assert result.affected_rows == -1
         except (Exception, DatabaseError) as e:
             # If an error is reported, verify the error message
             error_msg = str(e).lower()
-            assert any(msg in error_msg for msg in [
-                "error",
-                "dml",
-                "executemany",
-                "select",
-                "statement"
-            ])
+            assert any(msg in error_msg for msg in ["error", "dml", "executemany", "select", "statement"])
 
     def test_multiple_statements(self, backend):
         """Test execute_many with multiple statements (behavior varies by Python version)"""
@@ -185,10 +168,7 @@ class TestSQLiteExecuteMany:
 
         # The error message and behavior varies by Python version
         with pytest.raises(Exception) as exc_info:
-            backend.execute_many(
-                "INSERT INTO users (id, name) VALUES (?, ?); SELECT * FROM users",
-                [(1, "User 1")]
-            )
+            backend.execute_many("INSERT INTO users (id, name) VALUES (?, ?); SELECT * FROM users", [(1, "User 1")])
 
         # Different Python versions may have different error messages
         if sys.version_info >= (3, 11):
@@ -196,9 +176,11 @@ class TestSQLiteExecuteMany:
             assert exc_info.value is not None
         else:
             # In older Python versions, check for specific error message
-            assert "You can only execute one statement at a time" in str(exc_info.value) or \
-                   "Error" in str(exc_info.value) or \
-                   "error" in str(exc_info.value).lower()
+            assert (
+                "You can only execute one statement at a time" in str(exc_info.value)
+                or "Error" in str(exc_info.value)
+                or "error" in str(exc_info.value).lower()
+            )
 
     def test_foreign_key_constraint(self, backend):
         """Test execute_many with foreign key constraint violation"""
@@ -210,8 +192,8 @@ class TestSQLiteExecuteMany:
                 "INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)",
                 [
                     (1, 99, "Title 1"),  # user_id 99 doesn't exist
-                    (2, 100, "Title 2")  # user_id 100 doesn't exist
-                ]
+                    (2, 100, "Title 2"),  # user_id 100 doesn't exist
+                ],
             )
 
         # Should raise foreign key constraint error
@@ -220,7 +202,12 @@ class TestSQLiteExecuteMany:
         # Now insert a valid user and test with valid and invalid foreign keys
         from rhosocial.activerecord.backend.options import ExecutionOptions
         from rhosocial.activerecord.backend.schema import StatementType
-        result = backend.execute("INSERT INTO users (id, name) VALUES (1, 'User 1')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
+
+        result = backend.execute(
+            "INSERT INTO users (id, name) VALUES (1, 'User 1')",
+            (),
+            options=ExecutionOptions(stmt_type=StatementType.INSERT),
+        )
         assert result is not None  # Result structure may be different
 
         with pytest.raises(DatabaseError) as exc_info:
@@ -228,8 +215,8 @@ class TestSQLiteExecuteMany:
                 "INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)",
                 [
                     (1, 1, "Title 1"),  # Valid user_id
-                    (2, 999, "Title 2")  # Invalid user_id
-                ]
+                    (2, 999, "Title 2"),  # Invalid user_id
+                ],
             )
 
         # Should still raise constraint error for the invalid entry
@@ -245,10 +232,7 @@ class TestSQLiteExecuteMany:
         large_batch = [(i, f"User {i}", f"user{i}@example.com", 1) for i in range(1, 1001)]
 
         # Execute batch insert
-        result = backend.execute_many(
-            "INSERT INTO users (id, name, email, active) VALUES (?, ?, ?, ?)",
-            large_batch
-        )
+        result = backend.execute_many("INSERT INTO users (id, name, email, active) VALUES (?, ?, ?, ?)", large_batch)
 
         # Verify all records were inserted
         assert result.affected_rows == 1000
@@ -263,10 +247,7 @@ class TestSQLiteExecuteMany:
         backend.begin_transaction()
 
         # Insert users
-        backend.execute_many(
-            "INSERT INTO users (id, name) VALUES (?, ?)",
-            [(1, "User 1"), (2, "User 2")]
-        )
+        backend.execute_many("INSERT INTO users (id, name) VALUES (?, ?)", [(1, "User 1"), (2, "User 2")])
 
         # Verify users are visible within the transaction
         count = backend.fetch_one("SELECT COUNT(*) as count FROM users")
@@ -281,10 +262,7 @@ class TestSQLiteExecuteMany:
 
         # Test with commit
         backend.begin_transaction()
-        backend.execute_many(
-            "INSERT INTO users (id, name) VALUES (?, ?)",
-            [(1, "User 1"), (2, "User 2")]
-        )
+        backend.execute_many("INSERT INTO users (id, name) VALUES (?, ?)", [(1, "User 1"), (2, "User 2")])
         backend.commit_transaction()
 
         # Verify users persist after commit
@@ -293,18 +271,23 @@ class TestSQLiteExecuteMany:
 
     def test_handle_errors(self, backend):
         """Test error handling in execute_many"""
-        with patch.object(backend, '_handle_error') as mock_handle_error:
+        with patch.object(backend, "_handle_error") as mock_handle_error:
             # Create an error condition (duplicate primary key)
             from rhosocial.activerecord.backend.options import ExecutionOptions
             from rhosocial.activerecord.backend.schema import StatementType
-            backend.execute("INSERT INTO users (id, name) VALUES (1, 'User 1')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
+
+            backend.execute(
+                "INSERT INTO users (id, name) VALUES (1, 'User 1')",
+                (),
+                options=ExecutionOptions(stmt_type=StatementType.INSERT),
+            )
 
             try:
                 backend.execute_many(
                     "INSERT INTO users (id, name) VALUES (?, ?)",
-                    [(1, "Duplicate")]  # Will cause constraint error
+                    [(1, "Duplicate")],  # Will cause constraint error
                 )
-            except:
+            except:  # noqa: E722
                 pass  # Ignore the exception for the test
 
             # Verify _handle_error was called
@@ -315,26 +298,26 @@ class TestSQLiteExecuteMany:
         # Insert test data
         backend.execute_many(
             "INSERT INTO users (id, name, active) VALUES (?, ?, ?)",
-            [(1, "User 1", 1), (2, "User 2", 1), (3, "User 3", 0)]
+            [(1, "User 1", 1), (2, "User 2", 1), (3, "User 3", 0)],
         )
 
         # Test UPDATE that affects some rows
         result = backend.execute_many(
             "UPDATE users SET name = ? WHERE active = ?",
-            [("Active User", 1)]  # Should update 2 rows
+            [("Active User", 1)],  # Should update 2 rows
         )
         assert result.affected_rows == 2
 
         # Test UPDATE that affects no rows
         result = backend.execute_many(
             "UPDATE users SET name = ? WHERE id > ?",
-            [("No one", 100)]  # No users match this condition
+            [("No one", 100)],  # No users match this condition
         )
         assert result.affected_rows == 0
 
         # Test UPDATE with multiple parameter sets
         result = backend.execute_many(
             "UPDATE users SET active = ? WHERE id = ?",
-            [(0, 1), (0, 2)]  # Update 2 separate rows
+            [(0, 1), (0, 2)],  # Update 2 separate rows
         )
         assert result.affected_rows == 2

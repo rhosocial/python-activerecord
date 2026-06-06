@@ -5,6 +5,7 @@ DML named expression examples — INSERT / UPDATE / DELETE.
 Each function takes 'dialect' as first parameter and returns
 a BaseExpression that implements Executable.
 """
+
 from rhosocial.activerecord.backend.expression import (
     InsertExpression,
     ValuesSource,
@@ -122,11 +123,13 @@ def add_payment(dialect, order_id: int, status: str = "pending"):
         columns=["order_id", "status", "transaction_id"],
         source=ValuesSource(
             dialect,
-            [[
-                Literal(dialect, order_id),
-                Literal(dialect, status),
-                Literal(dialect, "txn_new"),
-            ]],
+            [
+                [
+                    Literal(dialect, order_id),
+                    Literal(dialect, status),
+                    Literal(dialect, "txn_new"),
+                ]
+            ],
         ),
         returning=ReturningClause(
             dialect,

@@ -5,11 +5,11 @@ Result types for ProcedureGraph execution.
 This module defines the result types returned by ProcedureGraph
 execution, including execution traces and result data.
 """
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from .procedure_graph import StepNode, TransactionMode
 
 
 class StepStatus(str, Enum):
@@ -89,6 +89,7 @@ class ProcedureGraphResult:
 
     def to_json(self) -> str:
         import json
+
         return json.dumps(self.to_dict(), indent=2)
 
     def to_table(self) -> str:

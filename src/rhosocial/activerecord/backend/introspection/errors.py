@@ -51,11 +51,7 @@ class ObjectNotFoundError(IntrospectionError):
         message = f"{object_type} '{object_name}' not found"
         if schema:
             message += f" in schema '{schema}'"
-        super().__init__(message, {
-            "object_type": object_type,
-            "object_name": object_name,
-            "schema": schema
-        })
+        super().__init__(message, {"object_type": object_type, "object_name": object_name, "schema": schema})
 
 
 class IntrospectionCacheError(IntrospectionError):

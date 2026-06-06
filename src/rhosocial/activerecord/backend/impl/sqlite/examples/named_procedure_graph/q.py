@@ -5,14 +5,13 @@ These queries are used by the ProcedureGraph examples.
 Each function takes 'dialect' as first parameter and returns
 a BaseExpression that implements Executable.
 """
+
 from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     Column,
     FunctionCall,
     TableExpression,
     WhereClause,
-    GroupByHavingClause,
-    OrderByClause,
     Literal,
 )
 

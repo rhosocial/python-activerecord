@@ -15,18 +15,18 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
     DropTableExpression,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -34,14 +34,18 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table='articles',
+    table="articles",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('title', 'TEXT'),
-        ColumnDefinition('author', 'TEXT'),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition("title", "TEXT"),
+        ColumnDefinition("author", "TEXT"),
     ],
     if_not_exists=True,
 )
@@ -49,22 +53,22 @@ sql, params = create_table.to_sql()
 backend.execute(sql, params)
 
 articles = [
-    ('Introduction to SQL', 'Alice'),
-    ('Advanced Joins', 'Bob'),
-    ('Subquery Patterns', 'Alice'),
-    ('Window Functions', 'Charlie'),
-    ('CTE Deep Dive', 'Bob'),
-    ('Indexing Strategies', 'Alice'),
-    ('Query Optimization', 'Charlie'),
-    ('Transaction Isolation', 'Bob'),
-    ('JSON in SQLite', 'Alice'),
-    ('Recursive CTEs', 'Charlie'),
+    ("Introduction to SQL", "Alice"),
+    ("Advanced Joins", "Bob"),
+    ("Subquery Patterns", "Alice"),
+    ("Window Functions", "Charlie"),
+    ("CTE Deep Dive", "Bob"),
+    ("Indexing Strategies", "Alice"),
+    ("Query Optimization", "Charlie"),
+    ("Transaction Isolation", "Bob"),
+    ("JSON in SQLite", "Alice"),
+    ("Recursive CTEs", "Charlie"),
 ]
 for title, author in articles:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into='articles',
-        columns=['title', 'author'],
+        into="articles",
+        columns=["title", "author"],
         source=ValuesSource(dialect, [[Literal(dialect, title), Literal(dialect, author)]]),
     )
     sql, params = insert_expr.to_sql()
@@ -73,20 +77,20 @@ for title, author in articles:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     QueryExpression,
     TableExpression,
     LimitOffsetClause,
     OrderByClause,
 )
-from rhosocial.activerecord.backend.expression.core import Column, WildcardExpression
+from rhosocial.activerecord.backend.expression.core import Column, WildcardExpression  # noqa: E402
 
 # 1. Basic LIMIT - get first N rows
 query_limit = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, 'articles'),
-    order_by=OrderByClause(dialect, expressions=[(Column(dialect, 'id'), 'ASC')]),
+    from_=TableExpression(dialect, "articles"),
+    order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
     limit_offset=LimitOffsetClause(dialect, limit=3),
 )
 sql, params = query_limit.to_sql()
@@ -105,8 +109,8 @@ offset = (page_number - 1) * page_size
 query_page = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, 'articles'),
-    order_by=OrderByClause(dialect, expressions=[(Column(dialect, 'id'), 'ASC')]),
+    from_=TableExpression(dialect, "articles"),
+    order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
     limit_offset=LimitOffsetClause(dialect, limit=page_size, offset=offset),
 )
 sql, params = query_page.to_sql()
@@ -138,8 +142,8 @@ for page in range(1, total_pages + 1):
     query = QueryExpression(
         dialect=dialect,
         select=[WildcardExpression(dialect)],
-        from_=TableExpression(dialect, 'articles'),
-        order_by=OrderByClause(dialect, expressions=[(Column(dialect, 'id'), 'ASC')]),
+        from_=TableExpression(dialect, "articles"),
+        order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
         limit_offset=LimitOffsetClause(dialect, limit=page_size, offset=offset),
     )
     result = backend.execute(*query.to_sql(), options=options)
@@ -149,7 +153,7 @@ for page in range(1, total_pages + 1):
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table='articles', if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table="articles", if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

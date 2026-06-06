@@ -102,8 +102,7 @@ def json_array(
     """
     if not values:
         return core.FunctionCall(dialect, "JSON_ARRAY")
-    args = [core.Literal(dialect, v) if not isinstance(v, bases.BaseExpression) else v
-            for v in values]
+    args = [core.Literal(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in values]
     return core.FunctionCall(dialect, "JSON_ARRAY", *args)
 
 
@@ -131,8 +130,7 @@ def json_object(
     """
     if not key_value_pairs:
         return core.FunctionCall(dialect, "JSON_OBJECT")
-    args = [core.Literal(dialect, v) if not isinstance(v, bases.BaseExpression) else v
-            for v in key_value_pairs]
+    args = [core.Literal(dialect, v) if not isinstance(v, bases.BaseExpression) else v for v in key_value_pairs]
     return core.FunctionCall(dialect, "JSON_OBJECT", *args)
 
 

@@ -3,6 +3,7 @@
 Tests for SQLite-specific JSON functions.
 These functions are available in SQLite 3.38.0+ with the json1 extension.
 """
+
 from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.functions.json import (
@@ -89,12 +90,7 @@ class TestSQLiteJSONFunctions:
 
     def test_json_extract_multiple_paths(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_extract() with multiple paths."""
-        result = json_extract(
-            sqlite_dialect_3_38_0,
-            '{"a": 1}',
-            "$.a",
-            "$.b"
-        )
+        result = json_extract(sqlite_dialect_3_38_0, '{"a": 1}', "$.a", "$.b")
         sql, params = result.to_sql()
         assert "JSON_EXTRACT(" in sql
         assert params == ('{"a": 1}', "$.a", "$.b")
@@ -134,72 +130,41 @@ class TestSQLiteJSONFunctions:
 
     def test_json_remove(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_remove()."""
-        result = json_remove(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.a"
-        )
+        result = json_remove(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.a")
         sql, params = result.to_sql()
         assert "JSON_REMOVE(" in sql
         assert params == ("$.a",)
 
     def test_json_remove_multiple_paths(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_remove() with multiple paths."""
-        result = json_remove(
-            sqlite_dialect_3_38_0,
-            '{"a": 1, "b": 2}',
-            "$.a",
-            "$.b"
-        )
+        result = json_remove(sqlite_dialect_3_38_0, '{"a": 1, "b": 2}', "$.a", "$.b")
         sql, params = result.to_sql()
         assert "JSON_REMOVE(" in sql
         assert params == ('{"a": 1, "b": 2}', "$.a", "$.b")
 
     def test_json_set(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_set()."""
-        result = json_set(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.a",
-            "new_value"
-        )
+        result = json_set(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.a", "new_value")
         sql, params = result.to_sql()
         assert "JSON_SET(" in sql
         assert params == ("$.a", "new_value")
 
     def test_json_set_multiple_pairs(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_set() with multiple path-value pairs."""
-        result = json_set(
-            sqlite_dialect_3_38_0,
-            '{"a": 1}',
-            "$.a",
-            10,
-            "$.b",
-            20
-        )
+        result = json_set(sqlite_dialect_3_38_0, '{"a": 1}', "$.a", 10, "$.b", 20)
         sql, _ = result.to_sql()
         assert "JSON_SET(" in sql
 
     def test_json_insert(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_insert()."""
-        result = json_insert(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.b",
-            "new_value"
-        )
+        result = json_insert(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.b", "new_value")
         sql, params = result.to_sql()
         assert "JSON_INSERT(" in sql
         assert params == ("$.b", "new_value")
 
     def test_json_replace(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_replace()."""
-        result = json_replace(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.a",
-            "replaced"
-        )
+        result = json_replace(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.a", "replaced")
         sql, params = result.to_sql()
         assert "JSON_REPLACE(" in sql
         assert params == ("$.a", "replaced")
@@ -207,9 +172,7 @@ class TestSQLiteJSONFunctions:
     def test_json_patch(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_patch()."""
         result = json_patch(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "target"),
-            Column(sqlite_dialect_3_38_0, "patch")
+            sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "target"), Column(sqlite_dialect_3_38_0, "patch")
         )
         sql, _ = result.to_sql()
         assert "JSON_PATCH(" in sql
@@ -222,33 +185,21 @@ class TestSQLiteJSONFunctions:
 
     def test_json_array_length_with_path(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_array_length() with path."""
-        result = json_array_length(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.items"
-        )
+        result = json_array_length(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.items")
         sql, params = result.to_sql()
         assert "JSON_ARRAY_LENGTH(" in sql
         assert params == ("$.items",)
 
     def test_json_object_pack(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_object_pack()."""
-        result = json_object_pack(
-            sqlite_dialect_3_38_0,
-            "key",
-            "value"
-        )
+        result = json_object_pack(sqlite_dialect_3_38_0, "key", "value")
         sql, params = result.to_sql()
         assert "JSON_OBJECT(" in sql
         assert params == ("key", "value")
 
     def test_json_object_retrieve(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_object_retrieve()."""
-        result = json_object_retrieve(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.name"
-        )
+        result = json_object_retrieve(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.name")
         sql, params = result.to_sql()
         assert "JSON_EXTRACT(" in sql
         assert params == ("$.name",)
@@ -321,36 +272,21 @@ class TestSQLiteJSONFunctions:
     def test_json_set_with_expression_value(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_set() with expression as value."""
         result = json_set(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.a",
-            Column(sqlite_dialect_3_38_0, "other")
+            sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.a", Column(sqlite_dialect_3_38_0, "other")
         )
         sql, _ = result.to_sql()
         assert "JSON_SET(" in sql
 
     def test_json_insert_with_multiple_pairs(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_insert() with multiple path-value pairs."""
-        result = json_insert(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.a",
-            1,
-            "$.b",
-            2
-        )
+        result = json_insert(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.a", 1, "$.b", 2)
         sql, _ = result.to_sql()
         assert "JSON_INSERT(" in sql
 
     def test_json_replace_with_multiple_pairs(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_replace() with multiple path-value pairs."""
         result = json_replace(
-            sqlite_dialect_3_38_0,
-            Column(sqlite_dialect_3_38_0, "data"),
-            "$.a",
-            "new_a",
-            "$.b",
-            "new_b"
+            sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.a", "new_a", "$.b", "new_b"
         )
         sql, _ = result.to_sql()
         assert "JSON_REPLACE(" in sql

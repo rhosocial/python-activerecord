@@ -2,13 +2,13 @@
 import datetime
 import decimal
 import json
-import logging
 import sys
 import csv
 from typing import Any, List, Dict
 
 from .output_abc import OutputProvider
 from rhosocial.activerecord.logging import get_logger as _get_framework_logger
+
 logger = _get_framework_logger("rhosocial.activerecord.backend.output")
 
 
@@ -61,7 +61,10 @@ class JsonOutputProvider(OutputProvider):
         logger.info("Output format set to JSON.")
 
     def print_table(self, rows: List[Dict[str, Any]], title: str, columns: List[str]) -> None:
-        sys.stdout.write(json.dumps({"title": title, "rows": rows}, indent=2, ensure_ascii=False, default=self._json_serializer) + "\n")
+        sys.stdout.write(
+            json.dumps({"title": title, "rows": rows}, indent=2, ensure_ascii=False, default=self._json_serializer)
+            + "\n"
+        )
 
 
 class CsvOutputProvider(OutputProvider):

@@ -10,9 +10,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def cast(
-    dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], target_type: str
-) -> "SQLValueExpression":
+def cast(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], target_type: str) -> "SQLValueExpression":
     """
     Creates a type cast on an expression.
 

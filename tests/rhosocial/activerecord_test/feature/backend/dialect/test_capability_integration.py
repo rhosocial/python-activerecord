@@ -77,6 +77,7 @@ def test_dummy_dialect_introspection_disabled(dummy_backend):
 
 def _get_protocol(name):
     import importlib
+
     mod = importlib.import_module(PROTOCOLS_PKG)
     return getattr(mod, name)
 
@@ -84,6 +85,7 @@ def _get_protocol(name):
 @pytest.fixture
 def sqlite_backend():
     from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
     backend = SQLiteBackend(database=":memory:")
     backend.connect()
     backend.introspect_and_adapt()
@@ -93,4 +95,5 @@ def sqlite_backend():
 @pytest.fixture
 def dummy_backend():
     from rhosocial.activerecord.backend.impl.dummy import DummyBackend
+
     return DummyBackend()

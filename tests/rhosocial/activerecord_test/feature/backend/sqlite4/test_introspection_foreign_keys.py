@@ -6,7 +6,6 @@ This module tests the list_foreign_keys and get_foreign_key_info methods
 for retrieving foreign key metadata.
 """
 
-import pytest
 
 from rhosocial.activerecord.backend.introspection.types import (
     ForeignKeyInfo,
@@ -138,7 +137,7 @@ class TestForeignKeyDetails:
         # Default action should be NO ACTION or CASCADE (as defined in schema)
         for fk in fks:
             # Check that on_delete is a valid ReferentialAction enum
-            assert hasattr(fk.on_delete, 'value')
+            assert hasattr(fk.on_delete, "value")
             assert fk.on_delete.value in ("CASCADE", "NO ACTION")
 
     def test_foreign_key_schema(self, backend_with_tables):

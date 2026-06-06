@@ -5,6 +5,7 @@ Demonstrates:
 2. Aggregation (count, sum, group_by)
 3. Advanced Querying (Joins, CTEs)
 """
+
 import uuid
 from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
@@ -17,6 +18,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 
 # --- Models ---
 
+
 class User(UUIDMixin, TimestampMixin, ActiveRecord):
     username: str
     age: int
@@ -25,11 +27,12 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Relations
-    posts: ClassVar[HasMany['Post']] = HasMany(foreign_key='user_id', inverse_of='author')
+    posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="user_id", inverse_of="author")
 
     @classmethod
     def table_name(cls) -> str:
         return "users"
+
 
 class Post(UUIDMixin, TimestampMixin, ActiveRecord):
     user_id: uuid.UUID
@@ -43,27 +46,34 @@ class Post(UUIDMixin, TimestampMixin, ActiveRecord):
     def table_name(cls) -> str:
         return "posts"
 
-    author: ClassVar[BelongsTo['User']] = BelongsTo(foreign_key='user_id')
+    author: ClassVar[BelongsTo["User"]] = BelongsTo(foreign_key="user_id")
+
 
 def main():
     # 1. Setup
-    config = SQLiteConnectionConfig(database=':memory:')
+    config = SQLiteConnectionConfig(database=":memory:")
     User.configure(config, SQLiteBackend)
     Post.__backend__ = User.backend()
 
     # 2. Schema
-    User.backend().execute("""
+    User.backend().execute(
+        """
         CREATE TABLE users (
             id TEXT PRIMARY KEY, username TEXT, age INTEGER, is_active BOOLEAN,
             created_at INTEGER, updated_at INTEGER
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
-    Post.backend().execute("""
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
+    Post.backend().execute(
+        """
         CREATE TABLE posts (
             id TEXT PRIMARY KEY, user_id TEXT, title TEXT, views INTEGER,
             category_id INTEGER, created_at INTEGER, updated_at INTEGER
         )
-    """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+    """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL),
+    )
 
     # 3. Data
     alice = User(username="alice", age=25, is_active=True)
@@ -82,10 +92,7 @@ def main():
     # 4. Basic Filtering
     print("\n--- Basic Filtering ---")
     # Active users older than 20
-    users = User.query() \
-        .where(User.c.is_active) \
-        .where(User.c.age > 20) \
-        .all()
+    users = User.query().where(User.c.is_active).where(User.c.age > 20).all()
     for u in users:
         print(f"Found User: {u.username}, Age: {u.age}")
 
@@ -113,26 +120,23 @@ def main():
     # Actually, ActiveRecord .all() expects to return Model instances.
     # For raw aggregation, we might use .aggregate() if available or backend execution.
     # But let's see if .select() works with .all() for partial models.
-    
+
     # Using aggregate() for raw results if supported by Query interface (checked docs, it has aggregate())
-    # results = Post.query().select(Post.c.category_id, Sum(Post.c.views)).group_by(Post.c.category_id).all() 
+    # results = Post.query().select(Post.c.category_id, Sum(Post.c.views)).group_by(Post.c.category_id).all()
     # This would try to instantiate Posts.
-    
+
     print("Aggregation usually requires raw mode or compatible model fields.")
 
     # 6. Advanced: Join
     print("\n--- Join ---")
     # Users who have posts (using group_by as alternative to distinct)
-    authors = User.query() \
-        .join(Post, on=(User.c.id == Post.c.user_id)) \
-        .group_by(User.c.id) \
-        .all()
+    authors = User.query().join(Post, on=(User.c.id == Post.c.user_id)).group_by(User.c.id).all()
     for author in authors:
         print(f"Author: {author.username}")
 
     # 7. Relationship Loading & N+1 Problem
     print("\n--- Relationship Loading & N+1 Problem ---")
-    
+
     # N+1 Problem Demonstration
     print("Demonstrating N+1 Problem (without eager loading):")
     users = User.query().all()
@@ -144,11 +148,12 @@ def main():
     # Solution: Eager Loading with with_()
     print("\nDemonstrating Eager Loading (with_):")
     # with_('posts') pre-loads the posts relation in a separate efficient query
-    users_with_posts = User.query().with_('posts').all()  # <--- 1 query for users + 1 query for posts
+    users_with_posts = User.query().with_("posts").all()  # <--- 1 query for users + 1 query for posts
     for user in users_with_posts:
         # posts are already loaded in cache
         posts = user.posts()  # <--- No DB query
         print(f"User {user.username} has {len(posts)} posts (Eager Load)")
+
 
 if __name__ == "__main__":
     main()

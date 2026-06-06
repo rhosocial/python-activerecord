@@ -12,20 +12,20 @@ This example demonstrates:
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import CreateTableExpression
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression import CreateTableExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     columns=[
-        ColumnDefinition('id', 'INTEGER'),
+        ColumnDefinition("id", "INTEGER"),
     ],
     if_not_exists=True,
 )
@@ -36,11 +36,11 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: DROP TABLE (using DropTableExpression)
 # ============================================================
-from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.backend.expression import DropTableExpression  # noqa: E402
 
 drop_expr = DropTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
 )
 sql, params = drop_expr.to_sql()
 print(f"DROP TABLE SQL: {sql}")
@@ -50,7 +50,7 @@ backend.execute(sql, params)
 # Already deleted, use IF EXISTS
 drop_expr_exists = DropTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     if_exists=True,
 )
 sql, params = drop_expr_exists.to_sql()

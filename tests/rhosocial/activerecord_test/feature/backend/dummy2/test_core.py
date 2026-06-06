@@ -2,10 +2,9 @@
 """
 Tests for the core SQL expression components in core.py
 """
+
 import pytest
-from rhosocial.activerecord.backend.expression import (
-    Literal, Column, FunctionCall, Subquery, TableExpression
-)
+from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, TableExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -91,11 +90,11 @@ class TestFunctionCall:
     def test_function_call_with_multiple_args(self, dummy_dialect: DummyDialect):
         """Test FunctionCall with multiple arguments."""
         func = FunctionCall(
-            dummy_dialect, 
-            "CONCAT", 
-            Column(dummy_dialect, "first_name"), 
-            Literal(dummy_dialect, " "), 
-            Column(dummy_dialect, "last_name")
+            dummy_dialect,
+            "CONCAT",
+            Column(dummy_dialect, "first_name"),
+            Literal(dummy_dialect, " "),
+            Column(dummy_dialect, "last_name"),
         )
         sql, params = func.to_sql()
         assert "CONCAT(" in sql
@@ -144,12 +143,14 @@ class TestSubquery:
         """Test Subquery initialization with string input."""
         subquery = Subquery(dummy_dialect, "SELECT * FROM products WHERE price > ?", (100,))
         sql, params = subquery.to_sql()
-        assert sql == '(SELECT * FROM products WHERE price > ?)'
+        assert sql == "(SELECT * FROM products WHERE price > ?)"
         assert params == (100,)
 
     def test_subquery_from_existing_subquery(self, dummy_dialect: DummyDialect):
         """Test Subquery initialization with existing Subquery object."""
-        original_subquery = Subquery(dummy_dialect, "SELECT id FROM users WHERE active = ?", (True,), alias="active_users")
+        original_subquery = Subquery(
+            dummy_dialect, "SELECT id FROM users WHERE active = ?", (True,), alias="active_users"
+        )
         new_subquery = Subquery(dummy_dialect, original_subquery)
         sql, params = new_subquery.to_sql()
         assert sql == '(SELECT id FROM users WHERE active = ?) AS "active_users"'
@@ -165,7 +166,9 @@ class TestSubquery:
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=TableExpression(dummy_dialect, "orders"),
-            where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "pending"))
+            where=WhereClause(
+                dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "pending")
+            ),
         )
 
         subquery = Subquery(dummy_dialect, query_expr)
@@ -175,6 +178,7 @@ class TestSubquery:
 
     def test_subquery_from_non_expression_object(self, dummy_dialect: DummyDialect):
         """Test Subquery initialization with non-expression object (defaults to string conversion)."""
+
         # Use an arbitrary object that doesn't have to_sql method
         class CustomObject:
             def __str__(self):
@@ -183,7 +187,7 @@ class TestSubquery:
         obj = CustomObject()
         subquery = Subquery(dummy_dialect, obj)
         sql, params = subquery.to_sql()
-        assert sql == '(CUSTOM SQL STRING)'
+        assert sql == "(CUSTOM SQL STRING)"
         assert params == ()
 
     def test_subquery_from_sql_query_and_params_tuple(self, dummy_dialect: DummyDialect):
@@ -270,8 +274,10 @@ class TestTableExpression:
         """Test TableExpression with temporal options when dialect returns None from format_temporal_options."""
         # Mock the dialect's format_temporal_options to return None
         original_method = dummy_dialect.format_temporal_options
+
         def mock_format_temporal_options(options):
             return None
+
         dummy_dialect.format_temporal_options = mock_format_temporal_options
 
         temporal_opts = {"as_of": "2023-01-01"}
@@ -299,7 +305,7 @@ class TestTableExpression:
             right_table=right_table,
             join_type="INNER JOIN",  # INNER JOIN requires a condition
             condition=None,  # No condition provided
-            using=None  # No USING clause provided
+            using=None,  # No USING clause provided
         )
 
         with pytest.raises(ValueError, match=r"INNER JOIN requires a condition or USING clause."):
@@ -320,7 +326,7 @@ class TestTableExpression:
             right_table=right_table,
             join_type="CROSS JOIN",  # CROSS JOIN doesn't require a condition
             condition=None,  # No condition provided
-            using=None  # No USING clause provided
+            using=None,  # No USING clause provided
         )
 
         sql, params = dummy_dialect.format_join_expression(join_expr)
@@ -332,5 +338,8 @@ class TestTableExpression:
 
     def test_format_temporal_options_with_empty_options_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_temporal_options raises ValueError when called with empty options."""
-        with pytest.raises(ValueError, match=r"Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options."):
+        with pytest.raises(
+            ValueError,
+            match=r"Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options.",  # noqa: E501
+        ):
             dummy_dialect.format_temporal_options({})

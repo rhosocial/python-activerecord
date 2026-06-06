@@ -12,8 +12,7 @@ This test module covers:
 - NamedProcedureGraphResolver
 - Cyclic dependency detection
 """
-import types
-from typing import List
+
 from unittest.mock import MagicMock, AsyncMock
 import pytest
 
@@ -26,7 +25,6 @@ from rhosocial.activerecord.backend.named_expression.procedure_graph import (
     CyclicDependencyError,
     _kahn_topological_waves,
     _safe_eval_condition,
-    _interpolate_template,
 )
 from rhosocial.activerecord.backend.named_expression.graph_result import (
     ProcedureGraphResult,
@@ -135,10 +133,7 @@ class TestProcedureGraph:
 
     def test_graph_validate_unknown_dep(self):
         """Test validation catches unknown dependency."""
-        graph = (
-            ProcedureGraph()
-            | StepNode.query("step_a", "myapp.q.a", depends_on=["unknown"])
-        )
+        graph = ProcedureGraph() | StepNode.query("step_a", "myapp.q.a", depends_on=["unknown"])
         errors = graph.validate()
         assert any("unknown" in e for e in errors)
 
@@ -314,9 +309,7 @@ class TestProcedureGraphRunner:
 
     def test_runner_init_with_parallel_wave(self, mock_dialect, mock_backend):
         """Test runner initialization with parallel_wave enabled."""
-        runner = ProcedureGraphRunner(
-            mock_backend, dialect=mock_dialect, parallel_wave=True
-        )
+        runner = ProcedureGraphRunner(mock_backend, dialect=mock_dialect, parallel_wave=True)
         assert runner._parallel_wave is True
 
     def test_runner_validation_error(self, mock_dialect, mock_backend):
@@ -329,13 +322,11 @@ class TestProcedureGraphRunner:
 
     def test_runner_skip_condition(self, mock_dialect, mock_backend):
         """Test runner skips steps with false condition."""
-        ctx = GraphContext(mock_dialect, {"skip": "false"})
-        runner = ProcedureGraphRunner(mock_backend, dialect=mock_dialect)
+        GraphContext(mock_dialect, {"skip": "false"})
+        ProcedureGraphRunner(mock_backend, dialect=mock_dialect)
 
         result = ProcedureGraphResult()
-        entry = StepTraceEntry(
-            name="fetch", kind="NAMED_QUERY", status=StepStatus.SKIPPED, reason="condition_false"
-        )
+        entry = StepTraceEntry(name="fetch", kind="NAMED_QUERY", status=StepStatus.SKIPPED, reason="condition_false")
         result.steps_skipped.append(entry)
 
         assert len(result.steps_skipped) == 1
@@ -345,9 +336,7 @@ class TestProcedureGraphRunner:
         mock_dialect.name = "sqlite"
 
         result = ProcedureGraphResult()
-        entry = StepTraceEntry(
-            name="fetch", kind="NAMED_QUERY", status=StepStatus.SKIPPED, reason="skip_for_sqlite"
-        )
+        entry = StepTraceEntry(name="fetch", kind="NAMED_QUERY", status=StepStatus.SKIPPED, reason="skip_for_sqlite")
         result.steps_skipped.append(entry)
 
         assert len(result.steps_skipped) == 1
@@ -365,10 +354,7 @@ class TestProcedureGraphRunner:
             "rhosocial.activerecord.backend.named_expression.resolver.resolve_named_expression",
             return_value=mock_expr,
         ):
-            graph = (
-                ProcedureGraph()
-                | StepNode.query("fetch", "myapp.q.get_users", depends_on=[])
-            )
+            graph = ProcedureGraph() | StepNode.query("fetch", "myapp.q.get_users", depends_on=[])
             runner = ProcedureGraphRunner(mock_backend, dialect=mock_dialect)
             result = runner.run(graph)
 
@@ -392,10 +378,7 @@ class TestProcedureGraphRunner:
 
         mock_backend.execute.return_value = MagicMock(data=[{"id": 1}], affected_rows=1)
 
-        graph = (
-            ProcedureGraph()
-            | StepNode.expr("select_one", MockExpr(), depends_on=[])
-        )
+        graph = ProcedureGraph() | StepNode.expr("select_one", MockExpr(), depends_on=[])
         runner = ProcedureGraphRunner(mock_backend, dialect=mock_dialect)
         result = runner.run(graph)
 
@@ -417,10 +400,7 @@ class TestProcedureGraphRunner:
             def to_sql(self):
                 return "SELECT 1", ()
 
-        graph = (
-            ProcedureGraph()
-            | StepNode.expr("dry_step", MockExpr(), depends_on=[])
-        )
+        graph = ProcedureGraph() | StepNode.expr("dry_step", MockExpr(), depends_on=[])
         runner = ProcedureGraphRunner(mock_backend, dialect=mock_dialect, dry_run=True)
         result = runner.run(graph)
 
@@ -444,10 +424,7 @@ class TestProcedureGraphRunner:
             def to_sql(self):
                 return "SELECT 1", ()
 
-        graph = (
-            ProcedureGraph()
-            | StepNode.expr("fail_step", MockExpr(), depends_on=[])
-        )
+        graph = ProcedureGraph() | StepNode.expr("fail_step", MockExpr(), depends_on=[])
         runner = ProcedureGraphRunner(mock_backend, dialect=mock_dialect)
 
         with pytest.raises(Exception, match="SQL error"):
@@ -493,9 +470,7 @@ class TestAsyncProcedureGraphRunner:
 
     async def test_async_runner_init_with_options(self, mock_dialect, mock_backend):
         """Test async runner initialization with options."""
-        runner = AsyncProcedureGraphRunner(
-            mock_backend, dialect=mock_dialect, dry_run=True, trace=True
-        )
+        runner = AsyncProcedureGraphRunner(mock_backend, dialect=mock_dialect, dry_run=True, trace=True)
         assert runner._dry_run is True
         assert runner._trace is True
 
@@ -518,10 +493,7 @@ class TestAsyncProcedureGraphRunner:
             def to_sql(self):
                 return "SELECT 1", ()
 
-        graph = (
-            ProcedureGraph()
-            | StepNode.expr("async_step", MockExpr(), depends_on=[])
-        )
+        graph = ProcedureGraph() | StepNode.expr("async_step", MockExpr(), depends_on=[])
         runner = AsyncProcedureGraphRunner(mock_backend, dialect=mock_dialect)
         result = await runner.run(graph)
 
@@ -547,10 +519,7 @@ class TestAsyncProcedureGraphRunner:
             def to_sql(self):
                 return "SELECT 1", ()
 
-        graph = (
-            ProcedureGraph()
-            | StepNode.expr("dry_step", MockExpr(), depends_on=[])
-        )
+        graph = ProcedureGraph() | StepNode.expr("dry_step", MockExpr(), depends_on=[])
         runner = AsyncProcedureGraphRunner(mock_backend, dialect=mock_dialect, dry_run=True)
         result = await runner.run(graph)
 
@@ -577,12 +546,7 @@ class TestAsyncProcedureGraphRunner:
             def to_sql(self):
                 return "SELECT 1", ()
 
-        graph = (
-            ProcedureGraph()
-            | StepNode.expr(
-                "skip_step", MockExpr(), depends_on=[], condition="${skip}"
-            )
-        )
+        graph = ProcedureGraph() | StepNode.expr("skip_step", MockExpr(), depends_on=[], condition="${skip}")
         runner = AsyncProcedureGraphRunner(mock_backend, dialect=mock_dialect)
         result = await runner.run(graph, {"skip": False})
 
@@ -803,7 +767,7 @@ class TestNamedProcedureGraphResolver:
     def test_resolver_load_missing_module(self):
         """Test resolver catches missing module."""
         resolver = NamedProcedureGraphResolver("nonexistent.module.graph")
-        with pytest.raises(Exception):  # ModuleNotFoundError or similar
+        with pytest.raises(Exception):  # ModuleNotFoundError or similar  # noqa: B017
             resolver.load()
 
     def test_resolver_load_function(self):
@@ -862,9 +826,8 @@ class TestNamedProcedureGraphResolver:
         test_module.__all__ = ["build_graph"]
 
         def build_graph(dialect, params=None):
-            return (
-                ProcedureGraph()
-                | StepNode.query("step1", "myapp.q.step1", params={"month": params.get("month", "")})
+            return ProcedureGraph() | StepNode.query(
+                "step1", "myapp.q.step1", params={"month": params.get("month", "")}
             )
 
         test_module.build_graph = build_graph
@@ -956,7 +919,7 @@ class TestNamedProcedureGraphResolver:
         try:
             resolver = NamedProcedureGraphResolver("test_module7.strict_func")
             resolver.load()
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017
                 resolver.build(mock_dialect, extra_arg="bad")
         finally:
             del sys.modules["test_module7"]
@@ -1034,18 +997,13 @@ class TestResolveNamedProcedureGraph:
         test_module.__all__ = ["simple_graph"]
 
         def simple_graph(dialect, params=None):
-            return (
-                ProcedureGraph()
-                | StepNode.query("step1", "myapp.q.step1")
-            )
+            return ProcedureGraph() | StepNode.query("step1", "myapp.q.step1")
 
         test_module.simple_graph = simple_graph
         sys.modules["test_resolve_module"] = test_module
 
         try:
-            graph, resolver = resolve_named_procedure_graph(
-                "test_resolve_module.simple_graph", mock_dialect
-            )
+            graph, resolver = resolve_named_procedure_graph("test_resolve_module.simple_graph", mock_dialect)
             assert "step1" in graph
             assert resolver.qualified_name == "test_resolve_module.simple_graph"
         finally:
@@ -1172,9 +1130,7 @@ class TestProcedureGraphResult:
         result = ProcedureGraphResult()
         result.elapsed_ms = 75.0
         result.waves_count = 1
-        result.steps_done.append(StepTraceEntry(
-            name="step1", kind="query", status=StepStatus.OK, elapsed_ms=10.0
-        ))
+        result.steps_done.append(StepTraceEntry(name="step1", kind="query", status=StepStatus.OK, elapsed_ms=10.0))
 
         table = result.to_table()
         assert "step1" in table
@@ -1183,9 +1139,9 @@ class TestProcedureGraphResult:
     def test_result_to_table_with_skipped(self):
         """Test result table with skipped steps."""
         result = ProcedureGraphResult()
-        result.steps_skipped.append(StepTraceEntry(
-            name="skipped_step", kind="query", status=StepStatus.SKIPPED, reason="condition_false"
-        ))
+        result.steps_skipped.append(
+            StepTraceEntry(name="skipped_step", kind="query", status=StepStatus.SKIPPED, reason="condition_false")
+        )
 
         table = result.to_table()
         assert "Skipped steps" in table
@@ -1194,9 +1150,9 @@ class TestProcedureGraphResult:
     def test_result_to_table_with_failed(self):
         """Test result table with failed steps."""
         result = ProcedureGraphResult()
-        result.steps_failed.append(StepTraceEntry(
-            name="failed_step", kind="query", status=StepStatus.FAILED, error="Database error"
-        ))
+        result.steps_failed.append(
+            StepTraceEntry(name="failed_step", kind="query", status=StepStatus.FAILED, error="Database error")
+        )
 
         table = result.to_table()
         assert "Failed steps" in table

@@ -6,7 +6,6 @@ This module tests the list_columns, get_column_info, and column_exists methods
 for retrieving column metadata.
 """
 
-import pytest
 
 from rhosocial.activerecord.backend.introspection.types import (
     ColumnInfo,

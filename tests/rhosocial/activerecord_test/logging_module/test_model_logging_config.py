@@ -210,6 +210,7 @@ class TestClassVarIsolation:
 
     def test_subclasses_get_own_logging_config_instance(self):
         """Different model subclasses should have independent __logging_config__ instances."""
+
         class UserModel(ActiveRecord):
             __table_name__ = "users"
             id: Optional[int] = None
@@ -222,6 +223,7 @@ class TestClassVarIsolation:
 
     def test_mutating_one_config_does_not_affect_another(self):
         """Mutating one model's logging config should not affect another model."""
+
         class AlphaModel(ActiveRecord):
             __table_name__ = "alpha"
             id: Optional[int] = None
@@ -248,6 +250,7 @@ class TestClassVarIsolation:
 
     def test_summarizer_config_mutation_isolation(self):
         """Mutating one model's summarizer_config should not affect another model."""
+
         class ModelA(ActiveRecord):
             __table_name__ = "model_a"
             id: Optional[int] = None
@@ -262,6 +265,7 @@ class TestClassVarIsolation:
 
     def test_backend_subclasses_get_own_config(self):
         """BackendLoggingMixin subclasses should also have independent __logging_config__."""
+
         class BackendA(BackendLoggingMixin):
             pass
 

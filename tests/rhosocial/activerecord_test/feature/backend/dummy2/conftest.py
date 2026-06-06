@@ -11,6 +11,7 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 # To run these tests, please use the following command:
 # pytest tests/rhosocial/activerecord_test/feature/backend/dummy2/ -p no:rhosocial-activerecord-capabilities
 
+
 @pytest.fixture
 def dummy_dialect():
     """Provides a DummyDialect instance that supports all features."""

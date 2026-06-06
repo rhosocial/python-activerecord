@@ -6,15 +6,20 @@ These tests verify stages 1-5 of _compile_and_validate_dml without any I/O.
 They use DummyDialect (supports all features) and version-specific SQLiteDialect
 to test RETURNING availability across Tier 1 / Tier 2 backends.
 """
+
 import copy
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, InsertExpression, UpdateExpression, DeleteExpression,
-    TableExpression, ValuesSource, ComparisonPredicate,
+    Column,
+    Literal,
+    InsertExpression,
+    UpdateExpression,
+    DeleteExpression,
+    ValuesSource,
+    ComparisonPredicate,
     ReturningClause,
 )
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -24,18 +29,18 @@ from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 # Helpers
 # ──────────────────────────────────────────────
 
+
 def _make_insert(dialect, table="users", name_val="Alice", email_val="a@test.com"):
     """Construct a minimal single-row InsertExpression without RETURNING."""
-    source = ValuesSource(dialect, values_list=[
-        [Literal(dialect, name_val), Literal(dialect, email_val)]
-    ])
+    source = ValuesSource(dialect, values_list=[[Literal(dialect, name_val), Literal(dialect, email_val)]])
     return InsertExpression(dialect, into=table, columns=["name", "email"], source=source)
 
 
 def _make_update(dialect, table="users", set_col="name", set_val="Bob", pk_val=1):
     """Construct a minimal UpdateExpression without RETURNING."""
     return UpdateExpression(
-        dialect, table=table,
+        dialect,
+        table=table,
         assignments={set_col: Literal(dialect, set_val)},
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
@@ -44,7 +49,8 @@ def _make_update(dialect, table="users", set_col="name", set_val="Bob", pk_val=1
 def _make_delete(dialect, table="users", pk_val=1):
     """Construct a minimal DeleteExpression without RETURNING."""
     return DeleteExpression(
-        dialect, tables=table,
+        dialect,
+        tables=table,
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
 
@@ -53,13 +59,14 @@ def _make_delete(dialect, table="users", pk_val=1):
 # Stage 1: Type homogeneity validation
 # ══════════════════════════════════════════════
 
+
 class TestBatchDMLTypeValidation:
     """Tests that _compile_and_validate_dml rejects mixed DML types."""
 
     def test_all_insert_passes(self, dummy_dialect: DummyDialect):
         exprs = [_make_insert(dummy_dialect, name_val=f"u{i}", email_val=f"u{i}@t.com") for i in range(3)]
         # All same type — compilation should not raise TypeError
-        compiled = [e.to_sql() for e in exprs]
+        [e.to_sql() for e in exprs]
         types = {type(e) for e in exprs}
         assert len(types) == 1
         assert types.pop() is InsertExpression
@@ -76,14 +83,14 @@ class TestBatchDMLTypeValidation:
         assert len(types) == 1
         assert types.pop() is DeleteExpression
 
-    @pytest.mark.parametrize("maker_a, maker_b, label_a, label_b", [
-        pytest.param(_make_insert, _make_update, "InsertExpression", "UpdateExpression",
-                     id="insert_update_mixed"),
-        pytest.param(_make_insert, _make_delete, "InsertExpression", "DeleteExpression",
-                     id="insert_delete_mixed"),
-        pytest.param(_make_update, _make_delete, "UpdateExpression", "DeleteExpression",
-                     id="update_delete_mixed"),
-    ])
+    @pytest.mark.parametrize(
+        "maker_a, maker_b, label_a, label_b",
+        [
+            pytest.param(_make_insert, _make_update, "InsertExpression", "UpdateExpression", id="insert_update_mixed"),
+            pytest.param(_make_insert, _make_delete, "InsertExpression", "DeleteExpression", id="insert_delete_mixed"),
+            pytest.param(_make_update, _make_delete, "UpdateExpression", "DeleteExpression", id="update_delete_mixed"),
+        ],
+    )
     def test_mixed_types_detected(self, dummy_dialect, maker_a, maker_b, label_a, label_b):
         expr_a = maker_a(dummy_dialect)
         expr_b = maker_b(dummy_dialect)
@@ -106,24 +113,29 @@ class TestBatchDMLTypeValidation:
 # Stage 2: RETURNING conflict detection
 # ══════════════════════════════════════════════
 
+
 class TestBatchDMLReturningConflict:
     """Tests that expressions carrying their own RETURNING are rejected."""
 
     def test_insert_with_returning_detected(self, dummy_dialect: DummyDialect):
-        source = ValuesSource(dummy_dialect, values_list=[
-            [Literal(dummy_dialect, "Alice"), Literal(dummy_dialect, "a@t.com")]
-        ])
+        source = ValuesSource(
+            dummy_dialect, values_list=[[Literal(dummy_dialect, "Alice"), Literal(dummy_dialect, "a@t.com")]]
+        )
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
         expr = InsertExpression(
-            dummy_dialect, into="users", columns=["name", "email"],
-            source=source, returning=clause,
+            dummy_dialect,
+            into="users",
+            columns=["name", "email"],
+            source=source,
+            returning=clause,
         )
         assert expr.returning is not None
 
     def test_update_with_returning_detected(self, dummy_dialect: DummyDialect):
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
         expr = UpdateExpression(
-            dummy_dialect, table="users",
+            dummy_dialect,
+            table="users",
             assignments={"name": Literal(dummy_dialect, "Bob")},
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
             returning=clause,
@@ -133,7 +145,8 @@ class TestBatchDMLReturningConflict:
     def test_delete_with_returning_detected(self, dummy_dialect: DummyDialect):
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
         expr = DeleteExpression(
-            dummy_dialect, tables="users",
+            dummy_dialect,
+            tables="users",
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
             returning=clause,
         )
@@ -147,12 +160,15 @@ class TestBatchDMLReturningConflict:
         """One expression has RETURNING, others don't — should be detectable."""
         expr_clean = _make_insert(dummy_dialect, name_val="A", email_val="a@t.com")
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
-        source = ValuesSource(dummy_dialect, values_list=[
-            [Literal(dummy_dialect, "B"), Literal(dummy_dialect, "b@t.com")]
-        ])
+        source = ValuesSource(
+            dummy_dialect, values_list=[[Literal(dummy_dialect, "B"), Literal(dummy_dialect, "b@t.com")]]
+        )
         expr_dirty = InsertExpression(
-            dummy_dialect, into="users", columns=["name", "email"],
-            source=source, returning=clause,
+            dummy_dialect,
+            into="users",
+            columns=["name", "email"],
+            source=source,
+            returning=clause,
         )
         has_any_returning = any(e.returning is not None for e in [expr_clean, expr_dirty])
         assert has_any_returning is True
@@ -161,6 +177,7 @@ class TestBatchDMLReturningConflict:
 # ══════════════════════════════════════════════
 # Stage 3 + 4: Compilation and template validation
 # ══════════════════════════════════════════════
+
 
 class TestBatchDMLTemplateValidation:
     """Tests that SQL template consistency is correctly enforced."""
@@ -193,7 +210,8 @@ class TestBatchDMLTemplateValidation:
         expr_a = _make_update(dummy_dialect, set_col="name", set_val="A", pk_val=1)
         # Different WHERE column
         expr_b = UpdateExpression(
-            dummy_dialect, table="users",
+            dummy_dialect,
+            table="users",
             assignments={"name": Literal(dummy_dialect, "B")},
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "email"), Literal(dummy_dialect, "x")),
         )
@@ -224,6 +242,7 @@ class TestBatchDMLTemplateValidation:
 # Stage 5: RETURNING attach via expression clone
 # ══════════════════════════════════════════════
 
+
 class TestBatchDMLReturningAttach:
     """Tests RETURNING clause attachment through expression clone + to_sql()."""
 
@@ -243,9 +262,13 @@ class TestBatchDMLReturningAttach:
     def test_update_clone_with_returning(self, dummy_dialect: DummyDialect):
         expr = _make_update(dummy_dialect)
         clone = copy.copy(expr)
-        clone.returning = ReturningClause(dummy_dialect, expressions=[
-            Column(dummy_dialect, "id"), Column(dummy_dialect, "name"),
-        ])
+        clone.returning = ReturningClause(
+            dummy_dialect,
+            expressions=[
+                Column(dummy_dialect, "id"),
+                Column(dummy_dialect, "name"),
+            ],
+        )
         sql, _ = clone.to_sql()
         assert "RETURNING" in sql
         assert '"id"' in sql
@@ -290,12 +313,15 @@ class TestBatchDMLReturningAttach:
 class TestBatchDMLReturningTier2:
     """Tests that RETURNING attachment fails on Tier 2 dialects."""
 
-    @pytest.mark.parametrize("version", [
-        pytest.param((3, 8, 0), id="sqlite_3_8_0"),
-        pytest.param((3, 24, 0), id="sqlite_3_24_0"),
-        pytest.param((3, 30, 0), id="sqlite_3_30_0"),
-        pytest.param((3, 34, 0), id="sqlite_3_34_0"),
-    ])
+    @pytest.mark.parametrize(
+        "version",
+        [
+            pytest.param((3, 8, 0), id="sqlite_3_8_0"),
+            pytest.param((3, 24, 0), id="sqlite_3_24_0"),
+            pytest.param((3, 30, 0), id="sqlite_3_30_0"),
+            pytest.param((3, 34, 0), id="sqlite_3_34_0"),
+        ],
+    )
     def test_returning_unsupported_old_sqlite(self, version):
         dialect = SQLiteDialect(version=version)
         assert dialect.supports_returning_clause() is False
@@ -306,12 +332,15 @@ class TestBatchDMLReturningTier2:
         with pytest.raises(UnsupportedFeatureError):
             clone.to_sql()
 
-    @pytest.mark.parametrize("version", [
-        pytest.param((3, 35, 0), id="sqlite_3_35_0"),
-        pytest.param((3, 35, 4), id="sqlite_3_35_4"),
-        pytest.param((3, 38, 0), id="sqlite_3_38_0"),
-        pytest.param((3, 45, 0), id="sqlite_3_45_0"),
-    ])
+    @pytest.mark.parametrize(
+        "version",
+        [
+            pytest.param((3, 35, 0), id="sqlite_3_35_0"),
+            pytest.param((3, 35, 4), id="sqlite_3_35_4"),
+            pytest.param((3, 38, 0), id="sqlite_3_38_0"),
+            pytest.param((3, 45, 0), id="sqlite_3_45_0"),
+        ],
+    )
     def test_returning_supported_new_sqlite(self, version):
         dialect = SQLiteDialect(version=version)
         assert dialect.supports_returning_clause() is True
@@ -327,6 +356,7 @@ class TestBatchDMLReturningTier2:
 # ValuesSource row count consistency
 # ══════════════════════════════════════════════
 
+
 class TestBatchDMLValuesSourceModes:
     """Tests that ValuesSource row count consistency is enforced by template comparison."""
 
@@ -337,8 +367,7 @@ class TestBatchDMLValuesSourceModes:
 
     def test_all_triple_row_consistent(self, dummy_dialect: DummyDialect):
         def make_3row(i):
-            rows = [[Literal(dummy_dialect, f"u{i}_{j}"), Literal(dummy_dialect, f"u{i}_{j}@t.com")]
-                    for j in range(3)]
+            rows = [[Literal(dummy_dialect, f"u{i}_{j}"), Literal(dummy_dialect, f"u{i}_{j}@t.com")] for j in range(3)]
             source = ValuesSource(dummy_dialect, values_list=rows)
             return InsertExpression(dummy_dialect, into="users", columns=["name", "email"], source=source)
 

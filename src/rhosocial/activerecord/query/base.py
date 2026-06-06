@@ -58,7 +58,7 @@ class BaseQueryMixin(IQueryBuilding):
 
         # Check if this is a library class
         module = self.__class__.__module__
-        if module.startswith('rhosocial.activerecord'):
+        if module.startswith("rhosocial.activerecord"):
             # Library class: use semantic naming
             return f"{_LOGGER_QUERY}.{self.__class__.__name__}"
         else:
@@ -162,8 +162,9 @@ class BaseQueryMixin(IQueryBuilding):
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):
             # Warn if string condition contains no parameter placeholders
-            if '?' not in condition:
+            if "?" not in condition:
                 import warnings
+
                 warnings.warn(
                     "String condition without parameter placeholders detected. "
                     "If this condition includes user input, use parameterized "
@@ -236,6 +237,7 @@ class BaseQueryMixin(IQueryBuilding):
                 self.select_columns = converted_columns
             else:
                 from ..backend.expression import WildcardExpression
+
                 self.select_columns = [WildcardExpression(dialect)]
 
         return self
@@ -489,8 +491,9 @@ class BaseQueryMixin(IQueryBuilding):
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):
             # Warn if string condition contains no parameter placeholders
-            if '?' not in condition:
+            if "?" not in condition:
                 import warnings
+
                 warnings.warn(
                     "String condition without parameter placeholders detected. "
                     "If this condition includes user input, use parameterized "
@@ -672,7 +675,7 @@ class BaseQueryMixin(IQueryBuilding):
                 "FOR UPDATE clause",
                 "This backend does not support row-level locking with FOR UPDATE. "
                 "Use dialect.supports_for_update() to check support before calling this method. "
-                "For SQLite, use BEGIN IMMEDIATE transactions for write serialization."
+                "For SQLite, use BEGIN IMMEDIATE transactions for write serialization.",
             )
 
         # Convert string column names to Column objects

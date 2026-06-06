@@ -79,7 +79,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite query \
 def run_cli_command(args):
     """Execute CLI command and print output."""
     cmd = [sys.executable, "-m", "rhosocial.activerecord.backend.impl.sqlite"] + args
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running: {' '.join(cmd)}")
     print("=" * 60)
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -95,44 +95,60 @@ def main():
 
     # 1. List all named connections in a module
     print("\n【1】List all named connections in module")
-    run_cli_command([
-        "named-connection",
-        "--named-connection", "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections",
-        "--list",
-    ])
+    run_cli_command(
+        [
+            "named-connection",
+            "--named-connection",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections",
+            "--list",
+        ]
+    )
 
     # 2. View single connection configuration details
     print("\n【2】View single connection configuration details")
-    run_cli_command([
-        "named-connection",
-        "--named-connection", "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
-        "--show",
-    ])
+    run_cli_command(
+        [
+            "named-connection",
+            "--named-connection",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
+            "--show",
+        ]
+    )
 
     # 3. Dry-run: resolve connection configuration
     print("\n【3】Dry-run: resolve connection configuration")
-    run_cli_command([
-        "named-connection",
-        "--named-connection", "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
-        "--describe",
-    ])
+    run_cli_command(
+        [
+            "named-connection",
+            "--named-connection",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
+            "--describe",
+        ]
+    )
 
     # 4. Resolve connection with parameters
     print("\n【4】Resolve connection with parameters")
-    run_cli_command([
-        "named-connection",
-        "--named-connection", "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.file.file_db",
-        "--describe",
-        "--conn-param", "database=custom.db",
-    ])
+    run_cli_command(
+        [
+            "named-connection",
+            "--named-connection",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.file.file_db",
+            "--describe",
+            "--conn-param",
+            "database=custom.db",
+        ]
+    )
 
     # 5. Use named connection in query
     print("\n【5】Use named connection in query")
-    run_cli_command([
-        "query",
-        "--named-connection", "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
-        "SELECT 1 as test",
-    ])
+    run_cli_command(
+        [
+            "query",
+            "--named-connection",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
+            "SELECT 1 as test",
+        ]
+    )
 
     print("\n" + "=" * 60)
     print("Demo complete!")

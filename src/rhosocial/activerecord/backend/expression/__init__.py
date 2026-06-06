@@ -39,6 +39,7 @@ from .core import (
     TableExpression,
     Literal,
     WildcardExpression,
+    QualifiedIdentifierExpression,
 )
 from .collation import (
     CollateExpression,
@@ -152,6 +153,9 @@ from .statements import (
     ColumnConstraint,
     ColumnConstraintType,
     IndexDefinition,
+    PartitionKey,
+    PartitionStrategy,
+    PartitionClause,
     TableConstraint,
     TableConstraintType,
     ForeignKeyConstraint,
@@ -378,6 +382,7 @@ __all__ = [
     "TableExpression",
     "Literal",
     "WildcardExpression",
+    "QualifiedIdentifierExpression",
     # Collation expressions
     "CollateExpression",
     "collate",
@@ -481,6 +486,8 @@ __all__ = [
     "ColumnConstraint",
     "ColumnConstraintType",
     "IndexDefinition",
+    "PartitionKey",
+    "PartitionStrategy",
     "TableConstraint",
     "TableConstraintType",
     "ForeignKeyConstraint",
@@ -518,6 +525,8 @@ __all__ = [
     # Function DDL Expressions
     "CreateFunctionExpression",
     "DropFunctionExpression",
+    # Partition DDL Expressions
+    "PartitionClause",
     # Materialized View DDL Expressions
     "CreateMaterializedViewExpression",
     "DropMaterializedViewExpression",

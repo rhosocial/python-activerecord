@@ -159,6 +159,7 @@ class RelationDescriptor(Generic[T]):
         self._owner = owner
 
         from ..interface import IAsyncActiveRecord
+
         if issubclass(owner, IAsyncActiveRecord):
             raise TypeError(
                 f"Sync relation descriptor `{name}` cannot be used on async model `{owner.__name__}`. "

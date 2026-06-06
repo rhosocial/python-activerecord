@@ -10,17 +10,36 @@ This test file covers SQLite-specific functions:
 - Conditional functions: iif
 - BLOB functions: zeroblob, randomblob
 """
-import pytest
-from rhosocial.activerecord.backend.expression import Column, Literal
+
+from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.impl.sqlite.functions import (
-    substr, instr, printf, unicode, hex, unhex,
-    zeroblob, randomblob, soundex,
-    group_concat, total,
-    date_func, time_func, datetime_func, julianday, strftime_func,
-    typeof, quote, random_func, abs_sql, sign,
-    last_insert_rowid, changes,
-    trim_sqlite, ltrim, rtrim,
-    iif
+    substr,
+    instr,
+    printf,
+    unicode,
+    hex,
+    unhex,
+    zeroblob,
+    randomblob,
+    soundex,
+    group_concat,
+    total,
+    date_func,
+    time_func,
+    datetime_func,
+    julianday,
+    strftime_func,
+    typeof,
+    quote,
+    random_func,
+    abs_sql,
+    sign,
+    last_insert_rowid,
+    changes,
+    trim_sqlite,
+    ltrim,
+    rtrim,
+    iif,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -371,6 +390,7 @@ class TestSQLiteConditionalFunctions:
     def test_iif_function_with_literal_condition(self, sqlite_dialect_3_35_0: SQLiteDialect):
         """Test IIF function with literal condition."""
         from rhosocial.activerecord.backend.expression import ComparisonPredicate, Literal as Lit
+
         col = Column(sqlite_dialect_3_35_0, "value")
         condition = ComparisonPredicate(sqlite_dialect_3_35_0, ">", col, Lit(sqlite_dialect_3_35_0, 10))
         func = iif(sqlite_dialect_3_35_0, condition, "high", "low")

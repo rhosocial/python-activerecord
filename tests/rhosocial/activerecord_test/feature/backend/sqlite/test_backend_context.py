@@ -41,11 +41,7 @@ class TestSyncBackendContext:
             ctx.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
             # Insert with parameter
             options = ExecutionOptions(stmt_type=StatementType.DML)
-            result = ctx.execute(
-                "INSERT INTO test (name) VALUES (?)",
-                ["Alice"],
-                options=options
-            )
+            result = ctx.execute("INSERT INTO test (name) VALUES (?)", ["Alice"], options=options)
             assert result.affected_rows == 1
             # Query back
             dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
@@ -117,18 +113,13 @@ class TestSyncBackendContext:
 
             # Verify tables exist
             dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
-            result = ctx.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
-                options=dql_options
-            )
+            result = ctx.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name", options=dql_options)
             table_names = [row["name"] for row in result.data]
             assert "users" in table_names
             assert "posts" in table_names
 
     def test_context_transaction_auto_commit(self):
         """Test 7: Context with transaction (auto-commit mode)."""
-        import tempfile
-        import os
 
         # Use file-based database for persistence across contexts
         fd, db_path = tempfile.mkstemp(suffix=".db")
@@ -183,10 +174,7 @@ class TestSyncBackendContext:
 
         with backend.context() as ctx:
             dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
-            result = ctx.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'",
-                options=dql_options
-            )
+            result = ctx.execute("SELECT name FROM sqlite_master WHERE type='table'", options=dql_options)
             assert result.data == []
 
 
@@ -227,7 +215,7 @@ class TestSyncBackendContextConcurrency:
         dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 
         def worker(worker_id):
-            backend = SQLiteBackend(database=f":memory:")
+            backend = SQLiteBackend(database=":memory:")
             with backend.context() as ctx:
                 # Each worker should see its own connection
                 conn_id = id(ctx._connection)
@@ -256,32 +244,23 @@ class TestSyncBackendContextConcurrency:
         dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 
         def worker(worker_id, expected_value):
-            backend = SQLiteBackend(database=f":memory:")
+            backend = SQLiteBackend(database=":memory:")
             with backend.context() as ctx:
                 # Set up isolated data
+                ctx.execute("CREATE TABLE test_contamination (id INTEGER, value TEXT)")
                 ctx.execute(
-                    "CREATE TABLE test_contamination (id INTEGER, value TEXT)"
-                )
-                ctx.execute(
-                    "INSERT INTO test_contamination VALUES (?, ?)",
-                    [worker_id, expected_value],
-                    options=dml_options
+                    "INSERT INTO test_contamination VALUES (?, ?)", [worker_id, expected_value], options=dml_options
                 )
                 # Query back
                 result = ctx.execute(
-                    "SELECT value FROM test_contamination WHERE id = ?",
-                    [worker_id],
-                    options=dql_options
+                    "SELECT value FROM test_contamination WHERE id = ?", [worker_id], options=dql_options
                 )
                 actual_value = result.data[0]["value"]
                 with lock:
                     results[worker_id] = actual_value
                 assert actual_value == expected_value
 
-        threads = [
-            threading.Thread(target=worker, args=(i, f"value_{i}"))
-            for i in range(5)
-        ]
+        threads = [threading.Thread(target=worker, args=(i, f"value_{i}")) for i in range(5)]
         for t in threads:
             t.start()
         for t in threads:
@@ -315,11 +294,7 @@ class TestAsyncBackendContext:
         async with backend.context() as ctx:
             await ctx.execute("CREATE TABLE test_async (id INTEGER PRIMARY KEY, name TEXT)")
             options = ExecutionOptions(stmt_type=StatementType.DML)
-            result = await ctx.execute(
-                "INSERT INTO test_async (name) VALUES (?)",
-                ["Bob"],
-                options=options
-            )
+            result = await ctx.execute("INSERT INTO test_async (name) VALUES (?)", ["Bob"], options=options)
             assert result.affected_rows == 1
 
     @pytest.mark.asyncio

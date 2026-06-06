@@ -11,11 +11,13 @@ which rows were committed and which were rolled back.
 
 For async tests, see sqlite_async/test_batch_transaction.py.
 """
+
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, InsertExpression, TableExpression, ValuesSource,
-    ComparisonPredicate,
+    Literal,
+    InsertExpression,
+    ValuesSource,
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -47,17 +49,19 @@ def backend(sqlite_backend):
 # Helpers
 # ──────────────────────────────────────────────
 
+
 def _make_insert(dialect, name, email, batch_tag="default"):
-    source = ValuesSource(dialect, values_list=[
-        [Literal(dialect, name), Literal(dialect, email), Literal(dialect, batch_tag)]
-    ])
+    source = ValuesSource(
+        dialect, values_list=[[Literal(dialect, name), Literal(dialect, email), Literal(dialect, batch_tag)]]
+    )
     return InsertExpression(dialect, into="users", columns=["name", "email", "batch_tag"], source=source)
 
 
 def _count_rows(backend, where_clause="1=1"):
     """Count rows matching condition."""
     result = backend.execute(
-        f"SELECT COUNT(*) as cnt FROM users WHERE {where_clause}", None,
+        f"SELECT COUNT(*) as cnt FROM users WHERE {where_clause}",
+        None,
         options=ExecutionOptions(stmt_type=StatementType.DQL),
     )
     return result.data[0]["cnt"]
@@ -99,6 +103,7 @@ def _make_conflict_batch(dialect, batch_size=5, conflict_at_batch=1):
 # Sync: WHOLE mode
 # ══════════════════════════════════════════════
 
+
 class TestBatchTransactionWhole:
     """WHOLE commit mode — entire operation is atomic."""
 
@@ -108,9 +113,8 @@ class TestBatchTransactionWhole:
         exprs = [_make_insert(dialect, f"u{i}", f"u{i}@t.com", "ok") for i in range(12)]
 
         from rhosocial.activerecord.backend.result import BatchCommitMode
-        batches = _collect_batches(
-            backend.execute_batch_dml(exprs, batch_size=5, commit_mode=BatchCommitMode.WHOLE)
-        )
+
+        batches = _collect_batches(backend.execute_batch_dml(exprs, batch_size=5, commit_mode=BatchCommitMode.WHOLE))
 
         assert len(batches) == 3  # 5 + 5 + 2
         assert _count_rows(backend) == 12
@@ -126,10 +130,9 @@ class TestBatchTransactionWhole:
         assert _count_rows(backend) == 1  # just poison
 
         from rhosocial.activerecord.backend.result import BatchCommitMode
+
         with pytest.raises((IntegrityError, Exception)):
-            _collect_batches(
-                backend.execute_batch_dml(exprs, batch_size=5, commit_mode=BatchCommitMode.WHOLE)
-            )
+            _collect_batches(backend.execute_batch_dml(exprs, batch_size=5, commit_mode=BatchCommitMode.WHOLE))
 
         # Only the pre-inserted poison row remains — batch 0's rows were rolled back
         assert _count_rows(backend) == 1
@@ -140,9 +143,10 @@ class TestBatchTransactionWhole:
         exprs = [_make_insert(dialect, f"u{i}", f"u{i}@t.com") for i in range(15)]
 
         from rhosocial.activerecord.backend.result import BatchCommitMode
+
         consumed = 0
         gen = backend.execute_batch_dml(exprs, batch_size=5, commit_mode=BatchCommitMode.WHOLE)
-        for batch in gen:
+        for _batch in gen:
             consumed += 1
             if consumed == 1:
                 break
@@ -158,6 +162,7 @@ class TestBatchTransactionWhole:
         exprs = [_make_insert(dialect, f"u{i}", f"u{i}@t.com") for i in range(5)]
 
         from rhosocial.activerecord.backend.result import BatchCommitMode
+
         with backend.transaction():
             batches = _collect_batches(
                 backend.execute_batch_dml(exprs, batch_size=3, commit_mode=BatchCommitMode.WHOLE)
@@ -174,6 +179,7 @@ class TestBatchTransactionWhole:
 # Sync: PER_BATCH mode
 # ══════════════════════════════════════════════
 
+
 class TestBatchTransactionPerBatch:
     """PER_BATCH commit mode — each batch is committed independently."""
 
@@ -182,6 +188,7 @@ class TestBatchTransactionPerBatch:
         exprs = [_make_insert(dialect, f"u{i}", f"u{i}@t.com", f"batch{i // 5}") for i in range(12)]
 
         from rhosocial.activerecord.backend.result import BatchCommitMode
+
         batches = _collect_batches(
             backend.execute_batch_dml(exprs, batch_size=5, commit_mode=BatchCommitMode.PER_BATCH)
         )
@@ -199,17 +206,16 @@ class TestBatchTransactionPerBatch:
         backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DML))
 
         from rhosocial.activerecord.backend.result import BatchCommitMode
+
         with pytest.raises((IntegrityError, Exception)):
-            _collect_batches(
-                backend.execute_batch_dml(exprs, batch_size=5, commit_mode=BatchCommitMode.PER_BATCH)
-            )
+            _collect_batches(backend.execute_batch_dml(exprs, batch_size=5, commit_mode=BatchCommitMode.PER_BATCH))
 
         # Batch 0 (5 rows) was committed before batch 1 failed
         # Plus the poison row = 6 rows total
         batch0_count = _count_rows(backend, "batch_tag = 'batch0'")
         assert batch0_count == 5
 
-        batch1_count = _count_rows(backend, "batch_tag = 'batch1'")
+        _count_rows(backend, "batch_tag = 'batch1'")
         # Batch 1 rolled back (the conflict row prevented the whole batch)
         # Depending on implementation: either 0 (if executemany atomically fails)
         # or partial rows if per-row execute
@@ -222,9 +228,10 @@ class TestBatchTransactionPerBatch:
         exprs = [_make_insert(dialect, f"u{i}", f"u{i}@t.com", f"batch{i // 5}") for i in range(15)]
 
         from rhosocial.activerecord.backend.result import BatchCommitMode
+
         consumed = 0
         gen = backend.execute_batch_dml(exprs, batch_size=5, commit_mode=BatchCommitMode.PER_BATCH)
-        for batch in gen:
+        for _batch in gen:
             consumed += 1
             if consumed == 1:
                 break

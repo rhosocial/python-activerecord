@@ -1,5 +1,4 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_query_sources_cte_edge_cases.py
-import pytest
 from rhosocial.activerecord.backend.expression.query_sources import CTEExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -14,11 +13,11 @@ class TestCTEExpressionEdgeCases:
             dummy_dialect,
             name="test_cte",
             query="SELECT id, name FROM users WHERE age > 18",  # String instead of BaseExpression
-            columns=["id", "name"]
+            columns=["id", "name"],
         )
-        
+
         sql, params = cte.to_sql()
-        
+
         # Should contain the CTE name and query
         assert "test_cte" in sql
         assert "SELECT id, name FROM users WHERE age > 18" in sql
@@ -36,7 +35,7 @@ class TestCTEExpressionEdgeCases:
             dummy_dialect,
             name="tuple_cte",
             query=query_tuple,  # Tuple (sql, params)
-            columns=["id"]
+            columns=["id"],
         )
 
         sql, params = cte.to_sql()
@@ -50,21 +49,17 @@ class TestCTEExpressionEdgeCases:
         """Test CTEExpression when query is a BaseExpression (covers if branch)."""
         # This tests the if branch: query is a BaseExpression
         from rhosocial.activerecord.backend.expression import Subquery
-        
-        subquery = Subquery(
-            dummy_dialect,
-            "SELECT name FROM users WHERE status = ?",
-            ("active",)
-        )
-        
+
+        subquery = Subquery(dummy_dialect, "SELECT name FROM users WHERE status = ?", ("active",))
+
         cte = CTEExpression(
             dummy_dialect,
             name="subquery_cte",
             query=subquery,  # BaseExpression
-            columns=["name"]
+            columns=["name"],
         )
-        
+
         sql, params = cte.to_sql()
-        
+
         assert "subquery_cte" in sql
         assert params == ("active",)

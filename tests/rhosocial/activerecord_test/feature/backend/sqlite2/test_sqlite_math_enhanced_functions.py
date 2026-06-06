@@ -3,6 +3,7 @@
 Tests for SQLite-specific enhanced math functions.
 These include additional mathematical functions beyond the basic math module.
 """
+
 from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.functions.math_enhanced import (
@@ -51,11 +52,7 @@ class TestSQLiteMathEnhancedFunctions:
 
     def test_pow_both_columns(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test pow() with both column references."""
-        result = pow(
-            sqlite_dialect_3_8_0,
-            Column(sqlite_dialect_3_8_0, "x"),
-            Column(sqlite_dialect_3_8_0, "y")
-        )
+        result = pow(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "x"), Column(sqlite_dialect_3_8_0, "y"))
         sql, _ = result.to_sql()
         assert "POW(" in sql
 
@@ -87,9 +84,7 @@ class TestSQLiteMathEnhancedFunctions:
     def test_mod_both_columns(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test mod() with both column references."""
         result = mod(
-            sqlite_dialect_3_8_0,
-            Column(sqlite_dialect_3_8_0, "dividend"),
-            Column(sqlite_dialect_3_8_0, "divisor")
+            sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "dividend"), Column(sqlite_dialect_3_8_0, "divisor")
         )
         sql, _ = result.to_sql()
         assert "MOD(" in sql
@@ -145,7 +140,7 @@ class TestSQLiteMathEnhancedFunctions:
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "a"),
             Column(sqlite_dialect_3_8_0, "b"),
-            Column(sqlite_dialect_3_8_0, "c")
+            Column(sqlite_dialect_3_8_0, "c"),
         )
         sql, _ = result.to_sql()
         assert "MAX(" in sql
@@ -168,7 +163,7 @@ class TestSQLiteMathEnhancedFunctions:
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "a"),
             Column(sqlite_dialect_3_8_0, "b"),
-            Column(sqlite_dialect_3_8_0, "c")
+            Column(sqlite_dialect_3_8_0, "c"),
         )
         sql, _ = result.to_sql()
         assert "MIN(" in sql

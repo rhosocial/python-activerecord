@@ -31,6 +31,6 @@ class Identifier(ComparisonMixin, SQLValueExpression):
 # Register Identifier in the expression registry for serialization support.
 # This is done here rather than in serialization._auto_register_builtins
 # to avoid circular import issues during module initialization.
-from .serialization import ExpressionRegistry
+from .serialization import ExpressionRegistry  # noqa: E402
 
 ExpressionRegistry.register(Identifier)

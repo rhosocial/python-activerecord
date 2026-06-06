@@ -2,4 +2,5 @@
 """
 Bridge file for with_() method tests from the testsuite.
 """
+
 from rhosocial.activerecord.testsuite.feature.relation.test_with_method import *  # noqa: F401,F403

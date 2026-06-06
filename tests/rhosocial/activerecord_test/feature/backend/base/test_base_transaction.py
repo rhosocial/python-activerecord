@@ -11,22 +11,49 @@ from rhosocial.activerecord.backend.errors import TransactionError, IsolationLev
 
 
 class ConcreteTransactionManager(TransactionManager):
-    def _do_begin(self) -> None: pass
-    def _do_commit(self) -> None: pass
-    def _do_rollback(self) -> None: pass
-    def _do_create_savepoint(self, name: str) -> None: pass
-    def _do_release_savepoint(self, name: str) -> None: pass
-    def _do_rollback_savepoint(self, name: str) -> None: pass
-    def supports_savepoint(self) -> bool: return True
+    def _do_begin(self) -> None:
+        pass
+
+    def _do_commit(self) -> None:
+        pass
+
+    def _do_rollback(self) -> None:
+        pass
+
+    def _do_create_savepoint(self, name: str) -> None:
+        pass
+
+    def _do_release_savepoint(self, name: str) -> None:
+        pass
+
+    def _do_rollback_savepoint(self, name: str) -> None:
+        pass
+
+    def supports_savepoint(self) -> bool:
+        return True
+
 
 class ConcreteAsyncTransactionManager(AsyncTransactionManager):
-    async def _do_begin(self) -> None: pass
-    async def _do_commit(self) -> None: pass
-    async def _do_rollback(self) -> None: pass
-    async def _do_create_savepoint(self, name: str) -> None: pass
-    async def _do_release_savepoint(self, name: str) -> None: pass
-    async def _do_rollback_savepoint(self, name: str) -> None: pass
-    async def supports_savepoint(self) -> bool: return True
+    async def _do_begin(self) -> None:
+        pass
+
+    async def _do_commit(self) -> None:
+        pass
+
+    async def _do_rollback(self) -> None:
+        pass
+
+    async def _do_create_savepoint(self, name: str) -> None:
+        pass
+
+    async def _do_release_savepoint(self, name: str) -> None:
+        pass
+
+    async def _do_rollback_savepoint(self, name: str) -> None:
+        pass
+
+    async def supports_savepoint(self) -> bool:
+        return True
 
 
 class TestTransactionManagerBase:
@@ -41,7 +68,7 @@ class TestTransactionManagerBase:
         assert manager.logger is new_logger
 
         manager.logger = None
-        assert manager.logger.name == 'rhosocial.activerecord.transaction'
+        assert manager.logger.name == "rhosocial.activerecord.transaction"
 
         with pytest.raises(ValueError, match="logger must be an instance of logging.Logger"):
             manager.logger = "not a logger"
@@ -96,7 +123,7 @@ class TestTransactionManager(TestTransactionManagerBase):
 
     def test_transaction_context_manager_exception(self, manager):
         """Tests the transaction context manager rolls back on exception."""
-        with patch.object(manager, '_do_rollback') as mock_rollback:
+        with patch.object(manager, "_do_rollback") as mock_rollback:
             with pytest.raises(ValueError, match="Test exception"):
                 with manager.transaction():
                     raise ValueError("Test exception")
@@ -105,8 +132,8 @@ class TestTransactionManager(TestTransactionManagerBase):
     def test_nested_transaction_commit_no_savepoint(self, manager):
         """Tests committing a nested transaction when no savepoint is available."""
         manager.begin()
-        manager._transaction_level = 2 # Manually simulate nested state
-        with patch.object(manager, '_do_release_savepoint') as mock_release:
+        manager._transaction_level = 2  # Manually simulate nested state
+        with patch.object(manager, "_do_release_savepoint") as mock_release:
             manager.commit()
             mock_release.assert_not_called()
         manager.rollback()
@@ -114,11 +141,12 @@ class TestTransactionManager(TestTransactionManagerBase):
     def test_nested_transaction_rollback_no_savepoint(self, manager):
         """Tests rolling back a nested transaction when no savepoint is available."""
         manager.begin()
-        manager._transaction_level = 2 # Manually simulate nested state
-        with patch.object(manager, '_do_rollback_savepoint') as mock_rollback:
+        manager._transaction_level = 2  # Manually simulate nested state
+        with patch.object(manager, "_do_rollback_savepoint") as mock_rollback:
             manager.rollback()
             mock_rollback.assert_not_called()
         manager.rollback()
+
 
 class TestAsyncTransactionManager:
     @pytest.fixture
@@ -162,18 +190,18 @@ class TestAsyncTransactionManager:
     @pytest.mark.asyncio
     async def test_transaction_context_manager_exception(self, async_manager):
         """Tests the async transaction context manager rolls back on exception."""
-        with patch.object(async_manager, '_do_rollback') as mock_rollback:
+        with patch.object(async_manager, "_do_rollback") as mock_rollback:
             with pytest.raises(ValueError, match="Test exception"):
                 async with async_manager.transaction():
                     raise ValueError("Test exception")
             mock_rollback.assert_called_once()
-            
+
     @pytest.mark.asyncio
     async def test_nested_transaction_commit_no_savepoint(self, async_manager):
         """Tests async committing a nested transaction when no savepoint is available."""
         await async_manager.begin()
-        async_manager._transaction_level = 2 # Manually simulate nested state
-        with patch.object(async_manager, '_do_release_savepoint') as mock_release:
+        async_manager._transaction_level = 2  # Manually simulate nested state
+        with patch.object(async_manager, "_do_release_savepoint") as mock_release:
             await async_manager.commit()
             mock_release.assert_not_called()
         await async_manager.rollback()
@@ -182,8 +210,8 @@ class TestAsyncTransactionManager:
     async def test_nested_transaction_rollback_no_savepoint(self, async_manager):
         """Tests async rolling back a nested transaction when no savepoint is available."""
         await async_manager.begin()
-        async_manager._transaction_level = 2 # Manually simulate nested state
-        with patch.object(async_manager, '_do_rollback_savepoint') as mock_rollback:
+        async_manager._transaction_level = 2  # Manually simulate nested state
+        with patch.object(async_manager, "_do_rollback_savepoint") as mock_rollback:
             await async_manager.rollback()
             mock_rollback.assert_not_called()
         await async_manager.rollback()

@@ -21,14 +21,14 @@ def add_connection_args(parser):
         default=None,
         metavar="PATH",
         help="Path to the SQLite database file. This has highest priority and can override "
-             "the database specified in a named connection.",
+        "the database specified in a named connection.",
     )
     parser.add_argument(
         "--named-connection",
         dest="named_connection",
         metavar="QUALIFIED_NAME",
         help="Named connection from Python module (e.g., myapp.connections.prod_db). "
-             "The --db-file option can override the database specified in this connection.",
+        "The --db-file option can override the database specified in this connection.",
     )
     parser.add_argument(
         "--conn-param",
@@ -49,7 +49,8 @@ def create_connection_parent_parser():
     parser = argparse.ArgumentParser(add_help=False)
     add_connection_args(parser)
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         choices=["table", "json", "csv", "tsv"],
         default="table",
         help='Output format. Defaults to "table" if rich is installed.',
@@ -74,8 +75,7 @@ def _parse_params(params: list) -> dict:
     return result
 
 
-def resolve_connection_config(db_file=None, named_connection=None,
-                              connection_params=None) -> SQLiteConnectionConfig:
+def resolve_connection_config(db_file=None, named_connection=None, connection_params=None) -> SQLiteConnectionConfig:
     """Resolve connection config with priority: db_file > named_connection + connection_params > default memory.
 
     Args:
@@ -122,9 +122,9 @@ def resolve_connection_config_from_args(args) -> SQLiteConnectionConfig:
         SQLiteConnectionConfig instance
     """
     return resolve_connection_config(
-        db_file=getattr(args, 'db_file', None),
-        named_connection=getattr(args, 'named_connection', None),
-        connection_params=getattr(args, 'connection_params', []),
+        db_file=getattr(args, "db_file", None),
+        named_connection=getattr(args, "named_connection", None),
+        connection_params=getattr(args, "connection_params", []),
     )
 
 
@@ -173,6 +173,7 @@ def create_backend_factory(args) -> Callable[[], SQLiteBackend]:
     Returns:
         Factory function that returns a connected and adapted SQLiteBackend
     """
+
     def factory():
         config = resolve_connection_config_from_args(args)
         config.check_same_thread = False
@@ -180,6 +181,7 @@ def create_backend_factory(args) -> Callable[[], SQLiteBackend]:
         backend.connect()
         backend.introspect_and_adapt()
         return backend
+
     return factory
 
 
@@ -194,9 +196,12 @@ def create_async_backend_factory(args) -> Callable:
     Returns:
         Async factory function
     """
+
     def factory():
         from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+
         config = resolve_connection_config_from_args(args)
         async_backend = AsyncSQLiteBackend(connection_config=config)
         return async_backend
+
     return factory

@@ -129,9 +129,7 @@ def trim(
     # Validate direction: only allow known trim directions.
     valid_directions = frozenset({"BOTH", "LEADING", "TRAILING"})
     if direction not in valid_directions:
-        raise ValueError(
-            f"Invalid trim direction '{direction}': must be one of {valid_directions}"
-        )
+        raise ValueError(f"Invalid trim direction '{direction}': must be one of {valid_directions}")
 
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     target_sql, target_params = target_expr.to_sql()
@@ -174,9 +172,7 @@ def replace(
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     pattern_expr = pattern if isinstance(pattern, BaseExpression) else Literal(dialect, pattern)
-    replacement_expr = (
-        replacement if isinstance(replacement, BaseExpression) else Literal(dialect, replacement)
-    )
+    replacement_expr = replacement if isinstance(replacement, BaseExpression) else Literal(dialect, replacement)
     return FunctionCall(dialect, "REPLACE", target_expr, pattern_expr, replacement_expr)
 
 

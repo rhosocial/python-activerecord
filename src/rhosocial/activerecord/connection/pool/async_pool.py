@@ -7,7 +7,6 @@ Provides AsyncBackendPool class for managing connection pools of asynchronous Ba
 
 import asyncio
 import inspect
-import logging
 import time
 from collections import deque
 from contextlib import asynccontextmanager
@@ -18,6 +17,7 @@ from .config import PoolConfig
 from .stats import PoolStats
 from .pooled_backend import PooledBackend
 from rhosocial.activerecord.logging import get_logger as _get_framework_logger
+
 logger = _get_framework_logger("rhosocial.activerecord.connection.pool.async_pool")
 
 
@@ -114,7 +114,7 @@ class AsyncBackendPool:
         else:
             self._effective_mode = config.connection_mode
 
-        self._is_persistent = (self._effective_mode == "persistent")
+        self._is_persistent = self._effective_mode == "persistent"
 
         logger.debug(
             f"AsyncBackendPool initialized with connection_mode={self._effective_mode} "
@@ -131,7 +131,7 @@ class AsyncBackendPool:
         return self._effective_mode
 
     @classmethod
-    async def create(cls, config: PoolConfig) -> 'AsyncBackendPool':
+    async def create(cls, config: PoolConfig) -> "AsyncBackendPool":
         """Create and initialize connection pool with warmup.
 
         This is the recommended way to create an async pool, as it mirrors
@@ -210,23 +210,17 @@ class AsyncBackendPool:
                 # Create backend from config
                 backend = await self._create_backend_from_config()
             else:
-                raise ValueError(
-                    "Either backend_factory or backend_config is required "
-                    "to create Backend instances"
-                )
+                raise ValueError("Either backend_factory or backend_config is required to create Backend instances")
 
             # Connect if requested
-            if connect and hasattr(backend, 'connect'):
+            if connect and hasattr(backend, "connect"):
                 if inspect.iscoroutinefunction(backend.connect):
                     await backend.connect()
                 else:
                     backend.connect()
                 await backend.introspect_and_adapt()
 
-            pooled = PooledBackend(
-                backend=backend,
-                pool_key=str(id(self))
-            )
+            pooled = PooledBackend(backend=backend, pool_key=str(id(self)))
             self._stats.total_created += 1
             return pooled
         except Exception:
@@ -243,12 +237,13 @@ class AsyncBackendPool:
             ValueError: If backend type is not supported
         """
         config = self.config.backend_config
-        backend_type = config.get('type', 'sqlite')
+        backend_type = config.get("type", "sqlite")
 
-        if backend_type == 'sqlite':
+        if backend_type == "sqlite":
             from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
+
             # Extract SQLite-specific config
-            database = config.get('database', ':memory:')
+            database = config.get("database", ":memory:")
             return AsyncSQLiteBackend(database=database)
         else:
             raise ValueError(
@@ -264,7 +259,7 @@ class AsyncBackendPool:
             pooled: PooledBackend instance to destroy
         """
         try:
-            if hasattr(pooled.backend, 'disconnect'):
+            if hasattr(pooled.backend, "disconnect"):
                 if inspect.iscoroutinefunction(pooled.backend.disconnect):
                     await pooled.backend.disconnect()
                 else:
@@ -298,6 +293,7 @@ class AsyncBackendPool:
             # Execute validation query
             from rhosocial.activerecord.backend.options import ExecutionOptions
             from rhosocial.activerecord.backend.schema import StatementType
+
             options = ExecutionOptions(stmt_type=StatementType.DQL)
 
             if inspect.iscoroutinefunction(pooled.backend.execute):
@@ -323,12 +319,12 @@ class AsyncBackendPool:
             True if reconnection succeeded
         """
         try:
-            if hasattr(pooled.backend, 'disconnect'):
+            if hasattr(pooled.backend, "disconnect"):
                 if inspect.iscoroutinefunction(pooled.backend.disconnect):
                     await pooled.backend.disconnect()
                 else:
                     pooled.backend.disconnect()
-            if hasattr(pooled.backend, 'connect'):
+            if hasattr(pooled.backend, "connect"):
                 if inspect.iscoroutinefunction(pooled.backend.connect):
                     await pooled.backend.connect()
                 else:
@@ -347,7 +343,7 @@ class AsyncBackendPool:
         Args:
             backend: Backend instance to connect
         """
-        if hasattr(backend, 'connect'):
+        if hasattr(backend, "connect"):
             if inspect.iscoroutinefunction(backend.connect):
                 await backend.connect()
             else:
@@ -392,7 +388,7 @@ class AsyncBackendPool:
             await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
         except asyncio.TimeoutError:
             self._stats.total_timeouts += 1
-            raise TimeoutError(
+            raise TimeoutError(  # noqa: B904
                 f"Failed to acquire connection within {timeout} seconds. "
                 f"Pool stats: available={self._stats.current_available}, "
                 f"in_use={self._stats.current_in_use}"
@@ -498,7 +494,7 @@ class AsyncBackendPool:
             # In transient mode, auto-disconnect if configured
             if not self._is_persistent and self.config.auto_disconnect_on_release:
                 try:
-                    if hasattr(pooled.backend, 'disconnect'):
+                    if hasattr(pooled.backend, "disconnect"):
                         if inspect.iscoroutinefunction(pooled.backend.disconnect):
                             await pooled.backend.disconnect()
                         else:
@@ -531,7 +527,7 @@ class AsyncBackendPool:
 
             self._semaphore.release()
 
-    def context(self) -> 'AsyncPoolContext':
+    def context(self) -> "AsyncPoolContext":
         """Get async pool context manager.
 
         Returns an async context manager that sets this pool in the current context.
@@ -748,16 +744,16 @@ class AsyncBackendPool:
         """
         stats = self.get_stats()
         return {
-            'healthy': not self._closed and stats.total_errors < stats.total_created,
-            'closed': self._closed,
-            'connection_mode': self._effective_mode,
-            'utilization': stats.utilization_rate,
-            'stats': {
-                'available': stats.current_available,
-                'in_use': stats.current_in_use,
-                'total': stats.current_total,
-                'errors': stats.total_errors,
-            }
+            "healthy": not self._closed and stats.total_errors < stats.total_created,
+            "closed": self._closed,
+            "connection_mode": self._effective_mode,
+            "utilization": stats.utilization_rate,
+            "stats": {
+                "available": stats.current_available,
+                "in_use": stats.current_in_use,
+                "total": stats.current_total,
+                "errors": stats.total_errors,
+            },
         }
 
     @property
@@ -795,7 +791,7 @@ class AsyncPoolContext:
         _pool_token: Token for resetting pool context.
     """
 
-    def __init__(self, pool: 'AsyncBackendPool'):
+    def __init__(self, pool: "AsyncBackendPool"):
         """Initialize AsyncPoolContext.
 
         Args:
@@ -804,14 +800,16 @@ class AsyncPoolContext:
         self._pool = pool
         self._pool_token = None
 
-    async def __aenter__(self) -> 'AsyncPoolContext':
+    async def __aenter__(self) -> "AsyncPoolContext":
         """Enter context, set pool in context."""
         from . import context as ctx
+
         self._pool_token = ctx._set_async_pool(self._pool)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit context, reset pool context."""
         from . import context as ctx
+
         if self._pool_token is not None:
             ctx._reset_async_pool(self._pool_token)

@@ -445,7 +445,9 @@ def geopoly_xform(
     """
     poly_expr = _convert_to_expression(dialect, polygon)
     return core.FunctionCall(
-        dialect, "geopoly_xform", poly_expr,
+        dialect,
+        "geopoly_xform",
+        poly_expr,
         _convert_to_expression(dialect, a),
         _convert_to_expression(dialect, b),
         _convert_to_expression(dialect, c),

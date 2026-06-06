@@ -49,6 +49,7 @@ Usage:
     >>> from rhosocial.activerecord.backend.named_expression import list_named_expressions_in_module
     >>> expressions = list_named_expressions_in_module("myapp.queries")
 """
+
 from .exceptions import (
     NamedExpressionError,
     NamedExpressionNotFoundError,
@@ -61,7 +62,7 @@ from .exceptions import (
     ProcedureError,
     ProcedureAbortedError,
     ProcedureStepError,
-    ProcedureGraphError,
+    ProcedureGraphError,  # noqa: F401
     ProcedureGraphValidationError,
 )
 from .resolver import (
@@ -110,7 +111,7 @@ from .graph_result import (
 from .graph_runner import (
     ProcedureGraphRunner,
     AsyncProcedureGraphRunner,
-    ProcedureGraphValidationError as GraphValidationError,
+    ProcedureGraphValidationError as GraphValidationError,  # noqa: F401
 )
 from .graph_resolver import (
     NamedProcedureGraphResolver,

@@ -24,6 +24,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 class Author(ActiveRecord):
     """Author Model for DDL relationship demo"""
+
     name: str
     email: str
 
@@ -36,6 +37,7 @@ class Author(ActiveRecord):
 
 class Post(ActiveRecord):
     """Post Model for DDL relationship demo"""
+
     title: str
     content: str
     author_id: int
@@ -49,6 +51,7 @@ class Post(ActiveRecord):
 
 class Tag(ActiveRecord):
     """Tag Model for DDL relationship demo"""
+
     name: str = Field(..., max_length=50)
 
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -60,6 +63,7 @@ class Tag(ActiveRecord):
 
 class PostTag(ActiveRecord):
     """Junction table for many-to-many relationship"""
+
     post_id: int
     tag_id: int
 
@@ -89,32 +93,21 @@ def main():
     # ============================================================
     author_columns = [
         ColumnDefinition(
-            "id",
-            "INTEGER",
-            constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)
-            ]
+            "id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
         ),
-        ColumnDefinition(
-            "name",
-            "VARCHAR(100)",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-        ),
+        ColumnDefinition("name", "VARCHAR(100)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
         ColumnDefinition(
             "email",
             "VARCHAR(255)",
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(ColumnConstraintType.UNIQUE)
-            ]
-        )
+                ColumnConstraint(ColumnConstraintType.UNIQUE),
+            ],
+        ),
     ]
 
     create_authors = CreateTableExpression(
-        dialect=dialect,
-        table_name="authors",
-        columns=author_columns,
-        if_not_exists=True
+        dialect=dialect, table_name="authors", columns=author_columns, if_not_exists=True
     )
 
     sql, params = create_authors.to_sql()
@@ -130,23 +123,11 @@ def main():
     # ============================================================
     post_columns = [
         ColumnDefinition(
-            "id",
-            "INTEGER",
-            constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)
-            ]
+            "id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
         ),
-        ColumnDefinition(
-            "title",
-            "VARCHAR(200)",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-        ),
+        ColumnDefinition("title", "VARCHAR(200)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
         ColumnDefinition("content", "TEXT"),
-        ColumnDefinition(
-            "author_id",
-            "INTEGER",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-        )
+        ColumnDefinition("author_id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
     ]
 
     # Use table_constraints for foreign key at table level
@@ -157,7 +138,7 @@ def main():
             foreign_key_table="authors",
             foreign_key_columns=["id"],
             on_delete=ReferentialAction.CASCADE,
-            on_update=ReferentialAction.CASCADE
+            on_update=ReferentialAction.CASCADE,
         )
     ]
 
@@ -166,7 +147,7 @@ def main():
         table_name="posts",
         columns=post_columns,
         table_constraints=post_constraints,
-        if_not_exists=True
+        if_not_exists=True,
     )
 
     sql, params = create_posts.to_sql()
@@ -182,28 +163,19 @@ def main():
     # ============================================================
     tag_columns = [
         ColumnDefinition(
-            "id",
-            "INTEGER",
-            constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)
-            ]
+            "id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
         ),
         ColumnDefinition(
             "name",
             "VARCHAR(50)",
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(ColumnConstraintType.UNIQUE)
-            ]
-        )
+                ColumnConstraint(ColumnConstraintType.UNIQUE),
+            ],
+        ),
     ]
 
-    create_tags = CreateTableExpression(
-        dialect=dialect,
-        table_name="tags",
-        columns=tag_columns,
-        if_not_exists=True
-    )
+    create_tags = CreateTableExpression(dialect=dialect, table_name="tags", columns=tag_columns, if_not_exists=True)
 
     sql, params = create_tags.to_sql()
     print("=== Create Tags Table ===")
@@ -217,32 +189,21 @@ def main():
     # Example 4: Create junction table (PostTag) for many-to-many
     # ============================================================
     post_tag_columns = [
-        ColumnDefinition(
-            "post_id",
-            "INTEGER",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-        ),
-        ColumnDefinition(
-            "tag_id",
-            "INTEGER",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-        )
+        ColumnDefinition("post_id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("tag_id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
     ]
 
     # Table-level constraints for composite PK and foreign keys
     post_tag_constraints = [
         # Composite primary key
-        TableConstraint(
-            constraint_type=TableConstraintType.PRIMARY_KEY,
-            columns=["post_id", "tag_id"]
-        ),
+        TableConstraint(constraint_type=TableConstraintType.PRIMARY_KEY, columns=["post_id", "tag_id"]),
         # Foreign key to posts table
         ForeignKeyConstraint(
             constraint_type=TableConstraintType.FOREIGN_KEY,
             columns=["post_id"],
             foreign_key_table="posts",
             foreign_key_columns=["id"],
-            on_delete=ReferentialAction.CASCADE
+            on_delete=ReferentialAction.CASCADE,
         ),
         # Foreign key to tags table
         ForeignKeyConstraint(
@@ -250,8 +211,8 @@ def main():
             columns=["tag_id"],
             foreign_key_table="tags",
             foreign_key_columns=["id"],
-            on_delete=ReferentialAction.CASCADE
-        )
+            on_delete=ReferentialAction.CASCADE,
+        ),
     ]
 
     create_post_tags = CreateTableExpression(
@@ -259,7 +220,7 @@ def main():
         table_name="post_tags",
         columns=post_tag_columns,
         table_constraints=post_tag_constraints,
-        if_not_exists=True
+        if_not_exists=True,
     )
 
     sql, params = create_post_tags.to_sql()

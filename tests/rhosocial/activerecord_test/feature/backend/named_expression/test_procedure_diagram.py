@@ -5,10 +5,10 @@ Tests for procedure execution diagrams:
 - ProcedureDiagram (static and instance modes)
 - ProcedureResult.diagram()
 """
+
 from __future__ import annotations
 
-import asyncio
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -27,7 +27,6 @@ from rhosocial.activerecord.backend.named_expression.procedure import (
     ProcedureResult,
     StepKind,
     TraceEntry,
-    TransactionMode,
 )
 
 
@@ -327,8 +326,11 @@ class TestFlowchartRendering:
         ]
         instance = [
             TraceEntry(
-                kind=StepKind.SINGLE, index=0,
-                qualified_name="a.b", status="ok", elapsed_ms=5.0,
+                kind=StepKind.SINGLE,
+                index=0,
+                qualified_name="a.b",
+                status="ok",
+                elapsed_ms=5.0,
             )
         ]
         result = _make_result_with_traces(static=static, instance=instance)
@@ -419,10 +421,7 @@ class TestSequenceRendering:
             TraceEntry(kind=StepKind.SINGLE, index=0, qualified_name="a.b"),
             TraceEntry(kind=StepKind.SINGLE, index=1, qualified_name="c.d"),
         ]
-        instance = [
-            TraceEntry(kind=StepKind.SINGLE, index=0,
-                       qualified_name="a.b", status="ok", elapsed_ms=5.0)
-        ]
+        instance = [TraceEntry(kind=StepKind.SINGLE, index=0, qualified_name="a.b", status="ok", elapsed_ms=5.0)]
         result = _make_result_with_traces(static=static, instance=instance)
         d = ProcedureDiagram.from_result(result)
         output = d.to_mermaid("sequence")
@@ -453,13 +452,12 @@ class TestSequenceRendering:
 
     def test_instance_bind_shown_in_reply(self):
         static = [
-            TraceEntry(kind=StepKind.SINGLE, index=0,
-                       qualified_name="users.find", bind="user_id"),
+            TraceEntry(kind=StepKind.SINGLE, index=0, qualified_name="users.find", bind="user_id"),
         ]
         instance = [
-            TraceEntry(kind=StepKind.SINGLE, index=0,
-                       qualified_name="users.find", bind="user_id",
-                       status="ok", elapsed_ms=3.0),
+            TraceEntry(
+                kind=StepKind.SINGLE, index=0, qualified_name="users.find", bind="user_id", status="ok", elapsed_ms=3.0
+            ),
         ]
         result = _make_result_with_traces(static=static, instance=instance)
         d = ProcedureDiagram.from_result(result)
@@ -528,14 +526,22 @@ def _simple_instance_trace(
 ) -> List[TraceEntry]:
     return [
         TraceEntry(
-            kind=StepKind.SINGLE, index=0,
-            qualified_name="users.find", bind="user",
-            status=status, error=error, elapsed_ms=elapsed_ms,
+            kind=StepKind.SINGLE,
+            index=0,
+            qualified_name="users.find",
+            bind="user",
+            status=status,
+            error=error,
+            elapsed_ms=elapsed_ms,
         ),
         TraceEntry(
-            kind=StepKind.SINGLE, index=1,
-            qualified_name="orders.create", output=True,
-            status=status, error=error, elapsed_ms=elapsed_ms,
+            kind=StepKind.SINGLE,
+            index=1,
+            qualified_name="orders.create",
+            output=True,
+            status=status,
+            error=error,
+            elapsed_ms=elapsed_ms,
         ),
     ]
 

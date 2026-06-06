@@ -156,9 +156,9 @@ class FTS5Extension(SQLiteExtensionBase):
 
         if options:
             opts_str = ", ".join(options)
-            sql = f'CREATE VIRTUAL TABLE {self.format_identifier(table_name)} USING fts5({cols_str}, {opts_str})'
+            sql = f"CREATE VIRTUAL TABLE {self.format_identifier(table_name)} USING fts5({cols_str}, {opts_str})"
         else:
-            sql = f'CREATE VIRTUAL TABLE {self.format_identifier(table_name)} USING fts5({cols_str})'
+            sql = f"CREATE VIRTUAL TABLE {self.format_identifier(table_name)} USING fts5({cols_str})"
 
         return sql, ()
 
@@ -193,8 +193,7 @@ class FTS5Extension(SQLiteExtensionBase):
         """
         if negate:
             raise ValueError(
-                "FTS5 does not support NOT MATCH syntax. "
-                "Use query-level negation instead (e.g., 'python NOT java')."
+                "FTS5 does not support NOT MATCH syntax. Use query-level negation instead (e.g., 'python NOT java')."
             )
 
         if columns:
@@ -202,7 +201,7 @@ class FTS5Extension(SQLiteExtensionBase):
         else:
             match_query = query
 
-        sql = f'{self.format_identifier(table_name)} MATCH ?'
+        sql = f"{self.format_identifier(table_name)} MATCH ?"
         return sql, (match_query,)
 
     def format_rank_expression(
@@ -232,18 +231,18 @@ class FTS5Extension(SQLiteExtensionBase):
             for k, v in bm25_params.items():
                 param_parts.extend([f"'{self._escape_sql_string(k)}'", str(v)])
             param_str = ", ".join(param_parts)
-            sql = f'bm25({self.format_identifier(table_name)}, {weight_str}, {param_str})'
+            sql = f"bm25({self.format_identifier(table_name)}, {weight_str}, {param_str})"
         elif weights:
             weight_str = ", ".join(str(w) for w in weights)
-            sql = f'bm25({self.format_identifier(table_name)}, {weight_str})'
+            sql = f"bm25({self.format_identifier(table_name)}, {weight_str})"
         elif bm25_params:
             param_parts = []
             for k, v in bm25_params.items():
                 param_parts.extend([f"'{self._escape_sql_string(k)}'", str(v)])
             param_str = ", ".join(param_parts)
-            sql = f'bm25({self.format_identifier(table_name)}, {param_str})'
+            sql = f"bm25({self.format_identifier(table_name)}, {param_str})"
         else:
-            sql = f'bm25({self.format_identifier(table_name)})'
+            sql = f"bm25({self.format_identifier(table_name)})"
 
         return sql, tuple(params)
 
@@ -270,7 +269,7 @@ class FTS5Extension(SQLiteExtensionBase):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        sql = f'highlight({self.format_identifier(table_name)}, {self.format_identifier(column)}, ?, ?)'
+        sql = f"highlight({self.format_identifier(table_name)}, {self.format_identifier(column)}, ?, ?)"
         return sql, (prefix_marker, suffix_marker)
 
     def format_snippet_expression(
@@ -300,7 +299,7 @@ class FTS5Extension(SQLiteExtensionBase):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        sql = f'snippet({self.format_identifier(table_name)}, {self.format_identifier(column)}, ?, ?, ?, ?)'
+        sql = f"snippet({self.format_identifier(table_name)}, {self.format_identifier(column)}, ?, ?, ?, ?)"
         return sql, (prefix_marker, suffix_marker, ellipsis, context_tokens)
 
     def format_drop_virtual_table(
@@ -318,9 +317,9 @@ class FTS5Extension(SQLiteExtensionBase):
             Tuple of (SQL string, parameters tuple)
         """
         if if_exists:
-            sql = f'DROP TABLE IF EXISTS {self.format_identifier(table_name)}'
+            sql = f"DROP TABLE IF EXISTS {self.format_identifier(table_name)}"
         else:
-            sql = f'DROP TABLE {self.format_identifier(table_name)}'
+            sql = f"DROP TABLE {self.format_identifier(table_name)}"
         return sql, ()
 
 

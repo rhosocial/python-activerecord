@@ -12,9 +12,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def json_extract(
-    dialect: "SQLDialectBase", column: Union[str, "BaseExpression"], path: str
-) -> "JSONExpression":
+def json_extract(dialect: "SQLDialectBase", column: Union[str, "BaseExpression"], path: str) -> "JSONExpression":
     """
     Creates a JSON extract operation (e.g., column->path).
 
@@ -34,9 +32,7 @@ def json_extract(
     return JSONExpression(dialect, target_column, path, operation="->")
 
 
-def json_extract_text(
-    dialect: "SQLDialectBase", column: Union[str, "BaseExpression"], path: str
-) -> "JSONExpression":
+def json_extract_text(dialect: "SQLDialectBase", column: Union[str, "BaseExpression"], path: str) -> "JSONExpression":
     """
     Creates a JSON extract text operation (e.g., column->>path).
 
@@ -57,9 +53,7 @@ def json_extract_text(
     return JSONExpression(dialect, target_column, path, operation="->>")
 
 
-def json_build_object(
-    dialect: "SQLDialectBase", *key_value_pairs: Union[str, "BaseExpression"]
-) -> "FunctionCall":
+def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: Union[str, "BaseExpression"]) -> "FunctionCall":
     """
     Creates a JSON_BUILD_OBJECT function call.
 

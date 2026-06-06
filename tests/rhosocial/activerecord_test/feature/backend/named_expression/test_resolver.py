@@ -7,8 +7,8 @@ This test module covers:
 - resolve_named_expression function
 - list_named_expressions_in_module function
 """
+
 import types
-from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 from rhosocial.activerecord.backend.named_expression.resolver import (
@@ -32,6 +32,7 @@ class DummyCallable:
 
     def __call__(self, dialect, limit: int = 100):
         from rhosocial.activerecord.backend.expression import QueryExpression
+
         return QueryExpression(dialect)
 
 
@@ -223,6 +224,7 @@ class TestNamedExpressionResolverExecute:
 
     def test_execute_non_expression_class(self, mock_dialect):
         """Test class execute returns non-BaseExpression."""
+
         def bad_class_func(dialect):
             return "not an expression"
 
@@ -236,9 +238,12 @@ class TestNamedExpressionResolverExecute:
 
     def test_execute_extra_params(self, mock_dialect):
         from rhosocial.activerecord.backend.expression import QueryExpression
+
         module = types.ModuleType("test_queries")
+
         def func(dialect, limit: int = 100):
             return QueryExpression(dialect)
+
         module.func = func
         with patch("importlib.import_module", return_value=module):
             resolver = NamedExpressionResolver("test_queries.func").load()
@@ -247,7 +252,10 @@ class TestNamedExpressionResolverExecute:
 
     def test_execute_missing_required_param(self, mock_dialect):
         module = types.ModuleType("test_queries")
-        def func(dialect, limit): pass
+
+        def func(dialect, limit):
+            pass
+
         module.func = func
         with patch("importlib.import_module", return_value=module):
             resolver = NamedExpressionResolver("test_queries.func").load()
@@ -260,7 +268,10 @@ class TestNamedExpressionResolverIsClass:
 
     def test_is_class_property_function(self, mock_dialect):
         module = types.ModuleType("test_queries")
-        def func(dialect): pass
+
+        def func(dialect):
+            pass
+
         module.func = func
         with patch("importlib.import_module", return_value=module):
             resolver = NamedExpressionResolver("test_queries.func").load()
@@ -277,7 +288,10 @@ class TestNamedExpressionResolverGetParamSpecs:
 
     def test_get_param_specs_all_scalar(self, mock_dialect):
         module = types.ModuleType("test_queries")
-        def func(dialect, limit: int = 100, offset: int = 0): pass
+
+        def func(dialect, limit: int = 100, offset: int = 0):
+            pass
+
         module.func = func
         with patch("importlib.import_module", return_value=module):
             resolver = NamedExpressionResolver("test_queries.func").load()
@@ -291,7 +305,10 @@ class TestNamedExpressionResolverGetParamSpecs:
 
     def test_get_param_specs_untyped(self, mock_dialect):
         module = types.ModuleType("test_queries")
-        def func(dialect, limit=100): pass
+
+        def func(dialect, limit=100):
+            pass
+
         module.func = func
         with patch("importlib.import_module", return_value=module):
             resolver = NamedExpressionResolver("test_queries.func").load()
@@ -305,9 +322,12 @@ class TestResolveNamedExpression:
 
     def test_resolve_success(self, mock_dialect):
         from rhosocial.activerecord.backend.named_expression.resolver import resolve_named_expression
+
         module = types.ModuleType("test_queries")
+
         def func(dialect, limit: int = 100):
             return None
+
         module.func = func
         with patch("importlib.import_module", return_value=module):
             try:
@@ -317,6 +337,7 @@ class TestResolveNamedExpression:
 
     def test_resolve_module_not_found(self):
         from rhosocial.activerecord.backend.named_expression.resolver import resolve_named_expression
+
         with pytest.raises(NamedExpressionModuleNotFoundError):
             resolve_named_expression("nonexistent.module.func", None)
 
@@ -326,17 +347,20 @@ class TestClassifyProbeUtilities:
 
     def _dialect(self):
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
         return SQLiteDialect()
 
     def test_classify_clause(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.expression import RawSQLExpression
+
         result = _classify(RawSQLExpression(self._dialect(), "SELECT 1"))
         assert result == ["CLAUSE"]
 
     def test_classify_dql(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.expression import QueryExpression, Literal
+
         d = self._dialect()
         q = QueryExpression(d, [Literal(d, 1)])
         result = _classify(q)
@@ -345,14 +369,16 @@ class TestClassifyProbeUtilities:
     def test_classify_dml(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.expression import InsertExpression
+
         d = self._dialect()
-        expr = InsertExpression(d, "t", [Literal(d, 1)])
+        expr = InsertExpression(d, "t", [Literal(d, 1)])  # noqa: F821
         result = _classify(expr)
         assert result == ["DML"]
 
     def test_classify_ddl(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.expression import CreateTableExpression
+
         d = self._dialect()
         expr = CreateTableExpression(d, "t")
         result = _classify(expr)
@@ -361,6 +387,7 @@ class TestClassifyProbeUtilities:
     def test_classify_tcl(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.expression import BeginTransactionExpression
+
         d = self._dialect()
         expr = BeginTransactionExpression(d)
         result = _classify(expr)
@@ -369,6 +396,7 @@ class TestClassifyProbeUtilities:
     def test_classify_call(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.expression import FunctionCall
+
         d = self._dialect()
         expr = FunctionCall(d, "foo")
         result = _classify(expr)
@@ -377,48 +405,65 @@ class TestClassifyProbeUtilities:
     def test_classify_explain(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.expression import ExplainExpression
+
         d = self._dialect()
         from rhosocial.activerecord.backend.expression import QueryExpression, Literal
+
         inner = QueryExpression(d, [Literal(d, 1)])
         expr = ExplainExpression(d, inner)
         result = _classify(expr)
         assert result == ["EXPLAIN"]
 
     def test_classify_unknown(self):
-        from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.schema import StatementType
         from rhosocial.activerecord.backend.expression import SQLValueExpression
+
         d = self._dialect()
-        with patch.object(SQLValueExpression(d, 1), 'statement_type', StatementType.OTHER):
+        with patch.object(SQLValueExpression(d, 1), "statement_type", StatementType.OTHER):
             pass
 
     def test_probe_tags_no_dialect(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        def f(dialect, x: int = 1): pass
+
+        def f(dialect, x: int = 1):
+            pass
+
         result = _probe_tags(f, dialect=None)
         assert result == ["?"]
 
     def test_probe_tags_unresolvable_signature(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        class NoSig: pass
+
+        class NoSig:
+            pass
+
         result = _probe_tags(NoSig())
         assert result == ["?"]
 
     def test_probe_tags_required_param_no_dialect(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        def f(dialect, x): pass
+
+        def f(dialect, x):
+            pass
+
         result = _probe_tags(f, dialect=MagicMock())
         assert result == ["?"]
 
     def test_probe_tags_callable_raises(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        def f(dialect, x: int = 1): raise RuntimeError
+
+        def f(dialect, x: int = 1):
+            raise RuntimeError
+
         result = _probe_tags(f, dialect=MagicMock())
         assert result == ["?"]
 
     def test_probe_tags_returns_non_expression(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        def f(dialect, x: int = 1): return "not expression"
+
+        def f(dialect, x: int = 1):
+            return "not expression"
+
         result = _probe_tags(f, dialect=MagicMock())
         assert result == ["?"]
 
@@ -428,6 +473,7 @@ class TestClassifyProbeUtilities:
 
         def f(dialect, x: int = 1):
             return QueryExpression(dialect, [Literal(dialect, 1)])
+
         result = _probe_tags(f, dialect=self._dialect())
         assert result == ["DQL"]
 
@@ -437,142 +483,166 @@ class TestClassifyProbeUtilities:
 
         def f(dialect, x: int = 1):
             return RawSQLExpression(dialect, "1")
+
         result = _probe_tags(f, dialect=self._dialect())
         assert result == ["CLAUSE"]
 
-    def test_classify_dql(self):
+    def test_classify_dql(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.schema import StatementType
+
         exec_mock = MagicMock()
         exec_mock.statement_type = StatementType.SELECT
         result = _classify(exec_mock)
         assert result == ["DQL"]
 
-    def test_classify_dml(self):
+    def test_classify_dml(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.schema import StatementType
+
         exec_mock = MagicMock()
         exec_mock.statement_type = StatementType.INSERT
         result = _classify(exec_mock)
         assert result == ["DML"]
 
-    def test_classify_ddl(self):
+    def test_classify_ddl(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.schema import StatementType
+
         exec_mock = MagicMock()
         exec_mock.statement_type = StatementType.DDL
         result = _classify(exec_mock)
         assert result == ["DDL"]
 
-    def test_classify_tcl(self):
+    def test_classify_tcl(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.schema import StatementType
+
         exec_mock = MagicMock()
         exec_mock.statement_type = StatementType.TCL
         result = _classify(exec_mock)
         assert result == ["TCL"]
 
-    def test_classify_call(self):
+    def test_classify_call(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.schema import StatementType
+
         exec_mock = MagicMock()
         exec_mock.statement_type = StatementType.CALL
         result = _classify(exec_mock)
         assert result == ["CALL"]
 
-    def test_classify_explain(self):
+    def test_classify_explain(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.schema import StatementType
+
         exec_mock = MagicMock()
         exec_mock.statement_type = StatementType.EXPLAIN
         result = _classify(exec_mock)
         assert result == ["EXPLAIN"]
 
-    def test_classify_unknown(self):
+    def test_classify_unknown(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
         from rhosocial.activerecord.backend.schema import StatementType
+
         exec_mock = MagicMock()
         exec_mock.statement_type = StatementType.OTHER
         result = _classify(exec_mock)
         assert result == ["OTHER"]
 
-    def test_probe_tags_no_dialect(self):
+    def test_probe_tags_no_dialect(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        def f(dialect, x: int = 1): pass
+
+        def f(dialect, x: int = 1):
+            pass
+
         result = _probe_tags(f, dialect=None)
         assert result == ["?"]
 
-    def test_probe_tags_unresolvable_signature(self):
+    def test_probe_tags_unresolvable_signature(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        class NoSig: pass
+
+        class NoSig:
+            pass
+
         result = _probe_tags(NoSig())
         assert result == ["?"]
 
-    def test_probe_tags_required_param_no_dialect(self):
+    def test_probe_tags_required_param_no_dialect(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        def f(dialect, x): pass
+
+        def f(dialect, x):
+            pass
+
         result = _probe_tags(f, dialect=MagicMock())
         assert result == ["?"]
 
-    def test_probe_tags_callable_raises(self):
+    def test_probe_tags_callable_raises(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        def f(dialect, x: int = 1): raise RuntimeError
+
+        def f(dialect, x: int = 1):
+            raise RuntimeError
+
         result = _probe_tags(f, dialect=MagicMock())
         assert result == ["?"]
 
-    def test_probe_tags_returns_non_expression(self):
+    def test_probe_tags_returns_non_expression(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        def f(dialect, x: int = 1): return "not expression"
+
+        def f(dialect, x: int = 1):
+            return "not expression"
+
         result = _probe_tags(f, dialect=MagicMock())
         assert result == ["?"]
 
     def test_resolve_annotation_string(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _resolve_annotation
+
         ns = {"int": int}
         result = _resolve_annotation("int", ns)
         assert result is int
 
     def test_resolve_annotation_already_type(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _resolve_annotation
+
         result = _resolve_annotation(str, {})
         assert result is str
 
     def test_resolve_annotation_bad_string(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _resolve_annotation
+
         result = _resolve_annotation("NonExistentType", {})
         assert result == "NonExistentType"
 
-    def test_probe_tags_success(self):
+    def test_probe_tags_success(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
         from rhosocial.activerecord.backend.schema import StatementType
-        from rhosocial.activerecord.backend.expression.bases import BaseExpression
 
         mock_expr = MagicMock(spec=BaseExpression)
         mock_expr.statement_type = StatementType.SELECT
 
         def f(dialect, x: int = 1):
             return mock_expr
+
         result = _probe_tags(f, dialect=MagicMock())
         assert result == ["DQL"]
 
-    def test_probe_tags_returns_clause(self):
+    def test_probe_tags_returns_clause(self):  # noqa: F811
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
         from rhosocial.activerecord.backend.expression import RawSQLExpression
 
         def f(dialect, x: int = 1):
             return RawSQLExpression(dialect, "1")
+
         result = _probe_tags(f, dialect=MagicMock())
         assert result == ["CLAUSE"]
 
     def test_classify_param_expression_type(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify_param
         import inspect
-        from rhosocial.activerecord.backend.expression.bases import BaseExpression
+
         ns = {"BaseExpression": BaseExpression}
-        param = inspect.Parameter(
-            "expr", inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            annotation="BaseExpression"
-        )
+        param = inspect.Parameter("expr", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation="BaseExpression")
         kind, annotated = _classify_param(param, ns)
         assert kind == "expression"
         assert annotated is True
@@ -580,6 +650,7 @@ class TestClassifyProbeUtilities:
     def test_ann_str_empty(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _ann_str
         import inspect
+
         param = inspect.Parameter("x", inspect.Parameter.POSITIONAL_OR_KEYWORD)
         result = _ann_str(param)
         assert result == "<untyped>"
@@ -615,6 +686,7 @@ class TestListNamedExpressionsInModule:
     def test_list_with_dialect_probing(self):
         """Test listing with dialect for tag probing."""
         from unittest.mock import MagicMock
+
         module = types.ModuleType("test_queries")
 
         def active_users(dialect, limit: int = 100):

@@ -10,7 +10,6 @@ Run this script directly: python pydantic_integration.py
 
 import sys
 import json
-from datetime import datetime, date, time
 from typing import Annotated, Optional, List, Any, Dict, Set, Type
 
 # Add src to path for imports
@@ -70,6 +69,7 @@ class Product(UUIDMixin, ActiveRecord):
 
 # Method 2: Using Annotated (Pydantic V2 recommended, reusable)
 PositiveFloat = Annotated[float, Field(gt=0, description="Must be positive")]
+
 
 class Order(UUIDMixin, ActiveRecord):
     amount: PositiveFloat
@@ -151,7 +151,7 @@ def test_type_coercion():
     print(f"  StrictModel(value=42): {strict.value} (type: {type(strict.value).__name__})")
 
     try:
-        strict_error = StrictModel(value="42")
+        StrictModel(value="42")
     except Exception as e:
         print(f"  StrictModel(value='42') raised: {type(e).__name__}")
 
@@ -258,9 +258,7 @@ def demo_parse():
     print(f"  From dict: {user.name}")
 
     # From JSON string (faster than model_validate + json.loads)
-    user_from_json = SerializationDemo.model_validate_json(
-        '{"id": 2, "name": "Bob", "email": "b@c.com"}'
-    )
+    user_from_json = SerializationDemo.model_validate_json('{"id": 2, "name": "Bob", "email": "b@c.com"}')
     print(f"  From JSON: {user_from_json.name}")
 
 
@@ -285,14 +283,14 @@ def demo_config():
     demo = ConfigDemo(name="test")
     try:
         demo.name = "change"
-    except Exception as e:
-        print(f"  Frozen: Cannot modify (expected)")
+    except Exception:
+        print("  Frozen: Cannot modify (expected)")
 
     # Test extra=forbid
     try:
-        extra_demo = ConfigDemo(extra_field="not allowed")
-    except Exception as e:
-        print(f"  Extra='forbid': Rejected extra field (expected)")
+        ConfigDemo(extra_field="not allowed")
+    except Exception:
+        print("  Extra='forbid': Rejected extra field (expected)")
 
 
 # =============================================================================
@@ -499,7 +497,7 @@ def main():
         # This should work
         model2 = DemoModel(title="Strict Test", data_list=[], is_active=False)
         model2.save()
-        print(f"  Created with is_active=False: OK")
+        print("  Created with is_active=False: OK")
 
         # Try to pass string where bool is expected (should fail in strict mode)
         class StrictDemo(BaseModel):
@@ -507,7 +505,7 @@ def main():
             value: int
 
         StrictDemo(value=42)
-        print(f"  Strict model with int: OK")
+        print("  Strict model with int: OK")
     except Exception as e:
         print(f"  Error: {type(e).__name__}")
 
@@ -518,4 +516,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

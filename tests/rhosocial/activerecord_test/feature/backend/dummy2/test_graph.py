@@ -3,10 +3,9 @@
 Tests for the SQL Graph Query (MATCH) expression building blocks in graph.py
 according to SQL 2023 (ISO/IEC 9075-16) standard.
 """
+
 import pytest
-from rhosocial.activerecord.backend.expression.graph import (
-    GraphVertex, GraphEdge, GraphEdgeDirection, MatchClause
-)
+from rhosocial.activerecord.backend.expression.graph import GraphVertex, GraphEdge, GraphEdgeDirection, MatchClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -92,7 +91,7 @@ class TestMatchClause:
         """Test creating a MatchClause object."""
         vertex = GraphVertex(dummy_dialect, "n", "Person")
         edge = GraphEdge(dummy_dialect, "e", "KNOWS", GraphEdgeDirection.RIGHT)
-        
+
         match_clause = MatchClause(dummy_dialect, vertex, edge)
         assert len(match_clause.path) == 2
         assert match_clause.path[0] is vertex
@@ -114,7 +113,7 @@ class TestMatchClause:
         vertex = GraphVertex(dummy_dialect, "person", "Person")
         edge = GraphEdge(dummy_dialect, "knows", "KNOWS", GraphEdgeDirection.RIGHT)
         vertex2 = GraphVertex(dummy_dialect, "friend", "Person")
-        
+
         match_clause = MatchClause(dummy_dialect, vertex, edge, vertex2)
         sql, params = match_clause.to_sql()
         # The exact format depends on the dialect's format_match_clause implementation
@@ -128,9 +127,11 @@ class TestMatchClause:
         v1 = GraphVertex(dummy_dialect, "a", "Account")
         e1 = GraphEdge(dummy_dialect, "owns", "OWNS", GraphEdgeDirection.LEFT)
         v2 = GraphVertex(dummy_dialect, "p", "Person")
-        e2 = GraphEdge(dialect=dummy_dialect, variable="transfers", table="TRANSFER", direction=GraphEdgeDirection.RIGHT)
+        e2 = GraphEdge(
+            dialect=dummy_dialect, variable="transfers", table="TRANSFER", direction=GraphEdgeDirection.RIGHT
+        )
         v3 = GraphVertex(dummy_dialect, "b", "Account")
-        
+
         match_clause = MatchClause(dummy_dialect, v1, e1, v2, e2, v3)
         sql, params = match_clause.to_sql()
         # The exact format depends on the dialect's format_match_clause implementation
@@ -150,10 +151,10 @@ class TestGraphPatterns:
         a = GraphVertex(dummy_dialect, "a", "Account")
         e = GraphEdge(dummy_dialect, "e", "OWNS", GraphEdgeDirection.RIGHT)
         b = GraphVertex(dummy_dialect, "b", "Person")
-        
+
         match_clause = MatchClause(dummy_dialect, a, e, b)
         sql, params = match_clause.to_sql()
-        
+
         # Verify the structure contains expected elements
         assert "MATCH" in sql.upper()
         assert "(a IS" in sql
@@ -165,10 +166,10 @@ class TestGraphPatterns:
         person1 = GraphVertex(dummy_dialect, "p1", "Person")
         knows_edge = GraphEdge(dummy_dialect, "k", "KNOWS", GraphEdgeDirection.ANY)
         person2 = GraphVertex(dummy_dialect, "p2", "Person")
-        
+
         match_clause = MatchClause(dummy_dialect, person1, knows_edge, person2)
         sql, params = match_clause.to_sql()
-        
+
         assert "MATCH" in sql.upper()
         assert "p1 IS" in sql
         assert "k IS" in sql
@@ -180,10 +181,10 @@ class TestGraphPatterns:
         a = GraphVertex(dummy_dialect, "a", "NodeA")
         rel = GraphEdge(dummy_dialect, "r", "RELATED", GraphEdgeDirection.NONE)
         b = GraphVertex(dummy_dialect, "b", "NodeB")
-        
+
         match_clause = MatchClause(dummy_dialect, a, rel, b)
         sql, params = match_clause.to_sql()
-        
+
         assert "MATCH" in sql.upper()
         assert "a IS" in sql
         assert "r IS" in sql
@@ -194,12 +195,15 @@ class TestGraphPatterns:
 class TestGraphDirectionCombinations:
     """Tests for different combinations of edge directions."""
 
-    @pytest.mark.parametrize("direction,expected_pattern", [
-        (GraphEdgeDirection.RIGHT, "->"),
-        (GraphEdgeDirection.LEFT, "<-"),
-        (GraphEdgeDirection.ANY, "<->"),  # This should match <-[e IS "REL"]-> where <- and -> both appear
-        (GraphEdgeDirection.NONE, "-"),
-    ])
+    @pytest.mark.parametrize(
+        "direction,expected_pattern",
+        [
+            (GraphEdgeDirection.RIGHT, "->"),
+            (GraphEdgeDirection.LEFT, "<-"),
+            (GraphEdgeDirection.ANY, "<->"),  # This should match <-[e IS "REL"]-> where <- and -> both appear
+            (GraphEdgeDirection.NONE, "-"),
+        ],
+    )
     def test_edge_direction_output(self, dummy_dialect: DummyDialect, direction, expected_pattern):
         """Test that each direction produces the expected arrow pattern."""
         edge = GraphEdge(dummy_dialect, "e", "REL", direction)
@@ -221,24 +225,24 @@ class TestIntegration:
         # Pattern: (p1 IS person) <-[IS owner]- (a1 IS account),
         #           (a1) -[e IS transfer]-> (a2 IS account),
         #           (a2) -[IS owner]-> (p2 IS person)
-        
+
         # First pattern: person <- owner - account
         p1 = GraphVertex(dummy_dialect, "p1", "person")
         owner_left = GraphEdge(dummy_dialect, "owner", "owner", GraphEdgeDirection.LEFT)
         a1 = GraphVertex(dummy_dialect, "a1", "account")
-        
+
         # Second pattern: account - transfer -> account
         transfer = GraphEdge(dummy_dialect, "e", "transfer", GraphEdgeDirection.RIGHT)
         a2 = GraphVertex(dummy_dialect, "a2", "account")
-        
+
         # Third pattern: account - owner -> person
         owner_right = GraphEdge(dummy_dialect, "owner2", "owner", GraphEdgeDirection.RIGHT)
         p2 = GraphVertex(dummy_dialect, "p2", "person")
-        
+
         # Create match clause with all elements
         match_clause = MatchClause(dummy_dialect, p1, owner_left, a1, transfer, a2, owner_right, p2)
         sql, params = match_clause.to_sql()
-        
+
         # Verify that the SQL contains the expected elements
         assert "MATCH" in sql.upper()
         assert "p1 IS" in sql
@@ -246,6 +250,6 @@ class TestIntegration:
         assert "e IS" in sql
         assert "a2 IS" in sql
         assert "p2 IS" in sql
-        
+
         # Verify that the direction patterns appear correctly
         assert "<-" in sql or "->" in sql  # Should have some directional arrows

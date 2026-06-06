@@ -14,7 +14,6 @@ from rhosocial.activerecord.logging import (
 class TestPerLoggerSummarization:
     """Test per-logger data summarization configuration."""
 
-
     def test_global_summarization_mode(self):
         """Test global summarization mode is applied when no logger-specific config."""
         config = LoggingConfig()
@@ -22,12 +21,12 @@ class TestPerLoggerSummarization:
         # Set global mode
         config.log_data_mode = LogDataMode.SUMMARY
 
-        test_data = {'username': 'john', 'password': 'secret', 'bio': 'A' * 200}
+        test_data = {"username": "john", "password": "secret", "bio": "A" * 200}
 
         # Without logger name, uses global config
         result = config.summarize_data(test_data)
-        assert '***MASKED***' in str(result)
-        assert 'truncated' in str(result)
+        assert "***MASKED***" in str(result)
+        assert "truncated" in str(result)
 
     def test_logger_specific_mode_overrides_global(self):
         """Test logger-specific mode overrides global mode."""
@@ -38,21 +37,21 @@ class TestPerLoggerSummarization:
 
         # Set backend to keys_only
         backend_config = LoggerConfig(
-            name='rhosocial.activerecord.backend',
+            name="rhosocial.activerecord.backend",
             log_data_mode=LogDataMode.KEYS_ONLY,
         )
         config.add_logger_config(backend_config)
 
-        test_data = {'username': 'john', 'password': 'secret'}
+        test_data = {"username": "john", "password": "secret"}
 
         # Global mode
         global_result = config.summarize_data(test_data)
-        assert 'john' in str(global_result)  # summary shows values
+        assert "john" in str(global_result)  # summary shows values
 
         # Backend mode
-        backend_result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.backend')
-        assert 'john' not in str(backend_result)  # keys_only hides values
-        assert '<str>' in str(backend_result)
+        backend_result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.backend")
+        assert "john" not in str(backend_result)  # keys_only hides values
+        assert "<str>" in str(backend_result)
 
     def test_hierarchical_inheritance(self):
         """Test that child loggers inherit parent configuration."""
@@ -60,21 +59,21 @@ class TestPerLoggerSummarization:
 
         # Set backend layer to keys_only
         backend_config = LoggerConfig(
-            name='rhosocial.activerecord.backend',
+            name="rhosocial.activerecord.backend",
             log_data_mode=LogDataMode.KEYS_ONLY,
         )
         config.add_logger_config(backend_config)
 
-        test_data = {'username': 'john', 'bio': 'test'}
+        test_data = {"username": "john", "bio": "test"}
 
         # backend.sqlite inherits from backend
-        result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.backend.sqlite')
-        assert '<str>' in str(result)
-        assert 'john' not in str(result)
+        result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.backend.sqlite")
+        assert "<str>" in str(result)
+        assert "john" not in str(result)
 
         # backend.mysql also inherits
-        result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.backend.mysql')
-        assert '<str>' in str(result)
+        result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.backend.mysql")
+        assert "<str>" in str(result)
 
     def test_exact_match_takes_precedence_over_parent(self):
         """Test that exact logger name match takes precedence over parent config."""
@@ -82,28 +81,28 @@ class TestPerLoggerSummarization:
 
         # Parent: backend uses keys_only
         backend_config = LoggerConfig(
-            name='rhosocial.activerecord.backend',
+            name="rhosocial.activerecord.backend",
             log_data_mode=LogDataMode.KEYS_ONLY,
         )
         config.add_logger_config(backend_config)
 
         # Child: backend.sqlite uses full
         sqlite_config = LoggerConfig(
-            name='rhosocial.activerecord.backend.sqlite',
+            name="rhosocial.activerecord.backend.sqlite",
             log_data_mode=LogDataMode.FULL,
         )
         config.add_logger_config(sqlite_config)
 
-        test_data = {'username': 'john', 'password': 'secret'}
+        test_data = {"username": "john", "password": "secret"}
 
         # backend.mysql inherits keys_only from parent
-        mysql_result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.backend.mysql')
-        assert '<str>' in str(mysql_result)
+        mysql_result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.backend.mysql")
+        assert "<str>" in str(mysql_result)
 
         # backend.sqlite uses its own full mode
-        sqlite_result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.backend.sqlite')
-        assert 'john' in str(sqlite_result)
-        assert 'secret' in str(sqlite_result)
+        sqlite_result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.backend.sqlite")
+        assert "john" in str(sqlite_result)
+        assert "secret" in str(sqlite_result)
 
     def test_logger_specific_summarizer_config(self):
         """Test logger-specific summarizer configuration."""
@@ -111,55 +110,52 @@ class TestPerLoggerSummarization:
 
         # Global: max_string_length=100 (default)
         # Custom for model.User: max_string_length=20
-        custom_summarizer = SummarizerConfig(
-            max_string_length=20,
-            sensitive_fields={'password'}
-        )
+        custom_summarizer = SummarizerConfig(max_string_length=20, sensitive_fields={"password"})
         model_config = LoggerConfig(
-            name='rhosocial.activerecord.model.User',
+            name="rhosocial.activerecord.model.User",
             log_data_mode=LogDataMode.SUMMARY,
             summarizer_config=custom_summarizer,
         )
         config.add_logger_config(model_config)
 
         # String longer than both 20 and 100
-        test_data = {'bio': 'A' * 150, 'password': 'secret'}
+        test_data = {"bio": "A" * 150, "password": "secret"}
 
         # Global summarizer: truncates at 100
         global_result = config.summarize_data(test_data)
-        assert '...[truncated, 150 chars total]' in str(global_result)
+        assert "...[truncated, 150 chars total]" in str(global_result)
 
         # model.User summarizer: truncates at 20
-        user_result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.model.User')
-        assert '...[truncated, 150 chars total]' in str(user_result)
+        user_result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.model.User")
+        assert "...[truncated, 150 chars total]" in str(user_result)
         # Check that it shows only first 20 chars before truncation marker
         bio_str = str(user_result)
         # The bio should show "AAAAAAAAAAAAAAAAAAAA" (20 A's) before truncation
-        assert 'AAAAAAAAAAAAAAAAAAAA' in bio_str
+        assert "AAAAAAAAAAAAAAAAAAAA" in bio_str
 
     def test_summarize_data_rejects_per_call_mode(self):
         """Test that data mode cannot be overridden at the call site."""
         config = LoggingConfig()
 
         with pytest.raises(TypeError):
-            config.summarize_data({'username': 'john'}, mode='full')
+            config.summarize_data({"username": "john"}, mode="full")
 
     def test_hidden_mode_hides_payload(self):
         """Test hidden mode suppresses data payload."""
         config = LoggingConfig()
         config.log_data_mode = LogDataMode.HIDDEN
 
-        result = config.summarize_data({'username': 'john', 'password': 'secret'})
-        assert result == '<hidden>'
+        result = config.summarize_data({"username": "john", "password": "secret"})
+        assert result == "<hidden>"
 
     def test_invalid_log_data_mode_rejected(self):
         """Test invalid data modes are rejected."""
         config = LoggingConfig()
 
         with pytest.raises(ValueError):
-            config.log_data_mode = 'invalid'
+            config.log_data_mode = "invalid"
         with pytest.raises(ValueError):
-            LoggerConfig(name='rhosocial.activerecord.backend', log_data_mode='invalid')
+            LoggerConfig(name="rhosocial.activerecord.backend", log_data_mode="invalid")
 
     def test_get_log_data_mode_method(self):
         """Test get_log_data_mode returns correct mode."""
@@ -168,7 +164,7 @@ class TestPerLoggerSummarization:
         config.log_data_mode = LogDataMode.SUMMARY
 
         backend_config = LoggerConfig(
-            name='rhosocial.activerecord.backend',
+            name="rhosocial.activerecord.backend",
             log_data_mode=LogDataMode.KEYS_ONLY,
         )
         config.add_logger_config(backend_config)
@@ -177,13 +173,13 @@ class TestPerLoggerSummarization:
         assert config.get_log_data_mode() is LogDataMode.SUMMARY
 
         # Backend mode
-        assert config.get_log_data_mode('rhosocial.activerecord.backend') is LogDataMode.KEYS_ONLY
+        assert config.get_log_data_mode("rhosocial.activerecord.backend") is LogDataMode.KEYS_ONLY
 
         # Child inherits
-        assert config.get_log_data_mode('rhosocial.activerecord.backend.sqlite') is LogDataMode.KEYS_ONLY
+        assert config.get_log_data_mode("rhosocial.activerecord.backend.sqlite") is LogDataMode.KEYS_ONLY
 
         # Unconfigured logger uses global
-        assert config.get_log_data_mode('rhosocial.activerecord.model.User') is LogDataMode.SUMMARY
+        assert config.get_log_data_mode("rhosocial.activerecord.model.User") is LogDataMode.SUMMARY
 
     def test_complex_hierarchy_scenario(self):
         """Test a complex scenario with multiple levels of configuration."""
@@ -194,45 +190,42 @@ class TestPerLoggerSummarization:
 
         # Backend layer: keys_only (strict for production safety)
         backend_config = LoggerConfig(
-            name='rhosocial.activerecord.backend',
+            name="rhosocial.activerecord.backend",
             log_data_mode=LogDataMode.KEYS_ONLY,
         )
         config.add_logger_config(backend_config)
 
         # Query layer: full (for debugging)
         query_config = LoggerConfig(
-            name='rhosocial.activerecord.query',
+            name="rhosocial.activerecord.query",
             log_data_mode=LogDataMode.FULL,
         )
         config.add_logger_config(query_config)
 
         # Model layer: summary with custom summarizer
-        model_summarizer = SummarizerConfig(
-            max_string_length=50,
-            sensitive_fields={'password', 'token', 'secret'}
-        )
+        model_summarizer = SummarizerConfig(max_string_length=50, sensitive_fields={"password", "token", "secret"})
         model_config = LoggerConfig(
-            name='rhosocial.activerecord.model',
+            name="rhosocial.activerecord.model",
             log_data_mode=LogDataMode.SUMMARY,
             summarizer_config=model_summarizer,
         )
         config.add_logger_config(model_config)
 
-        test_data = {'username': 'john', 'password': 'secret', 'bio': 'A' * 100}
+        test_data = {"username": "john", "password": "secret", "bio": "A" * 100}
 
         # Backend: keys_only
-        backend_result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.backend.sqlite')
-        assert '<str>' in str(backend_result)
+        backend_result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.backend.sqlite")
+        assert "<str>" in str(backend_result)
 
         # Query: full
-        query_result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.query.ActiveQuery')
-        assert 'john' in str(query_result)
-        assert 'secret' in str(query_result)
+        query_result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.query.ActiveQuery")
+        assert "john" in str(query_result)
+        assert "secret" in str(query_result)
 
         # Model: summary with custom truncation
-        model_result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.model.User')
-        assert '***MASKED***' in str(model_result)
+        model_result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.model.User")
+        assert "***MASKED***" in str(model_result)
 
         # Transaction: uses global summary
-        tx_result = config.summarize_data(test_data, logger_name='rhosocial.activerecord.transaction')
-        assert '***MASKED***' in str(tx_result)
+        tx_result = config.summarize_data(test_data, logger_name="rhosocial.activerecord.transaction")
+        assert "***MASKED***" in str(tx_result)

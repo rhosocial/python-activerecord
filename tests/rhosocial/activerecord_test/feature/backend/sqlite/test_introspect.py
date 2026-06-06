@@ -1,5 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/test_introspect.py
 """Tests for SQLite backend introspection and adaptation."""
+
 import sqlite3
 import pytest
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend, AsyncSQLiteBackend
@@ -15,6 +16,7 @@ class TestSQLiteIntrospect:
 
         # Before introspection, accessing version should raise exception
         from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
+
         with pytest.raises(DialectNotAdaptedException):
             _ = backend.dialect.version
 
@@ -79,6 +81,7 @@ class TestSQLiteIntrospect:
 
         # Before connect/introspection, accessing version should raise exception
         from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
+
         with pytest.raises(DialectNotAdaptedException):
             _ = backend.dialect.version
 
@@ -105,11 +108,13 @@ class TestAsyncSQLiteIntrospect:
         await backend.connect()
 
         import aiosqlite
+
         print(f"\naiosqlite.sqlite_version: {aiosqlite.sqlite_version}")
         print(f"sqlite3.sqlite_version: {sqlite3.sqlite_version}")
 
         # Before introspection, accessing version should raise exception
         from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
+
         with pytest.raises(DialectNotAdaptedException):
             _ = backend.dialect.version
 
@@ -133,6 +138,7 @@ class TestAsyncSQLiteIntrospect:
 
         # Before connect/introspection, accessing version should raise exception
         from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
+
         with pytest.raises(DialectNotAdaptedException):
             _ = backend.dialect.version
 
@@ -140,6 +146,7 @@ class TestAsyncSQLiteIntrospect:
         await backend.introspect_and_adapt()
 
         import aiosqlite
+
         print(f"\nDialect version (after introspect): {backend.dialect.version}")
         print(f"aiosqlite.sqlite_version: {aiosqlite.sqlite_version}")
         print(f"sqlite3.sqlite_version_info: {sqlite3.sqlite_version_info}")
@@ -149,7 +156,7 @@ class TestAsyncSQLiteIntrospect:
 
         # Server version should match aiosqlite version
         version_str = aiosqlite.sqlite_version
-        parts = version_str.split('.')
+        parts = version_str.split(".")
         expected_version = tuple(int(p) for p in parts[:3])
         while len(expected_version) < 3:
             expected_version = expected_version + (0,)

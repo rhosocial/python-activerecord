@@ -4,8 +4,6 @@ Tests to cover missing lines in expression core/bases/executable/operators modul
 Targets: core.py:69,177 / bases.py:16 / executable.py:35 / operators.py:153
 """
 
-import pytest
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.core import Column, Literal, TableExpression, Subquery
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
 
@@ -77,8 +75,9 @@ class TestExecutableProtocol:
         from rhosocial.activerecord.backend.expression.core import Column
 
         # QueryExpression implements Executable via statement_type
-        query = QueryExpression(dummy_dialect, select=[Column(dummy_dialect, "id")],
-                                from_=TableExpression(dummy_dialect, "users"))
+        query = QueryExpression(
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+        )
         assert isinstance(query, Executable)
 
     def test_non_executable_is_not_instance(self, dummy_dialect):
@@ -95,4 +94,5 @@ class TestBasesTypeAliasImport:
 
     def test_type_alias_import(self):
         from rhosocial.activerecord.backend.expression.bases import SQLQueryAndParams
+
         assert SQLQueryAndParams is not None

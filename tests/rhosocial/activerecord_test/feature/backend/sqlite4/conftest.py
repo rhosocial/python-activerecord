@@ -7,7 +7,6 @@ capabilities, including database setup, table creation, and cleanup.
 """
 
 import os
-import sqlite3
 import tempfile
 from typing import Generator
 

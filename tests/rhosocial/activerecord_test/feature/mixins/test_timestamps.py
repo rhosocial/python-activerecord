@@ -15,4 +15,4 @@ Directly import and run the testsuite's timestamp mixin tests.
 # Explicit imports might be added for IDE-specific code completion or type checking,
 # but are not required for test execution.
 
-from rhosocial.activerecord.testsuite.feature.mixins.test_timestamps import *
+from rhosocial.activerecord.testsuite.feature.mixins.test_timestamps import *  # noqa: F403

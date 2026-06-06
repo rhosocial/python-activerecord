@@ -8,19 +8,26 @@ Tests cover:
   - Column adapter and column mapping processing
   - DQLExpression type coverage: QueryExpression, WithQueryExpression, SetOperationExpression
 """
+
 import pytest
 import pytest_asyncio
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, TableExpression, WildcardExpression,
-    ComparisonPredicate, SetOperationExpression,
+    Column,
+    Literal,
+    TableExpression,
+    WildcardExpression,
+    ComparisonPredicate,
+    SetOperationExpression,
 )
 from rhosocial.activerecord.backend.expression.statements import QueryExpression
 from rhosocial.activerecord.backend.expression.query_sources import (
-    WithQueryExpression, CTEExpression,
+    WithQueryExpression,
+    CTEExpression,
 )
 from rhosocial.activerecord.backend.expression.query_parts import (
-    WhereClause, OrderByClause, LimitOffsetClause,
+    WhereClause,
+    OrderByClause,
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -69,6 +76,7 @@ async def async_backend_with_empty_table(async_sqlite_backend):
 # Helpers
 # ──────────────────────────────────────────────
 
+
 def _select_all_expr(dialect, table="items", order_col="id"):
     """Build: SELECT * FROM items ORDER BY id"""
     return QueryExpression(
@@ -103,7 +111,8 @@ async def _async_collect_pages(async_iterator):
 
 async def _async_count_rows_dql(backend):
     result = await backend.execute(
-        "SELECT COUNT(*) as cnt FROM items", None,
+        "SELECT COUNT(*) as cnt FROM items",
+        None,
         options=ExecutionOptions(stmt_type=StatementType.DQL),
     )
     return result.data[0]["cnt"]
@@ -113,25 +122,27 @@ async def _async_count_rows_dql(backend):
 # Async: Pagination
 # ══════════════════════════════════════════════
 
+
 @pytest.mark.asyncio
 class TestAsyncBatchDQLPagination:
     """Async pagination tests."""
 
-    @pytest.mark.parametrize("page_size, expected_pages, last_page_size", [
-        pytest.param(25, 4, 25, id="exact_4_pages"),
-        pytest.param(30, 4, 10, id="uneven_30_30_30_10"),
-        pytest.param(200, 1, 100, id="single_page_oversized"),
-        pytest.param(1, 100, 1, id="page_size_1"),
-        pytest.param(100, 1, 100, id="exact_one_page"),
-        pytest.param(99, 2, 1, id="just_over_one_page"),
-    ])
+    @pytest.mark.parametrize(
+        "page_size, expected_pages, last_page_size",
+        [
+            pytest.param(25, 4, 25, id="exact_4_pages"),
+            pytest.param(30, 4, 10, id="uneven_30_30_30_10"),
+            pytest.param(200, 1, 100, id="single_page_oversized"),
+            pytest.param(1, 100, 1, id="page_size_1"),
+            pytest.param(100, 1, 100, id="exact_one_page"),
+            pytest.param(99, 2, 1, id="just_over_one_page"),
+        ],
+    )
     async def test_page_counts(self, async_backend_with_items, page_size, expected_pages, last_page_size):
         dialect = async_backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = await _async_collect_pages(
-            async_backend_with_items.execute_batch_dql(expr, page_size=page_size)
-        )
+        pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(expr, page_size=page_size))
 
         assert len(pages) == expected_pages
         # Last page size
@@ -144,9 +155,7 @@ class TestAsyncBatchDQLPagination:
         dialect = async_backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = await _async_collect_pages(
-            async_backend_with_items.execute_batch_dql(expr, page_size=30)
-        )
+        pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(expr, page_size=30))
 
         assert [p.page_index for p in pages] == [0, 1, 2, 3]
 
@@ -154,9 +163,7 @@ class TestAsyncBatchDQLPagination:
         dialect = async_backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = await _async_collect_pages(
-            async_backend_with_items.execute_batch_dql(expr, page_size=30)
-        )
+        pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(expr, page_size=30))
 
         # First 3 pages: has_more=True; last page: has_more=False
         for p in pages[:-1]:
@@ -167,9 +174,7 @@ class TestAsyncBatchDQLPagination:
         dialect = async_backend_with_empty_table.dialect
         expr = _select_all_expr(dialect)
 
-        pages = await _async_collect_pages(
-            async_backend_with_empty_table.execute_batch_dql(expr, page_size=10)
-        )
+        pages = await _async_collect_pages(async_backend_with_empty_table.execute_batch_dql(expr, page_size=10))
 
         assert pages == []
 
@@ -177,9 +182,7 @@ class TestAsyncBatchDQLPagination:
         dialect = async_backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = await _async_collect_pages(
-            async_backend_with_items.execute_batch_dql(expr, page_size=50)
-        )
+        pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(expr, page_size=50))
 
         first_row = pages[0].data[0]
         assert "id" in first_row
@@ -194,9 +197,7 @@ class TestAsyncBatchDQLPagination:
         dialect = async_backend_with_items.dialect
         expr = _select_where_expr(dialect, "electronics")
 
-        pages = await _async_collect_pages(
-            async_backend_with_items.execute_batch_dql(expr, page_size=50)
-        )
+        pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(expr, page_size=50))
 
         total = sum(p.page_size for p in pages)
         # 100 items, 3 categories, ~34 electronics
@@ -210,6 +211,7 @@ class TestAsyncBatchDQLPagination:
 # Async: Cursor lifecycle
 # ══════════════════════════════════════════════
 
+
 @pytest.mark.asyncio
 class TestAsyncBatchDQLCursorLifecycle:
     """Async cursor lifecycle tests."""
@@ -219,14 +221,13 @@ class TestAsyncBatchDQLCursorLifecycle:
         dialect = async_backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        pages = await _async_collect_pages(
-            async_backend_with_items.execute_batch_dql(expr, page_size=50)
-        )
+        pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(expr, page_size=50))
         assert len(pages) == 2
 
         # New query should work fine (no dangling cursor)
         result = await async_backend_with_items.execute(
-            "SELECT COUNT(*) as cnt FROM items", None,
+            "SELECT COUNT(*) as cnt FROM items",
+            None,
             options=ExecutionOptions(stmt_type=StatementType.DQL),
         )
         assert result.data[0]["cnt"] == 100
@@ -237,7 +238,7 @@ class TestAsyncBatchDQLCursorLifecycle:
         expr = _select_all_expr(dialect)
 
         consumed = 0
-        async for page in async_backend_with_items.execute_batch_dql(expr, page_size=10):
+        async for _page in async_backend_with_items.execute_batch_dql(expr, page_size=10):
             consumed += 1
             if consumed == 2:
                 break
@@ -245,7 +246,8 @@ class TestAsyncBatchDQLCursorLifecycle:
 
         # New query should work (cursor was cleaned up)
         result = await async_backend_with_items.execute(
-            "SELECT COUNT(*) as cnt FROM items", None,
+            "SELECT COUNT(*) as cnt FROM items",
+            None,
             options=ExecutionOptions(stmt_type=StatementType.DQL),
         )
         assert result.data[0]["cnt"] == 100
@@ -255,7 +257,7 @@ class TestAsyncBatchDQLCursorLifecycle:
         dialect = async_backend_with_items.dialect
         expr = _select_all_expr(dialect)
 
-        async for page in async_backend_with_items.execute_batch_dql(expr, page_size=10):
+        async for _page in async_backend_with_items.execute_batch_dql(expr, page_size=10):
             break  # Immediately
 
         # Backend still usable
@@ -267,7 +269,7 @@ class TestAsyncBatchDQLCursorLifecycle:
         expr = _select_all_expr(dialect)
 
         with pytest.raises(RuntimeError, match="test error"):
-            async for page in async_backend_with_items.execute_batch_dql(expr, page_size=10):
+            async for _page in async_backend_with_items.execute_batch_dql(expr, page_size=10):
                 raise RuntimeError("test error")
 
         # Backend still usable
@@ -278,6 +280,7 @@ class TestAsyncBatchDQLCursorLifecycle:
 # Async: DQLExpression types
 # ══════════════════════════════════════════════
 
+
 @pytest.mark.asyncio
 class TestAsyncBatchDQLExpressionTypes:
     """Async expression type tests."""
@@ -286,9 +289,7 @@ class TestAsyncBatchDQLExpressionTypes:
         """Basic QueryExpression."""
         dialect = async_backend_with_items.dialect
         expr = _select_all_expr(dialect)
-        pages = await _async_collect_pages(
-            async_backend_with_items.execute_batch_dql(expr, page_size=50)
-        )
+        pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(expr, page_size=50))
         assert sum(p.page_size for p in pages) == 100
 
     async def test_with_query_expression_cte(self, async_backend_with_items):
@@ -317,9 +318,7 @@ class TestAsyncBatchDQLExpressionTypes:
 
         with_expr = WithQueryExpression(dialect, ctes=[cte], main_query=main_query)
 
-        pages = await _async_collect_pages(
-            async_backend_with_items.execute_batch_dql(with_expr, page_size=20)
-        )
+        pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(with_expr, page_size=20))
 
         total = sum(p.page_size for p in pages)
         assert total > 0
@@ -337,7 +336,9 @@ class TestAsyncBatchDQLExpressionTypes:
             from_=TableExpression(dialect, "items"),
             where=WhereClause(
                 dialect,
-                condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Literal(dialect, "electronics")),
+                condition=ComparisonPredicate(
+                    dialect, "=", Column(dialect, "category"), Literal(dialect, "electronics")
+                ),
             ),
         )
         right = QueryExpression(
@@ -351,9 +352,7 @@ class TestAsyncBatchDQLExpressionTypes:
         )
         union_expr = SetOperationExpression(dialect, left=left, right=right, operation="UNION ALL")
 
-        pages = await _async_collect_pages(
-            async_backend_with_items.execute_batch_dql(union_expr, page_size=20)
-        )
+        pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(union_expr, page_size=20))
 
         total = sum(p.page_size for p in pages)
         # electronics (~34) + books (~33) = ~67

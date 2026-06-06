@@ -139,7 +139,7 @@ class OptimisticLockMixin(IUpdateBehavior):
         *,
         data: Dict[str, Any] = None,
         result: "QueryResult" = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Handle version initialization after INSERT operation
 
@@ -190,7 +190,7 @@ class OptimisticLockMixin(IUpdateBehavior):
         data: Dict[str, Any] = None,
         dirty_fields: set = None,
         result: "QueryResult" = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Handle version management after UPDATE operation
 

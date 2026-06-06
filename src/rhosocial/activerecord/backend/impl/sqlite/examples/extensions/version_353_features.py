@@ -99,9 +99,9 @@ print("=" * 60)
 print("Feature Usage Demonstration")
 print("=" * 60)
 
-from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexExpression
-from rhosocial.activerecord.backend.impl.sqlite.functions import json_array_insert, jsonb_array_insert
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression, TableExpression
+from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexExpression  # noqa: E402
+from rhosocial.activerecord.backend.impl.sqlite.functions import json_array_insert, jsonb_array_insert  # noqa: E402
+from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression, TableExpression  # noqa: E402
 
 if dialect.supports_reindex_expressions():
     print("\n--- REINDEX EXPRESSIONS Example ---")
@@ -136,8 +136,8 @@ else:
 
 if dialect.supports_add_constraint():
     print("\n--- ALTER TABLE ADD CONSTRAINT Example ---")
-    print(f"  Supports: supports_add_constraint() = True")
-    print(f"  Example SQL: ALTER TABLE users ADD CONSTRAINT chk_age CHECK (age >= 0)")
+    print("  Supports: supports_add_constraint() = True")
+    print("  Example SQL: ALTER TABLE users ADD CONSTRAINT chk_age CHECK (age >= 0)")
 else:
     print("\n--- ALTER TABLE ADD CONSTRAINT Example ---")
     print("  Not supported in this SQLite version (requires 3.53.0+)")

@@ -6,8 +6,13 @@ from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 from rhosocial.activerecord.testsuite.feature.derived_field.interfaces import IDerivedFieldProvider
 from rhosocial.activerecord.testsuite.feature.derived_field.fixtures.models import (
-    Product, ProductFormA, ProductWithProxy, ProductWithColumnAndAdapter,
-    AsyncProduct, AsyncProductWithProxy, AsyncProductWithColumnAndAdapter,
+    Product,
+    ProductFormA,
+    ProductWithProxy,
+    ProductWithColumnAndAdapter,
+    AsyncProduct,
+    AsyncProductWithProxy,
+    AsyncProductWithColumnAndAdapter,
 )
 from .scenarios import get_enabled_scenarios, get_scenario
 
@@ -24,7 +29,6 @@ PRODUCT_SCHEMA = """
 
 
 class DerivedFieldProvider(IDerivedFieldProvider):
-
     def __init__(self):
         self._active_backends = []
         self._active_async_backends = []

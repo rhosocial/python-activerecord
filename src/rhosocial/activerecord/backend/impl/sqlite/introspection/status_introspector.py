@@ -181,9 +181,7 @@ class SQLiteStatusIntrospectorMixin:
         )
 
 
-class SyncSQLiteStatusIntrospector(
-    SQLiteStatusIntrospectorMixin, SyncAbstractStatusIntrospector
-):
+class SyncSQLiteStatusIntrospector(SQLiteStatusIntrospectorMixin, SyncAbstractStatusIntrospector):
     """Synchronous SQLite status introspector.
 
     Reads PRAGMA values and database file information to provide
@@ -222,9 +220,7 @@ class SyncSQLiteStatusIntrospector(
             version=version,
         )
 
-    def list_configuration(
-        self, category: Optional[StatusCategory] = None
-    ) -> List[StatusItem]:
+    def list_configuration(self, category: Optional[StatusCategory] = None) -> List[StatusItem]:
         """List SQLite configuration parameters via PRAGMA.
 
         Args:
@@ -261,9 +257,7 @@ class SyncSQLiteStatusIntrospector(
 
         return items
 
-    def list_performance_metrics(
-        self, category: Optional[StatusCategory] = None
-    ) -> List[StatusItem]:
+    def list_performance_metrics(self, category: Optional[StatusCategory] = None) -> List[StatusItem]:
         """List SQLite performance metrics.
 
         Note: SQLite doesn't have many built-in performance metrics.
@@ -395,9 +389,7 @@ class SyncSQLiteStatusIntrospector(
         return []
 
 
-class AsyncSQLiteStatusIntrospector(
-    SQLiteStatusIntrospectorMixin, AsyncAbstractStatusIntrospector
-):
+class AsyncSQLiteStatusIntrospector(SQLiteStatusIntrospectorMixin, AsyncAbstractStatusIntrospector):
     """Asynchronous SQLite status introspector.
 
     Reads PRAGMA values and database file information to provide
@@ -436,9 +428,7 @@ class AsyncSQLiteStatusIntrospector(
             version=version,
         )
 
-    async def list_configuration(
-        self, category: Optional[StatusCategory] = None
-    ) -> List[StatusItem]:
+    async def list_configuration(self, category: Optional[StatusCategory] = None) -> List[StatusItem]:
         """List SQLite configuration parameters via PRAGMA.
 
         Args:
@@ -475,9 +465,7 @@ class AsyncSQLiteStatusIntrospector(
 
         return items
 
-    async def list_performance_metrics(
-        self, category: Optional[StatusCategory] = None
-    ) -> List[StatusItem]:
+    async def list_performance_metrics(self, category: Optional[StatusCategory] = None) -> List[StatusItem]:
         """List SQLite performance metrics.
 
         Args:

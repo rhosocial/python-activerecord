@@ -4,9 +4,14 @@
 import importlib
 
 COMMAND_NAMES = [
-    'info', 'query', 'introspect', 'status',
-    'named-expression', 'named-procedure', 'named-procedure-graph',
-    'named-connection',
+    "info",
+    "query",
+    "introspect",
+    "status",
+    "named-expression",
+    "named-procedure",
+    "named-procedure-graph",
+    "named-connection",
 ]
 
 
@@ -44,6 +49,6 @@ def get_handler(command_name: str):
     Returns:
         The corresponding handle function
     """
-    module_name = command_name.replace('-', '_')
-    module = importlib.import_module(f'.{module_name}', __name__)
+    module_name = command_name.replace("-", "_")
+    module = importlib.import_module(f".{module_name}", __name__)
     return module.handle

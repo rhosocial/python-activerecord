@@ -24,6 +24,7 @@ Usage:
     ... except NamedExpressionNotFoundError as e:
     ...     print(f"Expression not found: {e}")
 """
+
 from typing import List
 
 
@@ -269,9 +270,7 @@ class NamedExpressionExplainNotAllowedError(NamedExpressionError):
         ... )
     """
 
-    def __init__(
-        self, message: str = "EXPLAIN expressions are not allowed for actual execution"
-    ):
+    def __init__(self, message: str = "EXPLAIN expressions are not allowed for actual execution"):
         super().__init__(message)
 
 
@@ -354,9 +353,7 @@ class ProcedureStepError(ProcedureError):
         self.step = step
         self.procedure_name = procedure_name
         self.cause = cause
-        error_msg = (
-            f"Procedure '{procedure_name}' failed at step {step}: {cause}"
-        )
+        error_msg = f"Procedure '{procedure_name}' failed at step {step}: {cause}"
         super().__init__(error_msg)
 
 

@@ -31,9 +31,11 @@ from rhosocial.activerecord.backend.errors import QueryError
 # Test Models (dedicated for context lifecycle tests)
 # ============================================================
 
+
 class ContextUser(IntegerPKMixin, ActiveRecord):
     """Test User model for context lifecycle tests."""
-    __table_name__ = 'context_users'
+
+    __table_name__ = "context_users"
 
     id: Optional[int] = None
     name: str
@@ -42,7 +44,8 @@ class ContextUser(IntegerPKMixin, ActiveRecord):
 
 class ContextPost(IntegerPKMixin, ActiveRecord):
     """Test Post model for context lifecycle tests."""
-    __table_name__ = 'context_posts'
+
+    __table_name__ = "context_posts"
 
     id: Optional[int] = None
     title: str
@@ -51,7 +54,8 @@ class ContextPost(IntegerPKMixin, ActiveRecord):
 
 class AsyncContextUser(IntegerPKMixin, AsyncActiveRecord):
     """Test async User model for context lifecycle tests."""
-    __table_name__ = 'context_users'
+
+    __table_name__ = "context_users"
 
     id: Optional[int] = None
     name: str
@@ -60,7 +64,8 @@ class AsyncContextUser(IntegerPKMixin, AsyncActiveRecord):
 
 class AsyncContextPost(IntegerPKMixin, AsyncActiveRecord):
     """Test async Post model for context lifecycle tests."""
-    __table_name__ = 'context_posts'
+
+    __table_name__ = "context_posts"
 
     id: Optional[int] = None
     title: str
@@ -95,6 +100,7 @@ CREATE_POSTS_TABLE = """
 # ============================================================
 # Fixtures
 # ============================================================
+
 
 @pytest.fixture
 def backend_class():
@@ -143,6 +149,7 @@ def context_group(backend_class):
 # ============================================================
 # Sync Tests
 # ============================================================
+
 
 class TestContextLifecycle:
     """Tests for context-based connection lifecycle management (sync)."""
@@ -295,7 +302,7 @@ class TestContextLifecycle:
         backend = group.get_backend()
 
         with pytest.raises(ValueError):
-            with backend.context() as ctx:
+            with backend.context():
                 assert group.is_connected()
                 raise ValueError("Test exception")
 
@@ -336,8 +343,7 @@ class TestContextLifecycle:
 
             # Join query
             result = ctx.execute(
-                "SELECT p.title, u.name FROM context_posts p "
-                "JOIN context_users u ON p.user_id = u.id",
+                "SELECT p.title, u.name FROM context_posts p JOIN context_users u ON p.user_id = u.id",
                 options=DQL_OPTIONS,
             )
             assert len(result.data) == 1
@@ -494,6 +500,7 @@ class TestContextLifecycle:
 # ============================================================
 # Async Tests
 # ============================================================
+
 
 class TestAsyncContextLifecycle:
     """Tests for context-based connection lifecycle management (async)."""
@@ -683,8 +690,7 @@ class TestAsyncContextLifecycle:
             )
 
             result = await ctx.execute(
-                "SELECT p.title, u.name FROM context_posts p "
-                "JOIN context_users u ON p.user_id = u.id",
+                "SELECT p.title, u.name FROM context_posts p JOIN context_users u ON p.user_id = u.id",
                 options=DQL_OPTIONS,
             )
             assert len(result.data) == 1

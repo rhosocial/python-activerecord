@@ -30,7 +30,6 @@ from rhosocial.activerecord_test.feature.worker.hooks.sample_hooks import (
     async_task_end_hook,
     data_init_hook,
     data_task_start_hook,
-    failing_init_hook,
     failing_task_end_hook,
     async_failing_task_end_hook,
     detailed_log_task_end_hook,
@@ -43,6 +42,7 @@ TEMP_DIR = tempfile.gettempdir()
 
 
 # ── Test Task Functions (must be module-level for pickle) ────────────────────
+
 
 def simple_task(ctx: TaskContext, x):
     """Simple task that returns x * 2."""
@@ -61,14 +61,14 @@ async def async_simple_task(ctx: TaskContext, x):
 
 def data_access_task(ctx: TaskContext, x):
     """Task that accesses Worker-level data."""
-    test_value = ctx.worker_ctx.data.get('test_value', 'not_found')
-    counter = ctx.worker_ctx.data.get('counter', 0)
-    task_counter = ctx.data.get('task_counter', 0)
+    test_value = ctx.worker_ctx.data.get("test_value", "not_found")
+    counter = ctx.worker_ctx.data.get("counter", 0)
+    task_counter = ctx.data.get("task_counter", 0)
     return {
-        'x': x,
-        'test_value': test_value,
-        'counter': counter,
-        'task_counter': task_counter,
+        "x": x,
+        "test_value": test_value,
+        "counter": counter,
+        "task_counter": task_counter,
     }
 
 
@@ -79,6 +79,7 @@ def slow_task(ctx: TaskContext, x):
 
 
 # ── Test Cases ────────────────────────────────────────────────────────────────
+
 
 def cleanup_marker_files():
     """Clean up any marker files from previous tests."""
@@ -441,6 +442,7 @@ def test_drain():
 
 # ── Async Mode Tests ──────────────────────────────────────────────────────────
 
+
 def test_async_hooks():
     """Test async hooks with single event loop."""
     cleanup_marker_files()
@@ -466,7 +468,7 @@ def test_async_hooks():
 
     # Check that Worker context data was accessible from task hooks
     task_start_markers = glob.glob(os.path.join(TEMP_DIR, "task_hook_async_start_*.txt"))
-    assert len(task_start_markers) >= 3, f"Expected at least 3 task start markers"
+    assert len(task_start_markers) >= 3, "Expected at least 3 task start markers"
 
     for marker_file in task_start_markers:
         with open(marker_file) as f:
@@ -492,10 +494,10 @@ def test_context_data_sharing():
 
     # Verify data was accessible in tasks
     for result in results:
-        assert result['test_value'] == 'initialized', f"Worker data not accessible: {result}"
+        assert result["test_value"] == "initialized", f"Worker data not accessible: {result}"
         # Counter should be incremented by each task
-        assert result['counter'] >= 1, f"Counter not incremented: {result}"
-        assert result['task_counter'] >= 1, f"Task counter not set: {result}"
+        assert result["counter"] >= 1, f"Counter not incremented: {result}"
+        assert result["task_counter"] >= 1, f"Task counter not set: {result}"
 
     cleanup_marker_files()
     print("test_context_data_sharing PASSED")
@@ -510,14 +512,15 @@ def test_mixed_sync_async_hooks_rejected():
         with WorkerPool(
             n_workers=2,
             on_worker_start=simple_init_hook,  # sync
-            on_worker_stop=async_stop_hook,    # async
-        ) as pool:
+            on_worker_stop=async_stop_hook,  # async
+        ):
             pass
 
     print("test_mixed_sync_async_hooks_rejected PASSED")
 
 
 # ── Additional Coverage Tests ───────────────────────────────────────────────────
+
 
 def test_callable_list_hooks():
     """Test hooks specified as list of callables."""
@@ -686,8 +689,9 @@ def test_health_check_warnings():
 
         health = pool.health_check()
         # Should have high failure rate warning (>10%)
-        assert any("High failure rate" in w for w in health["warnings"]), \
+        assert any("High failure rate" in w for w in health["warnings"]), (
             f"Expected high failure rate warning, got: {health['warnings']}"
+        )
 
     print("test_health_check_warnings PASSED")
 
@@ -701,7 +705,7 @@ def test_health_check_queue_backlog():
         # Check health while tasks are pending
         # (timing-dependent, may not always trigger)
         time.sleep(0.1)  # Allow some tasks to start
-        stats = pool.get_stats()
+        pool.get_stats()
 
         # Clean up
         for f in futures:
@@ -747,7 +751,7 @@ def test_drain_with_timeout_expiry():
     # Note: slow_task is defined at module level for pickle compatibility
     with WorkerPool(n_workers=1) as pool:
         # Submit tasks that will take longer than our drain timeout
-        futures = [pool.submit(slow_task, i) for i in range(3)]
+        [pool.submit(slow_task, i) for i in range(3)]
 
         # drain with very short timeout should return False
         result = pool.drain(timeout=0.1)

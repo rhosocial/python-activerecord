@@ -51,9 +51,7 @@ class StatusIntrospectorMixin:
         """Get the SQL dialect from the backend."""
         return self._backend.dialect
 
-    def _group_items_by_category(
-        self, items: List[StatusItem]
-    ) -> Dict[StatusCategory, List[StatusItem]]:
+    def _group_items_by_category(self, items: List[StatusItem]) -> Dict[StatusCategory, List[StatusItem]]:
         """Group status items by category.
 
         Args:
@@ -62,9 +60,7 @@ class StatusIntrospectorMixin:
         Returns:
             Dictionary mapping categories to lists of items
         """
-        grouped: Dict[StatusCategory, List[StatusItem]] = {
-            cat: [] for cat in StatusCategory
-        }
+        grouped: Dict[StatusCategory, List[StatusItem]] = {cat: [] for cat in StatusCategory}
         for item in items:
             grouped[item.category].append(item)
         return grouped
@@ -119,9 +115,7 @@ class SyncAbstractStatusIntrospector(StatusIntrospectorMixin, ABC):
         ...
 
     @abstractmethod
-    def list_configuration(
-        self, category: Optional[StatusCategory] = None
-    ) -> List[StatusItem]:
+    def list_configuration(self, category: Optional[StatusCategory] = None) -> List[StatusItem]:
         """List configuration parameters.
 
         Args:
@@ -133,9 +127,7 @@ class SyncAbstractStatusIntrospector(StatusIntrospectorMixin, ABC):
         ...
 
     @abstractmethod
-    def list_performance_metrics(
-        self, category: Optional[StatusCategory] = None
-    ) -> List[StatusItem]:
+    def list_performance_metrics(self, category: Optional[StatusCategory] = None) -> List[StatusItem]:
         """List performance metrics.
 
         Args:
@@ -214,9 +206,7 @@ class AsyncAbstractStatusIntrospector(StatusIntrospectorMixin, ABC):
         ...
 
     @abstractmethod
-    async def list_configuration(
-        self, category: Optional[StatusCategory] = None
-    ) -> List[StatusItem]:
+    async def list_configuration(self, category: Optional[StatusCategory] = None) -> List[StatusItem]:
         """List configuration parameters.
 
         Args:
@@ -228,9 +218,7 @@ class AsyncAbstractStatusIntrospector(StatusIntrospectorMixin, ABC):
         ...
 
     @abstractmethod
-    async def list_performance_metrics(
-        self, category: Optional[StatusCategory] = None
-    ) -> List[StatusItem]:
+    async def list_performance_metrics(self, category: Optional[StatusCategory] = None) -> List[StatusItem]:
         """List performance metrics.
 
         Args:

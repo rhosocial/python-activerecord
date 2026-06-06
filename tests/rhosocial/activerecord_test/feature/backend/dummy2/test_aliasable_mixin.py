@@ -3,11 +3,12 @@
 Tests for the AliasableMixin functionality in core expression classes.
 This tests the as_() method and alias initialization for various expression classes.
 """
-from rhosocial.activerecord.backend.expression import (
-    Literal, Column, FunctionCall, Subquery
-)
+
+from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    JSONExpression, ArrayExpression, OrderedSetAggregation
+    JSONExpression,
+    ArrayExpression,
+    OrderedSetAggregation,
 )
 from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -131,12 +132,13 @@ class TestAliasableMixin:
     def test_ordered_set_aggregation_alias_initialization(self, dummy_dialect: DummyDialect):
         """Test OrderedSetAggregation with alias specified during initialization."""
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         ord_agg = OrderedSetAggregation(
             dummy_dialect,
             "PERCENTILE_CONT",
             [Literal(dummy_dialect, 0.5)],
             OrderByClause(dummy_dialect, [Column(dummy_dialect, "value")]),
-            alias="percentile_50"
+            alias="percentile_50",
         )
         assert ord_agg.alias == "percentile_50"
         sql, params = ord_agg.to_sql()
@@ -146,11 +148,12 @@ class TestAliasableMixin:
     def test_ordered_set_aggregation_alias_with_as_method(self, dummy_dialect: DummyDialect):
         """Test OrderedSetAggregation with alias specified using as_() method."""
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+
         ord_agg = OrderedSetAggregation(
             dummy_dialect,
             "PERCENTILE_CONT",
             [Literal(dummy_dialect, 0.5)],
-            OrderByClause(dummy_dialect, [Column(dummy_dialect, "value")])
+            OrderByClause(dummy_dialect, [Column(dummy_dialect, "value")]),
         ).as_("percentile_50")
         assert ord_agg.alias == "percentile_50"
         sql, params = ord_agg.to_sql()

@@ -11,6 +11,7 @@ Its main responsibilities are:
     - Dropping any old tables and creating the necessary table schema.
 3.  Cleaning up any resources (like temporary database files) after a test runs.
 """
+
 import os
 import sys
 import logging
@@ -23,29 +24,43 @@ from rhosocial.activerecord.model import ActiveRecord
 logger = logging.getLogger(__name__)
 
 # Import the fixture selector utility
-from rhosocial.activerecord.testsuite.utils import select_fixture
+from rhosocial.activerecord.testsuite.utils import select_fixture  # noqa: E402
 
 # Import base version models (Python 3.8+)
-from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
-    User as UserBase, TypeCase as TypeCaseBase, ValidatedFieldUser as ValidatedFieldUserBase,
-    TypeTestModel as TypeTestModelBase, ValidatedUser as ValidatedUserBase,
+from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (  # noqa: E402
+    User as UserBase,
+    TypeCase as TypeCaseBase,
+    ValidatedFieldUser as ValidatedFieldUserBase,
+    TypeTestModel as TypeTestModelBase,
+    ValidatedUser as ValidatedUserBase,
     PydanticValidatedModel as PydanticValidatedModelBase,
-    TypeAdapterTest as TypeAdapterTestBase, YesOrNoBooleanAdapter,
-    MappedUser as MappedUserBase, MappedPost as MappedPostBase, MappedComment as MappedCommentBase,
-    ColumnMappingModel as ColumnMappingModelBase, MixedAnnotationModel as MixedAnnotationModelBase
+    TypeAdapterTest as TypeAdapterTestBase,
+    YesOrNoBooleanAdapter,
+    MappedUser as MappedUserBase,
+    MappedPost as MappedPostBase,
+    MappedComment as MappedCommentBase,
+    ColumnMappingModel as ColumnMappingModelBase,
+    MixedAnnotationModel as MixedAnnotationModelBase,
 )
-from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
-    BulkUser as BulkUserBase, AsyncBulkUser as AsyncBulkUserBase
+from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (  # noqa: E402
+    BulkUser as BulkUserBase,
+    AsyncBulkUser as AsyncBulkUserBase,
 )
+
 # Import async base models
-from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
-    AsyncUser as AsyncUserBase, AsyncTypeCase as AsyncTypeCaseBase,
-    AsyncValidatedUser as AsyncValidatedUserBase, AsyncValidatedFieldUser as AsyncValidatedFieldUserBase,
+from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (  # noqa: E402
+    AsyncUser as AsyncUserBase,
+    AsyncTypeCase as AsyncTypeCaseBase,
+    AsyncValidatedUser as AsyncValidatedUserBase,
+    AsyncValidatedFieldUser as AsyncValidatedFieldUserBase,
     AsyncPydanticValidatedModel as AsyncPydanticValidatedModelBase,
-    AsyncTypeTestModel as AsyncTypeTestModelBase, AsyncTypeAdapterTest as AsyncTypeAdapterTestBase,
-    AsyncMappedUser as AsyncMappedUserBase, AsyncMappedPost as AsyncMappedPostBase,
+    AsyncTypeTestModel as AsyncTypeTestModelBase,
+    AsyncTypeAdapterTest as AsyncTypeAdapterTestBase,
+    AsyncMappedUser as AsyncMappedUserBase,
+    AsyncMappedPost as AsyncMappedPostBase,
     AsyncMappedComment as AsyncMappedCommentBase,
-    AsyncColumnMappingModel as AsyncColumnMappingModelBase, AsyncMixedAnnotationModel as AsyncMixedAnnotationModelBase
+    AsyncColumnMappingModel as AsyncColumnMappingModelBase,
+    AsyncMixedAnnotationModel as AsyncMixedAnnotationModelBase,
 )
 
 # Conditionally import Python 3.10+ models
@@ -53,26 +68,40 @@ User310 = TypeCase310 = ValidatedFieldUser310 = TypeTestModel310 = ValidatedUser
 PydanticValidatedModel310 = TypeAdapterTest310 = MappedUser310 = MappedPost310 = MappedComment310 = None
 ColumnMappingModel310 = MixedAnnotationModel310 = None
 AsyncUser310 = AsyncTypeCase310 = AsyncValidatedFieldUser310 = AsyncTypeTestModel310 = None
-AsyncValidatedUser310 = AsyncPydanticValidatedModel310 = AsyncTypeAdapterTest310 = AsyncMappedUser310 = AsyncMappedPost310 = None
+AsyncValidatedUser310 = AsyncPydanticValidatedModel310 = AsyncTypeAdapterTest310 = AsyncMappedUser310 = (
+    AsyncMappedPost310
+) = None
 AsyncMappedComment310 = AsyncColumnMappingModel310 = AsyncMixedAnnotationModel310 = None
 
 if sys.version_info >= (3, 10):
     try:
         from rhosocial.activerecord.testsuite.feature.basic.fixtures.models_py310 import (
-            User as User310, TypeCase as TypeCase310, ValidatedFieldUser as ValidatedFieldUser310,
-            TypeTestModel as TypeTestModel310, ValidatedUser as ValidatedUser310,
-            PydanticValidatedModel as PydanticValidatedModel310, TypeAdapterTest as TypeAdapterTest310,
-            MappedUser as MappedUser310, MappedPost as MappedPost310, MappedComment as MappedComment310,
-            ColumnMappingModel as ColumnMappingModel310, MixedAnnotationModel as MixedAnnotationModel310
+            User as User310,
+            TypeCase as TypeCase310,
+            ValidatedFieldUser as ValidatedFieldUser310,
+            TypeTestModel as TypeTestModel310,
+            ValidatedUser as ValidatedUser310,
+            PydanticValidatedModel as PydanticValidatedModel310,
+            TypeAdapterTest as TypeAdapterTest310,
+            MappedUser as MappedUser310,
+            MappedPost as MappedPost310,
+            MappedComment as MappedComment310,
+            ColumnMappingModel as ColumnMappingModel310,
+            MixedAnnotationModel as MixedAnnotationModel310,
         )
         from rhosocial.activerecord.testsuite.feature.basic.fixtures.models_py310 import (
-            AsyncUser as AsyncUser310, AsyncTypeCase as AsyncTypeCase310,
-            AsyncValidatedUser as AsyncValidatedUser310, AsyncValidatedFieldUser as AsyncValidatedFieldUser310,
+            AsyncUser as AsyncUser310,
+            AsyncTypeCase as AsyncTypeCase310,
+            AsyncValidatedUser as AsyncValidatedUser310,
+            AsyncValidatedFieldUser as AsyncValidatedFieldUser310,
             AsyncPydanticValidatedModel as AsyncPydanticValidatedModel310,
-            AsyncTypeTestModel as AsyncTypeTestModel310, AsyncTypeAdapterTest as AsyncTypeAdapterTest310,
-            AsyncMappedUser as AsyncMappedUser310, AsyncMappedPost as AsyncMappedPost310,
+            AsyncTypeTestModel as AsyncTypeTestModel310,
+            AsyncTypeAdapterTest as AsyncTypeAdapterTest310,
+            AsyncMappedUser as AsyncMappedUser310,
+            AsyncMappedPost as AsyncMappedPost310,
             AsyncMappedComment as AsyncMappedComment310,
-            AsyncColumnMappingModel as AsyncColumnMappingModel310, AsyncMixedAnnotationModel as AsyncMixedAnnotationModel310
+            AsyncColumnMappingModel as AsyncColumnMappingModel310,
+            AsyncMixedAnnotationModel as AsyncMixedAnnotationModel310,
         )
     except ImportError as e:
         logger.warning(f"Failed to import Python 3.10+ fixtures: {e}")
@@ -82,26 +111,40 @@ User311 = TypeCase311 = ValidatedFieldUser311 = TypeTestModel311 = ValidatedUser
 PydanticValidatedModel311 = TypeAdapterTest311 = MappedUser311 = MappedPost311 = MappedComment311 = None
 ColumnMappingModel311 = MixedAnnotationModel311 = None
 AsyncUser311 = AsyncTypeCase311 = AsyncValidatedFieldUser311 = AsyncTypeTestModel311 = None
-AsyncValidatedUser311 = AsyncPydanticValidatedModel311 = AsyncTypeAdapterTest311 = AsyncMappedUser311 = AsyncMappedPost311 = None
+AsyncValidatedUser311 = AsyncPydanticValidatedModel311 = AsyncTypeAdapterTest311 = AsyncMappedUser311 = (
+    AsyncMappedPost311
+) = None
 AsyncMappedComment311 = AsyncColumnMappingModel311 = AsyncMixedAnnotationModel311 = None
 
 if sys.version_info >= (3, 11):
     try:
         from rhosocial.activerecord.testsuite.feature.basic.fixtures.models_py311 import (
-            User as User311, TypeCase as TypeCase311, ValidatedFieldUser as ValidatedFieldUser311,
-            TypeTestModel as TypeTestModel311, ValidatedUser as ValidatedUser311,
-            PydanticValidatedModel as PydanticValidatedModel311, TypeAdapterTest as TypeAdapterTest311,
-            MappedUser as MappedUser311, MappedPost as MappedPost311, MappedComment as MappedComment311,
-            ColumnMappingModel as ColumnMappingModel311, MixedAnnotationModel as MixedAnnotationModel311
+            User as User311,
+            TypeCase as TypeCase311,
+            ValidatedFieldUser as ValidatedFieldUser311,
+            TypeTestModel as TypeTestModel311,
+            ValidatedUser as ValidatedUser311,
+            PydanticValidatedModel as PydanticValidatedModel311,
+            TypeAdapterTest as TypeAdapterTest311,
+            MappedUser as MappedUser311,
+            MappedPost as MappedPost311,
+            MappedComment as MappedComment311,
+            ColumnMappingModel as ColumnMappingModel311,
+            MixedAnnotationModel as MixedAnnotationModel311,
         )
         from rhosocial.activerecord.testsuite.feature.basic.fixtures.models_py311 import (
-            AsyncUser as AsyncUser311, AsyncTypeCase as AsyncTypeCase311,
-            AsyncValidatedUser as AsyncValidatedUser311, AsyncValidatedFieldUser as AsyncValidatedFieldUser311,
+            AsyncUser as AsyncUser311,
+            AsyncTypeCase as AsyncTypeCase311,
+            AsyncValidatedUser as AsyncValidatedUser311,
+            AsyncValidatedFieldUser as AsyncValidatedFieldUser311,
             AsyncPydanticValidatedModel as AsyncPydanticValidatedModel311,
-            AsyncTypeTestModel as AsyncTypeTestModel311, AsyncTypeAdapterTest as AsyncTypeAdapterTest311,
-            AsyncMappedUser as AsyncMappedUser311, AsyncMappedPost as AsyncMappedPost311,
+            AsyncTypeTestModel as AsyncTypeTestModel311,
+            AsyncTypeAdapterTest as AsyncTypeAdapterTest311,
+            AsyncMappedUser as AsyncMappedUser311,
+            AsyncMappedPost as AsyncMappedPost311,
             AsyncMappedComment as AsyncMappedComment311,
-            AsyncColumnMappingModel as AsyncColumnMappingModel311, AsyncMixedAnnotationModel as AsyncMixedAnnotationModel311
+            AsyncColumnMappingModel as AsyncColumnMappingModel311,
+            AsyncMixedAnnotationModel as AsyncMixedAnnotationModel311,
         )
     except ImportError as e:
         logger.warning(f"Failed to import Python 3.11+ fixtures: {e}")
@@ -111,26 +154,40 @@ User312 = TypeCase312 = ValidatedFieldUser312 = TypeTestModel312 = ValidatedUser
 PydanticValidatedModel312 = TypeAdapterTest312 = MappedUser312 = MappedPost312 = MappedComment312 = None
 ColumnMappingModel312 = MixedAnnotationModel312 = None
 AsyncUser312 = AsyncTypeCase312 = AsyncValidatedFieldUser312 = AsyncTypeTestModel312 = None
-AsyncValidatedUser312 = AsyncPydanticValidatedModel312 = AsyncTypeAdapterTest312 = AsyncMappedUser312 = AsyncMappedPost312 = None
+AsyncValidatedUser312 = AsyncPydanticValidatedModel312 = AsyncTypeAdapterTest312 = AsyncMappedUser312 = (
+    AsyncMappedPost312
+) = None
 AsyncMappedComment312 = AsyncColumnMappingModel312 = AsyncMixedAnnotationModel312 = None
 
 if sys.version_info >= (3, 12):
     try:
         from rhosocial.activerecord.testsuite.feature.basic.fixtures.models_py312 import (
-            User as User312, TypeCase as TypeCase312, ValidatedFieldUser as ValidatedFieldUser312,
-            TypeTestModel as TypeTestModel312, ValidatedUser as ValidatedUser312,
-            PydanticValidatedModel as PydanticValidatedModel312, TypeAdapterTest as TypeAdapterTest312,
-            MappedUser as MappedUser312, MappedPost as MappedPost312, MappedComment as MappedComment312,
-            ColumnMappingModel as ColumnMappingModel312, MixedAnnotationModel as MixedAnnotationModel312
+            User as User312,
+            TypeCase as TypeCase312,
+            ValidatedFieldUser as ValidatedFieldUser312,
+            TypeTestModel as TypeTestModel312,
+            ValidatedUser as ValidatedUser312,
+            PydanticValidatedModel as PydanticValidatedModel312,
+            TypeAdapterTest as TypeAdapterTest312,
+            MappedUser as MappedUser312,
+            MappedPost as MappedPost312,
+            MappedComment as MappedComment312,
+            ColumnMappingModel as ColumnMappingModel312,
+            MixedAnnotationModel as MixedAnnotationModel312,
         )
         from rhosocial.activerecord.testsuite.feature.basic.fixtures.models_py312 import (
-            AsyncUser as AsyncUser312, AsyncTypeCase as AsyncTypeCase312,
-            AsyncValidatedUser as AsyncValidatedUser312, AsyncValidatedFieldUser as AsyncValidatedFieldUser312,
+            AsyncUser as AsyncUser312,
+            AsyncTypeCase as AsyncTypeCase312,
+            AsyncValidatedUser as AsyncValidatedUser312,
+            AsyncValidatedFieldUser as AsyncValidatedFieldUser312,
             AsyncPydanticValidatedModel as AsyncPydanticValidatedModel312,
-            AsyncTypeTestModel as AsyncTypeTestModel312, AsyncTypeAdapterTest as AsyncTypeAdapterTest312,
-            AsyncMappedUser as AsyncMappedUser312, AsyncMappedPost as AsyncMappedPost312,
+            AsyncTypeTestModel as AsyncTypeTestModel312,
+            AsyncTypeAdapterTest as AsyncTypeAdapterTest312,
+            AsyncMappedUser as AsyncMappedUser312,
+            AsyncMappedPost as AsyncMappedPost312,
             AsyncMappedComment as AsyncMappedComment312,
-            AsyncColumnMappingModel as AsyncColumnMappingModel312, AsyncMixedAnnotationModel as AsyncMixedAnnotationModel312
+            AsyncColumnMappingModel as AsyncColumnMappingModel312,
+            AsyncMixedAnnotationModel as AsyncMixedAnnotationModel312,
         )
     except ImportError as e:
         logger.warning(f"Failed to import Python 3.12+ fixtures: {e}")
@@ -148,39 +205,106 @@ def _select_model_class(base_cls, py312_cls, py311_cls, py310_cls, model_name: s
 # Select sync models
 User = _select_model_class(UserBase, User312, User311, User310, "User")
 TypeCase = _select_model_class(TypeCaseBase, TypeCase312, TypeCase311, TypeCase310, "TypeCase")
-ValidatedFieldUser = _select_model_class(ValidatedFieldUserBase, ValidatedFieldUser312, ValidatedFieldUser311, ValidatedFieldUser310, "ValidatedFieldUser")
-TypeTestModel = _select_model_class(TypeTestModelBase, TypeTestModel312, TypeTestModel311, TypeTestModel310, "TypeTestModel")
-ValidatedUser = _select_model_class(ValidatedUserBase, ValidatedUser312, ValidatedUser311, ValidatedUser310, "ValidatedUser")
-PydanticValidatedModel = _select_model_class(PydanticValidatedModelBase, PydanticValidatedModel312, PydanticValidatedModel311, PydanticValidatedModel310, "PydanticValidatedModel")
-TypeAdapterTest = _select_model_class(TypeAdapterTestBase, TypeAdapterTest312, TypeAdapterTest311, TypeAdapterTest310, "TypeAdapterTest")
+ValidatedFieldUser = _select_model_class(
+    ValidatedFieldUserBase, ValidatedFieldUser312, ValidatedFieldUser311, ValidatedFieldUser310, "ValidatedFieldUser"
+)
+TypeTestModel = _select_model_class(
+    TypeTestModelBase, TypeTestModel312, TypeTestModel311, TypeTestModel310, "TypeTestModel"
+)
+ValidatedUser = _select_model_class(
+    ValidatedUserBase, ValidatedUser312, ValidatedUser311, ValidatedUser310, "ValidatedUser"
+)
+PydanticValidatedModel = _select_model_class(
+    PydanticValidatedModelBase,
+    PydanticValidatedModel312,
+    PydanticValidatedModel311,
+    PydanticValidatedModel310,
+    "PydanticValidatedModel",
+)
+TypeAdapterTest = _select_model_class(
+    TypeAdapterTestBase, TypeAdapterTest312, TypeAdapterTest311, TypeAdapterTest310, "TypeAdapterTest"
+)
 MappedUser = _select_model_class(MappedUserBase, MappedUser312, MappedUser311, MappedUser310, "MappedUser")
 MappedPost = _select_model_class(MappedPostBase, MappedPost312, MappedPost311, MappedPost310, "MappedPost")
-MappedComment = _select_model_class(MappedCommentBase, MappedComment312, MappedComment311, MappedComment310, "MappedComment")
-ColumnMappingModel = _select_model_class(ColumnMappingModelBase, ColumnMappingModel312, ColumnMappingModel311, ColumnMappingModel310, "ColumnMappingModel")
-MixedAnnotationModel = _select_model_class(MixedAnnotationModelBase, MixedAnnotationModel312, MixedAnnotationModel311, MixedAnnotationModel310, "MixedAnnotationModel")
+MappedComment = _select_model_class(
+    MappedCommentBase, MappedComment312, MappedComment311, MappedComment310, "MappedComment"
+)
+ColumnMappingModel = _select_model_class(
+    ColumnMappingModelBase, ColumnMappingModel312, ColumnMappingModel311, ColumnMappingModel310, "ColumnMappingModel"
+)
+MixedAnnotationModel = _select_model_class(
+    MixedAnnotationModelBase,
+    MixedAnnotationModel312,
+    MixedAnnotationModel311,
+    MixedAnnotationModel310,
+    "MixedAnnotationModel",
+)
 
 # Select async models
 AsyncUser = _select_model_class(AsyncUserBase, AsyncUser312, AsyncUser311, AsyncUser310, "AsyncUser")
-AsyncTypeCase = _select_model_class(AsyncTypeCaseBase, AsyncTypeCase312, AsyncTypeCase311, AsyncTypeCase310, "AsyncTypeCase")
-AsyncValidatedFieldUser = _select_model_class(AsyncValidatedFieldUserBase, AsyncValidatedFieldUser312, AsyncValidatedFieldUser311, AsyncValidatedFieldUser310, "AsyncValidatedFieldUser")
-AsyncTypeTestModel = _select_model_class(AsyncTypeTestModelBase, AsyncTypeTestModel312, AsyncTypeTestModel311, AsyncTypeTestModel310, "AsyncTypeTestModel")
-AsyncValidatedUser = _select_model_class(AsyncValidatedUserBase, AsyncValidatedUser312, AsyncValidatedUser311, AsyncValidatedUser310, "AsyncValidatedUser")
-AsyncPydanticValidatedModel = _select_model_class(AsyncPydanticValidatedModelBase, AsyncPydanticValidatedModel312, AsyncPydanticValidatedModel311, AsyncPydanticValidatedModel310, "AsyncPydanticValidatedModel")
-AsyncTypeAdapterTest = _select_model_class(AsyncTypeAdapterTestBase, AsyncTypeAdapterTest312, AsyncTypeAdapterTest311, AsyncTypeAdapterTest310, "AsyncTypeAdapterTest")
-AsyncMappedUser = _select_model_class(AsyncMappedUserBase, AsyncMappedUser312, AsyncMappedUser311, AsyncMappedUser310, "AsyncMappedUser")
-AsyncMappedPost = _select_model_class(AsyncMappedPostBase, AsyncMappedPost312, AsyncMappedPost311, AsyncMappedPost310, "AsyncMappedPost")
-AsyncMappedComment = _select_model_class(AsyncMappedCommentBase, AsyncMappedComment312, AsyncMappedComment311, AsyncMappedComment310, "AsyncMappedComment")
-AsyncColumnMappingModel = _select_model_class(AsyncColumnMappingModelBase, AsyncColumnMappingModel312, AsyncColumnMappingModel311, AsyncColumnMappingModel310, "AsyncColumnMappingModel")
-AsyncMixedAnnotationModel = _select_model_class(AsyncMixedAnnotationModelBase, AsyncMixedAnnotationModel312, AsyncMixedAnnotationModel311, AsyncMixedAnnotationModel310, "AsyncMixedAnnotationModel")
+AsyncTypeCase = _select_model_class(
+    AsyncTypeCaseBase, AsyncTypeCase312, AsyncTypeCase311, AsyncTypeCase310, "AsyncTypeCase"
+)
+AsyncValidatedFieldUser = _select_model_class(
+    AsyncValidatedFieldUserBase,
+    AsyncValidatedFieldUser312,
+    AsyncValidatedFieldUser311,
+    AsyncValidatedFieldUser310,
+    "AsyncValidatedFieldUser",
+)
+AsyncTypeTestModel = _select_model_class(
+    AsyncTypeTestModelBase, AsyncTypeTestModel312, AsyncTypeTestModel311, AsyncTypeTestModel310, "AsyncTypeTestModel"
+)
+AsyncValidatedUser = _select_model_class(
+    AsyncValidatedUserBase, AsyncValidatedUser312, AsyncValidatedUser311, AsyncValidatedUser310, "AsyncValidatedUser"
+)
+AsyncPydanticValidatedModel = _select_model_class(
+    AsyncPydanticValidatedModelBase,
+    AsyncPydanticValidatedModel312,
+    AsyncPydanticValidatedModel311,
+    AsyncPydanticValidatedModel310,
+    "AsyncPydanticValidatedModel",
+)
+AsyncTypeAdapterTest = _select_model_class(
+    AsyncTypeAdapterTestBase,
+    AsyncTypeAdapterTest312,
+    AsyncTypeAdapterTest311,
+    AsyncTypeAdapterTest310,
+    "AsyncTypeAdapterTest",
+)
+AsyncMappedUser = _select_model_class(
+    AsyncMappedUserBase, AsyncMappedUser312, AsyncMappedUser311, AsyncMappedUser310, "AsyncMappedUser"
+)
+AsyncMappedPost = _select_model_class(
+    AsyncMappedPostBase, AsyncMappedPost312, AsyncMappedPost311, AsyncMappedPost310, "AsyncMappedPost"
+)
+AsyncMappedComment = _select_model_class(
+    AsyncMappedCommentBase, AsyncMappedComment312, AsyncMappedComment311, AsyncMappedComment310, "AsyncMappedComment"
+)
+AsyncColumnMappingModel = _select_model_class(
+    AsyncColumnMappingModelBase,
+    AsyncColumnMappingModel312,
+    AsyncColumnMappingModel311,
+    AsyncColumnMappingModel310,
+    "AsyncColumnMappingModel",
+)
+AsyncMixedAnnotationModel = _select_model_class(
+    AsyncMixedAnnotationModelBase,
+    AsyncMixedAnnotationModel312,
+    AsyncMixedAnnotationModel311,
+    AsyncMixedAnnotationModel310,
+    "AsyncMixedAnnotationModel",
+)
 
 # BulkUser models (simple, no version-specific variants needed)
 BulkUser = BulkUserBase
 AsyncBulkUser = AsyncBulkUserBase
 
-from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
-from rhosocial.activerecord.testsuite.core.protocols import WorkerTestProtocol
+from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider  # noqa: E402
+from rhosocial.activerecord.testsuite.core.protocols import WorkerTestProtocol  # noqa: E402
+
 # ...and the scenarios are defined specifically for this backend.
-from .scenarios import get_enabled_scenarios, get_scenario
+from .scenarios import get_enabled_scenarios, get_scenario  # noqa: E402
 
 
 class BasicProvider(IBasicProvider, WorkerTestProtocol):
@@ -217,13 +341,13 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         import os
         import tempfile
         import uuid
+
         config = original_config  # default to the original config
 
         if original_config.database != ":memory:":
             # For file-based scenarios, create a unique temporary file
             unique_filename = os.path.join(
-                tempfile.gettempdir(),
-                f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
+                tempfile.gettempdir(), f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
             )
 
             # Store the actual database file used for this scenario in this test
@@ -231,10 +355,11 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
 
             # Create a new config with the unique database path
             from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+
             config = SQLiteConnectionConfig(
                 database=unique_filename,
                 delete_on_close=original_config.delete_on_close,
-                pragmas=original_config.pragmas
+                pragmas=original_config.pragmas,
             )
 
         # 2. Configure the generic model class with our specific backend and config.
@@ -245,8 +370,11 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         #    the table if it exists and recreate it from the schema file.
         from rhosocial.activerecord.backend.options import ExecutionOptions
         from rhosocial.activerecord.backend.schema import StatementType
+
         try:
-            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL))
+            model_class.__backend__.execute(
+                f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
         except Exception:
             # Ignore errors if the table doesn't exist, which is expected on the first run.
             pass
@@ -260,10 +388,13 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
 
         return model_class
 
-    async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
+    async def _setup_async_model(
+        self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str
+    ) -> Type[ActiveRecord]:
         """A generic helper method to handle the setup for any given async model."""
         # 1. Get the async backend class (AsyncSQLiteBackend) and connection config for the requested scenario.
         from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+
         backend_class = AsyncSQLiteBackend
         _, original_config = get_scenario(scenario_name)
 
@@ -271,13 +402,13 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         import os
         import tempfile
         import uuid
+
         config = original_config  # default to the original config
 
         if original_config.database != ":memory:":
             # For file-based scenarios, create a unique temporary file
             unique_filename = os.path.join(
-                tempfile.gettempdir(),
-                f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
+                tempfile.gettempdir(), f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
             )
 
             # Store the actual database file used for this scenario in this test
@@ -285,10 +416,11 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
 
             # Create a new config with the unique database path
             from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+
             config = SQLiteConnectionConfig(
                 database=unique_filename,
                 delete_on_close=original_config.delete_on_close,
-                pragmas=original_config.pragmas
+                pragmas=original_config.pragmas,
             )
 
         # 2. Configure the generic async model class with our specific async backend and config.
@@ -299,8 +431,11 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         #    the table if it exists and recreate it from the schema file.
         from rhosocial.activerecord.backend.options import ExecutionOptions
         from rhosocial.activerecord.backend.schema import StatementType
+
         try:
-            await model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL))
+            await model_class.__backend__.execute(
+                f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
         except Exception:
             # Ignore errors if the table doesn't exist, which is expected on the first run.
             pass
@@ -312,7 +447,6 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
             self._active_async_backends.append(model_class.__backend__)
 
         return model_class
-
 
     # --- Implementation of the IBasicProvider interface ---
 
@@ -392,10 +526,13 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
 
         return user, post_model_class, comment_model_class
 
-    async def _initialize_async_model_schema(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str):
+    async def _initialize_async_model_schema(
+        self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str
+    ):
         """Initialize schema for a model that shares backend with another model."""
         from rhosocial.activerecord.backend.options import ExecutionOptions
         from rhosocial.activerecord.backend.schema import StatementType
+
         options = ExecutionOptions(stmt_type=StatementType.DDL)
         await model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}", options=options)
         schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
@@ -410,7 +547,9 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
     async def setup_async_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
         """Sets up the database for AsyncColumnMappingModel and AsyncMixedAnnotationModel."""
         # Use shared backend for all models to ensure proper cleanup
-        column_mapping_model = await self._setup_async_model(AsyncColumnMappingModel, scenario_name, "column_mapping_items")
+        column_mapping_model = await self._setup_async_model(
+            AsyncColumnMappingModel, scenario_name, "column_mapping_items"
+        )
         shared_backend = column_mapping_model.__backend__
 
         # Configure remaining models with the same backend instance
@@ -445,10 +584,12 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
     def _load_sqlite_schema(self, filename: str) -> str:
         """Helper to load a SQL schema file from this project's fixtures."""
         # Schemas are stored in the centralized location for basic feature.
-        schema_dir = os.path.join(os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "basic", "schema")
+        schema_dir = os.path.join(
+            os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "basic", "schema"
+        )
         schema_path = os.path.join(schema_dir, filename)
-        
-        with open(schema_path, 'r', encoding='utf-8') as f:
+
+        with open(schema_path, "r", encoding="utf-8") as f:
             return f.read()
 
     def cleanup_after_test(self, scenario_name: str):
@@ -550,30 +691,30 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
             database_path = config.database
 
         # Determine if async backend is needed based on fixture_type
-        is_async = fixture_type and fixture_type.startswith('async_')
-        backend_class_name = 'AsyncSQLiteBackend' if is_async else 'SQLiteBackend'
+        is_async = fixture_type and fixture_type.startswith("async_")
+        backend_class_name = "AsyncSQLiteBackend" if is_async else "SQLiteBackend"
 
         # Determine schema file based on fixture_type
-        table_name = 'users'  # default
+        table_name = "users"  # default
         if fixture_type:
             # Remove 'async_' prefix if present to get the base type
-            base_type = fixture_type.replace('async_', '')
+            base_type = fixture_type.replace("async_", "")
             table_map = {
-                'user': 'users',
-                'order': 'orders',
-                'order_item': 'order_items',
+                "user": "users",
+                "order": "orders",
+                "order_item": "order_items",
             }
-            table_name = table_map.get(base_type, 'users')
+            table_name = table_map.get(base_type, "users")
 
         return {
-            'backend_module': 'rhosocial.activerecord.backend.impl.sqlite',
-            'backend_class_name': backend_class_name,
-            'config_class_module': 'rhosocial.activerecord.backend.impl.sqlite.config',
-            'config_class_name': 'SQLiteConnectionConfig',
-            'config_kwargs': {
-                'database': database_path,
+            "backend_module": "rhosocial.activerecord.backend.impl.sqlite",
+            "backend_class_name": backend_class_name,
+            "config_class_module": "rhosocial.activerecord.backend.impl.sqlite.config",
+            "config_class_name": "SQLiteConnectionConfig",
+            "config_kwargs": {
+                "database": database_path,
             },
-            'schema_sql': self._load_sqlite_schema(f'{table_name}.sql'),
+            "schema_sql": self._load_sqlite_schema(f"{table_name}.sql"),
         }
 
     def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:
@@ -587,4 +728,4 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         Returns:
             CREATE TABLE SQL statement
         """
-        return self._load_sqlite_schema(f'{table_name}.sql')
+        return self._load_sqlite_schema(f"{table_name}.sql")

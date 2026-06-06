@@ -16,8 +16,8 @@ import logging
 import os
 import socket
 import time
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Optional
 
 from ._protocol import CacheSerializer
 
@@ -99,6 +99,7 @@ class RedisCache:
             self._client = client
         elif config is not None:
             import redis as _redis
+
             self._client = _redis.Redis(
                 host=config.host,
                 port=config.port,
@@ -124,8 +125,7 @@ class RedisCache:
         pk_val = getattr(instance, instance.primary_key(), None)
         if pk_val is None:
             raise ValueError(
-                f"Cannot build cache key for {cls.__name__}.{relation_name}: "
-                f"instance has no primary key value"
+                f"Cannot build cache key for {cls.__name__}.{relation_name}: instance has no primary key value"
             )
         return f"{self._prefix}{cls.__name__}:{pk_val}:{relation_name}"
 
@@ -141,14 +141,15 @@ class RedisCache:
             ttl_remaining = max(0, meta["t"] + (config.ttl or 0) - time.time())
             logger.debug(
                 "Cache HIT for %s, origin=%s, age=%.1fs, ttl_remaining=%.1f",
-                key, meta["o"], time.time() - meta["t"], ttl_remaining,
+                key,
+                meta["o"],
+                time.time() - meta["t"],
+                ttl_remaining,
             )
             return self._serializer.deserialize(base64.b64decode(meta["v"]))
         return self._serializer.deserialize(payload)
 
-    def get_with_meta(
-        self, instance: Any, relation_name: str, config: "CacheConfig"
-    ) -> Optional["CacheResult"]:
+    def get_with_meta(self, instance: Any, relation_name: str, config: "CacheConfig") -> Optional["CacheResult"]:  # noqa: F821
         from ._protocol import CacheResult
 
         if not config.enabled:
@@ -165,7 +166,10 @@ class RedisCache:
             value = self._serializer.deserialize(base64.b64decode(meta["v"]))
             logger.debug(
                 "Cache HIT for %s, origin=%s, age=%.1fs, ttl_remaining=%.1f",
-                key, meta["o"], age, ttl_remaining,
+                key,
+                meta["o"],
+                age,
+                ttl_remaining,
             )
             return CacheResult(
                 value=value,
@@ -186,11 +190,13 @@ class RedisCache:
         key = self._make_key(instance, relation_name)
         data = self._serializer.serialize(value)
         if self._record_origin:
-            payload = json.dumps({
-                "v": base64.b64encode(data).decode(),
-                "o": self._origin,
-                "t": time.time(),
-            })
+            payload = json.dumps(
+                {
+                    "v": base64.b64encode(data).decode(),
+                    "o": self._origin,
+                    "t": time.time(),
+                }
+            )
         else:
             payload = data
         if config.ttl is not None:
