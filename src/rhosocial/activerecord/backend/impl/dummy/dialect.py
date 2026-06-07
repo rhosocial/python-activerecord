@@ -2,10 +2,11 @@
 """
 Dummy backend SQL dialect implementation.
 
-This dialect implements most generic protocols for SQL generation testing.
+This dialect implements generic protocols for SQL generation testing.
 It is used for to_sql() testing and does not involve actual database connections.
-Table partitioning is intentionally excluded because dummy does not model
-any real partitioned storage or backend-specific partition DDL semantics.
+Generic table partitioning capability methods are exposed through the default
+PartitionMixin, but remain disabled because dummy does not model real
+partitioned storage or backend-specific partition DDL semantics.
 
 Architecture Notes:
 ===================
@@ -73,6 +74,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     ILIKESupport,
     # DDL Protocols
     TableSupport,
+    PartitionSupport,
     ConstraintSupport,
     ViewSupport,
     TruncateSupport,
@@ -118,6 +120,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     ILIKEMixin,
     # DDL Mixins
     TableMixin,
+    PartitionMixin,
     ConstraintMixin,
     ViewMixin,
     TruncateMixin,
@@ -165,6 +168,7 @@ class DummyDialect(
     ILIKEMixin,
     # DDL Mixins
     TableMixin,
+    PartitionMixin,
     ConstraintMixin,
     ViewMixin,
     TruncateMixin,
@@ -206,6 +210,7 @@ class DummyDialect(
     ILIKESupport,
     # DDL Protocols
     TableSupport,
+    PartitionSupport,
     ConstraintSupport,
     ViewSupport,
     TruncateSupport,
@@ -434,9 +439,9 @@ class DummyDialect(
     def supports_if_exists_table(self) -> bool:
         return True
 
-    # Dummy intentionally does not implement PartitionSupport. Table
-    # partitioning requires backend-specific storage semantics and should be
-    # tested in concrete dialects.
+    # Generic partition protocol is exposed through PartitionMixin, but all
+    # capabilities stay disabled for dummy because partitioning requires
+    # backend-specific storage semantics.
 
     def supports_table_tablespace(self) -> bool:
         return True
