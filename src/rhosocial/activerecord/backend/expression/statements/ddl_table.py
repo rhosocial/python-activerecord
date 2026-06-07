@@ -85,8 +85,8 @@ class ReferentialAction(Enum):
     NO_ACTION = "NO ACTION"
 
 
-# Re-export partition types from ddl_partition for backward compatibility
-from .ddl_partition import PartitionClause, PartitionKey, PartitionStrategy  # noqa: E402, F401
+# Re-export partition clause from ddl_partition
+from .ddl_partition import PartitionClause, PartitionStrategy  # noqa: E402, F401
 
 
 class ConstraintValidation(Enum):

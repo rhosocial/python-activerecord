@@ -204,14 +204,8 @@ class TestDummyProtocolSupport:
         assert dialect.supports_temporary_table() is True
         assert dialect.supports_if_not_exists_table() is True
         assert dialect.supports_if_exists_table() is True
-        assert dialect.supports_table_partitioning() is True
-        assert dialect.supports_partitioned_table_creation() is True
-        assert dialect.supports_range_table_partitioning() is True
-        assert dialect.supports_list_table_partitioning() is True
-        assert dialect.supports_hash_table_partitioning() is True
-        assert dialect.supports_key_table_partitioning() is True
-        assert dialect.supports_subpartitioning() is True
-        assert dialect.supports_partition_metadata_introspection() is False
+        assert not hasattr(dialect, "supports_table_partitioning")
+        assert not hasattr(dialect, "format_partition_clause")
         assert dialect.supports_table_tablespace() is True
         assert dialect.supports_drop_column() is True
         assert dialect.supports_alter_column_type() is True

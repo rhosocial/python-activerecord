@@ -70,7 +70,7 @@ For hotfixes, describe the specific tests performed to validate the fix.
 Go over all the following points, and put an `x` in all the boxes that apply.
 -->
 
-- [ ] My changes follow the project's [version control guidelines](./.gemini/version_control.md) (especially for release and hotfix procedures).
+- [ ] My changes follow the project's [version control guidelines](./.claude/version_control.md) (especially for release and hotfix procedures).
 - [ ] I have updated the `CHANGELOG.md` using `towncrier build` (for releases).
 - [ ] All necessary documentation (e.g., release notes, migration guides) has been prepared or updated.
 - [ ] I have confirmed all CI checks have passed on the target branch after merging (post-merge verification).

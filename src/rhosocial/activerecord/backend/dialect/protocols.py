@@ -1001,16 +1001,18 @@ class TableSupport(Protocol):
 class PartitionSupport(Protocol):
     """Protocol for table partitioning support.
 
-    This protocol defines the interface for partitioning capabilities
-    and the format_partition_clause() method for generating PARTITION BY SQL.
+    This protocol defines the minimal generic interface for table partitioning
+    capability detection and PARTITION BY clause formatting. Backend-specific
+    partition methods and detailed maintenance operations belong in backend
+    protocols.
 
-    Partitioning strategies vary across databases:
-    - PostgreSQL: RANGE, LIST, HASH (PG 10+, HASH PG 11+)
-    - MySQL: RANGE, LIST, HASH, KEY
-    - SQLite: Not supported
+    Operation capability flags such as add/drop/truncate/reorganize/attach/detach
+    describe generic feature categories only. Backends that expose executable
+    partition maintenance statements must define the corresponding structured
+    expressions and format_* methods in backend-specific protocols.
 
     Dialects implementing this protocol must provide:
-    - supports_*() methods for capability detection
+    - supports_*() methods for generic capability detection
     - format_partition_clause() for SQL generation
     """
 
@@ -1020,6 +1022,10 @@ class PartitionSupport(Protocol):
 
     def supports_partitioned_table_creation(self) -> bool:
         """Whether CREATE TABLE can create partitioned tables through this dialect."""
+        ...  # pragma: no cover
+
+    def supports_partition_metadata_introspection(self) -> bool:
+        """Whether partition metadata introspection is supported."""
         ...  # pragma: no cover
 
     def supports_range_table_partitioning(self) -> bool:
@@ -1034,23 +1040,39 @@ class PartitionSupport(Protocol):
         """Whether HASH table partitioning is supported."""
         ...  # pragma: no cover
 
-    def supports_key_table_partitioning(self) -> bool:
-        """Whether KEY table partitioning is supported."""
-        ...  # pragma: no cover
-
     def supports_subpartitioning(self) -> bool:
         """Whether table subpartitioning is supported."""
         ...  # pragma: no cover
 
-    def supports_partition_metadata_introspection(self) -> bool:
-        """Whether partition metadata introspection is supported."""
+    def supports_add_partition(self) -> bool:
+        """Whether adding partitions through the public API is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_partition(self) -> bool:
+        """Whether dropping partitions through the public API is supported."""
+        ...  # pragma: no cover
+
+    def supports_truncate_partition(self) -> bool:
+        """Whether truncating partitions through the public API is supported."""
+        ...  # pragma: no cover
+
+    def supports_reorganize_partition(self) -> bool:
+        """Whether reorganizing partitions through the public API is supported."""
+        ...  # pragma: no cover
+
+    def supports_attach_partition(self) -> bool:
+        """Whether attaching partitions through the public API is supported."""
+        ...  # pragma: no cover
+
+    def supports_detach_partition(self) -> bool:
+        """Whether detaching partitions through the public API is supported."""
         ...  # pragma: no cover
 
     def format_partition_clause(self, expr: "PartitionClause") -> Tuple[str, tuple]:
         """Format PARTITION BY clause from expression.
 
         Args:
-            expr: PartitionClause with partition strategy and key.
+            expr: PartitionClause with partition method and key expressions.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
