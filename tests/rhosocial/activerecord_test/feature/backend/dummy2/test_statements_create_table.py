@@ -3,7 +3,8 @@ import inspect
 from typing import List, Set, Tuple
 
 import pytest
-from rhosocial.activerecord.backend.dialect import ProtocolNotImplementedError, SQLDialectBase
+from rhosocial.activerecord.backend.dialect import SQLDialectBase
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect import protocols as dialect_protocols
 from rhosocial.activerecord.backend.expression import (
     Literal,
@@ -422,7 +423,7 @@ class TestCreateTableStatements:
             ),
         )
 
-        with pytest.raises(ProtocolNotImplementedError, match="PartitionSupport"):
+        with pytest.raises(UnsupportedFeatureError, match="PARTITION BY clause"):
             create_table_expr.to_sql()
 
     def test_create_table_partition_success_path_uses_partition_protocol(self):
@@ -525,10 +526,12 @@ class TestCreateTableStatements:
         with pytest.raises(TypeError, match="BaseExpression"):
             PartitionClause(dialect=dummy_dialect, method=PartitionStrategy.RANGE, keys=["created_date"])
 
-    def test_partition_support_methods_are_not_exposed_by_dummy(self, dummy_dialect: DummyDialect):
-        """Tests DummyDialect does not expose PartitionSupport."""
-        assert not hasattr(dummy_dialect, "supports_table_partitioning")
-        assert not hasattr(dummy_dialect, "format_partition_clause")
+    def test_partition_support_methods_are_disabled_by_dummy(self, dummy_dialect: DummyDialect):
+        """Tests DummyDialect exposes PartitionSupport with disabled capabilities."""
+        assert dummy_dialect.supports_table_partitioning() is False
+        assert dummy_dialect.supports_partitioned_table_creation() is False
+        assert dummy_dialect.supports_range_table_partitioning() is False
+        assert dummy_dialect.supports_hash_table_partitioning() is False
 
     def test_partition_mixin_default_support_methods_are_disabled(self):
         """Tests base PartitionMixin defaults generic partition capabilities to disabled."""
