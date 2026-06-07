@@ -153,9 +153,8 @@ from .statements import (
     ColumnConstraint,
     ColumnConstraintType,
     IndexDefinition,
-    PartitionKey,
-    PartitionStrategy,
     PartitionClause,
+    PartitionStrategy,
     TableConstraint,
     TableConstraintType,
     ForeignKeyConstraint,
@@ -486,8 +485,6 @@ __all__ = [
     "ColumnConstraint",
     "ColumnConstraintType",
     "IndexDefinition",
-    "PartitionKey",
-    "PartitionStrategy",
     "TableConstraint",
     "TableConstraintType",
     "ForeignKeyConstraint",
@@ -527,6 +524,7 @@ __all__ = [
     "DropFunctionExpression",
     # Partition DDL Expressions
     "PartitionClause",
+    "PartitionStrategy",
     # Materialized View DDL Expressions
     "CreateMaterializedViewExpression",
     "DropMaterializedViewExpression",

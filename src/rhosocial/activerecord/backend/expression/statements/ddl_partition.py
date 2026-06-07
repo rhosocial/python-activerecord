@@ -1,18 +1,13 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_partition.py
-"""Table partitioning DDL expressions and related types.
+"""Table partitioning DDL expressions.
 
-This module defines expressions for table partitioning, including the
-PARTITION BY clause in CREATE TABLE statements and partitioning type definitions.
-
-Architecture:
-- PartitionStrategy, PartitionKey: Data types for partition specification
-- PartitionClause: Expression for PARTITION BY clause, delegates to dialect.format_partition_clause()
-- Dialects implement PartitionSupport protocol with format_partition_clause() method
+This module defines the generic PARTITION BY clause expression used by
+CREATE TABLE statements. The expression stores structured partition clause
+parameters and delegates SQL generation to the dialect formatter.
 """
 
-from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLQueryAndParams
 
@@ -21,80 +16,68 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class PartitionStrategy(Enum):
-    """Standard table partitioning strategies."""
+    """Generic table partitioning strategies shared by supported backends."""
 
     RANGE = "RANGE"
     LIST = "LIST"
     HASH = "HASH"
 
 
-@dataclass
-class PartitionKey:
-    """Represents the key used to route rows into table partitions.
-
-    Attributes:
-        columns: List of column names for the partition key.
-        expression: Optional expression for expression-based partitioning.
-            Mutually exclusive with columns.
-        dialect_options: Database-specific options (e.g., MySQL KEY partitioning).
-    """
-
-    columns: List[str] = field(default_factory=list)
-    expression: Optional["BaseExpression"] = None
-    dialect_options: Optional[Dict[str, Any]] = None
-
-
 class PartitionClause(BaseExpression):
-    """Represents a PARTITION BY clause for CREATE TABLE statements.
+    """Represents a generic PARTITION BY clause for DDL statements.
 
-    This expression generates the PARTITION BY clause of a CREATE TABLE
-    statement, delegating SQL generation to the dialect's
-    format_partition_clause() method.
+    The expression collects the minimal stable partition clause shape:
+    method name plus partition key expressions. Backend-specific partition
+    forms should subclass this expression and add structured fields instead
+    of placing core semantics into ``dialect_options``.
 
-    The dialect is responsible for:
-    - Validating the partition strategy
-    - Formatting the partition key (columns or expression)
-    - Applying any dialect-specific syntax
-
-    Attributes:
-        strategy: Partitioning strategy (RANGE, LIST, HASH) or a string
-            for dialect-specific strategies.
-        key: The partition key definition.
-        dialect_options: Database-specific partitioning options.
-
-    Example:
-        >>> from rhosocial.activerecord.backend.expression import PartitionClause, PartitionStrategy, PartitionKey
-        >>> from rhosocial.activerecord.backend.impl.dummy import DummyDialect
-        >>> dialect = DummyDialect()
-        >>> key = PartitionKey(columns=["created_at"])
-        >>> partition = PartitionClause(
-        ...     dialect=dialect,
-        ...     strategy=PartitionStrategy.RANGE,
-        ...     key=key,
-        ... )
-        >>> sql, params = partition.to_sql()
-        >>> sql
-        ' PARTITION BY RANGE (created_at)'
+    SQL generation is always delegated to ``dialect.format_partition_clause``.
     """
+
+    strategy_type: Type[Enum] = PartitionStrategy
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        strategy: Union[PartitionStrategy, str],
-        key: PartitionKey,
+        method: Enum,
+        keys: Sequence[BaseExpression],
+        *,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        self.strategy = strategy
-        self.key = key
-        self.dialect_options = dialect_options or {}
+        if not isinstance(method, self.strategy_type):
+            raise TypeError(
+                f"method must be a {self.strategy_type.__name__} value, "
+                f"got {type(method).__name__}"
+            )
+        normalized_method = method.value
+        if not isinstance(normalized_method, str):
+            raise TypeError(f"{self.strategy_type.__name__} values must be strings")
+        if not keys:
+            raise ValueError("keys are required")
+        for key in keys:
+            if not isinstance(key, BaseExpression):
+                raise TypeError(
+                    "keys must contain BaseExpression instances, "
+                    f"got {type(key).__name__}"
+                )
+        if dialect_options is not None and not isinstance(dialect_options, dict):
+            raise TypeError(
+                "dialect_options must be a dict when provided, "
+                f"got {type(dialect_options).__name__}"
+            )
+        self.method = normalized_method
+        self.keys = list(keys)
+        self.dialect_options = dict(dialect_options or {})
 
     def to_sql(self) -> "SQLQueryAndParams":
-        """Generate the PARTITION BY clause SQL.
+        """Generate the PARTITION BY clause SQL via the dialect."""
+        if not hasattr(self.dialect, "format_partition_clause"):
+            from rhosocial.activerecord.backend.dialect import ProtocolNotImplementedError
 
-        Delegates to the dialect's format_partition_clause() method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
+            raise ProtocolNotImplementedError(
+                dialect_name=self.dialect.name,
+                protocol_name="PartitionSupport",
+                required_by="PartitionClause",
+            )
         return self.dialect.format_partition_clause(self)

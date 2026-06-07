@@ -61,6 +61,7 @@ from .protocols import (
     SetOperationSupport,
     # DDL Protocols
     TableSupport,
+    PartitionSupport,
     ConstraintSupport,
     ViewSupport,
     TruncateSupport,
@@ -93,6 +94,7 @@ from .mixins import (
     SetOperationMixin,
     # DDL Mixins
     TableMixin,
+    PartitionMixin,
     ConstraintMixin,
     ViewMixin,
     TruncateMixin,
@@ -137,6 +139,7 @@ __all__ = [
     "SetOperationSupport",
     # DDL Protocols
     "TableSupport",
+    "PartitionSupport",
     "ConstraintSupport",
     "ViewSupport",
     "TruncateSupport",
@@ -168,6 +171,7 @@ __all__ = [
     "SetOperationMixin",
     # DDL Mixins
     "TableMixin",
+    "PartitionMixin",
     "ConstraintMixin",
     "ViewMixin",
     "TruncateMixin",

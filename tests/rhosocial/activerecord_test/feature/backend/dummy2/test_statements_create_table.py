@@ -1,5 +1,10 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_table.py
+import inspect
+from typing import List, Set, Tuple
+
 import pytest
+from rhosocial.activerecord.backend.dialect import ProtocolNotImplementedError, SQLDialectBase
+from rhosocial.activerecord.backend.dialect import protocols as dialect_protocols
 from rhosocial.activerecord.backend.expression import (
     Literal,
     Column,
@@ -15,7 +20,6 @@ from rhosocial.activerecord.backend.expression.statements import (
     ForeignKeyConstraint,
     ColumnConstraint,
     ColumnConstraintType,
-    PartitionKey,
     PartitionClause,
     PartitionStrategy,
     QueryExpression,
@@ -24,6 +28,89 @@ from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+
+class PartitionTestDialect(SQLDialectBase, PartitionMixin):
+    """Minimal dialect for core PartitionClause success-path tests."""
+
+    def supports_table_partitioning(self) -> bool:
+        return True
+
+    def supports_partitioned_table_creation(self) -> bool:
+        return True
+
+    def supports_range_table_partitioning(self) -> bool:
+        return True
+
+    def supports_hash_table_partitioning(self) -> bool:
+        return True
+
+    def format_partition_clause(self, expr: PartitionClause) -> Tuple[str, tuple]:
+        self.check_feature_support(
+            "supports_partitioned_table_creation",
+            "PARTITION BY clause",
+            "Use a dialect that supports partitioned table creation.",
+        )
+        method_checks = {
+            "RANGE": "supports_range_table_partitioning",
+            "HASH": "supports_hash_table_partitioning",
+        }
+        check_method = method_checks.get(expr.method)
+        if check_method is None:
+            raise ValueError("Unsupported test partition method")
+        self.check_feature_support(check_method, f"{expr.method} partitioning")
+
+        parts = []
+        params = []
+        for key in expr.keys:
+            key_sql, key_params = key.to_sql()
+            parts.append(key_sql)
+            params.extend(key_params)
+        return f" PARTITION BY {expr.method} ({', '.join(parts)})", tuple(params)
+
+
+def _get_protocol_methods(protocol: type) -> Set[str]:
+    """Extract public methods declared by a protocol."""
+    return {
+        name
+        for name, value in protocol.__dict__.items()
+        if not name.startswith("_") and callable(value)
+    }
+
+
+class TestPartitionProtocolConformance:
+    """Tests generic PartitionSupport and PartitionMixin stay aligned."""
+
+    def test_partition_mixin_satisfies_partition_support_protocol(self):
+        """PartitionMixin should structurally implement PartitionSupport."""
+        assert isinstance(PartitionMixin(), dialect_protocols.PartitionSupport)
+
+    def test_partition_protocol_methods_are_implemented_by_mixin(self):
+        """Every PartitionSupport method should exist on PartitionMixin."""
+        protocol_methods = _get_protocol_methods(dialect_protocols.PartitionSupport)
+        mixin_methods = {name for name in dir(PartitionMixin) if not name.startswith("_")}
+
+        assert protocol_methods - mixin_methods == set()
+
+    def test_partition_mixin_public_methods_are_declared_in_protocol(self):
+        """PartitionMixin public formatter/capability methods must be declared."""
+        protocol_methods = _get_protocol_methods(dialect_protocols.PartitionSupport)
+        mixin_methods = {
+            name
+            for name, value in PartitionMixin.__dict__.items()
+            if name.startswith(("format_", "supports_", "get_")) and callable(value)
+        }
+
+        assert mixin_methods - protocol_methods == set()
+
+    @pytest.mark.parametrize("method_name", sorted(_get_protocol_methods(dialect_protocols.PartitionSupport)))
+    def test_partition_mixin_signatures_match_protocol(self, method_name: str):
+        """PartitionMixin method signatures should match PartitionSupport."""
+        protocol_signature = inspect.signature(getattr(dialect_protocols.PartitionSupport, method_name))
+        mixin_signature = inspect.signature(getattr(PartitionMixin, method_name))
+
+        assert list(mixin_signature.parameters) == list(protocol_signature.parameters)
+        assert mixin_signature.return_annotation == protocol_signature.return_annotation
 
 
 class TestCreateTableStatements:
@@ -241,7 +328,7 @@ class TestCreateTableStatements:
             where=where_clause,
         )
 
-        columns = [  # For CREATE TABLE AS, columns list may be empty since they're defined by the query
+        columns: List[ColumnDefinition] = [  # For CREATE TABLE AS, columns list may be empty since they're defined by the query
             # Note: In a real CREATE TABLE AS, column definitions come from the query results
         ]
 
@@ -317,11 +404,10 @@ class TestCreateTableStatements:
         assert "COMMENT 'User's display name'" in sql
         assert params == ()
 
-    def test_create_table_partition_by(self, dummy_dialect: DummyDialect):
-        """Tests CREATE TABLE with partitioning via PartitionClause."""
+    def test_create_table_partition_unsupported_by_dummy(self, dummy_dialect: DummyDialect):
+        """Tests DummyDialect intentionally does not support table partitioning."""
         columns = [
             ColumnDefinition("id", "INTEGER"),
-            ColumnDefinition("name", "VARCHAR(100)"),
             ColumnDefinition("created_date", "DATE"),
         ]
 
@@ -331,63 +417,42 @@ class TestCreateTableStatements:
             columns=columns,
             partition=PartitionClause(
                 dialect=dummy_dialect,
-                strategy=PartitionStrategy.RANGE,
-                key=PartitionKey(columns=["created_date"]),
+                method=PartitionStrategy.RANGE,
+                keys=[Column(dummy_dialect, "created_date")],
             ),
         )
-        sql, params = create_table_expr.to_sql()
 
-        assert '"log_entries"' in sql
-        assert "PARTITION BY RANGE" in sql
-        assert '("created_date")' in sql
-        assert params == ()
+        with pytest.raises(ProtocolNotImplementedError, match="PartitionSupport"):
+            create_table_expr.to_sql()
 
-    def test_create_table_with_partition_spec(self, dummy_dialect: DummyDialect):
-        """Tests CREATE TABLE with structured partition specification."""
-        columns = [
-            ColumnDefinition("id", "INTEGER"),
-            ColumnDefinition("name", "VARCHAR(100)"),
-            ColumnDefinition("created_date", "DATE"),
-        ]
-
+    def test_create_table_partition_success_path_uses_partition_protocol(self):
+        """Tests CreateTableExpression appends PartitionClause SQL and params."""
+        dialect = PartitionTestDialect()
+        partition = PartitionClause(
+            dialect=dialect,
+            method=PartitionStrategy.HASH,
+            keys=[FunctionCall(dialect, "bucket", Literal(dialect, "tenant"))],
+        )
         create_table_expr = CreateTableExpression(
-            dummy_dialect,
-            table="log_entries",
-            columns=columns,
-            partition=PartitionClause(
-                dialect=dummy_dialect,
-                strategy=PartitionStrategy.RANGE,
-                key=PartitionKey(columns=["created_date"]),
-            ),
+            dialect,
+            table="events",
+            columns=[ColumnDefinition("tenant", "TEXT")],
+            partition=partition,
         )
+
         sql, params = create_table_expr.to_sql()
 
-        assert '"log_entries"' in sql
-        assert "PARTITION BY RANGE" in sql
-        assert '("created_date")' in sql
-        assert params == ()
+        assert sql == 'CREATE TABLE "events" ("tenant" TEXT) PARTITION BY HASH (BUCKET(?))'
+        assert params == ("tenant",)
 
-    def test_create_table_with_multi_column_partition_spec(self, dummy_dialect: DummyDialect):
-        """Tests CREATE TABLE partition key with multiple columns."""
-        columns = [
-            ColumnDefinition("tenant_id", "INTEGER"),
-            ColumnDefinition("created_date", "DATE"),
-        ]
+    def test_partition_clause_delegates_to_partition_support(self):
+        """Tests PartitionClause delegates to dialect.format_partition_clause()."""
+        dialect = PartitionTestDialect()
+        partition = PartitionClause(dialect=dialect, method=PartitionStrategy.RANGE, keys=[Column(dialect, "created_at")])
 
-        create_table_expr = CreateTableExpression(
-            dummy_dialect,
-            table="tenant_events",
-            columns=columns,
-            partition=PartitionClause(
-                dialect=dummy_dialect,
-                strategy=PartitionStrategy.HASH,
-                key=PartitionKey(columns=["tenant_id", "created_date"]),
-            ),
-        )
-        sql, params = create_table_expr.to_sql()
+        sql, params = partition.to_sql()
 
-        assert "PARTITION BY HASH" in sql
-        assert '("tenant_id", "created_date")' in sql
+        assert sql == ' PARTITION BY RANGE ("created_at")'
         assert params == ()
 
     def test_create_table_partition_requires_partition_clause(self, dummy_dialect: DummyDialect):
@@ -402,115 +467,100 @@ class TestCreateTableStatements:
                 partition="RANGE",
             )
 
-    def test_create_table_partition_spec_requires_key(self, dummy_dialect: DummyDialect):
-        """Tests structured partition spec requires columns or expression."""
-        columns = [ColumnDefinition("id", "INTEGER")]
-        create_table_expr = CreateTableExpression(
-            dummy_dialect,
-            table="invalid_partition",
-            columns=columns,
-            partition=PartitionClause(
+    def test_partition_clause_requires_strategy_enum(self, dummy_dialect: DummyDialect):
+        """Tests PartitionClause requires a PartitionStrategy enum value."""
+        with pytest.raises(TypeError, match="method must be a PartitionStrategy"):
+            PartitionClause(
                 dialect=dummy_dialect,
-                strategy=PartitionStrategy.RANGE,
-                key=PartitionKey(),
-            ),
+                method="RANGE",
+                keys=[Column(dummy_dialect, "created_date")],
+            )
+
+    def test_partition_clause_rejects_malicious_method_without_logging_value(self, dummy_dialect: DummyDialect):
+        """Tests malicious method values are rejected without echoing the value."""
+        malicious_method = "RANGE); DROP TABLE users; --"
+
+        with pytest.raises(TypeError) as exc_info:
+            PartitionClause(
+                dialect=dummy_dialect,
+                method=malicious_method,
+                keys=[Column(dummy_dialect, "created_date")],
+            )
+
+        message = str(exc_info.value)
+        assert "method must be a PartitionStrategy" in message
+        assert malicious_method not in message
+
+    def test_partition_clause_requires_keys(self, dummy_dialect: DummyDialect):
+        """Tests PartitionClause requires at least one key expression."""
+        with pytest.raises(ValueError, match="keys are required"):
+            PartitionClause(dialect=dummy_dialect, method=PartitionStrategy.RANGE, keys=[])
+
+    def test_partition_clause_requires_dict_dialect_options(self, dummy_dialect: DummyDialect):
+        """Tests dialect_options must remain a structured mapping."""
+        with pytest.raises(TypeError, match="dialect_options must be a dict"):
+            PartitionClause(
+                dialect=dummy_dialect,
+                method=PartitionStrategy.RANGE,
+                keys=[Column(dummy_dialect, "created_date")],
+                dialect_options="columns_mode",
+            )
+
+    def test_partition_clause_copies_dialect_options(self, dummy_dialect: DummyDialect):
+        """Tests dialect_options are copied to avoid external mutation."""
+        options = {"backend_hint": "safe"}
+        partition = PartitionClause(
+            dialect=dummy_dialect,
+            method=PartitionStrategy.RANGE,
+            keys=[Column(dummy_dialect, "created_date")],
+            dialect_options=options,
         )
 
-        with pytest.raises(ValueError, match="Partition key must specify"):
-            create_table_expr.to_sql()
+        options["backend_hint"] = "changed"
 
-    def test_partition_support_methods_are_enabled_for_dummy(self, dummy_dialect: DummyDialect):
-        """Tests dummy dialect exposes partition support through PartitionMixin."""
-        assert dummy_dialect.supports_table_partitioning() is True
-        assert dummy_dialect.supports_partitioned_table_creation() is True
-        assert dummy_dialect.supports_range_table_partitioning() is True
-        assert dummy_dialect.supports_list_table_partitioning() is True
-        assert dummy_dialect.supports_hash_table_partitioning() is True
-        assert dummy_dialect.supports_key_table_partitioning() is True
-        assert dummy_dialect.supports_subpartitioning() is True
-        assert dummy_dialect.supports_partition_metadata_introspection() is False
+        assert partition.dialect_options == {"backend_hint": "safe"}
+
+    def test_partition_clause_requires_expression_keys(self, dummy_dialect: DummyDialect):
+        """Tests PartitionClause keys must be expressions."""
+        with pytest.raises(TypeError, match="BaseExpression"):
+            PartitionClause(dialect=dummy_dialect, method=PartitionStrategy.RANGE, keys=["created_date"])
+
+    def test_partition_support_methods_are_not_exposed_by_dummy(self, dummy_dialect: DummyDialect):
+        """Tests DummyDialect does not expose PartitionSupport."""
+        assert not hasattr(dummy_dialect, "supports_table_partitioning")
+        assert not hasattr(dummy_dialect, "format_partition_clause")
 
     def test_partition_mixin_default_support_methods_are_disabled(self):
-        """Tests base PartitionMixin defaults all partition capabilities to disabled."""
+        """Tests base PartitionMixin defaults generic partition capabilities to disabled."""
         mixin = PartitionMixin()
 
         assert mixin.supports_table_partitioning() is False
         assert mixin.supports_partitioned_table_creation() is False
+        assert mixin.supports_partition_metadata_introspection() is False
         assert mixin.supports_range_table_partitioning() is False
         assert mixin.supports_list_table_partitioning() is False
         assert mixin.supports_hash_table_partitioning() is False
-        assert mixin.supports_key_table_partitioning() is False
         assert mixin.supports_subpartitioning() is False
-        assert mixin.supports_partition_metadata_introspection() is False
-
-    def test_partition_clause_rejects_invalid_strategy(self, dummy_dialect: DummyDialect):
-        """Tests invalid partition strategies are rejected."""
-        partition = PartitionClause(
-            dialect=dummy_dialect,
-            strategy="INVALID",
-            key=PartitionKey(columns=["created_date"]),
-        )
-
-        with pytest.raises(ValueError, match="Invalid partition strategy"):
-            partition.to_sql()
-
-    def test_partition_clause_accepts_dialect_extra_strategy(self, dummy_dialect: DummyDialect):
-        """Tests dialect-specific partition strategies can be enabled per expression."""
-        partition = PartitionClause(
-            dialect=dummy_dialect,
-            strategy="KEY",
-            key=PartitionKey(columns=["tenant_id"]),
-            dialect_options={"extra_strategies": {"KEY"}},
-        )
-
-        sql, params = partition.to_sql()
-
-        assert sql == ' PARTITION BY KEY ("tenant_id")'
-        assert params == ()
-
-    def test_partition_clause_rejects_columns_and_expression(self, dummy_dialect: DummyDialect):
-        """Tests partition key rejects ambiguous columns plus expression."""
-        partition = PartitionClause(
-            dialect=dummy_dialect,
-            strategy=PartitionStrategy.RANGE,
-            key=PartitionKey(
-                columns=["created_date"],
-                expression=FunctionCall(dummy_dialect, "date", Column(dummy_dialect, "created_at")),
-            ),
-        )
-
-        with pytest.raises(ValueError, match="cannot specify both columns and expression"):
-            partition.to_sql()
-
-    def test_partition_clause_formats_expression_key(self, dummy_dialect: DummyDialect):
-        """Tests expression-based partition keys delegate to expression SQL."""
-        partition = PartitionClause(
-            dialect=dummy_dialect,
-            strategy=PartitionStrategy.RANGE,
-            key=PartitionKey(
-                expression=FunctionCall(dummy_dialect, "date", Column(dummy_dialect, "created_at")),
-            ),
-        )
-
-        sql, params = partition.to_sql()
-
-        assert sql == ' PARTITION BY RANGE (DATE("created_at"))'
-        assert params == ()
+        assert mixin.supports_add_partition() is False
+        assert mixin.supports_drop_partition() is False
+        assert mixin.supports_truncate_partition() is False
+        assert mixin.supports_reorganize_partition() is False
+        assert mixin.supports_attach_partition() is False
+        assert mixin.supports_detach_partition() is False
 
     def test_partition_clause_unsupported_by_default_mixin(self, dummy_dialect: DummyDialect):
-        """Tests base PartitionMixin rejects partition SQL when support is disabled."""
-        class UnsupportedPartitionDialect(DummyDialect):
-            def supports_table_partitioning(self) -> bool:
-                return False
+        """Tests base PartitionMixin rejects partition SQL by default."""
+        class UnsupportedPartitionDialect(PartitionMixin):
+            name = "unsupported"
 
         dialect = UnsupportedPartitionDialect()
         partition = PartitionClause(
             dialect=dialect,
-            strategy=PartitionStrategy.RANGE,
-            key=PartitionKey(columns=["created_date"]),
+            method=PartitionStrategy.RANGE,
+            keys=[Column(dummy_dialect, "created_date")],
         )
 
-        with pytest.raises(Exception, match="does not support table partitioning"):
+        with pytest.raises(Exception, match="PartitionClause requires a dialect"):
             partition.to_sql()
 
     def test_create_table_with_inherits(self, dummy_dialect: DummyDialect):

@@ -1565,6 +1565,10 @@ class PartitionMixin:
         """Whether CREATE TABLE can create partitioned tables through this dialect."""
         return False
 
+    def supports_partition_metadata_introspection(self) -> bool:
+        """Whether partition metadata introspection is supported."""
+        return False
+
     def supports_range_table_partitioning(self) -> bool:
         """Whether RANGE table partitioning is supported."""
         return False
@@ -1577,68 +1581,53 @@ class PartitionMixin:
         """Whether HASH table partitioning is supported."""
         return False
 
-    def supports_key_table_partitioning(self) -> bool:
-        """Whether KEY table partitioning is supported."""
-        return False
-
     def supports_subpartitioning(self) -> bool:
         """Whether table subpartitioning is supported."""
         return False
 
-    def supports_partition_metadata_introspection(self) -> bool:
-        """Whether partition metadata introspection is supported."""
+    def supports_add_partition(self) -> bool:
+        """Whether adding partitions through the public API is supported."""
+        return False
+
+    def supports_drop_partition(self) -> bool:
+        """Whether dropping partitions through the public API is supported."""
+        return False
+
+    def supports_truncate_partition(self) -> bool:
+        """Whether truncating partitions through the public API is supported."""
+        return False
+
+    def supports_reorganize_partition(self) -> bool:
+        """Whether reorganizing partitions through the public API is supported."""
+        return False
+
+    def supports_attach_partition(self) -> bool:
+        """Whether attaching partitions through the public API is supported."""
+        return False
+
+    def supports_detach_partition(self) -> bool:
+        """Whether detaching partitions through the public API is supported."""
         return False
 
     def format_partition_clause(self, expr: "PartitionClause") -> Tuple[str, tuple]:
         """Format PARTITION BY clause from expression.
 
-        This default implementation generates standard SQL PARTITION BY
-        syntax. Dialects can override to add validation or custom behavior.
+        The generic mixin does not generate backend-specific PARTITION BY
+        syntax. Dialects that support partitioning must override this method.
 
         Args:
-            expr: PartitionClause with partition strategy and key.
+            expr: PartitionClause with partition method and key expressions.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ..expression.statements import PartitionStrategy
-
-        if not self.supports_table_partitioning():
-            raise UnsupportedFeatureError(
-                self.name, "PARTITION BY clause", "This dialect does not support table partitioning."
-            )
-
-        partition = expr
-        strategy = partition.strategy
-        raw_strategy = strategy.value if isinstance(strategy, PartitionStrategy) else str(strategy)
-        key = partition.key
-        partition_cols = key.columns
-        key_expression = key.expression
-
-        # Validate strategy
-        valid_types = {item.value for item in PartitionStrategy}
-        # Also allow dialect-specific strategies (e.g., 'KEY' for MySQL)
-        if hasattr(expr, "dialect_options") and expr.dialect_options:
-            extra_strategies = expr.dialect_options.get("extra_strategies", set())
-            valid_types = valid_types | extra_strategies
-
-        normalized = raw_strategy.upper()
-        if normalized not in valid_types:
-            raise ValueError(
-                f"Invalid partition strategy '{raw_strategy}'. Must be one of: {', '.join(sorted(valid_types))}"
-            )
-
-        if key_expression is not None and partition_cols:
-            raise ValueError("Partition key cannot specify both columns and expression.")
-        if key_expression is None and not partition_cols:
-            raise ValueError("Partition key must specify columns or expression.")
-
-        if key_expression is not None:
-            key_sql, key_params = key_expression.to_sql()
-            return f" PARTITION BY {normalized} ({key_sql})", tuple(key_params)
-
-        cols_str = ", ".join(self.format_identifier(col) for col in partition_cols)
-        return f" PARTITION BY {normalized} ({cols_str})", ()
+        raise UnsupportedFeatureError(
+            self.name,
+            "PARTITION BY clause",
+            "PartitionClause requires a dialect implementing PartitionSupport. "
+            "Use a concrete backend partition protocol such as MySQL or PostgreSQL "
+            "when table partitioning is available.",
+        )
 
 
 class TableMixin:

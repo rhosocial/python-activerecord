@@ -83,12 +83,12 @@ Go over all the following points, and put an `x` in all the boxes that apply.
 If you're unsure about any of these, don't hesitate to ask. We're here to help!
 -->
 
-- [ ] My code follows the project's [code style guidelines](./.gemini/code_style.md).
+- [ ] My code follows the project's [code style guidelines](./.claude/code_style.md).
 - [ ] I have performed a self-review of my own code.
 - [ ] I have commented my code, particularly in hard-to-understand areas.
 - [ ] I have made corresponding changes to the documentation (Docstrings, `README.md`, etc.).
 - [ ] My changes generate no new warnings.
-- [ ] I have added a [Changelog fragment](./.gemini/version_control.md#5-changelog-management-with-towncrier) (`changelog.d/<issue_number>.<type>.md`).
+- [ ] I have added a [Changelog fragment](./.claude/version_control.md#5-changelog-management-with-towncrier) (`changelog.d/<issue_number>.<type>.md`).
 - [ ] I have verified that my changes do not introduce SQL injection vulnerabilities.
 - [ ] I have checked for potential performance regressions.
 
