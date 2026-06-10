@@ -404,11 +404,8 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         self, scenario_name: str
     ) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
         """Sets up the database for async blog-related models (AsyncUser, AsyncPost, AsyncComment) tests."""
-        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_blog_models import (
-            AsyncUser,
-            AsyncPost,
-            AsyncComment,
-        )
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_blog_models import AsyncPost, AsyncComment
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import AsyncUser
 
         models_and_tables = [(AsyncUser, "users"), (AsyncPost, "posts"), (AsyncComment, "comments")]
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)
