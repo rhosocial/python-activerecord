@@ -1261,8 +1261,24 @@ class SQLDialectBase:
         check_sql, check_params = t_const.check_condition.to_sql()
         return f"CHECK ({check_sql})", tuple(check_params)
 
-    def _format_fk_table_constraint(self, t_const: "TableConstraint") -> str:
-        """Format FOREIGN KEY table constraint."""
+    def format_foreign_key_constraint(self, t_const: "TableConstraint") -> str:
+        """Format a FOREIGN KEY table constraint, including ON DELETE / ON UPDATE.
+
+        This is the public Protocol method for formatting table-level FK constraints,
+        replacing the private ``_format_fk_table_constraint``.
+
+        Args:
+            t_const: The table constraint (may be a ``ForeignKeyConstraint`` instance
+                     with ``on_delete`` / ``on_update`` referential actions).
+
+        Returns:
+            SQL string for the FK constraint clause (no trailing newline).
+
+        Raises:
+            ValueError: If required columns/references are missing.
+        """
+        from ..expression.statements import ReferentialAction, ForeignKeyConstraint
+
         if not t_const.columns:
             raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
         if not t_const.foreign_key_columns:
@@ -1271,9 +1287,18 @@ class SQLDialectBase:
             raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
         cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
         ref_cols_str = ", ".join(self.format_identifier(col) for col in t_const.foreign_key_columns)
-        return (
+        result = (
             f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})"
         )
+
+        # Append ON DELETE / ON UPDATE when present (ForeignKeyConstraint subclass).
+        if isinstance(t_const, ForeignKeyConstraint):
+            if t_const.on_delete is not None and t_const.on_delete != ReferentialAction.NO_ACTION:
+                result += f" ON DELETE {t_const.on_delete.value}"
+            if t_const.on_update is not None and t_const.on_update != ReferentialAction.NO_ACTION:
+                result += f" ON UPDATE {t_const.on_update.value}"
+
+        return result
 
     def _format_table_constraint_sql(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
         """Format a single table constraint.
@@ -1301,7 +1326,7 @@ class SQLDialectBase:
             sql, params = self._format_table_check_constraint(t_const)
             const_parts.append(sql)
         elif ctype == TableConstraintType.FOREIGN_KEY:
-            const_parts.append(self._format_fk_table_constraint(t_const))
+            const_parts.append(self.format_foreign_key_constraint(t_const))
 
         return " ".join(const_parts) if const_parts else "", tuple(params)
 
@@ -1685,7 +1710,7 @@ class SQLDialectBase:
         if ctype == ColumnConstraintType.CHECK:
             return self._format_column_check_constraint(constraint)
         if ctype == ColumnConstraintType.FOREIGN_KEY:
-            return self._format_fk_constraint(constraint)
+            return self.format_column_fk_constraint(constraint)
         return "", ()
 
     def _format_column_check_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
@@ -1716,8 +1741,19 @@ class SQLDialectBase:
             return f" DEFAULT '{escaped}'", ()
         return f" DEFAULT {constraint.default_value}", ()
 
-    def _format_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
-        """Format FOREIGN KEY constraint."""
+    def format_column_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
+        """Format a column-level FOREIGN KEY reference clause.
+
+        This is the public Protocol method for formatting column-level FK references,
+        replacing the private ``_format_fk_constraint``.
+
+        Args:
+            constraint: The column constraint with foreign_key_reference, on_delete,
+                        on_update, and deferrable settings.
+
+        Returns:
+            Tuple of (SQL fragment, empty params tuple).
+        """
         from ..expression.statements import ReferentialAction
 
         if constraint.foreign_key_reference is None:
