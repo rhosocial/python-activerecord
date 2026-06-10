@@ -282,6 +282,19 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         models_and_tables = [(MappedUser, "users"), (MappedPost, "posts"), (MappedComment, "comments")]
         return self._setup_multiple_models(models_and_tables, scenario_name)
 
+    def setup_profile_fixtures(self, scenario_name: str) -> Tuple[Type[ActiveRecord], Type[ActiveRecord]]:
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.models import Profile
+
+        return self._setup_multiple_models([(User, "users"), (Profile, "profiles")], scenario_name)
+
+    async def setup_async_profile_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import (
+            AsyncUser,
+            AsyncProfile,
+        )
+
+        return await self._setup_multiple_models_async([(AsyncUser, "users"), (AsyncProfile, "profiles")], scenario_name)
+
     def cleanup_after_test(self, scenario_name: str):
         """
         Performs cleanup after a test, disconnecting backends and deleting files.
