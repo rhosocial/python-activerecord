@@ -998,7 +998,9 @@ class TestJsonFunctionFactoriesExtended:
         from rhosocial.activerecord.backend.expression import Literal
 
         # Create a dialect that doesn't implement FilterClauseSupport protocol
-        class MockDialect(SQLDialectBase):
+        from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin, IdentifierMixin
+
+        class MockDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin):
             def get_placeholder(self) -> str:
                 return "?"
 

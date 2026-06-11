@@ -13,16 +13,17 @@ from rhosocial.activerecord.backend.dialect import (
     ReturningSupport,
     UnsupportedFeatureError,
 )
+from rhosocial.activerecord.backend.dialect.mixins import DMLMixin, IdentifierMixin, ExpressionMixin
 
 
-class NoReturningDialect(SQLDialectBase, ReturningMixin, ReturningSupport):
+class NoReturningDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DMLMixin, ReturningMixin, ReturningSupport):
     """Dialect that does not support RETURNING clauses."""
 
     def supports_returning_clause(self) -> bool:
         return False
 
 
-class OnlyInsertReturningDialect(SQLDialectBase, ReturningMixin, ReturningSupport):
+class OnlyInsertReturningDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DMLMixin, ReturningMixin, ReturningSupport):
     """Dialect that only supports RETURNING for INSERT."""
 
     def supports_returning_insert(self) -> bool:

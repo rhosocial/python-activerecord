@@ -38,6 +38,7 @@ from rhosocial.activerecord.testsuite.feature.query.fixtures.models import (  # 
     OrderItem as OrderItemBase,
     Post as PostBase,
     Comment as CommentBase,
+    Profile as ProfileBase,
     MappedUser as MappedUserBase,
     MappedPost as MappedPostBase,
     MappedComment as MappedCommentBase,
@@ -45,7 +46,7 @@ from rhosocial.activerecord.testsuite.feature.query.fixtures.models import (  # 
 
 # Conditionally import Python 3.10+ models
 User310 = JsonUser310 = Order310 = OrderItem310 = Post310 = Comment310 = None
-MappedUser310 = MappedPost310 = MappedComment310 = None
+Profile310 = MappedUser310 = MappedPost310 = MappedComment310 = None
 
 if sys.version_info >= (3, 10):
     try:
@@ -56,6 +57,7 @@ if sys.version_info >= (3, 10):
             OrderItem as OrderItem310,
             Post as Post310,
             Comment as Comment310,
+            Profile as Profile310,
             MappedUser as MappedUser310,
             MappedPost as MappedPost310,
             MappedComment as MappedComment310,
@@ -65,7 +67,7 @@ if sys.version_info >= (3, 10):
 
 # Conditionally import Python 3.11+ models
 User311 = JsonUser311 = Order311 = OrderItem311 = Post311 = Comment311 = None
-MappedUser311 = MappedPost311 = MappedComment311 = None
+Profile311 = MappedUser311 = MappedPost311 = MappedComment311 = None
 
 if sys.version_info >= (3, 11):
     try:
@@ -76,6 +78,7 @@ if sys.version_info >= (3, 11):
             OrderItem as OrderItem311,
             Post as Post311,
             Comment as Comment311,
+            Profile as Profile311,
             MappedUser as MappedUser311,
             MappedPost as MappedPost311,
             MappedComment as MappedComment311,
@@ -85,7 +88,7 @@ if sys.version_info >= (3, 11):
 
 # Conditionally import Python 3.12+ models
 User312 = JsonUser312 = Order312 = OrderItem312 = Post312 = Comment312 = None
-MappedUser312 = MappedPost312 = MappedComment312 = None
+Profile312 = MappedUser312 = MappedPost312 = MappedComment312 = None
 
 if sys.version_info >= (3, 12):
     try:
@@ -96,6 +99,7 @@ if sys.version_info >= (3, 12):
             OrderItem as OrderItem312,
             Post as Post312,
             Comment as Comment312,
+            Profile as Profile312,
             MappedUser as MappedUser312,
             MappedPost as MappedPost312,
             MappedComment as MappedComment312,
@@ -120,6 +124,7 @@ Order = _select_model_class(OrderBase, Order312, Order311, Order310, "Order")
 OrderItem = _select_model_class(OrderItemBase, OrderItem312, OrderItem311, OrderItem310, "OrderItem")
 Post = _select_model_class(PostBase, Post312, Post311, Post310, "Post")
 Comment = _select_model_class(CommentBase, Comment312, Comment311, Comment310, "Comment")
+Profile = _select_model_class(ProfileBase, Profile312, Profile311, Profile310, "Profile")
 MappedUser = _select_model_class(MappedUserBase, MappedUser312, MappedUser311, MappedUser310, "MappedUser")
 MappedPost = _select_model_class(MappedPostBase, MappedPost312, MappedPost311, MappedPost310, "MappedPost")
 MappedComment = _select_model_class(
@@ -282,6 +287,17 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         models_and_tables = [(MappedUser, "users"), (MappedPost, "posts"), (MappedComment, "comments")]
         return self._setup_multiple_models(models_and_tables, scenario_name)
 
+    def setup_profile_fixtures(self, scenario_name: str) -> Tuple[Type[ActiveRecord], Type[ActiveRecord]]:
+        return self._setup_multiple_models([(User, "users"), (Profile, "profiles")], scenario_name)
+
+    async def setup_async_profile_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import (
+            AsyncUser,
+            AsyncProfile,
+        )
+
+        return await self._setup_multiple_models_async([(AsyncUser, "users"), (AsyncProfile, "profiles")], scenario_name)
+
     def cleanup_after_test(self, scenario_name: str):
         """
         Performs cleanup after a test, disconnecting backends and deleting files.
@@ -404,11 +420,8 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         self, scenario_name: str
     ) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
         """Sets up the database for async blog-related models (AsyncUser, AsyncPost, AsyncComment) tests."""
-        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_blog_models import (
-            AsyncUser,
-            AsyncPost,
-            AsyncComment,
-        )
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_blog_models import AsyncPost, AsyncComment
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import AsyncUser
 
         models_and_tables = [(AsyncUser, "users"), (AsyncPost, "posts"), (AsyncComment, "comments")]
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)

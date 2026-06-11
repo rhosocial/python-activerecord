@@ -10,6 +10,7 @@ from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
 from .async_join import AsyncJoinQueryMixin
+from .async_relational import AsyncRelationalQueryMixin
 from .set_operation import SetOperationQuery
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import WildcardExpression, TableExpression, statements, LimitOffsetClause, bases
@@ -139,6 +140,9 @@ class ActiveQuery(
         field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
         records = [self.model_class.create_from_database(field_data) for field_data in field_data_rows]
 
+        # Apply eager loading if configured via with_()
+        self._apply_eager_loading(records)
+
         return records
 
     def one(self) -> Optional[IActiveRecord]:
@@ -211,6 +215,9 @@ class ActiveQuery(
         # Convert database column names back to Python field names before creating model instance
         field_data = self.model_class._map_columns_to_fields(row)
         record = self.model_class.create_from_database(field_data)
+
+        # Apply eager loading if configured via with_()
+        self._apply_eager_loading([record])
 
         return record
 
@@ -356,6 +363,17 @@ class ActiveQuery(
         result = backend.delete(delete_opts)
         return result.affected_rows
 
+    def _apply_eager_loading(self, records: List[IActiveRecord]) -> None:
+        """Apply eager loading after fetching records (sync).
+
+        Delegates to RelationalQueryMixin._execute_eager_loading_for with a
+        sync loader closure that calls batch_load directly.
+        """
+        def _sync_loader(relation, recs, base_query):
+            return relation.batch_load(recs, base_query)
+
+        self._execute_eager_loading_for(records, _sync_loader)
+
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using model's logger."""
         if self.model_class:
@@ -368,7 +386,7 @@ class AsyncActiveQuery(
     AsyncAggregateQueryMixin,
     BaseQueryMixin,
     AsyncJoinQueryMixin,
-    RelationalQueryMixin,  # Use the same RelationalQueryMixin as sync version
+    AsyncRelationalQueryMixin,  # async eager loading execution
     RangeQueryMixin,
     IAsyncActiveQuery,
     IAsyncSetOperationQuery,
@@ -478,6 +496,9 @@ class AsyncActiveQuery(
         field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
         records = [self.model_class.create_from_database(field_data) for field_data in field_data_rows]
 
+        # Apply eager loading if configured via with_()
+        await self._apply_eager_loading(records)
+
         return records
 
     async def one(self) -> Optional[IActiveRecord]:
@@ -550,6 +571,9 @@ class AsyncActiveQuery(
         # Convert database column names back to Python field names before creating model instance
         field_data = self.model_class._map_columns_to_fields(row)
         record = self.model_class.create_from_database(field_data)
+
+        # Apply eager loading if configured via with_()
+        await self._apply_eager_loading([record])
 
         return record
 
@@ -688,6 +712,17 @@ class AsyncActiveQuery(
         )
         result = await backend.delete(delete_opts)
         return result.affected_rows
+
+    async def _apply_eager_loading(self, records: List[IActiveRecord]) -> None:
+        """Apply eager loading after fetching records (async).
+
+        Delegates to AsyncRelationalQueryMixin._execute_eager_loading_for
+        with an async loader closure that awaits batch_load.
+        """
+        async def _async_loader(relation, recs, base_query):
+            return await relation.batch_load(recs, base_query)
+
+        await self._execute_eager_loading_for(records, _async_loader)
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using model's logger."""

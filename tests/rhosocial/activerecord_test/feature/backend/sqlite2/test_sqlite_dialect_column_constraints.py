@@ -123,7 +123,7 @@ class TestColumnConstraintHandlers:
             constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"])
         )
 
-        sql, params = dialect._handle_foreign_key_constraint(constraint)
+        sql, params = dialect.format_column_fk_constraint(constraint)
 
         assert sql == ' REFERENCES "users"("id")'
         assert params == ()
@@ -135,7 +135,7 @@ class TestColumnConstraintHandlers:
             constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("orders", ["user_id", "order_id"])
         )
 
-        sql, params = dialect._handle_foreign_key_constraint(constraint)
+        sql, params = dialect.format_column_fk_constraint(constraint)
 
         assert sql == ' REFERENCES "orders"("user_id", "order_id")'
         assert params == ()
@@ -146,7 +146,7 @@ class TestColumnConstraintHandlers:
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=None)
 
         with pytest.raises(ValueError, match="Foreign key constraint must have a foreign_key_reference"):
-            dialect._handle_foreign_key_constraint(constraint)
+            dialect.format_column_fk_constraint(constraint)
 
 
 class TestGeneratedColumnHandler:

@@ -67,7 +67,7 @@ def test_sqlite_format_default_constraint_string_escaping(dialect):
         default_value="test's value",
     )
 
-    sql, params = dialect._format_default_constraint(constraint)
+    sql, params = dialect.format_default_constraint(constraint)
     assert "test''s value" in sql
     assert "'; DROP" not in sql
 
@@ -75,7 +75,7 @@ def test_sqlite_format_default_constraint_string_escaping(dialect):
 def test_sqlite_format_storage_options_string_escaping(dialect):
     """Test storage options string values are escaped."""
     storage_opts = {"key": "value's"}
-    sql, params = dialect._format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options(storage_opts)
     assert "value''s" in sql
     assert "'; DROP" not in sql
 
@@ -288,7 +288,7 @@ def test_sqlite_format_storage_options_key_identifier_quoting(dialect):
     """Storage option keys are identifier-quoted in SQLite dialect."""
     malicious_key = 'key"; DROP TABLE users--'
     storage_opts = {malicious_key: "value"}
-    sql, params = dialect._format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options(storage_opts)
     # "DROP TABLE" appears inside the quoted identifier — safe.
     # Verify balanced quotes (no breakout).
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes in {sql}"

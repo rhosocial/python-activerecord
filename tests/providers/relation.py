@@ -167,8 +167,12 @@ class RelationProvider(IRelationProvider):
             backend.introspect_and_adapt()
             self._active_backends.append(backend)
             backend.executescript(USER_POST_COMMENT_SCHEMA)
-            Post.configure(config, backend_class)
-            Comment.configure(config, backend_class)
+            Post.__connection_config__ = config
+            Post.__backend_class__ = backend_class
+            Post.__backend__ = backend
+            Comment.__connection_config__ = config
+            Comment.__backend_class__ = backend_class
+            Comment.__backend__ = backend
             self._sync_user_post_comment_setup = True
 
     def _setup_user_post_comment_async(self, scenario_name):
@@ -202,8 +206,12 @@ class RelationProvider(IRelationProvider):
             backend.introspect_and_adapt()
             self._active_backends.append(backend)
             backend.executescript(RELATION_BOUNDARY_SCHEMA)
-            BoundaryProfile.configure(config, backend_class)
-            BoundaryPost.configure(config, backend_class)
+            BoundaryProfile.__connection_config__ = config
+            BoundaryProfile.__backend_class__ = backend_class
+            BoundaryProfile.__backend__ = backend
+            BoundaryPost.__connection_config__ = config
+            BoundaryPost.__backend_class__ = backend_class
+            BoundaryPost.__backend__ = backend
             self._sync_relation_boundary_setup = True
 
     def _setup_relation_boundary_async(self, scenario_name):

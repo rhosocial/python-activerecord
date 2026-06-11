@@ -75,6 +75,8 @@ if TYPE_CHECKING:  # pragma: no cover
         DropFulltextIndexExpression,
         ReturningClause,
         PartitionClause,
+        ColumnConstraint,
+        ForeignKeyConstraint,
     )
     from ..introspection.expressions import (
         DatabaseInfoExpression,
@@ -996,6 +998,14 @@ class TableSupport(Protocol):
         """Format ALTER TABLE statement."""
         ...  # pragma: no cover
 
+    def supports_table_like_syntax(self) -> bool:
+        """Whether CREATE TABLE ... LIKE (or equivalent) is supported."""
+        ...  # pragma: no cover
+
+    def format_create_table_like(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
+        """Format CREATE TABLE ... LIKE statement."""
+        ...  # pragma: no cover
+
 
 @runtime_checkable
 class PartitionSupport(Protocol):
@@ -1128,6 +1138,30 @@ class ConstraintSupport(Protocol):
 
     def supports_fk_on_update(self) -> bool:
         """Whether ON UPDATE referential actions are supported."""
+        ...  # pragma: no cover
+
+    # FK formatter methods
+
+    def format_foreign_key_constraint(self, t_const: "TableConstraint") -> str:
+        """Format a table-level FOREIGN KEY constraint, including ON DELETE / ON UPDATE.
+
+        Args:
+            t_const: The table constraint to format (may be a ForeignKeyConstraint).
+
+        Returns:
+            SQL string for the FK clause.
+        """
+        ...  # pragma: no cover
+
+    def format_column_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
+        """Format a column-level FOREIGN KEY reference clause with actions.
+
+        Args:
+            constraint: The column constraint with FK reference and actions.
+
+        Returns:
+            Tuple of (SQL fragment, empty params tuple).
+        """
         ...  # pragma: no cover
 
     # FK match modes (SQL:1999)
