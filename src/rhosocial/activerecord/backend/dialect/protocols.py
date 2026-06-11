@@ -998,6 +998,14 @@ class TableSupport(Protocol):
         """Format ALTER TABLE statement."""
         ...  # pragma: no cover
 
+    def supports_table_like_syntax(self) -> bool:
+        """Whether CREATE TABLE ... LIKE (or equivalent) is supported."""
+        ...  # pragma: no cover
+
+    def format_create_table_like(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
+        """Format CREATE TABLE ... LIKE statement."""
+        ...  # pragma: no cover
+
 
 @runtime_checkable
 class PartitionSupport(Protocol):

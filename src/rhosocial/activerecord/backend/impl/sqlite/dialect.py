@@ -78,6 +78,15 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     SequenceMixin,
     TriggerMixin,
     GeneratedColumnMixin,
+    # New Mixins
+    IdentifierMixin,
+    PredicateMixin,
+    ExpressionMixin,
+    DateTimeMixin,
+    DQLMixin,
+    DMLMixin,
+    DDLColumnMixin,
+    TransactionControlMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, SQLiteReindexSupport, SQLiteVirtualTableSupport
@@ -154,6 +163,15 @@ class SQLiteDialect(
     SequenceMixin,
     TriggerMixin,
     GeneratedColumnMixin,
+    # New Mixins
+    IdentifierMixin,
+    PredicateMixin,
+    ExpressionMixin,
+    DateTimeMixin,
+    DQLMixin,
+    DMLMixin,
+    DDLColumnMixin,
+    TransactionControlMixin,
     # SQLite-specific mixins
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,

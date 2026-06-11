@@ -7,11 +7,12 @@ the corresponding formatting methods raise appropriate errors.
 """
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, LateralJoinMixin, LateralJoinSupport
+from rhosocial.activerecord.backend.dialect.mixins import IdentifierMixin, DQLMixin, ExpressionMixin
 from rhosocial.activerecord.backend.expression import Column, QueryExpression, TableExpression, Subquery
 from rhosocial.activerecord.backend.expression.query_sources import LateralExpression, TableFunctionExpression
 
 
-class NoLateralDialect(SQLDialectBase, LateralJoinMixin, LateralJoinSupport):
+class NoLateralDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DQLMixin, LateralJoinMixin, LateralJoinSupport):
     """Dialect that does not support lateral joins and table functions."""
 
     def supports_lateral_join(self) -> bool:

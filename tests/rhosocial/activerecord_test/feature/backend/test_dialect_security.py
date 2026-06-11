@@ -11,7 +11,7 @@ import pytest
 from typing import Tuple
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin
+from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, ExpressionMixin, DDLColumnMixin, IdentifierMixin, TableMixin
 from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
@@ -22,7 +22,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 from rhosocial.activerecord.backend.expression.functions.string import trim
 
 
-class TestDialect(SQLDialectBase, PartitionMixin):
+class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin):
     """Test dialect for security tests."""
 
     name = "test"
@@ -148,7 +148,7 @@ def test_format_default_constraint_string_escaping(dialect):
         default_value="test's value",
     )
 
-    sql, params = dialect._format_default_constraint(constraint)
+    sql, params = dialect.format_default_constraint(constraint)
     assert "test''s value" in sql
     assert "'; DROP" not in sql
 
@@ -156,7 +156,7 @@ def test_format_default_constraint_string_escaping(dialect):
 def test_format_storage_options_string_escaping(dialect):
     """Test storage options string values are escaped."""
     storage_opts = {"key": "value's"}
-    sql, params = dialect._format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options(storage_opts)
     assert "value''s" in sql
     assert "'; DROP" not in sql
 
@@ -170,7 +170,7 @@ def test_format_storage_options_key_identifier_quoting(dialect):
     """
     malicious_key = 'key"; DROP TABLE users--'
     storage_opts = {malicious_key: "value"}
-    sql, params = dialect._format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options(storage_opts)
 
     # DROP TABLE may appear inside quoted identifier, that's safe.
     # Verify quotes are balanced (no breakout).
@@ -183,7 +183,7 @@ def test_format_storage_options_mixed_safe_and_malicious_keys(dialect):
     safe_key = "fillfactor"
     malicious_key = 'evil"; DELETE FROM t--'
     storage_opts = {safe_key: 70, malicious_key: "x"}
-    sql, params = dialect._format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options(storage_opts)
 
     assert "fillfactor" in sql or "FILLFACTOR" in sql
     # DELETE may appear inside quoted identifier — verify balanced quotes
@@ -194,7 +194,7 @@ def test_format_storage_options_mixed_safe_and_malicious_keys(dialect):
 def test_format_storage_options_int_value_not_parameterized(dialect):
     """Numeric storage options are embedded as literals (design decision)."""
     storage_opts = {"fillfactor": 70}
-    sql, params = dialect._format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options(storage_opts)
     assert "70" in sql
     assert params == ()
 
@@ -202,14 +202,14 @@ def test_format_storage_options_int_value_not_parameterized(dialect):
 def test_format_storage_options_none_value_uses_placeholder(dialect):
     """None or unknown type values use parameterized placeholder."""
     storage_opts = {"option": None}
-    sql, params = dialect._format_storage_options(storage_opts)
+    sql, params = dialect.format_storage_options(storage_opts)
     assert dialect.get_parameter_placeholder() in sql
     assert params == (None,)
 
 
 def test_format_storage_options_empty(dialect):
     """Empty storage options returns empty string."""
-    sql, params = dialect._format_storage_options({})
+    sql, params = dialect.format_storage_options({})
     assert sql == ""
     assert params == ()
 
