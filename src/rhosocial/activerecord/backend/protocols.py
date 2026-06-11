@@ -6,10 +6,8 @@ This module defines protocol interfaces for backend implementations to declare
 support for various backend-specific features.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
 
 
 @dataclass(frozen=True)
@@ -23,7 +21,7 @@ class ConcurrencyHint:
         reason: Human-readable explanation for the constraint.
     """
 
-    max_concurrency: int | None
+    max_concurrency: Optional[int]
     reason: str = ""
 
 
@@ -39,7 +37,7 @@ class ConcurrencyAware(Protocol):
     - Return None if the backend imposes no constraint; the caller decides the strategy.
     """
 
-    def get_concurrency_hint(self) -> ConcurrencyHint | None: ...
+    def get_concurrency_hint(self) -> Optional[ConcurrencyHint]: ...
 
 
 class ConcurrencyAwareMixin:
@@ -50,7 +48,7 @@ class ConcurrencyAwareMixin:
     Subclasses should override get_concurrency_hint() to provide specific values.
     """
 
-    def get_concurrency_hint(self) -> ConcurrencyHint | None:
+    def get_concurrency_hint(self) -> Optional[ConcurrencyHint]:
         """
         Get concurrency hint for this backend.
 
