@@ -132,6 +132,15 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     GeneratedColumnMixin,
     # Introspection Mixin
     IntrospectionMixin,
+    # New Mixins
+    IdentifierMixin,
+    PredicateMixin,
+    ExpressionMixin,
+    DateTimeMixin,
+    DQLMixin,
+    DMLMixin,
+    DDLColumnMixin,
+    TransactionControlMixin,
 )
 
 if TYPE_CHECKING:
@@ -180,6 +189,15 @@ class DummyDialect(
     GeneratedColumnMixin,
     # Introspection Mixin
     IntrospectionMixin,
+    # New Mixins
+    IdentifierMixin,
+    PredicateMixin,
+    ExpressionMixin,
+    DateTimeMixin,
+    DQLMixin,
+    DMLMixin,
+    DDLColumnMixin,
+    TransactionControlMixin,
     # Protocols for type checking
     SQLXMLSupport,
     SQLXMLParsingSupport,

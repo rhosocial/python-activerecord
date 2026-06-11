@@ -78,6 +78,15 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     SequenceMixin,
     TriggerMixin,
     GeneratedColumnMixin,
+    # New Mixins
+    IdentifierMixin,
+    PredicateMixin,
+    ExpressionMixin,
+    DateTimeMixin,
+    DQLMixin,
+    DMLMixin,
+    DDLColumnMixin,
+    TransactionControlMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, SQLiteReindexSupport, SQLiteVirtualTableSupport
@@ -154,6 +163,15 @@ class SQLiteDialect(
     SequenceMixin,
     TriggerMixin,
     GeneratedColumnMixin,
+    # New Mixins
+    IdentifierMixin,
+    PredicateMixin,
+    ExpressionMixin,
+    DateTimeMixin,
+    DQLMixin,
+    DMLMixin,
+    DDLColumnMixin,
+    TransactionControlMixin,
     # SQLite-specific mixins
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
@@ -1265,8 +1283,12 @@ class SQLiteDialect(
         check_sql, check_params = constraint.check_condition.to_sql()
         return f" CHECK ({check_sql})", check_params
 
-    def _handle_foreign_key_constraint(self, constraint) -> Tuple[str, tuple]:
-        """Handle FOREIGN KEY constraint formatting."""
+    def format_column_fk_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Format a column-level FOREIGN KEY reference for SQLite.
+
+        SQLite supports ON DELETE and ON UPDATE actions for column-level FK constraints.
+        Supports: CASCADE, SET NULL, SET DEFAULT, RESTRICT, NO ACTION.
+        """
         from rhosocial.activerecord.backend.expression.statements import ReferentialAction
 
         if constraint.foreign_key_reference is None:
@@ -1318,7 +1340,7 @@ class SQLiteDialect(
             ColumnConstraintType.UNIQUE: self._handle_unique_constraint,
             ColumnConstraintType.DEFAULT: self._handle_default_constraint,
             ColumnConstraintType.CHECK: self._handle_check_constraint,
-            ColumnConstraintType.FOREIGN_KEY: self._handle_foreign_key_constraint,
+            ColumnConstraintType.FOREIGN_KEY: self.format_column_fk_constraint,
         }
 
         all_params = []

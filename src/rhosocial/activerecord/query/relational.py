@@ -3,9 +3,9 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional, List, Callable, Union, Tuple
+from typing import Dict, Optional, List, Callable, Union, Tuple, Any
 
-from ..interface import IQuery, ThreadSafeDict, IActiveQuery
+from ..interface import IQuery, ThreadSafeDict, IActiveQuery, IActiveRecord
 
 
 class InvalidRelationPathError(Exception):
@@ -29,7 +29,7 @@ class RelationConfig:
     query_modifier: Optional[Callable] = None  # Query modification function
 
 
-class RelationalQueryMixin(IQuery):
+class RelationalQueryMixinBase(IQuery):
     """
     Query mixin providing eager loading capabilities for model relationships.
 
@@ -165,34 +165,34 @@ class RelationalQueryMixin(IQuery):
                             ('posts.comments.user', m2),
                         )
 
-        Returns:
-            IActiveQuery: Returns self to enable method chaining
+            Returns:
+                IActiveQuery: Returns self to enable method chaining
 
-        Raises:
-            InvalidRelationPathError: If the relation path format is invalid (empty, leading/
-                                    trailing dots, consecutive dots)
-            RelationNotFoundError: If any relation in the path doesn't exist on its respective model
+            Raises:
+                InvalidRelationPathError: If the relation path format is invalid (empty, leading/
+                                        trailing dots, consecutive dots)
+                RelationNotFoundError: If any relation in the path doesn't exist on its respective model
 
-        Example:
-            # Simple eager loading
-            users = User.query().with_('posts').all()
+            Example:
+                # Simple eager loading
+                users = User.query().with_('posts').all()
 
-            # Multiple relations
-            users = User.query().with_('posts', 'profile').all()
+                # Multiple relations
+                users = User.query().with_('posts', 'profile').all()
 
-            # Nested relations
-            users = User.query().with_('posts.comments').all()
+                # Nested relations
+                users = User.query().with_('posts.comments').all()
 
-            # With query modifier (named function recommended for complex cases)
-            def filter_published(q):
-                return q.where(Post.c.status == 'published')
-            users = User.query().with_(('posts', filter_published)).all()
+                # With query modifier (named function recommended for complex cases)
+                def filter_published(q):
+                    return q.where(Post.c.status == 'published')
+                users = User.query().with_(('posts', filter_published)).all()
 
-            # Complex scenario with nested relations and modifiers
-            def order_comments(q):
-                return q.order_by(Comment.c.created_at.desc())
-            users = User.query().with_('posts', ('posts.comments', order_comments)).all()
-        """
+                # Complex scenario with nested relations and modifiers
+                def order_comments(q):
+                    return q.order_by(Comment.c.created_at.desc())
+                users = User.query().with_('posts', ('posts.comments', order_comments)).all()
+            """
         # First validate all paths to ensure transactional behavior
         validated_relations = []
 
@@ -409,7 +409,7 @@ class RelationalQueryMixin(IQuery):
         Returns:
             List containing the next part if exists, empty list otherwise
         """
-        remaining_parts = parts[current_index + 1 :]
+        remaining_parts = parts[current_index + 1:]
         return remaining_parts[:1] if remaining_parts else []
 
     def _should_update_nested_relation(self, full_path: str, next_level: List[str]) -> bool:
@@ -546,3 +546,101 @@ class RelationalQueryMixin(IQuery):
             configs.append(".".join(current))
 
         return parts, configs
+
+    @staticmethod
+    def _collect_unique_records(loaded: Dict[int, Any]) -> List[IActiveRecord]:
+        """Extract unique related model instances from a batch-load result dict.
+
+        The dict maps Python id(record) to either a single instance (BelongsTo,
+        HasOne) or a list (HasMany).  This method flattens, deduplicates, and
+        returns a plain list of records for further nested eager loading.
+        """
+        all_related: List[IActiveRecord] = []
+        seen: set = set()
+        for value in loaded.values():
+            items = value if isinstance(value, list) else [value] if value is not None else []
+            for item in items:
+                item_id = id(item)
+                if item_id not in seen:
+                    seen.add(item_id)
+                    all_related.append(item)
+        return all_related
+
+
+class RelationalQueryMixin(RelationalQueryMixinBase):
+    """
+    Synchronous query mixin providing eager loading execution for model relationships.
+
+    Inherits non-I/O logic (relation path parsing, validation, config storage)
+    from RelationalQueryMixinBase.  Sync execution calls RelationDescriptor.batch_load()
+    directly (no async/await).
+    """
+
+    def _execute_eager_loading_for(
+        self,
+        records: List[IActiveRecord],
+        loader: Callable,
+    ) -> None:
+        """Sync traversal over _eager_loads — calls *loader* directly."""
+        if not records or not self._eager_loads:
+            return
+
+        for path, config in self._eager_loads.items():
+            parts = config.name.split('.')
+            base_rel_name = parts[0]
+            nested = '.'.join(parts[1:]) if len(parts) > 1 else None
+
+            relation = self.model_class.get_relation(base_rel_name)
+            if relation is None:
+                self._log(logging.WARNING,
+                          f"Relation '{base_rel_name}' not found on "
+                          f"{self.model_class.__name__}, skipping eager load")
+                continue
+
+            # Build base query with modifier if configured
+            base_query = None
+            if config.query_modifier is not None:
+                related_model = relation.get_related_model(self.model_class)
+                if related_model is not None:
+                    base_query = config.query_modifier(related_model.query())
+
+            loaded = loader(relation, records, base_query)
+
+            if nested and loaded:
+                all_related = self._collect_unique_records(loaded)
+                if all_related:
+                    self._execute_nested_eager_loading_for(
+                        all_related, nested, relation, loader,
+                    )
+
+    def _execute_nested_eager_loading_for(
+        self,
+        related_records: List[IActiveRecord],
+        nested_path: str,
+        parent_descriptor: object,
+        loader: Callable,
+    ) -> None:
+        """Sync recursive traversal for nested relation paths."""
+        if not related_records or not nested_path:
+            return
+
+        parts = nested_path.split('.')
+        base_rel_name = parts[0]
+        remaining = '.'.join(parts[1:]) if len(parts) > 1 else None
+
+        related_model = parent_descriptor.get_related_model(type(related_records[0]))
+        if related_model is None:
+            return
+
+        nested_relation = related_model.get_relation(base_rel_name)
+        if nested_relation is None:
+            return
+
+        loaded = loader(nested_relation, related_records, None)
+
+        if remaining and loaded:
+            all_related = self._collect_unique_records(loaded)
+            if all_related:
+                self._execute_nested_eager_loading_for(
+                    all_related, remaining, nested_relation, loader,
+                )
