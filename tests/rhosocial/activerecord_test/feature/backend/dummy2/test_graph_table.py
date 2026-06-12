@@ -178,8 +178,8 @@ class TestCreatePropertyGraphExpression:
         expr = CreatePropertyGraphExpression(dummy_dialect, "g", [vt], [et])
         sql, params = expr.to_sql()
         assert "CREATE PROPERTY GRAPH" in sql
-        assert "VERTEX" not in sql  # default format uses parentheses
-        assert "EDGE" not in sql
+        assert "VERTEX TABLES" in sql
+        assert "EDGE TABLES" in sql
 
     def test_if_not_exists(self, dummy_dialect: DummyDialect):
         vt = VertexTable(dummy_dialect, "person")
