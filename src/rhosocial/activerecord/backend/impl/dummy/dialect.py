@@ -69,6 +69,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     QualifyClauseSupport,
     LockingSupport,
     GraphSupport,
+    GraphTableSupport,
     JoinSupport,
     SetOperationSupport,
     ILIKESupport,
@@ -115,6 +116,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     QualifyClauseMixin,
     LockingMixin,
     GraphMixin,
+    GraphTableMixin,
     JoinMixin,
     SetOperationMixin,
     ILIKEMixin,
@@ -172,6 +174,7 @@ class DummyDialect(
     QualifyClauseMixin,
     LockingMixin,
     GraphMixin,
+    GraphTableMixin,
     JoinMixin,
     SetOperationMixin,
     ILIKEMixin,
@@ -223,6 +226,7 @@ class DummyDialect(
     QualifyClauseSupport,
     LockingSupport,
     GraphSupport,
+    GraphTableSupport,
     JoinSupport,
     SetOperationSupport,
     ILIKESupport,
@@ -386,6 +390,9 @@ class DummyDialect(
         return True
 
     def supports_graph_match(self) -> bool:
+        return True
+
+    def supports_graph_table(self) -> bool:
         return True
 
     def supports_inner_join(self) -> bool:

@@ -396,16 +396,17 @@ class JoinExpression(BaseExpression):
         super().__init__(dialect)
 
         from .statements import QueryExpression
+        from .graph import GraphTableExpression
 
         # Normalize table inputs
         self.left_table = (
             left_table
-            if isinstance(left_table, (TableExpression, Subquery, JoinExpression, QueryExpression))
+            if isinstance(left_table, (TableExpression, Subquery, JoinExpression, QueryExpression, GraphTableExpression))
             else TableExpression(dialect, str(left_table))
         )
         self.right_table = (
             right_table
-            if isinstance(right_table, (TableExpression, Subquery, JoinExpression, QueryExpression))
+            if isinstance(right_table, (TableExpression, Subquery, JoinExpression, QueryExpression, GraphTableExpression))
             else TableExpression(dialect, str(right_table))
         )
 
