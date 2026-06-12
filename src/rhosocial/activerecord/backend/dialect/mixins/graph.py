@@ -169,6 +169,8 @@ class GraphTableMixin:
             raise UnsupportedFeatureError(self.name, "vertex table definition")
 
         parts = [self.format_identifier(vt.table)]
+        if vt.alias:
+            parts.append(f"AS {self.format_identifier(vt.alias)}")
 
         if vt.labels:
             labels = " ".join(f"LABEL {self.format_identifier(l)}" for l in vt.labels)
@@ -191,6 +193,8 @@ class GraphTableMixin:
             raise UnsupportedFeatureError(self.name, "edge table definition")
 
         parts = [self.format_identifier(et.table)]
+        if et.alias:
+            parts.append(f"AS {self.format_identifier(et.alias)}")
 
         if et.key_columns:
             keys = ", ".join(self.format_identifier(k) for k in et.key_columns)
@@ -235,16 +239,19 @@ class GraphTableMixin:
             parts.append("IF NOT EXISTS")
         parts.append(self.format_identifier(expr.graph_name))
 
-        table_parts = []
-        for vt in expr.vertex_tables:
-            sql, _ = vt.to_sql()
-            table_parts.append(sql)
-        for et in expr.edge_tables:
-            sql, _ = et.to_sql()
-            table_parts.append(sql)
+        if expr.vertex_tables:
+            vt_parts = []
+            for vt in expr.vertex_tables:
+                sql, _ = vt.to_sql()
+                vt_parts.append(sql)
+            parts.append(f"VERTEX TABLES ({', '.join(vt_parts)})")
 
-        if table_parts:
-            parts.append(",".join(table_parts))
+        if expr.edge_tables:
+            et_parts = []
+            for et in expr.edge_tables:
+                sql, _ = et.to_sql()
+                et_parts.append(sql)
+            parts.append(f"EDGE TABLES ({', '.join(et_parts)})")
 
         return " ".join(parts), ()
 

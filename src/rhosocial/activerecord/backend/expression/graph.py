@@ -131,17 +131,19 @@ class TablePropertiesClause(BaseExpression):
 class VertexTable(BaseExpression):
     """Represents a vertex table definition in CREATE PROPERTY GRAPH.
 
-    Renders: table [LABEL l1 [LABEL l2 ...]] [KEY (cols)] [PROPERTIES ...]"""
+    Renders: table [AS alias] [LABEL l1 [LABEL l2 ...]] [KEY (cols)] [PROPERTIES ...]"""
 
     def __init__(self, dialect: "SQLDialectBase", table: str,
                  labels: Optional[List[str]] = None,
                  key_columns: Optional[List[str]] = None,
-                 properties: Optional["TablePropertiesClause"] = None):
+                 properties: Optional["TablePropertiesClause"] = None,
+                 alias: Optional[str] = None):
         super().__init__(dialect)
         self.table = table
         self.labels = labels
         self.key_columns = key_columns
         self.properties = properties
+        self.alias = alias
 
     def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_vertex_table(self)
@@ -150,7 +152,7 @@ class VertexTable(BaseExpression):
 class EdgeTable(BaseExpression):
     """Represents an edge table definition in CREATE PROPERTY GRAPH.
 
-    Renders: table [KEY (cols)] SOURCE KEY (cols) [REFERENCES t (c)]
+    Renders: table [AS alias] [KEY (cols)] SOURCE KEY (cols) [REFERENCES t (c)]
             DESTINATION KEY (cols) [REFERENCES t (c)] [LABEL ...] [PROPERTIES ...]"""
 
     def __init__(self, dialect: "SQLDialectBase", table: str,
@@ -159,7 +161,8 @@ class EdgeTable(BaseExpression):
                  references_source: Optional[Tuple[str, List[str]]] = None,
                  references_destination: Optional[Tuple[str, List[str]]] = None,
                  labels: Optional[List[str]] = None,
-                 properties: Optional["TablePropertiesClause"] = None):
+                 properties: Optional["TablePropertiesClause"] = None,
+                 alias: Optional[str] = None):
         super().__init__(dialect)
         self.table = table
         self.source_key = source_key
@@ -169,6 +172,7 @@ class EdgeTable(BaseExpression):
         self.references_destination = references_destination
         self.labels = labels
         self.properties = properties
+        self.alias = alias
 
     def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_edge_table(self)
