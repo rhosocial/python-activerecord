@@ -800,7 +800,7 @@ class TestQueryStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
         ):
             query.validate(strict=True)
 
