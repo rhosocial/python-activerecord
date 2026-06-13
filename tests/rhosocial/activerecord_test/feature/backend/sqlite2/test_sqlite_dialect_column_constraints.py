@@ -26,7 +26,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY)
 
-        sql, params = dialect._handle_primary_key_constraint(constraint)
+        sql, params = dialect.format_primary_key_constraint(constraint)
 
         assert sql == " PRIMARY KEY"
         assert params == ()
@@ -36,7 +36,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)
 
-        sql, params = dialect._handle_not_null_constraint(constraint)
+        sql, params = dialect.format_not_null_constraint(constraint)
 
         assert sql == " NOT NULL"
         assert params == ()
@@ -46,7 +46,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.NULL)
 
-        sql, params = dialect._handle_null_constraint(constraint)
+        sql, params = dialect.format_null_constraint(constraint)
 
         assert sql == " NULL"
         assert params == ()
@@ -56,7 +56,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE)
 
-        sql, params = dialect._handle_unique_constraint(constraint)
+        sql, params = dialect.format_unique_constraint(constraint)
 
         assert sql == " UNIQUE"
         assert params == ()
@@ -66,7 +66,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value="test_default")
 
-        sql, params = dialect._handle_default_constraint(constraint)
+        sql, params = dialect.format_default_constraint(constraint)
 
         assert sql == " DEFAULT ?"
         assert params == ("test_default",)
@@ -81,7 +81,7 @@ class TestColumnConstraintHandlers:
         mock_expr.to_sql.return_value = ("CURRENT_TIMESTAMP", ())
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value=mock_expr)
 
-        sql, params = dialect._handle_default_constraint(constraint)
+        sql, params = dialect.format_default_constraint(constraint)
 
         assert sql == " DEFAULT CURRENT_TIMESTAMP"
         assert params == ()
@@ -92,7 +92,7 @@ class TestColumnConstraintHandlers:
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value=None)
 
         with pytest.raises(ValueError, match="DEFAULT constraint must have a default value"):
-            dialect._handle_default_constraint(constraint)
+            dialect.format_default_constraint(constraint)
 
     def test_handle_check_constraint_with_condition(self):
         """Test CHECK constraint handler with condition."""
@@ -101,7 +101,7 @@ class TestColumnConstraintHandlers:
         mock_condition.to_sql.return_value = ("age > 0", ())
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.CHECK, check_condition=mock_condition)
 
-        sql, params = dialect._handle_check_constraint(constraint)
+        sql, params = dialect.format_check_constraint(constraint)
 
         assert sql == " CHECK (age > 0)"
         assert params == ()
@@ -111,7 +111,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.CHECK, check_condition=None)
 
-        sql, params = dialect._handle_check_constraint(constraint)
+        sql, params = dialect.format_check_constraint(constraint)
 
         assert sql == ""
         assert params == ()
