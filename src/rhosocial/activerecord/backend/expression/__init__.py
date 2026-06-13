@@ -202,6 +202,15 @@ from .graph import (
     GraphVertex,
     GraphEdge,
     MatchClause,
+    GraphColumn,
+    ColumnsClause,
+    GraphTableExpression,
+    TablePropertiesClause,
+    VertexTable,
+    EdgeTable,
+    CreatePropertyGraphExpression,
+    DropPropertyGraphExpression,
+    AlterPropertyGraphExpression,
 )
 from .introspection import (
     IntrospectionExpression,

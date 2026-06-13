@@ -7,6 +7,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..core import Subquery, TableExpression
     from ..query_sources import SetOperationExpression, ValuesExpression, TableFunctionExpression, LateralExpression
     from ..query_parts import JoinExpression
+    from ..graph import GraphTableExpression
 
 FromSourceType = Union[
     str,  # Table name as string
@@ -17,4 +18,5 @@ FromSourceType = Union[
     "ValuesExpression",  # VALUES expression
     "TableFunctionExpression",  # Table function
     "LateralExpression",  # LATERAL expression
+    "GraphTableExpression",  # GRAPH_TABLE expression (SQL/PGQ)
 ]

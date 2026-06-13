@@ -24,7 +24,7 @@ from .join import LateralJoinMixin, JoinMixin
 from .array import ArrayMixin
 from .json import JSONMixin
 from .explain import ExplainMixin
-from .graph import GraphMixin
+from .graph import GraphMixin, GraphTableMixin
 from .filter_clause import FilterClauseMixin
 from .aggregation import OrderedSetAggregationMixin
 from .merge import MergeMixin
@@ -70,6 +70,7 @@ __all__ = [
     "JSONMixin",
     "ExplainMixin",
     "GraphMixin",
+    "GraphTableMixin",
     "FilterClauseMixin",
     "OrderedSetAggregationMixin",
     "MergeMixin",
