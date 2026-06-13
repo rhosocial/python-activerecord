@@ -19,6 +19,16 @@ if TYPE_CHECKING:  # pragma: no cover
         MatchClause,
         QualifyClause,
         GraphEdgeDirection,
+        GraphTableExpression,
+        GraphVertex,
+        GraphEdge,
+        ColumnsClause,
+        VertexTable,
+        EdgeTable,
+        TablePropertiesClause,
+        CreatePropertyGraphExpression,
+        DropPropertyGraphExpression,
+        AlterPropertyGraphExpression,
         JoinExpression,
         WindowFunctionCall,
         WindowSpecification,
@@ -48,7 +58,7 @@ if TYPE_CHECKING:  # pragma: no cover
         XMLSerializeExpression,
         XMLTableExpression,
     )
-    from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
+    from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause, WhereClause
     from ..expression.advanced_functions import OrderedSetAggregation
     from ..expression.statements import (
         CreateTableExpression,
@@ -711,27 +721,24 @@ class GraphSupport(Protocol):
         """Whether graph query MATCH clause is supported."""
         ...  # pragma: no cover
 
-    def format_graph_vertex(self, variable: str, table: str) -> Tuple[str, tuple]:
+    def format_graph_vertex(self, vertex: "GraphVertex") -> Tuple[str, tuple]:
         """
         Formats a graph vertex expression.
 
         Args:
-            variable: The vertex variable name.
-            table: The vertex table name.
+            vertex: GraphVertex object.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
         ...  # pragma: no cover
 
-    def format_graph_edge(self, variable: str, table: str, direction: "GraphEdgeDirection") -> Tuple[str, tuple]:
+    def format_graph_edge(self, edge: "GraphEdge") -> Tuple[str, tuple]:
         """
         Formats a graph edge expression.
 
         Args:
-            variable: The edge variable name.
-            table: The edge table name.
-            direction: The edge direction.
+            edge: GraphEdge object.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -747,6 +754,111 @@ class GraphSupport(Protocol):
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class GraphTableSupport(Protocol):
+    """Protocol for GRAPH_TABLE query expression support (SQL/PGQ)."""
+
+    def supports_graph_table(self) -> bool:
+        """Whether GRAPH_TABLE expression is supported."""
+        ...  # pragma: no cover
+
+    def format_graph_table_expression(self, expr: "GraphTableExpression") -> Tuple[str, tuple]:
+        """
+        Formats a GRAPH_TABLE expression.
+
+        Args:
+            expr: GraphTableExpression object.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        ...  # pragma: no cover
+
+    def format_graph_columns_clause(self, columns: "ColumnsClause") -> Tuple[str, tuple]:
+        """
+        Formats a GRAPH_TABLE COLUMNS clause.
+
+        Args:
+            columns: ColumnsClause object.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        ...  # pragma: no cover
+
+    def format_table_properties_clause(self, clause: "TablePropertiesClause") -> Tuple[str, tuple]:
+        """
+        Formats a PROPERTIES clause for vertex/edge table definitions.
+
+        Args:
+            clause: TablePropertiesClause object.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_vertex_table(self, vt: "VertexTable") -> Tuple[str, tuple]:
+        """
+        Formats a vertex table definition for CREATE PROPERTY GRAPH.
+
+        Args:
+            vt: VertexTable object.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_edge_table(self, et: "EdgeTable") -> Tuple[str, tuple]:
+        """
+        Formats an edge table definition for CREATE PROPERTY GRAPH.
+
+        Args:
+            et: EdgeTable object.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_create_property_graph_statement(self, expr: "CreatePropertyGraphExpression") -> Tuple[str, tuple]:
+        """
+        Formats a CREATE PROPERTY GRAPH statement.
+
+        Args:
+            expr: CreatePropertyGraphExpression object.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_drop_property_graph_statement(self, expr: "DropPropertyGraphExpression") -> Tuple[str, tuple]:
+        """
+        Formats a DROP PROPERTY GRAPH statement.
+
+        Args:
+            expr: DropPropertyGraphExpression object.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_alter_property_graph_statement(self, expr: "AlterPropertyGraphExpression") -> Tuple[str, tuple]:
+        """
+        Formats an ALTER PROPERTY GRAPH statement.
+
+        Args:
+            expr: AlterPropertyGraphExpression object.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
 

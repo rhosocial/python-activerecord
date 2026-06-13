@@ -248,6 +248,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                 "ValuesExpression",
                 "TableFunctionExpression",
                 "LateralExpression",
+                "GraphTableExpression",
             ]
 
         if self.from_ is not None:
@@ -258,7 +259,8 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                         raise TypeError(
                             f"from_ list item at index {i} must be one of: str, TableExpression, "
                             f"Subquery, SetOperationExpression, JoinExpression, ValuesExpression, "
-                            f"TableFunctionExpression, LateralExpression, got {type(item)}"
+                            f"TableFunctionExpression, LateralExpression, GraphTableExpression, "
+                            f"got {type(item)}"
                         )
             else:
                 # For single values, validate using the same helper
@@ -266,7 +268,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                     raise TypeError(
                         f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, "
                         f"JoinExpression, list, ValuesExpression, TableFunctionExpression, "
-                        f"LateralExpression, got {type(self.from_)}"
+                        f"LateralExpression, GraphTableExpression, got {type(self.from_)}"
                     )
 
         # Validate where parameter
