@@ -11,7 +11,6 @@ import inspect
 import json
 from typing import Dict, List, Any
 
-from rhosocial.activerecord.backend.impl.sqlite.extension import get_registry
 from rhosocial.activerecord.backend.impl.sqlite.pragma import get_all_pragma_infos, PragmaCategory
 from rhosocial.activerecord.backend.impl.sqlite.protocols import SQLiteExtensionSupport, SQLitePragmaSupport
 from rhosocial.activerecord.backend.dialect.protocols import (
@@ -269,41 +268,37 @@ def _build_database_info(version_tuple: tuple) -> Dict[str, Any]:
 
 def _build_extension_info(version_tuple: tuple, dialect: Any = None) -> Dict[str, Any]:
     """Build extension information structure with runtime capability detection."""
-    registry = get_registry()
-    extensions = registry.detect_extensions(version_tuple)
-    ext_info = {}
-
-    for name, ext in extensions.items():
-        available = ext.installed
-
-        if not available and dialect is not None:
-            if name == "fts5":
-                available = dialect.supports_fts5()
-            elif name == "fts4":
-                available = dialect.get_runtime_param("fts4_available", False)
-            elif name == "fts3":
-                available = dialect.get_runtime_param("fts3_available", False)
-            elif name == "json1":
-                available = dialect.supports_json1_extension()
-            elif name == "rtree":
-                available = dialect.supports_rtree()
-            elif name == "geopoly":
-                available = dialect.supports_geopoly()
-
-        ext_info[name] = {
-            "type": ext.extension_type.name,
-            "available": available,
-            "min_version": ".".join(map(str, ext.min_version)),
-            "deprecated": ext.deprecated,
-            "description": ext.description,
+    if dialect is not None:
+        exts = dialect.detect_extensions()
+        return {
+            name: {
+                "type": ext.extension_type.name,
+                "available": ext.installed,
+                "min_version": ".".join(map(str, ext.min_version)),
+                "deprecated": ext.deprecated,
+                "description": ext.description,
+                **({"successor": ext.successor} if ext.successor else {}),
+                **({"features": ext.features} if ext.installed and ext.features else {}),
+            }
+            for name, ext in exts.items()
         }
-        if ext.successor:
-            ext_info[name]["successor"] = ext.successor
-        if available:
-            features = registry.get_supported_features(name, version_tuple)
-            if features:
-                ext_info[name]["features"] = features
 
+    # No dialect: version-only check
+    from rhosocial.activerecord.backend.impl.sqlite.mixins.extension import _EXTENSION_METADATA
+    ext_info = {}
+    for name, meta in _EXTENSION_METADATA.items():
+        available = version_tuple >= meta["min_version"]
+        feat_list = [f for f, fv in meta.get("features", {}).items() if version_tuple >= fv]
+        ext_info[name] = {
+            "type": meta["type"].name,
+            "available": available,
+            "min_version": ".".join(map(str, meta["min_version"])),
+            "deprecated": meta.get("deprecated", False),
+            "description": meta["description"],
+            **({"features": feat_list} if available and feat_list else {}),
+        }
+        if meta.get("successor"):
+            ext_info[name]["successor"] = meta["successor"]
     return ext_info
 
 

@@ -16,6 +16,10 @@ alongside raw SQL execution for clarity.
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.expression import (
+    SQLiteFTS5CreateVirtualTable,
+    SQLiteFTS5HighlightExpression,
+)
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
@@ -34,27 +38,32 @@ print("1. FTS5 Virtual Table Creation")
 print("=" * 60)
 
 # 1a. Basic FTS5 table (default unicode61 tokenizer)
-sql, _ = dialect.format_fts5_create_virtual_table("articles", ["title", "body"])
+expr = SQLiteFTS5CreateVirtualTable(dialect, table_name="articles", columns=["title", "body"])
+sql, _ = expr.to_sql()
 print("\n[1a] Basic FTS5 table (default tokenizer):")
 print(f"    SQL: {sql}")
 backend.execute(sql, options=ddl_opts)
 
 # 1b. FTS5 table with Porter stemmer tokenizer
-sql, _ = dialect.format_fts5_create_virtual_table("posts", ["content"], tokenizer="porter")
+expr = SQLiteFTS5CreateVirtualTable(dialect, table_name="posts", columns=["content"], tokenizer="porter")
+sql, _ = expr.to_sql()
 print("\n[1b] FTS5 with Porter stemmer:")
 print(f"    SQL: {sql}")
 backend.execute(sql, options=ddl_opts)
 
 # 1c. FTS5 table with unicode61 + diacritics removal + prefix indexing
-sql, _ = dialect.format_fts5_create_virtual_table(
-    "texts", ["content"], tokenizer="unicode61", tokenizer_options={"remove_diacritics": 1}, prefix=[2, 3]
+expr = SQLiteFTS5CreateVirtualTable(
+    dialect, table_name="texts", columns=["content"],
+    tokenizer="unicode61", tokenizer_options={"remove_diacritics": 1}, prefix=[2, 3]
 )
+sql, _ = expr.to_sql()
 print("\n[1c] FTS5 with unicode61+diacritics removal+prefix indexing:")
 print(f"    SQL: {sql}")
 backend.execute(sql, options=ddl_opts)
 
 # 1d. FTS5 table with ascii tokenizer (ASCII-only word boundaries)
-sql, _ = dialect.format_fts5_create_virtual_table("ascii_docs", ["title", "body"], tokenizer="ascii")
+expr = SQLiteFTS5CreateVirtualTable(dialect, table_name="ascii_docs", columns=["title", "body"], tokenizer="ascii")
+sql, _ = expr.to_sql()
 print("\n[1d] FTS5 with ascii tokenizer:")
 print(f"    SQL: {sql}")
 backend.execute(sql, options=ddl_opts)
@@ -242,7 +251,8 @@ print("=" * 60)
 
 # 5a. Basic highlight with default <b> markers
 print("\n  --- 5a. highlight() with default <b> markers ---")
-hl_sql, hl_params = dialect.format_fts5_highlight_expression("articles", "title", "python")
+hl_expr = SQLiteFTS5HighlightExpression(dialect, table_name="articles", column="title")
+hl_sql, hl_params = hl_expr.to_sql()
 full_sql = f"SELECT {hl_sql} as highlighted, title FROM articles WHERE articles MATCH ?"
 r = backend.fetch_all(full_sql, hl_params + ("python",))
 for row in r:
@@ -363,7 +373,8 @@ print("=" * 60)
 
 # Check if trigram is supported (SQLite >= 3.34.0)
 if "trigram" in dialect.get_supported_fts5_tokenizers():
-    sql, _ = dialect.format_fts5_create_virtual_table("substrings", ["content"], tokenizer="trigram")
+    expr = SQLiteFTS5CreateVirtualTable(dialect, table_name="substrings", columns=["content"], tokenizer="trigram")
+    sql, _ = expr.to_sql()
     backend.execute(sql, options=ddl_opts)
     print("\n  Created 'substrings' table with trigram tokenizer")
 
@@ -394,15 +405,15 @@ print("\n" + "=" * 60)
 print("12. DROP FTS5 Virtual Table")
 print("=" * 60)
 
-sql_if, _ = dialect.format_fts5_drop_virtual_table("articles", if_exists=True)
-sql_noif, _ = dialect.format_fts5_drop_virtual_table("posts")
+sql_if = 'DROP TABLE IF EXISTS "articles"'
+sql_noif = 'DROP TABLE "posts"'
 print(f"\n  [11a] DROP IF EXISTS: {sql_if}")
 print(f"  [11b] DROP: {sql_noif}")
 
 # Drop all FTS5 virtual tables (shadow tables are auto-removed)
 for tbl in ["posts", "texts", "articles", "ascii_docs", "substrings"]:
     if len(backend.fetch_all(f"SELECT name FROM sqlite_master WHERE name='{tbl}'")) > 0:
-        backend.execute(dialect.format_fts5_drop_virtual_table(tbl, if_exists=True)[0], options=ddl_opts)
+        backend.execute(f'DROP TABLE IF EXISTS "{tbl}"', options=ddl_opts)
 
 # Verify FTS5 virtual tables are gone (shadow tables auto-removed on DROP)
 remaining = backend.fetch_all(
