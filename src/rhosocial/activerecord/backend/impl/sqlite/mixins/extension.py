@@ -139,6 +139,13 @@ class SQLiteExtensionMixin:
 
     _runtime_params: Dict[str, Any] = {}
 
+    @staticmethod
+    def _validate_safe_identifier(name: str) -> None:
+        """Raise ValueError if name contains characters unsafe for SQL identifiers."""
+        import re  # noqa: F811
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            raise ValueError(f"Unsafe identifier: '{name}'")
+
     def set_runtime_param(self, key: str, value: Any) -> None:
         """Set a runtime parameter (detected after connection)."""
         self._runtime_params[key] = value

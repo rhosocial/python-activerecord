@@ -50,13 +50,15 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
         table = self.format_identifier(expr.table_name)
         cols = ", ".join(self.format_identifier(c) for c in expr.extra_columns) if expr.extra_columns else ""
         if expr.content_table:
-            sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols}, content='{expr.content_table}')"
+            self._validate_safe_identifier(expr.content_table)
+            sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols}, content='{self._escape_sql_string(expr.content_table)}')"
+            return sql, ()
         elif not cols:
             sql = f"CREATE VIRTUAL TABLE {table} USING geopoly()"
+            return sql, ()
         else:
             sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols})"
-
-        return sql, ()
+            return sql, ()
 
     def format_geopoly_contains_query(self, expr) -> Tuple[str, tuple]:
         """Format point-in-polygon query.

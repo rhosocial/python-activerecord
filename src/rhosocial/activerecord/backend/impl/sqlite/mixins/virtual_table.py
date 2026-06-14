@@ -5,9 +5,16 @@ SQLite-specific Virtual Table implementation.
 This module provides the SQLiteVirtualTableMixin class.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .extension import SQLiteExtensionMixin
+
+_KNOWN_VTABLE_MODULES: Set[str] = {
+    "rtree", "fts5", "fts4", "fts3", "geopoly",
+    "json_each", "json_tree", "generate_series",
+    "csv", "dbstat", "dbpage", "wholenumber", "rtree_i32",
+}
+
 
 class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     """Mixin for SQLite virtual table support.
@@ -112,7 +119,12 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
 
         Returns:
             Tuple of (SQL string, parameters tuple)
+
+        Raises:
+            ValueError: If module name contains unsafe characters
         """
+        if module not in _KNOWN_VTABLE_MODULES and not module.isidentifier():
+            raise ValueError(f"Unsafe virtual table module name: {module!r}")
         name = self.format_identifier(table_name)
         cols = ", ".join(self.format_identifier(c) for c in columns)
         sql = f"CREATE VIRTUAL TABLE {name} USING {module}({cols})"

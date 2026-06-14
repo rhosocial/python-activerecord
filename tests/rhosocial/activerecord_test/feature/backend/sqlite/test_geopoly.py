@@ -82,13 +82,14 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
         )
 
     def test_with_extra_columns_and_content(self):
-        sql, _ = SQLiteGeopolyCreateVirtualTable(
+        sql, params = SQLiteGeopolyCreateVirtualTable(
             SQLiteDialect(version=(3, 26, 0)),
             table_name="zones", extra_columns=["name"],
             content_table="zones_data"
         ).to_sql()
         assert '"name"' in sql
         assert "content='zones_data'" in sql
+        assert params == ()
 
     def test_empty_extra_columns(self):
         expr = SQLiteGeopolyCreateVirtualTable(
@@ -118,6 +119,18 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
 # =============================================================================
 # Part 1: Expression Construction Tests — SQLiteGeopolyContainsExpression
 # =============================================================================
+
+class TestSQLiteGeopolyInjectionSafety:
+    """Geopoly expression safety: malicious identifiers must be rejected."""
+
+    def test_content_table_malicious_identifier_rejected(self):
+        with pytest.raises(ValueError, match="Unsafe identifier"):
+            SQLiteGeopolyCreateVirtualTable(
+                SQLiteDialect(version=(3, 26, 0)),
+                table_name="zones",
+                content_table="tab'; DROP TABLE users; --"
+            ).to_sql()
+
 
 class TestSQLiteGeopolyContainsExpressionConstruction:
     """100% coverage of SQLiteGeopolyContainsExpression."""

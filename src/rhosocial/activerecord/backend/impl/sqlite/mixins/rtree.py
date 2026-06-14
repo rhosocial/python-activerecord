@@ -56,18 +56,24 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
         table = self.format_identifier(expr.table_name)
         cols_str = ", ".join(cols)
 
-        if expr.content_table:
-            if expr.content_rowid:
-                sql = (
-                    f"CREATE VIRTUAL TABLE {table} USING rtree"
-                    f"({cols_str}, content='{expr.content_table}', "
-                    f"content_rowid='{expr.content_rowid}')"
-                )
-            else:
-                sql = f"CREATE VIRTUAL TABLE {table} USING rtree({cols_str}, content='{expr.content_table}')"
-        else:
-            sql = f"CREATE VIRTUAL TABLE {table} USING rtree({cols_str})"
+        parts = []
 
+        if expr.content_rowid and not expr.content_table:
+            self._validate_safe_identifier(expr.content_rowid)
+
+        if expr.content_table:
+            self._validate_safe_identifier(expr.content_table)
+            parts.append(f"content='{self._escape_sql_string(expr.content_table)}'")
+            if expr.content_rowid:
+                self._validate_safe_identifier(expr.content_rowid)
+                parts.append(f"content_rowid='{self._escape_sql_string(expr.content_rowid)}'")
+
+        if parts:
+            full = f"{cols_str}, {', '.join(parts)}"
+        else:
+            full = cols_str
+
+        sql = f"CREATE VIRTUAL TABLE {table} USING rtree({full})"
         return sql, ()
 
     def format_rtree_range_query(self, expr) -> Tuple[str, tuple]:

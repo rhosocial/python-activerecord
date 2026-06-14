@@ -229,6 +229,21 @@ class TestDialectVirtualTableFormatting:
         )
         assert "geopoly_area" in sql
 
+    def test_format_create_virtual_table_safe_unknown_module_allowed(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        sql, _ = d.format_create_virtual_table(
+            module="my_module", table_name="t", columns=["c"]
+        )
+        assert 'USING my_module("c")' in sql
+
+    def test_format_create_virtual_table_rejects_malicious_module(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        with pytest.raises(ValueError, match="Unsafe virtual table module"):
+            d.format_create_virtual_table(
+                module="malicious' DROP TABLE users; --",
+                table_name="t", columns=["c"]
+            )
+
     def test_unsupported_versions_raise_error(self):
         with pytest.raises(UnsupportedFeatureError):
             d = SQLiteDialect(version=(3, 8, 0))

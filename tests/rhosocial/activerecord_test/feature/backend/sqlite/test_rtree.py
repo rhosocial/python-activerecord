@@ -80,20 +80,22 @@ class TestSQLiteRTreeCreateVirtualTableConstruction:
         assert '"min0", "max0"' in sql
 
     def test_with_content_table(self):
-        sql, _ = SQLiteRTreeCreateVirtualTable(
+        sql, params = SQLiteRTreeCreateVirtualTable(
             SQLiteDialect(version=(3, 6, 0)),
             table_name="places", content_table="places_data"
         ).to_sql()
         assert "content='places_data'" in sql
+        assert params == ()
 
     def test_with_content_rowid(self):
-        sql, _ = SQLiteRTreeCreateVirtualTable(
+        sql, params = SQLiteRTreeCreateVirtualTable(
             SQLiteDialect(version=(3, 6, 0)),
             table_name="places", content_table="places_data",
             content_rowid="pk"
         ).to_sql()
         assert "content='places_data'" in sql
         assert "content_rowid='pk'" in sql
+        assert params == ()
 
     def test_content_rowid_without_content(self):
         sql, _ = SQLiteRTreeCreateVirtualTable(
@@ -115,6 +117,26 @@ class TestSQLiteRTreeCreateVirtualTableConstruction:
 # =============================================================================
 # Part 1: Expression Construction Tests — SQLiteRTreeRangeQuery
 # =============================================================================
+
+class TestSQLiteRTreeInjectionSafety:
+    """R-Tree expression safety: malicious identifiers must be rejected."""
+
+    def test_content_table_malicious_identifier_rejected(self):
+        with pytest.raises(ValueError, match="Unsafe identifier"):
+            SQLiteRTreeCreateVirtualTable(
+                SQLiteDialect(version=(3, 6, 0)),
+                table_name="places",
+                content_table="tab'; DROP TABLE users; --"
+            ).to_sql()
+
+    def test_content_rowid_malicious_identifier_rejected(self):
+        with pytest.raises(ValueError, match="Unsafe identifier"):
+            SQLiteRTreeCreateVirtualTable(
+                SQLiteDialect(version=(3, 6, 0)),
+                table_name="places", content_table="x",
+                content_rowid="pk'; DROP TABLE t; --"
+            ).to_sql()
+
 
 class TestSQLiteRTreeRangeQueryConstruction:
     """100% coverage of SQLiteRTreeRangeQuery."""
