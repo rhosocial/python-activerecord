@@ -1,204 +1,264 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite_pragma_extension/test_dialect_integration.py
 """
 Tests for SQLite Dialect integration with Extension and Pragma frameworks.
+
+Two categories:
+1. Dialect-extension integration: protocol conformance, detection, registration
+2. Dialect-pragma integration: pragma query/format/set on the dialect
 """
 
+
+import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite import (
     SQLiteDialect,
     PragmaCategory,
 )
+from rhosocial.activerecord.backend.impl.sqlite.expression import (
+    SQLiteFTS5CreateVirtualTable,
+    SQLiteFTS5RankExpression,
+    SQLiteFTS5HighlightExpression,
+    SQLiteFTS5SnippetExpression,
+    SQLiteRTreeCreateVirtualTable,
+    SQLiteRTreeRangeQuery,
+    SQLiteGeopolyCreateVirtualTable,
+    SQLiteGeopolyContainsExpression,
+    SQLiteGeopolyAreaExpression,
+)
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 
-class TestSQLiteDialectExtensionIntegration:
-    """Test SQLiteDialect extension integration."""
+class TestDialectExtensionIntegration:
+    """Extension detection and feature-checking through the dialect."""
 
-    def test_dialect_has_extension_support(self):
-        """Test that dialect has extension support methods."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
+    def test_has_extension_methods(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        assert hasattr(d, "detect_extensions")
+        assert hasattr(d, "is_extension_available")
+        assert hasattr(d, "get_extension_info")
+        assert hasattr(d, "check_extension_feature")
 
-        assert hasattr(dialect, "detect_extensions")
-        assert hasattr(dialect, "is_extension_available")
-        assert hasattr(dialect, "get_extension_info")
-        assert hasattr(dialect, "check_extension_feature")
+    def test_detect_extensions(self):
+        exts = SQLiteDialect(version=(3, 35, 0)).detect_extensions()
+        assert isinstance(exts, dict)
+        assert "fts5" in exts
 
-    def test_dialect_detect_extensions(self):
-        """Test dialect extension detection."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-        extensions = dialect.detect_extensions()
+    def test_fts5_available(self):
+        assert SQLiteDialect(version=(3, 35, 0)).is_extension_available("fts5") is True
 
-        assert isinstance(extensions, dict)
-        assert "fts5" in extensions
+    def test_fts5_not_available_old_version(self):
+        assert SQLiteDialect(version=(3, 8, 0)).is_extension_available("fts5") is False
 
-    def test_dialect_fts5_available(self):
-        """Test FTS5 availability through dialect."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
+    def test_check_feature(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        assert d.check_extension_feature("fts5", "full_text_search") is True
+        assert d.check_extension_feature("fts5", "bm25_ranking") is True
 
-        # FTS5 is available since 3.9.0
-        assert dialect.is_extension_available("fts5") is True
+    def test_fts5_capability_methods(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        assert d.supports_fts5() is True
+        assert d.supports_fts5_bm25() is True
+        assert d.supports_fts5_highlight() is True
+        assert d.supports_fts5_snippet() is True
 
-    def test_dialect_fts5_not_available_old_version(self):
-        """Test FTS5 not available in old version."""
-        dialect = SQLiteDialect(version=(3, 8, 0))
+    def test_rtree_capability(self):
+        assert SQLiteDialect(version=(3, 35, 0)).supports_rtree() is True
+        assert SQLiteDialect(version=(3, 5, 0)).supports_rtree() is False
 
-        # FTS5 requires 3.9.0+
-        assert dialect.is_extension_available("fts5") is False
+    def test_geopoly_capability(self):
+        assert SQLiteDialect(version=(3, 35, 0)).supports_geopoly() is True
+        assert SQLiteDialect(version=(3, 25, 0)).supports_geopoly() is False
 
-    def test_dialect_check_extension_feature(self):
-        """Test extension feature checking through dialect."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
+    def test_math_functions_capability(self):
+        assert SQLiteDialect(version=(3, 35, 0)).supports_math_functions() is True
+        assert SQLiteDialect(version=(3, 34, 0)).supports_math_functions() is False
 
-        # Basic FTS5 features
-        assert dialect.check_extension_feature("fts5", "full_text_search") is True
-        assert dialect.check_extension_feature("fts5", "bm25_ranking") is True
-
-    def test_dialect_fts5_methods(self):
-        """Test FTS5-specific methods."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        assert dialect.supports_fts5() is True
-        assert dialect.supports_fts5_bm25() is True
-        assert dialect.supports_fts5_highlight() is True
-
-    def test_dialect_get_supported_fts5_tokenizers(self):
-        """Test getting supported FTS5 tokenizers."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        tokenizers = dialect.get_supported_fts5_tokenizers()
-        assert "unicode61" in tokenizers
-        assert "ascii" in tokenizers
-        assert "porter" in tokenizers
+    def test_json1_capability(self):
+        assert SQLiteDialect(version=(3, 38, 0)).supports_json1_extension() is True
+        assert SQLiteDialect(version=(3, 37, 0)).supports_json1_extension() is False
 
 
-class TestSQLiteDialectPragmaIntegration:
-    """Test SQLiteDialect pragma integration."""
+class TestDialectPragmaIntegration:
+    """Pragma support through the dialect."""
 
-    def test_dialect_has_pragma_support(self):
-        """Test that dialect has pragma support methods."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
+    def test_has_pragma_methods(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        assert hasattr(d, "get_pragma_info")
+        assert hasattr(d, "get_pragma_sql")
+        assert hasattr(d, "set_pragma_sql")
+        assert hasattr(d, "is_pragma_available")
+        assert hasattr(d, "get_pragmas_by_category")
+        assert hasattr(d, "get_all_pragma_infos")
 
-        assert hasattr(dialect, "get_pragma_info")
-        assert hasattr(dialect, "get_pragma_sql")
-        assert hasattr(dialect, "set_pragma_sql")
-        assert hasattr(dialect, "is_pragma_available")
-        assert hasattr(dialect, "get_pragmas_by_category")
-        assert hasattr(dialect, "get_all_pragma_infos")
-
-    def test_dialect_get_pragma_info(self):
-        """Test getting pragma info through dialect."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        info = dialect.get_pragma_info("foreign_keys")
+    def test_get_pragma_info(self):
+        info = SQLiteDialect(version=(3, 35, 0)).get_pragma_info("foreign_keys")
         assert info is not None
         assert info.name == "foreign_keys"
 
-    def test_dialect_get_pragma_sql(self):
-        """Test generating pragma SQL through dialect."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql = dialect.get_pragma_sql("foreign_keys")
+    def test_get_pragma_sql(self):
+        sql = SQLiteDialect(version=(3, 35, 0)).get_pragma_sql("foreign_keys")
         assert sql == "PRAGMA foreign_keys"
 
-    def test_dialect_get_pragma_sql_with_argument(self):
-        """Test generating pragma SQL with argument."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql = dialect.get_pragma_sql("table_info", argument="users")
+    def test_get_pragma_sql_with_argument(self):
+        sql = SQLiteDialect(version=(3, 35, 0)).get_pragma_sql("table_info", argument="users")
         assert "table_info" in sql
         assert "users" in sql
 
-    def test_dialect_set_pragma_sql(self):
-        """Test generating pragma set SQL."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql = dialect.set_pragma_sql("foreign_keys", 1)
+    def test_set_pragma_sql(self):
+        sql = SQLiteDialect(version=(3, 35, 0)).set_pragma_sql("foreign_keys", 1)
         assert "foreign_keys" in sql
         assert "1" in sql
 
-    def test_dialect_is_pragma_available(self):
-        """Test pragma availability check."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
+    def test_is_pragma_available(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        assert d.is_pragma_available("foreign_keys") is True
+        assert d.is_pragma_available("journal_mode") is True
 
-        # Common pragmas available since early versions
-        assert dialect.is_pragma_available("foreign_keys") is True
-        assert dialect.is_pragma_available("journal_mode") is True
-
-    def test_dialect_get_pragmas_by_category(self):
-        """Test getting pragmas by category."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        config_pragmas = dialect.get_pragmas_by_category(PragmaCategory.CONFIGURATION)
-        assert len(config_pragmas) > 0
-
-        # All should be configuration pragmas
-        for p in config_pragmas:
+    def test_get_pragmas_by_category(self):
+        pragmas = SQLiteDialect(version=(3, 35, 0)).get_pragmas_by_category(PragmaCategory.CONFIGURATION)
+        assert len(pragmas) > 0
+        for p in pragmas:
             assert p.category == PragmaCategory.CONFIGURATION
 
-    def test_dialect_get_all_pragma_infos(self):
-        """Test getting all pragma infos."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        all_pragmas = dialect.get_all_pragma_infos()
+    def test_get_all_pragma_infos(self):
+        all_pragmas = SQLiteDialect(version=(3, 35, 0)).get_all_pragma_infos()
         assert isinstance(all_pragmas, dict)
         assert len(all_pragmas) > 0
 
 
-class TestSQLiteDialectFTS5Formatting:
-    """Test FTS5 SQL formatting methods."""
+class TestDialectVirtualTableFormatting:
+    """Virtual table formatting methods on the dialect (generic + extension-specific)."""
 
-    def test_format_fts5_create_virtual_table(self):
-        """Test formatting FTS5 CREATE VIRTUAL TABLE."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_create_virtual_table(
-            table_name="articles_fts", columns=["title", "content", "author"]
+    def test_format_create_virtual_table(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        sql, params = d.format_create_virtual_table(
+            module="rtree", table_name="places",
+            columns=["id", "minx", "maxx", "miny", "maxy"]
         )
+        assert sql == 'CREATE VIRTUAL TABLE "places" USING rtree("id", "minx", "maxx", "miny", "maxy")'
+        assert params == ()
 
-        assert "articles_fts" in sql
+    def test_format_drop_virtual_table(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        sql, params = d.format_drop_virtual_table("my_table")
+        assert sql == 'DROP TABLE "my_table"'
+        assert params == ()
+
+    def test_format_drop_virtual_table_if_exists(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        sql, params = d.format_drop_virtual_table("my_table", if_exists=True)
+        assert sql == 'DROP TABLE IF EXISTS "my_table"'
+
+    def test_format_drop_virtual_table_quotes_malicious_name(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        sql, params = d.format_drop_virtual_table('t"; DROP TABLE users--')
+        assert sql.count('"') % 2 == 0  # balanced quotes prevent injection
+        assert sql.startswith('DROP TABLE "')
+
+    def test_format_drop_virtual_table_with_special_chars(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        sql, _ = d.format_drop_virtual_table("my table")
+        assert '"my table"' in sql
+
+    def test_fts5_expressions_via_dialect(self):
+        """Format methods accept expression objects and produce correct SQL."""
+        d = SQLiteDialect(version=(3, 35, 0))
+
+        sql, _ = d.format_fts5_create_virtual_table(
+            SQLiteFTS5CreateVirtualTable(d, table_name="articles", columns=["title"])
+        )
+        assert "CREATE VIRTUAL TABLE" in sql
         assert "fts5" in sql
-        assert len(params) == 0
+        assert '"articles"' in sql
 
-    def test_format_fts5_create_virtual_table_with_tokenizer(self):
-        """Test formatting FTS5 with tokenizer."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_create_virtual_table(
-            table_name="articles_fts", columns=["title", "content"], tokenizer="porter"
+        sql, params = d.format_fts5_match_expression(
+            table="articles", query="python"
         )
+        assert "MATCH" in sql
+        assert params == ("python",)
 
-        assert "tokenize" in sql
-        assert "porter" in sql
-
-    def test_format_fts5_match_expression(self):
-        """Test formatting FTS5 MATCH expression."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_match_expression(table_name="articles_fts", query="python programming")
-
-        assert "MATCH" in sql or "match" in sql.lower()
-        assert len(params) > 0
-
-    def test_format_fts5_rank_expression(self):
-        """Test formatting FTS5 bm25 rank expression."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_rank_expression(table_name="articles_fts")
-
+        sql, _ = d.format_fts5_rank_expression(
+            SQLiteFTS5RankExpression(d, table_name="articles")
+        )
         assert "bm25" in sql.lower()
 
-    def test_format_fts5_drop_virtual_table(self):
-        """Test formatting DROP TABLE for FTS5."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
+        sql, params = d.format_fts5_highlight_expression(
+            SQLiteFTS5HighlightExpression(d, table_name="articles", column="title")
+        )
+        assert "highlight(" in sql
+        assert len(params) == 2
 
-        sql, params = dialect.format_fts5_drop_virtual_table(table_name="articles_fts")
+        sql, params = d.format_fts5_snippet_expression(
+            SQLiteFTS5SnippetExpression(d, table_name="articles", column="body")
+        )
+        assert "snippet(" in sql
+        assert len(params) == 4
 
-        assert "DROP TABLE" in sql
-        assert "articles_fts" in sql
+    def test_rtree_expressions_via_dialect(self):
+        d = SQLiteDialect(version=(3, 35, 0))
 
-    def test_format_fts5_drop_virtual_table_if_exists(self):
-        """Test formatting DROP TABLE IF EXISTS for FTS5."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
+        sql, _ = d.format_rtree_create_virtual_table(
+            SQLiteRTreeCreateVirtualTable(d, table_name="places")
+        )
+        assert "CREATE VIRTUAL TABLE" in sql
+        assert "rtree" in sql
 
-        sql, params = dialect.format_fts5_drop_virtual_table(table_name="articles_fts", if_exists=True)
+        sql, params = d.format_rtree_range_query(
+            SQLiteRTreeRangeQuery(d, table_name="places", ranges=[(0.0, 1.0), (0.0, 1.0)])
+        )
+        assert "min0" in sql
+        assert len(params) == 4
 
-        assert "IF EXISTS" in sql
+    def test_geopoly_expressions_via_dialect(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+
+        sql, _ = d.format_geopoly_create_virtual_table(
+            SQLiteGeopolyCreateVirtualTable(d, table_name="zones")
+        )
+        assert "CREATE VIRTUAL TABLE" in sql
+        assert "geopoly" in sql
+
+        sql, params = d.format_geopoly_contains_query(
+            SQLiteGeopolyContainsExpression(d, table_name="zones", longitude=1.0, latitude=2.0)
+        )
+        assert "geopoly_contains_point" in sql
+        assert params == (1.0, 2.0)
+
+        sql, _ = d.format_geopoly_area_expression(
+            SQLiteGeopolyAreaExpression(d, table_name="zones")
+        )
+        assert "geopoly_area" in sql
+
+    def test_format_create_virtual_table_safe_unknown_module_allowed(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        sql, _ = d.format_create_virtual_table(
+            module="my_module", table_name="t", columns=["c"]
+        )
+        assert 'USING my_module("c")' in sql
+
+    def test_format_create_virtual_table_rejects_malicious_module(self):
+        d = SQLiteDialect(version=(3, 35, 0))
+        with pytest.raises(ValueError, match="Unsafe virtual table module"):
+            d.format_create_virtual_table(
+                module="malicious' DROP TABLE users; --",
+                table_name="t", columns=["c"]
+            )
+
+    def test_unsupported_versions_raise_error(self):
+        with pytest.raises(UnsupportedFeatureError):
+            d = SQLiteDialect(version=(3, 8, 0))
+            d.format_fts5_create_virtual_table(
+                SQLiteFTS5CreateVirtualTable(d, table_name="t", columns=["c"])
+            )
+
+        with pytest.raises(UnsupportedFeatureError):
+            d = SQLiteDialect(version=(3, 5, 0))
+            d.format_rtree_create_virtual_table(
+                SQLiteRTreeCreateVirtualTable(d, table_name="t")
+            )
+
+        with pytest.raises(UnsupportedFeatureError):
+            d = SQLiteDialect(version=(3, 25, 0))
+            d.format_geopoly_create_virtual_table(
+                SQLiteGeopolyCreateVirtualTable(d, table_name="z")
+            )

@@ -27,33 +27,8 @@ from .explain import (
     SQLiteExplainQueryPlanResult,
 )
 
-# Extension framework
-from .extension import (
-    ExtensionType,
-    SQLiteExtensionInfo,
-    SQLiteExtensionProtocol,
-    SQLiteExtensionBase,
-    SQLiteExtensionRegistry,
-    get_registry,
-    reset_registry,
-    KNOWN_EXTENSIONS,
-)
-
-# Extension implementations
-from .extension.extensions import (
-    FTS5Extension,
-    get_fts5_extension,
-    FTS3Extension,
-    FTS4Extension,
-    get_fts3_extension,
-    get_fts4_extension,
-    JSON1Extension,
-    get_json1_extension,
-    RTreeExtension,
-    get_rtree_extension,
-    GeopolyExtension,
-    get_geopoly_extension,
-)
+# Extension types (for public API)
+from .mixins.extension import ExtensionType, SQLiteExtensionInfo
 
 # Pragma framework
 from .pragma import (
@@ -160,28 +135,9 @@ __all__ = [
     "SQLiteExplainQueryPlanRow",
     "SQLiteExplainResult",
     "SQLiteExplainQueryPlanResult",
-    # Extension framework
+    # Extension types
     "ExtensionType",
     "SQLiteExtensionInfo",
-    "SQLiteExtensionProtocol",
-    "SQLiteExtensionBase",
-    "SQLiteExtensionRegistry",
-    "get_registry",
-    "reset_registry",
-    "KNOWN_EXTENSIONS",
-    # Extension implementations
-    "FTS5Extension",
-    "get_fts5_extension",
-    "FTS3Extension",
-    "FTS4Extension",
-    "get_fts3_extension",
-    "get_fts4_extension",
-    "JSON1Extension",
-    "get_json1_extension",
-    "RTreeExtension",
-    "get_rtree_extension",
-    "GeopolyExtension",
-    "get_geopoly_extension",
     # Pragma framework
     "PragmaCategory",
     "PragmaInfo",

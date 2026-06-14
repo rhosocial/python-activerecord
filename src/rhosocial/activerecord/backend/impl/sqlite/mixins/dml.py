@@ -5,7 +5,7 @@ SQLite-specific Dml implementation.
 This module provides the SQLiteDMLMixin class.
 """
 
-from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
@@ -107,18 +107,10 @@ class SQLiteDMLMixin:
 
     def format_match_predicate(
         self,
-        table: str,
-        query: str,
-        columns: Optional[List[str]] = None,
-        negate: bool = False,
+        expr,
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate for FTS5."""
-        return self.format_fts5_match_expression(
-            table_name=table,
-            query=query,
-            columns=columns,
-            negate=negate,
-        )
+        return self.format_fts5_match_expression(expr.table, expr.query, expr.columns, expr.negate)
 
 
 # =============================================================================

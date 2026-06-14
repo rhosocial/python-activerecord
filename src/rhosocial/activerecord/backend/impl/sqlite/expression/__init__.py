@@ -9,19 +9,46 @@ Directory structure:
 - introspection.py  - Column info expression
 - table_list.py     - Table list expression
 - reindex.py        - REINDEX expression
-- predicates.py    - FTS MATCH predicate expression
+- predicates.py     - FTS MATCH predicate expression
+- fts5.py           - FTS5 expression classes
+- rtree.py          - R-Tree expression classes
+- geopoly.py        - Geopoly expression classes
 """
 
 from .introspection import SQLiteColumnInfoExpression
 from .table_list import SQLiteTableListExpression
 from .reindex import SQLiteReindexExpression
 from .predicates import SQLiteMatchPredicate
+from .fts5 import (
+    SQLiteFTS5CreateVirtualTable,
+    SQLiteFTS5RankExpression,
+    SQLiteFTS5HighlightExpression,
+    SQLiteFTS5SnippetExpression,
+)
+from .rtree import (
+    SQLiteRTreeCreateVirtualTable,
+    SQLiteRTreeRangeQuery,
+)
+from .geopoly import (
+    SQLiteGeopolyCreateVirtualTable,
+    SQLiteGeopolyContainsExpression,
+    SQLiteGeopolyAreaExpression,
+)
 
 __all__ = [
     "SQLiteColumnInfoExpression",
     "SQLiteTableListExpression",
     "SQLiteReindexExpression",
     "SQLiteMatchPredicate",
+    "SQLiteFTS5CreateVirtualTable",
+    "SQLiteFTS5RankExpression",
+    "SQLiteFTS5HighlightExpression",
+    "SQLiteFTS5SnippetExpression",
+    "SQLiteRTreeCreateVirtualTable",
+    "SQLiteRTreeRangeQuery",
+    "SQLiteGeopolyCreateVirtualTable",
+    "SQLiteGeopolyContainsExpression",
+    "SQLiteGeopolyAreaExpression",
 ]
 
 # Auto-register all SQLite expression classes when this module is imported
@@ -32,5 +59,14 @@ for _expr_cls in (
     SQLiteTableListExpression,
     SQLiteReindexExpression,
     SQLiteMatchPredicate,
+    SQLiteFTS5CreateVirtualTable,
+    SQLiteFTS5RankExpression,
+    SQLiteFTS5HighlightExpression,
+    SQLiteFTS5SnippetExpression,
+    SQLiteRTreeCreateVirtualTable,
+    SQLiteRTreeRangeQuery,
+    SQLiteGeopolyCreateVirtualTable,
+    SQLiteGeopolyContainsExpression,
+    SQLiteGeopolyAreaExpression,
 ):
     ExpressionRegistry.register(_expr_cls)

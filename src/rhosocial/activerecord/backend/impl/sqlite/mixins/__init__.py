@@ -20,6 +20,9 @@ from .view import SQLiteViewMixin
 from .trigger import SQLiteTriggerMixin
 from .transaction import SQLiteTransactionMixin
 from .function import SQLiteFunctionMixin
+from .fts5 import SQLiteFTS5Mixin
+from .rtree import SQLiteRTreeMixin
+from .geopoly import SQLiteGeopolyMixin
 
 __all__ = [
     'SQLiteExtensionMixin',
@@ -36,4 +39,7 @@ __all__ = [
     'SQLiteTriggerMixin',
     'SQLiteTransactionMixin',
     'SQLiteFunctionMixin',
+    'SQLiteFTS5Mixin',
+    'SQLiteRTreeMixin',
+    'SQLiteGeopolyMixin',
 ]

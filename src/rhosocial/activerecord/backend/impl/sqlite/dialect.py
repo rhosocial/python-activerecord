@@ -96,7 +96,16 @@ if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
     from rhosocial.activerecord.backend.expression.statements import ExplainExpression
 
-from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, SQLiteReindexSupport, SQLiteVirtualTableSupport
+from .protocols import (
+    SQLiteExtensionSupport,
+    SQLitePragmaSupport,
+    SQLiteReindexSupport,
+    SQLiteVirtualTableSupport,
+    SQLiteFTS5Support,
+    SQLiteRTreeSupport,
+    SQLiteGeopolySupport,
+    SQLiteJSON1Support,
+)
 from .mixins import (
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
@@ -111,6 +120,9 @@ from .mixins import (
     SQLiteTriggerMixin,
     SQLiteTransactionMixin,
     SQLiteFunctionMixin,
+    SQLiteFTS5Mixin,
+    SQLiteRTreeMixin,
+    SQLiteGeopolyMixin,
 )
 
 # Module-level constants for error suggestions (SonarCloud S1192)
@@ -170,6 +182,10 @@ class SQLiteDialect(
     SQLiteVirtualTableMixin,
     SQLiteReindexMixin,
     SQLiteFunctionMixin,
+    # Extension expression mixins
+    SQLiteFTS5Mixin,
+    SQLiteRTreeMixin,
+    SQLiteGeopolyMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
     CollationMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)
@@ -217,6 +233,10 @@ class SQLiteDialect(
     SQLitePragmaSupport,
     SQLiteVirtualTableSupport,
     SQLiteReindexSupport,
+    SQLiteFTS5Support,
+    SQLiteRTreeSupport,
+    SQLiteGeopolySupport,
+    SQLiteJSON1Support,
     # Introspection Protocol
     IntrospectionSupport,
     # Transaction Control Protocol
