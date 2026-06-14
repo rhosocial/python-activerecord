@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
 
-class GeopolyCreateVirtualTable(BaseExpression):
+class SQLiteGeopolyCreateVirtualTable(BaseExpression):
     """Geopoly CREATE VIRTUAL TABLE statement expression."""
 
     def __init__(
@@ -33,7 +33,7 @@ class GeopolyCreateVirtualTable(BaseExpression):
         return self.dialect.format_geopoly_create_virtual_table(self)
 
 
-class GeopolyContainsExpression(BaseExpression):
+class SQLiteGeopolyContainsExpression(BaseExpression):
     """Geopoly point-in-polygon query expression."""
 
     def __init__(
@@ -52,7 +52,7 @@ class GeopolyContainsExpression(BaseExpression):
         return self.dialect.format_geopoly_contains_query(self)
 
 
-class GeopolyAreaExpression(BaseExpression):
+class SQLiteGeopolyAreaExpression(BaseExpression):
     """Geopoly area calculation expression."""
 
     def __init__(

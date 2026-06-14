@@ -7,6 +7,8 @@ SQL generation logic is migrated from the GeopolyExtension class,
 eliminating the singleton delegation layer.
 """
 
+from typing import Tuple
+
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 from .extension import SQLiteExtensionMixin
@@ -31,11 +33,11 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
 
     # ========== SQL Formatting ==========
 
-    def format_geopoly_create_virtual_table(self, expr) -> tuple:
+    def format_geopoly_create_virtual_table(self, expr) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement for Geopoly.
 
         Args:
-            expr: GeopolyCreateVirtualTable instance
+            expr: SQLiteGeopolyCreateVirtualTable instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -45,34 +47,39 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
                 getattr(self, "name", "sqlite"), "Geopoly", "Geopoly requires SQLite 3.26.0 or later."
             )
 
-        cols = ", ".join(expr.extra_columns)
+        table = self.format_identifier(expr.table_name)
+        cols = ", ".join(self.format_identifier(c) for c in expr.extra_columns) if expr.extra_columns else ""
         if expr.content_table:
-            sql = f'CREATE VIRTUAL TABLE "{expr.table_name}" USING geopoly({cols}, content="{expr.content_table}")'
+            sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols}, content='{expr.content_table}')"
+        elif not cols:
+            sql = f"CREATE VIRTUAL TABLE {table} USING geopoly()"
         else:
-            sql = f'CREATE VIRTUAL TABLE "{expr.table_name}" USING geopoly({cols})'
+            sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols})"
 
         return sql, ()
 
-    def format_geopoly_contains_query(self, expr) -> tuple:
+    def format_geopoly_contains_query(self, expr) -> Tuple[str, tuple]:
         """Format point-in-polygon query.
 
         Args:
-            expr: GeopolyContainsExpression instance
+            expr: SQLiteGeopolyContainsExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        sql = f'SELECT * FROM "{expr.table_name}" WHERE geopoly_contains_point(_shape, ?, ?)'
+        table = self.format_identifier(expr.table_name)
+        sql = f"SELECT * FROM {table} WHERE geopoly_contains_point(_shape, ?, ?)"
         return sql, (expr.longitude, expr.latitude)
 
-    def format_geopoly_area_expression(self, expr) -> tuple:
+    def format_geopoly_area_expression(self, expr) -> Tuple[str, tuple]:
         """Format area calculation query.
 
         Args:
-            expr: GeopolyAreaExpression instance
+            expr: SQLiteGeopolyAreaExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        sql = f'SELECT *, geopoly_area(_shape) as area FROM "{expr.table_name}"'
+        table = self.format_identifier(expr.table_name)
+        sql = f"SELECT *, geopoly_area(_shape) as area FROM {table}"
         return sql, ()

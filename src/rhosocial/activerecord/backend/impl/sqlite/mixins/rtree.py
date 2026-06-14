@@ -7,6 +7,8 @@ SQL generation logic is migrated from the RTreeExtension class,
 eliminating the singleton delegation layer.
 """
 
+from typing import Tuple
+
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 from .extension import SQLiteExtensionMixin
@@ -31,11 +33,11 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
 
     # ========== SQL Formatting ==========
 
-    def format_rtree_create_virtual_table(self, expr) -> tuple:
+    def format_rtree_create_virtual_table(self, expr) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement for R-Tree.
 
         Args:
-            expr: RTreeCreateVirtualTable instance
+            expr: SQLiteRTreeCreateVirtualTable instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -45,41 +47,50 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
                 getattr(self, "name", "sqlite"), "R-Tree", "R-Tree requires SQLite 3.6.0 or later."
             )
 
-        cols = ["id"]
+        id_col = self.format_identifier("id")
+        cols = [id_col]
         for i in range(expr.dimensions):
-            cols.extend([f"min{i}", f"max{i}"])
+            cols.append(self.format_identifier(f"min{i}"))
+            cols.append(self.format_identifier(f"max{i}"))
+
+        table = self.format_identifier(expr.table_name)
+        cols_str = ", ".join(cols)
 
         if expr.content_table:
             if expr.content_rowid:
                 sql = (
-                    f'CREATE VIRTUAL TABLE "{expr.table_name}" USING rtree'
-                    f'({", ".join(cols)}, content="{expr.content_table}", content_rowid="{expr.content_rowid}")'
+                    f"CREATE VIRTUAL TABLE {table} USING rtree"
+                    f"({cols_str}, content='{expr.content_table}', "
+                    f"content_rowid='{expr.content_rowid}')"
                 )
             else:
-                sql = f'CREATE VIRTUAL TABLE "{expr.table_name}" USING rtree({", ".join(cols)}, content="{expr.content_table}")'
+                sql = f"CREATE VIRTUAL TABLE {table} USING rtree({cols_str}, content='{expr.content_table}')"
         else:
-            sql = f'CREATE VIRTUAL TABLE "{expr.table_name}" USING rtree({", ".join(cols)})'
+            sql = f"CREATE VIRTUAL TABLE {table} USING rtree({cols_str})"
 
         return sql, ()
 
-    def format_rtree_range_query(self, expr) -> tuple:
+    def format_rtree_range_query(self, expr) -> Tuple[str, tuple]:
         """Format range query for R-Tree table.
 
         Args:
-            expr: RTreeRangeQuery instance
+            expr: SQLiteRTreeRangeQuery instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
+        table = self.format_identifier(expr.table_name)
         conditions = []
         params = []
         for i, (min_val, max_val) in enumerate(expr.ranges):
-            if expr.column_names:
-                min_col, max_col = expr.column_names[i]
+            if expr.column_names and i < len(expr.column_names):
+                min_col = self.format_identifier(expr.column_names[i][0])
+                max_col = self.format_identifier(expr.column_names[i][1])
             else:
-                min_col, max_col = f'"{expr.table_name}".min{i}', f'"{expr.table_name}".max{i}'
-            conditions.append(f"{min_col} >= ? AND {max_col} <= ?")
-            params.extend([min_val, max_val])
+                min_col = f"{table}.{self.format_identifier(f'min{i}')}"
+                max_col = f"{table}.{self.format_identifier(f'max{i}')}"
+            conditions.append(f"{min_col} <= ? AND {max_col} >= ?")
+            params.extend([max_val, min_val])
 
-        sql = f'SELECT * FROM "{expr.table_name}" WHERE {" AND ".join(conditions)}'
+        sql = f"SELECT * FROM {table} WHERE {' AND '.join(conditions)}"
         return sql, tuple(params)

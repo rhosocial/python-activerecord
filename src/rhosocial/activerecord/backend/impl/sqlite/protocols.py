@@ -243,34 +243,24 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_match_predicate(
         self,
-        table: str,
-        query: str,
-        columns: Optional[List[str]] = None,
-        negate: bool = False,
+        expr: Any,
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate.
 
         This method formats a MATCH predicate for FTS virtual tables.
         Unlike standard SQL predicates, this is SQLite-specific.
 
-        NOTE: negate parameter is NOT supported for FTS5 (raises ValueError).
+        NOTE: negate is NOT supported for FTS5 (raises ValueError).
         Use query-level negation instead: 'python NOT java'.
 
         Args:
-            table: Name of the FTS table to match against
-            query: Full-text search query string
-            columns: Specific columns to search (None for all columns)
-            negate: If True, negate the match (NOT MATCH)
+            expr: SQLiteMatchPredicate instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
 
         Raises:
             ValueError: If negate=True for FTS5
-
-        Example:
-            >>> dialect.format_match_predicate('docs', 'python')
-            ('"docs" MATCH ?', ('python',))
         """
         ...
 
@@ -333,7 +323,9 @@ class SQLiteFTS5Support(Protocol):
         """Get list of supported FTS5 tokenizers."""
         ...
 
-    def format_fts5_match_expression(self, expr) -> Tuple[str, tuple]:
+    def format_fts5_match_expression(
+        self, table: str, query: str, columns: Optional[List[str]] = None, negate: bool = False
+    ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression."""
         ...
 

@@ -20,20 +20,19 @@ from .table_list import SQLiteTableListExpression
 from .reindex import SQLiteReindexExpression
 from .predicates import SQLiteMatchPredicate
 from .fts5 import (
-    FTS5MatchExpression,
-    FTS5CreateVirtualTable,
-    FTS5RankExpression,
-    FTS5HighlightExpression,
-    FTS5SnippetExpression,
+    SQLiteFTS5CreateVirtualTable,
+    SQLiteFTS5RankExpression,
+    SQLiteFTS5HighlightExpression,
+    SQLiteFTS5SnippetExpression,
 )
 from .rtree import (
-    RTreeCreateVirtualTable,
-    RTreeRangeQuery,
+    SQLiteRTreeCreateVirtualTable,
+    SQLiteRTreeRangeQuery,
 )
 from .geopoly import (
-    GeopolyCreateVirtualTable,
-    GeopolyContainsExpression,
-    GeopolyAreaExpression,
+    SQLiteGeopolyCreateVirtualTable,
+    SQLiteGeopolyContainsExpression,
+    SQLiteGeopolyAreaExpression,
 )
 
 __all__ = [
@@ -41,16 +40,15 @@ __all__ = [
     "SQLiteTableListExpression",
     "SQLiteReindexExpression",
     "SQLiteMatchPredicate",
-    "FTS5MatchExpression",
-    "FTS5CreateVirtualTable",
-    "FTS5RankExpression",
-    "FTS5HighlightExpression",
-    "FTS5SnippetExpression",
-    "RTreeCreateVirtualTable",
-    "RTreeRangeQuery",
-    "GeopolyCreateVirtualTable",
-    "GeopolyContainsExpression",
-    "GeopolyAreaExpression",
+    "SQLiteFTS5CreateVirtualTable",
+    "SQLiteFTS5RankExpression",
+    "SQLiteFTS5HighlightExpression",
+    "SQLiteFTS5SnippetExpression",
+    "SQLiteRTreeCreateVirtualTable",
+    "SQLiteRTreeRangeQuery",
+    "SQLiteGeopolyCreateVirtualTable",
+    "SQLiteGeopolyContainsExpression",
+    "SQLiteGeopolyAreaExpression",
 ]
 
 # Auto-register all SQLite expression classes when this module is imported
@@ -61,15 +59,14 @@ for _expr_cls in (
     SQLiteTableListExpression,
     SQLiteReindexExpression,
     SQLiteMatchPredicate,
-    FTS5MatchExpression,
-    FTS5CreateVirtualTable,
-    FTS5RankExpression,
-    FTS5HighlightExpression,
-    FTS5SnippetExpression,
-    RTreeCreateVirtualTable,
-    RTreeRangeQuery,
-    GeopolyCreateVirtualTable,
-    GeopolyContainsExpression,
-    GeopolyAreaExpression,
+    SQLiteFTS5CreateVirtualTable,
+    SQLiteFTS5RankExpression,
+    SQLiteFTS5HighlightExpression,
+    SQLiteFTS5SnippetExpression,
+    SQLiteRTreeCreateVirtualTable,
+    SQLiteRTreeRangeQuery,
+    SQLiteGeopolyCreateVirtualTable,
+    SQLiteGeopolyContainsExpression,
+    SQLiteGeopolyAreaExpression,
 ):
     ExpressionRegistry.register(_expr_cls)

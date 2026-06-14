@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
 
-class RTreeCreateVirtualTable(BaseExpression):
+class SQLiteRTreeCreateVirtualTable(BaseExpression):
     """R-Tree CREATE VIRTUAL TABLE statement expression."""
 
     def __init__(
@@ -35,7 +35,7 @@ class RTreeCreateVirtualTable(BaseExpression):
         return self.dialect.format_rtree_create_virtual_table(self)
 
 
-class RTreeRangeQuery(BaseExpression):
+class SQLiteRTreeRangeQuery(BaseExpression):
     """R-Tree range query expression for spatial filtering in WHERE clauses."""
 
     def __init__(

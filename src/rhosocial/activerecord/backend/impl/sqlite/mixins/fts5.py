@@ -32,53 +32,58 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         return self.version >= (3, 9, 0)
 
     def supports_fts5_bm25(self) -> bool:
-        """Whether BM25 ranking function is supported."""
-        return self.check_extension_feature("fts5", "bm25_ranking")
+        """Whether BM25 ranking function is supported (available since FTS5 was introduced)."""
+        return self.supports_fts5()
 
     def supports_fts5_highlight(self) -> bool:
-        """Whether highlight() function is supported."""
-        return self.check_extension_feature("fts5", "highlight")
+        """Whether highlight() function is supported (available since FTS5 was introduced)."""
+        return self.supports_fts5()
 
     def supports_fts5_snippet(self) -> bool:
-        """Whether snippet() function is supported."""
-        return self.check_extension_feature("fts5", "snippet")
+        """Whether snippet() function is supported (available since FTS5 was introduced)."""
+        return self.supports_fts5()
 
     def get_supported_fts5_tokenizers(self) -> List[str]:
         """Get list of supported FTS5 tokenizers."""
         tokenizers = ["unicode61", "ascii", "porter"]
-        if self.check_extension_feature("fts5", "trigram_tokenizer"):
+        if self.supports_fts5() and self.version >= (3, 34, 0):
             tokenizers.append("trigram")
         return tokenizers
 
     # ========== SQL Formatting ==========
 
-    def format_fts5_match_expression(self, expr) -> tuple:
+    def format_fts5_match_expression(
+        self, table: str, query: str, columns: Optional[List[str]] = None, negate: bool = False
+    ) -> tuple:
         """Format FTS5 MATCH expression.
 
         Args:
-            expr: FTS5MatchExpression instance
+            table: Name of the FTS table
+            query: Full-text search query
+            columns: Optional list of columns to scope the search
+            negate: Raises ValueError (FTS5 does not support NOT MATCH)
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        if expr.negate:
+        if negate:
             raise ValueError(
                 "FTS5 does not support NOT MATCH syntax. Use query-level negation instead (e.g., 'python NOT java')."
             )
 
-        if expr.columns:
-            match_query = " OR ".join(f"{c}:{expr.query}" for c in expr.columns)
+        if columns:
+            match_query = " OR ".join(f"{c}:{query}" for c in columns)
         else:
-            match_query = expr.query
+            match_query = query
 
-        sql = f"{self.format_identifier(expr.table)} MATCH ?"
+        sql = f"{self.format_identifier(table)} MATCH ?"
         return sql, (match_query,)
 
     def format_fts5_create_virtual_table(self, expr) -> tuple:
         """Format CREATE VIRTUAL TABLE statement for FTS5.
 
         Args:
-            expr: FTS5CreateVirtualTable instance
+            expr: SQLiteFTS5CreateVirtualTable instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -127,7 +132,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         """Format FTS5 ranking expression using bm25().
 
         Args:
-            expr: FTS5RankExpression instance
+            expr: SQLiteFTS5RankExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -161,7 +166,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         """Format highlight() function expression.
 
         Args:
-            expr: FTS5HighlightExpression instance
+            expr: SQLiteFTS5HighlightExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -176,7 +181,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         """Format snippet() function expression.
 
         Args:
-            expr: FTS5SnippetExpression instance
+            expr: SQLiteFTS5SnippetExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)

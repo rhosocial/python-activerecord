@@ -3,39 +3,20 @@
 SQLite-specific FTS5 expression classes.
 
 This module provides expression classes for FTS5 full-text search operations,
-including virtual table creation, MATCH predicates, ranking, highlight, and snippet.
+including virtual table creation, ranking, highlight, and snippet.
+
+For FTS5 MATCH predicates, use SQLiteMatchPredicate from the predicates module.
 """
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLPredicate, SQLValueExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression, SQLValueExpression, SQLQueryAndParams
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
 
-class FTS5MatchExpression(SQLPredicate):
-    """FTS5 MATCH predicate for full-text search queries in WHERE clauses."""
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        table: str,
-        query: str,
-        columns: Optional[List[str]] = None,
-        negate: bool = False,
-    ):
-        super().__init__(dialect)
-        self.table = table
-        self.query = query
-        self.columns = columns
-        self.negate = negate
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_fts5_match_expression(self)
-
-
-class FTS5CreateVirtualTable(BaseExpression):
+class SQLiteFTS5CreateVirtualTable(BaseExpression):
     """FTS5 CREATE VIRTUAL TABLE statement expression."""
 
     def __init__(
@@ -64,7 +45,7 @@ class FTS5CreateVirtualTable(BaseExpression):
         return self.dialect.format_fts5_create_virtual_table(self)
 
 
-class FTS5RankExpression(SQLValueExpression):
+class SQLiteFTS5RankExpression(SQLValueExpression):
     """FTS5 BM25 ranking expression for relevance scoring in ORDER BY clauses."""
 
     def __init__(
@@ -83,7 +64,7 @@ class FTS5RankExpression(SQLValueExpression):
         return self.dialect.format_fts5_rank_expression(self)
 
 
-class FTS5HighlightExpression(SQLValueExpression):
+class SQLiteFTS5HighlightExpression(SQLValueExpression):
     """FTS5 highlight() function expression for marking matched terms."""
 
     def __init__(
@@ -104,7 +85,7 @@ class FTS5HighlightExpression(SQLValueExpression):
         return self.dialect.format_fts5_highlight_expression(self)
 
 
-class FTS5SnippetExpression(SQLValueExpression):
+class SQLiteFTS5SnippetExpression(SQLValueExpression):
     """FTS5 snippet() function expression for showing context around matched terms."""
 
     def __init__(

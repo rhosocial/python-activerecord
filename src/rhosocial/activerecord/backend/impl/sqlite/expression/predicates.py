@@ -66,9 +66,4 @@ class SQLiteMatchPredicate(SQLPredicate):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        return self.dialect.format_match_predicate(
-            self.table,
-            self.query,
-            self.columns,
-            self.negate,
-        )
+        return self.dialect.format_match_predicate(self)

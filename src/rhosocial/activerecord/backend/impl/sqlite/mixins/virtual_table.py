@@ -7,9 +7,6 @@ This module provides the SQLiteVirtualTableMixin class.
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-
-from ..expression.fts5 import FTS5MatchExpression
 from .extension import SQLiteExtensionMixin
 
 class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
@@ -142,13 +139,9 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
 
     def format_match_predicate(
         self,
-        table: str,
-        query: str,
-        columns: Optional[List[str]] = None,
-        negate: bool = False,
+        expr,
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate (delegates to FTS5Mixin)."""
-        expr = FTS5MatchExpression(self, table=table, query=query, columns=columns, negate=negate)
-        return self.format_fts5_match_expression(expr)
+        return self.format_fts5_match_expression(expr.table, expr.query, expr.columns, expr.negate)
 
 
