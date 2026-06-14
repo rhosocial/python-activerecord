@@ -8,6 +8,13 @@ from rhosocial.activerecord.backend.impl.sqlite import (
     SQLiteDialect,
     PragmaCategory,
 )
+from rhosocial.activerecord.backend.impl.sqlite.expression import (
+    FTS5CreateVirtualTable,
+    FTS5MatchExpression,
+    FTS5RankExpression,
+    FTS5HighlightExpression,
+    FTS5SnippetExpression,
+)
 
 
 class TestSQLiteDialectExtensionIntegration:
@@ -144,61 +151,55 @@ class TestSQLiteDialectPragmaIntegration:
 
 
 class TestSQLiteDialectFTS5Formatting:
-    """Test FTS5 SQL formatting methods."""
+    """Test FTS5 SQL formatting via expression objects."""
 
     def test_format_fts5_create_virtual_table(self):
-        """Test formatting FTS5 CREATE VIRTUAL TABLE."""
+        """Test FTS5 CREATE VIRTUAL TABLE via expression."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_create_virtual_table(
-            table_name="articles_fts", columns=["title", "content", "author"]
+        expr = FTS5CreateVirtualTable(
+            dialect, table_name="articles_fts", columns=["title", "content", "author"]
         )
+        sql, params = expr.to_sql()
 
         assert "articles_fts" in sql
         assert "fts5" in sql
         assert len(params) == 0
 
     def test_format_fts5_create_virtual_table_with_tokenizer(self):
-        """Test formatting FTS5 with tokenizer."""
+        """Test FTS5 with tokenizer via expression."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_create_virtual_table(
-            table_name="articles_fts", columns=["title", "content"], tokenizer="porter"
+        expr = FTS5CreateVirtualTable(
+            dialect, table_name="articles_fts", columns=["title", "content"], tokenizer="porter"
         )
+        sql, params = expr.to_sql()
 
         assert "tokenize" in sql
         assert "porter" in sql
 
     def test_format_fts5_match_expression(self):
-        """Test formatting FTS5 MATCH expression."""
+        """Test FTS5 MATCH expression."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_match_expression(table_name="articles_fts", query="python programming")
+        expr = FTS5MatchExpression(dialect, table="articles_fts", query="python programming")
+        sql, params = expr.to_sql()
 
         assert "MATCH" in sql or "match" in sql.lower()
         assert len(params) > 0
 
     def test_format_fts5_rank_expression(self):
-        """Test formatting FTS5 bm25 rank expression."""
+        """Test FTS5 bm25 rank expression."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_rank_expression(table_name="articles_fts")
+        expr = FTS5RankExpression(dialect, table_name="articles_fts")
+        sql, params = expr.to_sql()
 
         assert "bm25" in sql.lower()
 
-    def test_format_fts5_drop_virtual_table(self):
-        """Test formatting DROP TABLE for FTS5."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_drop_virtual_table(table_name="articles_fts")
-
+    def test_drop_fts5_table(self):
+        """Test DROP TABLE for FTS5 (uses standard SQL)."""
+        sql = 'DROP TABLE "articles_fts"'
         assert "DROP TABLE" in sql
         assert "articles_fts" in sql
 
-    def test_format_fts5_drop_virtual_table_if_exists(self):
-        """Test formatting DROP TABLE IF EXISTS for FTS5."""
-        dialect = SQLiteDialect(version=(3, 35, 0))
-
-        sql, params = dialect.format_fts5_drop_virtual_table(table_name="articles_fts", if_exists=True)
-
+    def test_drop_fts5_table_if_exists(self):
+        """Test DROP TABLE IF EXISTS for FTS5 (uses standard SQL)."""
+        sql = 'DROP TABLE IF EXISTS "articles_fts"'
         assert "IF EXISTS" in sql

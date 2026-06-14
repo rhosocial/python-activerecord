@@ -1,0 +1,188 @@
+# src/rhosocial/activerecord/backend/impl/sqlite/mixins/fts5.py
+"""
+SQLite FTS5 support mixin.
+
+Provides FTS5 capability detection and SQL formatting.
+SQL generation logic is migrated from the FTS5Extension class,
+eliminating the singleton delegation layer.
+"""
+
+from typing import List, Optional
+
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+from .extension import SQLiteExtensionMixin
+
+
+class SQLiteFTS5Mixin(SQLiteExtensionMixin):
+    """Mixin for FTS5 full-text search support.
+
+    Provides version-gated capability detection and SQL formatting
+    for FTS5 virtual tables, MATCH predicates, ranking, highlight, and snippet.
+    """
+
+    def supports_fts5(self) -> bool:
+        """Whether FTS5 virtual table is supported.
+
+        Checks compile options first, falls back to version check.
+        """
+        compile_options = self.get_runtime_param("compile_options", {})
+        if compile_options:
+            return "ENABLE_FTS5" in compile_options
+        return self.version >= (3, 9, 0)
+
+    def supports_fts5_bm25(self) -> bool:
+        """Whether BM25 ranking function is supported."""
+        return self.check_extension_feature("fts5", "bm25_ranking")
+
+    def supports_fts5_highlight(self) -> bool:
+        """Whether highlight() function is supported."""
+        return self.check_extension_feature("fts5", "highlight")
+
+    def supports_fts5_snippet(self) -> bool:
+        """Whether snippet() function is supported."""
+        return self.check_extension_feature("fts5", "snippet")
+
+    def get_supported_fts5_tokenizers(self) -> List[str]:
+        """Get list of supported FTS5 tokenizers."""
+        tokenizers = ["unicode61", "ascii", "porter"]
+        if self.check_extension_feature("fts5", "trigram_tokenizer"):
+            tokenizers.append("trigram")
+        return tokenizers
+
+    # ========== SQL Formatting ==========
+
+    def format_fts5_match_expression(self, expr) -> tuple:
+        """Format FTS5 MATCH expression.
+
+        Args:
+            expr: FTS5MatchExpression instance
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        if expr.negate:
+            raise ValueError(
+                "FTS5 does not support NOT MATCH syntax. Use query-level negation instead (e.g., 'python NOT java')."
+            )
+
+        if expr.columns:
+            match_query = " OR ".join(f"{c}:{expr.query}" for c in expr.columns)
+        else:
+            match_query = expr.query
+
+        sql = f"{self.format_identifier(expr.table)} MATCH ?"
+        return sql, (match_query,)
+
+    def format_fts5_create_virtual_table(self, expr) -> tuple:
+        """Format CREATE VIRTUAL TABLE statement for FTS5.
+
+        Args:
+            expr: FTS5CreateVirtualTable instance
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        if not self.supports_fts5():
+            raise UnsupportedFeatureError(
+                getattr(self, "name", "sqlite"), "FTS5", "FTS5 full-text search requires SQLite 3.9.0 or later."
+            )
+
+        def esc(value: str) -> str:
+            return value.replace("'", "''")
+
+        options = []
+
+        if expr.tokenize:
+            options.append(f"tokenize='{esc(expr.tokenize)}'")
+        elif expr.tokenizer:
+            if expr.tokenizer_options:
+                opt_parts = [f"{k} {v}" for k, v in expr.tokenizer_options.items()]
+                opts_str = " ".join(opt_parts)
+                options.append(f"tokenize='{esc(f'{expr.tokenizer} {opts_str}')}'")
+            else:
+                options.append(f"tokenize='{esc(expr.tokenizer)}'")
+
+        if expr.prefix:
+            prefix_str = " ".join(str(p) for p in expr.prefix)
+            options.append(f"prefix='{esc(prefix_str)}'")
+
+        if expr.content:
+            options.append(f"content='{esc(expr.content)}'")
+
+        if expr.content_rowid:
+            options.append(f"content_rowid='{esc(expr.content_rowid)}'")
+
+        cols_str = ", ".join(self.format_identifier(c) for c in expr.columns)
+
+        if options:
+            opts_str = ", ".join(options)
+            sql = f"CREATE VIRTUAL TABLE {self.format_identifier(expr.table_name)} USING fts5({cols_str}, {opts_str})"
+        else:
+            sql = f"CREATE VIRTUAL TABLE {self.format_identifier(expr.table_name)} USING fts5({cols_str})"
+
+        return sql, ()
+
+    def format_fts5_rank_expression(self, expr) -> tuple:
+        """Format FTS5 ranking expression using bm25().
+
+        Args:
+            expr: FTS5RankExpression instance
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+
+        def esc(value: str) -> str:
+            return value.replace("'", "''")
+
+        if expr.weights and expr.bm25_params:
+            weight_str = ", ".join(str(w) for w in expr.weights)
+            param_parts = []
+            for k, v in expr.bm25_params.items():
+                param_parts.extend([f"'{esc(k)}'", str(v)])
+            param_str = ", ".join(param_parts)
+            sql = f"bm25({self.format_identifier(expr.table_name)}, {weight_str}, {param_str})"
+        elif expr.weights:
+            weight_str = ", ".join(str(w) for w in expr.weights)
+            sql = f"bm25({self.format_identifier(expr.table_name)}, {weight_str})"
+        elif expr.bm25_params:
+            param_parts = []
+            for k, v in expr.bm25_params.items():
+                param_parts.extend([f"'{esc(k)}'", str(v)])
+            param_str = ", ".join(param_parts)
+            sql = f"bm25({self.format_identifier(expr.table_name)}, {param_str})"
+        else:
+            sql = f"bm25({self.format_identifier(expr.table_name)})"
+
+        return sql, ()
+
+    def format_fts5_highlight_expression(self, expr) -> tuple:
+        """Format highlight() function expression.
+
+        Args:
+            expr: FTS5HighlightExpression instance
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        sql = (
+            f"highlight({self.format_identifier(expr.table_name)}, "
+            f"{self.format_identifier(expr.column)}, ?, ?)"
+        )
+        return sql, (expr.prefix_marker, expr.suffix_marker)
+
+    def format_fts5_snippet_expression(self, expr) -> tuple:
+        """Format snippet() function expression.
+
+        Args:
+            expr: FTS5SnippetExpression instance
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        sql = (
+            f"snippet({self.format_identifier(expr.table_name)}, "
+            f"{self.format_identifier(expr.column)}, ?, ?, ?, ?)"
+        )
+        return sql, (expr.prefix_marker, expr.suffix_marker, expr.ellipsis, expr.context_tokens)

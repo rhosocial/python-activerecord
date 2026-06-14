@@ -25,6 +25,12 @@ class SQLiteExtensionMixin:
         if self._extension_registry is None:
             self._extension_registry = get_registry()
             self._extension_registry.register(get_fts5_extension())
+            from ..extension.extensions.rtree import get_rtree_extension
+            from ..extension.extensions.geopoly import get_geopoly_extension
+            from ..extension.extensions.json1 import get_json1_extension
+            self._extension_registry.register(get_rtree_extension())
+            self._extension_registry.register(get_geopoly_extension())
+            self._extension_registry.register(get_json1_extension())
         return self._extension_registry
 
     def set_runtime_param(self, key: str, value: Any) -> None:

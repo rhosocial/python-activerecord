@@ -201,24 +201,6 @@ class SQLiteVirtualTableSupport(Protocol):
         """Whether json1 extension is available (SQLite 3.38.0+ or runtime detection)."""
         ...
 
-    # ========== FTS5 Capability Detection ==========
-
-    def supports_fts5_bm25(self) -> bool:
-        """Whether BM25 ranking function is supported (SQLite 3.9.0+)."""
-        ...
-
-    def supports_fts5_highlight(self) -> bool:
-        """Whether highlight() function is supported (SQLite 3.9.0+)."""
-        ...
-
-    def supports_fts5_snippet(self) -> bool:
-        """Whether snippet() function is supported (SQLite 3.9.0+)."""
-        ...
-
-    def get_supported_fts5_tokenizers(self) -> List[str]:
-        """Get list of supported FTS5 tokenizers."""
-        ...
-
     # ========== Virtual Table SQL Formatting ==========
 
     def format_create_virtual_table(
@@ -250,145 +232,6 @@ class SQLiteVirtualTableSupport(Protocol):
 
         Args:
             table_name: Name of the virtual table
-            if_exists: Add IF EXISTS clause
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        ...
-
-    # ========== FTS5 SQL Formatting ==========
-
-    def format_fts5_create_virtual_table(
-        self,
-        table_name: str,
-        columns: List[str],
-        tokenizer: Optional[str] = None,
-        tokenizer_options: Optional[Dict[str, Any]] = None,
-        prefix: Optional[List[int]] = None,
-        content: Optional[str] = None,
-        content_rowid: Optional[str] = None,
-        tokenize: Optional[str] = None,
-    ) -> Tuple[str, tuple]:
-        """Format CREATE VIRTUAL TABLE statement for FTS5.
-
-        Args:
-            table_name: Name of the FTS5 virtual table
-            columns: List of column names to be indexed
-            tokenizer: Tokenizer name (e.g., 'unicode61', 'porter')
-            tokenizer_options: Tokenizer options (e.g., {'remove_diacritics': 1})
-            prefix: List of prefix lengths for prefix indexing
-            content: Content table name (for external content FTS5)
-            content_rowid: Column name for rowid in content table
-            tokenize: Full tokenize specification string (alternative to tokenizer)
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        ...
-
-    def format_fts5_match_expression(
-        self,
-        table_name: str,
-        query: str,
-        columns: Optional[List[str]] = None,
-        negate: bool = False,
-    ) -> Tuple[str, tuple]:
-        """Format FTS5 MATCH expression for use in WHERE clause.
-
-        NOTE: negate parameter is NOT supported for FTS5. SQLite FTS5 does not
-        support 'NOT MATCH'. Use query-level negation ('python NOT java') instead.
-        Passing negate=True will raise ValueError.
-
-        Args:
-            table_name: Name of the FTS5 virtual table
-            query: Full-text search query string
-            columns: Specific columns to search (None for all columns)
-            negate: If True, raises ValueError (unsupported by FTS5)
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-
-        Raises:
-            ValueError: If negate=True
-        """
-        ...
-
-    def format_fts5_rank_expression(
-        self,
-        table_name: str,
-        weights: Optional[List[float]] = None,
-        bm25_params: Optional[Dict[str, float]] = None,
-    ) -> Tuple[str, tuple]:
-        """Format FTS5 ranking expression using bm25().
-
-        Args:
-            table_name: Name of the FTS5 virtual table
-            weights: Column weights for ranking (order matches column order)
-            bm25_params: BM25 parameters (k1, b) for ranking customization
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        ...
-
-    def format_fts5_highlight_expression(
-        self,
-        table_name: str,
-        column: str,
-        query: str,
-        prefix_marker: str = "<b>",
-        suffix_marker: str = "</b>",
-    ) -> Tuple[str, tuple]:
-        """Format highlight() function expression.
-
-        Args:
-            table_name: Name of the FTS5 virtual table
-            column: Column name to highlight
-            query: Search query (for ranking)
-            prefix_marker: HTML/text to prepend to matches
-            suffix_marker: HTML/text to append to matches
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        ...
-
-    def format_fts5_snippet_expression(
-        self,
-        table_name: str,
-        column: str,
-        query: str,
-        prefix_marker: str = "<b>",
-        suffix_marker: str = "</b>",
-        context_tokens: int = 10,
-        ellipsis: str = "...",
-    ) -> Tuple[str, tuple]:
-        """Format snippet() function expression.
-
-        Args:
-            table_name: Name of the FTS5 virtual table
-            column: Column name to snippet
-            query: Search query (for ranking)
-            prefix_marker: HTML/text to prepend to matches
-            suffix_marker: HTML/text to append to matches
-            context_tokens: Number of context tokens around match
-            ellipsis: String to use as ellipsis marker
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        ...
-
-    def format_fts5_drop_virtual_table(
-        self,
-        table_name: str,
-        if_exists: bool = False,
-    ) -> Tuple[str, tuple]:
-        """Format DROP TABLE statement for FTS5 virtual table.
-
-        Args:
-            table_name: Name of the FTS5 virtual table
             if_exists: Add IF EXISTS clause
 
         Returns:
@@ -463,4 +306,96 @@ class SQLiteReindexSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
+        ...
+
+
+@runtime_checkable
+class SQLiteFTS5Support(Protocol):
+    """Protocol for FTS5 full-text search support in SQLite dialects."""
+
+    def supports_fts5(self) -> bool:
+        """Whether FTS5 virtual table is supported."""
+        ...
+
+    def supports_fts5_bm25(self) -> bool:
+        """Whether BM25 ranking function is supported."""
+        ...
+
+    def supports_fts5_highlight(self) -> bool:
+        """Whether highlight() function is supported."""
+        ...
+
+    def supports_fts5_snippet(self) -> bool:
+        """Whether snippet() function is supported."""
+        ...
+
+    def get_supported_fts5_tokenizers(self) -> List[str]:
+        """Get list of supported FTS5 tokenizers."""
+        ...
+
+    def format_fts5_match_expression(self, expr) -> Tuple[str, tuple]:
+        """Format FTS5 MATCH expression."""
+        ...
+
+    def format_fts5_create_virtual_table(self, expr) -> Tuple[str, tuple]:
+        """Format CREATE VIRTUAL TABLE for FTS5."""
+        ...
+
+    def format_fts5_rank_expression(self, expr) -> Tuple[str, tuple]:
+        """Format FTS5 ranking expression."""
+        ...
+
+    def format_fts5_highlight_expression(self, expr) -> Tuple[str, tuple]:
+        """Format highlight() function expression."""
+        ...
+
+    def format_fts5_snippet_expression(self, expr) -> Tuple[str, tuple]:
+        """Format snippet() function expression."""
+        ...
+
+
+@runtime_checkable
+class SQLiteRTreeSupport(Protocol):
+    """Protocol for R-Tree spatial index support in SQLite dialects."""
+
+    def supports_rtree(self) -> bool:
+        """Whether R-Tree virtual table is supported."""
+        ...
+
+    def format_rtree_create_virtual_table(self, expr) -> Tuple[str, tuple]:
+        """Format CREATE VIRTUAL TABLE for R-Tree."""
+        ...
+
+    def format_rtree_range_query(self, expr) -> Tuple[str, tuple]:
+        """Format R-Tree range query."""
+        ...
+
+
+@runtime_checkable
+class SQLiteGeopolySupport(Protocol):
+    """Protocol for Geopoly polygon geometry support in SQLite dialects."""
+
+    def supports_geopoly(self) -> bool:
+        """Whether Geopoly virtual table is supported."""
+        ...
+
+    def format_geopoly_create_virtual_table(self, expr) -> Tuple[str, tuple]:
+        """Format CREATE VIRTUAL TABLE for Geopoly."""
+        ...
+
+    def format_geopoly_contains_query(self, expr) -> Tuple[str, tuple]:
+        """Format Geopoly point-in-polygon query."""
+        ...
+
+    def format_geopoly_area_expression(self, expr) -> Tuple[str, tuple]:
+        """Format Geopoly area calculation."""
+        ...
+
+
+@runtime_checkable
+class SQLiteJSON1Support(Protocol):
+    """Protocol for JSON1 extension support in SQLite dialects."""
+
+    def supports_json1_extension(self) -> bool:
+        """Whether json1 extension is available."""
         ...

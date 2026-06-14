@@ -11,24 +11,15 @@ Earlier versions may need to load the extension manually.
 Reference: https://www.sqlite.org/json1.html
 """
 
-from typing import Dict, List, Optional, Tuple, Any
-
 from ..base import ExtensionType, SQLiteExtensionBase
 
 
 class JSON1Extension(SQLiteExtensionBase):
     """JSON1 (JSON functions) extension.
 
-    The JSON1 extension provides comprehensive JSON processing capabilities
-    for SQLite, including extraction, modification, and querying of JSON data.
-
-    Features:
-        - json_extract() and -> / ->> operators
-        - json_array() and json_object() constructors
-        - json_each() and json_tree() for iterating JSON structures
-        - json_patch() and json_remove() for modifications
-        - json_type() and json_valid() for validation
-        - json_group_array() and json_group_object() aggregates
+    Provides metadata and version detection for JSON1.
+    JSON SQL generation is handled by the core expression system
+    (JSONExpression, FunctionCall) and sqlite/functions/json.py.
 
     Example:
         >>> json1 = JSON1Extension()
@@ -43,7 +34,7 @@ class JSON1Extension(SQLiteExtensionBase):
         super().__init__(
             name="json1",
             extension_type=ExtensionType.BUILTIN,
-            min_version=(3, 38, 0),  # Built-in since 3.38.0
+            min_version=(3, 38, 0),
             deprecated=False,
             description="JSON functions - JSON processing and manipulation",
             features={
@@ -67,83 +58,6 @@ class JSON1Extension(SQLiteExtensionBase):
             },
             documentation_url="https://www.sqlite.org/json1.html",
         )
-
-    def format_json_extract(
-        self,
-        column: str,
-        path: str,
-        arrow_operator: bool = True,
-    ) -> Tuple[str, tuple]:
-        """Format JSON extract expression.
-
-        Args:
-            column: Column or expression containing JSON
-            path: JSON path expression
-            arrow_operator: Use -> operator instead of json_extract()
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        if arrow_operator:
-            sql = f'"{column}" -> ?'
-            return sql, (path,)
-        else:
-            sql = f'json_extract("{column}", ?)'
-            return sql, (path,)
-
-    def format_json_extract_text(
-        self,
-        column: str,
-        path: str,
-    ) -> Tuple[str, tuple]:
-        """Format JSON extract text expression (->> operator).
-
-        Args:
-            column: Column or expression containing JSON
-            path: JSON path expression
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        sql = f'"{column}" ->> ?'
-        return sql, (path,)
-
-    def format_json_array(
-        self,
-        elements: List[str],
-    ) -> Tuple[str, tuple]:
-        """Format json_array() expression.
-
-        Args:
-            elements: List of element expressions
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        elem_str = ", ".join("?" for _ in elements)
-        sql = f"json_array({elem_str})"
-        return sql, tuple(elements)
-
-    def format_json_object(
-        self,
-        key_values: Dict[str, Any],
-    ) -> Tuple[str, tuple]:
-        """Format json_object() expression.
-
-        Args:
-            key_values: Dictionary of key-value pairs
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        params = []
-        pairs = []
-        for key, value in key_values.items():
-            pairs.append("?, ?")
-            params.extend([key, value])
-
-        sql = f"json_object({', '.join(pairs)})"
-        return sql, tuple(params)
 
 
 # Singleton instance
