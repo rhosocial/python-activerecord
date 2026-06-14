@@ -29,15 +29,19 @@ def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type
     import sys
     import inspect
 
-    # Get calling frame to access local scope.
-    # Must match frame that actually contains ``owner`` in its locals,
-    # not just any frame from the same module (avoid stale test frames).
+    # Walk up the stack to find the frame where `owner` was *defined*
+    # (not merely passed as a parameter). This supports model classes
+    # defined inside test methods or nested scopes.
     frame = inspect.currentframe()
+    frame = frame.f_back
     while frame:
-        if owner.__module__ in str(frame.f_code):
-            local_context = frame.f_locals
-            if owner in local_context.values():
-                break
+        local_context = frame.f_locals
+        if owner in local_context.values():
+            is_parameter = 'owner' in local_context and local_context.get('owner') is owner
+            if is_parameter:
+                frame = frame.f_back
+                continue
+            break
         frame = frame.f_back
     else:
         local_context = {}
