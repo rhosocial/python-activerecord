@@ -1,8 +1,12 @@
 # tests/providers/relation.py
 import asyncio
+import os
+import tempfile
+import uuid
 from typing import Dict, List, Tuple, Type
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 from rhosocial.activerecord.testsuite.feature.relation.interfaces import IRelationProvider
 from rhosocial.activerecord.testsuite.feature.relation.fixtures.models import (
@@ -124,6 +128,7 @@ RELATION_BOUNDARY_SCHEMA = """
 
 class RelationProvider(IRelationProvider):
     def __init__(self):
+        self._scenario_db_files: Dict[str, List[str]] = {}
         self._active_backends = []
         self._active_async_backends = []
         self._sync_user_post_comment_setup = False
@@ -134,8 +139,23 @@ class RelationProvider(IRelationProvider):
     def get_test_scenarios(self) -> List[str]:
         return list(get_enabled_scenarios().keys())
 
+    def _make_unique_config(self, scenario_name, original_config):
+        if original_config.database != ":memory:":
+            unique_filename = os.path.join(
+                tempfile.gettempdir(),
+                f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite",
+            )
+            self._scenario_db_files.setdefault(scenario_name, []).append(unique_filename)
+            return SQLiteConnectionConfig(
+                database=unique_filename,
+                delete_on_close=original_config.delete_on_close,
+                pragmas=original_config.pragmas,
+            )
+        return original_config
+
     def _setup_employee_department(self, scenario_name):
         backend_class, config = get_scenario(scenario_name)
+        config = self._make_unique_config(scenario_name, config)
         Employee.configure(config, backend_class)
         backend = Employee.backend()
         backend.connect()
@@ -147,6 +167,7 @@ class RelationProvider(IRelationProvider):
 
     def _setup_author_book(self, scenario_name):
         backend_class, config = get_scenario(scenario_name)
+        config = self._make_unique_config(scenario_name, config)
         Author.configure(config, backend_class)
         backend = Author.backend()
         backend.connect()
@@ -161,6 +182,7 @@ class RelationProvider(IRelationProvider):
     def _setup_user_post_comment_sync(self, scenario_name):
         if not self._sync_user_post_comment_setup:
             backend_class, config = get_scenario(scenario_name)
+            config = self._make_unique_config(scenario_name, config)
             User.configure(config, backend_class)
             backend = User.backend()
             backend.connect()
@@ -178,6 +200,7 @@ class RelationProvider(IRelationProvider):
     def _setup_user_post_comment_async(self, scenario_name):
         if not self._async_user_post_comment_setup:
             _, config = get_scenario(scenario_name)
+            config = self._make_unique_config(scenario_name, config)
 
             async def _setup():
                 await AsyncUser.configure(config, AsyncSQLiteBackend)
@@ -200,6 +223,7 @@ class RelationProvider(IRelationProvider):
     def _setup_relation_boundary_sync(self, scenario_name):
         if not self._sync_relation_boundary_setup:
             backend_class, config = get_scenario(scenario_name)
+            config = self._make_unique_config(scenario_name, config)
             BoundaryOwner.configure(config, backend_class)
             backend = BoundaryOwner.backend()
             backend.connect()
@@ -217,6 +241,7 @@ class RelationProvider(IRelationProvider):
     def _setup_relation_boundary_async(self, scenario_name):
         if not self._async_relation_boundary_setup:
             _, config = get_scenario(scenario_name)
+            config = self._make_unique_config(scenario_name, config)
 
             async def _setup():
                 await AsyncBoundaryOwner.configure(config, AsyncSQLiteBackend)
@@ -379,3 +404,11 @@ class RelationProvider(IRelationProvider):
         self._async_user_post_comment_setup = False
         self._sync_relation_boundary_setup = False
         self._async_relation_boundary_setup = False
+
+        if scenario_name in self._scenario_db_files:
+            for db_file in self._scenario_db_files.pop(scenario_name):
+                if db_file and os.path.exists(db_file):
+                    try:
+                        os.remove(db_file)
+                    except OSError:
+                        pass

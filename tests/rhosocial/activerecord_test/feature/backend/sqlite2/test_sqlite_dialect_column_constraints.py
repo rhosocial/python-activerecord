@@ -68,8 +68,8 @@ class TestColumnConstraintHandlers:
 
         sql, params = dialect.format_default_constraint(constraint)
 
-        assert sql == " DEFAULT ?"
-        assert params == ("test_default",)
+        assert sql == " DEFAULT 'test_default'"
+        assert params == ()
 
     def test_handle_default_constraint_with_expression(self):
         """Test DEFAULT constraint handler with expression value."""
@@ -248,8 +248,8 @@ class TestFormatColumnDefinition:
 
         sql, params = dialect.format_column_definition(col_def)
 
-        assert sql == '"status" VARCHAR(50) DEFAULT ?'
-        assert params == ("active",)
+        assert sql == '"status" VARCHAR(50) DEFAULT \'active\''
+        assert params == ()
 
     def test_format_column_definition_with_check(self):
         """Test column definition with CHECK constraint."""
@@ -322,8 +322,8 @@ class TestFormatColumnDefinition:
 
         sql, params = dialect.format_column_definition(col_def)
 
-        assert sql == '"price" DECIMAL(10,2) NOT NULL DEFAULT ? CHECK (value > 0)'
-        assert params == (0.0,)
+        assert sql == '"price" DECIMAL(10,2) NOT NULL DEFAULT 0.0 CHECK (value > 0)'
+        assert params == ()
 
     def test_format_column_definition_null_constraint(self):
         """Test column definition with NULL constraint."""

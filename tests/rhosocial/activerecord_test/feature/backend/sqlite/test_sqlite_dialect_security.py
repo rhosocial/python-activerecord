@@ -68,8 +68,8 @@ def test_sqlite_format_default_constraint_string_escaping(dialect):
     )
 
     sql, params = dialect.format_default_constraint(constraint)
-    assert sql == " DEFAULT ?"
-    assert params == ("test's value",)
+    assert sql == " DEFAULT 'test''s value'"
+    assert params == ()
 
 
 def test_sqlite_format_storage_options_string_escaping(dialect):

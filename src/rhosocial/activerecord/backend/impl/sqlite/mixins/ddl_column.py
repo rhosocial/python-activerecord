@@ -32,15 +32,26 @@ class SQLiteDDLColumnMixin:
         return " UNIQUE", ()
 
     def format_default_constraint(self, constraint) -> Tuple[str, tuple]:
-        """Format DEFAULT constraint."""
-        from rhosocial.activerecord.backend.expression import bases
+        """Format DEFAULT constraint.
 
+        Note: DEFAULT values in DDL must be literal values, not bound parameters.
+        SQLite does not support parameterized DEFAULT in CREATE TABLE statements.
+        This implementation inlines values directly into the SQL string.
+        """
         if constraint.default_value is None:
             raise ValueError("DEFAULT constraint must have a default value specified.")
+        from rhosocial.activerecord.backend.expression import bases
+        from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+
         if isinstance(constraint.default_value, bases.BaseExpression):
             default_sql, default_params = constraint.default_value.to_sql()
-            return f" DEFAULT {default_sql}", default_params
-        return f" DEFAULT {self.get_parameter_placeholder()}", (constraint.default_value,)
+            return f" DEFAULT {default_sql}", tuple(default_params)
+        if isinstance(constraint.default_value, str):
+            escaped = SQLDialectBase._escape_sql_string(constraint.default_value)
+            return f" DEFAULT '{escaped}'", ()
+        if isinstance(constraint.default_value, bool):
+            return f" DEFAULT {'1' if constraint.default_value else '0'}", ()
+        return f" DEFAULT {constraint.default_value}", ()
 
     def format_check_constraint(self, constraint) -> Tuple[str, tuple]:
         """Format CHECK constraint."""
