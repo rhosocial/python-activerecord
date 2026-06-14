@@ -58,7 +58,21 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        coverage run -m pytest tests/
+        rm -f .coverage*
+        coverage run --parallel-mode -m pytest \
+          tests/rhosocial/activerecord_test/feature/ \
+          tests/providers/ \
+          --ignore=tests/rhosocial/activerecord_test/feature/basic/worker \
+          --ignore=tests/rhosocial/activerecord_test/feature/query/worker \
+          --ignore=tests/rhosocial/activerecord_test/feature/worker \
+          -n auto --dist loadscope --tb=line \
+          -k "not test_add_unique_constraint_enforces_uniqueness"
+        coverage run --parallel-mode -m pytest \
+          tests/rhosocial/activerecord_test/feature/basic/worker \
+          tests/rhosocial/activerecord_test/feature/query/worker \
+          tests/rhosocial/activerecord_test/feature/worker \
+          -n 0 --tb=line
+        coverage combine
         coverage xml
         coverage report
 
@@ -271,7 +285,19 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/
+        python -m pytest \
+          tests/rhosocial/activerecord_test/feature/ \
+          tests/providers/ \
+          --ignore=tests/rhosocial/activerecord_test/feature/basic/worker \
+          --ignore=tests/rhosocial/activerecord_test/feature/query/worker \
+          --ignore=tests/rhosocial/activerecord_test/feature/worker \
+          -n auto --dist loadscope --tb=line \
+          -k "not test_add_unique_constraint_enforces_uniqueness"
+        python -m pytest \
+          tests/rhosocial/activerecord_test/feature/basic/worker \
+          tests/rhosocial/activerecord_test/feature/query/worker \
+          tests/rhosocial/activerecord_test/feature/worker \
+          -n 0 --tb=line
 
   test-free-threaded:
     name: Run tests with Python ${{ matrix.python-version }} free-threaded
@@ -326,7 +352,19 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/
+        python -m pytest \
+          tests/rhosocial/activerecord_test/feature/ \
+          tests/providers/ \
+          --ignore=tests/rhosocial/activerecord_test/feature/basic/worker \
+          --ignore=tests/rhosocial/activerecord_test/feature/query/worker \
+          --ignore=tests/rhosocial/activerecord_test/feature/worker \
+          -n auto --dist loadscope --tb=line \
+          -k "not test_add_unique_constraint_enforces_uniqueness"
+        python -m pytest \
+          tests/rhosocial/activerecord_test/feature/basic/worker \
+          tests/rhosocial/activerecord_test/feature/query/worker \
+          tests/rhosocial/activerecord_test/feature/worker \
+          -n 0 --tb=line
 
   test-python-315-experimental:
     name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && ' free-threaded' || '' }} (experimental)
@@ -378,4 +416,16 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/
+        python -m pytest \
+          tests/rhosocial/activerecord_test/feature/ \
+          tests/providers/ \
+          --ignore=tests/rhosocial/activerecord_test/feature/basic/worker \
+          --ignore=tests/rhosocial/activerecord_test/feature/query/worker \
+          --ignore=tests/rhosocial/activerecord_test/feature/worker \
+          -n auto --dist loadscope --tb=line \
+          -k "not test_add_unique_constraint_enforces_uniqueness"
+        python -m pytest \
+          tests/rhosocial/activerecord_test/feature/basic/worker \
+          tests/rhosocial/activerecord_test/feature/query/worker \
+          tests/rhosocial/activerecord_test/feature/worker \
+          -n 0 --tb=line

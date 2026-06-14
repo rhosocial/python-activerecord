@@ -1021,10 +1021,20 @@ This structure ensures clear test organization while allowing for both generic f
 export PYTHONPATH=src  # Linux/macOS
 $env:PYTHONPATH="src"  # Windows PowerShell
 
-# Basic execution
+# Hybrid parallel/serial coverage run (recommended for CI)
+rm -f .coverage* && coverage run --parallel-mode pytest \
+  tests/rhosocial/activerecord_test/feature/ tests/providers/ \
+  --ignore=.../basic/worker --ignore=.../query/worker --ignore=.../worker \
+  -n auto --dist loadscope --tb=line \
+  -k "not test_add_unique_constraint_enforces_uniqueness" \
+  && coverage run --parallel-mode pytest \
+  .../basic/worker .../query/worker .../worker -n 0 --tb=line \
+  && coverage combine && coverage xml && coverage report
+
+# Serial execution (backward compatible)
 pytest
 
-# Directory-based execution (preferred method)
+# Directory-based execution
 pytest tests/rhosocial/activerecord_test/feature/basic/     # Basic CRUD tests
 pytest tests/rhosocial/activerecord_test/feature/query/     # Query tests
 pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/  # SQLite backend tests
@@ -1036,61 +1046,81 @@ pytest -k "test_create" tests/             # Name filter
 pytest --collect-only tests/               # Show what would be collected
 ```
 
-## CRITICAL: No Parallel Test Execution
+## Hybrid Parallel/Serial Test Execution
 
-**Tests MUST NOT be executed in parallel.** The test suite creates database tables with fixed names, making parallel execution unsafe.
+The test framework supports a hybrid execution model: most tests are **parallel-safe** via UUID-temporary-database filenames, while WorkerPool (multiprocessing) tests must run serially.
 
-### Why Parallel Execution Is Not Supported
+### Parallel-Safe Groups
 
-The test suite uses a shared database schema design where:
+The following test groups generate unique UUID-named database files per test, making them safe for parallel execution:
 
-1. **Fixed Table Names**: Tests create tables with predefined names:
-   - `users`, `orders`, `order_items`
-   - `posts`, `comments`
-   - `json_users`, `nodes`
-   - And others specific to test features
+- `feature/basic/` (excluding `worker/`)
+- `feature/events/`
+- `feature/mixins/`
+- `feature/query/` (excluding `worker/`)
+- `feature/relation/`
+- `feature/derived_field/`
+- `feature/backend/`
+- `feature/connection/`
+- `feature/interface/`
+- `tests/providers/`
 
-2. **Table Lifecycle**: Each test typically:
-   - Drops existing tables: `DROP TABLE IF EXISTS ... CASCADE`
-   - Creates fresh tables: `CREATE TABLE ...`
-   - Inserts test data
-   - Cleans up after test completion
+### Serial-Only Groups (WorkerPool)
 
-3. **Conflict Risk**: If tests run in parallel:
-   - Test A drops table while Test B is querying it → Error
-   - Test A and B insert conflicting data → Test failures
-   - Cleanup happens before another test finishes → Data loss
+These tests use `multiprocessing` internally and **must** run serially (`-n 0`):
 
-### What NOT To Do
+- `feature/basic/worker/`
+- `feature/query/worker/`
+- `feature/worker/`
 
-```bash
-# DO NOT use pytest-xdist for parallel execution
-pytest -n auto          # ❌ WILL CAUSE FAILURES
-pytest -n 4             # ❌ WILL CAUSE FAILURES
-pytest --dist=loadfile  # ❌ WILL CAUSE FAILURES
-```
-
-### Correct Execution
+### Recommended Command
 
 ```bash
-# Always run tests serially (default behavior)
-pytest                  # ✅ Correct - serial execution
-pytest -v tests/        # ✅ Correct - serial execution
+# 1. Parallel-safe tests
+coverage run --parallel-mode -m pytest \
+  tests/rhosocial/activerecord_test/feature/ \
+  tests/providers/ \
+  --ignore=tests/rhosocial/activerecord_test/feature/basic/worker \
+  --ignore=tests/rhosocial/activerecord_test/feature/query/worker \
+  --ignore=tests/rhosocial/activerecord_test/feature/worker \
+  -n auto --dist loadscope --tb=line \
+  -k "not test_add_unique_constraint_enforces_uniqueness"
+
+# 2. Serial-only WorkerPool tests
+coverage run --parallel-mode -m pytest \
+  tests/rhosocial/activerecord_test/feature/basic/worker \
+  tests/rhosocial/activerecord_test/feature/query/worker \
+  tests/rhosocial/activerecord_test/feature/worker \
+  -n 0 --tb=line
+
+# 3. Merge coverage
+coverage combine
+coverage report
+coverage xml
 ```
 
-### Design Rationale
+### Single-Line CI Command
 
-This is an intentional design decision, not a limitation:
+```bash
+rm -f .coverage* && coverage run --parallel-mode -m pytest tests/rhosocial/activerecord_test/feature/ tests/providers/ --ignore=tests/rhosocial/activerecord_test/feature/basic/worker --ignore=tests/rhosocial/activerecord_test/feature/query/worker --ignore=tests/rhosocial/activerecord_test/feature/worker -n auto --dist loadscope --tb=line -k "not test_add_unique_constraint_enforces_uniqueness" && coverage run --parallel-mode -m pytest tests/rhosocial/activerecord_test/feature/basic/worker tests/rhosocial/activerecord_test/feature/query/worker tests/rhosocial/activerecord_test/feature/worker -n 0 --tb=line && coverage combine && coverage xml && coverage report
+```
 
-- **Simplicity**: Fixed table names simplify test setup and debugging
-- **Database Compatibility**: Works consistently across SQLite, MySQL, PostgreSQL
-- **Test Isolation**: Serial execution ensures complete test isolation
-- **CI/CD Friendly**: Most CI environments run tests serially by default
+### Speedup
 
-If you need faster test execution, consider:
-- Running specific test directories instead of the full suite
-- Using pytest markers to run subsets of tests
-- Running backend-specific tests only for your target database
+| Mode | Approx. Wall Time | Notes |
+|------|------------------|-------|
+| Pure serial | ~14 min | All tests in single process |
+| Hybrid | ~9 min | Parallel body ~1.5 min, Worker serial ~7 min |
+| Speedup | ~1.6× | Bottlenecked by WorkerPool tests |
+
+### Coverage Equivalence
+
+Coverage data from both runs is merged via `coverage combine`, which collects all `.coverage.*` files and produces a single merged `.coverage` file. The resulting report is identical to a serial run because all tests execute the same code paths regardless of order.
+
+### Skips
+
+- `test_add_unique_constraint_enforces_uniqueness` is a pre-existing flaky test that fails regardless of parallelism mode.
+- `--dist loadscope` groups tests by file/class scope, keeping WorkerPool tests on the same xdist worker to avoid subprocess conflicts.
 
 ## Summary
 

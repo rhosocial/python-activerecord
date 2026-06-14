@@ -17,6 +17,7 @@ import sys
 import logging
 from typing import Type, List
 
+from rhosocial.activerecord.backend.expression import DropTableExpression, TableExpression
 from rhosocial.activerecord.model import ActiveRecord
 
 # Setup logging for fixture selection debugging
@@ -157,15 +158,27 @@ class MixinsProvider(IMixinsProvider):
         from rhosocial.activerecord.backend.schema import StatementType
 
         try:
+            drop_expr = DropTableExpression(
+                dialect=model_class.__backend__.dialect,
+                table=TableExpression(model_class.__backend__.dialect, table_name),
+                if_exists=True,
+            )
             model_class.__backend__.execute(
-                f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL)
+                *drop_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
             )
         except Exception:
-            # Ignore errors if the table doesn't exist, which is expected on the first run.
             pass
 
-        schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
-        model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+        from providers.fixtures.mixins import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            create_expr = fn(model_class.__backend__.dialect, table_name)
+            model_class.__backend__.execute(
+                *create_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
+        else:
+            schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+            model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
         return model_class
 

@@ -17,6 +17,7 @@ import sys
 import logging
 from typing import Type, List, Tuple
 
+from rhosocial.activerecord.backend.expression import DropTableExpression, TableExpression
 from rhosocial.activerecord.backend.type_adapter import BaseSQLTypeAdapter
 from rhosocial.activerecord.model import ActiveRecord
 
@@ -372,15 +373,27 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         from rhosocial.activerecord.backend.schema import StatementType
 
         try:
+            drop_expr = DropTableExpression(
+                dialect=model_class.__backend__.dialect,
+                table=TableExpression(model_class.__backend__.dialect, table_name),
+                if_exists=True,
+            )
             model_class.__backend__.execute(
-                f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL)
+                *drop_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
             )
         except Exception:
-            # Ignore errors if the table doesn't exist, which is expected on the first run.
             pass
 
-        schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
-        model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+        from providers.fixtures.basic import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            create_expr = fn(model_class.__backend__.dialect, table_name)
+            model_class.__backend__.execute(
+                *create_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
+        else:
+            schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+            model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
         # Track the backend for proper cleanup
         if model_class.__backend__ not in self._active_backends:
@@ -433,15 +446,27 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         from rhosocial.activerecord.backend.schema import StatementType
 
         try:
+            drop_expr = DropTableExpression(
+                dialect=model_class.__backend__.dialect,
+                table=TableExpression(model_class.__backend__.dialect, table_name),
+                if_exists=True,
+            )
             await model_class.__backend__.execute(
-                f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL)
+                *drop_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
             )
         except Exception:
-            # Ignore errors if the table doesn't exist, which is expected on the first run.
             pass
 
-        schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
-        await model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+        from providers.fixtures.basic import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            create_expr = fn(model_class.__backend__.dialect, table_name)
+            await model_class.__backend__.execute(
+                *create_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
+        else:
+            schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+            await model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
         if model_class.__backend__ not in self._active_async_backends:
             self._active_async_backends.append(model_class.__backend__)
@@ -534,9 +559,21 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         from rhosocial.activerecord.backend.schema import StatementType
 
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        await model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}", options=options)
-        schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
-        await model_class.__backend__.execute(schema_sql, options=options)
+        drop_expr = DropTableExpression(
+            dialect=model_class.__backend__.dialect,
+            table=TableExpression(model_class.__backend__.dialect, table_name),
+            if_exists=True,
+        )
+        await model_class.__backend__.execute(*drop_expr.to_sql(), options=options)
+
+        from providers.fixtures.basic import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            create_expr = fn(model_class.__backend__.dialect, table_name)
+            await model_class.__backend__.execute(*create_expr.to_sql(), options=options)
+        else:
+            schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+            await model_class.__backend__.execute(schema_sql, options=options)
 
     def setup_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
         """Sets up the database for ColumnMappingModel and MixedAnnotationModel."""
@@ -706,6 +743,15 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
             }
             table_name = table_map.get(base_type, "users")
 
+        from providers.fixtures.basic import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+            dialect = SQLiteDialect()
+            schema_sql, _ = fn(dialect, table_name).to_sql()
+        else:
+            schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+
         return {
             "backend_module": "rhosocial.activerecord.backend.impl.sqlite",
             "backend_class_name": backend_class_name,
@@ -714,7 +760,7 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
             "config_kwargs": {
                 "database": database_path,
             },
-            "schema_sql": self._load_sqlite_schema(f"{table_name}.sql"),
+            "schema_sql": schema_sql,
         }
 
     def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:
@@ -728,4 +774,11 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         Returns:
             CREATE TABLE SQL statement
         """
+        from providers.fixtures.basic import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+            dialect = SQLiteDialect()
+            sql, _ = fn(dialect, table_name).to_sql()
+            return sql
         return self._load_sqlite_schema(f"{table_name}.sql")
