@@ -5,59 +5,15 @@ Provides BelongsTo, HasOne, and HasMany relationship types.
 """
 
 import logging
-from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, Dict
+from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, ClassVar, List, Dict
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import IRelationValidation, IRelationManagement, IRelationLoader
+from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..backend.expression.core import Column
 from ..interface import IActiveRecord, IActiveQuery
 
 T = TypeVar("T", bound=IActiveRecord)
-
-
-def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type[T]:
-    """
-    Evaluate forward reference in proper context.
-
-    Args:
-        ref: String or ForwardRef to evaluate
-        owner: Owner model class for resolution context
-
-    Returns:
-        Resolved model class
-    """
-    import sys
-    import inspect
-
-    # Walk up the stack to find the frame where `owner` was *defined*
-    # (not merely passed as a parameter). This supports model classes
-    # defined inside test methods or nested scopes.
-    frame = inspect.currentframe()
-    frame = frame.f_back
-    while frame:
-        local_context = frame.f_locals
-        if owner in local_context.values():
-            is_parameter = 'owner' in local_context and local_context.get('owner') is owner
-            if is_parameter:
-                frame = frame.f_back
-                continue
-            break
-        frame = frame.f_back
-    else:
-        local_context = {}
-
-    module = sys.modules[owner.__module__]
-    module_globals = {k: getattr(module, k) for k in dir(module)}
-    owner_locals = {owner.__name__: owner}
-
-    # Combine all contexts with priority to most specific scope
-    context = {}
-    context.update(module_globals)
-    context.update(local_context)
-    context.update(owner_locals)
-
-    type_str = ref if isinstance(ref, str) else ref.__forward_arg__
-    return eval(type_str, context, None)
 
 
 class RelationDescriptor(Generic[T]):
@@ -162,15 +118,6 @@ class RelationDescriptor(Generic[T]):
         self.name = name
         self._owner = owner
 
-        from ..interface import IAsyncActiveRecord
-
-        if issubclass(owner, IAsyncActiveRecord):
-            raise TypeError(
-                f"Sync relation descriptor `{name}` cannot be used on async model `{owner.__name__}`. "
-                f"Use AsyncBelongsTo/AsyncHasMany/AsyncHasOne from "
-                f"rhosocial.activerecord.relation.async_descriptors instead."
-            )
-
         self.log(logging.DEBUG, f"Registering relation `{name}` with `{owner.__name__}`")
         owner.register_relation(name, self)
 
@@ -223,15 +170,36 @@ class RelationDescriptor(Generic[T]):
 
         Raises:
             ValueError: If model cannot be resolved
+            TypeError: If resolved model is not assignable to IActiveRecord
         """
         if self._cached_model is None:
             self.log(logging.DEBUG, f"Resolving related model for `{self.name}`")
             self._cached_model = self._resolve_model(owner)
 
-            # Ensure model is fully resolved before validation
             if isinstance(self._cached_model, (str, ForwardRef)):
                 self.log(logging.DEBUG, f"Evaluating forward reference: {self._cached_model}")
-                self._cached_model = _evaluate_forward_ref(self._cached_model, owner)
+                try:
+                    self._cached_model = evaluate_annotation(self._cached_model, owner)
+                except NameError as e:
+                    self._cached_model = None
+                    raise ValueError(
+                        f"Cannot resolve forward reference for relation `{self.name}`: {e}"
+                    ) from e
+
+            if not isinstance(self._cached_model, type):
+                self._cached_model = None
+                raise ValueError(f"Unable to resolve relationship model for `{self.name}`")
+
+            from .interfaces import IRelationManagement
+
+            if not issubclass(self._cached_model, IRelationManagement):
+                model_name = getattr(self._cached_model, "__name__", str(self._cached_model))
+                raise TypeError(
+                    f"Related model `{model_name}` in relation `{self.name}` "
+                    f"must support relation management (IRelationManagement). "
+                    f"Got {self._cached_model} which is not compatible with descriptor "
+                    f"`{type(self).__name__}`."
+                )
 
             if self.inverse_of and self._validator:
                 try:
@@ -244,42 +212,42 @@ class RelationDescriptor(Generic[T]):
 
         return self._cached_model
 
-    def _resolve_model(self, owner: Type[Any]) -> Union[Type[T], ForwardRef, str]:
+    def _ensure_model_capability(self) -> None:
         """
-        Resolve model type from annotations, handling both string and ForwardRef.
+        Verify the resolved model satisfies data-loading requirements.
 
-        Python 3.8+ compatible implementation that properly handles forward references.
+        Sync descriptors require the target model to be a subclass of
+        ``IActiveRecord`` so that ``query()``, ``backend()``, etc. are
+        available.
+
+        Raises:
+            TypeError: If the model lacks the required sync capability.
+        """
+        if self._cached_model is None:
+            return
+        if not issubclass(self._cached_model, IActiveRecord):
+            model_name = getattr(self._cached_model, "__name__", str(self._cached_model))
+            raise TypeError(
+                f"Related model `{model_name}` in relation `{self.name}` "
+                f"must be a subclass of IActiveRecord (sync model). "
+                f"Got `{model_name}` which is not compatible with sync descriptor "
+                f"`{type(self).__name__}`."
+            )
+
+    def _resolve_model(self, owner: Type[Any]) -> Union[Type[T], str, ForwardRef]:
+        """
+        Resolve model type from annotations using the centralized type resolver.
+
+        Handles ClassVar wrappers, string annotations, ForwardRef, and
+        from __future__ import annotations (PEP 563).
         """
         self.log(logging.DEBUG, f"Resolving model type for {self.name}")
-
-        # Get module globals for model resolution context
-        import sys
-
-        module = sys.modules[owner.__module__]
-        module_globals = {k: getattr(module, k) for k in dir(module)}
-
-        # First attempt with get_type_hints
-        try:
-            type_hints = get_type_hints(owner, localns=module_globals)
-        except (NameError, AttributeError):
-            # Fallback to raw annotations for forward refs
-            type_hints = owner.__annotations__
-
-        # Find descriptor field in type hints
-        for name, field_type in type_hints.items():
-            if getattr(owner, name, None) is self:
-                # Handle ClassVar wrapper
-                if hasattr(field_type, "__origin__") and field_type.__origin__ is ClassVar:
-                    field_type = field_type.__args__[0]
-
-                # Get model type from generic parameters
-                if hasattr(field_type, "__origin__") and hasattr(field_type, "__args__"):
-                    model_type = field_type.__args__[0]
-                    self.log(logging.DEBUG, f"Resolved model type: {model_type}")
-                    return model_type
-
-        self.log(logging.ERROR, f"Unable to resolve relationship model for `{self.name}`")
-        raise ValueError("Unable to resolve relationship model")
+        result = resolve_relation_type(owner, self.name)
+        if result is None:
+            self.log(logging.ERROR, f"Unable to resolve relationship model for `{self.name}`")
+            raise ValueError("Unable to resolve relationship model")
+        self.log(logging.DEBUG, f"Resolved model type: {result}")
+        return result
 
     def _validate_inverse_relationship(self, owner: Type[Any]) -> None:
         """
@@ -334,6 +302,7 @@ class RelationDescriptor(Generic[T]):
         def query_method(instance):
             # Force model resolution if needed
             related_model = self.get_related_model(type(instance))
+            self._ensure_model_capability()
             # Start with base query for the related model
             query = related_model.query()
 
@@ -760,6 +729,8 @@ class DefaultIRelationLoader(IRelationLoader[R]):
             self._cached_model = model_class
 
         model_class = self._cached_model
+
+        self.descriptor._ensure_model_capability()
 
         # Use provided base_query or create new one
         query = base_query if base_query is not None else model_class.query()
