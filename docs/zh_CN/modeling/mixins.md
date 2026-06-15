@@ -59,7 +59,31 @@ UUID 主键在保存前由 Python 生成，不依赖数据库的自增机制。�
 
 > 💡 **AI提示词示例**: "使用 UUID 主键时需要注意什么？哪些数据库后端支持 RETURNING 子句？"
 
-### TimestampMixin
+### CompositePKMixin
+
+支持复合（多列）主键。
+
+```python
+from rhosocial.activerecord.field import CompositePKMixin
+
+class OrderItem(CompositePKMixin, ActiveRecord):
+    __primary_key__ = ("order_id", "product_id")
+
+    order_id: int
+    product_id: int
+    quantity: int
+```
+
+**特点**：
+
+- 主键声明为列名元组 `tuple[str, ...]`
+- 创建新实例时必须提供所有 PK 列的值
+- 复合 PK 值不会自动生成（`__pk_auto_generated__ = False`）
+- 使用 `find_one()` 时传入 dict 或 tuple：`OrderItem.find_one({"order_id": 1, "product_id": 42})` 或 `OrderItem.find_one((1, 42))`
+- 使用 `find_all()` 时可传入 dict/tuple 列表进行批量查找
+- 关联关系支持：`BelongsTo(foreign_key=("order_id",))` 按位置将每个外键列与对应 PK 列匹配
+
+> 💡 **AI提示词示例**: "如何定义复合主键模型？复合主键的 find_one 如何使用？"
 
 自动记录创建时间和更新时间。
 
