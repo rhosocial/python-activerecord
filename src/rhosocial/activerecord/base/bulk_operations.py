@@ -1,13 +1,16 @@
 # src/rhosocial/activerecord/base/bulk_operations.py
 """Bulk operations mixin for ActiveRecord models."""
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING, Any
 
 from ..backend.errors import DatabaseError, BulkStateError, BulkValidationError
 from ..backend.expression import Column, Literal
 from ..backend.expression.predicates import InPredicate
 from ..backend.options import BulkInsertOptions, BulkUpdateOptions, DeleteOptions, UpdateOptions
 from ..interface import ModelEvent
+
+if TYPE_CHECKING:
+    from .base import BaseActiveRecord, AsyncBaseActiveRecord
 
 if TYPE_CHECKING:
     from .base import BaseActiveRecord, AsyncBaseActiveRecord
@@ -184,38 +187,46 @@ class BulkOperationsMixin:
         for record in records:
             record._prepare_save_data()
 
-        pk_column = cls.primary_key()
-        pk_field = cls._get_field_name(pk_column)
-        pk_values = [getattr(r, pk_field) for r in records]
+        if not cls.is_composite_pk():
+            pk_column = cls.primary_key()
+            pk_field = cls._get_field_name(pk_column)
+            pk_values = [getattr(r, pk_field) for r in records]
 
-        field_values = {}
-        for field_name in fields:
-            col_name = cls._get_column_name(field_name)
-            field_values[col_name] = [getattr(r, field_name) for r in records]
+            field_values = {}
+            for field_name in fields:
+                col_name = cls._get_column_name(field_name)
+                field_values[col_name] = [getattr(r, field_name) for r in records]
 
-        total_affected = 0
+            total_affected = 0
 
-        def _do_batch(batch_pk_values, batch_field_values):
-            opts = BulkUpdateOptions(
-                table=cls.table_name(),
-                schema_name=cls.schema_name(),
-                pk_column=pk_column,
-                pk_values=batch_pk_values,
-                field_values=batch_field_values,
-                auto_commit=False,
-            )
-            result = backend.bulk_update(opts)
-            return result.affected_rows
+            def _do_batch(batch_pk_values, batch_field_values):
+                opts = BulkUpdateOptions(
+                    table=cls.table_name(),
+                    schema_name=cls.schema_name(),
+                    pk_column=pk_column,
+                    pk_values=batch_pk_values,
+                    field_values=batch_field_values,
+                    auto_commit=False,
+                )
+                result = backend.bulk_update(opts)
+                return result.affected_rows
 
-        with backend.transaction():
-            if batch_size and batch_size > 0:
-                for start in range(0, len(pk_values), batch_size):
-                    end = start + batch_size
-                    batch_pks = pk_values[start:end]
-                    batch_fv = {col: vals[start:end] for col, vals in field_values.items()}
-                    total_affected += _do_batch(batch_pks, batch_fv)
-            else:
-                total_affected = _do_batch(pk_values, field_values)
+            with backend.transaction():
+                if batch_size and batch_size > 0:
+                    for start in range(0, len(pk_values), batch_size):
+                        end = start + batch_size
+                        batch_pks = pk_values[start:end]
+                        batch_fv = {col: vals[start:end] for col, vals in field_values.items()}
+                        total_affected += _do_batch(batch_pks, batch_fv)
+                else:
+                    total_affected = _do_batch(pk_values, field_values)
+        else:
+            total_affected = 0
+            with backend.transaction():
+                for record in records:
+                    record._trigger_event(ModelEvent.BEFORE_UPDATE)
+                    affected = record.save()
+                    total_affected += affected
 
         for record in records:
             record.reset_tracking()
@@ -253,41 +264,75 @@ class BulkOperationsMixin:
         for record in records:
             record._trigger_event(ModelEvent.BEFORE_DELETE)
 
-        pk_column = cls.primary_key()
-        pk_field = cls._get_field_name(pk_column)
-        pk_values = [getattr(r, pk_field) for r in records]
-
-        dialect = backend.dialect
-        pk_col_expr = Column(dialect, pk_column)
-        where_predicate = InPredicate(dialect, pk_col_expr, Literal(dialect, pk_values))
-
         is_soft_delete = hasattr(records[0], "prepare_delete")
 
-        with backend.transaction():
-            if is_soft_delete:
-                data = records[0].prepare_delete()
-                update_opts = UpdateOptions(
-                    table=cls.table_name(),
-                    schema_name=cls.schema_name(),
-                    data=data,
-                    where=where_predicate,
-                )
-                result = backend.update(update_opts)
-            else:
-                delete_opts = DeleteOptions(
-                    table=cls.table_name(),
-                    schema_name=cls.schema_name(),
-                    where=where_predicate,
-                )
-                result = backend.delete(delete_opts)
+        if not cls.is_composite_pk():
+            pk_column = cls.primary_key()
+            pk_field = cls._get_field_name(pk_column)
+            pk_values = [getattr(r, pk_field) for r in records]
 
-        affected_rows = result.affected_rows
-        if affected_rows > 0:
-            for record in records:
-                if not is_soft_delete:
-                    setattr(record, pk_field, None)
-                record.reset_tracking()
-                record._trigger_event(ModelEvent.AFTER_DELETE)
+            dialect = backend.dialect
+            pk_col_expr = Column(dialect, pk_column)
+            where_predicate = InPredicate(dialect, pk_col_expr, Literal(dialect, pk_values))
+
+            with backend.transaction():
+                if is_soft_delete:
+                    data = records[0].prepare_delete()
+                    update_opts = UpdateOptions(
+                        table=cls.table_name(),
+                        schema_name=cls.schema_name(),
+                        data=data,
+                        where=where_predicate,
+                    )
+                    result = backend.update(update_opts)
+                else:
+                    delete_opts = DeleteOptions(
+                        table=cls.table_name(),
+                        schema_name=cls.schema_name(),
+                        where=where_predicate,
+                    )
+                    result = backend.delete(delete_opts)
+
+            affected_rows = result.affected_rows
+            if affected_rows > 0:
+                for record in records:
+                    if not is_soft_delete:
+                        setattr(record, pk_field, None)
+                    record.reset_tracking()
+                    record._trigger_event(ModelEvent.AFTER_DELETE)
+        else:
+            predicates = [cls._build_pk_where_predicate(r._get_pk_value()) for r in records]
+            combined = predicates[0]
+            for p in predicates[1:]:
+                combined = combined | p
+            where_predicate = combined
+
+            with backend.transaction():
+                if is_soft_delete:
+                    data = records[0].prepare_delete()
+                    update_opts = UpdateOptions(
+                        table=cls.table_name(),
+                        schema_name=cls.schema_name(),
+                        data=data,
+                        where=where_predicate,
+                    )
+                    result = backend.update(update_opts)
+                else:
+                    delete_opts = DeleteOptions(
+                        table=cls.table_name(),
+                        schema_name=cls.schema_name(),
+                        where=where_predicate,
+                    )
+                    result = backend.delete(delete_opts)
+
+            affected_rows = result.affected_rows
+            if affected_rows > 0:
+                for record in records:
+                    if not is_soft_delete:
+                        for pk_field in cls.primary_key_fields():
+                            setattr(record, pk_field, None)
+                    record.reset_tracking()
+                    record._trigger_event(ModelEvent.AFTER_DELETE)
 
         return affected_rows
 
@@ -458,38 +503,45 @@ class AsyncBulkOperationsMixin:
         for record in records:
             record._prepare_save_data()
 
-        pk_column = cls.primary_key()
-        pk_field = cls._get_field_name(pk_column)
-        pk_values = [getattr(r, pk_field) for r in records]
+        if not cls.is_composite_pk():
+            pk_column = cls.primary_key()
+            pk_field = cls._get_field_name(pk_column)
+            pk_values = [getattr(r, pk_field) for r in records]
 
-        field_values = {}
-        for field_name in fields:
-            col_name = cls._get_column_name(field_name)
-            field_values[col_name] = [getattr(r, field_name) for r in records]
+            field_values = {}
+            for field_name in fields:
+                col_name = cls._get_column_name(field_name)
+                field_values[col_name] = [getattr(r, field_name) for r in records]
 
-        total_affected = 0
+            total_affected = 0
 
-        async def _do_batch(batch_pk_values, batch_field_values):
-            opts = BulkUpdateOptions(
-                table=cls.table_name(),
-                schema_name=cls.schema_name(),
-                pk_column=pk_column,
-                pk_values=batch_pk_values,
-                field_values=batch_field_values,
-                auto_commit=False,
-            )
-            result = await backend.bulk_update(opts)
-            return result.affected_rows
+            async def _do_batch(batch_pk_values, batch_field_values):
+                opts = BulkUpdateOptions(
+                    table=cls.table_name(),
+                    schema_name=cls.schema_name(),
+                    pk_column=pk_column,
+                    pk_values=batch_pk_values,
+                    field_values=batch_field_values,
+                    auto_commit=False,
+                )
+                result = await backend.bulk_update(opts)
+                return result.affected_rows
 
-        async with backend.transaction():
-            if batch_size and batch_size > 0:
-                for start in range(0, len(pk_values), batch_size):
-                    end = start + batch_size
-                    batch_pks = pk_values[start:end]
-                    batch_fv = {col: vals[start:end] for col, vals in field_values.items()}
-                    total_affected += await _do_batch(batch_pks, batch_fv)
-            else:
-                total_affected = await _do_batch(pk_values, field_values)
+            async with backend.transaction():
+                if batch_size and batch_size > 0:
+                    for start in range(0, len(pk_values), batch_size):
+                        end = start + batch_size
+                        batch_pks = pk_values[start:end]
+                        batch_fv = {col: vals[start:end] for col, vals in field_values.items()}
+                        total_affected += await _do_batch(batch_pks, batch_fv)
+                else:
+                    total_affected = await _do_batch(pk_values, field_values)
+        else:
+            total_affected = 0
+            async with backend.transaction():
+                for record in records:
+                    affected = await record.save()
+                    total_affected += affected
 
         for record in records:
             record.reset_tracking()
@@ -527,40 +579,74 @@ class AsyncBulkOperationsMixin:
         for record in records:
             record._trigger_event(ModelEvent.BEFORE_DELETE)
 
-        pk_column = cls.primary_key()
-        pk_field = cls._get_field_name(pk_column)
-        pk_values = [getattr(r, pk_field) for r in records]
-
-        dialect = backend.dialect
-        pk_col_expr = Column(dialect, pk_column)
-        where_predicate = InPredicate(dialect, pk_col_expr, Literal(dialect, pk_values))
-
         is_soft_delete = hasattr(records[0], "prepare_delete")
 
-        async with backend.transaction():
-            if is_soft_delete:
-                data = records[0].prepare_delete()
-                update_opts = UpdateOptions(
-                    table=cls.table_name(),
-                    schema_name=cls.schema_name(),
-                    data=data,
-                    where=where_predicate,
-                )
-                result = await backend.update(update_opts)
-            else:
-                delete_opts = DeleteOptions(
-                    table=cls.table_name(),
-                    schema_name=cls.schema_name(),
-                    where=where_predicate,
-                )
-                result = await backend.delete(delete_opts)
+        if not cls.is_composite_pk():
+            pk_column = cls.primary_key()
+            pk_field = cls._get_field_name(pk_column)
+            pk_values = [getattr(r, pk_field) for r in records]
 
-        affected_rows = result.affected_rows
-        if affected_rows > 0:
-            for record in records:
-                if not is_soft_delete:
-                    setattr(record, pk_field, None)
-                record.reset_tracking()
-                record._trigger_event(ModelEvent.AFTER_DELETE)
+            dialect = backend.dialect
+            pk_col_expr = Column(dialect, pk_column)
+            where_predicate = InPredicate(dialect, pk_col_expr, Literal(dialect, pk_values))
+
+            async with backend.transaction():
+                if is_soft_delete:
+                    data = records[0].prepare_delete()
+                    update_opts = UpdateOptions(
+                        table=cls.table_name(),
+                        schema_name=cls.schema_name(),
+                        data=data,
+                        where=where_predicate,
+                    )
+                    result = await backend.update(update_opts)
+                else:
+                    delete_opts = DeleteOptions(
+                        table=cls.table_name(),
+                        schema_name=cls.schema_name(),
+                        where=where_predicate,
+                    )
+                    result = await backend.delete(delete_opts)
+
+            affected_rows = result.affected_rows
+            if affected_rows > 0:
+                for record in records:
+                    if not is_soft_delete:
+                        setattr(record, pk_field, None)
+                    record.reset_tracking()
+                    record._trigger_event(ModelEvent.AFTER_DELETE)
+        else:
+            predicates = [cls._build_pk_where_predicate(r._get_pk_value()) for r in records]
+            combined = predicates[0]
+            for p in predicates[1:]:
+                combined = combined | p
+            where_predicate = combined
+
+            async with backend.transaction():
+                if is_soft_delete:
+                    data = records[0].prepare_delete()
+                    update_opts = UpdateOptions(
+                        table=cls.table_name(),
+                        schema_name=cls.schema_name(),
+                        data=data,
+                        where=where_predicate,
+                    )
+                    result = await backend.update(update_opts)
+                else:
+                    delete_opts = DeleteOptions(
+                        table=cls.table_name(),
+                        schema_name=cls.schema_name(),
+                        where=where_predicate,
+                    )
+                    result = await backend.delete(delete_opts)
+
+            affected_rows = result.affected_rows
+            if affected_rows > 0:
+                for record in records:
+                    if not is_soft_delete:
+                        for pk_field in cls.primary_key_fields():
+                            setattr(record, pk_field, None)
+                    record.reset_tracking()
+                    record._trigger_event(ModelEvent.AFTER_DELETE)
 
         return affected_rows
