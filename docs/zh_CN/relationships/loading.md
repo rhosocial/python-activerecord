@@ -99,6 +99,51 @@ for user in users_with_relations:
 
 > 💡 **AI提示词示例**: "如何使用with_()方法进行预加载？预加载能带来什么性能提升？"
 
+### 嵌套预加载
+
+使用点号（`.`）语法预加载深层关联：
+
+```python
+# 预加载用户的文章，同时预加载文章的评论
+users = User.query().with_('posts.comments').all()
+
+for user in users:
+    for post in user.posts():  # 不触发查询
+        comments = post.comments()  # 不触发查询
+```
+
+### 带修饰器的预加载
+
+对预加载的关联数据进行过滤或排序：
+
+```python
+from rhosocial.activerecord.query import ActiveQuery
+
+# 只预加载已发布的文章，并按创建时间倒序排列
+users = User.query().with_(
+    ('posts', lambda q: q.where(Post.c.published == True)
+                        .order_by(Post.c.created_at.desc()))
+).all()
+
+for user in users:
+    # posts 已过滤为已发布的文章
+    for post in user.posts():
+        print(post.title)
+```
+
+### 预加载多个关联
+
+```python
+# 同时预加载多个关联
+users = User.query().with_('profile').with_('posts').with_('roles').all()
+
+# 嵌套与修饰器混合
+users = User.query().with_(
+    'profile',
+    ('posts', lambda q: q.where(Post.c.published == True)),
+).all()
+```
+
 ## 延迟加载 (Lazy Loading)
 
 默认情况下，关系是延迟加载的。只有当你调用关系方法时，才会执行 SQL 查询。

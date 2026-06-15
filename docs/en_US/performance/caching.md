@@ -108,3 +108,55 @@ user.posts.clear_cache()
 ```
 
 > **Note**: Relation cache is **instance-level**. Different model instances (even if representing the same database record) have their own independent caches.
+
+## Cache Backend Protocol
+
+Since v1.0.0.dev28, relation caching supports pluggable cache backends via the `CacheBackend` protocol.
+
+### Built-in Backends
+
+| Backend | Class | Description |
+|---------|-------|-------------|
+| **In-Memory** | `InMemoryCache` | Default backend, cache stored in model instance attributes |
+| **Redis** | `RedisCache` | Distributed cache supporting cross-process sharing |
+
+### Using Redis Cache
+
+```python
+from rhosocial.activerecord.relation.cache_backends.redis import RedisCache
+import redis.asyncio as aioredis
+
+redis_client = aioredis.from_url("redis://localhost:6379/0")
+
+cache = RedisCache(
+    client=redis_client,
+    ttl=600,
+    prefix="myapp:"
+)
+```
+
+### CacheResult Metadata
+
+Cache query results come with metadata:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `age` | float | Seconds since cached |
+| `origin` | str | Data source (`"cache"` / `"database"`) |
+| `ttl` | Optional[int] | Remaining TTL in seconds |
+
+### Custom Cache Backend
+
+Implement the `CacheBackend` protocol:
+
+```python
+from typing import Protocol, Optional, TypeVar, Generic
+from rhosocial.activerecord.relation.cache_backends._protocol import CacheBackend, CacheResult
+
+T = TypeVar('T')
+
+class MyBackend(CacheBackend[T]):
+    def get(self, key: str) -> Optional[CacheResult[T]]: ...
+    def set(self, key: str, value: T, ttl: Optional[int] = None) -> None: ...
+    def delete(self, key: str) -> None: ...
+```

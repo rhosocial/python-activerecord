@@ -36,12 +36,14 @@
 
 * [概述](modeling/README.md)
 * [字段定义](modeling/fields.md)
+* [推导字段](modeling/derived_fields.md)
 * [Mixin 与复用](modeling/mixins.md)
 * [验证与生命周期](modeling/validation.md)
 * [自定义类型](modeling/custom_types.md)
 * [模型最佳实践](modeling/best_practices.md)
 * [只读模型](modeling/readonly_models.md)
-* [批量处理](modeling/batch_processing.md)
+* [批量处理（模型层）](modeling/bulk_operations.md)
+* [批量处理（后端层）](modeling/batch_processing.md)
 * [并发](modeling/concurrency.md)
 * [配置管理](modeling/configuration_management.md)
 * [DDL](modeling/ddl.md)
@@ -53,6 +55,7 @@
 * [基础关系](relationships/definitions.md)
 * [多对多关系](relationships/many_to_many.md)
 * [加载策略](relationships/loading.md)
+* [预加载详解](relationships/eager_loading.md)
 
 ## 查询接口
 
@@ -61,6 +64,7 @@
 * [CTEQuery](querying/cte_query.md)
 * [SetOperationQuery](querying/set_operation_query.md)
 * [查询速查表](querying/cheatsheet.md)
+* [属性图查询](querying/graph_query.md)
 * [复杂查询实战](querying/recipes.md)
 
 ## 连接管理
@@ -85,6 +89,7 @@
 * [运行模式](performance/modes.md)
 * [并发控制](performance/concurrency.md)
 * [缓存机制](performance/caching.md)
+* [关系缓存后端](performance/relation_cache.md)
 * [批量操作](performance/batch_operations.md)
 
 ## 日志系统

@@ -237,4 +237,26 @@ The `inverse_of` parameter specifies the name of the reverse relationship. This 
 
 > 💡 **AI Prompt Example**: "What happens if `inverse_of` doesn't match the actual relationship name? How do I debug relationship configuration issues?"
 
+## Type Resolution and Forward References
+
+Relationship descriptors support **string-based forward references**, allowing you to reference model classes that haven't been defined yet. The type resolution mechanism completes automatically at class creation time:
+
+```python
+# Forward reference: Post is defined later
+class User(ActiveRecord):
+    username: str
+    posts: ClassVar[HasMany['Post']] = HasMany(foreign_key='user_id', inverse_of='author')
+
+class Post(ActiveRecord):
+    title: str
+    user_id: int
+    author: ClassVar[BelongsTo['User']] = BelongsTo(foreign_key='user_id', inverse_of='posts')
+```
+
+Since v1.0.0.dev28, type resolution is centralized in the `type_resolver` module, handling the following scenarios uniformly:
+
+- **Python < 3.12 `__set_name__` compatibility**: `RuntimeError` is automatically unwrapped, ensuring correct behavior on Python 3.8–3.11.
+- **Model classes defined inside methods**: Correctly resolves forward references for model classes defined inside functions or methods.
+- **Descriptor compatibility validation**: Sync/async descriptor mixing detection is lifted from `__set_name__` to the metaclass, raising `TypeError` at class creation time on failure.
+
 > 💡 **AI Prompt Example**: "Why must relationship descriptors be declared with ClassVar? What are the consequences of not doing so?"

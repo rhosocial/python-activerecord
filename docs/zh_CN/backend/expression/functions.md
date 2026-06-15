@@ -1178,6 +1178,233 @@ sql, params = e.to_sql()
 # params: ("YEAR",)
 ```
 
+## SQL/XML 函数
+
+本节介绍 SQL/XML 标准表达式工厂函数，定义在 `rhosocial.activerecord.backend.expression.functions.xml`。
+
+### xmlparse
+
+XML 解析：将字符串解析为 XML 类型。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlparse
+
+# 将字符串解析为 XML DOCUMENT
+expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="DOCUMENT")
+sql, params = expr.to_sql()
+# sql: 'XMLPARSE(DOCUMENT "xml_string")'
+# params: ()
+
+# 将字符串解析为 XML CONTENT
+expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="CONTENT")
+```
+
+### xmlserialize
+
+XML 序列化：将 XML 类型序列化为字符串。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlserialize
+
+expr = xmlserialize(dialect, Column(dialect, "xml_data"), "VARCHAR(255)")
+sql, params = expr.to_sql()
+# sql: 'XMLSERIALIZE(DOCUMENT "xml_data" AS VARCHAR(255))'
+# params: ()
+```
+
+### xmlelement
+
+构造 XML 元素。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlelement, xmlattributes
+
+# 简单元素
+elem = xmlelement(dialect, "name", Column(dialect, "user_name"))
+sql, params = elem.to_sql()
+# sql: 'XMLELEMENT(NAME "name", "user_name")'
+# params: ()
+
+# 带属性的元素
+elem = xmlelement(dialect, "person",
+    xmlattributes(dialect, Column(dialect, "id"), "id"),
+    Column(dialect, "name"))
+```
+
+### xmlforest
+
+构造 XML 森林（多个元素的序列）。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlforest
+
+expr = xmlforest(dialect,
+    (Column(dialect, "first_name"), "first"),
+    (Column(dialect, "last_name"), "last"))
+sql, params = expr.to_sql()
+# sql: 'XMLFOREST("first_name" AS "first", "last_name" AS "last")'
+# params: ()
+```
+
+### xmlconcat
+
+连接多个 XML 值。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlconcat
+
+expr = xmlconcat(dialect, Column(dialect, "xml1"), Column(dialect, "xml2"))
+```
+
+### xmlcomment
+
+创建 XML 注释。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlcomment
+
+expr = xmlcomment(dialect, "This is a comment")
+# sql: 'XMLCOMMENT(?)'
+# params: ("This is a comment",)
+```
+
+### xmlpi
+
+创建 XML 处理指令。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlpi
+
+expr = xmlpi(dialect, "xml-stylesheet", "type=\"text/xsl\" href=\"style.xsl\"")
+# sql: 'XMLPI(NAME "xml-stylesheet", ?)'
+# params: ('type="text/xsl" href="style.xsl"',)
+```
+
+### xmlroot
+
+修改 XML 值的根节点属性。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlroot
+
+expr = xmlroot(dialect, Column(dialect, "xml_data"), version="1.0", standalone="YES")
+```
+
+### xmlagg
+
+XML 聚合函数。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlagg
+
+expr = xmlagg(dialect, Column(dialect, "xml_column"), alias="combined_xml")
+# sql: 'XMLAGG("xml_column") AS "combined_xml"'
+# params: ()
+```
+
+### xmlquery
+
+XQuery 查询评估。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlquery
+
+expr = xmlquery(dialect, "/root/element/text()",
+    passing=Column(dialect, "xml_column"))
+# sql: 'XMLQUERY(?) PASSING BY VALUE "xml_column" EMPTY ON EMPTY'
+# params: ('/root/element/text()',)
+```
+
+### xmlexists
+
+XQuery 存在性检查。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlexists
+
+expr = xmlexists(dialect, "/root/element",
+    passing=Column(dialect, "xml_column"))
+# sql: 'XMLEXISTS(?) PASSING BY VALUE "xml_column"'
+# params: ('/root/element',)
+```
+
+### xmltable
+
+通过 XQuery 表达式生成表值。
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmltable
+
+expr = xmltable(dialect,
+    xquery="/root/row",
+    passing=Column(dialect, "xml_data"),
+    columns=[
+        ("id", "INTEGER", "id"),
+        ("name", "VARCHAR(100)", "name"),
+    ])
+# sql: 'XMLTABLE(?) PASSING BY VALUE "xml_data" COLUMNS ("id" INTEGER PATH "id", "name" VARCHAR(100) PATH "name")'
+# params: ('/root/row',)
+```
+
+## 日期时间间隔表达式
+
+定义在 `rhosocial.activerecord.backend.expression.functions.datetime` 的函数。
+
+### extract
+
+创建结构化的 `EXTRACT` 表达式（相比 `core.md` 中的 `extract` 函数，本实现支持更严格的字段枚举）。
+
+```python
+from rhosocial.activerecord.backend.expression.datetime import ExtractExpression, DateTimeField
+
+# 提取年份
+expr = ExtractExpression(dialect, DateTimeField.YEAR, Column(dialect, "created_at"))
+sql, params = expr.to_sql()
+# sql: 'EXTRACT(YEAR FROM "created_at")'
+# params: ()
+```
+
+### interval
+
+创建结构化时间间隔值。
+
+```python
+from rhosocial.activerecord.backend.expression.datetime import IntervalExpression, IntervalUnit
+
+# 间隔 7 天
+interval = IntervalExpression(dialect, 7, IntervalUnit.DAY)
+sql, params = interval.to_sql()
+# sql: 'INTERVAL ? DAY'
+# params: (7,)
+```
+
+### 日期时间运算
+
+```python
+from rhosocial.activerecord.backend.expression.datetime import (
+    DateTimeAddExpression, DateTimeSubtractExpression, DateTimeDiffExpression,
+    IntervalExpression, IntervalUnit, DateTimeField
+)
+
+# 日期 + 间隔
+expr = DateTimeAddExpression(dialect,
+    Column(dialect, "created_at"),
+    IntervalExpression(dialect, 30, IntervalUnit.DAY))
+# sql: '"created_at" + INTERVAL ? DAY'
+# params: (30,)
+
+# 日期 - 间隔
+expr = DateTimeSubtractExpression(dialect,
+    Column(dialect, "created_at"),
+    IntervalExpression(dialect, 7, IntervalUnit.DAY))
+
+# 日期差值
+expr = DateTimeDiffExpression(dialect, DateTimeField.DAY,
+    Column(dialect, "start_date"),
+    Column(dialect, "end_date"))
+# sql: 'DATEDIFF(DAY, "start_date", "end_date")'
+```
+
 ### current_user, session_user, system_user
 
 创建 SQL:2003 零元值函数。生成不含括号的 `CURRENT_USER`、`SESSION_USER`、`SYSTEM_USER`。
