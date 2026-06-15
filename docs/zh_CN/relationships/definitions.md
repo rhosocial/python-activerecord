@@ -259,3 +259,25 @@ class AsyncUser(AsyncActiveRecord):
 - 如果双向关系的 `inverse_of` 不匹配，可能导致预加载数据无法正确关联
 
 > 💡 **AI提示词示例**: "inverse_of 参数有什么作用？如果设置错误会有什么后果？如何调试关系定义问题？"
+
+## 类型解析与前向引用
+
+关系描述符支持**字符串前向引用**，允许在定义时引用尚未定义的模型类。类型解析机制在类创建时自动完成：
+
+```python
+# 前向引用：Post 类在之后才定义
+class User(ActiveRecord):
+    username: str
+    posts: ClassVar[HasMany['Post']] = HasMany(foreign_key='user_id', inverse_of='author')
+
+class Post(ActiveRecord):
+    title: str
+    user_id: int
+    author: ClassVar[BelongsTo['User']] = BelongsTo(foreign_key='user_id', inverse_of='posts')
+```
+
+从 v1.0.0.dev28 开始，类型解析已集中到 `type_resolver` 模块，统一处理以下场景：
+
+- **`__set_name__` 中的 Python < 3.12 兼容性**：`RuntimeError` 自动解包，确保在 Python 3.8–3.11 上正常工作。
+- **方法内定义的模型类**：支持在函数或方法内部定义模型类时正确解析前向引用。
+- **描述符兼容性校验**：同步/异步描述符混用检测从 `__set_name__` 提升到元类，失败时在类创建瞬间抛出 `TypeError`。

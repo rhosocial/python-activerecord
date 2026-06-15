@@ -99,6 +99,50 @@ for user in users_with_relations:
 
 > 💡 **AI Prompt Example**: "How to use the with_() method for eager loading? What performance improvements can eager loading bring?"
 
+### Nested Eager Loading
+
+Use dot (`.`) syntax to eager load deeply nested relationships:
+
+```python
+# Eager load users with posts and comments on those posts
+users = User.query().with_('posts.comments').all()
+
+for user in users:
+    for post in user.posts():  # No query triggered
+        comments = post.comments()  # No query triggered
+```
+
+### Eager Loading with Modifiers
+
+Filter or sort eagerly loaded relationships:
+
+```python
+from rhosocial.activerecord.query import ActiveQuery
+
+# Only eager load published posts, ordered by creation time descending
+users = User.query().with_(
+    ('posts', lambda q: q.where(Post.c.published == True)
+                        .order_by(Post.c.created_at.desc()))
+).all()
+
+for user in users:
+    for post in user.posts():
+        print(post.title)
+```
+
+### Multiple Relationships
+
+```python
+# Eager load multiple relationships simultaneously
+users = User.query().with_('profile').with_('posts').with_('roles').all()
+
+# Mix nested paths with modifiers
+users = User.query().with_(
+    'profile',
+    ('posts', lambda q: q.where(Post.c.published == True)),
+).all()
+```
+
 ## Lazy Loading
 
 By default, relationships are lazily loaded. SQL is executed only when you call the relationship method.

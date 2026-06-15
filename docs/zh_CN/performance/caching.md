@@ -112,4 +112,64 @@ user.clear_relation_cache('posts')
 user.clear_relation_cache()
 ```
 
+## 缓存后端协议
+
+从 v1.0.0.dev28 开始，关系缓存支持通过 `CacheBackend` 协议扩展不同的缓存后端。
+
+### 内置后端
+
+| 后端 | 类名 | 说明 |
+|------|------|------|
+| **内存缓存** | `InMemoryCache` | 默认后端，缓存存储在模型实例属性中 |
+| **Redis 缓存** | `RedisCache` | 分布式缓存，支持跨进程缓存共享 |
+
+### 使用 Redis 缓存
+
+```python
+from rhosocial.activerecord.relation.cache_backends.redis import RedisCache
+import redis.asyncio as aioredis
+
+# 配置 Redis 客户端
+redis_client = aioredis.from_url("redis://localhost:6379/0")
+
+# 创建 Redis 缓存后端
+redis_cache = RedisCache(
+    client=redis_client,
+    ttl=600,          # 可选：覆盖默认 TTL
+    prefix="myapp:"   # 可选：键前缀，避免与其他应用冲突
+)
+
+# 将 Redis 后端应用到某个关系
+# 具体接入方式取决于模型定义
+```
+
+### CacheResult 元数据
+
+缓存查询结果附带元数据：
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `age` | float | 缓存已存在的时间（秒） |
+| `origin` | str | 数据来源（如 `"cache"` / `"database"`） |
+| `ttl` | Optional[int] | 缓存剩余有效期 |
+
+### 自定义缓存后端
+
+实现 `CacheBackend` 协议即可接入自定义后端：
+
+```python
+from typing import Protocol, Optional, TypeVar, Generic
+from rhosocial.activerecord.relation.cache_backends._protocol import CacheBackend, CacheResult, CacheSerializer
+
+T = TypeVar('T')
+
+class MyCustomBackend(CacheBackend[T]):
+    def get(self, key: str) -> Optional[CacheResult[T]]:
+        ...
+    def set(self, key: str, value: T, ttl: Optional[int] = None) -> None:
+        ...
+    def delete(self, key: str) -> None:
+        ...
+```
+
 > 💡 **AI提示词示例**: "如何配置关系缓存的有效期？如何在高并发场景下管理缓存？"

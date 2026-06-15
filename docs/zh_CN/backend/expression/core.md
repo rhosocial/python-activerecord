@@ -412,3 +412,29 @@ from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
 # 示例: 原始 SQL 条件
 pred = RawSQLPredicate(dialect, "EXISTS (SELECT 1 FROM log WHERE log.user_id = users.id)")
 ```
+
+## COLLATE 表达式
+
+`CollateExpression`（定义在 `rhosocial.activerecord.backend.expression.collation`）为 SQL 值表达式应用显式排序规则。
+
+```python
+from rhosocial.activerecord.backend.expression.collation import collate
+
+# 基本用法：为列指定排序规则
+expr = collate(Column(dialect, "name"), "Chinese_PRC_CI_AS")
+sql, params = expr.to_sql()
+# sql: '"name" COLLATE "Chinese_PRC_CI_AS"'
+# params: ()
+
+# 链式操作：排序规则后的表达式仍支持所有 Mixin 操作
+expr = collate(Column(dialect, "name"), "NOCASE") == "alice"
+sql, params = expr.to_sql()
+# sql: '"name" COLLATE "NOCASE" = ?'
+# params: ("alice",)
+```
+
+`CollateExpression` 混入了 `AliasableMixin`、`ArithmeticMixin`、`ComparisonMixin`、`StringMixin` 和 `TypeCastingMixin`，可以像普通 SQL 值表达式一样参与运算、比较和别名。
+
+### 方言集成
+
+各后端方言需要实现 `supports_collation()` 和 `format_collation()` 方法来支持 COLLATE 子句的格式化。SQLite 后端提供了内置的 COLLATE 格式化支持。

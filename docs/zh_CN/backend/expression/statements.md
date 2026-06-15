@@ -629,7 +629,66 @@ sql, params = refresh_mv.to_sql()
 # params: ()
 ```
 
-#### 检查物化视图支持
+#### Partition DDL（表分区）
+
+`PartitionClause`（定义在 `rhosocial.activerecord.backend.expression.statements.ddl_partition`）为 `CREATE TABLE` 语句添加 `PARTITION BY` 子句。
+
+支持三种分区策略：
+
+| 策略 | 说明 | 示例 |
+|------|------|------|
+| `RANGE` | 范围分区 | `PARTITION BY RANGE (created_at)` |
+| `LIST` | 列表分区 | `PARTITION BY LIST (region)` |
+| `HASH` | 哈希分区 | `PARTITION BY HASH (user_id)` |
+
+```python
+from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause, PartitionStrategy
+
+# RANGE 分区
+partition = PartitionClause(
+    dialect,
+    method=PartitionStrategy.RANGE,
+    keys=["created_at"]
+)
+
+# 在 CREATE TABLE 中使用
+from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition
+
+create = CreateTableExpression(
+    dialect,
+    table_name="orders",
+    columns=[
+        ColumnDefinition(dialect, "id", "INTEGER", primary_key=True),
+        ColumnDefinition(dialect, "created_at", "TIMESTAMP"),
+        ColumnDefinition(dialect, "amount", "DECIMAL(10,2)"),
+    ],
+    partition_clause=partition
+)
+# sql: 'CREATE TABLE "orders" ("id" INTEGER PRIMARY KEY, "created_at" TIMESTAMP, "amount" DECIMAL(10,2)) PARTITION BY RANGE ("created_at")'
+# params: ()
+```
+
+### 方言检查
+
+在使用分区功能之前，应检查数据库是否支持：
+
+```python
+# 检查表分区支持
+if dialect.supports_table_partitioning():
+    # 可以使用 PARTITION BY
+
+# 检查具体分区类型
+if dialect.supports_range_partitioning():
+    pass
+if dialect.supports_list_partitioning():
+    pass
+if dialect.supports_hash_partitioning():
+    pass
+```
+
+> **注意**：分区 DDL 功能由 dialect 的 `PartitionMixin` 提供，各后端需要实现相应接口。目前支持 `supports_table_partitioning()` 等 10 个能力查询方法。
+
+### 检查物化视图支持
 
 在使用物化视图之前，应检查数据库是否支持相关功能：
 
