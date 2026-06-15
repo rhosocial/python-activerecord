@@ -1,13 +1,14 @@
 # tests/rhosocial/activerecord_test/feature/relation/test_type_resolver.py
 """Tests for the centralized type_resolver module."""
 
-from typing import ClassVar, ForwardRef
+from typing import ClassVar, ForwardRef, Optional
 
 import pytest
 from pydantic import BaseModel
 
 from rhosocial.activerecord.relation.base import RelationManagementMixin
 from rhosocial.activerecord.relation.descriptors import BelongsTo, HasMany
+from rhosocial.activerecord.relation.async_descriptors import AsyncBelongsTo
 from rhosocial.activerecord.relation.type_resolver import (
     resolve_model_fqn,
     evaluate_annotation,
@@ -129,3 +130,113 @@ class TestDescriptorCompat:
     These tests are covered comprehensively in test_descriptor_compat.py.
     This file focuses on the type_resolver utilities.
     """
+
+
+class TestRelatedModelTypeValidation:
+    """Ensure relation target models are validated at resolution time."""
+
+    def test_sync_descriptor_target_must_be_sync_model(self):
+        from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
+
+        class AsyncTarget(AsyncActiveRecord):
+            __table_name__ = "async_target_check"
+            id: Optional[int] = None
+
+        class Owner(ActiveRecord):
+            __table_name__ = "owner_check"
+            id: Optional[int] = None
+            ref_id: int
+            bad: ClassVar[BelongsTo["AsyncTarget"]] = BelongsTo(foreign_key="ref_id", inverse_of=None)
+
+        # cross sync/async is caught at load time, not resolution time
+        desc = Owner.get_relation("bad")
+        model = desc.get_related_model(Owner)
+        assert model is AsyncTarget
+        with pytest.raises(TypeError, match="must be a subclass of IActiveRecord"):
+            desc._ensure_model_capability()
+
+    def test_async_descriptor_target_must_be_async_model(self):
+        from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
+
+        class SyncTarget(ActiveRecord):
+            __table_name__ = "sync_target_check"
+            id: Optional[int] = None
+
+        class Owner(AsyncActiveRecord):
+            __table_name__ = "owner_check2"
+            id: Optional[int] = None
+            ref_id: int
+            bad: ClassVar[AsyncBelongsTo["SyncTarget"]] = AsyncBelongsTo(foreign_key="ref_id", inverse_of=None)
+
+        desc = Owner.get_relation("bad")
+        model = desc.get_related_model(Owner)
+        assert model is SyncTarget
+        with pytest.raises(TypeError, match="must be a subclass of IAsyncActiveRecord"):
+            desc._ensure_model_capability()
+
+    def test_sync_descriptor_target_not_activerecord_raises(self):
+        class PlainClass:
+            pass
+
+        class Owner(RelationManagementMixin, BaseModel):
+            id: int
+            ref_id: int
+            rel: ClassVar[BelongsTo["PlainClass"]] = BelongsTo(foreign_key="ref_id", inverse_of=None)
+
+        desc = Owner.get_relation("rel")
+        with pytest.raises(TypeError, match="must support relation management"):
+            desc.get_related_model(Owner)
+
+    def test_async_descriptor_target_not_activerecord_raises(self):
+        class PlainClass:
+            pass
+
+        from rhosocial.activerecord.model import AsyncActiveRecord
+
+        class Owner(AsyncActiveRecord):
+            __table_name__ = "owner_check3"
+            id: Optional[int] = None
+            ref_id: int
+            rel: ClassVar[AsyncBelongsTo["PlainClass"]] = AsyncBelongsTo(foreign_key="ref_id", inverse_of=None)
+
+        desc = Owner.get_relation("rel")
+        with pytest.raises(TypeError, match="must support relation management"):
+            desc.get_related_model(Owner)
+
+    def test_sync_descriptor_target_is_sync_model_passes(self):
+        from rhosocial.activerecord.model import ActiveRecord
+
+        class SyncTarget(ActiveRecord):
+            __table_name__ = "sync_target3"
+            id: Optional[int] = None
+
+        class Owner(ActiveRecord):
+            __table_name__ = "owner_check4"
+            id: Optional[int] = None
+            ref_id: int
+            good: ClassVar[BelongsTo["SyncTarget"]] = BelongsTo(foreign_key="ref_id", inverse_of=None)
+
+        desc = Owner.get_relation("good")
+        result = desc.get_related_model(Owner)
+        assert result is SyncTarget
+        # load-level check also passes
+        desc._ensure_model_capability()
+
+    def test_async_descriptor_target_is_async_model_passes(self):
+        from rhosocial.activerecord.model import AsyncActiveRecord
+
+        class AsyncTarget(AsyncActiveRecord):
+            __table_name__ = "async_target3"
+            id: Optional[int] = None
+
+        class Owner(AsyncActiveRecord):
+            __table_name__ = "owner_check5"
+            id: Optional[int] = None
+            ref_id: int
+            good: ClassVar[AsyncBelongsTo["AsyncTarget"]] = AsyncBelongsTo(foreign_key="ref_id", inverse_of=None)
+
+        desc = Owner.get_relation("good")
+        result = desc.get_related_model(Owner)
+        assert result is AsyncTarget
+        # load-level check also passes
+        desc._ensure_model_capability()

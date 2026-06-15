@@ -179,6 +179,7 @@ def resolve_relation_type(owner: Type[Any], field_name: str) -> Union[None, Type
     Raises:
         TypeError: If the annotation is found but cannot be unwrapped.
     """
+    import sys
     import typing
 
     raw_hints = getattr(owner, "__annotations__", {})
@@ -194,7 +195,10 @@ def resolve_relation_type(owner: Type[Any], field_name: str) -> Union[None, Type
 
     if isinstance(raw, str):
         ns = _build_owner_namespace(owner)
-        evaluated = typing.get_type_hints(owner, localns=ns, include_extras=False)
+        if sys.version_info >= (3, 11):
+            evaluated = typing.get_type_hints(owner, localns=ns, include_extras=False)
+        else:
+            evaluated = typing.get_type_hints(owner, localns=ns)
         annotation = evaluated.get(field_name)
         if annotation is not None and annotation is not raw:
             raw = annotation

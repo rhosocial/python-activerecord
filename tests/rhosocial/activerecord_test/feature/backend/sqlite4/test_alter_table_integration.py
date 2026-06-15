@@ -171,12 +171,18 @@ class TestAlterTableAddConstraint:
 
     SQLite dialect's supports_add_constraint() depends on version.
     We skip if the dialect reports it as unsupported.
+
+    Note: SQLite 3.53.0+ ALTER TABLE ADD CONSTRAINT only supports
+    NOT NULL and CHECK constraints — not UNIQUE, PRIMARY KEY, or
+    FOREIGN KEY. This test uses CHECK to verify the mechanism.
     """
 
-    def test_add_unique_constraint_enforces_uniqueness(self, backend_with_users):
-        """ADD CONSTRAINT UNIQUE should prevent duplicate values."""
+    def test_add_check_constraint_enforces_non_null(self, backend_with_users):
+        """ADD CONSTRAINT CHECK should prevent NULL values."""
         if not backend_with_users.dialect.supports_add_constraint():
             pytest.skip("SQLite dialect does not support ALTER TABLE ADD CONSTRAINT")
+
+        from rhosocial.activerecord.backend.expression import Column
 
         # Add an email column
         add_action = AddColumn(
@@ -196,12 +202,14 @@ class TestAlterTableAddConstraint:
             ("Alice", "alice@example.com"),
         )
 
-        # Add UNIQUE constraint
+        # Add CHECK constraint: email IS NOT NULL
         add_constraint = AddTableConstraint(
             backend_with_users.dialect,
             constraint=TableConstraint(
-                constraint_type=TableConstraintType.UNIQUE,
-                columns=["email"],
+                constraint_type=TableConstraintType.CHECK,
+                check_condition=Column(
+                    backend_with_users.dialect, "email"
+                ).is_not_null(),
             ),
         )
         alter_constraint = AlterTableExpression(
@@ -211,11 +219,11 @@ class TestAlterTableAddConstraint:
         )
         backend_with_users.execute(*alter_constraint.to_sql())
 
-        # Attempting to insert duplicate should fail
+        # Attempting to insert NULL email should fail
         with pytest.raises(Exception):  # noqa: B017
             backend_with_users.execute(
                 "INSERT INTO users (name, email) VALUES (?, ?)",
-                ("Bob", "alice@example.com"),
+                ("Bob", None),
             )
 
 

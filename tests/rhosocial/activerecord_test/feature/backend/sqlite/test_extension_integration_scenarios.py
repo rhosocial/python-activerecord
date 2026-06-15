@@ -7,9 +7,18 @@ expression-dialect system for SQL generation. No raw SQL strings are used.
 """
 
 import json
+
 import pytest
+from rhosocial.activerecord.testsuite.utils import (
+    requires_functions,
+    requires_protocol,
+)
 
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.protocols import (
+    SQLiteFTS5Support,
+    SQLiteRTreeSupport,
+)
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5CreateVirtualTable,
     SQLiteMatchPredicate,
@@ -62,11 +71,11 @@ class TestGeoDocumentScenario:
         yield b
         b.disconnect()
 
+    @requires_protocol(SQLiteFTS5Support, 'supports_fts5')
+    @requires_protocol(SQLiteRTreeSupport, 'supports_rtree')
+    @requires_functions('json_extract_text')
     def test_full_scenario(self, backend):
         dialect = backend.dialect
-        if not dialect.supports_fts5() or not dialect.supports_rtree():
-            pytest.skip("FTS5 or R-Tree not available in this SQLite build")
-
         ddl = ExecutionOptions(stmt_type=StatementType.DDL)
         insert = ExecutionOptions(stmt_type=StatementType.INSERT)
 

@@ -179,6 +179,7 @@ class RelationDescriptor(Generic[T]):
 
         Raises:
             ValueError: If model cannot be resolved
+            TypeError: If resolved model is not assignable to IActiveRecord
         """
         if self._cached_model is None:
             self.log(logging.DEBUG, f"Resolving related model for `{self.name}`")
@@ -198,6 +199,17 @@ class RelationDescriptor(Generic[T]):
                 self._cached_model = None
                 raise ValueError(f"Unable to resolve relationship model for `{self.name}`")
 
+            from .interfaces import IRelationManagement
+
+            if not issubclass(self._cached_model, IRelationManagement):
+                model_name = getattr(self._cached_model, "__name__", str(self._cached_model))
+                raise TypeError(
+                    f"Related model `{model_name}` in relation `{self.name}` "
+                    f"must support relation management (IRelationManagement). "
+                    f"Got {self._cached_model} which is not compatible with descriptor "
+                    f"`{type(self).__name__}`."
+                )
+
             if self.inverse_of and self._validator:
                 try:
                     self.log(logging.DEBUG, f"Validating inverse relationship: {self.inverse_of}")
@@ -208,6 +220,28 @@ class RelationDescriptor(Generic[T]):
                     raise ValueError(f"Invalid relationship: {str(e)}") from e
 
         return self._cached_model
+
+    def _ensure_model_capability(self) -> None:
+        """
+        Verify the resolved model satisfies data-loading requirements.
+
+        Sync descriptors require the target model to be a subclass of
+        ``IActiveRecord`` so that ``query()``, ``backend()``, etc. are
+        available.
+
+        Raises:
+            TypeError: If the model lacks the required sync capability.
+        """
+        if self._cached_model is None:
+            return
+        if not issubclass(self._cached_model, IActiveRecord):
+            model_name = getattr(self._cached_model, "__name__", str(self._cached_model))
+            raise TypeError(
+                f"Related model `{model_name}` in relation `{self.name}` "
+                f"must be a subclass of IActiveRecord (sync model). "
+                f"Got `{model_name}` which is not compatible with sync descriptor "
+                f"`{type(self).__name__}`."
+            )
 
     def _resolve_model(self, owner: Type[Any]) -> Union[Type[T], str, ForwardRef]:
         """
@@ -277,6 +311,7 @@ class RelationDescriptor(Generic[T]):
         def query_method(instance):
             # Force model resolution if needed
             related_model = self.get_related_model(type(instance))
+            self._ensure_model_capability()
             # Start with base query for the related model
             query = related_model.query()
 
@@ -703,6 +738,8 @@ class DefaultIRelationLoader(IRelationLoader[R]):
             self._cached_model = model_class
 
         model_class = self._cached_model
+
+        self.descriptor._ensure_model_capability()
 
         # Use provided base_query or create new one
         query = base_query if base_query is not None else model_class.query()
