@@ -6,58 +6,14 @@ Provides AsyncBelongsTo, AsyncHasOne, and AsyncHasMany relationship types.
 
 import logging
 
-from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, Dict
+from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, ClassVar, List, Dict
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import IAsyncRelationValidation, IAsyncRelationLoader
+from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..interface import IAsyncActiveRecord, IAsyncActiveQuery
 
 U = TypeVar("U", bound=IAsyncActiveRecord)
-
-
-def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type[U]:
-    """
-    Evaluate forward reference in proper context.
-
-    Args:
-        ref: String or ForwardRef to evaluate
-        owner: Owner model class for resolution context
-
-    Returns:
-        Resolved model class
-    """
-    import sys
-    import inspect
-
-    # Walk up the stack to find the frame where `owner` was *defined*
-    # (not merely passed as a parameter). This supports model classes
-    # defined inside test methods or nested scopes.
-    frame = inspect.currentframe()
-    frame = frame.f_back
-    while frame:
-        local_context = frame.f_locals
-        if owner in local_context.values():
-            is_parameter = 'owner' in local_context and local_context.get('owner') is owner
-            if is_parameter:
-                frame = frame.f_back
-                continue
-            break
-        frame = frame.f_back
-    else:
-        local_context = {}
-
-    module = sys.modules[owner.__module__]
-    module_globals = {k: getattr(module, k) for k in dir(module)}
-    owner_locals = {owner.__name__: owner}
-
-    # Combine all contexts with priority to most specific scope
-    context = {}
-    context.update(module_globals)
-    context.update(local_context)
-    context.update(owner_locals)
-
-    type_str = ref if isinstance(ref, str) else ref.__forward_arg__
-    return eval(type_str, context, None)
 
 
 class AsyncRelationDescriptor(Generic[U]):
@@ -228,10 +184,19 @@ class AsyncRelationDescriptor(Generic[U]):
             self.log(logging.DEBUG, f"Resolving related model for `{self.name}`")
             self._cached_model = self._resolve_model(owner)
 
-            # Ensure model is fully resolved before validation
             if isinstance(self._cached_model, (str, ForwardRef)):
                 self.log(logging.DEBUG, f"Evaluating forward reference: {self._cached_model}")
-                self._cached_model = _evaluate_forward_ref(self._cached_model, owner)
+                try:
+                    self._cached_model = evaluate_annotation(self._cached_model, owner)
+                except NameError as e:
+                    self._cached_model = None
+                    raise ValueError(
+                        f"Cannot resolve forward reference for relation `{self.name}`: {e}"
+                    ) from e
+
+            if not isinstance(self._cached_model, type):
+                self._cached_model = None
+                raise ValueError(f"Unable to resolve relationship model for `{self.name}`")
 
             if self.inverse_of and self._validator:
                 try:
@@ -244,42 +209,20 @@ class AsyncRelationDescriptor(Generic[U]):
 
         return self._cached_model
 
-    def _resolve_model(self, owner: Type[Any]) -> Union[Type[U], ForwardRef, str]:
+    def _resolve_model(self, owner: Type[Any]) -> Union[Type[U], str, ForwardRef]:
         """
-        Resolve model type from annotations, handling both string and ForwardRef.
+        Resolve model type from annotations using the centralized type resolver.
 
-        Python 3.8+ compatible implementation that properly handles forward references.
+        Handles ClassVar wrappers, string annotations, ForwardRef, and
+        from __future__ import annotations (PEP 563).
         """
         self.log(logging.DEBUG, f"Resolving model type for {self.name}")
-
-        # Get module globals for model resolution context
-        import sys
-
-        module = sys.modules[owner.__module__]
-        module_globals = {k: getattr(module, k) for k in dir(module)}
-
-        # First attempt with get_type_hints
-        try:
-            type_hints = get_type_hints(owner, localns=module_globals)
-        except (NameError, AttributeError):
-            # Fallback to raw annotations for forward refs
-            type_hints = owner.__annotations__
-
-        # Find descriptor field in type hints
-        for name, field_type in type_hints.items():
-            if getattr(owner, name, None) is self:
-                # Handle ClassVar wrapper
-                if hasattr(field_type, "__origin__") and field_type.__origin__ is ClassVar:
-                    field_type = field_type.__args__[0]
-
-                # Get model type from generic parameters
-                if hasattr(field_type, "__origin__") and hasattr(field_type, "__args__"):
-                    model_type = field_type.__args__[0]
-                    self.log(logging.DEBUG, f"Resolved model type: {model_type}")
-                    return model_type
-
-        self.log(logging.ERROR, f"Unable to resolve relationship model for `{self.name}`")
-        raise ValueError("Unable to resolve relationship model")
+        result = resolve_relation_type(owner, self.name)
+        if result is None:
+            self.log(logging.ERROR, f"Unable to resolve relationship model for `{self.name}`")
+            raise ValueError("Unable to resolve relationship model")
+        self.log(logging.DEBUG, f"Resolved model type: {result}")
+        return result
 
     def _validate_inverse_relationship(self, owner: Type[Any]) -> None:
         """

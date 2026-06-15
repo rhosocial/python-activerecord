@@ -15,8 +15,8 @@ from rhosocial.activerecord.relation.descriptors import (
     HasOne,
     HasMany,
     DefaultIRelationLoader,
-    _evaluate_forward_ref,
 )
+from rhosocial.activerecord.relation.type_resolver import evaluate_annotation
 from rhosocial.activerecord.relation.async_descriptors import (
     AsyncBelongsTo,
     AsyncHasMany,
@@ -304,13 +304,13 @@ class TestCreateRelationMethodNoArgs:
 
 
 class TestEvaluateForwardRef:
-    """Cover _evaluate_forward_ref function."""
+    """Cover evaluate_annotation function from type_resolver."""
 
     def test_evaluate_string_ref(self):
         class DummyModel(RelationManagementMixin, BaseModel):
             id: int
 
-        result = _evaluate_forward_ref("DummyModel", DummyModel)
+        result = evaluate_annotation("DummyModel", DummyModel)
         assert result is DummyModel
 
     def test_evaluate_forward_ref_direct(self):
@@ -318,8 +318,7 @@ class TestEvaluateForwardRef:
             id: int
 
         ref = ForwardRef("DummyModel")
-        # ensure it's in the module scope for resolution
-        result = _evaluate_forward_ref(ref, DummyModel)
+        result = evaluate_annotation(ref, DummyModel)
         assert result is DummyModel
 
     def test_evaluate_forward_ref_with_module_scope(self):
@@ -329,7 +328,7 @@ class TestEvaluateForwardRef:
             id: int
 
         ref = ForwardRef("BaseModel")
-        result = _evaluate_forward_ref(ref, DummyModel)
+        result = evaluate_annotation(ref, DummyModel)
         assert result is BaseModel
 
 
