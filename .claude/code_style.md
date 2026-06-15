@@ -716,3 +716,16 @@ def format_identifier(self, identifier: str) -> str:
 - [ ] Dialect methods handle formatting correctly
 - [ ] Expression-dialect separation maintained
 - [ ] Expression system module organization followed
+
+### RawSQLPredicate / RawSQLExpression Prohibition
+
+`RawSQLPredicate` (and its underlying `RawSQLExpression`) must NOT be used anywhere in the codebase, including tests, examples, documentation, CLI tools, or temporary scripts.
+
+Rationale:
+- `RawSQLPredicate` takes raw SQL strings, bypassing the entire expression system's type safety, parameterization, and dialect adaptation mechanisms.
+- The pattern it represents contradicts the design philosophy of the rhosocial-activerecord expression system.
+- All SQL generation MUST go through the expression system's typed API (`ComparisonPredicate`, `IsNullPredicate`, `Column`, `Literal`, etc.).
+
+Code that uses `RawSQLPredicate` is a negative indicator and must be refactored to use typed predicates from the expression system.
+
+Exceptions: None.

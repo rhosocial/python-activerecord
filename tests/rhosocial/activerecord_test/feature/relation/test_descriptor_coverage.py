@@ -15,8 +15,8 @@ from rhosocial.activerecord.relation.descriptors import (
     HasOne,
     HasMany,
     DefaultIRelationLoader,
-    _evaluate_forward_ref,
 )
+from rhosocial.activerecord.relation.type_resolver import evaluate_annotation
 from rhosocial.activerecord.relation.async_descriptors import (
     AsyncBelongsTo,
     AsyncHasMany,
@@ -52,36 +52,7 @@ class TestDescriptorInit:
 
 
 # ==============================================================================
-# 2. __set_name__ type checking
-# ==============================================================================
-
-
-class TestSetNameTypeCheck:
-    """Cover the type-check guard in __set_name__."""
-
-    def test_sync_descriptor_on_async_model_raises(self):
-        """Sync BelongsTo on async model should raise TypeError."""
-        from rhosocial.activerecord.interface import IAsyncActiveRecord
-
-        # Use type() to bypass Pydantic's metaclass
-        FakeAsyncModel = type("FakeAsyncModel", (IAsyncActiveRecord,), {})
-        desc = BelongsTo(foreign_key="x_id")
-        with pytest.raises(TypeError, match="Sync relation descriptor.*cannot be used on async model"):
-            desc.__set_name__(FakeAsyncModel, "test_rel")
-
-    def test_async_descriptor_on_sync_model_raises(self):
-        """Async descriptor on sync ActiveRecord should raise TypeError."""
-        from rhosocial.activerecord.interface import IActiveRecord
-
-        # Use type() to bypass Pydantic's metaclass
-        FakeSyncModel = type("FakeSyncModel", (IActiveRecord,), {})
-        desc = AsyncBelongsTo(foreign_key="x_id")
-        with pytest.raises(TypeError, match="Async relation descriptor.*cannot be used on sync model"):
-            desc.__set_name__(FakeSyncModel, "test_rel")
-
-
-# ==============================================================================
-# 3. __get__ class-level access
+# 2. __get__ class-level access
 # ==============================================================================
 
 
@@ -120,7 +91,7 @@ class TestDescriptorGetClassLevel:
 
 
 # ==============================================================================
-# 4. __delete__
+# 3. __delete__
 # ==============================================================================
 
 
@@ -165,7 +136,7 @@ class TestDescriptorDelete:
 
 
 # ==============================================================================
-# 5. _load_relation paths (cache hit, loader error)
+# 4. _load_relation paths (cache hit, loader error)
 # ==============================================================================
 
 
@@ -261,7 +232,7 @@ class TestLoadRelation:
 
 
 # ==============================================================================
-# 6. _create_relation_method with args — exercises dead self._query path
+# 5. _create_relation_method with args — exercises dead self._query path
 # ==============================================================================
 
 
@@ -299,18 +270,18 @@ class TestCreateRelationMethodNoArgs:
 
 
 # ==============================================================================
-# 7. _evaluate_forward_ref
+# 6. _evaluate_forward_ref
 # ==============================================================================
 
 
 class TestEvaluateForwardRef:
-    """Cover _evaluate_forward_ref function."""
+    """Cover evaluate_annotation function from type_resolver."""
 
     def test_evaluate_string_ref(self):
         class DummyModel(RelationManagementMixin, BaseModel):
             id: int
 
-        result = _evaluate_forward_ref("DummyModel", DummyModel)
+        result = evaluate_annotation("DummyModel", DummyModel)
         assert result is DummyModel
 
     def test_evaluate_forward_ref_direct(self):
@@ -318,8 +289,7 @@ class TestEvaluateForwardRef:
             id: int
 
         ref = ForwardRef("DummyModel")
-        # ensure it's in the module scope for resolution
-        result = _evaluate_forward_ref(ref, DummyModel)
+        result = evaluate_annotation(ref, DummyModel)
         assert result is DummyModel
 
     def test_evaluate_forward_ref_with_module_scope(self):
@@ -329,12 +299,12 @@ class TestEvaluateForwardRef:
             id: int
 
         ref = ForwardRef("BaseModel")
-        result = _evaluate_forward_ref(ref, DummyModel)
+        result = evaluate_annotation(ref, DummyModel)
         assert result is BaseModel
 
 
 # ==============================================================================
-# 8. RelationshipValidator / AsyncRelationshipValidator
+# 7. RelationshipValidator / AsyncRelationshipValidator
 # ==============================================================================
 
 
@@ -518,7 +488,7 @@ class TestRelationshipValidatorPaths:
 
 
 # ==============================================================================
-# 9. DefaultIRelationLoader & AsyncDefaultRelationLoader — basic init
+# 8. DefaultIRelationLoader & AsyncDefaultRelationLoader — basic init
 # ==============================================================================
 
 
@@ -539,7 +509,7 @@ class TestDefaultLoadersInit:
 
 
 # ==============================================================================
-# 10. _create_query_method coverage via descriptor
+# 9. _create_query_method coverage via descriptor
 # ==============================================================================
 
 
@@ -571,7 +541,7 @@ class TestCreateQueryMethod:
 
 
 # ==============================================================================
-# 11. batch_load on RelationDescriptor / AsyncRelationDescriptor
+# 10. batch_load on RelationDescriptor / AsyncRelationDescriptor
 # ==============================================================================
 
 
@@ -593,7 +563,7 @@ class TestDescriptorBatchLoad:
 
 
 # ==============================================================================
-# 12. log method with offset
+# 11. log method with offset
 # ==============================================================================
 
 
@@ -607,7 +577,7 @@ class TestLogMethod:
 
 
 # ==============================================================================
-# 13. Resolve model type from annotations with ClassVar
+# 12. Resolve model type from annotations with ClassVar
 # ==============================================================================
 
 
@@ -642,7 +612,7 @@ class TestResolveModel:
 
 
 # ==============================================================================
-# 14. clear_cache on the bound relation method
+# 13. clear_cache on the bound relation method
 # ==============================================================================
 
 

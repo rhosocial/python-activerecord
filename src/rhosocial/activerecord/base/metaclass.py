@@ -17,36 +17,57 @@ class ActiveRecordMetaclass(ModelMetaclass):
 
     def __new__(cls, name, bases, namespace, **kwargs):
         # Step 1: Let Pydantic/Python create the class object first.
-        try:
-            new_class = super().__new__(cls, name, bases, namespace, **kwargs)
-        except RuntimeError as e:
-            # TODO: This is a temporary workaround and the descriptor registration
-            #       mechanism is very likely to be refactored later.
-            #
-            # Problem: Python 3.11 and earlier wrap exceptions raised in
-            # __set_name__ with RuntimeError ("Error calling __set_name__ on ...").
-            # Python 3.12+ (gh-77757) stopped wrapping them and propagates the
-            # original exception directly. Unwrap here to provide a consistent
-            # exception type across all supported Python versions so that
-            # downstream tests can reliably assert on the original TypeError.
-            #
-            # Users should use relation descriptors correctly and NEVER mix sync
-            # descriptors (BelongsTo/HasMany/HasOne) on async models or async
-            # descriptors (AsyncBelongsTo/AsyncHasMany/AsyncHasOne) on sync models.
-            # DO NOT rely on this framework-level type check for correctness in
-            # production code — it exists primarily to catch accidental misuse
-            # during development.
-            cause = e.__cause__
-            if cause is not None and isinstance(cause, TypeError):
-                raise cause from None
-            raise
+        new_class = super().__new__(cls, name, bases, namespace, **kwargs)
 
-        # Step 2: Get all handlers using the centralized method from the interface.
+        # Step 2: Validate relation descriptor type compatibility.
+        # Sync descriptors (BelongsTo/HasMany/HasOne) must not be used on async
+        # models (AsyncActiveRecord), and async descriptors must not be used on
+        # sync models.  This validation runs here (after __set_name__ has
+        # registered all descriptors) rather than inside __set_name__ because
+        # Python < 3.12 wraps exceptions raised in __set_name__ with
+        # RuntimeError, which breaks downstream tests that catch TypeError.
+        relations = new_class.__dict__.get("_relations_dict")
+        if relations:
+            from rhosocial.activerecord.relation.descriptors import (
+                RelationDescriptor,
+            )
+            from rhosocial.activerecord.relation.async_descriptors import (
+                AsyncRelationDescriptor,
+            )
+            from rhosocial.activerecord.interface import (
+                IActiveRecord,
+                IAsyncActiveRecord,
+            )
+
+            for rel_name, desc in relations.items():
+                if isinstance(desc, RelationDescriptor) and issubclass(
+                    new_class, IAsyncActiveRecord
+                ):
+                    raise TypeError(
+                        f"Sync relation descriptor `{rel_name}` cannot be used "
+                        f"on async model `{name}`. "
+                        f"Use AsyncBelongsTo/AsyncHasMany/AsyncHasOne from "
+                        f"rhosocial.activerecord.relation.async_descriptors "
+                        f"instead."
+                    )
+                if (
+                    isinstance(desc, AsyncRelationDescriptor)
+                    and issubclass(new_class, IActiveRecord)
+                    and not issubclass(new_class, IAsyncActiveRecord)
+                ):
+                    raise TypeError(
+                        f"Async relation descriptor `{rel_name}` cannot be used "
+                        f"on sync model `{name}`. "
+                        f"Use BelongsTo/HasMany/HasOne from "
+                        f"rhosocial.activerecord.relation.descriptors instead."
+                    )
+
+        # Step 3: Get all handlers using the centralized method from the interface.
         # This check ensures that we only operate on classes that have this capability.
         if hasattr(new_class, "get_feature_handlers"):
             handlers = new_class.get_feature_handlers()
 
-            # Step 3: Run the discovered handlers on the new class.
+            # Step 4: Run the discovered handlers on the new class.
             for handler in handlers:
                 # Assuming handlers have a static `handle` method.
                 handler.handle(new_class)

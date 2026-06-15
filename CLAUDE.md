@@ -43,3 +43,15 @@ Every source file begins with a comment indicating its relative path:
 
 ### Module Hierarchy
 
+## Execution Conventions
+
+### Test Execution
+
+When executing tests, ALWAYS show the complete unfiltered output. Do NOT:
+- Use `grep` or any other filtering to hide parts of the output
+- Use `tail`/`head` to truncate output
+- Pipe test output through any command that may suppress failure/error lines
+- Assume any stage or portion of the output is unimportant
+
+The full pytest output (including the summary line with pass/fail/skip counts) MUST be visible. Exception: if the output is so large it exceeds tool limits, use the dedicated output capture mechanism instead of manual truncation.
+
