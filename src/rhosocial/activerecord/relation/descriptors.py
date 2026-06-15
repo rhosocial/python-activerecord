@@ -118,15 +118,6 @@ class RelationDescriptor(Generic[T]):
         self.name = name
         self._owner = owner
 
-        from ..interface import IAsyncActiveRecord
-
-        if issubclass(owner, IAsyncActiveRecord):
-            raise TypeError(
-                f"Sync relation descriptor `{name}` cannot be used on async model `{owner.__name__}`. "
-                f"Use AsyncBelongsTo/AsyncHasMany/AsyncHasOne from "
-                f"rhosocial.activerecord.relation.async_descriptors instead."
-            )
-
         self.log(logging.DEBUG, f"Registering relation `{name}` with `{owner.__name__}`")
         owner.register_relation(name, self)
 
