@@ -1,3 +1,31 @@
+## [v1.0.0.dev28] - 2026-06-15
+
+
+### Added
+
+- Added bulk operations API: `bulk_create`, `bulk_update`, `bulk_delete` (Model layer with validation/events) and `update_all`, `delete_all` (Query layer for SQL-level batch operations). Both sync and async variants are supported. ([#94](https://github.com/rhosocial/python-activerecord/issues/94))
+- Added DerivedField support for database-computed virtual columns with opt-in query inclusion via derived parameter ([#95](https://github.com/rhosocial/python-activerecord/issues/95))
+- Added expression-level `COLLATE` support for SQL value expressions, with dialect-level collation validation and SQLite formatting support. ([#97](https://github.com/rhosocial/python-activerecord/issues/97))
+- Added SQL/XML standard expression support, including XML construction, serialization, aggregation, querying, and table expression builders. ([#98](https://github.com/rhosocial/python-activerecord/issues/98))
+- Added structured datetime interval expressions with SQLite dialect support and EXPLAIN-backed index usage examples. ([#99](https://github.com/rhosocial/python-activerecord/issues/99))
+- Added common Expression/Dialect support for table partitioning DDL via `PartitionClause` with partition method and expression keys. ([#100](https://github.com/rhosocial/python-activerecord/issues/100))
+- Implement eager loading consumption with sync/async I/O split for HasOne relationships ([#101](https://github.com/rhosocial/python-activerecord/issues/101))
+- Add SQL/PGQ property graph query (SQL 2023) support with GraphMixin, GraphTableMixin, and related expression classes ([#102](https://github.com/rhosocial/python-activerecord/issues/102))
+
+
+
+### Changed
+
+- Migrate SQLite extension SQL generation from extension registry to expression-dialect system ([#103](https://github.com/rhosocial/python-activerecord/issues/103))
+
+
+
+### Fixed
+
+- Fix relation descriptors, cache serialization, and ForwardRef state handling ([#96](https://github.com/rhosocial/python-activerecord/issues/96))
+- Refactor relation type resolution with centralized type_resolver module and relocate descriptor compatibility validation from `__set_name__` to metaclass, fixing Python 3.8–3.11 exception wrapping compatibility ([#104](https://github.com/rhosocial/python-activerecord/issues/104))
+
+
 ## [v1.0.0.dev27] - 2026-05-29
 
 ### Removed
