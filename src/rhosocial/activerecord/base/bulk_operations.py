@@ -82,7 +82,8 @@ class BulkOperationsMixin:
             rows.append([mapped.get(col) for col in columns])
 
         supports_returning = backend.dialect.supports_returning_insert()
-        returning_columns = [cls.primary_key()] if supports_returning else None
+        is_composite = cls.is_composite_pk()
+        returning_columns = list(cls.primary_key_columns()) if supports_returning else None
         column_mapping = cls.get_column_to_field_map()
         column_adapters = cls.get_column_adapters()
 
@@ -100,11 +101,20 @@ class BulkOperationsMixin:
             result = backend.bulk_insert(opts)
 
             if supports_returning and result.data:
-                pk_field = cls._get_field_name(cls.primary_key())
-                for j, row_data in enumerate(result.data):
-                    if isinstance(row_data, dict) and pk_field in row_data:
-                        setattr(batch_records[j], pk_field, row_data[pk_field])
-            elif result.last_insert_id is not None:
+                if not is_composite:
+                    pk_field = cls._get_field_name(cls.primary_key())
+                    for j, row_data in enumerate(result.data):
+                        if isinstance(row_data, dict) and pk_field in row_data:
+                            setattr(batch_records[j], pk_field, row_data[pk_field])
+                else:
+                    pk_cols = cls.primary_key_columns()
+                    for j, row_data in enumerate(result.data):
+                        if isinstance(row_data, dict):
+                            for col in pk_cols:
+                                field = cls._get_field_name(col)
+                                if field in row_data:
+                                    setattr(batch_records[j], field, row_data[field])
+            elif result.last_insert_id is not None and not is_composite:
                 pk_field = cls._get_field_name(cls.primary_key())
                 for j, rec in enumerate(batch_records):
                     if getattr(rec, pk_field, None) is None:
@@ -400,7 +410,8 @@ class AsyncBulkOperationsMixin:
             rows.append([mapped.get(col) for col in columns])
 
         supports_returning = backend.dialect.supports_returning_insert()
-        returning_columns = [cls.primary_key()] if supports_returning else None
+        is_composite = cls.is_composite_pk()
+        returning_columns = list(cls.primary_key_columns()) if supports_returning else None
         column_mapping = cls.get_column_to_field_map()
         column_adapters = cls.get_column_adapters()
 
@@ -418,11 +429,20 @@ class AsyncBulkOperationsMixin:
             result = await backend.bulk_insert(opts)
 
             if supports_returning and result.data:
-                pk_field = cls._get_field_name(cls.primary_key())
-                for j, row_data in enumerate(result.data):
-                    if isinstance(row_data, dict) and pk_field in row_data:
-                        setattr(batch_records[j], pk_field, row_data[pk_field])
-            elif result.last_insert_id is not None:
+                if not is_composite:
+                    pk_field = cls._get_field_name(cls.primary_key())
+                    for j, row_data in enumerate(result.data):
+                        if isinstance(row_data, dict) and pk_field in row_data:
+                            setattr(batch_records[j], pk_field, row_data[pk_field])
+                else:
+                    pk_cols = cls.primary_key_columns()
+                    for j, row_data in enumerate(result.data):
+                        if isinstance(row_data, dict):
+                            for col in pk_cols:
+                                field = cls._get_field_name(col)
+                                if field in row_data:
+                                    setattr(batch_records[j], field, row_data[field])
+            elif result.last_insert_id is not None and not is_composite:
                 pk_field = cls._get_field_name(cls.primary_key())
                 for j, rec in enumerate(batch_records):
                     if getattr(rec, pk_field, None) is None:

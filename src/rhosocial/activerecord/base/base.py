@@ -272,8 +272,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         """
         self.log(
             logging.INFO,
-            f"Starting update operation for {self.__class__.__name__} record with ID: "
-            f"{getattr(self, self.__class__.primary_key_field(), 'unknown')}",
+            f"Starting update operation for {self.__class__.__name__} record: "
+            f"{self._get_pk_value()}",
         )
         update_conditions = []
         update_expressions = {}
@@ -898,8 +898,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         """
         self.log(
             logging.INFO,
-            f"Starting update operation for {self.__class__.__name__} record with ID: "
-            f"{getattr(self, self.__class__.primary_key_field(), 'unknown')}",
+            f"Starting update operation for {self.__class__.__name__} record: "
+            f"{self._get_pk_value()}",
         )
         update_conditions = []
         update_expressions = {}
