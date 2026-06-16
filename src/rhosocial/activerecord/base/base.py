@@ -154,10 +154,14 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 f"{cls.__name__} has composite primary key {columns}, "
                 f"pk_value must be a dict, got {type(pk_value).__name__}"
             )
-        predicates = [
-            ComparisonPredicate(dialect, "=", Column(dialect, col), Literal(dialect, pk_value[col]))
-            for col in columns
-        ]
+        predicates = []
+        for col in columns:
+            val = pk_value[col]
+            if val is None:
+                raise ValueError(f"Primary key column '{col}' has value None")
+            predicates.append(
+                ComparisonPredicate(dialect, "=", Column(dialect, col), Literal(dialect, val))
+            )
         result = predicates[0]
         for p in predicates[1:]:
             result = result & p
@@ -549,6 +553,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             return 0
         try:
             return self._save_internal()
+        except DatabaseError:
+            raise
         except Exception as e:
             self.log(logging.ERROR, f"Database error: {str(e)}")
             raise DatabaseError(str(e)) from e
@@ -611,6 +617,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                     if hasattr(self, pk_field):
                         setattr(self, pk_field, None)
             self.reset_tracking()
+            self._is_from_db = False
             self._trigger_event(ModelEvent.AFTER_DELETE)
         return affected_rows
 
@@ -681,10 +688,14 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 f"{cls.__name__} has composite primary key {columns}, "
                 f"pk_value must be a dict, got {type(pk_value).__name__}"
             )
-        predicates = [
-            ComparisonPredicate(dialect, "=", Column(dialect, col), Literal(dialect, pk_value[col]))
-            for col in columns
-        ]
+        predicates = []
+        for col in columns:
+            val = pk_value[col]
+            if val is None:
+                raise ValueError(f"Primary key column '{col}' has value None")
+            predicates.append(
+                ComparisonPredicate(dialect, "=", Column(dialect, col), Literal(dialect, val))
+            )
         result = predicates[0]
         for p in predicates[1:]:
             result = result & p
@@ -1175,6 +1186,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             return 0
         try:
             return await self._save_internal()
+        except DatabaseError:
+            raise
         except Exception as e:
             self.log(logging.ERROR, f"Database error: {str(e)}")
             raise DatabaseError(str(e)) from e
@@ -1237,6 +1250,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                     if hasattr(self, pk_field):
                         setattr(self, pk_field, None)
             self.reset_tracking()
+            self._is_from_db = False
             self._trigger_event(ModelEvent.AFTER_DELETE)
         return affected_rows
 

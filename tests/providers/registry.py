@@ -31,6 +31,7 @@ from .events import EventsProvider
 from .mixins import MixinsProvider
 from .query import QueryProvider
 from .basic_connection import BasicConnectionProvider
+from .composite_pk import CompositePKProvider
 from .query_connection import QueryConnectionProvider
 from .derived_field import DerivedFieldProvider
 from .relation import RelationProvider
@@ -74,6 +75,8 @@ provider_registry.register("feature.derived_field.IDerivedFieldProvider", Derive
 provider_registry.register("feature.relation.IRelationProvider", RelationProvider)
 
 # Register benchmark providers.
+provider_registry.register("feature.composite_pk.ICompositePKProvider", CompositePKProvider)
+
 provider_registry.register("benchmark.crud.ICrudBenchmarkProvider", CrudBenchmarkProvider)
 provider_registry.register("benchmark.query.IQueryBenchmarkProvider", QueryBenchmarkProvider)
 provider_registry.register(
