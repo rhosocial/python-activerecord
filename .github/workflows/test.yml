@@ -49,7 +49,7 @@ jobs:
         pip install -r requirements-dev.txt
         pip install codecov build
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev15
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite@release/v1.0.0.dev16#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests with coverage
       env:
@@ -102,7 +102,7 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev15
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite@release/v1.0.0.dev16#egg=rhosocial-activerecord-testsuite
 
     - name: Run benchmark suite
       env:
@@ -262,7 +262,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev15
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite@release/v1.0.0.dev16#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests
       env:
@@ -317,7 +317,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev15
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite@release/v1.0.0.dev16#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests
       env:
@@ -369,7 +369,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev15
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite@release/v1.0.0.dev16#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests
       env:
