@@ -123,6 +123,50 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     def create_collection_from_database(cls, rows: List[Dict[str, Any]]) -> List["BaseActiveRecord"]:
         return [cls.create_from_database(row) for row in rows]
 
+    def _get_pk_value(self) -> Any:
+        """Extract primary key value from the current instance.
+
+        Single-column PK returns a scalar value.
+        Composite PK returns a dict {column_name: value, ...}.
+        """
+        cls = self.__class__
+        cols = cls.primary_key_columns()
+        fields = cls.primary_key_fields()
+        if not cls.is_composite_pk():
+            return getattr(self, fields[0])
+        return {col: getattr(self, field) for col, field in zip(cols, fields)}
+
+    @classmethod
+    def _build_pk_where_predicate(cls, pk_value: Any) -> "SQLPredicate":
+        """Build a WHERE predicate for primary key lookup.
+
+        Single-column PK: pk_value is scalar, generates "col = value"
+        Composite PK: pk_value must be dict, generates "col1 = v1 AND col2 = v2"
+        """
+        dialect = cls.backend().dialect
+        columns = cls.primary_key_columns()
+
+        if not cls.is_composite_pk():
+            return ComparisonPredicate(dialect, "=", Column(dialect, columns[0]), Literal(dialect, pk_value))
+
+        if not isinstance(pk_value, dict):
+            raise TypeError(
+                f"{cls.__name__} has composite primary key {columns}, "
+                f"pk_value must be a dict, got {type(pk_value).__name__}"
+            )
+        predicates = []
+        for col in columns:
+            val = pk_value[col]
+            if val is None:
+                raise ValueError(f"Primary key column '{col}' has value None")
+            predicates.append(
+                ComparisonPredicate(dialect, "=", Column(dialect, col), Literal(dialect, val))
+            )
+        result = predicates[0]
+        for p in predicates[1:]:
+            result = result & p
+        return result
+
     def _insert_internal(self, data) -> Any:
         """
         Internal method to perform the actual insertion of data into the database.
@@ -155,7 +199,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         supports_returning = self.backend().dialect.supports_returning_insert()
         returning_columns = None
         if supports_returning:
-            returning_columns = [self.primary_key()]
+            returning_columns = list(self.primary_key_columns())
 
         insert_options = InsertOptions(
             table=self.table_name(),
@@ -167,52 +211,44 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             returning_columns=returning_columns,
         )
         result = self.backend().insert(insert_options)
-        pk_column = self.primary_key()
-        pk_field_name = self.__class__._get_field_name(pk_column)
-        if (
-            result is not None
-            and result.affected_rows > 0
-            and pk_field_name in self.__class__.model_fields
-            and prepared_data.get(pk_column) is None
-            and getattr(self, pk_field_name, None) is None
-        ):
+        if self.__class__.__pk_auto_generated__:
+            pk_columns = self.primary_key_columns()
             pk_retrieved = False
-            self.log(logging.DEBUG, f"Attempting to retrieve primary key '{pk_column}' for new record")
-            pk_field_name = self.__class__._get_field_name(pk_column)
-            self.log(logging.DEBUG, f"Primary key column '{pk_column}' maps to field '{pk_field_name}'")
-            if result.data and isinstance(result.data, list) and len(result.data) > 0:
-                first_row = result.data[0]
-                if isinstance(first_row, dict) and pk_field_name in first_row:
-                    pk_value = first_row[pk_field_name]
-                    setattr(self, pk_field_name, pk_value)
+            for col in pk_columns:
+                field = self.__class__._get_field_name(col)
+                if (
+                    field in self.__class__.model_fields
+                    and prepared_data.get(col) is None
+                    and getattr(self, field, None) is None
+                ):
+                    retrieved_val = None
+                    if result.data and isinstance(result.data, list) and len(result.data) > 0:
+                        first_row = result.data[0]
+                        if isinstance(first_row, dict) and field in first_row:
+                            retrieved_val = first_row[field]
+                        elif isinstance(first_row, dict) and col in first_row:
+                            retrieved_val = first_row[col]
+                    if retrieved_val is None and col == pk_columns[0] and result.last_insert_id is not None:
+                        import types
+                        field_type = self.__class__.model_fields[field].annotation
+                        origin = get_origin(field_type)
+                        if origin in (Union, Optional) or origin is types.UnionType:
+                            type_args = [t for t in get_args(field_type) if t is not type(None)]
+                            if type_args:
+                                field_type = type_args[0]
+                        if field_type is int:
+                            retrieved_val = result.last_insert_id
+                    if retrieved_val is not None:
+                        setattr(self, field, retrieved_val)
+                        pk_retrieved = True
+                elif (
+                    field in self.__class__.model_fields
+                    and getattr(self, field, None) is not None
+                ):
                     pk_retrieved = True
-                    self.log(
-                        logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}"
-                    )
-                else:
-                    self.log(
-                        logging.WARNING,
-                        f"RETURNING clause data found, but primary key field '{pk_field_name}' "
-                        f"is missing in the result row: {first_row}",
-                    )
-
-            if not pk_retrieved and result.last_insert_id is not None:
-                import types
-
-                field_type = self.__class__.model_fields[pk_field_name].annotation
-                origin = get_origin(field_type)
-                # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
-                if origin in (Union, Optional) or origin is types.UnionType:
-                    types = [t for t in get_args(field_type) if t is not type(None)]
-                    if types:
-                        field_type = types[0]
-
-                if field_type is int:
-                    pk_value = result.last_insert_id
-                    setattr(self, pk_field_name, pk_value)
-                    pk_retrieved = True
-                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from last_insert_id: {pk_value}")
-            if not pk_retrieved:
+            if not pk_retrieved and not self.__class__.is_composite_pk():
+                pk_column = pk_columns[0]
+                pk_field_name = self.__class__._get_field_name(pk_column)
                 error_msg = f"Failed to retrieve primary key '{pk_field_name}' for new record after insert."
                 self.log(logging.ERROR, f"{error_msg}")
                 raise DatabaseError(error_msg)
@@ -240,8 +276,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         """
         self.log(
             logging.INFO,
-            f"Starting update operation for {self.__class__.__name__} record with ID: "
-            f"{getattr(self, self.__class__.primary_key_field(), 'unknown')}",
+            f"Starting update operation for {self.__class__.__name__} record: "
+            f"{self._get_pk_value()}",
         )
         update_conditions = []
         update_expressions = {}
@@ -296,12 +332,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         column_mapping = self.__class__.get_column_to_field_map()
         column_adapters = self.get_column_adapters()
         backend = self.backend()
-        pk_name = self.primary_key()
-        pk_value = getattr(self, self.__class__.primary_key_field())
-        self.log(logging.DEBUG, f"Primary key: {pk_name} = {pk_value}")
-        where_predicate = ComparisonPredicate(
-            backend.dialect, "=", Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
-        )
+        pk_value = self._get_pk_value()
+        self.log(logging.DEBUG, f"Primary key value: {pk_value}")
+        where_predicate = self._build_pk_where_predicate(pk_value)
         for condition in update_conditions:
             if isinstance(condition, SQLPredicate):
                 where_predicate = where_predicate & condition
@@ -316,7 +349,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         supports_returning = backend.dialect.supports_returning_update()
         returning_columns = None
         if supports_returning:
-            returning_columns = [self.primary_key()]
+            returning_columns = list(self.primary_key_columns())
         update_options = UpdateOptions(
             table=self.table_name(),
             schema_name=self.schema_name(),
@@ -336,13 +369,15 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
 
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
-        pk_column = self.primary_key()
-        pk_field = self.__class__._get_field_name(pk_column)
+        pk_fields = set(self.__class__.primary_key_fields())
         if is_new:
-            data = self.model_dump(exclude={pk_field} if pk_field in self.__class__.model_fields else set())
+            if self.__class__.__pk_auto_generated__:
+                data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
+            else:
+                data = self.model_dump()
         else:
             all_data = self.model_dump()
-            data = {field: all_data[field] for field in self._dirty_fields if field != pk_field}
+            data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}
         bases = self.__class__.__mro__
         for base in bases:
             if hasattr(base, "prepare_save_data") and base != BaseActiveRecord:
@@ -366,26 +401,40 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         extra_derived: Optional[Dict[str, Any]] = None,
     ) -> Optional["BaseActiveRecord"]:
         query = cls.query()
-        if isinstance(condition, dict):
-            for key, value in condition.items():
-                if isinstance(key, Column):
-                    query = query.where(key == value)
-                elif isinstance(key, str):
-                    query = query.where(getattr(cls.c, key) == value)
-                else:
-                    raise TypeError(
-                        f"Invalid key type in condition dictionary: {type(key)}. "
-                        f"Expected str or Column, got {type(key)}"
-                    )
-        elif isinstance(condition, SQLPredicate):
+        if isinstance(condition, SQLPredicate):
             query = query.where(condition)
+        elif isinstance(condition, dict):
+            if cls.is_composite_pk():
+                query = query.where(cls._build_pk_where_predicate(condition))
+            else:
+                for key, value in condition.items():
+                    if isinstance(key, Column):
+                        query = query.where(key == value)
+                    elif isinstance(key, str):
+                        query = query.where(getattr(cls.c, key) == value)
+                    else:
+                        raise TypeError(
+                            f"Invalid key type in condition dictionary: {type(key)}. "
+                            f"Expected str or Column, got {type(key)}"
+                        )
+        elif isinstance(condition, tuple) and cls.is_composite_pk():
+            cols = cls.primary_key_columns()
+            if len(condition) != len(cols):
+                raise ValueError(f"Expected {len(cols)} pk values, got {len(condition)}")
+            pk_dict = dict(zip(cols, condition))
+            query = query.where(cls._build_pk_where_predicate(pk_dict))
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
-        else:
+        elif not cls.is_composite_pk():
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name) == condition)
+        else:
+            raise TypeError(
+                f"{cls.__name__} has composite primary key; "
+                "pass a dict or tuple as condition"
+            )
         cls._apply_derived_to_query(query, derived, extra_derived)
         return query.one()
 
@@ -403,23 +452,48 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         if condition is None:
             cls._apply_derived_to_query(query, derived, extra_derived)
             return query.all()
-        if isinstance(condition, dict):
-            for key, value in condition.items():
-                if isinstance(key, Column):
-                    query = query.where(key == value)
-                elif isinstance(key, str):
-                    query = query.where(getattr(cls.c, key) == value)
-                else:
-                    raise TypeError(
-                        f"Invalid key type in condition dictionary: {type(key)}. "
-                        f"Expected str or Column, got {type(key)}"
-                    )
-        elif isinstance(condition, SQLPredicate):
+        if isinstance(condition, SQLPredicate):
             query = query.where(condition)
+        elif isinstance(condition, dict):
+            if cls.is_composite_pk():
+                query = query.where(cls._build_pk_where_predicate(condition))
+            else:
+                for key, value in condition.items():
+                    if isinstance(key, Column):
+                        query = query.where(key == value)
+                    elif isinstance(key, str):
+                        query = query.where(getattr(cls.c, key) == value)
+                    else:
+                        raise TypeError(
+                            f"Invalid key type in condition dictionary: {type(key)}. "
+                            f"Expected str or Column, got {type(key)}"
+                        )
+        elif isinstance(condition, list):
+            if not condition:
+                return []
+            if cls.is_composite_pk():
+                cols = cls.primary_key_columns()
+                predicates = []
+                for item in condition:
+                    if isinstance(item, tuple):
+                        pk_dict = dict(zip(cols, item))
+                    elif isinstance(item, dict):
+                        pk_dict = item
+                    else:
+                        raise TypeError("Composite PK list items must be dict or tuple")
+                    predicates.append(cls._build_pk_where_predicate(pk_dict))
+                combined = predicates[0]
+                for p in predicates[1:]:
+                    combined = combined | p
+                query = query.where(combined)
+            else:
+                pk_field_name = cls.primary_key()
+                dialect = cls.backend().dialect
+                query = query.where(Column(dialect, pk_field_name).in_(condition))
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
-        else:  # Assumes list of primary keys
+        else:  # Assumes list of primary keys (backward compat)
             pk_field_name = cls.primary_key()
             if not condition:
                 return []
@@ -479,6 +553,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             return 0
         try:
             return self._save_internal()
+        except DatabaseError:
+            raise
         except Exception as e:
             self.log(logging.ERROR, f"Database error: {str(e)}")
             raise DatabaseError(str(e)) from e
@@ -511,11 +587,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             return 0
         self._trigger_event(ModelEvent.BEFORE_DELETE)
         backend = self.backend()
-        pk_name = self.primary_key()
-        pk_value = getattr(self, pk_name)
-        where_predicate = ComparisonPredicate(
-            backend.dialect, "=", Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
-        )
+        pk_value = self._get_pk_value()
+        where_predicate = self._build_pk_where_predicate(pk_value)
         is_soft_delete = hasattr(self, "prepare_delete")
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
@@ -529,7 +602,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             supports_returning = backend.dialect.supports_returning_delete()
             returning_columns = None
             if supports_returning:
-                returning_columns = [self.primary_key()]
+                returning_columns = list(self.primary_key_columns())
             delete_opts = DeleteOptions(
                 table=self.table_name(),
                 schema_name=self.schema_name(),
@@ -540,9 +613,11 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         affected_rows = result.affected_rows
         if affected_rows > 0:
             if not is_soft_delete:
-                if hasattr(self, pk_name):
-                    setattr(self, pk_name, None)
+                for pk_field in self.__class__.primary_key_fields():
+                    if hasattr(self, pk_field):
+                        setattr(self, pk_field, None)
             self.reset_tracking()
+            self._is_from_db = False
             self._trigger_event(ModelEvent.AFTER_DELETE)
         return affected_rows
 
@@ -591,6 +666,40 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     """
     Core Async ActiveRecord implementation providing the fundamental ORM functionality.
     """
+
+    def _get_pk_value(self) -> Any:
+        cls = self.__class__
+        cols = cls.primary_key_columns()
+        fields = cls.primary_key_fields()
+        if not cls.is_composite_pk():
+            return getattr(self, fields[0])
+        return {col: getattr(self, field) for col, field in zip(cols, fields)}
+
+    @classmethod
+    def _build_pk_where_predicate(cls, pk_value: Any) -> "SQLPredicate":
+        dialect = cls.backend().dialect
+        columns = cls.primary_key_columns()
+
+        if not cls.is_composite_pk():
+            return ComparisonPredicate(dialect, "=", Column(dialect, columns[0]), Literal(dialect, pk_value))
+
+        if not isinstance(pk_value, dict):
+            raise TypeError(
+                f"{cls.__name__} has composite primary key {columns}, "
+                f"pk_value must be a dict, got {type(pk_value).__name__}"
+            )
+        predicates = []
+        for col in columns:
+            val = pk_value[col]
+            if val is None:
+                raise ValueError(f"Primary key column '{col}' has value None")
+            predicates.append(
+                ComparisonPredicate(dialect, "=", Column(dialect, col), Literal(dialect, val))
+            )
+        result = predicates[0]
+        for p in predicates[1:]:
+            result = result & p
+        return result
 
     @classmethod
     async def configure(
@@ -723,7 +832,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         supports_returning = self.backend().dialect.supports_returning_insert()
         returning_columns = None
         if supports_returning:
-            returning_columns = [self.primary_key()]
+            returning_columns = list(self.primary_key_columns())
 
         insert_options = InsertOptions(
             table=self.table_name(),
@@ -735,52 +844,44 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             returning_columns=returning_columns,
         )
         result = await self.backend().insert(insert_options)
-        pk_column = self.primary_key()
-        pk_field_name = self.__class__._get_field_name(pk_column)
-        if (
-            result is not None
-            and result.affected_rows > 0
-            and pk_field_name in self.__class__.model_fields
-            and prepared_data.get(pk_column) is None
-            and getattr(self, pk_field_name, None) is None
-        ):
+        if self.__class__.__pk_auto_generated__:
+            pk_columns = self.primary_key_columns()
             pk_retrieved = False
-            self.log(logging.DEBUG, f"Attempting to retrieve primary key '{pk_column}' for new record")
-            pk_field_name = self.__class__._get_field_name(pk_column)
-            self.log(logging.DEBUG, f"Primary key column '{pk_column}' maps to field '{pk_field_name}'")
-            if result.data and isinstance(result.data, list) and len(result.data) > 0:
-                first_row = result.data[0]
-                if isinstance(first_row, dict) and pk_field_name in first_row:
-                    pk_value = first_row[pk_field_name]
-                    setattr(self, pk_field_name, pk_value)
+            for col in pk_columns:
+                field = self.__class__._get_field_name(col)
+                if (
+                    field in self.__class__.model_fields
+                    and prepared_data.get(col) is None
+                    and getattr(self, field, None) is None
+                ):
+                    retrieved_val = None
+                    if result.data and isinstance(result.data, list) and len(result.data) > 0:
+                        first_row = result.data[0]
+                        if isinstance(first_row, dict) and field in first_row:
+                            retrieved_val = first_row[field]
+                        elif isinstance(first_row, dict) and col in first_row:
+                            retrieved_val = first_row[col]
+                    if retrieved_val is None and col == pk_columns[0] and result.last_insert_id is not None:
+                        import types
+                        field_type = self.__class__.model_fields[field].annotation
+                        origin = get_origin(field_type)
+                        if origin in (Union, Optional) or origin is types.UnionType:
+                            type_args = [t for t in get_args(field_type) if t is not type(None)]
+                            if type_args:
+                                field_type = type_args[0]
+                        if field_type is int:
+                            retrieved_val = result.last_insert_id
+                    if retrieved_val is not None:
+                        setattr(self, field, retrieved_val)
+                        pk_retrieved = True
+                elif (
+                    field in self.__class__.model_fields
+                    and getattr(self, field, None) is not None
+                ):
                     pk_retrieved = True
-                    self.log(
-                        logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}"
-                    )
-                else:
-                    self.log(
-                        logging.WARNING,
-                        f"RETURNING clause data found, but primary key field '{pk_field_name}' "
-                        f"is missing in the result row: {first_row}",
-                    )
-
-            if not pk_retrieved and result.last_insert_id is not None:
-                import types
-
-                field_type = self.__class__.model_fields[pk_field_name].annotation
-                origin = get_origin(field_type)
-                # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
-                if origin in (Union, Optional) or origin is types.UnionType:
-                    types = [t for t in get_args(field_type) if t is not type(None)]
-                    if types:
-                        field_type = types[0]
-
-                if field_type is int:
-                    pk_value = result.last_insert_id
-                    setattr(self, pk_field_name, pk_value)
-                    pk_retrieved = True
-                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from last_insert_id: {pk_value}")
-            if not pk_retrieved:
+            if not pk_retrieved and not self.__class__.is_composite_pk():
+                pk_column = pk_columns[0]
+                pk_field_name = self.__class__._get_field_name(pk_column)
                 error_msg = f"Failed to retrieve primary key '{pk_field_name}' for new record after insert."
                 self.log(logging.ERROR, f"{error_msg}")
                 raise DatabaseError(error_msg)
@@ -808,8 +909,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         """
         self.log(
             logging.INFO,
-            f"Starting update operation for {self.__class__.__name__} record with ID: "
-            f"{getattr(self, self.__class__.primary_key_field(), 'unknown')}",
+            f"Starting update operation for {self.__class__.__name__} record: "
+            f"{self._get_pk_value()}",
         )
         update_conditions = []
         update_expressions = {}
@@ -864,12 +965,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         column_mapping = self.__class__.get_column_to_field_map()
         column_adapters = self.get_column_adapters()
         backend = self.backend()
-        pk_name = self.primary_key()
-        pk_value = getattr(self, self.__class__.primary_key_field())
-        self.log(logging.DEBUG, f"Primary key: {pk_name} = {pk_value}")
-        where_predicate = ComparisonPredicate(
-            backend.dialect, "=", Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
-        )
+        pk_value = self._get_pk_value()
+        self.log(logging.DEBUG, f"Primary key value: {pk_value}")
+        where_predicate = self._build_pk_where_predicate(pk_value)
         for condition in update_conditions:
             if isinstance(condition, SQLPredicate):
                 where_predicate = where_predicate & condition
@@ -884,7 +982,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         supports_returning = backend.dialect.supports_returning_update()
         returning_columns = None
         if supports_returning:
-            returning_columns = [self.primary_key()]
+            returning_columns = list(self.primary_key_columns())
         update_options = UpdateOptions(
             table=self.table_name(),
             schema_name=self.schema_name(),
@@ -904,13 +1002,15 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
 
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
-        pk_column = self.primary_key()
-        pk_field = self.__class__._get_field_name(pk_column)
+        pk_fields = set(self.__class__.primary_key_fields())
         if is_new:
-            data = self.model_dump(exclude={pk_field} if pk_field in self.__class__.model_fields else set())
+            if self.__class__.__pk_auto_generated__:
+                data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
+            else:
+                data = self.model_dump()
         else:
             all_data = self.model_dump()
-            data = {field: all_data[field] for field in self._dirty_fields if field != pk_field}
+            data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}
         bases = self.__class__.__mro__
         for base in bases:
             if hasattr(base, "prepare_save_data") and base != AsyncBaseActiveRecord:
@@ -934,26 +1034,40 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         extra_derived: Optional[Dict[str, Any]] = None,
     ) -> Optional["AsyncBaseActiveRecord"]:
         query = cls.query()
-        if isinstance(condition, dict):
-            for key, value in condition.items():
-                if isinstance(key, Column):
-                    query = query.where(key == value)
-                elif isinstance(key, str):
-                    query = query.where(getattr(cls.c, key) == value)
-                else:
-                    raise TypeError(
-                        f"Invalid key type in condition dictionary: {type(key)}. "
-                        f"Expected str or Column, got {type(key)}"
-                    )
-        elif isinstance(condition, SQLPredicate):
+        if isinstance(condition, SQLPredicate):
             query = query.where(condition)
+        elif isinstance(condition, dict):
+            if cls.is_composite_pk():
+                query = query.where(cls._build_pk_where_predicate(condition))
+            else:
+                for key, value in condition.items():
+                    if isinstance(key, Column):
+                        query = query.where(key == value)
+                    elif isinstance(key, str):
+                        query = query.where(getattr(cls.c, key) == value)
+                    else:
+                        raise TypeError(
+                            f"Invalid key type in condition dictionary: {type(key)}. "
+                            f"Expected str or Column, got {type(key)}"
+                        )
+        elif isinstance(condition, tuple) and cls.is_composite_pk():
+            cols = cls.primary_key_columns()
+            if len(condition) != len(cols):
+                raise ValueError(f"Expected {len(cols)} pk values, got {len(condition)}")
+            pk_dict = dict(zip(cols, condition))
+            query = query.where(cls._build_pk_where_predicate(pk_dict))
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
-        else:
+        elif not cls.is_composite_pk():
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name) == condition)
+        else:
+            raise TypeError(
+                f"{cls.__name__} has composite primary key; "
+                "pass a dict or tuple as condition"
+            )
         cls._apply_derived_to_query(query, derived, extra_derived)
         return await query.one()
 
@@ -971,23 +1085,48 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         if condition is None:
             cls._apply_derived_to_query(query, derived, extra_derived)
             return await query.all()
-        if isinstance(condition, dict):
-            for key, value in condition.items():
-                if isinstance(key, Column):
-                    query = query.where(key == value)
-                elif isinstance(key, str):
-                    query = query.where(getattr(cls.c, key) == value)
-                else:
-                    raise TypeError(
-                        f"Invalid key type in condition dictionary: {type(key)}. "
-                        f"Expected str or Column, got {type(key)}"
-                    )
-        elif isinstance(condition, SQLPredicate):
+        if isinstance(condition, SQLPredicate):
             query = query.where(condition)
+        elif isinstance(condition, dict):
+            if cls.is_composite_pk():
+                query = query.where(cls._build_pk_where_predicate(condition))
+            else:
+                for key, value in condition.items():
+                    if isinstance(key, Column):
+                        query = query.where(key == value)
+                    elif isinstance(key, str):
+                        query = query.where(getattr(cls.c, key) == value)
+                    else:
+                        raise TypeError(
+                            f"Invalid key type in condition dictionary: {type(key)}. "
+                            f"Expected str or Column, got {type(key)}"
+                        )
+        elif isinstance(condition, list):
+            if not condition:
+                return []
+            if cls.is_composite_pk():
+                cols = cls.primary_key_columns()
+                predicates = []
+                for item in condition:
+                    if isinstance(item, tuple):
+                        pk_dict = dict(zip(cols, item))
+                    elif isinstance(item, dict):
+                        pk_dict = item
+                    else:
+                        raise TypeError("Composite PK list items must be dict or tuple")
+                    predicates.append(cls._build_pk_where_predicate(pk_dict))
+                combined = predicates[0]
+                for p in predicates[1:]:
+                    combined = combined | p
+                query = query.where(combined)
+            else:
+                pk_field_name = cls.primary_key()
+                dialect = cls.backend().dialect
+                query = query.where(Column(dialect, pk_field_name).in_(condition))
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
-        else:  # Assumes list of primary keys
+        else:  # Assumes list of primary keys (backward compat)
             pk_field_name = cls.primary_key()
             if not condition:
                 return []
@@ -1047,6 +1186,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             return 0
         try:
             return await self._save_internal()
+        except DatabaseError:
+            raise
         except Exception as e:
             self.log(logging.ERROR, f"Database error: {str(e)}")
             raise DatabaseError(str(e)) from e
@@ -1079,11 +1220,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             return 0
         self._trigger_event(ModelEvent.BEFORE_DELETE)
         backend = self.backend()
-        pk_name = self.primary_key()
-        pk_value = getattr(self, pk_name)
-        where_predicate = ComparisonPredicate(
-            backend.dialect, "=", Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
-        )
+        pk_value = self._get_pk_value()
+        where_predicate = self._build_pk_where_predicate(pk_value)
         is_soft_delete = hasattr(self, "prepare_delete")
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
@@ -1097,7 +1235,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             supports_returning = backend.dialect.supports_returning_delete()
             returning_columns = None
             if supports_returning:
-                returning_columns = [self.primary_key()]
+                returning_columns = list(self.primary_key_columns())
             delete_opts = DeleteOptions(
                 table=self.table_name(),
                 schema_name=self.schema_name(),
@@ -1108,9 +1246,11 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         affected_rows = result.affected_rows
         if affected_rows > 0:
             if not is_soft_delete:
-                if hasattr(self, pk_name):
-                    setattr(self, pk_name, None)
+                for pk_field in self.__class__.primary_key_fields():
+                    if hasattr(self, pk_field):
+                        setattr(self, pk_field, None)
             self.reset_tracking()
+            self._is_from_db = False
             self._trigger_event(ModelEvent.AFTER_DELETE)
         return affected_rows
 

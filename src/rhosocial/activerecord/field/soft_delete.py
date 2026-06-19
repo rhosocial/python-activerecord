@@ -6,6 +6,7 @@ from pydantic import Field
 from typing import Dict, Any, Optional
 
 from ..backend.expression.core import Column
+from ..backend.expression import ComparisonPredicate, Literal
 from ..interface import ModelEvent
 from ..query import ActiveQuery
 
@@ -64,15 +65,23 @@ class SoftDeleteMixin:
         if self.deleted_at is None:
             return 0
 
-        # Get the backend
         backend = self.backend()
+        dialect = backend.dialect
 
-        # Create the condition using expression system
-        pk_column = Column(backend.dialect, self.primary_key())
-        pk_value = getattr(self, self.primary_key())
-        condition_expr = pk_column == pk_value
+        if self.is_composite_pk():
+            pk_cols = self.primary_key_columns()
+            condition_expr = None
+            for col in pk_cols:
+                pk_value = getattr(self, self._get_field_name(col))
+                if pk_value is not None:
+                    col_expr = Column(dialect, col)
+                    pred = ComparisonPredicate(dialect, "=", col_expr, Literal(dialect, pk_value))
+                    condition_expr = pred if condition_expr is None else condition_expr & pred
+        else:
+            pk_column = Column(dialect, self.primary_key())
+            pk_value = getattr(self, self.primary_key())
+            condition_expr = pk_column == pk_value
 
-        # Use UpdateOptions for the update operation
         from ..backend.options import UpdateOptions
 
         update_options = UpdateOptions(table=self.table_name(), data={"deleted_at": None}, where=condition_expr)

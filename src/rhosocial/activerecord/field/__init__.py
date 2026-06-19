@@ -6,5 +6,9 @@ from .timestamp import TimestampMixin
 from .version import Version, OptimisticLockMixin
 from .soft_delete import SoftDeleteMixin
 from .uuid import UUIDMixin
+from .composite_pk import CompositePKMixin
 
-__all__ = ["IntegerPKMixin", "TimestampMixin", "Version", "OptimisticLockMixin", "SoftDeleteMixin", "UUIDMixin"]
+__all__ = [
+    "IntegerPKMixin", "TimestampMixin", "Version", "OptimisticLockMixin",
+    "SoftDeleteMixin", "UUIDMixin", "CompositePKMixin",
+]
