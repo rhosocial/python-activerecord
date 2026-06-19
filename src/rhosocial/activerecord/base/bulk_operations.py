@@ -12,9 +12,6 @@ from ..interface import ModelEvent
 if TYPE_CHECKING:
     from .base import BaseActiveRecord, AsyncBaseActiveRecord
 
-if TYPE_CHECKING:
-    from .base import BaseActiveRecord, AsyncBaseActiveRecord
-
 
 class BulkOperationsMixin:
     """Mixin providing synchronous bulk operations for ActiveRecord models."""
