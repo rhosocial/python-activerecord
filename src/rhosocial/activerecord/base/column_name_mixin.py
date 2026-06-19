@@ -3,10 +3,11 @@
 This module provides a mixin for handling custom column names for model fields.
 """
 
-from typing import ClassVar, Dict, Optional, Type, Any, get_type_hints
+from typing import ClassVar, Dict, Optional, Type, Any, Tuple, Union, get_type_hints
 from functools import lru_cache
 
 from .fields import UseColumn
+from ..types import PrimaryKeyDef
 
 
 class ColumnNameAnnotationHandler:
@@ -259,15 +260,16 @@ class ColumnNameMixin:
         cls.get_column_to_field_map()
 
     @classmethod
-    def primary_key_field(cls) -> str:
+    def primary_key_field(cls) -> PrimaryKeyDef:
         """
-        Get the Python field name that maps to the primary key column.
+        Get the Python field name(s) that map to the primary key column(s).
 
-        Since __primary_key__ stores the DATABASE COLUMN NAME, this method
-        reverse-maps it to find the corresponding Python field name.
+        Since __primary_key__ stores the DATABASE COLUMN NAME(S), this method
+        reverse-maps to find the corresponding Python field name(s).
 
         Returns:
-            str: Python field name for the primary key
+            Union[str, Tuple[str, ...]]: Python field name(s) for the primary key.
+            Single-column PK returns str, composite PK returns tuple of field names.
 
         Example:
             class User(ActiveRecord):
@@ -277,18 +279,24 @@ class ColumnNameMixin:
             User.primary_key()       # "id" (column name)
             User.primary_key_field() # "user_id" (field name)
 
-        Note:
-            For models without UseColumn, the field name equals the column name:
+        For composite primary keys:
+            class OrderItem(ActiveRecord):
+                __primary_key__ = ("order_id", "product_id")
+                order_id: Annotated[int, UseColumn("order_id")]
+                product_id: Annotated[int, UseColumn("product_id")]
 
-            class SimpleUser(ActiveRecord):
-                __primary_key__ = "id"
-                id: int
-
-            SimpleUser.primary_key()       # "id"
-            SimpleUser.primary_key_field() # "id" (same)
+            OrderItem.primary_key_field() # ("order_id", "product_id")
         """
-        pk_column = cls.primary_key()  # Get column name from __primary_key__
-        return cls._get_field_name(pk_column)  # Reverse-map to field name
+        if cls.is_composite_pk():
+            return tuple(cls._get_field_name(col) for col in cls.primary_key_columns())
+        pk_column = cls.primary_key()
+        return cls._get_field_name(pk_column)
+
+    @classmethod
+    def primary_key_fields(cls) -> Tuple[str, ...]:
+        """Always return a tuple of primary key field names."""
+        result = cls.primary_key_field()
+        return result if isinstance(result, tuple) else (result,)
 
     @classmethod
     def _map_fields_to_columns(cls, field_data: Dict[str, Any]) -> Dict[str, Any]:

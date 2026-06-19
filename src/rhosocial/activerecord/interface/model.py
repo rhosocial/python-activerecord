@@ -7,12 +7,13 @@ import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pydantic import BaseModel
-from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callable
+from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callable, Tuple
 
 from .base import ModelEvent
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
 from ..backend.errors import DatabaseError, RecordNotFound
+from ..types import PrimaryKeyDef, PrimaryKeyValue
 
 
 class ActiveRecordBase(BaseModel, ABC):
@@ -40,7 +41,8 @@ class ActiveRecordBase(BaseModel, ABC):
 
     __table_name__: ClassVar[Optional[str]] = None
     __schema_name__: ClassVar[Optional[str]] = None
-    __primary_key__: ClassVar[str] = "id"
+    __primary_key__: ClassVar[PrimaryKeyDef] = "id"
+    __pk_auto_generated__: ClassVar[bool] = True
     __backend__: Optional[Union[StorageBackend, AsyncStorageBackend]] = None
     __backend_class__: ClassVar[Type[Union[StorageBackend, AsyncStorageBackend]]] = None
     __connection_config__: ClassVar[Optional[ConnectionConfig]] = None
@@ -118,14 +120,11 @@ class ActiveRecordBase(BaseModel, ABC):
         return cls.__schema_name__
 
     @classmethod
-    def primary_key(cls) -> str:
-        """Get the primary key column name.
+    def primary_key(cls) -> PrimaryKeyDef:
+        """Get the primary key definition.
 
-        Returns the class's __primary_key__ attribute by default. Subclasses can override
-        for dynamic primary keys.
-
-        Note: This implementation currently supports single-column primary keys only.
-        For composite primary keys, a different approach would be required.
+        Single-column primary keys return a str, composite primary keys return
+        a tuple of column names.
 
         Example:
             @classmethod
@@ -133,6 +132,17 @@ class ActiveRecordBase(BaseModel, ABC):
                 return f"{cls.__primary_key__}_{cls.get_shard()}"
         """
         return cls.__primary_key__
+
+    @classmethod
+    def is_composite_pk(cls) -> bool:
+        """Check if the model uses a composite primary key."""
+        return isinstance(cls.__primary_key__, tuple)
+
+    @classmethod
+    def primary_key_columns(cls) -> Tuple[str, ...]:
+        """Always return a tuple of primary key column names."""
+        pk = cls.__primary_key__
+        return pk if isinstance(pk, tuple) else (pk,)
 
     @classmethod
     def backend(cls) -> Union[StorageBackend, AsyncStorageBackend]:
@@ -276,9 +286,19 @@ class ActiveRecordBase(BaseModel, ABC):
         return list(collected_handlers.keys())
 
     @classmethod
-    def primary_key_field(cls) -> str:
-        """Get the Python field name that maps to the primary key column."""
+    def primary_key_field(cls) -> PrimaryKeyDef:
+        """Get the Python field name(s) that map to the primary key column(s).
+
+        Single-column PK returns a str, composite PK returns a tuple of column names.
+        Override in ColumnNameMixin to reverse-map custom column names.
+        """
         return cls.primary_key()
+
+    @classmethod
+    def primary_key_fields(cls) -> Tuple[str, ...]:
+        """Always return a tuple of primary key field names."""
+        result = cls.primary_key_field()
+        return result if isinstance(result, tuple) else (result,)
 
     @property
     def is_new_record(self) -> bool:
@@ -289,10 +309,10 @@ class ActiveRecordBase(BaseModel, ABC):
             bool: True if this is a new record that hasn't been saved to the database,
                   False if this record already exists in the database
         """
-        pk_field_name = self.__class__.primary_key_field()
-        pk_value = getattr(self, pk_field_name)
-        # A record is new if its primary key field is None OR if it hasn't been loaded from the DB
-        return pk_value is None or not self._is_from_db
+        for field in self.__class__.primary_key_fields():
+            if getattr(self, field, None) is None:
+                return True
+        return not self._is_from_db
 
     def __setattr__(self, name: str, value: Any):
         """Overridden to track field changes."""
@@ -535,9 +555,16 @@ class IActiveRecord(ActiveRecordBase):
 
     def refresh(self) -> None:
         """Reload record from database"""
-        pk_value = getattr(self, self.primary_key(), None)
-        if pk_value is None:
-            raise DatabaseError("Cannot refresh unsaved record")
+        cls = self.__class__
+        if cls.is_composite_pk():
+            pk_value = self._get_pk_value()
+            if any(v is None for v in pk_value.values()):
+                raise DatabaseError("Cannot refresh unsaved record")
+        else:
+            pk_field = cls.primary_key()
+            pk_value = getattr(self, pk_field, None)
+            if pk_value is None:
+                raise DatabaseError("Cannot refresh unsaved record")
 
         self.log(logging.DEBUG, f"Refreshing {self.__class__.__name__}#{pk_value}")
 
@@ -753,9 +780,16 @@ class IAsyncActiveRecord(ActiveRecordBase):
 
     async def refresh(self) -> None:
         """Reload record from database asynchronously"""
-        pk_value = getattr(self, self.primary_key(), None)
-        if pk_value is None:
-            raise DatabaseError("Cannot refresh unsaved record")
+        cls = self.__class__
+        if cls.is_composite_pk():
+            pk_value = self._get_pk_value()
+            if any(v is None for v in pk_value.values()):
+                raise DatabaseError("Cannot refresh unsaved record")
+        else:
+            pk_field = cls.primary_key()
+            pk_value = getattr(self, pk_field, None)
+            if pk_value is None:
+                raise DatabaseError("Cannot refresh unsaved record")
 
         self.log(logging.DEBUG, f"Refreshing {self.__class__.__name__}#{pk_value}")
 

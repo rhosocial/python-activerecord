@@ -6,12 +6,14 @@ Provides AsyncBelongsTo, AsyncHasOne, and AsyncHasMany relationship types.
 
 import logging
 
-from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, ClassVar, List, Dict
+from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, ClassVar, List, Dict, Tuple
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import IAsyncRelationValidation, IAsyncRelationLoader
 from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..interface import IAsyncActiveRecord, IAsyncActiveQuery
+from ..types import PrimaryKeyDef
+from ..backend.expression.core import Column
 
 U = TypeVar("U", bound=IAsyncActiveRecord)
 
@@ -66,14 +68,16 @@ class AsyncRelationDescriptor(Generic[U]):
 
     def __init__(
         self,
-        foreign_key: str,
+        foreign_key: Union[str, Tuple[str, ...]],
         inverse_of: Optional[str] = None,
         loader: Optional[IAsyncRelationLoader[U]] = None,
         validator: Optional[IAsyncRelationValidation] = None,
         cache_config: Optional[CacheConfig] = None,
     ):
-        if type(foreign_key) is not str:
-            raise TypeError("foreign_key must be a string")
+        if not isinstance(foreign_key, (str, tuple)):
+            raise TypeError("foreign_key must be a string or tuple of strings")
+        if isinstance(foreign_key, tuple) and not all(isinstance(fk, str) for fk in foreign_key):
+            raise TypeError("foreign_key tuple items must be strings")
         self.foreign_key = foreign_key
         self.inverse_of = inverse_of
         self._loader = loader or AsyncDefaultRelationLoader(self)
@@ -305,31 +309,37 @@ class AsyncRelationDescriptor(Generic[U]):
             self._ensure_model_capability()
             # Start with base query for the related model
             query = related_model.query()
+            backend = related_model.backend()
+            from ..backend.expression.core import Column
 
             # Add appropriate foreign key condition based on relationship type
             if isinstance(self, AsyncBelongsTo):
-                # For AsyncBelongsTo, filter by primary key matching our foreign key
-                if hasattr(instance, self.foreign_key):
-                    fk_value = getattr(instance, self.foreign_key)
-                    if fk_value is not None:
-                        # Use backend expression system instead of manual SQL string concatenation
-                        backend = related_model.backend()
-                        from ..backend.expression.core import Column
-
-                        pk_column = Column(
-                            backend.dialect, related_model.primary_key(), table=related_model.table_name()
-                        )
-                        query = query.where(pk_column == fk_value)
+                fk_cols = self.foreign_key if isinstance(self.foreign_key, tuple) else (self.foreign_key,)
+                pk_cols = related_model.primary_key_columns()
+                if len(fk_cols) != len(pk_cols):
+                    raise ValueError(
+                        f"Foreign key columns {fk_cols} must match "
+                        f"primary key columns {pk_cols} of {related_model.__name__}"
+                    )
+                for fk_col, pk_col in zip(fk_cols, pk_cols):
+                    if hasattr(instance, fk_col):
+                        fk_value = getattr(instance, fk_col)
+                        if fk_value is not None:
+                            pk_column = Column(backend.dialect, pk_col, table=related_model.table_name())
+                            query = query.where(pk_column == fk_value)
             else:
-                # For AsyncHasOne/AsyncHasMany, filter by foreign key matching our primary key
-                pk_value = getattr(instance, instance.primary_key())
-                if pk_value is not None:
-                    # Use backend expression system instead of manual SQL string concatenation
-                    backend = related_model.backend()
-                    from ..backend.expression.core import Column
-
-                    fk_column = Column(backend.dialect, self.foreign_key, table=related_model.table_name())
-                    query = query.where(fk_column == pk_value)
+                pk_cols = instance.primary_key_columns()
+                fk_cols = self.foreign_key if isinstance(self.foreign_key, tuple) else (self.foreign_key,)
+                if len(pk_cols) != len(fk_cols):
+                    raise ValueError(
+                        f"Primary key columns {pk_cols} must match "
+                        f"foreign key columns {fk_cols} in {self.name}"
+                    )
+                for pk_col, fk_col in zip(pk_cols, fk_cols):
+                    pk_value = getattr(instance, pk_col)
+                    if pk_value is not None:
+                        fk_column = Column(backend.dialect, fk_col, table=related_model.table_name())
+                        query = query.where(fk_column == pk_value)
 
             return query
 
@@ -576,93 +586,164 @@ class AsyncDefaultRelationLoader(IAsyncRelationLoader[U]):
         query = base_query if base_query is not None else model_class.query()
 
         result = {}
+        is_composite = model_class.is_composite_pk() or isinstance(self.descriptor.foreign_key, tuple)
         if isinstance(self.descriptor, AsyncBelongsTo):
-            # Collect unique foreign keys
-            foreign_keys = {
-                getattr(instance, self.descriptor.foreign_key)
-                for instance in instances
-                if hasattr(instance, self.descriptor.foreign_key)
-                and getattr(instance, self.descriptor.foreign_key) is not None
-            }
+            fk_cols = self.descriptor.foreign_key if isinstance(self.descriptor.foreign_key, tuple) else (self.descriptor.foreign_key,)
+            pk_cols = model_class.primary_key_columns()
+
+            # Collect unique foreign key values
+            if not is_composite:
+                foreign_keys = {
+                    getattr(instance, fk_cols[0])
+                    for instance in instances
+                    if hasattr(instance, fk_cols[0])
+                    and getattr(instance, fk_cols[0]) is not None
+                }
+            else:
+                foreign_keys = set()
+                for instance in instances:
+                    fk_tuple = tuple(
+                        getattr(instance, fk_col, None) for fk_col in fk_cols
+                    )
+                    if all(v is not None for v in fk_tuple):
+                        foreign_keys.add(fk_tuple)
 
             if not foreign_keys:
                 return result
 
-            # Load all related records using base_query with new expression system
-            from ..backend.expression import Column, Literal, InPredicate
+            # Build WHERE predicate
+            if not is_composite:
+                from ..backend.expression import Literal, InPredicate
+                pk_column = Column(query.backend().dialect, model_class.primary_key())
+                values_literal = Literal(query.backend().dialect, list(foreign_keys))
+                in_predicate = InPredicate(query.backend().dialect, pk_column, values_literal)
+                query = query.where(in_predicate)
+            else:
+                predicates = []
+                for fk_values in foreign_keys:
+                    and_pred = None
+                    for pk_col, fk_val in zip(pk_cols, fk_values if isinstance(fk_values, tuple) else (fk_values,)):
+                        col_expr = Column(query.backend().dialect, pk_col)
+                        from ..backend.expression import Literal
+                        from ..backend.expression import ComparisonPredicate
+                        pred = ComparisonPredicate(query.backend().dialect, "=", col_expr, Literal(query.backend().dialect, fk_val))
+                        and_pred = pred if and_pred is None else and_pred & pred
+                    if and_pred is not None:
+                        predicates.append(and_pred)
+                if predicates:
+                    combined = predicates[0]
+                    for p in predicates[1:]:
+                        combined = combined | p
+                    query = query.where(combined)
 
-            # Create IN predicate using expression system
-            pk_column = Column(query.backend().dialect, model_class.primary_key())
-            # Create a literal with the list of foreign keys
-            values_literal = Literal(query.backend().dialect, list(foreign_keys))
-            in_predicate = InPredicate(query.backend().dialect, pk_column, values_literal)
-
-            # Get the SQL to see what's generated
-            query._log(logging.DEBUG, f"Async batch load SQL: {query.where(in_predicate).to_sql()}")
-
+            query._log(logging.DEBUG, f"Async batch load SQL (BelongsTo): {query.to_sql()}")
             related_records = await query.all()
 
             # Build lookup map
-            related_map = {getattr(record, model_class.primary_key()): record for record in related_records}
+            if not is_composite:
+                related_map = {getattr(record, model_class.primary_key()): record for record in related_records}
+            else:
+                related_map = {
+                    tuple(getattr(record, col) for col in pk_cols): record
+                    for record in related_records
+                }
 
             # Map results to instance IDs
             for instance in instances:
-                fk_value = getattr(instance, self.descriptor.foreign_key, None)
-                if fk_value is not None and fk_value in related_map:
-                    result[id(instance)] = related_map[fk_value]
+                if not is_composite:
+                    fk_value = getattr(instance, fk_cols[0], None)
+                    if fk_value is not None and fk_value in related_map:
+                        result[id(instance)] = related_map[fk_value]
+                else:
+                    fk_tuple = tuple(getattr(instance, fk_col, None) for fk_col in fk_cols)
+                    if all(v is not None for v in fk_tuple) and fk_tuple in related_map:
+                        result[id(instance)] = related_map[fk_tuple]
 
         else:  # HasOne or HasMany
-            # Collect primary keys
-            primary_keys = {
-                getattr(instance, instance.primary_key())
-                for instance in instances
-                if hasattr(instance, "primary_key") and getattr(instance, instance.primary_key()) is not None
-            }
+            fk_cols = self.descriptor.foreign_key if isinstance(self.descriptor.foreign_key, tuple) else (self.descriptor.foreign_key,)
+            pk_cols = instances[0].primary_key_columns() if instances else model_class.primary_key_columns()
+
+            # Collect unique primary key values
+            if not is_composite:
+                primary_keys = {
+                    getattr(instance, instance.primary_key())
+                    for instance in instances
+                    if hasattr(instance, "primary_key") and getattr(instance, instance.primary_key()) is not None
+                }
+            else:
+                primary_keys = set()
+                for instance in instances:
+                    pk_tuple = tuple(getattr(instance, col, None) for col in pk_cols)
+                    if all(v is not None for v in pk_tuple):
+                        primary_keys.add(pk_tuple)
 
             if not primary_keys:
-                # Return empty list for HasMany, None for HasOne for all instances
                 return {
                     id(instance): [] if isinstance(self.descriptor, AsyncHasMany) else None for instance in instances
                 }
 
-            # Load all related records using base_query with new expression system
-            # Keep existing conditions from base_query, only add IN condition
-            # Create a clone of the query to avoid modifying the original
             if hasattr(query, "clone"):
                 query = query.clone()
 
-            from ..backend.expression import Column, Literal, InPredicate
+            # Build WHERE predicate
+            if not is_composite:
+                from ..backend.expression import Literal, InPredicate
+                fk_column = Column(query.backend().dialect, self.descriptor.foreign_key)
+                values_literal = Literal(query.backend().dialect, list(primary_keys))
+                in_predicate = InPredicate(query.backend().dialect, fk_column, values_literal)
+                query = query.where(in_predicate)
+            else:
+                predicates = []
+                for pk_values in primary_keys:
+                    and_pred = None
+                    for fk_col, pk_val in zip(fk_cols, pk_values if isinstance(pk_values, tuple) else (pk_values,)):
+                        col_expr = Column(query.backend().dialect, fk_col)
+                        from ..backend.expression import Literal
+                        from ..backend.expression import ComparisonPredicate
+                        pred = ComparisonPredicate(query.backend().dialect, "=", col_expr, Literal(query.backend().dialect, pk_val))
+                        and_pred = pred if and_pred is None else and_pred & pred
+                    if and_pred is not None:
+                        predicates.append(and_pred)
+                if predicates:
+                    combined = predicates[0]
+                    for p in predicates[1:]:
+                        combined = combined | p
+                    query = query.where(combined)
 
-            # Create IN predicate using expression system
-            fk_column = Column(query.backend().dialect, self.descriptor.foreign_key)
-            # Create a literal with the list of primary keys
-            values_literal = Literal(query.backend().dialect, list(primary_keys))
-            in_predicate = InPredicate(query.backend().dialect, fk_column, values_literal)
-
-            # Get the SQL to see what's generated
-            query._log(logging.DEBUG, f"Async batch load SQL: {query.where(in_predicate).to_sql()}")
-
+            query._log(logging.DEBUG, f"Async batch load SQL (HasMany): {query.to_sql()}")
             related_records = await query.all()
 
             # Group by foreign key
-            related_map: Dict[Any, List[Any]] = {}
-            for record in related_records:
-                fk_value = getattr(record, self.descriptor.foreign_key)
-                if fk_value not in related_map:
-                    related_map[fk_value] = []
-                related_map[fk_value].append(record)
+            if not is_composite:
+                related_map: Dict[Any, List[Any]] = {}
+                for record in related_records:
+                    fk_value = getattr(record, self.descriptor.foreign_key)
+                    if fk_value not in related_map:
+                        related_map[fk_value] = []
+                    related_map[fk_value].append(record)
+            else:
+                related_map: Dict[Any, List[Any]] = {}
+                for record in related_records:
+                    fk_tuple = tuple(getattr(record, fk_col, None) for fk_col in fk_cols)
+                    if fk_tuple not in related_map:
+                        related_map[fk_tuple] = []
+                    related_map[fk_tuple].append(record)
 
-            # Map results to instance IDs, ensuring proper empty results
+            # Map results to instance IDs
             for instance in instances:
-                pk_value = getattr(instance, instance.primary_key(), None)
+                if not is_composite:
+                    pk_value = getattr(instance, instance.primary_key(), None)
+                else:
+                    pk_value = tuple(getattr(instance, col, None) for col in pk_cols)
                 if pk_value is not None:
-                    related_data = related_map.get(pk_value, [])
+                    if not is_composite:
+                        related_data = related_map.get(pk_value, [])
+                    else:
+                        related_data = related_map.get(pk_value, [])
                     if isinstance(self.descriptor, AsyncHasOne):
-                        # For AsyncHasOne, take first record if any exists
                         related_data = related_data[0] if related_data else None
                     result[id(instance)] = related_data
                 else:
-                    # No primary key means no relations
                     result[id(instance)] = [] if isinstance(self.descriptor, AsyncHasMany) else None
 
         return result
