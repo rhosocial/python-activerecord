@@ -34,7 +34,7 @@ users_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -42,7 +42,7 @@ users_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
@@ -59,14 +59,14 @@ orders_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition("user_id", "INTEGER"),
-        ColumnDefinition("amount", "REAL"),
+        ColumnDefinition("user_id", IntegerType()),
+        ColumnDefinition("amount", FloatType()),
     ],
     table_constraints=[
         TableConstraint(
@@ -117,6 +117,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     JoinExpression,
 )
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 
 join_expr = JoinExpression(
     dialect=dialect,

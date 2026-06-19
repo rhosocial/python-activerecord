@@ -10,6 +10,7 @@ Tests are run against the actual SQLite dialect.
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
@@ -42,7 +43,7 @@ def test_sqlite_format_column_definition_data_type_validation(dialect):
     """Test column definition validates data_type."""
     col_def = ColumnDefinition(
         name="test_col",
-        data_type="TEXT",
+        data_type=SQLiteTextType(),
     )
 
     sql, params = dialect.format_column_definition(col_def)
@@ -51,13 +52,11 @@ def test_sqlite_format_column_definition_data_type_validation(dialect):
 
 def test_sqlite_format_column_definition_data_type_rejects_injection(dialect):
     """Test that malicious data_type is rejected."""
-    col_def = ColumnDefinition(
-        name="test_col",
-        data_type="TEXT; DROP TABLE users--",
-    )
-
-    with pytest.raises(ValueError, match="Invalid data type"):
-        dialect.format_column_definition(col_def)
+    with pytest.raises(TypeError, match="data_type must be a DataType"):
+        ColumnDefinition(
+            name="test_col",
+            data_type="TEXT; DROP TABLE users--",
+        )
 
 
 def test_sqlite_format_default_constraint_string_escaping(dialect):

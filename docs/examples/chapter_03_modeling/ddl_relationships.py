@@ -12,6 +12,7 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableExpression
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
     ColumnConstraintType,
@@ -93,12 +94,12 @@ def main():
     # ============================================================
     author_columns = [
         ColumnDefinition(
-            "id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
+            "id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
         ),
-        ColumnDefinition("name", "VARCHAR(100)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("name", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
         ColumnDefinition(
             "email",
-            "VARCHAR(255)",
+            VarCharType(255),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(ColumnConstraintType.UNIQUE),
@@ -123,11 +124,11 @@ def main():
     # ============================================================
     post_columns = [
         ColumnDefinition(
-            "id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
+            "id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
         ),
-        ColumnDefinition("title", "VARCHAR(200)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("content", "TEXT"),
-        ColumnDefinition("author_id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("title", VarCharType(200), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("content", TextType()),
+        ColumnDefinition("author_id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
     ]
 
     # Use table_constraints for foreign key at table level
@@ -163,11 +164,11 @@ def main():
     # ============================================================
     tag_columns = [
         ColumnDefinition(
-            "id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
+            "id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
         ),
         ColumnDefinition(
             "name",
-            "VARCHAR(50)",
+            VarCharType(50),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(ColumnConstraintType.UNIQUE),
@@ -189,8 +190,8 @@ def main():
     # Example 4: Create junction table (PostTag) for many-to-many
     # ============================================================
     post_tag_columns = [
-        ColumnDefinition("post_id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("tag_id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("post_id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("tag_id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
     ]
 
     # Table-level constraints for composite PK and foreign keys

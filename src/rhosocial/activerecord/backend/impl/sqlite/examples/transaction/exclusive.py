@@ -84,15 +84,15 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
         ),
-        ColumnDefinition("balance", "REAL"),
+        ColumnDefinition("balance", FloatType()),
     ],
     if_not_exists=True,
 )
@@ -133,6 +133,7 @@ print(f"After IMMEDIATE transaction: {fetch_balances()}")
 # - BEGIN EXCLUSIVE: exclusive lock only for this transaction
 # - PRAGMA locking_mode=EXCLUSIVE: persistent lock across all transactions
 from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 
 exclusive_begin = BeginTransactionExpression(dialect).begin_type("EXCLUSIVE")
 sql, params = exclusive_begin.to_sql()

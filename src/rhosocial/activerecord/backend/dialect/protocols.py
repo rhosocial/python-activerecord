@@ -7,10 +7,11 @@ support for advanced database features. Protocols enable fine-grained feature
 detection and graceful error handling.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, Type, Protocol, runtime_checkable, TYPE_CHECKING
 
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ..expression.types._base import DataType
     from ..expression import (
         bases,
         ExplainExpression,
@@ -2174,5 +2175,71 @@ class SQLFunctionSupport(Protocol):
                 "ST_Distance": False, # Not available in SQLite
                 ...
             }
+        """
+        ...  # pragma: no cover
+
+
+# ============================================================
+# DataType Support Protocols
+# ============================================================
+
+
+@runtime_checkable
+class TypeParsingSupport(Protocol):
+    """Protocol for parsing raw SQL type strings into ``DataType`` expressions.
+
+    Dialects that implement this protocol can convert the raw type strings
+    returned by introspection (e.g. ``INTEGER``, ``VARCHAR(255)``) into
+    structured ``DataType`` expression objects.
+
+    The framework calls ``DataType.parse_data_type_str(dialect, raw)``,
+    which in turn delegates to ``dialect.parse_type(raw)`` when the dialect
+    supports this protocol.
+    """
+
+    def parse_type(self, raw: str) -> "DataType":
+        """Parse a raw SQL type string into a ``DataType``.
+
+        Args:
+            raw: The raw type string from introspection (e.g. ``"INTEGER"``,
+                 ``"VARCHAR(255)"``, ``"NUMERIC(10,2)"``).
+
+        Returns:
+            A ``DataType`` instance representing the parsed type.
+        """
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class TypeFormattingSupport(Protocol):
+    """Protocol for rendering ``DataType`` expressions into SQL strings.
+
+    Dialects that implement this protocol can convert ``DataType`` expression
+    objects into the backend-specific SQL representation.
+
+    The framework calls ``data_type.to_sql()``, which delegates to
+    ``dialect.render_type(data_type)`` when the dialect supports this protocol.
+    """
+
+    def render_type(self, data_type: "DataType") -> str:
+        """Render a ``DataType`` expression into a SQL type string.
+
+        Args:
+            data_type: The ``DataType`` expression to render.
+
+        Returns:
+            The SQL type string (e.g. ``"INTEGER"``, ``"VARCHAR(255)"``).
+        """
+        ...  # pragma: no cover
+
+    def supports_data_types(self) -> List[Tuple[type, str]]:
+        """Declare the list of supported DataType classes.
+
+        Returns a list of ``(DataType subclass, format_method_suffix)`` pairs.
+        The ``render_type()`` default implementation iterates this list to
+        find a matching type class and calls the corresponding
+        ``format_data_type_{suffix}()`` method.
+
+        Backends can override this method to expose version-dependent types.
         """
         ...  # pragma: no cover

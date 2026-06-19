@@ -34,6 +34,7 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     ForUpdateClause,
 )
 from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
+from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.expression.serialization import (
     serialize,
     deserialize,
@@ -767,7 +768,7 @@ class TestDDLRoundtrip:
             ColumnConstraintType,
         )
 
-        col_def = ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)])
+        col_def = ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)])
         expr = CreateTableExpression(dummy_dialect, table="users", columns=[col_def])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()

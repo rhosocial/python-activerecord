@@ -34,6 +34,8 @@ from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingC
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression.types import FloatType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
 
 
 @pytest.fixture
@@ -47,14 +49,14 @@ def sqlite_backend():
     users_columns = [
         ColumnDefinition(
             name="id",
-            data_type="INTEGER",
+            data_type=SQLiteIntegerType(),
             constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)],
         ),
-        ColumnDefinition(name="name", data_type="TEXT", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition(name="email", data_type="TEXT"),
+        ColumnDefinition(name="name", data_type=SQLiteTextType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition(name="email", data_type=SQLiteTextType()),
         ColumnDefinition(
             name="status",
-            data_type="TEXT",
+            data_type=SQLiteTextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=RawSQLExpression(dialect, "'active'"))
             ],
@@ -70,12 +72,12 @@ def sqlite_backend():
     orders_columns = [
         ColumnDefinition(
             name="id",
-            data_type="INTEGER",
+            data_type=SQLiteIntegerType(),
             constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)],
         ),
-        ColumnDefinition(name="user_id", data_type="INTEGER"),
-        ColumnDefinition(name="amount", data_type="REAL"),
-        ColumnDefinition(name="order_date", data_type="TEXT"),
+        ColumnDefinition(name="user_id", data_type=SQLiteIntegerType()),
+        ColumnDefinition(name="amount", data_type=FloatType()),
+        ColumnDefinition(name="order_date", data_type=SQLiteTextType()),
     ]
 
     orders_fk_constraint = ForeignKeyConstraint(

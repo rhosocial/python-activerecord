@@ -32,7 +32,7 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -40,13 +40,13 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("age", "INTEGER"),
-        ColumnDefinition("status", "TEXT"),
+        ColumnDefinition("age", IntegerType()),
+        ColumnDefinition("status", TextType()),
     ],
     if_not_exists=True,
 )
@@ -81,6 +81,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 query = QueryExpression(
     dialect=dialect,

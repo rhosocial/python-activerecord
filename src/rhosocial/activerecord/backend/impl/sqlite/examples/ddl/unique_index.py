@@ -37,7 +37,7 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -45,14 +45,14 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "email",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
         ),
         ColumnDefinition(
             "username",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
@@ -67,6 +67,7 @@ backend.execute(sql, params)
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import CreateIndexExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 # 1. CREATE UNIQUE INDEX on a single column
 create_email_idx = CreateIndexExpression(

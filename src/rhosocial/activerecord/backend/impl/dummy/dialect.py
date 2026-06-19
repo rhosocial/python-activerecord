@@ -902,7 +902,7 @@ class DummyDialect(
 
         all_params = []
 
-        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
+        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type.to_sql(self)[0]}"
 
         for constraint in col_def.constraints:
             if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:

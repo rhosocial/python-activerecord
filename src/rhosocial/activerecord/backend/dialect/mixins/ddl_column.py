@@ -9,14 +9,9 @@ class DDLColumnMixin:
     """Mixin for DDL column definition and ALTER TABLE action formatting."""
 
     def format_column_definition(self, col_def) -> Tuple[str, tuple]:
-        from ...dialect.base import SQLDialectBase
         all_params: List[Any] = []
-        if not SQLDialectBase._validate_data_type(col_def.data_type):
-            raise ValueError(
-                f"Invalid data type '{col_def.data_type}': "
-                "must contain only alphanumeric characters, spaces, parentheses, and commas."
-            )
-        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
+        type_sql, _ = col_def.data_type.to_sql(self)
+        col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
         for constraint in col_def.constraints:
             suffix, params = self.format_column_constraint(constraint)
             col_sql += suffix

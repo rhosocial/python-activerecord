@@ -34,8 +34,8 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table="users",
     columns=[
-        ColumnDefinition("id", "INT"),
-        ColumnDefinition("name", "TEXT"),
+        ColumnDefinition("id", IntegerType()),
+        ColumnDefinition("name", TextType()),
     ],
     if_not_exists=True,
 )
@@ -63,6 +63,7 @@ backend.execute(sql, params)
 # SECTION: CREATE VIEW
 # ============================================================
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
     QueryExpression,
     TableExpression,
     CreateViewExpression,

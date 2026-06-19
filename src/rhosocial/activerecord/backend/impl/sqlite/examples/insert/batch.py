@@ -27,7 +27,7 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -35,12 +35,12 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("email", "TEXT"),
+        ColumnDefinition("email", TextType()),
     ],
     if_not_exists=True,
 )
@@ -58,6 +58,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     QueryExpression,
 )
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 insert_expr = InsertExpression(
     dialect=dialect,

@@ -11,6 +11,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.core import Column, TableExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 
 dialect = DummyDialect()
 
@@ -21,9 +22,9 @@ class TestCompositePKDDL:
             dialect=dialect,
             table="order_items",
             columns=[
-                ColumnDefinition("order_id", "INTEGER",
+                ColumnDefinition("order_id", IntegerType(),
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition("product_id", "INTEGER",
+                ColumnDefinition("product_id", IntegerType(),
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[
@@ -41,11 +42,11 @@ class TestCompositePKDDL:
             dialect=dialect,
             table="store_inventory",
             columns=[
-                ColumnDefinition("store_id", "INTEGER",
+                ColumnDefinition("store_id", IntegerType(),
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition("product_id", "INTEGER",
+                ColumnDefinition("product_id", IntegerType(),
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition("batch_id", "VARCHAR(64)",
+                ColumnDefinition("batch_id", VarCharType(64),
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[
@@ -66,9 +67,9 @@ class TestCompositePKDDL:
             dialect=dialect,
             table="t",
             columns=[
-                ColumnDefinition("a", "INTEGER",
+                ColumnDefinition("a", IntegerType(),
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition("b", "INTEGER",
+                ColumnDefinition("b", IntegerType(),
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[

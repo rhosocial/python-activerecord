@@ -32,7 +32,7 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -40,14 +40,14 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("price", "REAL"),
-        ColumnDefinition("category", "TEXT"),
-        ColumnDefinition("description", "TEXT"),
+        ColumnDefinition("price", FloatType()),
+        ColumnDefinition("category", TextType()),
+        ColumnDefinition("description", TextType()),
     ],
     if_not_exists=True,
 )
@@ -82,6 +82,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
     LikePredicate,
     InPredicate,
     BetweenPredicate,
