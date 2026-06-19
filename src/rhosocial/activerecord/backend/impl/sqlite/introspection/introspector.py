@@ -146,6 +146,9 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             base_type = base_type_match.group(1) if base_type_match else raw_type
             # SQLite pk field: 0 = not primary key, >0 = primary key (or part of composite PK)
             is_pk = row.get("pk", 0) > 0
+            # Parse raw type string into a DataType expression
+            from rhosocial.activerecord.backend.expression.types._base import DataType
+            parsed = DataType.parse_data_type_str(self._backend.dialect, raw_type)
             columns.append(
                 ColumnInfo(
                     name=row["name"],
@@ -154,6 +157,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                     ordinal_position=row["cid"] + 1,
                     data_type=base_type.lower(),
                     data_type_full=raw_type,
+                    parsed_data_type=parsed,
                     nullable=nullable,
                     default_value=row.get("dflt_value"),
                     is_primary_key=is_pk,

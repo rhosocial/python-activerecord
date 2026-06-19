@@ -35,13 +35,13 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition("name", "TEXT"),
+        ColumnDefinition("name", TextType()),
     ],
     if_not_exists=True,
 )
@@ -53,6 +53,7 @@ backend.execute(sql, params)
 # SECTION: Single INSERT (using InsertExpression)
 # ============================================================
 from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 insert_expr = InsertExpression(
     dialect=dialect,

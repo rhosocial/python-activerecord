@@ -46,6 +46,9 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
+    # Type Support Protocols
+    TypeFormattingSupport,
+    TypeParsingSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CollationMixin,
@@ -123,6 +126,7 @@ from .mixins import (
     SQLiteFTS5Mixin,
     SQLiteRTreeMixin,
     SQLiteGeopolyMixin,
+    SQLiteTypeSupportMixin,
 )
 
 # Module-level constants for error suggestions (SonarCloud S1192)
@@ -186,6 +190,8 @@ class SQLiteDialect(
     SQLiteFTS5Mixin,
     SQLiteRTreeMixin,
     SQLiteGeopolyMixin,
+    # DataType formatting and parsing
+    SQLiteTypeSupportMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
     CollationMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)
@@ -243,6 +249,9 @@ class SQLiteDialect(
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
+    # DataType Support Protocols
+    TypeFormattingSupport,
+    TypeParsingSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.

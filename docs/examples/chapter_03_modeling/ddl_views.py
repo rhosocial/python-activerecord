@@ -21,6 +21,7 @@ from rhosocial.activerecord.backend.expression import (
     TableExpression,
     Column,
 )
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
     ColumnConstraintType,
@@ -53,10 +54,10 @@ def main():
 
     # Create base table first
     user_columns = [
-        ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("name", "VARCHAR(100)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("email", "VARCHAR(255)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("status", "VARCHAR(20)"),
+        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition("name", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("email", VarCharType(255), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("status", VarCharType(20)),
     ]
 
     create_users = CreateTableExpression(dialect=dialect, table_name="users", columns=user_columns)

@@ -93,12 +93,6 @@ class SQLiteDDLColumnMixin:
         """Format a column definition for SQLite, including generated columns support."""
         from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
 
-        if not self._validate_data_type(col_def.data_type):
-            raise ValueError(
-                f"Invalid data type '{col_def.data_type}': "
-                "must contain only alphanumeric characters, spaces, parentheses, and commas."
-            )
-
         constraint_handlers = {
             ColumnConstraintType.PRIMARY_KEY: self.format_primary_key_constraint,
             ColumnConstraintType.NOT_NULL: self.format_not_null_constraint,
@@ -110,7 +104,8 @@ class SQLiteDDLColumnMixin:
         }
 
         all_params = []
-        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
+        type_sql, _ = col_def.data_type.to_sql(self)
+        col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
         for constraint in col_def.constraints:
             handler = constraint_handlers.get(constraint.constraint_type)

@@ -25,7 +25,7 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table_name="users",
     columns=[
-        ColumnDefinition("id", "INTEGER"),
+        ColumnDefinition("id", IntegerType()),
     ],
     if_not_exists=True,
 )
@@ -37,6 +37,7 @@ backend.execute(sql, params)
 # SECTION: DROP TABLE (using DropTableExpression)
 # ============================================================
 from rhosocial.activerecord.backend.expression import DropTableExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType
 
 drop_expr = DropTableExpression(
     dialect=dialect,

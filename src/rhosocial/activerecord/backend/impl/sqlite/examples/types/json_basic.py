@@ -32,13 +32,13 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition("data", "TEXT"),
+        ColumnDefinition("data", TextType()),
     ],
     if_not_exists=True,
 )
@@ -70,6 +70,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     Column,
 )
 from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 query = QueryExpression(
     dialect=dialect,

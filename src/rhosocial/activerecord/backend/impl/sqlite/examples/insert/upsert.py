@@ -28,6 +28,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
 )
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -39,7 +40,7 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -47,7 +48,7 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "username",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(ColumnConstraintType.UNIQUE),
@@ -55,12 +56,12 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "email",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("login_count", "INTEGER"),
+        ColumnDefinition("login_count", IntegerType()),
     ],
     if_not_exists=True,
 )

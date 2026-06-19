@@ -30,6 +30,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
 from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 
 create_table = CreateTableExpression(
     dialect=dialect,
@@ -37,19 +38,19 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
             ],
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("balance", "REAL"),
+        ColumnDefinition("balance", FloatType()),
     ],
     if_not_exists=True,
 )

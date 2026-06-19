@@ -20,6 +20,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     PartitionStrategy,
 )
 from rhosocial.activerecord.backend.expression.functions.string import trim
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 
 
 class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin):
@@ -85,22 +86,20 @@ def test_format_column_definition_data_type_validation(dialect):
     """Test that column definition validates data_type."""
     col_def = ColumnDefinition(
         name="test_col",
-        data_type="VARCHAR(255)",
+        data_type=VarCharType(255),
     )
 
     sql, params = dialect.format_column_definition(col_def)
     assert "VARCHAR(255)" in sql
 
 
-def test_format_column_definition_data_type_rejects_injection(dialect):
-    """Test that malicious data_type is rejected."""
-    col_def = ColumnDefinition(
-        name="test_col",
-        data_type="VARCHAR(255); DROP TABLE users--",
-    )
-
-    with pytest.raises(ValueError, match="Invalid data type"):
-        dialect.format_column_definition(col_def)
+def test_column_definition_rejects_string_data_type(dialect):
+    """Test that ColumnDefinition rejects a string for data_type."""
+    with pytest.raises(TypeError, match="data_type must be a DataType"):
+        ColumnDefinition(
+            name="test_col",
+            data_type="VARCHAR(255); DROP TABLE users--",
+        )
 
 
 def test_format_cast_expression_valid(dialect):
@@ -223,7 +222,7 @@ def test_format_partition_method_validation(dialect):
         PartitionClause,
     )
 
-    col_def = ColumnDefinition(name="id", data_type="INTEGER")
+    col_def = ColumnDefinition(name="id", data_type=IntegerType())
     expr = CreateTableExpression(
         dialect=dialect,
         table="test_table",

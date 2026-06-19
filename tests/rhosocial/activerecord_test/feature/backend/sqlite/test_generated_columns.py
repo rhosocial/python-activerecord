@@ -12,6 +12,8 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression import RawSQLExpression
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.types import FloatType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
 
 
 class TestGeneratedColumnsVersionSupport:
@@ -47,7 +49,7 @@ class TestGeneratedColumnsFormatting:
 
         col_def = ColumnDefinition(
             name="full_name",
-            data_type="TEXT",
+            data_type=SQLiteTextType(),
             generated_expression=RawSQLExpression(dialect, '"first_name" || \' \' || "last_name"'),
             generated_type=GeneratedColumnType.VIRTUAL,
         )
@@ -64,7 +66,7 @@ class TestGeneratedColumnsFormatting:
 
         col_def = ColumnDefinition(
             name="total_price",
-            data_type="REAL",
+            data_type=FloatType(),
             generated_expression=RawSQLExpression(dialect, '"price" * "quantity"'),
             generated_type=GeneratedColumnType.STORED,
         )
@@ -81,7 +83,7 @@ class TestGeneratedColumnsFormatting:
 
         col_def = ColumnDefinition(
             name="computed_value",
-            data_type="INTEGER",
+            data_type=SQLiteIntegerType(),
             generated_expression=RawSQLExpression(dialect, '"base_value" + 1'),
         )
 
@@ -96,7 +98,7 @@ class TestGeneratedColumnsFormatting:
 
         col_def = ColumnDefinition(
             name="status_code",
-            data_type="INTEGER",
+            data_type=SQLiteIntegerType(),
             constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
             generated_expression=RawSQLExpression(dialect, '"raw_status"'),
         )
@@ -112,7 +114,7 @@ class TestGeneratedColumnsFormatting:
         dialect = SQLiteDialect(version=(3, 30, 0))
 
         col_def = ColumnDefinition(
-            name="computed", data_type="TEXT", generated_expression=RawSQLExpression(dialect, '"source"')
+            name="computed", data_type=SQLiteTextType(), generated_expression=RawSQLExpression(dialect, '"source"')
         )
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
@@ -131,13 +133,13 @@ class TestGeneratedColumnsInCreateTable:
 
         columns = [
             ColumnDefinition(
-                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=SQLiteIntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
-            ColumnDefinition(name="price", data_type="REAL"),
-            ColumnDefinition(name="quantity", data_type="INTEGER"),
+            ColumnDefinition(name="price", data_type=FloatType()),
+            ColumnDefinition(name="quantity", data_type=SQLiteIntegerType()),
             ColumnDefinition(
                 name="total",
-                data_type="REAL",
+                data_type=FloatType(),
                 generated_expression=RawSQLExpression(dialect, '"price" * "quantity"'),
                 generated_type=GeneratedColumnType.STORED,
             ),
@@ -158,13 +160,13 @@ class TestGeneratedColumnsInCreateTable:
 
         columns = [
             ColumnDefinition(
-                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=SQLiteIntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
-            ColumnDefinition(name="first_name", data_type="TEXT"),
-            ColumnDefinition(name="last_name", data_type="TEXT"),
+            ColumnDefinition(name="first_name", data_type=SQLiteTextType()),
+            ColumnDefinition(name="last_name", data_type=SQLiteTextType()),
             ColumnDefinition(
                 name="full_name",
-                data_type="TEXT",
+                data_type=SQLiteTextType(),
                 generated_expression=RawSQLExpression(dialect, '"first_name" || \' \' || "last_name"'),
                 generated_type=GeneratedColumnType.VIRTUAL,
             ),

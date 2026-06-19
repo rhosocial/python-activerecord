@@ -38,14 +38,14 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition("title", "TEXT"),
-        ColumnDefinition("author", "TEXT"),
+        ColumnDefinition("title", TextType()),
+        ColumnDefinition("author", TextType()),
     ],
     if_not_exists=True,
 )
@@ -84,6 +84,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     OrderByClause,
 )
 from rhosocial.activerecord.backend.expression.core import Column, WildcardExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 # 1. Basic LIMIT - get first N rows
 query_limit = QueryExpression(
