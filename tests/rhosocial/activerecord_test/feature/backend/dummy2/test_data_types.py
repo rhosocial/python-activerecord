@@ -154,15 +154,19 @@ class TestEqualityAndHashing:
 
 
 class TestSameTypeEquivalence:
-    """Synonym-free equivalence — generic types are no longer synonyms."""
+    """Equivalence checks based on synonyms."""
 
     def test_same_type_is_equivalent(self):
         assert VarCharType(255).is_equivalent(VarCharType(255))
         assert IntegerType().is_equivalent(IntegerType())
 
+    def test_synonym_classes_are_equivalent(self):
+        assert IntType().is_equivalent(IntegerType())
+        assert IntegerType().is_equivalent(IntType())
+
     def test_different_classes_not_equivalent(self):
-        assert not IntType().is_equivalent(IntegerType())
         assert not JsonType().is_equivalent(JsonBType())
+        assert not IntegerType().is_equivalent(VarCharType(255))
 
 
 # ---------------------------------------------------------------------------
