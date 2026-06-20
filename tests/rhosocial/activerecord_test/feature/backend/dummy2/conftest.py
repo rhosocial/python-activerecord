@@ -12,6 +12,14 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 # pytest tests/rhosocial/activerecord_test/feature/backend/dummy2/ -p no:rhosocial-activerecord-capabilities
 
 
+# Allow direct instantiation of base (generic) DataType subclasses in tests.
+# This is deliberately scoped to the dummy2 test directory so other test
+# suites can verify the TypeError guard independently.
+from rhosocial.activerecord.backend.expression.types._base import DataType
+
+DataType._testing_override = True
+
+
 @pytest.fixture
 def dummy_dialect():
     """Provides a DummyDialect instance that supports all features."""
