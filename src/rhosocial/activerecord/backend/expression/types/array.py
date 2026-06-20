@@ -17,6 +17,22 @@ class ArrayType(DataType):
     ``element_type`` holds the inner ``DataType`` instance (e.g. ``IntegerType()``
     for ``INTEGER[]``), and ``dimensions`` records the array dimensionality
     (1 for ``T[]``, 2 for ``T[][]``, etc.).
+
+    .. note::
+
+       The ``element_type`` must be an instance of a concrete backend-specific
+       ``DataType`` (e.g. ``PostgresIntegerType``), **not** a generic base type
+       (e.g. ``IntegerType``).  Using generic base types will cause a
+       ``TypeError`` when the dialect tries to render the element type, because
+       the dialect only registers formatters for its own concrete types.
+
+       **Best practice**::
+
+           # Good — backend-specific element type
+           col_type = PostgresArrayType(PostgresIntegerType())
+
+           # Avoid — generic element type; will raise TypeError at render time
+           col_type = ArrayType(IntegerType())
     """
 
     def __init__(self, element_type: DataType, dimensions: int = 1,

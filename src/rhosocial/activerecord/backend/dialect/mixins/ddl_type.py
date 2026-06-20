@@ -62,8 +62,13 @@ class DDLTypeMixin:
     def format_data_type(self, data_type: DataType) -> str:
         for klass in type(self).__mro__:
             formatters = getattr(klass, "_type_formatters", {})
-            if type(data_type) in formatters:
-                return getattr(self, formatters[type(data_type)])(data_type)
+            dt_cls = type(data_type)
+            if dt_cls in formatters:
+                return getattr(self, formatters[dt_cls])(data_type)
+            # Subclass match: find the nearest registered ancestor
+            for registered_cls, method_name in formatters.items():
+                if issubclass(dt_cls, registered_cls):
+                    return getattr(self, method_name)(data_type)
         raise TypeError(
             f"{type(self).__name__} does not support {type(data_type).__name__}. "
             f"Use an appropriate backend-specific DataType."
