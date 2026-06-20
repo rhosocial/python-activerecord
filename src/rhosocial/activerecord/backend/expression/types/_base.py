@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Set, Tuple
 
@@ -23,7 +24,32 @@ class DataType(BaseExpression, ABC):
     However, DataType instances are primarily *value objects* —
     two instances with the same logical parameters compare equal and have the
     same hash, regardless of whether they carry a dialect reference or not.
+
+    Subclass lifecycle
+    ------------------
+    * **Base (generic) types** leave ``_is_base_type = True`` (the default).
+      Instantiating them raises ``TypeError`` — users must pick a backend-
+      specific subtype.
+
+    * **Backend-specific types** pass ``backend=`` in the class header, e.g.
+      ``class MySQLIntType(IntegerType, backend="mysql")``.  This sets
+      ``_is_base_type = False`` so they can be instantiated.
+
+    * **synonyms** are only declared at the backend level and **only** between
+      types belonging to the same backend.
     """
+
+    #: ``True`` for generic types that must not be instantiated directly.
+    _is_base_type: bool = True
+
+    #: Backend identifier set by ``__init_subclass__(backend=…)``.
+    _backend: str = ""
+
+    def __init_subclass__(cls, backend: str = "", **kwargs):
+        super().__init_subclass__(**kwargs)
+        if backend:
+            cls._is_base_type = False
+            cls._backend = backend
 
     @classmethod
     def synonyms(cls) -> Set[str]:
@@ -31,10 +57,22 @@ class DataType(BaseExpression, ABC):
 
         Override in subclasses to declare cross-class equivalence
         (e.g. ``IntType`` ↔ ``IntegerType``).  Used by ``is_equivalent``.
+
+        .. note::
+           Synonyms are **only** meaningful at the backend level and should
+           **not** be declared on generic (base) types.
         """
         return set()
 
     def __init__(self, dialect: Optional["SQLDialectBase"] = None):
+        if self._is_base_type:
+            warnings.warn(
+                f"{type(self).__name__} is a base (generic) type and should "
+                f"not be instantiated directly. Use a backend-specific type "
+                f"instead (e.g. MySQLIntegerType).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         super().__init__(dialect)
 
     def to_sql(self, dialect: Optional["SQLDialectBase"] = None) -> SQLQueryAndParams:
@@ -60,14 +98,18 @@ class DataType(BaseExpression, ABC):
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
             return False
-        return self._type_params() == other._type_params()
+        return True
 
     def __hash__(self) -> int:
-        return hash((type(self), self._type_params()))
+        return hash(type(self))
 
     def _type_params(self) -> tuple:
         """Return a tuple of the fields that define the logical type.
-        Override in subclasses with extra parameters."""
+
+        Subclasses with extra parameters may override this, but **must**
+        also override ``__eq__`` and ``__hash__`` directly to avoid
+        fragility from positional tuple semantics.
+        """
         return ()
 
     # ----- equivalence -----
@@ -77,8 +119,7 @@ class DataType(BaseExpression, ABC):
 
         Returns ``True`` when two types are logically the same for schema
         comparison purposes even when they are different Python classes
-        (e.g. ``IntType`` vs ``IntegerType``, ``VarCharType`` vs
-        ``CharacterVaryingType``).
+        (e.g. ``PostgresIntType`` vs ``PostgresIntegerType``).
         """
         if type(self) is type(other):
             return self == other

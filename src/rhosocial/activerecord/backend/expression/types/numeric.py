@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Set
+from typing import Optional
 
 from ._base import DataType
 
@@ -18,18 +18,19 @@ class FloatType(DataType):
         synonyms of ``FloatType``.
     """
 
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'RealType'}
-
     precision: Optional[int] = None
 
     def __init__(self, precision: Optional[int] = None, dialect=None):
         super().__init__(dialect)
         self.precision = precision
 
-    def _type_params(self) -> tuple:
-        return (self.precision,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.precision == other.precision
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.precision))
 
     def _default_sql(self) -> str:
         return f"FLOAT({self.precision})" if self.precision is not None else "FLOAT"
@@ -37,10 +38,6 @@ class FloatType(DataType):
 
 class RealType(DataType):
     """REAL — single-precision (4 bytes / 24-bit mantissa)."""
-
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'FloatType'}
 
     def _default_sql(self) -> str:
         return "REAL"
@@ -65,8 +62,13 @@ class DecimalType(DataType):
         self.precision = precision
         self.scale = scale
 
-    def _type_params(self) -> tuple:
-        return (self.precision, self.scale)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.precision == other.precision and self.scale == other.scale
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.precision, self.scale))
 
     def _default_sql(self) -> str:
         if self.precision is not None and self.scale is not None:

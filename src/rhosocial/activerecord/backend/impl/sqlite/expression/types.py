@@ -62,4 +62,4 @@ class SQLiteTextType(TextType):
 
     @classmethod
     def synonyms(cls) -> Set[str]:
-        return {'TextType', 'VarCharType', 'CharType', 'CharacterVaryingType'}
+        return {'TextType', 'VarCharType', 'CharType'}

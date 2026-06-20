@@ -24,8 +24,13 @@ class TimeType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    def _type_params(self) -> tuple:
-        return (self.precision,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.precision == other.precision
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.precision))
 
     def _default_sql(self) -> str:
         base = f"TIME({self.precision})" if self.precision is not None else "TIME"
@@ -41,8 +46,13 @@ class TimeTzType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    def _type_params(self) -> tuple:
-        return (self.precision,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.precision == other.precision
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.precision))
 
     def _default_sql(self) -> str:
         base = f"TIME({self.precision})" if self.precision is not None else "TIME"
@@ -58,8 +68,13 @@ class DateTimeType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    def _type_params(self) -> tuple:
-        return (self.precision,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.precision == other.precision
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.precision))
 
     def _default_sql(self) -> str:
         return f"DATETIME({self.precision})" if self.precision is not None else "DATETIME"
@@ -74,8 +89,13 @@ class TimestampType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    def _type_params(self) -> tuple:
-        return (self.precision,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.precision == other.precision
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.precision))
 
     def _default_sql(self) -> str:
         base = f"TIMESTAMP({self.precision})" if self.precision is not None else "TIMESTAMP"
@@ -91,8 +111,13 @@ class TimestampTzType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    def _type_params(self) -> tuple:
-        return (self.precision,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.precision == other.precision
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.precision))
 
     def _default_sql(self) -> str:
         base = f"TIMESTAMP({self.precision})" if self.precision is not None else "TIMESTAMP"
@@ -108,8 +133,13 @@ class IntervalType(DataType):
         super().__init__(dialect)
         self.fields = fields
 
-    def _type_params(self) -> tuple:
-        return (self.fields,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.fields == other.fields
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.fields))
 
     def _default_sql(self) -> str:
         base = "INTERVAL"

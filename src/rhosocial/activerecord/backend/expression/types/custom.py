@@ -21,8 +21,13 @@ class CustomType(DataType):
         super().__init__(dialect)
         self.raw = raw
 
-    def _type_params(self) -> tuple:
-        return (self.raw,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.raw == other.raw
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.raw))
 
     def _default_sql(self) -> str:
         return self.raw

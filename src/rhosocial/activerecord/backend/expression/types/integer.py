@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from typing import Set
-
 from ._base import DataType
 
 
@@ -24,9 +22,6 @@ class SmallIntType(DataType):
 
 class IntType(DataType):
     """INT (shorthand for INTEGER, SQL standard)."""
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'IntegerType'}
 
     def _default_sql(self) -> str:
         return "INT"
@@ -34,9 +29,6 @@ class IntType(DataType):
 
 class IntegerType(DataType):
     """INTEGER / INT4 (32-bit)."""
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'IntType'}
 
     def _default_sql(self) -> str:
         return "INTEGER"
