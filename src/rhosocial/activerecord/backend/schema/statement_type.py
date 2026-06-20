@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/schema.py
+# src/rhosocial/activerecord/backend/schema/statement_type.py
 """
 Defines types related to SQL statement classification.
 
