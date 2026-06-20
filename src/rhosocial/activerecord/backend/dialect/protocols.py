@@ -2198,24 +2198,16 @@ class DDLTypeSupport(Protocol):
     """
 
     def format_data_type(self, data_type: "DataType") -> str:
-        """Render a ``DataType`` expression into a SQL type string.
-
-        Args:
-            data_type: The ``DataType`` expression to render.
-
-        Returns:
-            The SQL type string (e.g. ``"INTEGER"``, ``"VARCHAR(255)"``).
-        """
+        """Render a ``DataType`` expression into a SQL type string."""
         ...  # pragma: no cover
 
     def parse_type(self, raw: str) -> "DataType":
-        """Parse a raw SQL type string into a ``DataType``.
+        """Parse a raw SQL type string into a ``DataType``."""
+        ...  # pragma: no cover
 
-        Args:
-            raw: The raw type string from introspection (e.g. ``"INTEGER"``,
-                 ``"VARCHAR(255)"``, ``"NUMERIC(10,2)"``).
+    def supports_data_types(self):  # noqa
+        """List ``(DataTypeClass, sql_name)`` pairs supported by this dialect.
 
-        Returns:
-            A ``DataType`` instance representing the parsed type.
+        Auto-generated from the ``@handles`` registry in ``DDLTypeMixin``.
         """
         ...  # pragma: no cover

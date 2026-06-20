@@ -29,7 +29,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
 )
 from rhosocial.activerecord.backend.introspection.types import ColumnNullable
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
 
 
 @pytest.fixture
@@ -41,10 +41,10 @@ def backend_with_users(sqlite_backend: SQLiteBackend) -> SQLiteBackend:
         columns=[
             ColumnDefinition(
                 "id",
-                IntegerType(),
+                SQLiteIntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition("name", TextType()),
+            ColumnDefinition("name", SQLiteTextType()),
         ],
     )
     sqlite_backend.execute(*create_expr.to_sql())
@@ -64,7 +64,7 @@ class TestAlterTableAddColumn:
         """ADD COLUMN should be reflected by the introspector."""
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition("email", TextType()),
+            column=ColumnDefinition("email", SQLiteTextType()),
         )
         alter_expr = AlterTableExpression(
             backend_with_users.dialect,
@@ -83,7 +83,7 @@ class TestAlterTableAddColumn:
             backend_with_users.dialect,
             column=ColumnDefinition(
                 "status",
-                TextType(),
+                SQLiteTextType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
             ),
         )
@@ -114,7 +114,7 @@ class TestAlterTableDropColumn:
         # First add a column to drop
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition("temp_field", TextType()),
+            column=ColumnDefinition("temp_field", SQLiteTextType()),
         )
         alter_add = AlterTableExpression(
             backend_with_users.dialect,
@@ -188,7 +188,7 @@ class TestAlterTableAddConstraint:
         # Add an email column
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition("email", TextType()),
+            column=ColumnDefinition("email", SQLiteTextType()),
         )
         alter_add = AlterTableExpression(
             backend_with_users.dialect,
@@ -235,7 +235,7 @@ class TestActionDialectBinding:
         """Action should have its dialect accessible after construction."""
         action = AddColumn(
             sqlite_backend.dialect,
-            column=ColumnDefinition("x", IntegerType()),
+            column=ColumnDefinition("x", SQLiteIntegerType()),
         )
         assert action.dialect is sqlite_backend.dialect
 
@@ -243,7 +243,7 @@ class TestActionDialectBinding:
         """Action.to_sql() should work without wrapping in AlterTableExpression."""
         action = AddColumn(
             sqlite_backend.dialect,
-            column=ColumnDefinition("x", IntegerType()),
+            column=ColumnDefinition("x", SQLiteIntegerType()),
         )
         sql, params = action.to_sql()
         assert "ADD COLUMN" in sql
@@ -255,6 +255,6 @@ class TestActionDialectBinding:
 
         action = AddColumn(
             sqlite_backend.dialect,
-            column=ColumnDefinition("x", IntegerType()),
+            column=ColumnDefinition("x", SQLiteIntegerType()),
         )
         assert isinstance(action, ToSQLProtocol)

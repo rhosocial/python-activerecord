@@ -29,7 +29,7 @@ from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, IdentifierMixin, DDLColumnMixin, TableMixin, ExpressionMixin, DDLTypeMixin
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.types import CustomType, DateType, DecimalType, IntegerType, TextType, TimestampType, VarCharType
+from rhosocial.activerecord.backend.expression.types import CustomType, DateType, DecimalType, IntegerType, SmallIntType, TextType, TimestampType, VarCharType
 
 
 class PartitionTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, DDLTypeMixin, TableMixin, PartitionMixin):
@@ -69,6 +69,42 @@ class PartitionTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDL
             parts.append(key_sql)
             params.extend(key_params)
         return f" PARTITION BY {expr.method} ({', '.join(parts)})", tuple(params)
+
+    @DDLTypeMixin.handles(IntegerType)
+    def format_data_type_integer(self, data_type: IntegerType) -> str:
+        return "INTEGER"
+
+    @DDLTypeMixin.handles(TextType)
+    def format_data_type_text(self, data_type: TextType) -> str:
+        return "TEXT"
+
+    @DDLTypeMixin.handles(VarCharType)
+    def format_data_type_varchar(self, data_type: VarCharType) -> str:
+        return f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"
+
+    @DDLTypeMixin.handles(SmallIntType)
+    def format_data_type_smallint(self, data_type: SmallIntType) -> str:
+        return "SMALLINT"
+
+    @DDLTypeMixin.handles(DecimalType)
+    def format_data_type_decimal(self, data_type: DecimalType) -> str:
+        if data_type.precision is not None and data_type.scale is not None:
+            return f"DECIMAL({data_type.precision},{data_type.scale})"
+        if data_type.precision is not None:
+            return f"DECIMAL({data_type.precision})"
+        return "DECIMAL"
+
+    @DDLTypeMixin.handles(DateType)
+    def format_data_type_date(self, data_type: DateType) -> str:
+        return "DATE"
+
+    @DDLTypeMixin.handles(TimestampType)
+    def format_data_type_timestamp(self, data_type: TimestampType) -> str:
+        return f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"
+
+    @DDLTypeMixin.handles(CustomType)
+    def format_data_type_custom(self, data_type: CustomType) -> str:
+        return data_type.raw
 
 
 def _get_protocol_methods(protocol: type) -> Set[str]:

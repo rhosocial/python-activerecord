@@ -52,7 +52,6 @@ from rhosocial.activerecord.backend.impl.sqlite.functions import (
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
 
 
@@ -106,7 +105,7 @@ class TestGeoDocumentScenario:
                     ColumnDefinition("doc_id", SQLiteIntegerType(), constraints=[
                         ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("extra", CustomType("JSON")),
+                    ColumnDefinition("extra", SQLiteTextType()),
                 ]
             ).to_sql(),
             options=ddl
@@ -433,7 +432,7 @@ class TestSpatialCatalogScenario:
                     ]),
                     ColumnDefinition("name", SQLiteTextType()),
                     ColumnDefinition("description", SQLiteTextType()),
-                    ColumnDefinition("props", CustomType("JSON")),
+                    ColumnDefinition("props", SQLiteTextType()),
                 ]
             ).to_sql(),
             options=ddl
@@ -521,7 +520,7 @@ class TestSpatialCatalogScenario:
                     ColumnDefinition("feature_id", SQLiteIntegerType(), constraints=[
                         ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("props", CustomType("JSON")),
+                    ColumnDefinition("props", SQLiteTextType()),
                 ]
             ).to_sql(),
             options=ddl

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import re
-from typing import List, Tuple, Type
 
 from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
 from rhosocial.activerecord.backend.dialect.protocols import DDLTypeSupport
@@ -38,40 +37,24 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     # DDLTypeSupport — formatting
     # ------------------------------------------------------------------
 
-    def format_data_type(self, data_type: DataType) -> str:
-        """Primary entry point — tries legacy dispatch, falls back to core."""
-        for type_class, suffix in self.supports_data_types():
-            if isinstance(data_type, type_class):
-                formatter = getattr(self, f"format_data_type_{suffix}", None)
-                if formatter is not None:
-                    return formatter(data_type)
-        return super().format_data_type(data_type)
-
-    def supports_data_types(self) -> List[Tuple[Type[DataType], str]]:
-        return [
-            # SQLite-specific types (five affinities)
-            (SQLiteIntegerType, "sqlite_integer"),
-            (SQLiteTextType, "sqlite_text"),
-            (SQLiteRealType, "sqlite_real"),
-            (SQLiteNumericType, "sqlite_numeric"),
-            (SQLiteBlobType, "sqlite_blob"),
-        ]
-
-    def format_data_type_sqlite_integer(self, data_type: SQLiteIntegerType) -> str:
+    @DDLTypeMixin.handles(SQLiteIntegerType)
+    def format_data_type_integer(self, data_type: SQLiteIntegerType) -> str:
         return "INTEGER"
 
-    def format_data_type_sqlite_text(self, data_type: SQLiteTextType) -> str:
-        if data_type.length is not None:
-            return f"TEXT({data_type.length})"
-        return "TEXT"
+    @DDLTypeMixin.handles(SQLiteTextType)
+    def format_data_type_text(self, data_type: SQLiteTextType) -> str:
+        return f"TEXT({data_type.length})" if data_type.length is not None else "TEXT"
 
-    def format_data_type_sqlite_real(self, data_type: SQLiteRealType) -> str:
+    @DDLTypeMixin.handles(SQLiteRealType)
+    def format_data_type_real(self, data_type: SQLiteRealType) -> str:
         return "REAL"
 
-    def format_data_type_sqlite_numeric(self, data_type: SQLiteNumericType) -> str:
+    @DDLTypeMixin.handles(SQLiteNumericType)
+    def format_data_type_numeric(self, data_type: SQLiteNumericType) -> str:
         return "NUMERIC"
 
-    def format_data_type_sqlite_blob(self, data_type: SQLiteBlobType) -> str:
+    @DDLTypeMixin.handles(SQLiteBlobType)
+    def format_data_type_blob(self, data_type: SQLiteBlobType) -> str:
         return "BLOB"
 
     # ------------------------------------------------------------------

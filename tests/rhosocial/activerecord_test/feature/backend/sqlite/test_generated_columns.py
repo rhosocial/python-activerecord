@@ -12,8 +12,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression import RawSQLExpression
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.types import FloatType
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
 
 
 class TestGeneratedColumnsVersionSupport:
@@ -66,7 +65,7 @@ class TestGeneratedColumnsFormatting:
 
         col_def = ColumnDefinition(
             name="total_price",
-            data_type=FloatType(),
+            data_type=SQLiteRealType(),
             generated_expression=RawSQLExpression(dialect, '"price" * "quantity"'),
             generated_type=GeneratedColumnType.STORED,
         )
@@ -135,11 +134,11 @@ class TestGeneratedColumnsInCreateTable:
             ColumnDefinition(
                 name="id", data_type=SQLiteIntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
-            ColumnDefinition(name="price", data_type=FloatType()),
+            ColumnDefinition(name="price", data_type=SQLiteRealType()),
             ColumnDefinition(name="quantity", data_type=SQLiteIntegerType()),
             ColumnDefinition(
                 name="total",
-                data_type=FloatType(),
+                data_type=SQLiteRealType(),
                 generated_expression=RawSQLExpression(dialect, '"price" * "quantity"'),
                 generated_type=GeneratedColumnType.STORED,
             ),

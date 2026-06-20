@@ -12,6 +12,7 @@ from typing import Tuple
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, ExpressionMixin, DDLColumnMixin, IdentifierMixin, TableMixin
+from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
 from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
@@ -23,7 +24,7 @@ from rhosocial.activerecord.backend.expression.functions.string import trim
 from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 
 
-class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin):
+class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin, DDLTypeMixin):
     """Test dialect for security tests."""
 
     name = "test"
@@ -33,6 +34,16 @@ class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMix
 
     def supports_partitioned_table_creation(self) -> bool:
         return True
+
+    @DDLTypeMixin.handles(IntegerType)
+    def format_data_type_int(self, data_type) -> str:
+        return "INTEGER"
+
+    @DDLTypeMixin.handles(VarCharType)
+    def format_data_type_varchar(self, data_type) -> str:
+        if data_type.length is not None:
+            return f"VARCHAR({data_type.length})"
+        return "VARCHAR"
 
     def format_partition_clause(self, expr) -> Tuple[str, tuple]:
         parts = []
