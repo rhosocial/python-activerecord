@@ -45,6 +45,11 @@ def _sqlite_dialect():
     return SQLiteDialect(version=(3, 45, 0))
 
 
+def _dummy_dialect():
+    from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+    return DummyDialect()
+
+
 # ---------------------------------------------------------------------------
 # Default rendering via dialect
 # ---------------------------------------------------------------------------
@@ -55,7 +60,7 @@ class TestDefaultRendering:
 
     @pytest.fixture
     def dialect(self):
-        return _sqlite_dialect()
+        return _dummy_dialect()
 
     def test_integer_types(self, dialect):
         assert IntegerType().to_sql(dialect) == ("INTEGER", ())
@@ -170,7 +175,7 @@ class TestCustomTypeFallback:
 
     @pytest.fixture
     def dialect(self):
-        return _sqlite_dialect()
+        return _dummy_dialect()
 
     def test_custom_type_eq_hash(self, dialect):
         ct1 = CustomType("SOME_UNKNOWN_TYPE")

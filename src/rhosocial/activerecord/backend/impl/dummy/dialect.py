@@ -44,7 +44,16 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 from typing import Dict, List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
+from rhosocial.activerecord.backend.expression.types import (
+    BigIntType, BlobType, BooleanType, CharType, CustomType,
+    DateType, DateTimeType, DecimalType, DoubleType, FloatType,
+    IntType, IntegerType, IntervalType, JsonBType, JsonType,
+    RealType, SmallIntType, TextType, TimeType, TimeTzType,
+    TimestampType, TimestampTzType, TinyIntType, VarCharType,
+)
 from rhosocial.activerecord.backend.dialect.protocols import (
+    DDLTypeSupport,
     SQLXMLSupport,
     SQLXMLParsingSupport,
     SQLXMLSerializationSupport,
@@ -201,6 +210,7 @@ class DummyDialect(
     DQLMixin,
     DMLMixin,
     DDLTypeMixin,
+    DDLTypeSupport,
     DDLColumnMixin,
     TransactionControlMixin,
     # Protocols for type checking
@@ -260,6 +270,117 @@ class DummyDialect(
         super().__init__()
         # Set a default version since dummy doesn't represent a real database
         self._version = (1, 0, 0)
+
+    # ------------------------------------------------------------------
+    # DataType formatters (core types — for to_sql() testing)
+    # ------------------------------------------------------------------
+
+    @DDLTypeMixin.handles(TinyIntType)
+    def format_data_type_tinyint(self, data_type: TinyIntType) -> str:
+        return "TINYINT"
+
+    @DDLTypeMixin.handles(SmallIntType)
+    def format_data_type_smallint(self, data_type: SmallIntType) -> str:
+        return "SMALLINT"
+
+    @DDLTypeMixin.handles(IntType)
+    def format_data_type_int(self, data_type: IntType) -> str:
+        return "INT"
+
+    @DDLTypeMixin.handles(IntegerType)
+    def format_data_type_integer(self, data_type: IntegerType) -> str:
+        return "INTEGER"
+
+    @DDLTypeMixin.handles(BigIntType)
+    def format_data_type_bigint(self, data_type: BigIntType) -> str:
+        return "BIGINT"
+
+    @DDLTypeMixin.handles(RealType)
+    def format_data_type_real(self, data_type: RealType) -> str:
+        return "REAL"
+
+    @DDLTypeMixin.handles(DoubleType)
+    def format_data_type_double(self, data_type: DoubleType) -> str:
+        return "DOUBLE PRECISION"
+
+    @DDLTypeMixin.handles(TextType)
+    def format_data_type_text(self, data_type: TextType) -> str:
+        return "TEXT"
+
+    @DDLTypeMixin.handles(BooleanType)
+    def format_data_type_boolean(self, data_type: BooleanType) -> str:
+        return "BOOLEAN"
+
+    @DDLTypeMixin.handles(BlobType)
+    def format_data_type_blob(self, data_type: BlobType) -> str:
+        return "BLOB"
+
+    @DDLTypeMixin.handles(DateType)
+    def format_data_type_date(self, data_type: DateType) -> str:
+        return "DATE"
+
+    @DDLTypeMixin.handles(JsonType)
+    def format_data_type_json(self, data_type: JsonType) -> str:
+        return "JSON"
+
+    @DDLTypeMixin.handles(JsonBType)
+    def format_data_type_jsonb(self, data_type: JsonBType) -> str:
+        return "JSONB"
+
+    @DDLTypeMixin.handles(CharType)
+    def format_data_type_char(self, data_type: CharType) -> str:
+        return f"CHAR({data_type.length})" if data_type.length is not None else "CHAR"
+
+    @DDLTypeMixin.handles(VarCharType)
+    def format_data_type_varchar(self, data_type: VarCharType) -> str:
+        return f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"
+
+    @DDLTypeMixin.handles(FloatType)
+    def format_data_type_float(self, data_type: FloatType) -> str:
+        return f"FLOAT({data_type.precision})" if data_type.precision is not None else "FLOAT"
+
+    @DDLTypeMixin.handles(DecimalType)
+    def format_data_type_decimal(self, data_type: DecimalType) -> str:
+        if data_type.precision is not None and data_type.scale is not None:
+            return f"DECIMAL({data_type.precision},{data_type.scale})"
+        if data_type.precision is not None:
+            return f"DECIMAL({data_type.precision})"
+        return "DECIMAL"
+
+    @DDLTypeMixin.handles(TimeType)
+    def format_data_type_time(self, data_type: TimeType) -> str:
+        return f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"
+
+    @DDLTypeMixin.handles(TimeTzType)
+    def format_data_type_timetz(self, data_type: TimeTzType) -> str:
+        base = f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"
+        return f"{base} WITH TIME ZONE"
+
+    @DDLTypeMixin.handles(DateTimeType)
+    def format_data_type_datetime(self, data_type: DateTimeType) -> str:
+        return f"DATETIME({data_type.precision})" if data_type.precision is not None else "DATETIME"
+
+    @DDLTypeMixin.handles(TimestampType)
+    def format_data_type_timestamp(self, data_type: TimestampType) -> str:
+        return f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"
+
+    @DDLTypeMixin.handles(TimestampTzType)
+    def format_data_type_timestamptz(self, data_type: TimestampTzType) -> str:
+        base = f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"
+        return f"{base} WITH TIME ZONE"
+
+    @DDLTypeMixin.handles(IntervalType)
+    def format_data_type_interval(self, data_type: IntervalType) -> str:
+        return f"INTERVAL {data_type.fields}" if data_type.fields else "INTERVAL"
+
+    @DDLTypeMixin.handles(CustomType)
+    def format_data_type_custom(self, data_type: CustomType) -> str:
+        return data_type.raw
+
+    def parse_type(self, raw: str) -> CustomType:
+        """Parse a raw SQL type string — dummy dialect always returns CustomType."""
+        from rhosocial.activerecord.backend.expression.types import CustomType
+        return CustomType(raw.strip())
 
     # region Protocol Support Checks - Core Features
     def supports_xmlparse(self) -> bool:
