@@ -80,12 +80,15 @@ class SchemaDiff:
     def is_empty(self) -> bool:
         return all(not td.has_changes for td in self.table_diffs.values())
 
+    @property
     def added_tables(self) -> List[str]:
         return [n for n, td in self.table_diffs.items() if td.is_added]
 
+    @property
     def removed_tables(self) -> List[str]:
         return [n for n, td in self.table_diffs.items() if td.is_removed]
 
+    @property
     def modified_tables(self) -> List[str]:
         return [n for n, td in self.table_diffs.items() if td.is_modified and td.has_changes]
 
@@ -140,11 +143,19 @@ class SchemaDiffer(ABC):
         new_idx = {i.name: i for i in new_tbl.indexes}
         td.added_indexes = [new_idx[n] for n in set(new_idx) - set(old_idx)]
         td.removed_indexes = [old_idx[n] for n in set(old_idx) - set(new_idx)]
+        for name in set(old_idx) & set(new_idx):
+            if not self._indexes_equivalent(old_idx[name], new_idx[name]):
+                td.removed_indexes.append(old_idx[name])
+                td.added_indexes.append(new_idx[name])
 
         old_fk = {f.name: f for f in old_tbl.foreign_keys}
         new_fk = {f.name: f for f in new_tbl.foreign_keys}
         td.added_foreign_keys = [new_fk[n] for n in set(new_fk) - set(old_fk)]
         td.removed_foreign_keys = [old_fk[n] for n in set(old_fk) - set(new_fk)]
+        for name in set(old_fk) & set(new_fk):
+            if not self._fk_equivalent(old_fk[name], new_fk[name]):
+                td.removed_foreign_keys.append(old_fk[name])
+                td.added_foreign_keys.append(new_fk[name])
 
         return td
 
@@ -166,3 +177,26 @@ class SchemaDiffer(ABC):
         if old_col.default_value != new_col.default_value:
             return False
         return True
+
+    def _indexes_equivalent(self, old_idx, new_idx) -> bool:
+        """Index equivalence: unique flag + column list (name + order).
+
+        Override to add backend-specific checks (e.g. index_type).
+        """
+        if old_idx.is_unique != new_idx.is_unique:
+            return False
+        if old_idx.is_primary != new_idx.is_primary:
+            return False
+        old_cols = [(c.name, c.is_descending) for c in old_idx.columns]
+        new_cols = [(c.name, c.is_descending) for c in new_idx.columns]
+        return old_cols == new_cols
+
+    def _fk_equivalent(self, old_fk, new_fk) -> bool:
+        """Foreign key equivalence: columns + referenced table/columns + actions."""
+        return (
+            old_fk.columns == new_fk.columns
+            and old_fk.referenced_table == new_fk.referenced_table
+            and old_fk.referenced_columns == new_fk.referenced_columns
+            and old_fk.on_update == new_fk.on_update
+            and old_fk.on_delete == new_fk.on_delete
+        )
