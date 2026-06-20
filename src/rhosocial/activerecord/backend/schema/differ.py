@@ -143,19 +143,19 @@ class SchemaDiffer(ABC):
         new_idx = {i.name: i for i in new_tbl.indexes}
         td.added_indexes = [new_idx[n] for n in set(new_idx) - set(old_idx)]
         td.removed_indexes = [old_idx[n] for n in set(old_idx) - set(new_idx)]
-        for name in set(old_idx) & set(new_idx):
-            if not self._indexes_equivalent(old_idx[name], new_idx[name]):
-                td.removed_indexes.append(old_idx[name])
-                td.added_indexes.append(new_idx[name])
+        for idx_name in set(old_idx) & set(new_idx):
+            if not self._indexes_equivalent(old_idx[idx_name], new_idx[idx_name]):
+                td.removed_indexes.append(old_idx[idx_name])
+                td.added_indexes.append(new_idx[idx_name])
 
         old_fk = {f.name: f for f in old_tbl.foreign_keys}
         new_fk = {f.name: f for f in new_tbl.foreign_keys}
         td.added_foreign_keys = [new_fk[n] for n in set(new_fk) - set(old_fk)]
         td.removed_foreign_keys = [old_fk[n] for n in set(old_fk) - set(new_fk)]
-        for name in set(old_fk) & set(new_fk):
-            if not self._fk_equivalent(old_fk[name], new_fk[name]):
-                td.removed_foreign_keys.append(old_fk[name])
-                td.added_foreign_keys.append(new_fk[name])
+        for fk_name in set(old_fk) & set(new_fk):
+            if not self._fk_equivalent(old_fk[fk_name], new_fk[fk_name]):
+                td.removed_foreign_keys.append(old_fk[fk_name])
+                td.added_foreign_keys.append(new_fk[fk_name])
 
         return td
 
@@ -179,13 +179,12 @@ class SchemaDiffer(ABC):
         return True
 
     def _indexes_equivalent(self, old_idx, new_idx) -> bool:
-        """Index equivalence: unique flag + column list (name + order).
-
-        Override to add backend-specific checks (e.g. index_type).
-        """
+        """Index equivalence: unique/primary flag + index_type + column list."""
         if old_idx.is_unique != new_idx.is_unique:
             return False
         if old_idx.is_primary != new_idx.is_primary:
+            return False
+        if old_idx.index_type != new_idx.index_type:
             return False
         old_cols = [(c.name, c.is_descending) for c in old_idx.columns]
         new_cols = [(c.name, c.is_descending) for c in new_idx.columns]
