@@ -229,6 +229,23 @@ class TestIndexEquivalence:
         )
         assert not differ._indexes_equivalent(old_idx, new_idx)
 
+    def test_index_type_change(self):
+        from rhosocial.activerecord.backend.introspection.types import (
+            IndexType,
+        )
+        differ = SchemaDiffer()
+        old_idx = IndexInfo(
+            name="idx", table_name="t",
+            index_type=IndexType.BTREE,
+            columns=[IndexColumnInfo("a")],
+        )
+        new_idx = IndexInfo(
+            name="idx", table_name="t",
+            index_type=IndexType.HASH,
+            columns=[IndexColumnInfo("a")],
+        )
+        assert not differ._indexes_equivalent(old_idx, new_idx)
+
 
 # ---------------------------------------------------------------------------
 # P2 — Foreign key content equivalence
@@ -505,3 +522,103 @@ class TestSnapshotDiffRoundtrip:
         diff = SchemaDiffer().compare(base_snapshot, new_snap)
         td = diff.table_diffs["users"]
         assert len(td.added_indexes) == 1
+
+
+# ---------------------------------------------------------------------------
+# P3 — Real DB roundtrip: DDL → introspect → snapshot → diff
+# ---------------------------------------------------------------------------
+
+
+class TestRealDBRoundtrip:
+    """Integration test: create real SQLite tables, build snapshots, diff.
+
+    Covers the DDL → execute → introspect → snapshot → diff=empty path
+    required by the design document.
+    """
+
+    @pytest.fixture
+    def backend(self):
+        from rhosocial.activerecord.backend.impl.sqlite.backend import (
+            SQLiteBackend,
+        )
+
+        backend = SQLiteBackend(database=":memory:")
+        backend.connect()
+        backend.introspect_and_adapt()
+        yield backend
+        backend.disconnect()
+
+    def build_snapshot(self, backend) -> SchemaSnapshot:
+        from rhosocial.activerecord.backend.schema import (
+            SyncSchemaSnapshotBuilder,
+        )
+
+        builder = SyncSchemaSnapshotBuilder(
+            backend.introspector, backend.dialect
+        )
+        return builder.build(schema="main")
+
+    def test_identical_snapshot_empty_diff(self, backend):
+        """Same DB, two snapshots in sequence → no diff."""
+        snap1 = self.build_snapshot(backend)
+        snap2 = self.build_snapshot(backend)
+        from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
+            SQLiteSchemaDiffer,
+        )
+
+        diff = SQLiteSchemaDiffer().compare(snap1, snap2)
+        assert diff.is_empty
+
+    def test_added_table_detected(self, backend):
+        snap1 = self.build_snapshot(backend)
+        backend.executescript("CREATE TABLE t1 (id INTEGER PRIMARY KEY)")
+        snap2 = self.build_snapshot(backend)
+        from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
+            SQLiteSchemaDiffer,
+        )
+
+        diff = SQLiteSchemaDiffer().compare(snap1, snap2)
+        assert "t1" in diff.added_tables
+
+    def test_removed_table_detected(self, backend):
+        backend.executescript("CREATE TABLE t1 (id INTEGER PRIMARY KEY)")
+        snap1 = self.build_snapshot(backend)
+        backend.executescript("DROP TABLE t1")
+        snap2 = self.build_snapshot(backend)
+        from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
+            SQLiteSchemaDiffer,
+        )
+
+        diff = SQLiteSchemaDiffer().compare(snap1, snap2)
+        assert "t1" in diff.removed_tables
+
+    def test_added_index_detected(self, backend):
+        backend.executescript(
+            "CREATE TABLE t1 (id INTEGER PRIMARY KEY, name TEXT)"
+        )
+        snap1 = self.build_snapshot(backend)
+        backend.executescript("CREATE INDEX idx_name ON t1(name)")
+        snap2 = self.build_snapshot(backend)
+        from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
+            SQLiteSchemaDiffer,
+        )
+
+        diff = SQLiteSchemaDiffer().compare(snap1, snap2)
+        td = diff.table_diffs["t1"]
+        assert len(td.added_indexes) == 1
+
+    def test_removed_index_detected(self, backend):
+        backend.executescript(
+            "CREATE TABLE t1 (id INTEGER PRIMARY KEY, name TEXT)"
+        )
+        backend.executescript("CREATE INDEX idx_name ON t1(name)")
+        snap1 = self.build_snapshot(backend)
+        backend.executescript("DROP INDEX idx_name")
+        snap2 = self.build_snapshot(backend)
+        from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
+            SQLiteSchemaDiffer,
+        )
+
+        diff = SQLiteSchemaDiffer().compare(snap1, snap2)
+        td = diff.table_diffs["t1"]
+        assert len(td.removed_indexes) == 1

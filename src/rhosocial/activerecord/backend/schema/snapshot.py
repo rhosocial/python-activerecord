@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import typing
-from dataclasses import dataclass, field, fields as dc_fields
+from dataclasses import MISSING, dataclass, field, fields as dc_fields
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
@@ -196,7 +196,7 @@ def _from_plain(t: type, data: Any) -> Any:
             if f.name in data:
                 ft = hints.get(f.name, f.type)
                 kwargs[f.name] = _from_plain(ft, data[f.name])
-            elif f.default is not field or f.default_factory is not field:
+            elif f.default is not MISSING or f.default_factory is not MISSING:
                 continue
         return t(**kwargs)
 
@@ -286,6 +286,7 @@ class SyncSchemaSnapshotBuilder:
         schema: Optional[str] = None,
         include_system: bool = False,
     ) -> SchemaSnapshot:
+        self._introspector.invalidate_cache()
         db_info = self._introspector.get_database_info()
         table_list = self._introspector.list_tables(schema=schema, include_system=include_system)
         tables: Dict[str, "TableInfo"] = {}
@@ -320,6 +321,7 @@ class AsyncSchemaSnapshotBuilder:
         schema: Optional[str] = None,
         include_system: bool = False,
     ) -> SchemaSnapshot:
+        self._introspector.invalidate_cache()
         db_info = await self._introspector.get_database_info()
         table_list = await self._introspector.list_tables(schema=schema, include_system=include_system)
         tables: Dict[str, "TableInfo"] = {}
