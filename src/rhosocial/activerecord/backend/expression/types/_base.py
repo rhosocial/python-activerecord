@@ -89,10 +89,10 @@ class DataType(BaseExpression, ABC):
         """Backend-specific factory.
 
         Delegates to ``dialect.parse_type(raw)`` when the dialect implements
-        ``TypeParsingSupport``.  Falls back to ``CustomType(raw)``.
+        ``DDLTypeSupport``.  Falls back to ``CustomType(raw)``.
         """
-        from ...dialect.protocols import TypeParsingSupport
-        if isinstance(dialect, TypeParsingSupport):
+        from ...dialect.protocols import DDLTypeSupport
+        if isinstance(dialect, DDLTypeSupport):
             return dialect.parse_type(raw)
         from .custom import CustomType
         return CustomType(raw)

@@ -195,7 +195,7 @@ class TestCustomTypeFallback:
 
 
 class TestDialectRendering:
-    """SQLite dialect rendering via TypeFormattingSupport."""
+    """SQLite dialect rendering via DDLTypeSupport."""
 
     @pytest.fixture
     def dialect(self):
@@ -233,13 +233,9 @@ class TestDialectRendering:
         sql, _ = dt.to_sql(dialect)
         assert sql == "NUMERIC"
 
-    def test_typeformatting_protocol_check(self, dialect):
-        from rhosocial.activerecord.backend.dialect.protocols import (
-            TypeFormattingSupport,
-            TypeParsingSupport,
-        )
-        assert isinstance(dialect, TypeFormattingSupport)
-        assert isinstance(dialect, TypeParsingSupport)
+    def test_ddl_type_protocol_check(self, dialect):
+        from rhosocial.activerecord.backend.dialect.protocols import DDLTypeSupport
+        assert isinstance(dialect, DDLTypeSupport)
 
 
 # ---------------------------------------------------------------------------
@@ -248,7 +244,7 @@ class TestDialectRendering:
 
 
 class TestTypeParsing:
-    """SQLite type affinity parsing via TypeParsingSupport."""
+    """SQLite type affinity parsing via DDLTypeSupport."""
 
     @pytest.fixture
     def dialect(self):

@@ -46,9 +46,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
-    # Type Support Protocols
-    TypeFormattingSupport,
-    TypeParsingSupport,
+    # Type Support Protocol
+    DDLTypeSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CollationMixin,
@@ -249,9 +248,8 @@ class SQLiteDialect(
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
-    # DataType Support Protocols
-    TypeFormattingSupport,
-    TypeParsingSupport,
+    # DataType Support Protocol
+    DDLTypeSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
