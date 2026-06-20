@@ -69,7 +69,7 @@ class DDLTypeMixin:
             f"Use an appropriate backend-specific DataType."
         )
 
-    def supports_data_types(self) -> list:
+    def supports_data_types(self) -> list[tuple[type, str]]:
         """Return ``(DataTypeClass, sql_name)`` pairs from the registry.
 
         Auto-generated from ``@handles`` registrations so it stays in sync

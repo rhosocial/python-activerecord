@@ -2205,7 +2205,7 @@ class DDLTypeSupport(Protocol):
         """Parse a raw SQL type string into a ``DataType``."""
         ...  # pragma: no cover
 
-    def supports_data_types(self):  # noqa
+    def supports_data_types(self) -> list[tuple[type, str]]:  # noqa
         """List ``(DataTypeClass, sql_name)`` pairs supported by this dialect.
 
         Auto-generated from the ``@handles`` registry in ``DDLTypeMixin``.

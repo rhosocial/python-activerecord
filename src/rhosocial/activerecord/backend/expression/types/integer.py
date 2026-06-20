@@ -17,9 +17,17 @@ class SmallIntType(DataType):
 class IntType(DataType):
     """INT (shorthand for INTEGER, SQL standard)."""
 
+    @classmethod
+    def synonyms(cls) -> set[str]:
+        return {"IntegerType"}
+
 
 class IntegerType(DataType):
     """INTEGER / INT4 (32-bit)."""
+
+    @classmethod
+    def synonyms(cls) -> set[str]:
+        return {"IntType"}
 
 
 class BigIntType(DataType):
