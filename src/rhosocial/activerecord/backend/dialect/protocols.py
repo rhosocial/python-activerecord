@@ -2185,6 +2185,7 @@ class SQLFunctionSupport(Protocol):
 
 
 @runtime_checkable
+@runtime_checkable
 class TypeParsingSupport(Protocol):
     """Protocol for parsing raw SQL type strings into ``DataType`` expressions.
 
