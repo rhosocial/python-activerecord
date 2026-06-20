@@ -46,7 +46,7 @@ from typing import Dict, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
 from rhosocial.activerecord.backend.expression.types import (
-    BigIntType, BlobType, BooleanType, CharType, CustomType,
+    ArrayType, BigIntType, BlobType, BooleanType, CharType, CustomType,
     DateType, DateTimeType, DecimalType, DoubleType, FloatType,
     IntType, IntegerType, IntervalType, JsonBType, JsonType,
     RealType, SmallIntType, TextType, TimeType, TimeTzType,
@@ -376,6 +376,11 @@ class DummyDialect(
     @DDLTypeMixin.handles(CustomType)
     def format_data_type_custom(self, data_type: CustomType) -> str:
         return data_type.raw
+
+    @DDLTypeMixin.handles(ArrayType)
+    def format_data_type_array(self, data_type: ArrayType) -> str:
+        element_sql = self.format_data_type(data_type.element_type)
+        return element_sql + "[]" * data_type.dimensions
 
     def parse_type(self, raw: str) -> CustomType:
         """Parse a raw SQL type string — dummy dialect always returns CustomType."""
