@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Set, Tuple
 
 from ..bases import BaseExpression, SQLQueryAndParams
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
     from ...dialect.protocols import TypeFormattingSupport, TypeParsingSupport
 
 
-class DataType(BaseExpression):
+class DataType(BaseExpression, ABC):
     """Base for all SQL data type expressions.
 
     Inherits from ``BaseExpression`` so every DataType *is* an expression:
@@ -45,11 +46,14 @@ class DataType(BaseExpression):
             return (effective_dialect.render_type(self), ())
         return (self._default_sql(), ())
 
+    @abstractmethod
     def _default_sql(self) -> str:
-        """Fallback SQL when no dialect is attached."""
-        raise NotImplementedError(
-            f"{type(self).__name__} needs a dialect to render"
-        )
+        """Backend-agnostic SQL string for this type.
+
+        Each concrete DataType subclass must implement this to return the
+        canonical SQL representation for its type.
+        """
+        ...
 
     # ----- value-object semantics (ignore dialect for equality) -----
 
