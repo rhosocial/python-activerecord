@@ -168,24 +168,36 @@ class TestDialectRendering:
         return SQLiteDialect(version=(3, 45, 0))
 
     def test_render_via_dialect(self, dialect):
-        integer_type = IntegerType()
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteIntegerType,
+        )
+        integer_type = SQLiteIntegerType()
         sql, _ = integer_type.to_sql(dialect)
         assert sql == "INTEGER"
 
     def test_render_varchar(self, dialect):
-        v = VarCharType(255)
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteTextType,
+        )
+        v = SQLiteTextType(255)
         sql, _ = v.to_sql(dialect)
-        assert sql == "VARCHAR(255)"
+        assert sql == "TEXT(255)"
 
     def test_render_decimal(self, dialect):
-        d = DecimalType(10, 2)
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteNumericType,
+        )
+        d = SQLiteNumericType(10, 2)
         sql, _ = d.to_sql(dialect)
-        assert sql == "DECIMAL(10,2)"
+        assert sql == "NUMERIC"
 
     def test_render_datetime(self, dialect):
-        dt = DateTimeType(3)
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteNumericType,
+        )
+        dt = SQLiteNumericType()
         sql, _ = dt.to_sql(dialect)
-        assert sql == "DATETIME(3)"
+        assert sql == "NUMERIC"
 
     def test_typeformatting_protocol_check(self, dialect):
         from rhosocial.activerecord.backend.dialect.protocols import (
@@ -197,87 +209,156 @@ class TestDialectRendering:
 
 
 class TestTypeParsing:
-    """SQLite type affinity parsing via TypeParsingSupport."""
+    """SQLite type affinity parsing via TypeParsingSupport.
+
+    SQLite uses five type affinities.  All concrete type strings within
+    an affinity family map to the same ``SQLite*Type`` class, but the
+    parser preserves length / precision / scale parameters where present.
+    """
 
     @pytest.fixture
     def dialect(self):
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
         return SQLiteDialect(version=(3, 45, 0))
 
+    # ---- INTEGER affinity ----
+
     def test_parse_integer(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteIntegerType,
+        )
         t = DataType.parse_data_type_str(dialect, "INTEGER")
-        assert isinstance(t, IntegerType)
+        assert isinstance(t, SQLiteIntegerType)
 
     def test_parse_bigint(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteIntegerType,
+        )
         t = DataType.parse_data_type_str(dialect, "BIGINT")
-        assert isinstance(t, BigIntType)
+        assert isinstance(t, SQLiteIntegerType)
 
     def test_parse_smallint(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteIntegerType,
+        )
         t = DataType.parse_data_type_str(dialect, "SMALLINT")
-        assert isinstance(t, SmallIntType)
+        assert isinstance(t, SQLiteIntegerType)
 
     def test_parse_tinyint(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteIntegerType,
+        )
         t = DataType.parse_data_type_str(dialect, "TINYINT")
-        assert isinstance(t, TinyIntType)
+        assert isinstance(t, SQLiteIntegerType)
+
+    # ---- TEXT affinity ----
 
     def test_parse_varchar(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteTextType,
+        )
         t = DataType.parse_data_type_str(dialect, "VARCHAR(255)")
-        assert isinstance(t, VarCharType)
+        assert isinstance(t, SQLiteTextType)
         assert t.length == 255
 
     def test_parse_char(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteTextType,
+        )
         t = DataType.parse_data_type_str(dialect, "CHAR(10)")
-        assert isinstance(t, CharType)
+        assert isinstance(t, SQLiteTextType)
         assert t.length == 10
 
     def test_parse_text(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteTextType,
+        )
         t = DataType.parse_data_type_str(dialect, "TEXT")
-        assert isinstance(t, TextType)
+        assert isinstance(t, SQLiteTextType)
+        assert t.length is None
+
+    def test_parse_varchar_without_length(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteTextType,
+        )
+        t = DataType.parse_data_type_str(dialect, "VARCHAR")
+        assert isinstance(t, SQLiteTextType)
+        assert t.length is None
+
+    # ---- REAL affinity ----
 
     def test_parse_float(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteRealType,
+        )
         t = DataType.parse_data_type_str(dialect, "FLOAT")
-        assert isinstance(t, FloatType)
+        assert isinstance(t, SQLiteRealType)
 
     def test_parse_real(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteRealType,
+        )
         t = DataType.parse_data_type_str(dialect, "REAL")
-        assert isinstance(t, RealType)
+        assert isinstance(t, SQLiteRealType)
 
     def test_parse_double(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteRealType,
+        )
         t = DataType.parse_data_type_str(dialect, "DOUBLE")
-        assert isinstance(t, DoubleType)
+        assert isinstance(t, SQLiteRealType)
+
+    # ---- NUMERIC affinity ----
 
     def test_parse_decimal(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteNumericType,
+        )
         t = DataType.parse_data_type_str(dialect, "DECIMAL(10,2)")
-        assert isinstance(t, DecimalType)
+        assert isinstance(t, SQLiteNumericType)
         assert t.precision == 10
         assert t.scale == 2
 
     def test_parse_boolean(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteNumericType,
+        )
         t = DataType.parse_data_type_str(dialect, "BOOLEAN")
-        assert isinstance(t, BooleanType)
-
-    def test_parse_blob(self, dialect):
-        t = DataType.parse_data_type_str(dialect, "BLOB")
-        assert isinstance(t, BlobType)
+        assert isinstance(t, SQLiteNumericType)
 
     def test_parse_date(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteNumericType,
+        )
         t = DataType.parse_data_type_str(dialect, "DATE")
-        assert isinstance(t, DateType)
+        assert isinstance(t, SQLiteNumericType)
 
     def test_parse_datetime(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteNumericType,
+        )
         t = DataType.parse_data_type_str(dialect, "DATETIME")
-        assert isinstance(t, DateTimeType)
+        assert isinstance(t, SQLiteNumericType)
 
     def test_parse_timestamp(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteNumericType,
+        )
         t = DataType.parse_data_type_str(dialect, "TIMESTAMP")
-        assert isinstance(t, TimestampType)
+        assert isinstance(t, SQLiteNumericType)
+
+    # ---- BLOB affinity ----
+
+    def test_parse_blob(self, dialect):
+        from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+            SQLiteBlobType,
+        )
+        t = DataType.parse_data_type_str(dialect, "BLOB")
+        assert isinstance(t, SQLiteBlobType)
+
+    # ---- fallback ----
 
     def test_parse_unknown_fallback(self, dialect):
         t = DataType.parse_data_type_str(dialect, "SOME_UNKNOWN_TYPE")
         assert isinstance(t, CustomType)
         assert t.raw == "SOME_UNKNOWN_TYPE"
-
-    def test_parse_varchar_without_length(self, dialect):
-        t = DataType.parse_data_type_str(dialect, "VARCHAR")
-        assert isinstance(t, VarCharType)
-        assert t.length is None
