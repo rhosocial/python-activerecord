@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import warnings
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Set, Tuple
 
@@ -45,6 +44,10 @@ class DataType(BaseExpression, ABC):
     #: Backend identifier set by ``__init_subclass__(backend=…)``.
     _backend: str = ""
 
+    #: Testing override — set to ``True`` globally in test fixtures to
+    #: allow direct instantiation of base (generic) types.
+    _testing_override: bool = False
+
     def __init_subclass__(cls, backend: str = "", **kwargs):
         super().__init_subclass__(**kwargs)
         if backend:
@@ -65,13 +68,11 @@ class DataType(BaseExpression, ABC):
         return set()
 
     def __init__(self, dialect: Optional["SQLDialectBase"] = None):
-        if self._is_base_type:
-            warnings.warn(
-                f"{type(self).__name__} is a base (generic) type and should "
-                f"not be instantiated directly. Use a backend-specific type "
-                f"instead (e.g. MySQLIntegerType).",
-                DeprecationWarning,
-                stacklevel=2,
+        if self._is_base_type and not type(self)._testing_override:
+            raise TypeError(
+                f"{type(self).__name__} is a base (generic) type and cannot "
+                f"be instantiated directly. Use a backend-specific type "
+                f"instead (e.g. MySQLIntegerType)."
             )
         super().__init__(dialect)
 
