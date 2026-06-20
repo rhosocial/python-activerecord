@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Set
+from typing import Optional
 
 from ._base import DataType
 
@@ -17,19 +17,20 @@ class CharType(DataType):
         super().__init__(dialect)
         self.length = length
 
-    def _type_params(self) -> tuple:
-        return (self.length,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.length == other.length
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.length))
 
     def _default_sql(self) -> str:
         return f"CHAR({self.length})" if self.length is not None else "CHAR"
 
 
 class VarCharType(DataType):
-    """VARCHAR(n) / CHARACTER VARYING(n) — variable-length string."""
-
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'CharacterVaryingType'}
+    """VARCHAR(n) — variable-length string."""
 
     length: Optional[int] = None
 
@@ -37,26 +38,18 @@ class VarCharType(DataType):
         super().__init__(dialect)
         self.length = length
 
-    def _type_params(self) -> tuple:
-        return (self.length,)
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.length == other.length
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.length))
 
     def _default_sql(self) -> str:
         if self.length is not None:
             return f"VARCHAR({self.length})"
         return "VARCHAR"
-
-
-class CharacterVaryingType(VarCharType):
-    """CHARACTER VARYING(n) — canonical synonym of VARCHAR(n)."""
-
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'VarCharType'}
-
-    def _default_sql(self) -> str:
-        if self.length is not None:
-            return f"CHARACTER VARYING({self.length})"
-        return "CHARACTER VARYING"
 
 
 class TextType(DataType):

@@ -124,36 +124,33 @@ class TestEqualityAndHashing:
         assert len(s) == 2
 
 
-class TestSynonymEquivalence:
-    """Cross-class synonym checks."""
-
-    def test_int_integer_equivalence(self):
-        assert IntType().is_equivalent(IntegerType())
-        assert IntegerType().is_equivalent(IntType())
-
-    def test_varchar_character_varying_equivalence(self):
-        assert VarCharType(255).is_equivalent(
-            type("CharacterVaryingType", (VarCharType,), {})()
-        )
-
-    def test_json_jsonb_equivalence(self):
-        assert JsonType().is_equivalent(JsonBType())
-        assert JsonBType().is_equivalent(JsonType())
+class TestSameTypeEquivalence:
+    """Synonym-free equivalence — generic types are no longer synonyms."""
 
     def test_same_type_is_equivalent(self):
+        assert VarCharType(255).is_equivalent(VarCharType(255))
         assert IntegerType().is_equivalent(IntegerType())
         t1 = IntegerType()
         t2 = IntegerType()
         assert t1.is_equivalent(t2)
 
+    def test_different_classes_not_equivalent(self):
+        assert not IntType().is_equivalent(IntegerType())
+        assert not JsonType().is_equivalent(JsonBType())
+
 
 class TestCustomTypeFallback:
     """CustomType as fallback for unknown types."""
 
-    def test_custom_type_repr(self):
-        ct = CustomType("SOME_UNKNOWN_TYPE")
-        assert ct._type_params() == ("SOME_UNKNOWN_TYPE",)
-        assert ct.to_sql() == ("SOME_UNKNOWN_TYPE", ())
+    def test_custom_type_eq_hash(self):
+        ct1 = CustomType("SOME_UNKNOWN_TYPE")
+        ct2 = CustomType("SOME_UNKNOWN_TYPE")
+        ct3 = CustomType("OTHER_TYPE")
+        assert ct1 == ct2
+        assert ct1 != ct3
+        assert hash(ct1) == hash(ct2)
+        assert hash(ct1) != hash(ct3)
+        assert ct1.to_sql() == ("SOME_UNKNOWN_TYPE", ())
 
     def test_parse_unknown_fallback(self):
         """When no dialect is available, parse_data_type_str returns CustomType."""

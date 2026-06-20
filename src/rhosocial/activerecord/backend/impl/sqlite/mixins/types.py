@@ -217,9 +217,10 @@ class SQLiteTypeSupportMixin(TypeFormattingSupport, TypeParsingSupport):
             length_match = re.search(r"\((\d+)\)", stripped)
             length = int(length_match.group(1)) if length_match else None
 
+            from rhosocial.activerecord.backend.expression.types import VarCharType
+
             if upper.startswith("CHARACTER VARYING"):
-                from rhosocial.activerecord.backend.expression.types import CharacterVaryingType
-                return CharacterVaryingType(length)
+                return VarCharType(length)
             if upper.startswith("VARCHAR"):
                 if length is not None:
                     return VarCharType(length)

@@ -48,7 +48,7 @@ from ._base import DataType
 from .custom import CustomType
 from .integer import TinyIntType, SmallIntType, IntType, IntegerType, BigIntType
 from .numeric import FloatType, RealType, DoubleType, DecimalType
-from .string import CharType, VarCharType, CharacterVaryingType, TextType
+from .string import CharType, VarCharType, TextType
 from .boolean import BooleanType
 from .binary import BlobType
 from .datetime_ import (
@@ -79,7 +79,7 @@ __all__ = [
     # string
     "CharType",
     "VarCharType",
-    "CharacterVaryingType",
+
     "TextType",
     # boolean
     "BooleanType",
