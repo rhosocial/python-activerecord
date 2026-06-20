@@ -8,6 +8,3 @@ from ._base import DataType
 
 class BlobType(DataType):
     """BLOB / BYTEA / VARBINARY — binary large object."""
-
-    def _default_sql(self) -> str:
-        return "BLOB"

@@ -28,6 +28,3 @@ class CustomType(DataType):
 
     def __hash__(self) -> int:
         return hash((type(self), self.raw))
-
-    def _default_sql(self) -> str:
-        return self.raw

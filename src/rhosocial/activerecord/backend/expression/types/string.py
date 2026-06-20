@@ -25,9 +25,6 @@ class CharType(DataType):
     def __hash__(self) -> int:
         return hash((type(self), self.length))
 
-    def _default_sql(self) -> str:
-        return f"CHAR({self.length})" if self.length is not None else "CHAR"
-
 
 class VarCharType(DataType):
     """VARCHAR(n) — variable-length string."""
@@ -46,14 +43,6 @@ class VarCharType(DataType):
     def __hash__(self) -> int:
         return hash((type(self), self.length))
 
-    def _default_sql(self) -> str:
-        if self.length is not None:
-            return f"VARCHAR({self.length})"
-        return "VARCHAR"
-
 
 class TextType(DataType):
     """TEXT / CLOB / LONGVARCHAR — unbounded string."""
-
-    def _default_sql(self) -> str:
-        return "TEXT"

@@ -8,6 +8,3 @@ from ._base import DataType
 
 class BooleanType(DataType):
     """BOOLEAN / BOOL — truth value."""
-
-    def _default_sql(self) -> str:
-        return "BOOLEAN"

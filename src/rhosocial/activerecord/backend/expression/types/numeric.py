@@ -9,14 +9,7 @@ from ._base import DataType
 
 
 class FloatType(DataType):
-    """FLOAT[(p)] — approximate numeric, variable precision.
-
-    Note:
-        In many backends ``REAL`` is a synonym of ``FLOAT(24)`` and
-        ``DOUBLE PRECISION`` a synonym of ``FLOAT(53)``.  The canonical
-        class for those is ``RealType`` / ``DoubleType``; they are not
-        synonyms of ``FloatType``.
-    """
+    """FLOAT[(p)] — approximate numeric, variable precision."""
 
     precision: Optional[int] = None
 
@@ -32,22 +25,13 @@ class FloatType(DataType):
     def __hash__(self) -> int:
         return hash((type(self), self.precision))
 
-    def _default_sql(self) -> str:
-        return f"FLOAT({self.precision})" if self.precision is not None else "FLOAT"
-
 
 class RealType(DataType):
     """REAL — single-precision (4 bytes / 24-bit mantissa)."""
 
-    def _default_sql(self) -> str:
-        return "REAL"
-
 
 class DoubleType(DataType):
     """DOUBLE PRECISION — double-precision (8 bytes / 53-bit mantissa)."""
-
-    def _default_sql(self) -> str:
-        return "DOUBLE PRECISION"
 
 
 class DecimalType(DataType):
@@ -69,10 +53,3 @@ class DecimalType(DataType):
 
     def __hash__(self) -> int:
         return hash((type(self), self.precision, self.scale))
-
-    def _default_sql(self) -> str:
-        if self.precision is not None and self.scale is not None:
-            return f"DECIMAL({self.precision},{self.scale})"
-        if self.precision is not None:
-            return f"DECIMAL({self.precision})"
-        return "DECIMAL"
