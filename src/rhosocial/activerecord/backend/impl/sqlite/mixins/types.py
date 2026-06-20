@@ -7,10 +7,7 @@ import re
 from typing import List, Tuple, Type
 
 from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
-from rhosocial.activerecord.backend.dialect.protocols import (
-    TypeFormattingSupport,
-    TypeParsingSupport,
-)
+from rhosocial.activerecord.backend.dialect.protocols import DDLTypeSupport
 from rhosocial.activerecord.backend.expression.types import (
     CustomType,
     DataType,
@@ -25,12 +22,12 @@ from ..expression.types import (
 )
 
 
-class SQLiteTypeSupportMixin(DDLTypeMixin, TypeFormattingSupport, TypeParsingSupport):
+class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     """SQLite DataType formatting and parsing.
 
-    Implements both ``TypeFormattingSupport`` and ``TypeParsingSupport`` so
-    the dialect can render ``DataType`` expressions to SQL strings and parse
-    raw SQL type strings back into ``DataType`` instances.
+    Implements ``DDLTypeSupport`` so the dialect can render ``DataType``
+    expressions to SQL strings and parse raw SQL type strings back into
+    ``DataType`` instances.
 
     SQLite has a simple type system based on five type affinities (TEXT,
     NUMERIC, INTEGER, REAL, BLOB).  This mixin maps the standard SQL types
@@ -38,7 +35,7 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, TypeFormattingSupport, TypeParsingSup
     """
 
     # ------------------------------------------------------------------
-    # TypeFormattingSupport / DDLTypeMixin
+    # DDLTypeSupport — formatting
     # ------------------------------------------------------------------
 
     def format_data_type(self, data_type: DataType) -> str:
@@ -49,10 +46,6 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, TypeFormattingSupport, TypeParsingSup
                 if formatter is not None:
                     return formatter(data_type)
         return super().format_data_type(data_type)
-
-    def render_type(self, data_type: DataType) -> str:
-        """Legacy protocol method — delegates to format_data_type."""
-        return self.format_data_type(data_type)
 
     def supports_data_types(self) -> List[Tuple[Type[DataType], str]]:
         return [
@@ -82,7 +75,7 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, TypeFormattingSupport, TypeParsingSup
         return "BLOB"
 
     # ------------------------------------------------------------------
-    # TypeParsingSupport
+    # DDLTypeSupport — parsing
     # ------------------------------------------------------------------
 
     # SQLite type affinity groups for parsing
