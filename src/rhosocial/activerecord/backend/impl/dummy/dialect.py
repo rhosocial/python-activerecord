@@ -142,6 +142,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DQLMixin,
     DMLMixin,
     DDLColumnMixin,
+    DDLTypeMixin,
     TransactionControlMixin,
 )
 
@@ -199,6 +200,7 @@ class DummyDialect(
     DateTimeMixin,
     DQLMixin,
     DMLMixin,
+    DDLTypeMixin,
     DDLColumnMixin,
     TransactionControlMixin,
     # Protocols for type checking

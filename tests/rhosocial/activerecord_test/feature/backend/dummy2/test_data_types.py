@@ -2,9 +2,9 @@
 """Tests for the DataType expression system.
 
 Covers:
-- Default SQL rendering (no dialect)
+- Default type rendering via DDLTypeMixin/dialect
 - Value-object equality / hashing
-- Synonym-based equivalence (``is_equivalent``)
+- Synonym-based equivalence
 - CustomType fallback
 - Dialect-based rendering via TypeFormattingSupport
 - Type parsing via TypeParsingSupport
@@ -40,60 +40,79 @@ from rhosocial.activerecord.backend.expression.types import (
 )
 
 
-class TestDefaultSQL:
-    """Default SQL rendering (no dialect, uses _default_sql())."""
+def _sqlite_dialect():
+    from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+    return SQLiteDialect(version=(3, 45, 0))
 
-    def test_integer_types(self):
-        assert IntegerType().to_sql() == ("INTEGER", ())
-        assert TinyIntType().to_sql() == ("TINYINT", ())
-        assert SmallIntType().to_sql() == ("SMALLINT", ())
-        assert BigIntType().to_sql() == ("BIGINT", ())
-        assert IntType().to_sql() == ("INT", ())
 
-    def test_numeric_types(self):
-        assert FloatType().to_sql() == ("FLOAT", ())
-        assert FloatType(24).to_sql() == ("FLOAT(24)", ())
-        assert RealType().to_sql() == ("REAL", ())
-        assert DoubleType().to_sql() == ("DOUBLE PRECISION", ())
-        assert DecimalType().to_sql() == ("DECIMAL", ())
-        assert DecimalType(10).to_sql() == ("DECIMAL(10)", ())
-        assert DecimalType(10, 2).to_sql() == ("DECIMAL(10,2)", ())
+# ---------------------------------------------------------------------------
+# Default rendering via dialect
+# ---------------------------------------------------------------------------
 
-    def test_string_types(self):
-        assert CharType().to_sql() == ("CHAR", ())
-        assert CharType(10).to_sql() == ("CHAR(10)", ())
-        assert VarCharType().to_sql() == ("VARCHAR", ())
-        assert VarCharType(255).to_sql() == ("VARCHAR(255)", ())
-        assert TextType().to_sql() == ("TEXT", ())
 
-    def test_boolean_type(self):
-        assert BooleanType().to_sql() == ("BOOLEAN", ())
+class TestDefaultRendering:
+    """Core type rendering via dialect."""
 
-    def test_binary_type(self):
-        assert BlobType().to_sql() == ("BLOB", ())
+    @pytest.fixture
+    def dialect(self):
+        return _sqlite_dialect()
 
-    def test_datetime_types(self):
-        assert DateType().to_sql() == ("DATE", ())
-        assert TimeType().to_sql() == ("TIME", ())
-        assert TimeType(6).to_sql() == ("TIME(6)", ())
-        assert TimeTzType().to_sql() == ("TIME WITH TIME ZONE", ())
-        assert TimeTzType(3).to_sql() == ("TIME(3) WITH TIME ZONE", ())
-        assert DateTimeType().to_sql() == ("DATETIME", ())
-        assert DateTimeType(3).to_sql() == ("DATETIME(3)", ())
-        assert TimestampType().to_sql() == ("TIMESTAMP", ())
-        assert TimestampType(3).to_sql() == ("TIMESTAMP(3)", ())
-        assert TimestampTzType().to_sql() == ("TIMESTAMP WITH TIME ZONE", ())
-        assert TimestampTzType(3).to_sql() == ("TIMESTAMP(3) WITH TIME ZONE", ())
-        assert IntervalType().to_sql() == ("INTERVAL", ())
-        assert IntervalType("YEAR TO MONTH").to_sql() == ("INTERVAL YEAR TO MONTH", ())
+    def test_integer_types(self, dialect):
+        assert IntegerType().to_sql(dialect) == ("INTEGER", ())
+        assert TinyIntType().to_sql(dialect) == ("TINYINT", ())
+        assert SmallIntType().to_sql(dialect) == ("SMALLINT", ())
+        assert BigIntType().to_sql(dialect) == ("BIGINT", ())
+        assert IntType().to_sql(dialect) == ("INT", ())
 
-    def test_json_types(self):
-        assert JsonType().to_sql() == ("JSON", ())
-        assert JsonBType().to_sql() == ("JSONB", ())
+    def test_numeric_types(self, dialect):
+        assert FloatType().to_sql(dialect) == ("FLOAT", ())
+        assert FloatType(24).to_sql(dialect) == ("FLOAT(24)", ())
+        assert RealType().to_sql(dialect) == ("REAL", ())
+        assert DoubleType().to_sql(dialect) == ("DOUBLE PRECISION", ())
+        assert DecimalType().to_sql(dialect) == ("DECIMAL", ())
+        assert DecimalType(10).to_sql(dialect) == ("DECIMAL(10)", ())
+        assert DecimalType(10, 2).to_sql(dialect) == ("DECIMAL(10,2)", ())
 
-    def test_custom_type(self):
-        assert CustomType("GEOMETRY").to_sql() == ("GEOMETRY", ())
-        assert CustomType("VARCHAR(255)").to_sql() == ("VARCHAR(255)", ())
+    def test_string_types(self, dialect):
+        assert CharType().to_sql(dialect) == ("CHAR", ())
+        assert CharType(10).to_sql(dialect) == ("CHAR(10)", ())
+        assert VarCharType().to_sql(dialect) == ("VARCHAR", ())
+        assert VarCharType(255).to_sql(dialect) == ("VARCHAR(255)", ())
+        assert TextType().to_sql(dialect) == ("TEXT", ())
+
+    def test_boolean_type(self, dialect):
+        assert BooleanType().to_sql(dialect) == ("BOOLEAN", ())
+
+    def test_binary_type(self, dialect):
+        assert BlobType().to_sql(dialect) == ("BLOB", ())
+
+    def test_datetime_types(self, dialect):
+        assert DateType().to_sql(dialect) == ("DATE", ())
+        assert TimeType().to_sql(dialect) == ("TIME", ())
+        assert TimeType(6).to_sql(dialect) == ("TIME(6)", ())
+        assert TimeTzType().to_sql(dialect) == ("TIME WITH TIME ZONE", ())
+        assert TimeTzType(3).to_sql(dialect) == ("TIME(3) WITH TIME ZONE", ())
+        assert DateTimeType().to_sql(dialect) == ("DATETIME", ())
+        assert DateTimeType(3).to_sql(dialect) == ("DATETIME(3)", ())
+        assert TimestampType().to_sql(dialect) == ("TIMESTAMP", ())
+        assert TimestampType(3).to_sql(dialect) == ("TIMESTAMP(3)", ())
+        assert TimestampTzType().to_sql(dialect) == ("TIMESTAMP WITH TIME ZONE", ())
+        assert TimestampTzType(3).to_sql(dialect) == ("TIMESTAMP(3) WITH TIME ZONE", ())
+        assert IntervalType().to_sql(dialect) == ("INTERVAL", ())
+        assert IntervalType("YEAR TO MONTH").to_sql(dialect) == ("INTERVAL YEAR TO MONTH", ())
+
+    def test_json_types(self, dialect):
+        assert JsonType().to_sql(dialect) == ("JSON", ())
+        assert JsonBType().to_sql(dialect) == ("JSONB", ())
+
+    def test_custom_type(self, dialect):
+        assert CustomType("GEOMETRY").to_sql(dialect) == ("GEOMETRY", ())
+        assert CustomType("VARCHAR(255)").to_sql(dialect) == ("VARCHAR(255)", ())
+
+
+# ---------------------------------------------------------------------------
+# Value-object equality / hashing
+# ---------------------------------------------------------------------------
 
 
 class TestEqualityAndHashing:
@@ -124,25 +143,36 @@ class TestEqualityAndHashing:
         assert len(s) == 2
 
 
+# ---------------------------------------------------------------------------
+# Equivalence
+# ---------------------------------------------------------------------------
+
+
 class TestSameTypeEquivalence:
     """Synonym-free equivalence — generic types are no longer synonyms."""
 
     def test_same_type_is_equivalent(self):
         assert VarCharType(255).is_equivalent(VarCharType(255))
         assert IntegerType().is_equivalent(IntegerType())
-        t1 = IntegerType()
-        t2 = IntegerType()
-        assert t1.is_equivalent(t2)
 
     def test_different_classes_not_equivalent(self):
         assert not IntType().is_equivalent(IntegerType())
         assert not JsonType().is_equivalent(JsonBType())
 
 
+# ---------------------------------------------------------------------------
+# CustomType fallback
+# ---------------------------------------------------------------------------
+
+
 class TestCustomTypeFallback:
     """CustomType as fallback for unknown types."""
 
-    def test_custom_type_eq_hash(self):
+    @pytest.fixture
+    def dialect(self):
+        return _sqlite_dialect()
+
+    def test_custom_type_eq_hash(self, dialect):
         ct1 = CustomType("SOME_UNKNOWN_TYPE")
         ct2 = CustomType("SOME_UNKNOWN_TYPE")
         ct3 = CustomType("OTHER_TYPE")
@@ -150,13 +180,18 @@ class TestCustomTypeFallback:
         assert ct1 != ct3
         assert hash(ct1) == hash(ct2)
         assert hash(ct1) != hash(ct3)
-        assert ct1.to_sql() == ("SOME_UNKNOWN_TYPE", ())
+        assert ct1.to_sql(dialect) == ("SOME_UNKNOWN_TYPE", ())
 
-    def test_parse_unknown_fallback(self):
+    def test_parse_unknown_fallback(self, dialect):
         """When no dialect is available, parse_data_type_str returns CustomType."""
         result = DataType.parse_data_type_str(None, "UNKNOWN_TYPE")
         assert isinstance(result, CustomType)
         assert result.raw == "UNKNOWN_TYPE"
+
+
+# ---------------------------------------------------------------------------
+# Dialect-based rendering
+# ---------------------------------------------------------------------------
 
 
 class TestDialectRendering:
@@ -164,8 +199,7 @@ class TestDialectRendering:
 
     @pytest.fixture
     def dialect(self):
-        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-        return SQLiteDialect(version=(3, 45, 0))
+        return _sqlite_dialect()
 
     def test_render_via_dialect(self, dialect):
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
@@ -208,20 +242,17 @@ class TestDialectRendering:
         assert isinstance(dialect, TypeParsingSupport)
 
 
-class TestTypeParsing:
-    """SQLite type affinity parsing via TypeParsingSupport.
+# ---------------------------------------------------------------------------
+# Type parsing
+# ---------------------------------------------------------------------------
 
-    SQLite uses five type affinities.  All concrete type strings within
-    an affinity family map to the same ``SQLite*Type`` class, but the
-    parser preserves length / precision / scale parameters where present.
-    """
+
+class TestTypeParsing:
+    """SQLite type affinity parsing via TypeParsingSupport."""
 
     @pytest.fixture
     def dialect(self):
-        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-        return SQLiteDialect(version=(3, 45, 0))
-
-    # ---- INTEGER affinity ----
+        return _sqlite_dialect()
 
     def test_parse_integer(self, dialect):
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
@@ -250,8 +281,6 @@ class TestTypeParsing:
         )
         t = DataType.parse_data_type_str(dialect, "TINYINT")
         assert isinstance(t, SQLiteIntegerType)
-
-    # ---- TEXT affinity ----
 
     def test_parse_varchar(self, dialect):
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
@@ -285,8 +314,6 @@ class TestTypeParsing:
         assert isinstance(t, SQLiteTextType)
         assert t.length is None
 
-    # ---- REAL affinity ----
-
     def test_parse_float(self, dialect):
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
             SQLiteRealType,
@@ -307,8 +334,6 @@ class TestTypeParsing:
         )
         t = DataType.parse_data_type_str(dialect, "DOUBLE")
         assert isinstance(t, SQLiteRealType)
-
-    # ---- NUMERIC affinity ----
 
     def test_parse_decimal(self, dialect):
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
@@ -347,16 +372,12 @@ class TestTypeParsing:
         t = DataType.parse_data_type_str(dialect, "TIMESTAMP")
         assert isinstance(t, SQLiteNumericType)
 
-    # ---- BLOB affinity ----
-
     def test_parse_blob(self, dialect):
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
             SQLiteBlobType,
         )
         t = DataType.parse_data_type_str(dialect, "BLOB")
         assert isinstance(t, SQLiteBlobType)
-
-    # ---- fallback ----
 
     def test_parse_unknown_fallback(self, dialect):
         t = DataType.parse_data_type_str(dialect, "SOME_UNKNOWN_TYPE")

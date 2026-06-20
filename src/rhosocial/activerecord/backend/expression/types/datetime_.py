@@ -11,9 +11,6 @@ from ._base import DataType
 class DateType(DataType):
     """DATE (year-month-day)."""
 
-    def _default_sql(self) -> str:
-        return "DATE"
-
 
 class TimeType(DataType):
     """TIME[(p)] [WITHOUT TIME ZONE] — time of day (SQL standard)."""
@@ -31,10 +28,6 @@ class TimeType(DataType):
 
     def __hash__(self) -> int:
         return hash((type(self), self.precision))
-
-    def _default_sql(self) -> str:
-        base = f"TIME({self.precision})" if self.precision is not None else "TIME"
-        return base
 
 
 class TimeTzType(DataType):
@@ -54,10 +47,6 @@ class TimeTzType(DataType):
     def __hash__(self) -> int:
         return hash((type(self), self.precision))
 
-    def _default_sql(self) -> str:
-        base = f"TIME({self.precision})" if self.precision is not None else "TIME"
-        return f"{base} WITH TIME ZONE"
-
 
 class DateTimeType(DataType):
     """DATETIME — date + time (MySQL / SQLite)."""
@@ -75,9 +64,6 @@ class DateTimeType(DataType):
 
     def __hash__(self) -> int:
         return hash((type(self), self.precision))
-
-    def _default_sql(self) -> str:
-        return f"DATETIME({self.precision})" if self.precision is not None else "DATETIME"
 
 
 class TimestampType(DataType):
@@ -97,10 +83,6 @@ class TimestampType(DataType):
     def __hash__(self) -> int:
         return hash((type(self), self.precision))
 
-    def _default_sql(self) -> str:
-        base = f"TIMESTAMP({self.precision})" if self.precision is not None else "TIMESTAMP"
-        return base
-
 
 class TimestampTzType(DataType):
     """TIMESTAMP[(p)] WITH TIME ZONE (SQL standard, PostgreSQL)."""
@@ -119,10 +101,6 @@ class TimestampTzType(DataType):
     def __hash__(self) -> int:
         return hash((type(self), self.precision))
 
-    def _default_sql(self) -> str:
-        base = f"TIMESTAMP({self.precision})" if self.precision is not None else "TIMESTAMP"
-        return f"{base} WITH TIME ZONE"
-
 
 class IntervalType(DataType):
     """INTERVAL — time span (PostgreSQL / SQL standard)."""
@@ -140,9 +118,3 @@ class IntervalType(DataType):
 
     def __hash__(self) -> int:
         return hash((type(self), self.fields))
-
-    def _default_sql(self) -> str:
-        base = "INTERVAL"
-        if self.fields:
-            return f"{base} {self.fields}"
-        return base
