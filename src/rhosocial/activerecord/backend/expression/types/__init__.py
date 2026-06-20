@@ -45,6 +45,7 @@ Usage::
 """
 
 from ._base import DataType
+from .array import ArrayType
 from .custom import CustomType
 from .integer import TinyIntType, SmallIntType, IntType, IntegerType, BigIntType
 from .numeric import FloatType, RealType, DoubleType, DecimalType
@@ -64,6 +65,7 @@ from .json_ import JsonType, JsonBType
 
 __all__ = [
     "DataType",
+    "ArrayType",
     "CustomType",
     # integer
     "TinyIntType",
