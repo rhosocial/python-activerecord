@@ -4,39 +4,24 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, List, Tuple, Type
+from typing import List, Tuple, Type
 
 from rhosocial.activerecord.backend.dialect.protocols import (
     TypeFormattingSupport,
     TypeParsingSupport,
 )
 from rhosocial.activerecord.backend.expression.types import (
-    BigIntType,
-    BlobType,
-    BooleanType,
-    CharType,
+    CustomType,
     DataType,
-    DateType,
-    DateTimeType,
-    DecimalType,
-    DoubleType,
-    FloatType,
-    IntegerType,
-    IntervalType,
-    JsonType,
-    RealType,
-    SmallIntType,
-    TextType,
-    TimeType,
-    TimeTzType,
-    TimestampType,
-    TimestampTzType,
-    TinyIntType,
-    VarCharType,
 )
 
-if TYPE_CHECKING:
-    from ..expression.types import SQLiteIntegerType, SQLiteTextType
+from ..expression.types import (
+    SQLiteBlobType,
+    SQLiteIntegerType,
+    SQLiteNumericType,
+    SQLiteRealType,
+    SQLiteTextType,
+)
 
 
 class SQLiteTypeSupportMixin(TypeFormattingSupport, TypeParsingSupport):
@@ -65,101 +50,30 @@ class SQLiteTypeSupportMixin(TypeFormattingSupport, TypeParsingSupport):
 
     def supports_data_types(self) -> List[Tuple[Type[DataType], str]]:
         return [
-            # SQLite-specific types
-            # (SQLiteIntegerType, "sqliteintegertype"),
-            # (SQLiteTextType, "sqlitetexttype"),
-            # Integer family
-            (TinyIntType, "tiny_int"),
-            (SmallIntType, "small_int"),
-            (IntegerType, "integer"),
-            (BigIntType, "big_int"),
-            # Numeric family
-            (FloatType, "float"),
-            (RealType, "real"),
-            (DoubleType, "double"),
-            (DecimalType, "decimal"),
-            # String family
-            (CharType, "char"),
-            (VarCharType, "var_char"),
-            (TextType, "text"),
-            # Boolean
-            (BooleanType, "boolean"),
-            # Binary
-            (BlobType, "blob"),
-            # Date/time
-            (DateType, "date"),
-            (TimeType, "time"),
-            (TimeTzType, "time_tz"),
-            (DateTimeType, "date_time"),
-            (TimestampType, "timestamp"),
-            (TimestampTzType, "timestamp_tz"),
-            (IntervalType, "interval"),
-            # JSON
-            (JsonType, "json"),
+            # SQLite-specific types (five affinities)
+            (SQLiteIntegerType, "sqlite_integer"),
+            (SQLiteTextType, "sqlite_text"),
+            (SQLiteRealType, "sqlite_real"),
+            (SQLiteNumericType, "sqlite_numeric"),
+            (SQLiteBlobType, "sqlite_blob"),
         ]
 
-    def format_data_type_tiny_int(self, data_type: TinyIntType) -> str:
-        return data_type._default_sql()
+    def format_data_type_sqlite_integer(self, data_type: SQLiteIntegerType) -> str:
+        return "INTEGER"
 
-    def format_data_type_small_int(self, data_type: SmallIntType) -> str:
-        return data_type._default_sql()
+    def format_data_type_sqlite_text(self, data_type: SQLiteTextType) -> str:
+        if data_type.length is not None:
+            return f"TEXT({data_type.length})"
+        return "TEXT"
 
-    def format_data_type_integer(self, data_type: IntegerType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_big_int(self, data_type: BigIntType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_float(self, data_type: FloatType) -> str:
+    def format_data_type_sqlite_real(self, data_type: SQLiteRealType) -> str:
         return "REAL"
 
-    def format_data_type_real(self, data_type: RealType) -> str:
-        return "REAL"
+    def format_data_type_sqlite_numeric(self, data_type: SQLiteNumericType) -> str:
+        return "NUMERIC"
 
-    def format_data_type_double(self, data_type: DoubleType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_decimal(self, data_type: DecimalType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_char(self, data_type: CharType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_var_char(self, data_type: VarCharType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_text(self, data_type: TextType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_boolean(self, data_type: BooleanType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_blob(self, data_type: BlobType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_date(self, data_type: DateType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_time(self, data_type: TimeType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_time_tz(self, data_type: TimeTzType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_date_time(self, data_type: DateTimeType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_timestamp(self, data_type: TimestampType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_timestamp_tz(self, data_type: TimestampTzType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_interval(self, data_type: IntervalType) -> str:
-        return data_type._default_sql()
-
-    def format_data_type_json(self, data_type: JsonType) -> str:
-        return data_type._default_sql()
+    def format_data_type_sqlite_blob(self, data_type: SQLiteBlobType) -> str:
+        return "BLOB"
 
     # ------------------------------------------------------------------
     # TypeParsingSupport
@@ -196,88 +110,52 @@ class SQLiteTypeSupportMixin(TypeFormattingSupport, TypeParsingSupport):
         - REAL: REAL, FLOAT, DOUBLE, etc.
         - NUMERIC: NUMERIC, DECIMAL, BOOLEAN, DATE, DATETIME, etc.
         - BLOB: BLOB, BYTEA, etc.
+
+        Returns the corresponding ``SQLite*Type`` for the matched affinity.
+        Unknown type strings return ``CustomType``.
         """
+        from ..expression.types import (
+            SQLiteBlobType,
+            SQLiteIntegerType,
+            SQLiteNumericType,
+            SQLiteRealType,
+            SQLiteTextType,
+        )
+
         stripped = raw.strip()
         upper = stripped.upper()
 
+        # INTEGER affinity
         if self._INTEGER_TYPES.match(upper):
-            # Map to the most appropriate integer type
-            if upper.startswith("BIGINT") or upper.startswith("INT8"):
-                return BigIntType()
-            if upper.startswith("SMALLINT") or upper.startswith("INT2"):
-                return SmallIntType()
-            if upper.startswith("TINYINT") or upper.startswith("INT1"):
-                return TinyIntType()
-            if upper.startswith("MEDIUMINT") or upper.startswith("INT3"):
-                return IntegerType()
-            return IntegerType()
+            return SQLiteIntegerType()
 
+        # TEXT affinity — try to extract length parameter
         if self._TEXT_TYPES.match(upper):
-            # Parse length from VARCHAR(n) / CHAR(n)
-            length_match = re.search(r"\((\d+)\)", stripped)
-            length = int(length_match.group(1)) if length_match else None
+            length = None
+            m = re.search(r"\((\d+)\)", stripped)
+            if m:
+                length = int(m.group(1))
+            return SQLiteTextType(length)
 
-            from rhosocial.activerecord.backend.expression.types import VarCharType
-
-            if upper.startswith("CHARACTER VARYING"):
-                return VarCharType(length)
-            if upper.startswith("VARCHAR"):
-                if length is not None:
-                    return VarCharType(length)
-                return VarCharType()
-            if upper.startswith("CHAR") or upper.startswith("NCHAR"):
-                return CharType(length)
-            return TextType()
-
+        # REAL affinity
         if self._REAL_TYPES.match(upper):
-            if upper.startswith("DOUBLE"):
-                return DoubleType()
-            if upper.startswith("FLOAT"):
-                # Try to parse precision
-                precision_match = re.search(r"\((\d+)\)", stripped)
-                precision = int(precision_match.group(1)) if precision_match else None
-                return FloatType(precision)
-            return RealType()
+            precision = None
+            m = re.search(r"\((\d+)\)", stripped)
+            if m:
+                precision = int(m.group(1))
+            return SQLiteRealType(precision)
 
+        # NUMERIC affinity — try to extract precision/scale
         if self._NUMERIC_TYPES.match(upper):
-            if upper.startswith("BOOLEAN"):
-                return BooleanType()
-            if upper.startswith("DATE"):
-                # DATE can be DATE only or part of DATETIME
-                if upper == "DATE" or stripped.upper() == "DATE":
-                    return DateType()
-                return DateTimeType()
-            if upper.startswith("DATETIME"):
-                precision_match = re.search(r"\((\d+)\)", stripped)
-                precision = int(precision_match.group(1)) if precision_match else None
-                return DateTimeType(precision)
-            if upper.startswith("TIMESTAMP"):
-                precision_match = re.search(r"\((\d+)\)", stripped)
-                precision = int(precision_match.group(1)) if precision_match else None
-                if "WITH TIME ZONE" in upper:
-                    return TimestampTzType(precision)
-                return TimestampType(precision)
-            if upper.startswith("TIME"):
-                precision_match = re.search(r"\((\d+)\)", stripped)
-                precision = int(precision_match.group(1)) if precision_match else None
-                if "WITH TIME ZONE" in upper:
-                    return TimeTzType(precision)
-                return TimeType(precision)
-            if upper.startswith("DECIMAL") or upper.startswith("NUMERIC"):
-                # Parse DECIMAL(p, s) or DECIMAL(p)
-                nums = re.findall(r"\d+", stripped)
-                if len(nums) >= 2:
-                    return DecimalType(int(nums[0]), int(nums[1]))
-                if len(nums) == 1:
-                    return DecimalType(int(nums[0]))
-                return DecimalType()
-            # Fallback for other NUMERIC affinity types
-            from rhosocial.activerecord.backend.expression.types import CustomType
-            return CustomType(stripped)
+            nums = re.findall(r"\d+", stripped)
+            if len(nums) >= 2:
+                return SQLiteNumericType(int(nums[0]), int(nums[1]))
+            if len(nums) == 1:
+                return SQLiteNumericType(int(nums[0]))
+            return SQLiteNumericType()
 
+        # BLOB affinity
         if self._BLOB_TYPES.match(upper):
-            return BlobType()
+            return SQLiteBlobType()
 
-        # Fallback: preserve unknown types
-        from rhosocial.activerecord.backend.expression.types import CustomType
         return CustomType(stripped)
