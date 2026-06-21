@@ -69,6 +69,23 @@ diff = differ.compare(snapshot_loaded, snapshot_after)
 # ============================================================
 print(f"Snapshot serialized to   {len(snapshot_json)} chars")
 print(f"Snapshot roundtrip ok:   {snapshot_loaded.dialect_class == snapshot_before.dialect_class}")
+# Verify table data was faithfully restored from JSON
+assert snapshot_loaded.dialect_class == snapshot_before.dialect_class
+assert list(snapshot_loaded.tables.keys()) == list(snapshot_before.tables.keys()), (
+    f"table names mismatch: {list(snapshot_loaded.tables.keys())} "
+    f"!= {list(snapshot_before.tables.keys())}"
+)
+for name in snapshot_before.tables:
+    before_t = snapshot_before.tables[name]
+    after_t = snapshot_loaded.tables[name]
+    assert [c.name for c in before_t.columns] == [c.name for c in after_t.columns], (
+        f"columns mismatch in table '{name}'"
+    )
+    for col_b, col_a in zip(before_t.columns, after_t.columns):
+        assert col_b.data_type.__class__.__name__ == col_a.data_type.__class__.__name__, (
+            f"type mismatch in {name}.{col_b.name}"
+        )
+print(f"Table data roundtrip ok:  all columns and types match")
 print(f"Removed tables:          {diff.removed_tables}")
 print(f"Added tables:            {diff.added_tables}")
 print(f"Modified tables:         {diff.modified_tables}")
