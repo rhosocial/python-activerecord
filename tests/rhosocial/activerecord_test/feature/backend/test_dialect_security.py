@@ -36,14 +36,14 @@ class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMix
         return True
 
     @DDLTypeMixin.handles(IntegerType)
-    def format_data_type_int(self, data_type) -> str:
-        return "INTEGER"
+    def format_data_type_int(self, data_type):
+        return "INTEGER", ()
 
     @DDLTypeMixin.handles(VarCharType)
-    def format_data_type_varchar(self, data_type) -> str:
+    def format_data_type_varchar(self, data_type):
         if data_type.length is not None:
-            return f"VARCHAR({data_type.length})"
-        return "VARCHAR"
+            return f"VARCHAR({data_type.length})", ()
+        return "VARCHAR", ()
 
     def format_partition_clause(self, expr) -> Tuple[str, tuple]:
         parts = []
