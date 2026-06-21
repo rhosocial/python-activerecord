@@ -59,11 +59,6 @@ class SQLiteTextType(TextType, backend="sqlite"):
     def synonyms(cls) -> Set[str]:
         return {'TextType', 'VarCharType', 'CharType'}
 
-    def _default_sql(self) -> str:
-        if self.length is not None:
-            return f"TEXT({self.length})"
-        return "TEXT"
-
 
 class SQLiteRealType(DataType, backend="sqlite"):
     """SQLite REAL — affinity for floating-point types.
@@ -85,11 +80,6 @@ class SQLiteRealType(DataType, backend="sqlite"):
 
     def __hash__(self) -> int:
         return hash((type(self), self.precision))
-
-    def _default_sql(self) -> str:
-        if self.precision is not None:
-            return f"REAL({self.precision})"
-        return "REAL"
 
     @classmethod
     def synonyms(cls) -> Set[str]:
@@ -119,13 +109,6 @@ class SQLiteNumericType(DataType, backend="sqlite"):
 
     def __hash__(self) -> int:
         return hash((type(self), self.precision, self.scale))
-
-    def _default_sql(self) -> str:
-        if self.precision is not None and self.scale is not None:
-            return f"NUMERIC({self.precision},{self.scale})"
-        if self.precision is not None:
-            return f"NUMERIC({self.precision})"
-        return "NUMERIC"
 
     @classmethod
     def synonyms(cls) -> Set[str]:

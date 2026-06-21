@@ -71,36 +71,36 @@ class PartitionTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDL
         return f" PARTITION BY {expr.method} ({', '.join(parts)})", tuple(params)
 
     @DDLTypeMixin.handles(IntegerType)
-    def format_data_type_integer(self, data_type: IntegerType) -> str:
-        return "INTEGER"
+    def format_data_type_integer(self, data_type: IntegerType):
+        return "INTEGER", ()
 
     @DDLTypeMixin.handles(TextType)
-    def format_data_type_text(self, data_type: TextType) -> str:
-        return "TEXT"
+    def format_data_type_text(self, data_type: TextType):
+        return "TEXT", ()
 
     @DDLTypeMixin.handles(VarCharType)
-    def format_data_type_varchar(self, data_type: VarCharType) -> str:
-        return f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"
+    def format_data_type_varchar(self, data_type: VarCharType):
+        return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
 
     @DDLTypeMixin.handles(SmallIntType)
-    def format_data_type_smallint(self, data_type: SmallIntType) -> str:
-        return "SMALLINT"
+    def format_data_type_smallint(self, data_type: SmallIntType):
+        return "SMALLINT", ()
 
     @DDLTypeMixin.handles(DecimalType)
-    def format_data_type_decimal(self, data_type: DecimalType) -> str:
+    def format_data_type_decimal(self, data_type: DecimalType):
         if data_type.precision is not None and data_type.scale is not None:
-            return f"DECIMAL({data_type.precision},{data_type.scale})"
+            return f"DECIMAL({data_type.precision},{data_type.scale})", ()
         if data_type.precision is not None:
-            return f"DECIMAL({data_type.precision})"
-        return "DECIMAL"
+            return f"DECIMAL({data_type.precision})", ()
+        return "DECIMAL", ()
 
     @DDLTypeMixin.handles(DateType)
-    def format_data_type_date(self, data_type: DateType) -> str:
-        return "DATE"
+    def format_data_type_date(self, data_type: DateType):
+        return "DATE", ()
 
     @DDLTypeMixin.handles(TimestampType)
-    def format_data_type_timestamp(self, data_type: TimestampType) -> str:
-        return f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"
+    def format_data_type_timestamp(self, data_type: TimestampType):
+        return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
 
     @DDLTypeMixin.handles(CustomType)
     def format_data_type_custom(self, data_type: CustomType) -> str:

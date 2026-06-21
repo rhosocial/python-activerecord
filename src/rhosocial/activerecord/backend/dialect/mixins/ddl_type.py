@@ -15,10 +15,13 @@ dispatch logic; it does **not** register any types itself.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...expression.types._base import DataType
+
+
+SQLQueryAndParams = Tuple[str, tuple]
 
 
 class DDLTypeMixin:
@@ -28,8 +31,8 @@ class DDLTypeMixin:
 
         class MySQLTypeSupportMixin(DDLTypeMixin):
             @DDLTypeMixin.handles(MySQLIntType)
-            def format_data_type_int(self, data_type: MySQLIntType) -> str:
-                return "INT UNSIGNED" if data_type.unsigned else "INT"
+            def format_data_type_int(self, data_type: MySQLIntType) -> SQLQueryAndParams:
+                return "INT UNSIGNED" if data_type.unsigned else "INT", ()
 
     ``format_data_type()`` walks the MRO to find a matching formatter.
     Unregistered types raise ``TypeError``.
@@ -59,13 +62,12 @@ class DDLTypeMixin:
             return fn
         return decorator
 
-    def format_data_type(self, data_type: DataType) -> str:
+    def format_data_type(self, data_type: DataType) -> SQLQueryAndParams:
         for klass in type(self).__mro__:
             formatters = getattr(klass, "_type_formatters", {})
             dt_cls = type(data_type)
             if dt_cls in formatters:
                 return getattr(self, formatters[dt_cls])(data_type)
-            # Subclass match: find the nearest registered ancestor
             for registered_cls, method_name in formatters.items():
                 if issubclass(dt_cls, registered_cls):
                     return getattr(self, method_name)(data_type)
@@ -87,7 +89,7 @@ class DDLTypeMixin:
                 if dt_cls not in seen:
                     seen.add(dt_cls)
                     try:
-                        sql_name = getattr(self, method_name)(dt_cls())
+                        sql_name, _ = getattr(self, method_name)(dt_cls())
                     except TypeError:
                         sql_name = dt_cls.__name__
                     result.append((dt_cls, sql_name))
