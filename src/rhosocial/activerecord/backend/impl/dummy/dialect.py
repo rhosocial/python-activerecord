@@ -276,71 +276,71 @@ class DummyDialect(
     # ------------------------------------------------------------------
 
     @DDLTypeMixin.handles(TinyIntType)
-    def format_data_type_tinyint(self, data_type: TinyIntType):
+    def format_data_type_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
         return "TINYINT", ()
 
     @DDLTypeMixin.handles(SmallIntType)
-    def format_data_type_smallint(self, data_type: SmallIntType):
+    def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
         return "SMALLINT", ()
 
     @DDLTypeMixin.handles(IntType)
-    def format_data_type_int(self, data_type: IntType):
+    def format_data_type_int(self, data_type: IntType) -> Tuple[str, tuple]:
         return "INT", ()
 
     @DDLTypeMixin.handles(IntegerType)
-    def format_data_type_integer(self, data_type: IntegerType):
+    def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
         return "INTEGER", ()
 
     @DDLTypeMixin.handles(BigIntType)
-    def format_data_type_bigint(self, data_type: BigIntType):
+    def format_data_type_bigint(self, data_type: BigIntType) -> Tuple[str, tuple]:
         return "BIGINT", ()
 
     @DDLTypeMixin.handles(RealType)
-    def format_data_type_real(self, data_type: RealType):
+    def format_data_type_real(self, data_type: RealType) -> Tuple[str, tuple]:
         return "REAL", ()
 
     @DDLTypeMixin.handles(DoubleType)
-    def format_data_type_double(self, data_type: DoubleType):
+    def format_data_type_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
         return "DOUBLE PRECISION", ()
 
     @DDLTypeMixin.handles(TextType)
-    def format_data_type_text(self, data_type: TextType):
+    def format_data_type_text(self, data_type: TextType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
     @DDLTypeMixin.handles(BooleanType)
-    def format_data_type_boolean(self, data_type: BooleanType):
+    def format_data_type_boolean(self, data_type: BooleanType) -> Tuple[str, tuple]:
         return "BOOLEAN", ()
 
     @DDLTypeMixin.handles(BlobType)
-    def format_data_type_blob(self, data_type: BlobType):
+    def format_data_type_blob(self, data_type: BlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
     @DDLTypeMixin.handles(DateType)
-    def format_data_type_date(self, data_type: DateType):
+    def format_data_type_date(self, data_type: DateType) -> Tuple[str, tuple]:
         return "DATE", ()
 
     @DDLTypeMixin.handles(JsonType)
-    def format_data_type_json(self, data_type: JsonType):
+    def format_data_type_json(self, data_type: JsonType) -> Tuple[str, tuple]:
         return "JSON", ()
 
     @DDLTypeMixin.handles(JsonBType)
-    def format_data_type_jsonb(self, data_type: JsonBType):
+    def format_data_type_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
         return "JSONB", ()
 
     @DDLTypeMixin.handles(CharType)
-    def format_data_type_char(self, data_type: CharType):
+    def format_data_type_char(self, data_type: CharType) -> Tuple[str, tuple]:
         return (f"CHAR({data_type.length})" if data_type.length is not None else "CHAR"), ()
 
     @DDLTypeMixin.handles(VarCharType)
-    def format_data_type_varchar(self, data_type: VarCharType):
+    def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
         return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
 
     @DDLTypeMixin.handles(FloatType)
-    def format_data_type_float(self, data_type: FloatType):
+    def format_data_type_float(self, data_type: FloatType) -> Tuple[str, tuple]:
         return (f"FLOAT({data_type.precision})" if data_type.precision is not None else "FLOAT"), ()
 
     @DDLTypeMixin.handles(DecimalType)
-    def format_data_type_decimal(self, data_type: DecimalType):
+    def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
         if data_type.precision is not None and data_type.scale is not None:
             return f"DECIMAL({data_type.precision},{data_type.scale})", ()
         if data_type.precision is not None:
@@ -348,37 +348,37 @@ class DummyDialect(
         return "DECIMAL", ()
 
     @DDLTypeMixin.handles(TimeType)
-    def format_data_type_time(self, data_type: TimeType):
+    def format_data_type_time(self, data_type: TimeType) -> Tuple[str, tuple]:
         return (f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"), ()
 
     @DDLTypeMixin.handles(TimeTzType)
-    def format_data_type_timetz(self, data_type: TimeTzType):
+    def format_data_type_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
         base = f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"
         return f"{base} WITH TIME ZONE", ()
 
     @DDLTypeMixin.handles(DateTimeType)
-    def format_data_type_datetime(self, data_type: DateTimeType):
+    def format_data_type_datetime(self, data_type: DateTimeType) -> Tuple[str, tuple]:
         return (f"DATETIME({data_type.precision})" if data_type.precision is not None else "DATETIME"), ()
 
     @DDLTypeMixin.handles(TimestampType)
-    def format_data_type_timestamp(self, data_type: TimestampType):
+    def format_data_type_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
         return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
 
     @DDLTypeMixin.handles(TimestampTzType)
-    def format_data_type_timestamptz(self, data_type: TimestampTzType):
+    def format_data_type_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
         base = f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"
         return f"{base} WITH TIME ZONE", ()
 
     @DDLTypeMixin.handles(IntervalType)
-    def format_data_type_interval(self, data_type: IntervalType):
+    def format_data_type_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
         return (f"INTERVAL {data_type.fields}" if data_type.fields else "INTERVAL"), ()
 
     @DDLTypeMixin.handles(CustomType)
-    def format_data_type_custom(self, data_type: CustomType):
+    def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
         return data_type.raw, ()
 
     @DDLTypeMixin.handles(ArrayType)
-    def format_data_type_array(self, data_type: ArrayType):
+    def format_data_type_array(self, data_type: ArrayType) -> Tuple[str, tuple]:
         element_sql, _ = self.format_data_type(data_type.element_type)
         return element_sql + "[]" * data_type.dimensions, ()
 
