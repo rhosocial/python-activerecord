@@ -103,8 +103,8 @@ class PartitionTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDL
         return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
 
     @DDLTypeMixin.handles(CustomType)
-    def format_data_type_custom(self, data_type: CustomType) -> str:
-        return data_type.raw
+    def format_data_type_custom(self, data_type: CustomType):
+        return data_type.raw, ()
 
 
 def _get_protocol_methods(protocol: type) -> Set[str]:
