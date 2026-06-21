@@ -8,8 +8,23 @@ import re
 from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
 from rhosocial.activerecord.backend.dialect.protocols import DDLTypeSupport
 from rhosocial.activerecord.backend.expression.types import (
+    BigIntType,
+    BooleanType,
+    BlobType as CoreBlobType,
+    CharType,
     CustomType,
     DataType,
+    DateType,
+    DateTimeType,
+    DecimalType,
+    FloatType,
+    IntegerType,
+    RealType,
+    SmallIntType,
+    TextType as CoreTextType,
+    TimeType,
+    TimestampType,
+    VarCharType,
 )
 
 from ..expression.types import (
@@ -38,24 +53,86 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     # ------------------------------------------------------------------
 
     @DDLTypeMixin.handles(SQLiteIntegerType)
-    def format_data_type_integer(self, data_type: SQLiteIntegerType) -> str:
-        return "INTEGER"
+    def format_data_type_integer(self, data_type: SQLiteIntegerType):
+        return "INTEGER", ()
 
     @DDLTypeMixin.handles(SQLiteTextType)
-    def format_data_type_text(self, data_type: SQLiteTextType) -> str:
-        return f"TEXT({data_type.length})" if data_type.length is not None else "TEXT"
+    def format_data_type_text(self, data_type: SQLiteTextType):
+        return (f"TEXT({data_type.length})" if data_type.length is not None else "TEXT"), ()
 
     @DDLTypeMixin.handles(SQLiteRealType)
-    def format_data_type_real(self, data_type: SQLiteRealType) -> str:
-        return "REAL"
+    def format_data_type_real(self, data_type: SQLiteRealType):
+        return "REAL", ()
 
     @DDLTypeMixin.handles(SQLiteNumericType)
-    def format_data_type_numeric(self, data_type: SQLiteNumericType) -> str:
-        return "NUMERIC"
+    def format_data_type_numeric(self, data_type: SQLiteNumericType):
+        return "NUMERIC", ()
 
     @DDLTypeMixin.handles(SQLiteBlobType)
-    def format_data_type_blob(self, data_type: SQLiteBlobType) -> str:
-        return "BLOB"
+    def format_data_type_blob(self, data_type: SQLiteBlobType):
+        return "BLOB", ()
+
+    # --- Core type handlers (SQLite affinity mappings) ---
+
+    @DDLTypeMixin.handles(IntegerType)
+    def format_data_type_core_integer(self, data_type: IntegerType):
+        return "INTEGER", ()
+
+    @DDLTypeMixin.handles(BigIntType)
+    def format_data_type_core_bigint(self, data_type: BigIntType):
+        return "INTEGER", ()
+
+    @DDLTypeMixin.handles(SmallIntType)
+    def format_data_type_core_smallint(self, data_type: SmallIntType):
+        return "INTEGER", ()
+
+    @DDLTypeMixin.handles(CoreTextType)
+    def format_data_type_core_text(self, data_type: CoreTextType):
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(VarCharType)
+    def format_data_type_core_varchar(self, data_type: VarCharType):
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(CharType)
+    def format_data_type_core_char(self, data_type: CharType):
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(FloatType)
+    def format_data_type_core_float(self, data_type: FloatType):
+        return "REAL", ()
+
+    @DDLTypeMixin.handles(RealType)
+    def format_data_type_core_real(self, data_type: RealType):
+        return "REAL", ()
+
+    @DDLTypeMixin.handles(DecimalType)
+    def format_data_type_core_decimal(self, data_type: DecimalType):
+        return "NUMERIC", ()
+
+    @DDLTypeMixin.handles(BooleanType)
+    def format_data_type_core_boolean(self, data_type: BooleanType):
+        return "NUMERIC", ()
+
+    @DDLTypeMixin.handles(DateType)
+    def format_data_type_core_date(self, data_type: DateType):
+        return "NUMERIC", ()
+
+    @DDLTypeMixin.handles(DateTimeType)
+    def format_data_type_core_datetime(self, data_type: DateTimeType):
+        return "NUMERIC", ()
+
+    @DDLTypeMixin.handles(TimestampType)
+    def format_data_type_core_timestamp(self, data_type: TimestampType):
+        return "NUMERIC", ()
+
+    @DDLTypeMixin.handles(TimeType)
+    def format_data_type_core_time(self, data_type: TimeType):
+        return "NUMERIC", ()
+
+    @DDLTypeMixin.handles(CoreBlobType)
+    def format_data_type_core_blob(self, data_type: CoreBlobType):
+        return "BLOB", ()
 
     # ------------------------------------------------------------------
     # DDLTypeSupport — parsing

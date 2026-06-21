@@ -2197,8 +2197,8 @@ class DDLTypeSupport(Protocol):
       ``DataType.parse_data_type_str()``.
     """
 
-    def format_data_type(self, data_type: "DataType") -> str:
-        """Render a ``DataType`` expression into a SQL type string."""
+    def format_data_type(self, data_type: "DataType") -> tuple:
+        """Render a ``DataType`` expression into a SQL type string and params."""
         ...  # pragma: no cover
 
     def parse_type(self, raw: str) -> "DataType":

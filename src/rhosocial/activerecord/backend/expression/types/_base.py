@@ -38,7 +38,7 @@ class DataType(BaseExpression, ABC):
                 f"Cannot render {type(self).__name__} without a dialect. "
                 f"Pass a dialect to to_sql() or bind one via bind()."
             )
-        return (effective.format_data_type(self), ())
+        return effective.format_data_type(self)
 
     # ----- value-object semantics (ignore dialect for equality) -----
 
