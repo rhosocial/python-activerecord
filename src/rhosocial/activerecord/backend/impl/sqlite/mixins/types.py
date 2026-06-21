@@ -53,85 +53,85 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     # ------------------------------------------------------------------
 
     @DDLTypeMixin.handles(SQLiteIntegerType)
-    def format_data_type_integer(self, data_type: SQLiteIntegerType):
+    def format_data_type_integer(self, data_type: SQLiteIntegerType) -> tuple:
         return "INTEGER", ()
 
     @DDLTypeMixin.handles(SQLiteTextType)
-    def format_data_type_text(self, data_type: SQLiteTextType):
+    def format_data_type_text(self, data_type: SQLiteTextType) -> tuple:
         return (f"TEXT({data_type.length})" if data_type.length is not None else "TEXT"), ()
 
     @DDLTypeMixin.handles(SQLiteRealType)
-    def format_data_type_real(self, data_type: SQLiteRealType):
+    def format_data_type_real(self, data_type: SQLiteRealType) -> tuple:
         return "REAL", ()
 
     @DDLTypeMixin.handles(SQLiteNumericType)
-    def format_data_type_numeric(self, data_type: SQLiteNumericType):
+    def format_data_type_numeric(self, data_type: SQLiteNumericType) -> tuple:
         return "NUMERIC", ()
 
     @DDLTypeMixin.handles(SQLiteBlobType)
-    def format_data_type_blob(self, data_type: SQLiteBlobType):
+    def format_data_type_blob(self, data_type: SQLiteBlobType) -> tuple:
         return "BLOB", ()
 
     # --- Core type handlers (SQLite affinity mappings) ---
 
     @DDLTypeMixin.handles(IntegerType)
-    def format_data_type_core_integer(self, data_type: IntegerType):
+    def format_data_type_core_integer(self, data_type: IntegerType) -> tuple:
         return "INTEGER", ()
 
     @DDLTypeMixin.handles(BigIntType)
-    def format_data_type_core_bigint(self, data_type: BigIntType):
+    def format_data_type_core_bigint(self, data_type: BigIntType) -> tuple:
         return "INTEGER", ()
 
     @DDLTypeMixin.handles(SmallIntType)
-    def format_data_type_core_smallint(self, data_type: SmallIntType):
+    def format_data_type_core_smallint(self, data_type: SmallIntType) -> tuple:
         return "INTEGER", ()
 
     @DDLTypeMixin.handles(CoreTextType)
-    def format_data_type_core_text(self, data_type: CoreTextType):
+    def format_data_type_core_text(self, data_type: CoreTextType) -> tuple:
         return "TEXT", ()
 
     @DDLTypeMixin.handles(VarCharType)
-    def format_data_type_core_varchar(self, data_type: VarCharType):
+    def format_data_type_core_varchar(self, data_type: VarCharType) -> tuple:
         return "TEXT", ()
 
     @DDLTypeMixin.handles(CharType)
-    def format_data_type_core_char(self, data_type: CharType):
+    def format_data_type_core_char(self, data_type: CharType) -> tuple:
         return "TEXT", ()
 
     @DDLTypeMixin.handles(FloatType)
-    def format_data_type_core_float(self, data_type: FloatType):
+    def format_data_type_core_float(self, data_type: FloatType) -> tuple:
         return "REAL", ()
 
     @DDLTypeMixin.handles(RealType)
-    def format_data_type_core_real(self, data_type: RealType):
+    def format_data_type_core_real(self, data_type: RealType) -> tuple:
         return "REAL", ()
 
     @DDLTypeMixin.handles(DecimalType)
-    def format_data_type_core_decimal(self, data_type: DecimalType):
+    def format_data_type_core_decimal(self, data_type: DecimalType) -> tuple:
         return "NUMERIC", ()
 
     @DDLTypeMixin.handles(BooleanType)
-    def format_data_type_core_boolean(self, data_type: BooleanType):
+    def format_data_type_core_boolean(self, data_type: BooleanType) -> tuple:
         return "NUMERIC", ()
 
     @DDLTypeMixin.handles(DateType)
-    def format_data_type_core_date(self, data_type: DateType):
+    def format_data_type_core_date(self, data_type: DateType) -> tuple:
         return "NUMERIC", ()
 
     @DDLTypeMixin.handles(DateTimeType)
-    def format_data_type_core_datetime(self, data_type: DateTimeType):
+    def format_data_type_core_datetime(self, data_type: DateTimeType) -> tuple:
         return "NUMERIC", ()
 
     @DDLTypeMixin.handles(TimestampType)
-    def format_data_type_core_timestamp(self, data_type: TimestampType):
+    def format_data_type_core_timestamp(self, data_type: TimestampType) -> tuple:
         return "NUMERIC", ()
 
     @DDLTypeMixin.handles(TimeType)
-    def format_data_type_core_time(self, data_type: TimeType):
+    def format_data_type_core_time(self, data_type: TimeType) -> tuple:
         return "NUMERIC", ()
 
     @DDLTypeMixin.handles(CoreBlobType)
-    def format_data_type_core_blob(self, data_type: CoreBlobType):
+    def format_data_type_core_blob(self, data_type: CoreBlobType) -> tuple:
         return "BLOB", ()
 
     # ------------------------------------------------------------------

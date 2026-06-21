@@ -36,11 +36,11 @@ class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMix
         return True
 
     @DDLTypeMixin.handles(IntegerType)
-    def format_data_type_int(self, data_type):
+    def format_data_type_int(self, data_type) -> tuple:
         return "INTEGER", ()
 
     @DDLTypeMixin.handles(VarCharType)
-    def format_data_type_varchar(self, data_type):
+    def format_data_type_varchar(self, data_type) -> tuple:
         if data_type.length is not None:
             return f"VARCHAR({data_type.length})", ()
         return "VARCHAR", ()
