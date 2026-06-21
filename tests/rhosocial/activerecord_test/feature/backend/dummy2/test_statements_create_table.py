@@ -71,23 +71,23 @@ class PartitionTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDL
         return f" PARTITION BY {expr.method} ({', '.join(parts)})", tuple(params)
 
     @DDLTypeMixin.handles(IntegerType)
-    def format_data_type_integer(self, data_type: IntegerType) -> tuple:
+    def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
         return "INTEGER", ()
 
     @DDLTypeMixin.handles(TextType)
-    def format_data_type_text(self, data_type: TextType) -> tuple:
+    def format_data_type_text(self, data_type: TextType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
     @DDLTypeMixin.handles(VarCharType)
-    def format_data_type_varchar(self, data_type: VarCharType) -> tuple:
+    def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
         return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
 
     @DDLTypeMixin.handles(SmallIntType)
-    def format_data_type_smallint(self, data_type: SmallIntType) -> tuple:
+    def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
         return "SMALLINT", ()
 
     @DDLTypeMixin.handles(DecimalType)
-    def format_data_type_decimal(self, data_type: DecimalType) -> tuple:
+    def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
         if data_type.precision is not None and data_type.scale is not None:
             return f"DECIMAL({data_type.precision},{data_type.scale})", ()
         if data_type.precision is not None:
@@ -95,15 +95,15 @@ class PartitionTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDL
         return "DECIMAL", ()
 
     @DDLTypeMixin.handles(DateType)
-    def format_data_type_date(self, data_type: DateType) -> tuple:
+    def format_data_type_date(self, data_type: DateType) -> Tuple[str, tuple]:
         return "DATE", ()
 
     @DDLTypeMixin.handles(TimestampType)
-    def format_data_type_timestamp(self, data_type: TimestampType) -> tuple:
+    def format_data_type_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
         return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
 
     @DDLTypeMixin.handles(CustomType)
-    def format_data_type_custom(self, data_type: CustomType) -> tuple:
+    def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
         return data_type.raw, ()
 
 
