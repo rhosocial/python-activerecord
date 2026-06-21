@@ -189,3 +189,4 @@ examples/**
 .claude/plans/
 .claude/plan/
 gha-creds-*.json
+.sqlite-custom/
