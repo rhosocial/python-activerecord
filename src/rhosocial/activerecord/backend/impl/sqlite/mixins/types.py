@@ -17,13 +17,21 @@ from rhosocial.activerecord.backend.expression.types import (
     DateType,
     DateTimeType,
     DecimalType,
+    DoubleType,
     FloatType,
+    IntType,
     IntegerType,
+    IntervalType,
+    JsonBType,
+    JsonType,
     RealType,
     SmallIntType,
     TextType as CoreTextType,
     TimeType,
+    TimeTzType,
     TimestampType,
+    TimestampTzType,
+    TinyIntType,
     VarCharType,
 )
 
@@ -134,17 +142,55 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     def format_data_type_core_blob(self, data_type: CoreBlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
+    # --- Missing core type formatters ---
+
+    @DDLTypeMixin.handles(TinyIntType)
+    def format_data_type_core_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
+        return "INTEGER", ()
+
+    @DDLTypeMixin.handles(IntType)
+    def format_data_type_core_int(self, data_type: IntType) -> Tuple[str, tuple]:
+        return "INTEGER", ()
+
+    @DDLTypeMixin.handles(DoubleType)
+    def format_data_type_core_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
+        return "REAL", ()
+
+    @DDLTypeMixin.handles(TimeTzType)
+    def format_data_type_core_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
+        return "NUMERIC", ()
+
+    @DDLTypeMixin.handles(TimestampTzType)
+    def format_data_type_core_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
+        return "NUMERIC", ()
+
+    @DDLTypeMixin.handles(IntervalType)
+    def format_data_type_core_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
+        return "NUMERIC", ()
+
+    @DDLTypeMixin.handles(JsonType)
+    def format_data_type_core_json(self, data_type: JsonType) -> Tuple[str, tuple]:
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(JsonBType)
+    def format_data_type_core_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(CustomType)
+    def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
+        return data_type.raw, ()
+
     # ------------------------------------------------------------------
     # DDLTypeSupport — parsing
     # ------------------------------------------------------------------
 
     # SQLite type affinity groups for parsing
     _INTEGER_TYPES = re.compile(
-        r"^(?:INT|INTEGER|BIGINT|SMALLINT|TINYINT|MEDIUMINT)\b",
+        r"^(?:INT|INTEGER|BIGINT|SMALLINT|TINYINT|MEDIUMINT|INT2|INT8)\b",
         re.IGNORECASE,
     )
     _TEXT_TYPES = re.compile(
-        r"^(?:TEXT|CHAR|VARCHAR|CHARACTER\s+VARYING|CLOB)\b",
+        r"^(?:TEXT|CHAR|VARCHAR|NVARCHAR|CHARACTER\s+VARYING|NCHAR|CLOB)\b",
         re.IGNORECASE,
     )
     _REAL_TYPES = re.compile(
@@ -182,6 +228,9 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
         )
 
         stripped = raw.strip()
+        # Strip UNSIGNED prefix for broader matching (SQLite ignores unsigned)
+        if stripped.upper().startswith("UNSIGNED "):
+            stripped = stripped[len("UNSIGNED "):].strip()
         upper = stripped.upper()
 
         # INTEGER affinity

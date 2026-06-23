@@ -12,6 +12,20 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 class SQLiteDDLColumnMixin:
     """SQLite-specific column constraint and column definition formatting."""
 
+    def format_add_index_action(self, action) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(
+            self.name,
+            "ALTER TABLE ADD INDEX",
+            "SQLite does not support ALTER TABLE ADD INDEX. Use CREATE INDEX directly.",
+        )
+
+    def format_drop_index_action(self, action) -> Tuple[str, tuple]:
+        raise UnsupportedFeatureError(
+            self.name,
+            "ALTER TABLE DROP INDEX",
+            "SQLite does not support ALTER TABLE DROP INDEX. Use DROP INDEX directly.",
+        )
+
     def format_primary_key_constraint(self, constraint) -> Tuple[str, tuple]:
         """Format PRIMARY KEY constraint, optionally with AUTOINCREMENT."""
         result = " PRIMARY KEY"
