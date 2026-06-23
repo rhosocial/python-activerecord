@@ -454,6 +454,14 @@ class SQLiteDialect(
         """Whether ordered-set aggregate functions are supported."""
         return False
 
+    def supports_truncate(self) -> bool:
+        """SQLite does not support TRUNCATE TABLE (use DELETE FROM instead)."""
+        return False
+
+    def format_truncate_statement(self, expr) -> Tuple[str, tuple]:
+        """SQLite does not support TRUNCATE TABLE."""
+        raise UnsupportedFeatureError(self.name, "TRUNCATE TABLE", "Use DELETE FROM instead.")
+
     def supports_generated_columns(self) -> bool:
         """Whether generated columns are supported."""
         # Generated columns (STORED/VIRTUAL) are supported since SQLite 3.31.0
