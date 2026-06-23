@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams
 from ..core import TableExpression
+from ..types import DataType
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -56,13 +57,20 @@ class ColumnDefinition:
     """Represents a column's definition within a CREATE/ALTER TABLE statement."""
 
     name: str
-    data_type: str  # e.g. "VARCHAR(255)", "INTEGER", "DECIMAL(10,2)", "CHARACTER VARYING(255)"
+    data_type: "DataType"  # Column type expression (e.g. VarCharType(255), IntegerType(), DecimalType(10,2))
     constraints: List[ColumnConstraint] = field(default_factory=list)  # Column constraints
     comment: Optional[str] = None  # Column comment
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
     # Generated column support (SQLite 3.31.0+, PostgreSQL, MySQL)
     generated_expression: Optional["BaseExpression"] = None  # Expression for generated column
     generated_type: Optional[GeneratedColumnType] = None  # STORED or VIRTUAL
+
+    def __post_init__(self):
+        """Validate that data_type is a DataType instance."""
+        if not isinstance(self.data_type, DataType):
+            raise TypeError(
+                f"data_type must be a DataType instance, got {type(self.data_type).__name__}"
+            )
 
 
 class TableConstraintType(Enum):

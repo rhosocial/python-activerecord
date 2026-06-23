@@ -10,6 +10,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, JSONMixin, JSONSupport, UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression, JSONTableColumn
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 
 class NoJSONDialect(SQLDialectBase, JSONMixin, JSONSupport):
@@ -61,7 +62,7 @@ def test_json_table_expression_integration_raises_error():
         dialect,
         json_column="json_data",
         path="$[*]",
-        columns=[JSONTableColumn("id", "INTEGER", "$.id"), JSONTableColumn("name", "TEXT", "$.name")],
+        columns=[JSONTableColumn("id", IntegerType(), "$.id"), JSONTableColumn("name", TextType(), "$.name")],
         alias="parsed_json",
     )
 

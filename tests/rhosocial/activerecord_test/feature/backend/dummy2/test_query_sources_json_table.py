@@ -2,6 +2,7 @@
 from rhosocial.activerecord.backend.expression import Column, QueryExpression
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression, JSONTableColumn
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import BooleanType, DateType, DecimalType, FloatType, IntegerType, TextType, VarCharType
 
 
 class TestJSONTableExpression:
@@ -10,8 +11,8 @@ class TestJSONTableExpression:
     def test_json_table_basic(self, dummy_dialect: DummyDialect):
         """Test basic JSON_TABLE expression."""
         columns = [
-            JSONTableColumn(name="id", data_type="INTEGER", path="$.id"),
-            JSONTableColumn(name="name", data_type="VARCHAR(255)", path="$.name"),
+            JSONTableColumn(name="id", data_type=IntegerType(), path="$.id"),
+            JSONTableColumn(name="name", data_type=VarCharType(255), path="$.name"),
         ]
 
         json_table = JSONTableExpression(
@@ -33,7 +34,7 @@ class TestJSONTableExpression:
     def test_json_table_with_column_object(self, dummy_dialect: DummyDialect):
         """Test JSON_TABLE with Column object as json_column."""
         json_col = Column(dummy_dialect, "json_field", table="my_table")
-        columns = [JSONTableColumn(name="value", data_type="TEXT", path="$.value")]
+        columns = [JSONTableColumn(name="value", data_type=TextType(), path="$.value")]
 
         json_table = JSONTableExpression(
             dummy_dialect, json_column=json_col, path="$.items[*]", columns=columns, alias="json_values"
@@ -48,10 +49,10 @@ class TestJSONTableExpression:
     def test_json_table_multiple_columns(self, dummy_dialect: DummyDialect):
         """Test JSON_TABLE with multiple columns."""
         columns = [
-            JSONTableColumn(name="user_id", data_type="INTEGER", path="$.userId"),
-            JSONTableColumn(name="user_name", data_type="VARCHAR(100)", path="$.userName"),
-            JSONTableColumn(name="active", data_type="BOOLEAN", path="$.isActive"),
-            JSONTableColumn(name="score", data_type="DECIMAL(5,2)", path="$.score"),
+            JSONTableColumn(name="user_id", data_type=IntegerType(), path="$.userId"),
+            JSONTableColumn(name="user_name", data_type=VarCharType(100), path="$.userName"),
+            JSONTableColumn(name="active", data_type=BooleanType(), path="$.isActive"),
+            JSONTableColumn(name="score", data_type=DecimalType(precision=5, scale=2), path="$.score"),
         ]
 
         json_table = JSONTableExpression(
@@ -71,8 +72,8 @@ class TestJSONTableExpression:
     def test_json_table_used_in_query(self, dummy_dialect: DummyDialect):
         """Test JSON_TABLE expression used in a query FROM clause."""
         columns = [
-            JSONTableColumn(name="id", data_type="INTEGER", path="$.id"),
-            JSONTableColumn(name="title", data_type="VARCHAR(200)", path="$.title"),
+            JSONTableColumn(name="id", data_type=IntegerType(), path="$.id"),
+            JSONTableColumn(name="title", data_type=VarCharType(200), path="$.title"),
         ]
 
         json_table = JSONTableExpression(
@@ -96,8 +97,8 @@ class TestJSONTableExpression:
     def test_json_table_with_table_reference(self, dummy_dialect: DummyDialect):
         """Test JSON_TABLE with table-referenced JSON column."""
         columns = [
-            JSONTableColumn(name="field", data_type="TEXT", path="$.field"),
-            JSONTableColumn(name="value", data_type="TEXT", path="$.value"),
+            JSONTableColumn(name="field", data_type=TextType(), path="$.field"),
+            JSONTableColumn(name="value", data_type=TextType(), path="$.value"),
         ]
 
         json_table = JSONTableExpression(
@@ -127,11 +128,11 @@ class TestJSONTableExpression:
     def test_json_table_column_types_variety(self, dummy_dialect: DummyDialect):
         """Test JSON_TABLE with different column data types."""
         columns = [
-            JSONTableColumn(name="int_col", data_type="INTEGER", path="$.intField"),
-            JSONTableColumn(name="str_col", data_type="VARCHAR(255)", path="$.strField"),
-            JSONTableColumn(name="bool_col", data_type="BOOLEAN", path="$.boolField"),
-            JSONTableColumn(name="date_col", data_type="DATE", path="$.dateField"),
-            JSONTableColumn(name="float_col", data_type="FLOAT", path="$.floatField"),
+            JSONTableColumn(name="int_col", data_type=IntegerType(), path="$.intField"),
+            JSONTableColumn(name="str_col", data_type=VarCharType(255), path="$.strField"),
+            JSONTableColumn(name="bool_col", data_type=BooleanType(), path="$.boolField"),
+            JSONTableColumn(name="date_col", data_type=DateType(), path="$.dateField"),
+            JSONTableColumn(name="float_col", data_type=FloatType(), path="$.floatField"),
         ]
 
         json_table = JSONTableExpression(
@@ -147,9 +148,9 @@ class TestJSONTableExpression:
     def test_json_table_complex_paths(self, dummy_dialect: DummyDialect):
         """Test JSON_TABLE with complex JSON paths."""
         columns = [
-            JSONTableColumn(name="nested_value", data_type="TEXT", path="$.level1.level2.level3.value"),
-            JSONTableColumn(name="array_element", data_type="INTEGER", path="$.array[0].id"),
-            JSONTableColumn(name="dynamic_key", data_type="TEXT", path="$.*.dynamicValue"),
+            JSONTableColumn(name="nested_value", data_type=TextType(), path="$.level1.level2.level3.value"),
+            JSONTableColumn(name="array_element", data_type=IntegerType(), path="$.array[0].id"),
+            JSONTableColumn(name="dynamic_key", data_type=TextType(), path="$.*.dynamicValue"),
         ]
 
         json_table = JSONTableExpression(
@@ -164,7 +165,7 @@ class TestJSONTableExpression:
 
     def test_json_table_with_simple_string_column(self, dummy_dialect: DummyDialect):
         """Test JSON_TABLE with simple string column name."""
-        columns = [JSONTableColumn(name="result", data_type="TEXT", path="$.result")]
+        columns = [JSONTableColumn(name="result", data_type=TextType(), path="$.result")]
 
         json_table = JSONTableExpression(
             dummy_dialect,
@@ -194,11 +195,11 @@ class TestJSONTableExpression:
 
     def test_json_table_column_attributes(self, dummy_dialect: DummyDialect):
         """Test that JSONTableColumn attributes are properly handled."""
-        col = JSONTableColumn(name="test_col", data_type="VARCHAR(50)", path="$.test")
+        col = JSONTableColumn(name="test_col", data_type=VarCharType(50), path="$.test")
 
         # Verify the dataclass attributes
         assert col.name == "test_col"
-        assert col.data_type == "VARCHAR(50)"
+        assert col.data_type == VarCharType(50)
         assert col.path == "$.test"
 
         columns = [col]
@@ -216,8 +217,8 @@ class TestJSONTableExpression:
     def test_json_table_without_alias(self, dummy_dialect: DummyDialect):
         """Test JSON_TABLE expression without alias."""
         columns = [
-            JSONTableColumn(name="id", data_type="INTEGER", path="$.id"),
-            JSONTableColumn(name="name", data_type="VARCHAR(255)", path="$.name"),
+            JSONTableColumn(name="id", data_type=IntegerType(), path="$.id"),
+            JSONTableColumn(name="name", data_type=VarCharType(255), path="$.name"),
         ]
 
         # Create JSONTableExpression without alias

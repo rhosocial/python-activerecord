@@ -46,6 +46,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
+    # Type Support Protocol
+    DDLTypeSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CollationMixin,
@@ -69,7 +71,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # DDL Mixins
     TableMixin,
     ConstraintMixin,
-    TruncateMixin,
     SchemaMixin,
     IndexMixin,
     SequenceMixin,
@@ -123,6 +124,7 @@ from .mixins import (
     SQLiteFTS5Mixin,
     SQLiteRTreeMixin,
     SQLiteGeopolyMixin,
+    SQLiteTypeSupportMixin,
 )
 
 # Module-level constants for error suggestions (SonarCloud S1192)
@@ -159,7 +161,6 @@ class SQLiteDialect(
     # DDL Mixins (without SQLite overrides)
     TableMixin,
     ConstraintMixin,
-    TruncateMixin,
     SchemaMixin,
     IndexMixin,
     SequenceMixin,
@@ -186,6 +187,8 @@ class SQLiteDialect(
     SQLiteFTS5Mixin,
     SQLiteRTreeMixin,
     SQLiteGeopolyMixin,
+    # DataType formatting and parsing
+    SQLiteTypeSupportMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
     CollationMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)
@@ -243,6 +246,8 @@ class SQLiteDialect(
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
+    # DataType Support Protocol
+    DDLTypeSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -448,6 +453,14 @@ class SQLiteDialect(
     def supports_ordered_set_aggregation(self) -> bool:
         """Whether ordered-set aggregate functions are supported."""
         return False
+
+    def supports_truncate(self) -> bool:
+        """SQLite does not support TRUNCATE TABLE (use DELETE FROM instead)."""
+        return False
+
+    def format_truncate_statement(self, expr) -> Tuple[str, tuple]:
+        """SQLite does not support TRUNCATE TABLE."""
+        raise UnsupportedFeatureError(self.name, "TRUNCATE TABLE", "Use DELETE FROM instead.")
 
     def supports_generated_columns(self) -> bool:
         """Whether generated columns are supported."""

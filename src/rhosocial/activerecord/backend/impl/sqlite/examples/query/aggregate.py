@@ -32,15 +32,15 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition("user_id", "INTEGER"),
-        ColumnDefinition("amount", "REAL"),
-        ColumnDefinition("status", "TEXT"),
+        ColumnDefinition("user_id", IntegerType()),
+        ColumnDefinition("amount", FloatType()),
+        ColumnDefinition("status", TextType()),
     ],
     if_not_exists=True,
 )
@@ -74,6 +74,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     GroupByHavingClause,
 )
 from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 
 query = QueryExpression(
     dialect=dialect,

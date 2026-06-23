@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     GeneratedColumnType,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteNumericType, SQLiteTextType
 
 
 class TestColumnConstraintHandlers:
@@ -199,7 +200,7 @@ class TestFormatColumnDefinition:
     def test_format_column_definition_basic(self):
         """Test basic column definition without constraints."""
         dialect = SQLiteDialect()
-        col_def = ColumnDefinition(name="id", data_type="INTEGER")
+        col_def = ColumnDefinition(name="id", data_type=SQLiteIntegerType())
 
         sql, params = dialect.format_column_definition(col_def)
 
@@ -211,7 +212,7 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(
             name="id",
-            data_type="INTEGER",
+            data_type=SQLiteIntegerType(),
             constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY)],
         )
 
@@ -225,7 +226,7 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(
             name="email",
-            data_type="VARCHAR(255)",
+            data_type=SQLiteTextType(255),
             constraints=[
                 ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE),
@@ -234,7 +235,7 @@ class TestFormatColumnDefinition:
 
         sql, params = dialect.format_column_definition(col_def)
 
-        assert sql == '"email" VARCHAR(255) NOT NULL UNIQUE'
+        assert sql == '"email" TEXT(255) NOT NULL UNIQUE'
         assert params == ()
 
     def test_format_column_definition_with_default(self):
@@ -242,13 +243,13 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(
             name="status",
-            data_type="VARCHAR(50)",
+            data_type=SQLiteTextType(50),
             constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value="active")],
         )
 
         sql, params = dialect.format_column_definition(col_def)
 
-        assert sql == '"status" VARCHAR(50) DEFAULT \'active\''
+        assert sql == '"status" TEXT(50) DEFAULT \'active\''
         assert params == ()
 
     def test_format_column_definition_with_check(self):
@@ -259,7 +260,7 @@ class TestFormatColumnDefinition:
 
         col_def = ColumnDefinition(
             name="age",
-            data_type="INTEGER",
+            data_type=SQLiteIntegerType(),
             constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.CHECK, check_condition=mock_condition)],
         )
 
@@ -273,7 +274,7 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(
             name="user_id",
-            data_type="INTEGER",
+            data_type=SQLiteIntegerType(),
             constraints=[
                 ColumnConstraint(
                     constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"])
@@ -294,14 +295,14 @@ class TestFormatColumnDefinition:
 
         col_def = ColumnDefinition(
             name="full_name",
-            data_type="VARCHAR(255)",
+            data_type=SQLiteTextType(255),
             generated_expression=mock_expr,
             generated_type=GeneratedColumnType.VIRTUAL,
         )
 
         sql, params = dialect.format_column_definition(col_def)
 
-        assert sql == "\"full_name\" VARCHAR(255) GENERATED ALWAYS AS (first_name || ' ' || last_name) VIRTUAL"
+        assert sql == "\"full_name\" TEXT(255) GENERATED ALWAYS AS (first_name || ' ' || last_name) VIRTUAL"
         assert params == ()
 
     def test_format_column_definition_with_all_constraint_types(self):
@@ -312,7 +313,7 @@ class TestFormatColumnDefinition:
 
         col_def = ColumnDefinition(
             name="price",
-            data_type="DECIMAL(10,2)",
+            data_type=SQLiteNumericType(precision=10, scale=2),
             constraints=[
                 ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value=0.0),
@@ -322,7 +323,7 @@ class TestFormatColumnDefinition:
 
         sql, params = dialect.format_column_definition(col_def)
 
-        assert sql == '"price" DECIMAL(10,2) NOT NULL DEFAULT 0.0 CHECK (value > 0)'
+        assert sql == '"price" NUMERIC NOT NULL DEFAULT 0.0 CHECK (value > 0)'
         assert params == ()
 
     def test_format_column_definition_null_constraint(self):
@@ -330,11 +331,11 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(
             name="optional_field",
-            data_type="VARCHAR(100)",
+            data_type=SQLiteTextType(100),
             constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.NULL)],
         )
 
         sql, params = dialect.format_column_definition(col_def)
 
-        assert sql == '"optional_field" VARCHAR(100) NULL'
+        assert sql == '"optional_field" TEXT(100) NULL'
         assert params == ()

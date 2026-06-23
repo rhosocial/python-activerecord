@@ -22,6 +22,7 @@ from rhosocial.activerecord.backend.expression import (
     AddColumn,
     DropColumn,
 )
+from rhosocial.activerecord.backend.expression.types import BooleanType, FloatType, IntegerType, TextType, TimestampType, VarCharType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
     ColumnConstraintType,
@@ -79,18 +80,18 @@ def main():
     # Example 1: Create basic table
     # ============================================================
     user_columns = [
-        ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("username", "VARCHAR(50)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition("username", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
         ColumnDefinition(
             "email",
-            "VARCHAR(100)",
+            VarCharType(100),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(ColumnConstraintType.UNIQUE),
             ],
         ),
-        ColumnDefinition("is_active", "BOOLEAN"),
-        ColumnDefinition("created_at", "TIMESTAMP"),
+        ColumnDefinition("is_active", BooleanType()),
+        ColumnDefinition("created_at", TimestampType()),
     ]
 
     create_users = CreateTableExpression(dialect=dialect, table_name="users", columns=user_columns)
@@ -116,9 +117,9 @@ def main():
         dialect=dialect,
         table_name="products",
         columns=[
-            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("name", "VARCHAR(100)"),
-            ColumnDefinition("price", "REAL", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("name", VarCharType(100)),
+            ColumnDefinition("price", FloatType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
         ],
         if_not_exists=True,
     )
@@ -143,9 +144,9 @@ def main():
         dialect=dialect,
         table_name="temp_sessions",
         columns=[
-            ColumnDefinition("session_id", "VARCHAR(50)"),
-            ColumnDefinition("data", "TEXT"),
-            ColumnDefinition("expires_at", "TIMESTAMP"),
+            ColumnDefinition("session_id", VarCharType(50)),
+            ColumnDefinition("data", TextType()),
+            ColumnDefinition("expires_at", TimestampType()),
         ],
         temporary=True,
     )
@@ -167,7 +168,7 @@ def main():
     # ============================================================
     # First create a table to drop
     create_to_drop = CreateTableExpression(
-        dialect=dialect, table_name="old_table", columns=[ColumnDefinition("id", "INTEGER")]
+        dialect=dialect, table_name="old_table", columns=[ColumnDefinition("id", IntegerType())]
     )
     sql_str, params_str = create_to_drop.to_sql()
     backend.execute(sql_str, params_str)
@@ -197,7 +198,7 @@ def main():
     # Example 5: Alter table - Add column
     # ============================================================
     alter_add = AlterTableExpression(
-        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("phone", "VARCHAR(20)"))]
+        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("phone", VarCharType(20)))]
     )
 
     sql, params = alter_add.to_sql()
@@ -217,7 +218,7 @@ def main():
     # ============================================================
     # First add a column to drop
     alter_add_field = AlterTableExpression(
-        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("temp_field", "TEXT"))]
+        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("temp_field", TextType()))]
     )
     sql_str, params_str = alter_add_field.to_sql()
     backend.execute(sql_str, params_str)

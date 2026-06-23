@@ -152,4 +152,24 @@ EXAMPLES_META = {
         "dialect_protocols": ["JSONSupport"],
         "priority": 10,
     },
+    "schema_diff/add_table.py": {
+        "title": "Schema Diff — Detect New Table",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "schema_diff/add_column.py": {
+        "title": "Schema Diff — Detect Column Changes",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "schema_diff/index_change.py": {
+        "title": "Schema Diff — Detect Index Changes",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "schema_diff/serialization_roundtrip.py": {
+        "title": "Schema Diff — Snapshot Serialization Roundtrip",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
 }

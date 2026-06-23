@@ -23,6 +23,7 @@ from .function import SQLiteFunctionMixin
 from .fts5 import SQLiteFTS5Mixin
 from .rtree import SQLiteRTreeMixin
 from .geopoly import SQLiteGeopolyMixin
+from .types import SQLiteTypeSupportMixin
 
 __all__ = [
     'SQLiteExtensionMixin',
@@ -42,4 +43,5 @@ __all__ = [
     'SQLiteFTS5Mixin',
     'SQLiteRTreeMixin',
     'SQLiteGeopolyMixin',
+    'SQLiteTypeSupportMixin',
 ]

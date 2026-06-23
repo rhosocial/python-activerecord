@@ -31,6 +31,7 @@ from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(connection_config=config)
@@ -55,7 +56,7 @@ def create_demo_tables():
         columns=[
             ColumnDefinition(
                 "id",
-                "INTEGER",
+                IntegerType(),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                     ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -63,10 +64,10 @@ def create_demo_tables():
             ),
             ColumnDefinition(
                 "name",
-                "TEXT",
+                TextType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
             ),
-            ColumnDefinition("status", "TEXT"),
+            ColumnDefinition("status", TextType()),
         ],
         if_not_exists=True,
     )
@@ -78,7 +79,7 @@ def create_demo_tables():
         columns=[
             ColumnDefinition(
                 "id",
-                "INTEGER",
+                IntegerType(),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                     ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -86,7 +87,7 @@ def create_demo_tables():
             ),
             ColumnDefinition(
                 "message",
-                "TEXT",
+                TextType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
             ),
         ],

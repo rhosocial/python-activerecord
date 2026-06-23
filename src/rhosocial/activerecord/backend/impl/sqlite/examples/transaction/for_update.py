@@ -32,6 +32,7 @@ from rhosocial.activerecord.backend.expression.transaction import BeginTransacti
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
@@ -50,15 +51,15 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
         ),
-        ColumnDefinition("balance", "REAL"),
+        ColumnDefinition("balance", FloatType()),
     ],
     if_not_exists=True,
 )

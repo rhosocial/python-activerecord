@@ -7,6 +7,7 @@ Each function returns a CreateTableExpression matching the .sql schema file.
 
 from typing import Callable, Dict
 
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,
@@ -23,23 +24,23 @@ def create_event_tests_table(dialect, table_name: str = "event_tests") -> Create
         table=table_name,
         if_not_exists=False,
         columns=[
-            ColumnDefinition("id", "INTEGER",
+            ColumnDefinition("id", IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition("name", "TEXT",
+            ColumnDefinition("name", TextType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition("status", "TEXT",
+            ColumnDefinition("status", TextType(),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.NOT_NULL),
                     ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="draft"),
                 ]),
-            ColumnDefinition("revision", "INTEGER",
+            ColumnDefinition("revision", IntegerType(),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.NOT_NULL),
                     ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=1),
                 ]),
-            ColumnDefinition("content", "TEXT"),
-            ColumnDefinition("created_at", "TEXT"),
-            ColumnDefinition("updated_at", "TEXT"),
+            ColumnDefinition("content", TextType()),
+            ColumnDefinition("created_at", TextType()),
+            ColumnDefinition("updated_at", TextType()),
         ],
     )
 
@@ -50,16 +51,16 @@ def create_event_test_models_table(dialect, table_name: str = "event_test_models
         table=table_name,
         if_not_exists=False,
         columns=[
-            ColumnDefinition("id", "INTEGER",
+            ColumnDefinition("id", IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition("name", "TEXT",
+            ColumnDefinition("name", TextType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition("description", "TEXT"),
-            ColumnDefinition("status", "TEXT",
+            ColumnDefinition("description", TextType()),
+            ColumnDefinition("status", TextType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="active")]),
-            ColumnDefinition("event_log", "TEXT"),
-            ColumnDefinition("created_at", "TEXT"),
-            ColumnDefinition("updated_at", "TEXT"),
+            ColumnDefinition("event_log", TextType()),
+            ColumnDefinition("created_at", TextType()),
+            ColumnDefinition("updated_at", TextType()),
         ],
     )
 
@@ -70,15 +71,15 @@ def create_event_tracking_models_table(dialect, table_name: str = "event_trackin
         table=table_name,
         if_not_exists=False,
         columns=[
-            ColumnDefinition("id", "INTEGER",
+            ColumnDefinition("id", IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition("title", "TEXT",
+            ColumnDefinition("title", TextType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition("content", "TEXT",
+            ColumnDefinition("content", TextType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition("view_count", "INTEGER",
+            ColumnDefinition("view_count", IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=0)]),
-            ColumnDefinition("last_viewed_at", "TEXT"),
+            ColumnDefinition("last_viewed_at", TextType()),
         ],
     )
 

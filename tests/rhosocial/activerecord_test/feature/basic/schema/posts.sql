@@ -2,10 +2,10 @@
 CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     author INTEGER NOT NULL,
-    title VARCHAR(255) NOT NULL,
+    title TEXT NOT NULL,
     content TEXT,
-    published_at DATETIME,
-    published BOOLEAN DEFAULT FALSE,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME
+    published_at NUMERIC,
+    published NUMERIC DEFAULT FALSE,
+    created_at NUMERIC NOT NULL,
+    updated_at NUMERIC
 );

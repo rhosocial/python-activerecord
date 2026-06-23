@@ -49,6 +49,7 @@ from .datetime import DateTimeMixin
 from .dql import DQLMixin
 from .dml import DMLMixin
 from .ddl_column import DDLColumnMixin
+from .ddl_type import DDLTypeMixin
 from .transaction import TransactionControlMixin
 
 __all__ = [
@@ -99,5 +100,6 @@ __all__ = [
     "DQLMixin",
     "DMLMixin",
     "DDLColumnMixin",
+    "DDLTypeMixin",
     "TransactionControlMixin",
 ]

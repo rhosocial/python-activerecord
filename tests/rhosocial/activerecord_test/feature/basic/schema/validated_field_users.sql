@@ -7,5 +7,5 @@ CREATE TABLE validated_field_users (
     balance REAL,
     credit_score INTEGER NOT NULL,
     status TEXT NOT NULL,
-    is_active BOOLEAN
+    is_active NUMERIC
 );

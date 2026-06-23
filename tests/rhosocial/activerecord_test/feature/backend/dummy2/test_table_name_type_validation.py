@@ -11,6 +11,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType
 
 
 class TestCreateTableExpressionTypeValidation:
@@ -20,7 +21,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression accepts string table_name."""
         columns = [
             ColumnDefinition(
-                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -36,7 +37,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression accepts TableExpression object."""
         columns = [
             ColumnDefinition(
-                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -49,7 +50,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression accepts TableExpression with schema_name."""
         columns = [
             ColumnDefinition(
-                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -66,7 +67,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for invalid table_name type."""
         columns = [
             ColumnDefinition(
-                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -79,7 +80,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for None table_name."""
         columns = [
             ColumnDefinition(
-                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -91,7 +92,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for list table_name."""
         columns = [
             ColumnDefinition(
-                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -103,7 +104,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for dict table_name."""
         columns = [
             ColumnDefinition(
-                name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
