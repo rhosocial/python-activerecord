@@ -4,7 +4,7 @@ CREATE TABLE extended_order_items (
     order_id INTEGER NOT NULL,
     product_name TEXT NOT NULL,
     quantity INTEGER NOT NULL DEFAULT 1,
-    price DECIMAL(10,2) NOT NULL,
+    price NUMERIC NOT NULL,
     category TEXT DEFAULT '',
     region TEXT DEFAULT '',
     created_at TEXT,

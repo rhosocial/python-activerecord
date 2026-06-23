@@ -5,7 +5,7 @@ CREATE TABLE users (
     email TEXT NOT NULL,
     age INTEGER,
     balance REAL NOT NULL DEFAULT 0.0,
-    is_active BOOLEAN NOT NULL DEFAULT 1,
+    is_active NUMERIC NOT NULL DEFAULT 1,
     created_at TEXT,
     updated_at TEXT
 );

@@ -112,6 +112,47 @@ _ANNOTATION_NS: Dict[str, Any] = {
 }
 
 
+def _resolve_forward_ref(t: type) -> type:
+    """Recursively resolve ``ForwardRef`` or plain string types.
+
+    Some Python versions (notably 3.8 with ``from __future__ import annotations``)
+    fail to resolve particularly quoted forward references (e.g.
+    ``"'DatabaseInfo'"``) inside a ``ForwardRef``, returning the ``ForwardRef``
+    instance itself instead of the target class.  We work around this by
+    manually stripping surrounding quotes and looking up the name.
+    """
+    _MAX_DEPTH = 20
+
+    def _resolve(t: type, _depth: int = 0) -> type:
+        if _depth > _MAX_DEPTH:
+            return t
+        if isinstance(t, typing.ForwardRef):
+            arg = t.__forward_arg__
+            # Strip outer quotes if the arg looks like a string literal.
+            if len(arg) >= 2 and arg[0] in ("'", '"') and arg[-1] == arg[0]:
+                arg = arg[1:-1]
+            resolved = _ANNOTATION_NS.get(arg)
+            if resolved is not None:
+                return _resolve(resolved, _depth + 1)
+            # Fall back to standard evaluation
+            return typing._eval_type(t, _ANNOTATION_NS, None)
+        if isinstance(t, str):
+            return _ANNOTATION_NS.get(t, t)
+        origin = getattr(t, "__origin__", None)
+        args = getattr(t, "__args__", None)
+        if origin is not None and args:
+            resolved_args = tuple(_resolve(a, _depth + 1) for a in args)
+            if resolved_args == getattr(t, "__args__", None):
+                return t
+            try:
+                return origin[resolved_args]
+            except TypeError:
+                return t
+        return t
+
+    return _resolve(t)
+
+
 def _resolve_field_types(cls: type) -> Dict[str, type]:
     """Resolve string annotations for a dataclass (with caching)."""
     if cls not in _DC_TYPE_CACHE:
@@ -119,11 +160,12 @@ def _resolve_field_types(cls: type) -> Dict[str, type]:
         for f in dc_fields(cls):
             raw = f.type
             if isinstance(raw, str):
-                hints[f.name] = typing._eval_type(
+                resolved = typing._eval_type(
                     typing.ForwardRef(raw),
                     _ANNOTATION_NS,
                     None,
                 )
+                hints[f.name] = _resolve_forward_ref(resolved)
             else:
                 hints[f.name] = raw
         _DC_TYPE_CACHE[cls] = hints
@@ -159,8 +201,15 @@ def _from_plain(t: type, data: Any) -> Any:
     if data is None:
         return None
 
+    # Resolve any ForwardRef at the top level
+    t = _resolve_forward_ref(t)
+
     origin = getattr(t, "__origin__", None)
     args = getattr(t, "__args__", (Any,))
+    # Resolve ForwardRef / string type arguments (``from __future__
+    # import annotations`` can produce nested ForwardRef that are not
+    # automatically resolved inside parameterized types).
+    args = tuple(_resolve_forward_ref(a) for a in args)
 
     # DataType (heuristic: dict has "type" key and is not a recognized type)
     if isinstance(data, dict) and "type" in data and "params" in data:
