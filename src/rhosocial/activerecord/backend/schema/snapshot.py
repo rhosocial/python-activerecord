@@ -135,7 +135,7 @@ def _resolve_forward_ref(t: type) -> type:
             if resolved is not None:
                 return _resolve(resolved, _depth + 1)
             # Fall back to standard evaluation
-            return typing._eval_type(t, _ANNOTATION_NS, None)
+            return _eval_type_safe(t)
         if isinstance(t, str):
             return _ANNOTATION_NS.get(t, t)
         origin = getattr(t, "__origin__", None)
@@ -153,6 +153,21 @@ def _resolve_forward_ref(t: type) -> type:
     return _resolve(t)
 
 
+def _eval_type_safe(fwdref: typing.ForwardRef) -> type:
+    """Call ``typing._eval_type`` with a compatible signature across Python versions.
+
+    Python 3.15+ added a mandatory ``type_params`` positional parameter;
+    older versions (3.8–3.14) do not accept it.
+    """
+    try:
+        sig = inspect.signature(typing._eval_type)
+        if "type_params" in sig.parameters:
+            return typing._eval_type(fwdref, _ANNOTATION_NS, None, ())
+    except (TypeError, ValueError):
+        pass
+    return typing._eval_type(fwdref, _ANNOTATION_NS, None)
+
+
 def _resolve_field_types(cls: type) -> Dict[str, type]:
     """Resolve string annotations for a dataclass (with caching)."""
     if cls not in _DC_TYPE_CACHE:
@@ -160,11 +175,7 @@ def _resolve_field_types(cls: type) -> Dict[str, type]:
         for f in dc_fields(cls):
             raw = f.type
             if isinstance(raw, str):
-                resolved = typing._eval_type(
-                    typing.ForwardRef(raw),
-                    _ANNOTATION_NS,
-                    None,
-                )
+                resolved = _eval_type_safe(typing.ForwardRef(raw))
                 hints[f.name] = _resolve_forward_ref(resolved)
             else:
                 hints[f.name] = raw
