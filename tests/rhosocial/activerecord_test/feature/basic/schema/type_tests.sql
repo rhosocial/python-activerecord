@@ -5,7 +5,7 @@ CREATE TABLE type_tests (
     int_field INTEGER,
     float_field REAL,
     decimal_field REAL,
-    bool_field BOOLEAN,
+    bool_field NUMERIC,
     datetime_field TEXT,
     json_field TEXT,
     nullable_field TEXT

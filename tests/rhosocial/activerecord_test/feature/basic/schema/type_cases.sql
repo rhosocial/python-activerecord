@@ -18,5 +18,5 @@ CREATE TABLE type_cases (
     blob_val BLOB,
     json_val TEXT,
     array_val TEXT,
-    is_active BOOLEAN
+    is_active NUMERIC
 );
