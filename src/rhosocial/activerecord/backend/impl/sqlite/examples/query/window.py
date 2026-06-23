@@ -32,7 +32,7 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -40,14 +40,14 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "salesperson",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("region", "TEXT"),
-        ColumnDefinition("amount", "REAL"),
-        ColumnDefinition("sale_date", "TEXT"),
+        ColumnDefinition("region", TextType()),
+        ColumnDefinition("amount", FloatType()),
+        ColumnDefinition("sale_date", TextType()),
     ],
     if_not_exists=True,
 )
@@ -81,6 +81,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     OrderByClause,
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
     WindowFunctionCall,
     WindowSpecification,
 )

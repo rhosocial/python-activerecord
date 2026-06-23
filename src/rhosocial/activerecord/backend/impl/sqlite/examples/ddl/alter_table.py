@@ -33,7 +33,7 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -41,7 +41,7 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
@@ -69,6 +69,8 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ColumnDefinition,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from rhosocial.activerecord.backend.expression.types import TextType
     AddColumn,
     RenameColumn,
 )
@@ -78,7 +80,7 @@ add_col_action = AddColumn(
     dialect=dialect,
     column=ColumnDefinition(
         name="email",
-        data_type="TEXT",
+        data_type=TextType(),
     ),
 )
 

@@ -7,9 +7,14 @@ in a database-agnostic way, enabling unified introspection across
 different database backends.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Tuple
+from typing import TYPE_CHECKING, Optional, List, Dict, Any, Tuple
 from enum import Enum
+
+if TYPE_CHECKING:
+    from ..expression.types._base import DataType
 
 
 class IntrospectionScope(Enum):
@@ -102,6 +107,7 @@ class ColumnInfo:
     ordinal_position: int = 0
     data_type: str = ""
     data_type_full: Optional[str] = None
+    parsed_data_type: Optional["DataType"] = None
     nullable: ColumnNullable = ColumnNullable.UNKNOWN
     default_value: Optional[str] = None
     is_primary_key: bool = False

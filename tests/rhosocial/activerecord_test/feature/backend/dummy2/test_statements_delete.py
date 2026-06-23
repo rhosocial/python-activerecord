@@ -20,6 +20,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression import bases  # For set_dialect_recursive
+from rhosocial.activerecord.backend.expression.types import VarCharType
 
 
 class TestDeleteStatements:
@@ -739,7 +740,7 @@ class TestDeleteStatements:
         # Create a ColumnDefinition with DEFAULT constraint but no value
         col_def = ColumnDefinition(
             name="test_col",
-            data_type="VARCHAR(255)",
+            data_type=VarCharType(255),
             constraints=[
                 ColumnConstraint(
                     constraint_type=ColumnConstraintType.DEFAULT,

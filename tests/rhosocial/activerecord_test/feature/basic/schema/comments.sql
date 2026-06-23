@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS comments (
     post_ref INTEGER NOT NULL,
     author INTEGER NOT NULL,
     text TEXT NOT NULL,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME,
-    approved BOOLEAN DEFAULT FALSE
+    created_at NUMERIC NOT NULL,
+    updated_at NUMERIC,
+    approved NUMERIC DEFAULT FALSE
 );

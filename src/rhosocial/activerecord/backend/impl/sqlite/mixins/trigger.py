@@ -73,7 +73,7 @@ class SQLiteTriggerMixin:
             all_params.extend(cond_params)
 
         parts.append("BEGIN")
-        parts.append(f"CALL {self.format_identifier(expr.function_name)}();")
+        parts.append(f"SELECT {self.format_identifier(expr.function_name)}();")
         parts.append("END")
 
         return " ".join(parts), tuple(all_params)

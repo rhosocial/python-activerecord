@@ -34,7 +34,7 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -42,13 +42,13 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("manager_id", "INTEGER"),
-        ColumnDefinition("department", "TEXT"),
+        ColumnDefinition("manager_id", IntegerType()),
+        ColumnDefinition("department", TextType()),
     ],
     if_not_exists=True,
 )
@@ -145,6 +145,7 @@ base_query = QueryExpression(
 # Use a JOIN between the CTE result and employees table
 from rhosocial.activerecord.backend.expression import JoinExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 join_expr = JoinExpression(
     dialect=dialect,

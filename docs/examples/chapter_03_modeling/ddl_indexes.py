@@ -20,6 +20,7 @@ from rhosocial.activerecord.backend.expression import (
     CreateIndexExpression,
     DropIndexExpression,
 )
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, VarCharType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
     ColumnConstraintType,
@@ -52,11 +53,11 @@ def main():
 
     # First create the products table
     product_columns = [
-        ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("name", "VARCHAR(100)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("category", "VARCHAR(50)"),
-        ColumnDefinition("price", "REAL"),
-        ColumnDefinition("status", "VARCHAR(20)"),
+        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition("name", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("category", VarCharType(50)),
+        ColumnDefinition("price", FloatType()),
+        ColumnDefinition("status", VarCharType(20)),
     ]
 
     create_products = CreateTableExpression(dialect=dialect, table_name="products", columns=product_columns)

@@ -7,10 +7,11 @@ support for advanced database features. Protocols enable fine-grained feature
 detection and graceful error handling.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, Type, Protocol, runtime_checkable, TYPE_CHECKING
 
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ..expression.types._base import DataType
     from ..expression import (
         bases,
         ExplainExpression,
@@ -2174,5 +2175,39 @@ class SQLFunctionSupport(Protocol):
                 "ST_Distance": False, # Not available in SQLite
                 ...
             }
+        """
+        ...  # pragma: no cover
+
+
+# ============================================================
+# DataType Support Protocol
+# ============================================================
+
+
+@runtime_checkable
+class DDLTypeSupport(Protocol):
+    """Dialect support for structured ``DataType`` — formatting and parsing.
+
+    Dialects that implement this protocol (usually via ``DDLTypeMixin``) can:
+
+    * Render ``DataType`` expressions into backend-specific SQL strings
+      via ``format_data_type()`` — called by ``DataType.to_sql()``.
+    * Parse raw SQL type strings from introspection back into ``DataType``
+      instances via ``parse_type()`` — called by
+      ``DataType.parse_data_type_str()``.
+    """
+
+    def format_data_type(self, data_type: "DataType") -> "Tuple[str, tuple]":
+        """Render a ``DataType`` expression into a SQL type string and params."""
+        ...  # pragma: no cover
+
+    def parse_type(self, raw: str) -> "DataType":
+        """Parse a raw SQL type string into a ``DataType``."""
+        ...  # pragma: no cover
+
+    def supports_data_types(self) -> List[Tuple[Type, str]]:  # noqa
+        """List ``(DataTypeClass, sql_name)`` pairs supported by this dialect.
+
+        Auto-generated from the ``@handles`` registry in ``DDLTypeMixin``.
         """
         ...  # pragma: no cover

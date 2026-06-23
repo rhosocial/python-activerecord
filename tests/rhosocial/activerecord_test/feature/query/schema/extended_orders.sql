@@ -3,7 +3,7 @@ CREATE TABLE extended_orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     order_number TEXT NOT NULL,
-    total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    total_amount NUMERIC NOT NULL DEFAULT 0.00,
     status TEXT NOT NULL DEFAULT 'pending',
     priority TEXT DEFAULT 'medium',
     region TEXT DEFAULT 'default',

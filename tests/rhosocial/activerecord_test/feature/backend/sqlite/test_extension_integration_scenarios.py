@@ -52,6 +52,7 @@ from rhosocial.activerecord.backend.impl.sqlite.functions import (
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
 
 
 # =============================================================================
@@ -101,10 +102,10 @@ class TestGeoDocumentScenario:
             *CreateTableExpression(
                 dialect, table="doc_meta",
                 columns=[
-                    ColumnDefinition("doc_id", "INTEGER", constraints=[
+                    ColumnDefinition("doc_id", SQLiteIntegerType(), constraints=[
                         ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("extra", "JSON"),
+                    ColumnDefinition("extra", SQLiteTextType()),
                 ]
             ).to_sql(),
             options=ddl
@@ -426,12 +427,12 @@ class TestSpatialCatalogScenario:
             *CreateTableExpression(
                 dialect, table="features",
                 columns=[
-                    ColumnDefinition("id", "INTEGER", constraints=[
+                    ColumnDefinition("id", SQLiteIntegerType(), constraints=[
                         ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("name", "TEXT"),
-                    ColumnDefinition("description", "TEXT"),
-                    ColumnDefinition("props", "JSON"),
+                    ColumnDefinition("name", SQLiteTextType()),
+                    ColumnDefinition("description", SQLiteTextType()),
+                    ColumnDefinition("props", SQLiteTextType()),
                 ]
             ).to_sql(),
             options=ddl
@@ -516,10 +517,10 @@ class TestSpatialCatalogScenario:
             *CreateTableExpression(
                 dialect, table="feature_props",
                 columns=[
-                    ColumnDefinition("feature_id", "INTEGER", constraints=[
+                    ColumnDefinition("feature_id", SQLiteIntegerType(), constraints=[
                         ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("props", "JSON"),
+                    ColumnDefinition("props", SQLiteTextType()),
                 ]
             ).to_sql(),
             options=ddl

@@ -22,13 +22,14 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, TimestampType
     IndexDefinition,
 )
 
 columns = [
     ColumnDefinition(
         name="id",
-        data_type="INTEGER",
+        data_type=IntegerType(),
         constraints=[
             ColumnConstraint(
                 constraint_type=ColumnConstraintType.PRIMARY_KEY,
@@ -38,21 +39,21 @@ columns = [
     ),
     ColumnDefinition(
         name="name",
-        data_type="TEXT",
+        data_type=TextType(),
         constraints=[
             ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL),
         ],
     ),
     ColumnDefinition(
         name="email",
-        data_type="TEXT",
+        data_type=TextType(),
         constraints=[
             ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE),
         ],
     ),
     ColumnDefinition(
         name="created_at",
-        data_type="TIMESTAMP",
+        data_type=TimestampType(),
     ),
 ]
 

@@ -27,11 +27,12 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.core import TableExpression
-from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, IdentifierMixin, DDLColumnMixin, TableMixin, ExpressionMixin
+from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, IdentifierMixin, DDLColumnMixin, TableMixin, ExpressionMixin, DDLTypeMixin
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import CustomType, DateType, DecimalType, IntegerType, SmallIntType, TextType, TimestampType, VarCharType
 
 
-class PartitionTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin):
+class PartitionTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, DDLTypeMixin, TableMixin, PartitionMixin):
     """Minimal dialect for core PartitionClause success-path tests."""
 
     def supports_table_partitioning(self) -> bool:
@@ -68,6 +69,42 @@ class PartitionTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDL
             parts.append(key_sql)
             params.extend(key_params)
         return f" PARTITION BY {expr.method} ({', '.join(parts)})", tuple(params)
+
+    @DDLTypeMixin.handles(IntegerType)
+    def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
+        return "INTEGER", ()
+
+    @DDLTypeMixin.handles(TextType)
+    def format_data_type_text(self, data_type: TextType) -> Tuple[str, tuple]:
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(VarCharType)
+    def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
+        return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
+
+    @DDLTypeMixin.handles(SmallIntType)
+    def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
+        return "SMALLINT", ()
+
+    @DDLTypeMixin.handles(DecimalType)
+    def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
+        if data_type.precision is not None and data_type.scale is not None:
+            return f"DECIMAL({data_type.precision},{data_type.scale})", ()
+        if data_type.precision is not None:
+            return f"DECIMAL({data_type.precision})", ()
+        return "DECIMAL", ()
+
+    @DDLTypeMixin.handles(DateType)
+    def format_data_type_date(self, data_type: DateType) -> Tuple[str, tuple]:
+        return "DATE", ()
+
+    @DDLTypeMixin.handles(TimestampType)
+    def format_data_type_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
+        return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
+
+    @DDLTypeMixin.handles(CustomType)
+    def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
+        return data_type.raw, ()
 
 
 def _get_protocol_methods(protocol: type) -> Set[str]:
@@ -122,14 +159,14 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition(
                 "id",
-                "INTEGER",
+                IntegerType(),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                     ColumnConstraint(ColumnConstraintType.NOT_NULL),
                 ],
             ),
-            ColumnDefinition("name", "VARCHAR(255)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition("email", "TEXT"),
+            ColumnDefinition("name", VarCharType(255), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("email", TextType()),
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="users", columns=columns)
@@ -143,7 +180,7 @@ class TestCreateTableStatements:
 
     def test_create_table_with_if_not_exists(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with IF NOT EXISTS flag."""
-        columns = [ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)])]
+        columns = [ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)])]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="products", columns=columns, if_not_exists=True)
         sql, params = create_table_expr.to_sql()
@@ -156,9 +193,9 @@ class TestCreateTableStatements:
         """Tests CREATE TEMPORARY TABLE statement."""
         columns = [
             ColumnDefinition(
-                "session_id", "VARCHAR(50)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
+                "session_id", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
             ),
-            ColumnDefinition("data", "TEXT"),
+            ColumnDefinition("data", TextType()),
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="temp_sessions", columns=columns, temporary=True)
@@ -171,9 +208,9 @@ class TestCreateTableStatements:
     def test_create_table_with_unique_constraint(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with UNIQUE column constraint."""
         columns = [
-            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("username", "VARCHAR(50)", constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)]),
-            ColumnDefinition("email", "VARCHAR(100)", constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)]),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("username", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)]),
+            ColumnDefinition("email", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)]),
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="users", columns=columns)
@@ -186,16 +223,16 @@ class TestCreateTableStatements:
     def test_create_table_with_default_constraint(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with DEFAULT column constraints."""
         columns = [
-            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("name", "VARCHAR(100)"),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("name", VarCharType(100)),
             ColumnDefinition(
                 "status",
-                "VARCHAR(20)",
+                VarCharType(20),
                 constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="active")],
             ),
             ColumnDefinition(
                 "created_at",
-                "TIMESTAMP",
+                TimestampType(),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=FunctionCall(dummy_dialect, "NOW"))
                 ],
@@ -215,10 +252,10 @@ class TestCreateTableStatements:
         age_check = Column(dummy_dialect, "age") > Literal(dummy_dialect, 0)
 
         columns = [
-            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("name", "VARCHAR(100)"),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("name", VarCharType(100)),
             ColumnDefinition(
-                "age", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.CHECK, check_condition=age_check)]
+                "age", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.CHECK, check_condition=age_check)]
             ),
         ]
 
@@ -231,15 +268,15 @@ class TestCreateTableStatements:
     def test_create_table_with_foreign_key_constraint(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with FOREIGN KEY column constraints."""
         columns = [
-            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
             ColumnDefinition(
                 "user_id",
-                "INTEGER",
+                IntegerType(),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))
                 ],
             ),
-            ColumnDefinition("product_name", "VARCHAR(100)"),
+            ColumnDefinition("product_name", VarCharType(100)),
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="orders", columns=columns)
@@ -251,9 +288,9 @@ class TestCreateTableStatements:
     def test_create_table_with_table_level_constraints(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with table-level constraints."""
         columns = [
-            ColumnDefinition("id", "INTEGER"),
-            ColumnDefinition("name", "VARCHAR(100)"),
-            ColumnDefinition("category_id", "INTEGER"),
+            ColumnDefinition("id", IntegerType()),
+            ColumnDefinition("name", VarCharType(100)),
+            ColumnDefinition("category_id", IntegerType()),
         ]
 
         table_constraints = [
@@ -280,8 +317,8 @@ class TestCreateTableStatements:
     def test_create_table_with_storage_options(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with storage options."""
         columns = [
-            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("data", "TEXT"),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("data", TextType()),
         ]
 
         storage_opts = {"engine": "InnoDB", "charset": "utf8mb4", "page_size": 8192}
@@ -303,8 +340,8 @@ class TestCreateTableStatements:
     def test_create_table_with_tablespace(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with tablespace specification."""
         columns = [
-            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("name", "VARCHAR(100)"),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("name", VarCharType(100)),
         ]
 
         create_table_expr = CreateTableExpression(
@@ -345,9 +382,9 @@ class TestCreateTableStatements:
     def test_create_table_with_indexes(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with indexes."""
         columns = [
-            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("email", "VARCHAR(100)"),
-            ColumnDefinition("created_at", "TIMESTAMP"),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("email", VarCharType(100)),
+            ColumnDefinition("created_at", TimestampType()),
         ]
 
         indexes = [
@@ -367,14 +404,14 @@ class TestCreateTableStatements:
     def test_create_table_with_nullable_setting(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with nullable settings."""
         columns = [
-            ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
             ColumnDefinition(
-                "name", "VARCHAR(100)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
+                "name", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
             ),  # Explicitly NOT NULL using constraint
             ColumnDefinition(
-                "description", "TEXT", constraints=[ColumnConstraint(ColumnConstraintType.NULL)]
+                "description", TextType(), constraints=[ColumnConstraint(ColumnConstraintType.NULL)]
             ),  # Explicitly allow NULLs using constraint
-            ColumnDefinition("age", "INTEGER"),  # No constraints - uses database default
+            ColumnDefinition("age", IntegerType()),  # No constraints - uses database default
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="profiles", columns=columns)
@@ -390,11 +427,11 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition(
                 "id",
-                "INTEGER",
+                IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
                 comment="Primary identifier",
             ),
-            ColumnDefinition("name", "VARCHAR(100)", comment="User's display name"),
+            ColumnDefinition("name", VarCharType(100), comment="User's display name"),
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="users_with_comments", columns=columns)
@@ -408,8 +445,8 @@ class TestCreateTableStatements:
     def test_create_table_partition_unsupported_by_dummy(self, dummy_dialect: DummyDialect):
         """Tests DummyDialect intentionally does not support table partitioning."""
         columns = [
-            ColumnDefinition("id", "INTEGER"),
-            ColumnDefinition("created_date", "DATE"),
+            ColumnDefinition("id", IntegerType()),
+            ColumnDefinition("created_date", DateType()),
         ]
 
         create_table_expr = CreateTableExpression(
@@ -437,7 +474,7 @@ class TestCreateTableStatements:
         create_table_expr = CreateTableExpression(
             dialect,
             table="events",
-            columns=[ColumnDefinition("tenant", "TEXT")],
+            columns=[ColumnDefinition("tenant", TextType())],
             partition=partition,
         )
 
@@ -458,7 +495,7 @@ class TestCreateTableStatements:
 
     def test_create_table_partition_requires_partition_clause(self, dummy_dialect: DummyDialect):
         """Tests partition parameter must be a PartitionClause instance."""
-        columns = [ColumnDefinition("id", "INTEGER")]
+        columns = [ColumnDefinition("id", IntegerType())]
 
         with pytest.raises(TypeError, match="partition must be a PartitionClause"):
             CreateTableExpression(
@@ -568,7 +605,7 @@ class TestCreateTableStatements:
 
     def test_create_table_with_inherits(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with INHERITS clause (PostgreSQL specific)."""
-        columns = [ColumnDefinition("id", "INTEGER"), ColumnDefinition("extra_field", "VARCHAR(50)")]
+        columns = [ColumnDefinition("id", IntegerType()), ColumnDefinition("extra_field", VarCharType(50))]
 
         create_table_expr = CreateTableExpression(
             dummy_dialect, table="child_table", columns=columns, inherits=["parent_table", "audit_table"]
@@ -585,7 +622,7 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition(
                 "id",
-                "SERIAL",
+                CustomType("SERIAL"),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                     ColumnConstraint(ColumnConstraintType.NOT_NULL),
@@ -593,7 +630,7 @@ class TestCreateTableStatements:
             ),
             ColumnDefinition(
                 "user_id",
-                "INTEGER",
+                IntegerType(),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))
                 ],
@@ -601,7 +638,7 @@ class TestCreateTableStatements:
             ),
             ColumnDefinition(
                 "amount",
-                "DECIMAL(10,2)",
+                DecimalType(precision=10, scale=2),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.NOT_NULL),
                     ColumnConstraint(
@@ -612,7 +649,7 @@ class TestCreateTableStatements:
             ),
             ColumnDefinition(
                 "status",
-                "VARCHAR(20)",
+                VarCharType(20),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="pending"),
                     ColumnConstraint(ColumnConstraintType.NOT_NULL),  # Use constraint instead of nullable flag
@@ -620,7 +657,7 @@ class TestCreateTableStatements:
             ),
             ColumnDefinition(
                 "created_at",
-                "TIMESTAMP",
+                TimestampType(),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=FunctionCall(dummy_dialect, "NOW"))
                 ],
@@ -662,7 +699,7 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition(
                 "status",
-                "VARCHAR(20)",
+                VarCharType(20),
                 constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT)],  # No default value provided
             )
         ]
@@ -683,7 +720,7 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition(
                 "age",
-                "INTEGER",
+                IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.CHECK)],  # No check condition provided
             )
         ]
@@ -704,7 +741,7 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition(
                 "user_id",
-                "INTEGER",
+                IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.FOREIGN_KEY)],  # No foreign key reference provided
             )
         ]
