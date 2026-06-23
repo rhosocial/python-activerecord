@@ -20,6 +20,7 @@ Design principle: Sync and Async are separate and cannot coexist.
 """
 
 import copy
+import re
 import sqlite3
 from typing import Any, Dict, List, Optional
 
@@ -132,16 +133,45 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             )
         return tables
 
-    def _parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[ColumnInfo]:
+    @staticmethod
+    def _extract_type_params(raw_type: str) -> dict:
+        """Extract length/precision/scale from a raw SQL type string.
+
+        Returns a dict with keys: character_maximum_length, numeric_precision,
+        numeric_scale, datetime_precision (all None if not found).
+        """
+        result = dict.fromkeys(
+            ["character_maximum_length", "numeric_precision", "numeric_scale",
+             "datetime_precision"]
+        )
+        m = re.search(r"\((\d+)\s*,\s*(\d+)\)", raw_type)
+        if m:
+            result["numeric_precision"] = int(m.group(1))
+            result["numeric_scale"] = int(m.group(2))
+            return result
+        m = re.search(r"\((\d+)\)", raw_type)
+        if m:
+            value = int(m.group(1))
+            if re.match(r"^\s*(?:TIMESTAMP|TIME|DATETIME)\s*\(", raw_type, re.IGNORECASE):
+                result["datetime_precision"] = value
+            elif re.match(r"^\s*(?:DECIMAL|NUMERIC|FLOAT|DOUBLE|REAL)\s*\(",
+                          raw_type, re.IGNORECASE):
+                result["numeric_precision"] = value
+            else:
+                result["character_maximum_length"] = value
+        return result
+
+    def _parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str,
+                       ddl: Optional[str] = None) -> List[ColumnInfo]:
         columns = []
+        has_auto_increment = ddl is not None and "AUTOINCREMENT" in ddl.upper()
         for row in rows:
-            if row.get("hidden", 0) > 0:
-                continue
+            hidden = row.get("hidden", 0)
+            if hidden == 1:
+                continue  # Skip rowid alias columns only
             nullable = ColumnNullable.NULLABLE if row["notnull"] == 0 else ColumnNullable.NOT_NULL
             raw_type = row.get("type") or "TEXT"
             # Extract base type (e.g., "VARCHAR" from "VARCHAR(255)")
-            import re
-
             base_type_match = re.match(r"^([A-Za-z_]+)", raw_type)
             base_type = base_type_match.group(1) if base_type_match else raw_type
             # SQLite pk field: 0 = not primary key, >0 = primary key (or part of composite PK)
@@ -149,6 +179,13 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             # Parse raw type string into a DataType expression
             from rhosocial.activerecord.backend.expression.types._base import DataType
             parsed = DataType.parse_data_type_str(self._backend.dialect, raw_type)
+            # Auto-increment: only applies to INTEGER PRIMARY KEY with AUTOINCREMENT keyword
+            is_auto_inc = is_pk and has_auto_increment
+            # Generated columns (hidden=2 => virtual, hidden=3 => stored)
+            is_generated = hidden in (2, 3)
+            gen_expr = row.get("generated_expression") if is_generated else None
+            # Extract precision/length from raw type
+            params = self._extract_type_params(raw_type)
             columns.append(
                 ColumnInfo(
                     name=row["name"],
@@ -161,6 +198,13 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                     nullable=nullable,
                     default_value=row.get("dflt_value"),
                     is_primary_key=is_pk,
+                    is_auto_increment=is_auto_inc,
+                    is_generated=is_generated,
+                    generated_expression=gen_expr,
+                    character_maximum_length=params["character_maximum_length"],
+                    numeric_precision=params["numeric_precision"],
+                    numeric_scale=params["numeric_scale"],
+                    datetime_precision=params["datetime_precision"],
                     extra={},
                 )
             )
@@ -288,6 +332,34 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         return self._status_instance
 
     # ------------------------------------------------------------------ #
+    # Override list_columns for auto-increment detection
+    # ------------------------------------------------------------------ #
+
+    def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
+        """List columns, with auto-increment detection from DDL."""
+        target_db = schema or self._get_default_schema()
+        key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
+        cached = self._get_cached(key)
+        if cached is not None:
+            return cached
+
+        sql, params = self._build_column_info_sql(table_name, schema)
+        rows = self._executor.execute(sql, params)
+
+        # Query the DDL for AUTOINCREMENT detection
+        ddl = None
+        ddl_result = self._executor.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=? AND tbl_name=?",
+            (table_name, table_name),
+        )
+        if ddl_result and ddl_result[0].get("sql"):
+            ddl = ddl_result[0]["sql"]
+
+        result = self._parse_columns(rows, table_name, target_db, ddl=ddl)
+        self._set_cached(key, result)
+        return result
+
+    # ------------------------------------------------------------------ #
     # Override list_indexes for SQLite's two-step index query
     # ------------------------------------------------------------------ #
 
@@ -329,9 +401,10 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
             # Step 2: Get column info for this index
             col_rows = self.pragma.index_xinfo(idx_name, target_db)
             columns: List[IndexColumnInfo] = []
+            is_partial = False
             for col_row in col_rows:
                 col_name = col_row.get("name")
-                if col_name:  # Skip rows with no column name (e.g., partial index condition)
+                if col_name:
                     columns.append(
                         IndexColumnInfo(
                             name=col_name,
@@ -339,6 +412,23 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
                             is_descending=bool(col_row.get("desc", 0)),
                         )
                     )
+                else:
+                    is_partial = True
+
+            # For partial indexes, extract filter_condition from DDL
+            filter_condition: Optional[str] = None
+            if is_partial:
+                ddl_result = self._executor.execute(
+                    "SELECT sql FROM sqlite_master WHERE type='index' AND name=?",
+                    (idx_name,),
+                )
+                if ddl_result and ddl_result[0].get("sql"):
+                    ddl_sql = ddl_result[0]["sql"]
+                    where_match = re.search(
+                        r'\bWHERE\b\s*(.*)', ddl_sql, re.IGNORECASE | re.DOTALL
+                    )
+                    if where_match:
+                        filter_condition = where_match.group(1).strip().rstrip(';')
 
             indexes.append(
                 IndexInfo(
@@ -349,6 +439,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
                     is_primary=is_primary,
                     index_type=idx_type,
                     columns=columns,
+                    filter_condition=filter_condition,
                     extra={"origin": origin},
                 )
             )
@@ -417,6 +508,34 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         return self._status_instance
 
     # ------------------------------------------------------------------ #
+    # Override list_columns for auto-increment detection
+    # ------------------------------------------------------------------ #
+
+    async def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
+        """List columns, with auto-increment detection from DDL."""
+        target_db = schema or self._get_default_schema()
+        key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
+        cached = self._get_cached(key)
+        if cached is not None:
+            return cached
+
+        sql, params = self._build_column_info_sql(table_name, schema)
+        rows = await self._executor.execute(sql, params)
+
+        # Query the DDL for AUTOINCREMENT detection
+        ddl = None
+        ddl_result = await self._executor.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=? AND tbl_name=?",
+            (table_name, table_name),
+        )
+        if ddl_result and ddl_result[0].get("sql"):
+            ddl = ddl_result[0]["sql"]
+
+        result = self._parse_columns(rows, table_name, target_db, ddl=ddl)
+        self._set_cached(key, result)
+        return result
+
+    # ------------------------------------------------------------------ #
     # Override list_indexes for SQLite's two-step index query
     # ------------------------------------------------------------------ #
 
@@ -458,9 +577,10 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
             # Step 2: Get column info for this index
             col_rows = await self.pragma.index_xinfo(idx_name, target_db)
             columns: List[IndexColumnInfo] = []
+            is_partial = False
             for col_row in col_rows:
                 col_name = col_row.get("name")
-                if col_name:  # Skip rows with no column name (e.g., partial index condition)
+                if col_name:
                     columns.append(
                         IndexColumnInfo(
                             name=col_name,
@@ -468,6 +588,23 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
                             is_descending=bool(col_row.get("desc", 0)),
                         )
                     )
+                else:
+                    is_partial = True
+
+            # For partial indexes, extract filter_condition from DDL
+            filter_condition: Optional[str] = None
+            if is_partial:
+                ddl_result = await self._executor.execute(
+                    "SELECT sql FROM sqlite_master WHERE type='index' AND name=?",
+                    (idx_name,),
+                )
+                if ddl_result and ddl_result[0].get("sql"):
+                    ddl_sql = ddl_result[0]["sql"]
+                    where_match = re.search(
+                        r'\bWHERE\b\s*(.*)', ddl_sql, re.IGNORECASE | re.DOTALL
+                    )
+                    if where_match:
+                        filter_condition = where_match.group(1).strip().rstrip(';')
 
             indexes.append(
                 IndexInfo(
@@ -478,6 +615,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
                     is_primary=is_primary,
                     index_type=idx_type,
                     columns=columns,
+                    filter_condition=filter_condition,
                     extra={"origin": origin},
                 )
             )

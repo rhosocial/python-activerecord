@@ -71,7 +71,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # DDL Mixins
     TableMixin,
     ConstraintMixin,
-    TruncateMixin,
     SchemaMixin,
     IndexMixin,
     SequenceMixin,
@@ -162,7 +161,6 @@ class SQLiteDialect(
     # DDL Mixins (without SQLite overrides)
     TableMixin,
     ConstraintMixin,
-    TruncateMixin,
     SchemaMixin,
     IndexMixin,
     SequenceMixin,
