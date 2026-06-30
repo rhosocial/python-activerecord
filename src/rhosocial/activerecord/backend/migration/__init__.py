@@ -7,7 +7,7 @@ from .cli import (
     list_named_migrations_in_module,
 )
 from .context import MigrationContext, AsyncMigrationContext
-from .core import MigrationDirection, NamedMigration
+from .core import AsyncNamedMigration, MigrationDirection, NamedMigration
 from .exceptions import (
     MigrationError,
     MigrationDependencyError,
@@ -22,12 +22,13 @@ from .record import (
     JSONFileMigrationRecordStore,
     MigrationResult,
 )
-from .resolver import NamedMigrationResolver
+from .resolver import AsyncNamedMigrationResolver, NamedMigrationResolver
 from .runner import MigrationRunner
 
 __all__ = [
     "MigrationDirection",
     "NamedMigration",
+    "AsyncNamedMigration",
     "MigrationContext",
     "AsyncMigrationContext",
     "MigrationError",
@@ -41,6 +42,7 @@ __all__ = [
     "JSONFileMigrationRecordStore",
     "MigrationResult",
     "NamedMigrationResolver",
+    "AsyncNamedMigrationResolver",
     "MigrationRunner",
     "AsyncMigrationRunner",
     "BatchMigrationRunner",

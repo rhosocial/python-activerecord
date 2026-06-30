@@ -37,6 +37,7 @@ def unregister_temp_module(name: str):
 from rhosocial.activerecord.backend.migration import (
     MigrationDirection,
     NamedMigration,
+    AsyncNamedMigration,
     MigrationContext,
     MigrationError,
     MigrationDependencyError,
@@ -978,7 +979,7 @@ class TestAsyncMigrationRunnerIntegration:
                 "drop_users_table": lambda dialect: _make_drop_users_expr_static(dialect),
             })
 
-            class V001CreateUsers(NamedMigration):
+            class V001CreateUsers(AsyncNamedMigration):
                 version = "v001_create_users"
                 async def run(self, ctx):
                     if ctx.direction == MigrationDirection.UP:
@@ -1015,7 +1016,7 @@ class TestAsyncMigrationRunnerIntegration:
                 "drop_users_table": lambda dialect: _make_drop_users_expr_static(dialect),
             })
 
-            class V001CreateUsers(NamedMigration):
+            class V001CreateUsers(AsyncNamedMigration):
                 version = "v001"
                 async def run(self, ctx):
                     if ctx.direction == MigrationDirection.UP:
@@ -1052,7 +1053,7 @@ class TestAsyncMigrationRunnerIntegration:
                 "drop_users_table": lambda dialect: _make_drop_users_expr_static(dialect),
             })
 
-            class V001CreateUsers(NamedMigration):
+            class V001CreateUsers(AsyncNamedMigration):
                 version = "v001"
                 async def run(self, ctx):
                     await ctx.execute("async_mig_test3.expressions.create_users_table")
@@ -1092,7 +1093,7 @@ class TestAsyncMigrationRunnerIntegration:
                 "drop_users_table": lambda dialect: _make_drop_users_expr_static(dialect),
             })
 
-            class V001CreateUsers(NamedMigration):
+            class V001CreateUsers(AsyncNamedMigration):
                 version = "v001"
                 async def run(self, ctx):
                     if ctx.direction == MigrationDirection.UP:
@@ -1118,7 +1119,7 @@ class TestAsyncMigrationRunnerIntegration:
         backend = AsyncSQLiteBackend(database=":memory:")
         await backend.connect()
         try:
-            class V001ParamMig(NamedMigration):
+            class V001ParamMig(AsyncNamedMigration):
                 version = "v001"
                 table_name: str = "default_table"
                 async def run(self, ctx):
