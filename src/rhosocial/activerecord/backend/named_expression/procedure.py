@@ -54,9 +54,47 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional
 
 from .resolver import resolve_named_expression
+
+
+def _build_execute_callback(backend: Any) -> Callable[[str, Any, Dict[str, Any]], Dict[str, Any]]:
+    """Build a sync execute callback for ProcedureContext.
+
+    Resolves named expressions and dispatches them to the backend.
+    This is the canonical implementation shared by ``ProcedureRunner``
+    and ``MigrationRunner``.
+    """
+    from rhosocial.activerecord.backend.options import ExecutionOptions
+
+    backend_execute = getattr(backend, "execute", None)
+
+    def callback(fqn: str, dialect: Any, params: Dict[str, Any]) -> Dict[str, Any]:
+        expr = resolve_named_expression(fqn, dialect, params or {})
+        sql, params_sql = expr.to_sql()
+        data, affected_rows = [], 0
+        if backend_execute and sql:
+            stmt_type = getattr(expr, "statement_type", None)
+            if stmt_type:
+                raw = backend_execute(
+                    sql, params_sql,
+                    options=ExecutionOptions(stmt_type=stmt_type),
+                )
+            else:
+                raw = backend_execute(sql, params_sql)
+            if raw:
+                if raw.data:
+                    data = raw.data
+                affected_rows = raw.affected_rows or 0
+        return {
+            "sql": sql,
+            "params_sql": params_sql,
+            "data": data,
+            "affected_rows": affected_rows,
+        }
+
+    return callback
 
 
 class TransactionMode(Enum):
@@ -1155,30 +1193,7 @@ class ProcedureRunner(_BaseProcedureRunner):
         except Exception:
             pass
 
-        def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-            expr = resolve_named_expression(fqn, dial, params)
-            sql, params_sql = expr.to_sql()
-            data, affected_rows = [], 0
-            if backend_execute and sql:
-                stmt_type = getattr(expr, "statement_type", None)
-                if stmt_type:
-                    from rhosocial.activerecord.backend.options import ExecutionOptions
-
-                    raw = backend_execute(sql, params_sql, options=ExecutionOptions(stmt_type=stmt_type))
-                else:
-                    raw = backend_execute(sql, params_sql)
-                if raw and raw.data:
-                    data = raw.data
-                if raw:
-                    affected_rows = raw.affected_rows or 0
-            return {
-                "sql": sql,
-                "params_sql": params_sql,
-                "data": data,
-                "affected_rows": affected_rows,
-            }
-
-        ctx = ProcedureContext(dialect, execute_callback, transaction_mode, backend)
+        ctx = ProcedureContext(dialect, _build_execute_callback(backend), transaction_mode, backend)
         result = ProcedureResult()
         in_transaction = False
 
