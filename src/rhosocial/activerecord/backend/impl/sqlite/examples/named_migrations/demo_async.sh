@@ -33,8 +33,9 @@ echo "=== Async Migration Execution (--async) ==="
 echo
 
 # Check async dependencies
-echo "Checking async dependencies..."
-$PYTHON --version 2>&1 | head -1
+echo "Checking..."
+$VENV_PYTHON --version 2>&1 || true
+echo
 
 # ── 1. async dry-run ───────────────────────────────────────────────────────
 echo
@@ -61,6 +62,7 @@ $PYTHON named-migration "$FQN" --db-file "$DB" --direction down --async --record
 echo
 echo "    Verify: users table should be gone:"
 $PYTHON query --db-file "$DB" \
+    "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='users'" -o table
 
 rm -f "$DB" "$STORE" "$DB-wal" "$DB-shm"
 echo "=== Async Migration Demo Complete ==="
