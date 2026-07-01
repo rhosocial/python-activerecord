@@ -263,7 +263,13 @@ class DDLColumnMixin:
         return result, ()
 
     def format_add_index_action(self, action) -> Tuple[str, tuple]:
-        return f"ADD INDEX {self.format_identifier(action.index.name)}", ()
+        columns = ", ".join(
+            self.format_identifier(col) for col in action.index.columns
+        )
+        return (
+            f"ADD INDEX {self.format_identifier(action.index.name)} ({columns})",
+            (),
+        )
 
     def format_drop_index_action(self, action) -> Tuple[str, tuple]:
         if hasattr(action, "if_exists") and action.if_exists:
