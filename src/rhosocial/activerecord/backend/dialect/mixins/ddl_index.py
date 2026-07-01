@@ -64,8 +64,17 @@ class IndexMixin:
         return ["BTREE"]
 
     def supports_fulltext_index(self) -> bool:
-        """Whether FULLTEXT indexes are supported."""
+        """Whether full-text indexing is supported."""
         return False
+
+    def supports_fulltext_search(self) -> bool:
+        """Whether full-text search (MATCH ... AGAINST) is supported.
+
+        By default returns the same as supports_fulltext_index(). Dialects
+        that expose fulltext query capabilities separately from index
+        support should override this method.
+        """
+        return self.supports_fulltext_index()
 
     def supports_fulltext_parser(self) -> bool:
         """Whether FULLTEXT parser plugin is supported."""

@@ -1531,6 +1531,15 @@ class IndexSupport(Protocol):
         """Whether FULLTEXT indexes are supported."""
         ...  # pragma: no cover
 
+    def supports_fulltext_search(self) -> bool:
+        """Whether full-text search (MATCH ... AGAINST) is supported.
+
+        By default delegates to supports_fulltext_index(). Dialects that
+        support fulltext querying independently of index creation may
+        override this method individually.
+        """
+        ...  # pragma: no cover
+
     def supports_fulltext_parser(self) -> bool:
         """Whether FULLTEXT parser plugin is supported."""
         ...  # pragma: no cover
