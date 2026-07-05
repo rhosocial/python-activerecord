@@ -366,6 +366,47 @@ results = User.query().distinct(User.c.country, User.c.city).all()
 
 ---
 
+## 复合主键查找
+
+使用 `CompositePKMixin` 的模型将 `__primary_key__` 声明为列名元组。
+`find_one()` 和 `find_all()` 支持传入 dict 或 tuple 进行复合主键查找：
+
+```python
+from rhosocial.activerecord.field import CompositePKMixin
+
+class OrderItem(CompositePKMixin, ActiveRecord):
+    __primary_key__ = ("order_id", "product_id")
+    order_id: int
+    product_id: int
+    quantity: int
+
+# find_one 使用 dict（键名匹配）
+item = OrderItem.find_one({"order_id": 1, "product_id": 42})
+
+# find_one 使用 tuple（按位置匹配 PK 列顺序）
+item = OrderItem.find_one((1, 42))
+
+# find_all 批量查找，使用 dict 列表
+items = OrderItem.find_all([
+    {"order_id": 1, "product_id": 1},
+    {"order_id": 1, "product_id": 2},
+])
+
+# find_all 批量查找，使用 tuple 列表
+items = OrderItem.find_all([(1, 1), (1, 2)])
+
+# 按复合主键删除
+item = OrderItem.find_one((1, 42))
+item.delete()
+
+# 通过 ActiveQuery 查询——使用常规 .where() 条件
+items = OrderItem.query().where(OrderItem.c.order_id == 1).all()
+```
+
+> ⚠️ 复合 PK 值不会自动生成。创建或查找记录时必须提供所有 PK 列的值。
+
+---
+
 ## 原始 SQL（需要时）
 
 ```python

@@ -64,20 +64,39 @@ class IndexMixin:
         return ["BTREE"]
 
     def supports_fulltext_index(self) -> bool:
-        """Whether full-text indexing is supported."""
+        """Whether MySQL-style ``CREATE FULLTEXT INDEX`` DDL is supported.
+
+        This method reports the ability to issue a DDL statement that
+        creates a dedicated fulltext index structure.  It does *not*
+        indicate whether the dialect can perform full-text search queries
+        — that is the responsibility of :meth:`supports_fulltext_search`.
+
+        For most dialects index creation and query capability go hand in
+        hand (MySQL, MariaDB, SQL Server) — creating a FULLTEXT index
+        automatically enables ``MATCH ... AGAINST`` queries.  Dialects
+        that provide full-text search through a *different* DDL mechanism
+        (e.g. PostgreSQL ``GIN`` on ``to_tsvector``, SQLite ``FTS5``
+        virtual tables) must override both methods independently.
+        """
         return False
 
     def supports_fulltext_search(self) -> bool:
-        """Whether full-text search (MATCH ... AGAINST) is supported.
+        """Whether full-text search **querying** is supported.
 
-        By default returns the same as supports_fulltext_index(). Dialects
-        that expose fulltext query capabilities separately from index
-        support should override this method.
+        Separates query capability from DDL capability reported by
+        :meth:`supports_fulltext_index`.  For dialects where the two
+        are symmetric the default delegates to ``supports_fulltext_index()``.
+
+        Dialects whose query-side full-text support works through a
+        different indexing mechanism (PostgreSQL ``tsvector``/``tsquery``,
+        SQLite ``FTS5``) **must** override this method to report their
+        actual query capability, which may differ from the DDL-only
+        ``supports_fulltext_index()``.
         """
         return self.supports_fulltext_index()
 
     def supports_fulltext_parser(self) -> bool:
-        """Whether FULLTEXT parser plugin is supported."""
+        """Whether FULLTEXT parser plugin (``WITH PARSER``) is supported."""
         return False
 
     def supports_fulltext_boolean_mode(self) -> bool:

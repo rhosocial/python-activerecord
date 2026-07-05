@@ -54,6 +54,11 @@ for user in iter_users_by_page(page_size=500):
 Use the last-seen primary key as a cursor instead of `offset`.  This avoids the
 "shifting rows" problem when rows are inserted or deleted mid-iteration:
 
+> ⚠️ **Composite PK note**: cursor-based chunking relies on a single sort column.
+> For models with a composite primary key, use one PK column (e.g. the first one)
+> as the cursor, or fall back to offset pagination if the data set is static.
+> The framework does not support multi-column cursor pagination out of the box.
+
 ```python
 def iter_users_by_cursor(page_size: int = 500):
     """Yield users in stable primary-key order using a cursor."""

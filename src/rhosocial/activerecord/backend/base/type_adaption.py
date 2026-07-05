@@ -119,7 +119,7 @@ class TypeAdaptionMixin:
             if adapter_info:
                 adapter, original_type = adapter_info
                 if value is None:
-                    result = adapter.from_database(value, original_type, original_type=original_type)
+                    result = adapter.from_database(value, original_type)
                     processed_row[col_name] = result
                 else:
                     processed_row[col_name] = adapter.from_database(value, original_type)
