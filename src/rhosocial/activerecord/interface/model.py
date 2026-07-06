@@ -13,7 +13,7 @@ from .base import ModelEvent
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
 from ..backend.errors import DatabaseError, RecordNotFound
-from ..types import PrimaryKeyDef, PrimaryKeyValue
+from ..types import PrimaryKeyDef
 
 
 class ActiveRecordBase(BaseModel, ABC):
@@ -561,7 +561,7 @@ class IActiveRecord(ActiveRecordBase):
             if any(v is None for v in pk_value.values()):
                 raise DatabaseError("Cannot refresh unsaved record")
         else:
-            pk_field = cls.primary_key()
+            pk_field = cls.primary_key_field()
             pk_value = getattr(self, pk_field, None)
             if pk_value is None:
                 raise DatabaseError("Cannot refresh unsaved record")
@@ -786,7 +786,7 @@ class IAsyncActiveRecord(ActiveRecordBase):
             if any(v is None for v in pk_value.values()):
                 raise DatabaseError("Cannot refresh unsaved record")
         else:
-            pk_field = cls.primary_key()
+            pk_field = cls.primary_key_field()
             pk_value = getattr(self, pk_field, None)
             if pk_value is None:
                 raise DatabaseError("Cannot refresh unsaved record")

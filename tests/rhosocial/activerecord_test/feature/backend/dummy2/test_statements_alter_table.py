@@ -180,6 +180,8 @@ class TestAlterTableStatements:
         sql, params = alter_expr.to_sql()
 
         assert 'ALTER TABLE "users"' in sql
+        assert '"idx_users_email"' in sql
+        assert '("email")' in sql or '"email"' in sql
         assert params == ()
 
     def test_drop_index_action(self, dummy_dialect: DummyDialect):
@@ -357,6 +359,7 @@ class TestAlterTableStatements:
 
         assert "ADD INDEX" in sql
         assert '"idx_new_index"' in sql
+        assert '("status")' in sql or '"status"' in sql
         assert params == ()
 
     def test_drop_index_action_direct(self, dummy_dialect: DummyDialect):

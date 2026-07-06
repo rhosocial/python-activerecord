@@ -205,6 +205,58 @@ class AsyncUser(AsyncActiveRecord):
 
 > 💡 **AI Prompt Example**: "What happens when sync and async descriptors are mixed? How to avoid type errors in relationship definitions?"
 
+## Composite Primary Key and Relationships
+
+When a model uses a composite primary key (`CompositePKMixin`), the foreign key columns
+must match the same number of columns in the target PK.  The `foreign_key` parameter
+accepts a **tuple of column names**, and each FK column is mapped to the corresponding PK
+column **by position**.
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.field import CompositePKMixin
+from rhosocial.activerecord.relation import BelongsTo, HasMany
+
+class Order(ActiveRecord):
+    __primary_key__ = ("order_id",)
+
+    order_id: int
+    items: ClassVar[HasMany['OrderItem']] = HasMany(
+        foreign_key="order_id",
+        inverse_of="order",
+    )
+
+class OrderItem(CompositePKMixin, ActiveRecord):
+    __primary_key__ = ("order_id", "product_id")
+
+    order_id: int
+    product_id: int
+    quantity: int
+
+    # BelongsTo with matching FK columns → PK columns by position
+    order: ClassVar[BelongsTo['Order']] = BelongsTo(
+        foreign_key=("order_id",),
+        inverse_of="items",
+    )
+
+# The first FK column in ("order_id",) maps to the first PK column "order_id".
+# The remaining PK columns ("product_id") are not mapped — they form the composite
+# uniqueness of the junction.  This is equivalent to the single-column case but
+# the tuple form is required when the owning side itself has a composite PK.
+```
+
+**Rules**:
+
+- `foreign_key` can be `str` (single column) or `tuple[str, ...]` (multi-column).
+- FK columns are matched to target PK columns **by index order** (positional mapping).
+- The FK column count does not need to equal the full PK column count.
+  For example, in a many-to-many junction table `("order_id", "product_id")`,
+  `BelongsTo(foreign_key=("order_id",))` maps only the first PK column.
+- Async descriptors (`AsyncBelongsTo`, `AsyncHasOne`, `AsyncHasMany`) support the
+  same `foreign_key` tuple syntax.
+
+> 💡 **AI Prompt Example**: "How do I define a BelongsTo on a model with a composite primary key?  Does the foreign_key tuple need to match every PK column?"
+
 ## Important Notes
 
 **Note**: All relationship descriptors must be declared as `ClassVar` to avoid interfering with Pydantic's field validation.

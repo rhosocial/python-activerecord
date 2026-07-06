@@ -271,7 +271,7 @@ For details, see the [documentation](docs/en_US/).
 | **Oracle** | `rhosocial-activerecord-oracle` | [PyPI](https://pypi.org/project/rhosocial-activerecord-oracle/) \| [GitHub](https://github.com/rhosocial/python-activerecord-oracle) | 🔄 In progress | 🔄 In progress |
 | **SQL Server** | `rhosocial-activerecord-sqlserver` | [PyPI](https://pypi.org/project/rhosocial-activerecord-sqlserver/) \| [GitHub](https://github.com/rhosocial/python-activerecord-sqlserver) | 🔄 In progress | 🔄 In progress |
 | **Snowflake** | `rhosocial-activerecord-snowflake` | [PyPI](https://pypi.org/project/rhosocial-activerecord-snowflake/) \| [GitHub](https://github.com/rhosocial/python-activerecord-snowflake) | 🔄 In progress | 🔄 In progress |
-| **Firebird** | `rhosocial-acitverecord-firebird` | [PyPI](https://pypi.org/project/rhosocial-acitverecord-firebird/) \| [GitHub](https://github.com/rhosocial/python-activerecord-firebird) | 🔄 In progress | 🔄 In progress |
+| **Firebird** | `rhosocial-activerecord-firebird` | [PyPI](https://pypi.org/project/rhosocial-activerecord-firebird/) \| [GitHub](https://github.com/rhosocial/python-activerecord-firebird) | 🔄 In progress | 🔄 In progress |
 
 ## Requirements
 

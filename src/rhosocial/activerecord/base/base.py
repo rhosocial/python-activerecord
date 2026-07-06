@@ -142,6 +142,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
 
         Single-column PK: pk_value is scalar, generates "col = value"
         Composite PK: pk_value must be dict, generates "col1 = v1 AND col2 = v2"
+
+        The dict keys may be column names or Python field names — field names are
+        transparently mapped to column names when a direct column-name lookup fails.
         """
         dialect = cls.backend().dialect
         columns = cls.primary_key_columns()
@@ -156,7 +159,10 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             )
         predicates = []
         for col in columns:
-            val = pk_value[col]
+            val = pk_value.get(col)
+            if val is None and col not in pk_value:
+                field_name = cls._get_field_name(col)
+                val = pk_value.get(field_name)
             if val is None:
                 raise ValueError(f"Primary key column '{col}' has value None")
             predicates.append(
@@ -690,7 +696,10 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             )
         predicates = []
         for col in columns:
-            val = pk_value[col]
+            val = pk_value.get(col)
+            if val is None and col not in pk_value:
+                field_name = cls._get_field_name(col)
+                val = pk_value.get(field_name)
             if val is None:
                 raise ValueError(f"Primary key column '{col}' has value None")
             predicates.append(

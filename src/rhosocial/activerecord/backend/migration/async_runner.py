@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.named_expression.resolver import (
 )
 
 from .context import AsyncMigrationContext
-from .core import MigrationDirection, NamedMigration
+from .core import AsyncNamedMigration, MigrationDirection
 from .exceptions import (
     MigrationAlreadyAppliedError,
     MigrationDependencyError,
@@ -22,7 +22,7 @@ from .exceptions import (
     MigrationVersionConflictError,
 )
 from .record import MigrationRecord, MigrationResult, MigrationRecordStore
-from .resolver import NamedMigrationResolver
+from .resolver import AsyncNamedMigrationResolver
 
 
 class AsyncMigrationRunner:
@@ -30,6 +30,9 @@ class AsyncMigrationRunner:
 
     Mirrors ``MigrationRunner`` with async counterparts for all I/O
     operations.  Follows the same pattern as ``AsyncProcedureRunner``.
+
+    Only accepts :class:`AsyncNamedMigration` subclasses; synchronous
+    :class:`NamedMigration` subclasses must use :class:`MigrationRunner`.
     """
 
     def __init__(
@@ -37,12 +40,12 @@ class AsyncMigrationRunner:
         migration_fqn: str,
     ):
         self._fqn = migration_fqn
-        self._cls = NamedMigrationResolver.resolve(migration_fqn)
+        self._cls = AsyncNamedMigrationResolver.resolve(migration_fqn)
         self._migration = self._cls()
         self._params_info = self._cls.get_parameters()
 
     @property
-    def migration(self) -> NamedMigration:
+    def migration(self) -> AsyncNamedMigration:
         return self._migration
 
     async def run(

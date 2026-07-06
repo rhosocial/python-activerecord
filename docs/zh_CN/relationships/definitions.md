@@ -142,6 +142,56 @@ print(f"文章作者: {post_author.username}")
 
 > 💡 **AI提示词示例**: "访问关联关系时会执行数据库查询吗？如何避免N+1查询问题？"
 
+## 复合主键与关联关系
+
+当模型使用复合主键（`CompositePKMixin`）时，外键列的数量必须匹配目标 PK 中
+的列数。`foreign_key` 参数支持传入 **列名字符串元组**，每个外键列将按**位置**
+映射到对应的 PK 列。
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.field import CompositePKMixin
+from rhosocial.activerecord.relation import BelongsTo, HasMany
+
+class Order(ActiveRecord):
+    __primary_key__ = ("order_id",)
+
+    order_id: int
+    items: ClassVar[HasMany['OrderItem']] = HasMany(
+        foreign_key="order_id",
+        inverse_of="order",
+    )
+
+class OrderItem(CompositePKMixin, ActiveRecord):
+    __primary_key__ = ("order_id", "product_id")
+
+    order_id: int
+    product_id: int
+    quantity: int
+
+    # BelongsTo 按位置将外键列映射到 PK 列
+    order: ClassVar[BelongsTo['Order']] = BelongsTo(
+        foreign_key=("order_id",),
+        inverse_of="items",
+    )
+
+# ("order_id",) 中的第一个外键列映射到第一个 PK 列 "order_id"
+# 剩余的 PK 列 "product_id" 不被映射——它们构成中间表的复合唯一性。
+# 这与单列场景等价，但当拥有侧本身使用复合 PK 时需要使用元组形式。
+```
+
+**规则**：
+
+- `foreign_key` 可以是 `str`（单列）或 `tuple[str, ...]`（多列）。
+- 外键列按**索引顺序**（位置映射）匹配目标 PK 列。
+- 外键列数量不需要等于完整 PK 列数量。
+  例如，在多对多中间表 `("order_id", "product_id")` 中，
+  `BelongsTo(foreign_key=("order_id",))` 只映射第一个 PK 列。
+- 异步描述符（`AsyncBelongsTo`、`AsyncHasOne`、`AsyncHasMany`）也支持相同的
+  `foreign_key` 元组语法。
+
+> 💡 **AI提示词示例**: "如何在复合主键模型上定义 BelongsTo？foreign_key 元组需要包含所有 PK 列吗？"
+
 ## 重要注意事项
 
 **注意**: 所有的关系描述符必须声明为 `ClassVar`，以避免干扰 Pydantic 的字段验证。

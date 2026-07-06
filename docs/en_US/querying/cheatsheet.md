@@ -362,6 +362,48 @@ results = User.query().distinct(User.c.country, User.c.city).all()
 
 ---
 
+## Composite Primary Key Lookups
+
+Models using `CompositePKMixin` declare `__primary_key__` as a tuple of column names.
+`find_one()` and `find_all()` accept dicts or tuples for composite PK lookups:
+
+```python
+from rhosocial.activerecord.field import CompositePKMixin
+
+class OrderItem(CompositePKMixin, ActiveRecord):
+    __primary_key__ = ("order_id", "product_id")
+    order_id: int
+    product_id: int
+    quantity: int
+
+# find_one with dict (named keys)
+item = OrderItem.find_one({"order_id": 1, "product_id": 42})
+
+# find_one with tuple (positional, matching PK column order)
+item = OrderItem.find_one((1, 42))
+
+# find_all batch lookup with a list of dicts
+items = OrderItem.find_all([
+    {"order_id": 1, "product_id": 1},
+    {"order_id": 1, "product_id": 2},
+])
+
+# find_all batch lookup with a list of tuples
+items = OrderItem.find_all([(1, 1), (1, 2)])
+
+# Delete by composite PK
+item = OrderItem.find_one((1, 42))
+item.delete()
+
+# Query via ActiveQuery — use normal .where() conditions
+items = OrderItem.query().where(OrderItem.c.order_id == 1).all()
+```
+
+> ⚠️ Composite PK values are NOT auto-generated.  All PK columns must be provided
+> when creating or looking up records.
+
+---
+
 ## Raw SQL (When Needed)
 
 ```python
