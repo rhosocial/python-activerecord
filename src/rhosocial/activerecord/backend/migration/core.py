@@ -5,12 +5,14 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from rhosocial.activerecord.backend.named_expression.procedure import (
+    AsyncProcedure,
+    AsyncProcedureContext,
     Procedure,
     ProcedureContext,
 )
 
 if TYPE_CHECKING:
-    from .context import MigrationContext
+    from .context import AsyncMigrationContext, MigrationContext
 
 
 class MigrationDirection(str, Enum):
@@ -49,3 +51,33 @@ class NamedMigration(Procedure):
             self.up(ctx)
         else:
             self.down(ctx)
+
+
+class AsyncNamedMigration(AsyncProcedure):
+    """Asynchronous stateful migration base class.
+
+    Async counterpart of :class:`NamedMigration`. Users inherit this class
+    and implement ``async def up()`` and ``async def down()`` methods using
+    ``await ctx.execute(...)`` against an :class:`AsyncMigrationContext`.
+
+    ``AsyncNamedMigration`` is resolved by
+    :class:`AsyncNamedMigrationResolver` and executed by
+    :class:`AsyncMigrationRunner`. Synchronous migrations
+    (:class:`NamedMigration`) must use :class:`MigrationRunner` instead —
+    they cannot be run through the async runner.
+    """
+
+    version: str = ""
+    dependencies: list[str] = []
+
+    async def up(self, ctx: AsyncMigrationContext) -> None:
+        raise NotImplementedError
+
+    async def down(self, ctx: AsyncMigrationContext) -> None:
+        raise NotImplementedError
+
+    async def run(self, ctx: AsyncProcedureContext) -> None:
+        if ctx.direction == MigrationDirection.UP:
+            await self.up(ctx)
+        else:
+            await self.down(ctx)

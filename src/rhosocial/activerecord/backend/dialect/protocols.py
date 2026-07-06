@@ -1528,11 +1528,38 @@ class IndexSupport(Protocol):
         ...  # pragma: no cover
 
     def supports_fulltext_index(self) -> bool:
-        """Whether FULLTEXT indexes are supported."""
+        """Whether MySQL-style ``CREATE FULLTEXT INDEX`` DDL is supported.
+
+        This method reports the ability to **issue a DDL statement** that
+        creates a dedicated fulltext index structure.  It does *not*
+        indicate whether the dialect can perform full-text search queries
+        at all — that is the job of :meth:`supports_fulltext_search`.
+
+        Backends that provide full-text search through different DDL
+        mechanisms (e.g. PostgreSQL ``GIN`` indexes, SQLite ``FTS5``
+        virtual tables) should return ``False`` here and ``True`` on
+        ``supports_fulltext_search``.
+        """
+        ...  # pragma: no cover
+
+    def supports_fulltext_search(self) -> bool:
+        """Whether full-text search **querying** is supported.
+
+        Separates query capability from DDL capability reported by
+        :meth:`supports_fulltext_index`.  Most dialects are symmetric —
+        creating a FULLTEXT index automatically enables full-text queries
+        (MySQL, MariaDB, SQL Server) — so the default implementation
+        delegates to ``supports_fulltext_index()``.
+
+        Dialects whose query-side full-text support is decoupled from
+        ``CREATE FULLTEXT INDEX`` (e.g. PostgreSQL ``tsvector``/``tsquery``,
+        SQLite ``FTS5`` virtual tables) **must** override this method to
+        report their actual query capability independently.
+        """
         ...  # pragma: no cover
 
     def supports_fulltext_parser(self) -> bool:
-        """Whether FULLTEXT parser plugin is supported."""
+        """Whether FULLTEXT parser plugin (``WITH PARSER``) is supported."""
         ...  # pragma: no cover
 
     def supports_fulltext_boolean_mode(self) -> bool:

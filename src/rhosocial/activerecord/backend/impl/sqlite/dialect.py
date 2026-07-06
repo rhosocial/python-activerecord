@@ -599,9 +599,24 @@ class SQLiteDialect(
         return False
 
     def supports_fulltext_index(self) -> bool:
-        """Whether fulltext indexes are supported."""
-        # SQLite uses FTS virtual tables instead of fulltext indexes
+        """Whether MySQL-style ``CREATE FULLTEXT INDEX`` DDL is supported.
+
+        SQLite uses ``FTS5`` virtual tables for full-text indexing
+        instead of a dedicated ``CREATE FULLTEXT INDEX`` statement,
+        so this returns ``False``.
+        """
         return False
+
+    def supports_fulltext_search(self) -> bool:
+        """Whether full-text search querying is supported.
+
+        SQLite provides full-text search through ``FTS5`` virtual tables
+        with ``MATCH`` syntax (e.g. ``SELECT ... FROM fts_table WHERE
+        fts_table MATCH 'search term'``).  Although the DDL mechanism
+        differs from MySQL-style ``CREATE FULLTEXT INDEX``, the query-side
+        capability is fully present.
+        """
+        return True
 
     def supports_fulltext_boolean_mode(self) -> bool:
         """Whether fulltext boolean mode is supported."""
