@@ -65,7 +65,7 @@ class BackendGroup:
     actual management target: a group of related ActiveRecord classes
     sharing the same backend instance, with connection convenience provided.
 
-    All models in the group share the same backend instance, meaning they
+    All models in the group share **the same** backend instance, meaning they
     operate on the same active connection simultaneously. This design is
     intentional for scenarios where:
 
@@ -76,7 +76,25 @@ class BackendGroup:
     - Models should share a unified connection lifecycle — connect and
       disconnect together rather than independently.
 
-    This class does NOT manage connection timing. Users decide when to
+    .. warning::
+
+        **Not thread-safe.** BackendGroup assigns a single backend instance
+        to all member models. If this instance is accessed concurrently
+        (from multiple threads or multiple async tasks on the same event
+        loop), the underlying database connection will see interleaved
+        protocol traffic, causing result set corruption or driver errors.
+
+        BackendGroup is intended for **sequential** operations only — CLI
+        tools, cron jobs, test fixtures, or any code path where access to
+        the backend is serialised by external means (e.g., a single worker
+        thread).
+
+        For concurrent scenarios (web applications, FastAPI, multi-threaded
+        workers), use :class:`BackendPool` instead. BackendPool manages
+        multiple backend instances and hands one out per request, providing
+        both thread safety and resource efficiency.
+
+    This class does **not** manage connection timing. Users decide when to
     connect and disconnect using either manual calls or ``backend.context()``.
 
     IMPORTANT: Synchronous BackendGroup MUST be used with synchronous
@@ -281,7 +299,7 @@ class AsyncBackendGroup:
     actual management target: a group of related ActiveRecord classes
     sharing the same backend instance, with connection convenience provided.
 
-    All models in the group share the same backend instance, meaning they
+    All models in the group share **the same** backend instance, meaning they
     operate on the same active connection simultaneously. This design is
     intentional for scenarios where:
 
@@ -292,7 +310,25 @@ class AsyncBackendGroup:
     - Models should share a unified connection lifecycle — connect and
       disconnect together rather than independently.
 
-    This class does NOT manage connection timing. Users decide when to
+    .. warning::
+
+        **Not concurrency-safe.** Even though this is the async variant,
+        a single database connection does not support concurrent protocol
+        traffic from multiple coroutines. If multiple tasks on the same
+        event loop issue queries through this shared backend concurrently,
+        the connection will see interleaved commands, causing result set
+        corruption or driver errors.
+
+        AsyncBackendGroup is intended for **sequential** operations only
+        — cron jobs, test fixtures, worker pools with serialised access,
+        or any code path where tasks are guaranteed to run one at a time.
+
+        For concurrent scenarios (FastAPI, asyncio web frameworks), use
+        :class:`AsyncBackendPool` instead. AsyncBackendPool manages
+        multiple connected backend instances and hands one out per request,
+        providing true concurrency without connection-level serialisation.
+
+    This class does **not** manage connection timing. Users decide when to
     connect and disconnect using either manual calls or ``backend.context()``.
 
     IMPORTANT: AsyncBackendGroup MUST be used with asynchronous backends

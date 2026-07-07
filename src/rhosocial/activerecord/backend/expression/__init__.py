@@ -201,6 +201,8 @@ from .graph import (
     GraphEdgeDirection,
     GraphVertex,
     GraphEdge,
+    QuantifiedPath,
+    PathPattern,
     MatchClause,
     GraphColumn,
     ColumnsClause,
