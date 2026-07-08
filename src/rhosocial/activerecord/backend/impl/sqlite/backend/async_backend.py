@@ -8,6 +8,7 @@ Uses aiosqlite library for async SQLite operations.
 
 import logging
 import sqlite3
+import threading
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -168,13 +169,30 @@ class AsyncSQLiteBackend(
             await self.disconnect()
         try:
             sqlite3.register_converter("timestamp", lambda val: datetime.fromisoformat(val.decode("utf-8")))
-            self._connection = await aiosqlite.connect(
+            # aiosqlite spawns a background worker thread (non-daemon by
+            # default) that blocks process exit if it leaks. In test suites
+            # using function-scoped event loops (pytest-asyncio), async
+            # fixture teardown may fail to join it when the loop is already
+            # closing, causing "tests finish but process hangs" on 3.9+.
+            #
+            # aiosqlite 0.20: Connection subclasses Thread -> set conn.daemon.
+            # aiosqlite 0.22+: Connection wraps an internal self._thread ->
+            # set conn._thread.daemon. Must be done before `await` (which
+            # calls Thread.start()); setting daemon after start has no effect.
+            conn = aiosqlite.connect(
                 self.config.database,
                 timeout=self.config.timeout,
                 detect_types=self.config.detect_types,
                 isolation_level=None,
                 uri=self.config.uri,
             )
+            if isinstance(conn, threading.Thread):
+                conn.daemon = True
+            else:
+                inner_thread = getattr(conn, "_thread", None)
+                if isinstance(inner_thread, threading.Thread):
+                    inner_thread.daemon = True
+            self._connection = await conn
             self._connection.row_factory = aiosqlite.Row
             await self._apply_pragmas()
             self.logger.info(f"Connected to SQLite database: {self.config.database}")
@@ -188,15 +206,16 @@ class AsyncSQLiteBackend(
                 if self._transaction_manager is not None and self._transaction_manager.is_active:
                     self.logger.warning("Active transaction detected during disconnect, rolling back")
                     await self._transaction_manager.rollback()
-                # Save reference before closing — aiosqlite.Connection inherits
-                # from threading.Thread with daemon=False.  close() only signals
-                # the background thread to stop; it does NOT join() it.  If we
-                # don't join, the non-daemon thread keeps running and prevents
-                # the process from exiting.
+                # Save reference before closing. close() only signals the
+                # background worker thread to stop; it does NOT join() it.
+                # Join explicitly so the thread exits before we proceed.
+                # aiosqlite 0.20: conn is the Thread (has join).
+                # aiosqlite 0.22+: worker thread is conn._thread (has join).
                 conn = self._connection
                 await conn.close()
-                if hasattr(conn, "join"):
-                    conn.join(timeout=5.0)
+                join_target = conn if isinstance(conn, threading.Thread) else getattr(conn, "_thread", None)
+                if join_target is not None and hasattr(join_target, "join"):
+                    join_target.join(timeout=5.0)
                 self._connection = None
                 self._cursor = None
                 self._transaction_manager = None
