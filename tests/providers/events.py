@@ -18,7 +18,7 @@ import logging
 from typing import Type, List
 
 from rhosocial.activerecord.backend.expression import DropTableExpression, TableExpression
-from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
 # Setup logging for fixture selection debugging
 logger = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ from rhosocial.activerecord.testsuite.utils import select_fixture  # noqa: E402
 from rhosocial.activerecord.testsuite.feature.events.fixtures.models import (  # noqa: E402
     EventTestModel as EventTestModelBase,
     EventTrackingModel as EventTrackingModelBase,
+    AsyncEventTestModel as AsyncEventTestModelBase,
 )
 
 # Conditionally import Python 3.10+ models
@@ -82,6 +83,7 @@ def _select_model_class(base_cls, py312_cls, py311_cls, py310_cls, model_name: s
 EventTestModel = _select_model_class(
     EventTestModelBase, EventTestModel312, EventTestModel311, EventTestModel310, "EventTestModel"
 )
+AsyncEventTestModel = AsyncEventTestModelBase
 EventTrackingModel = _select_model_class(
     EventTrackingModelBase, EventTrackingModel312, EventTrackingModel311, EventTrackingModel310, "EventTrackingModel"
 )
@@ -170,11 +172,72 @@ class EventsProvider(IEventsProvider):
 
         return model_class
 
+    async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
+        """A generic async helper method to handle the setup for any given model."""
+        from providers.scenarios import get_scenario
+        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+
+        backend_class = AsyncSQLiteBackend
+        _, original_config = get_scenario(scenario_name)
+
+        import os
+        import tempfile
+        import uuid
+
+        config = original_config
+
+        if original_config.database != ":memory:":
+            unique_filename = os.path.join(
+                tempfile.gettempdir(), f"test_activerecord_events_{scenario_name}_{uuid.uuid4().hex}.sqlite"
+            )
+            self._scenario_db_files[scenario_name] = unique_filename
+            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+
+            config = SQLiteConnectionConfig(
+                database=unique_filename,
+                delete_on_close=original_config.delete_on_close,
+                pragmas=original_config.pragmas,
+            )
+
+        await model_class.configure(config, backend_class)
+
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
+
+        try:
+            drop_expr = DropTableExpression(
+                dialect=model_class.__backend__.dialect,
+                table=TableExpression(model_class.__backend__.dialect, table_name),
+                if_exists=True,
+            )
+            await model_class.__backend__.execute(
+                *drop_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
+        except Exception:
+            pass
+
+        from providers.fixtures.events import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            create_expr = fn(model_class.__backend__.dialect, table_name)
+            await model_class.__backend__.execute(
+                *create_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
+        else:
+            schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+            await model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+        return model_class
+
     # --- Implementation of the IEventsProvider interface ---
 
     def setup_event_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the event model tests."""
         return self._setup_model(EventTestModel, scenario_name, "event_tests")
+
+    async def setup_async_event_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the async event model tests."""
+        return await self._setup_async_model(AsyncEventTestModel, scenario_name, "event_tests")
 
     def setup_event_tracking_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the event tracking model tests."""
@@ -234,6 +297,34 @@ class EventsProvider(IEventsProvider):
     def cleanup_after_test(self, scenario_name: str):
         """
         Performs cleanup after a test. For file-based scenarios, this involves
+        deleting the temporary database file.
+        """
+        # Use the dynamically generated database file if available, otherwise use the original config
+        if scenario_name in self._scenario_db_files:
+            db_file = self._scenario_db_files[scenario_name]
+            if os.path.exists(db_file):
+                try:
+                    # Attempt to remove the temp db file.
+                    os.remove(db_file)
+                    # Remove from tracking dict
+                    del self._scenario_db_files[scenario_name]
+                except OSError:
+                    # Ignore errors if the file is already gone or locked, etc.
+                    pass
+        else:
+            # Fallback to original behavior for in-memory databases
+            _, config = get_scenario(scenario_name)
+            if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
+                try:
+                    # Attempt to remove the temp db file.
+                    os.remove(config.database)
+                except OSError:
+                    # Ignore errors if the file is already gone or locked, etc.
+                    pass
+
+    async def cleanup_after_test_async(self, scenario_name: str):
+        """
+        Performs cleanup after an async test. For file-based scenarios, this involves
         deleting the temporary database file.
         """
         # Use the dynamically generated database file if available, otherwise use the original config

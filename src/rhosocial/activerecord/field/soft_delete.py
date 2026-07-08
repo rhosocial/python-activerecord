@@ -12,13 +12,17 @@ from ..query import ActiveQuery
 
 
 class SoftDeleteMixin:
-    """Implements soft delete functionality.
+    """Implements soft delete functionality (sync).
 
     Instead of actual deletion, marks records as deleted using timestamp.
     Provides methods to:
     - Soft delete records
     - Query including/excluding deleted records
     - Restore deleted records
+
+    For async models use :class:`AsyncSoftDeleteMixin`, which provides the
+    async ``restore`` counterpart. Sync/async stay on equal footing without
+    mixing execution models.
     """
 
     deleted_at: Optional[datetime] = Field(default=None)
@@ -60,11 +64,13 @@ class SoftDeleteMixin:
         deleted_condition = Column(backend.dialect, "deleted_at").is_not_null()
         return super().query().where(deleted_condition)
 
-    def restore(self) -> int:
-        """Restore a soft-deleted record using expression system."""
-        if self.deleted_at is None:
-            return 0
+    def _build_restore_condition(self):
+        """Build the WHERE predicate identifying the record to restore.
 
+        Pure computation shared by sync ``restore`` and async
+        :meth:`AsyncSoftDeleteMixin.restore`; no I/O is performed here so the
+        two execution models never mix.
+        """
         backend = self.backend()
         dialect = backend.dialect
 
@@ -82,11 +88,48 @@ class SoftDeleteMixin:
             pk_value = getattr(self, self.primary_key())
             condition_expr = pk_column == pk_value
 
+        return condition_expr
+
+    def restore(self) -> int:
+        """Restore a soft-deleted record using expression system."""
+        if self.deleted_at is None:
+            return 0
+
         from ..backend.options import UpdateOptions
 
+        condition_expr = self._build_restore_condition()
         update_options = UpdateOptions(table=self.table_name(), data={"deleted_at": None}, where=condition_expr)
 
-        result = backend.update(update_options)
+        result = self.backend().update(update_options)
+
+        if result.affected_rows > 0:
+            self.deleted_at = None
+            self.reset_tracking()
+
+        return result.affected_rows
+
+
+class AsyncSoftDeleteMixin(SoftDeleteMixin):
+    """Async counterpart of :class:`SoftDeleteMixin`.
+
+    Inherits all shared state (``deleted_at``), event registration
+    (``_mark_as_deleted``), query classmethods and ``prepare_delete`` from
+    :class:`SoftDeleteMixin`. Only :meth:`restore` is overridden to ``await``
+    the backend I/O, keeping sync/async on equal footing without mixing
+    execution models.
+    """
+
+    async def restore(self) -> int:
+        """Restore a soft-deleted record asynchronously using expression system."""
+        if self.deleted_at is None:
+            return 0
+
+        from ..backend.options import UpdateOptions
+
+        condition_expr = self._build_restore_condition()
+        update_options = UpdateOptions(table=self.table_name(), data={"deleted_at": None}, where=condition_expr)
+
+        result = await self.backend().update(update_options)
 
         if result.affected_rows > 0:
             self.deleted_at = None

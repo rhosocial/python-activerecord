@@ -16,6 +16,7 @@ from rhosocial.activerecord.testsuite.feature.derived_field.fixtures.models impo
     ProductWithProxy,
     ProductWithColumnAndAdapter,
     AsyncProduct,
+    AsyncProductFormA,
     AsyncProductWithProxy,
     AsyncProductWithColumnAndAdapter,
 )
@@ -122,6 +123,9 @@ class DerivedFieldProvider(IDerivedFieldProvider):
 
     def setup_async_product_model(self, scenario_name: str) -> Type[AsyncActiveRecord]:
         return self._setup_async_product_table(AsyncProduct, scenario_name)
+
+    def setup_async_product_form_a_model(self, scenario_name: str) -> Type[AsyncActiveRecord]:
+        return self._setup_async_product_table(AsyncProductFormA, scenario_name)
 
     def setup_async_product_with_proxy_model(self, scenario_name: str) -> Type[AsyncActiveRecord]:
         return self._setup_async_product_table(AsyncProductWithProxy, scenario_name)

@@ -18,7 +18,7 @@ import logging
 from typing import Type, List
 
 from rhosocial.activerecord.backend.expression import DropTableExpression, TableExpression
-from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
 # Setup logging for fixture selection debugging
 logger = logging.getLogger(__name__)
@@ -32,6 +32,10 @@ from rhosocial.activerecord.testsuite.feature.mixins.fixtures.models import (  #
     VersionedProduct as VersionedProductBase,
     Task as TaskBase,
     CombinedArticle as CombinedArticleBase,
+    AsyncTimestampedPost as AsyncTimestampedPostBase,
+    AsyncVersionedProduct as AsyncVersionedProductBase,
+    AsyncTask as AsyncTaskBase,
+    AsyncCombinedArticle as AsyncCombinedArticleBase,
 )
 
 # Conditionally import Python 3.10+ models
@@ -97,6 +101,12 @@ Task = _select_model_class(TaskBase, Task312, Task311, Task310, "Task")
 CombinedArticle = _select_model_class(
     CombinedArticleBase, CombinedArticle312, CombinedArticle311, CombinedArticle310, "CombinedArticle"
 )
+
+# Async models (no version-specific selection needed)
+AsyncTimestampedPost = AsyncTimestampedPostBase
+AsyncVersionedProduct = AsyncVersionedProductBase
+AsyncTask = AsyncTaskBase
+AsyncCombinedArticle = AsyncCombinedArticleBase
 
 from rhosocial.activerecord.testsuite.feature.mixins.interfaces import IMixinsProvider  # noqa: E402
 
@@ -182,23 +192,96 @@ class MixinsProvider(IMixinsProvider):
 
         return model_class
 
+    async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
+        """A generic async helper method to handle the setup for any given model."""
+        from providers.scenarios import get_scenario
+        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+
+        backend_class = AsyncSQLiteBackend
+        _, original_config = get_scenario(scenario_name)
+
+        import os
+        import tempfile
+        import uuid
+
+        config = original_config
+
+        if original_config.database != ":memory:":
+            unique_filename = os.path.join(
+                tempfile.gettempdir(), f"test_activerecord_mixins_{scenario_name}_{uuid.uuid4().hex}.sqlite"
+            )
+            self._scenario_db_files[scenario_name] = unique_filename
+            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+
+            config = SQLiteConnectionConfig(
+                database=unique_filename,
+                delete_on_close=original_config.delete_on_close,
+                pragmas=original_config.pragmas,
+            )
+
+        await model_class.configure(config, backend_class)
+
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
+
+        try:
+            drop_expr = DropTableExpression(
+                dialect=model_class.__backend__.dialect,
+                table=TableExpression(model_class.__backend__.dialect, table_name),
+                if_exists=True,
+            )
+            await model_class.__backend__.execute(
+                *drop_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
+        except Exception:
+            pass
+
+        from providers.fixtures.mixins import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            create_expr = fn(model_class.__backend__.dialect, table_name)
+            await model_class.__backend__.execute(
+                *create_expr.to_sql(), options=ExecutionOptions(stmt_type=StatementType.DDL)
+            )
+        else:
+            schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+            await model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+        return model_class
+
     # --- Implementation of the IMixinsProvider interface ---
 
     def setup_timestamped_post_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the timestamped post model tests."""
         return self._setup_model(TimestampedPost, scenario_name, "timestamped_posts")
 
+    async def setup_async_timestamped_post_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the async timestamped post model tests."""
+        return await self._setup_async_model(AsyncTimestampedPost, scenario_name, "timestamped_posts")
+
     def setup_versioned_product_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the versioned product model tests."""
         return self._setup_model(VersionedProduct, scenario_name, "versioned_products")
+
+    async def setup_async_versioned_product_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the async versioned product model tests."""
+        return await self._setup_async_model(AsyncVersionedProduct, scenario_name, "versioned_products")
 
     def setup_task_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the task model tests."""
         return self._setup_model(Task, scenario_name, "tasks")
 
+    async def setup_async_task_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the async task model tests."""
+        return await self._setup_async_model(AsyncTask, scenario_name, "tasks")
+
     def setup_combined_article_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the combined article model tests."""
         return self._setup_model(CombinedArticle, scenario_name, "combined_articles")
+
+    async def setup_async_combined_article_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the async combined article model tests."""
+        return await self._setup_async_model(AsyncCombinedArticle, scenario_name, "combined_articles")
 
     def _load_sqlite_schema(self, filename: str) -> str:
         """Helper to load a SQL schema file from this project's fixtures."""
@@ -237,4 +320,25 @@ class MixinsProvider(IMixinsProvider):
                     os.remove(config.database)
                 except OSError:
                     # Ignore errors if the file is already gone or locked, etc.
+                    pass
+
+    async def cleanup_after_test_async(self, scenario_name: str):
+        """
+        Performs cleanup after an async test. For file-based scenarios, this involves
+        deleting the temporary database file.
+        """
+        if scenario_name in self._scenario_db_files:
+            db_file = self._scenario_db_files[scenario_name]
+            if os.path.exists(db_file):
+                try:
+                    os.remove(db_file)
+                    del self._scenario_db_files[scenario_name]
+                except OSError:
+                    pass
+        else:
+            _, config = get_scenario(scenario_name)
+            if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
+                try:
+                    os.remove(config.database)
+                except OSError:
                     pass
