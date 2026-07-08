@@ -103,6 +103,12 @@ class EventsProvider(IEventsProvider):
     def __init__(self):
         # Track the actual database file used for each scenario in the current test
         self._scenario_db_files = {}
+        # Track active backends so they can be disconnected during cleanup.
+        # Without this, the aiosqlite background thread (a non-daemon
+        # threading.Thread in aiosqlite >= 0.20) is never joined and blocks
+        # process exit on Python 3.9+.
+        self._active_backends = []
+        self._active_async_backends = []
 
     def get_test_scenarios(self) -> List[str]:
         """Returns a list of names for all enabled scenarios for this backend."""
@@ -170,6 +176,9 @@ class EventsProvider(IEventsProvider):
             schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
             model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
+        if model_class.__backend__ not in self._active_backends:
+            self._active_backends.append(model_class.__backend__)
+
         return model_class
 
     async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
@@ -226,6 +235,9 @@ class EventsProvider(IEventsProvider):
         else:
             schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
             await model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+        if model_class.__backend__ not in self._active_async_backends:
+            self._active_async_backends.append(model_class.__backend__)
 
         return model_class
 
@@ -298,7 +310,18 @@ class EventsProvider(IEventsProvider):
         """
         Performs cleanup after a test. For file-based scenarios, this involves
         deleting the temporary database file.
+
+        Backend disconnection MUST happen before file deletion; otherwise the
+        SQLite file lock prevents removal on some platforms.
         """
+        # First, disconnect all active backends tracked during setup.
+        for backend_instance in self._active_backends:
+            try:
+                backend_instance.disconnect()
+            except Exception:
+                pass
+        self._active_backends.clear()
+
         # Use the dynamically generated database file if available, otherwise use the original config
         if scenario_name in self._scenario_db_files:
             db_file = self._scenario_db_files[scenario_name]
@@ -326,7 +349,21 @@ class EventsProvider(IEventsProvider):
         """
         Performs cleanup after an async test. For file-based scenarios, this involves
         deleting the temporary database file.
+
+        CRITICAL: Backend disconnection MUST happen before file deletion.
+        Without disconnecting, the aiosqlite background thread (a non-daemon
+        threading.Thread) keeps running and prevents the process from exiting
+        on Python 3.9+.
         """
+        # First, disconnect all active async backends tracked during setup.
+        # This releases the aiosqlite worker thread and the SQLite file lock.
+        for backend_instance in self._active_async_backends:
+            try:
+                await backend_instance.disconnect()
+            except Exception:
+                pass
+        self._active_async_backends.clear()
+
         # Use the dynamically generated database file if available, otherwise use the original config
         if scenario_name in self._scenario_db_files:
             db_file = self._scenario_db_files[scenario_name]
