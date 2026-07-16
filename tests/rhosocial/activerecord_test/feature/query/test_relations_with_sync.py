@@ -2,4 +2,4 @@
 """
 Bridge file for sync relation 'with' tests.
 """
-from rhosocial.activerecord.testsuite.feature.query.test_relations_with import *  # noqa: F401, F403
+from rhosocial.activerecord.testsuite.feature.query.relations.test_relations_with import *  # noqa: F401, F403

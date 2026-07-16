@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/basic/test_validation.py
+# tests/rhosocial/activerecord_test/feature/basic/validation/test_validation.py
 """
 This is a "bridge" file for the basic features test group, specifically for data validation mechanism tests.
 
@@ -20,4 +20,4 @@ tests against our specific (SQLite) backend.
 # in some IDEs. These fixtures are defined in the testsuite package and are
 # parameterized to run against the scenarios defined in `providers/scenarios.py`.
 
-from rhosocial.activerecord.testsuite.feature.basic.test_validation import *  # noqa: F403
+from rhosocial.activerecord.testsuite.feature.basic.validation.test_validation import *  # noqa: F403

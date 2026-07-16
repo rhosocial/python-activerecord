@@ -26,19 +26,13 @@ can check protocol implementation before execution.
 """
 
 from rhosocial.activerecord.testsuite.core.registry import ProviderRegistry
-from .basic import BasicProvider
-from .events import EventsProvider
-from .mixins import MixinsProvider
-from .query import QueryProvider
+from .basic import BasicSyncProvider, BasicAsyncProvider
+from .events import EventsSyncProvider, EventsAsyncProvider
+from .mixins import MixinsSyncProvider, MixinsAsyncProvider
+from .query import QuerySyncProvider, QueryAsyncProvider
 from .basic_connection import BasicConnectionProvider
-try:
-    from .composite_pk import CompositePKProvider
-    _HAS_COMPOSITE_PK = True
-except ImportError:
-    _HAS_COMPOSITE_PK = False
 from .query_connection import QueryConnectionProvider
-from .derived_field import DerivedFieldProvider
-from .relation import RelationProvider
+from .relation import RelationSyncProvider, RelationAsyncProvider
 from .crud_benchmark import CrudBenchmarkProvider
 from .fastapi_benchmark import FastAPIBenchmarkProvider
 from .mixin_benchmark import MixinBenchmarkProvider
@@ -48,23 +42,32 @@ from .transaction_benchmark import TransactionBenchmarkProvider
 # Create a single, global instance of the ProviderRegistry.
 provider_registry = ProviderRegistry()
 
-# Register the concrete `BasicProvider` as the implementation for the
-# `feature.basic.IBasicProvider` interface defined in the testsuite.
+# Register the concrete `BasicSyncProvider` and `BasicAsyncProvider` as the
+# implementations for the basic feature interfaces defined in the testsuite.
 # When the testsuite needs to run a "basic" feature test, it will ask the registry
-# for the "feature.basic.IBasicProvider" and will receive our `BasicProvider`.
-provider_registry.register("feature.basic.IBasicProvider", BasicProvider)
+# for either "feature.basic.IBasicSyncProvider" or "feature.basic.IBasicAsyncProvider"
+# and will receive `BasicSyncProvider` or `BasicAsyncProvider` respectively.
+provider_registry.register("feature.basic.IBasicProvider", BasicSyncProvider)
+provider_registry.register("feature.basic.IBasicSyncProvider", BasicSyncProvider)
+provider_registry.register("feature.basic.IBasicAsyncProvider", BasicAsyncProvider)
 
-# Register the concrete `EventsProvider` as the implementation for the
-# `feature.events.IEventsProvider` interface defined in the testsuite.
-provider_registry.register("feature.events.IEventsProvider", EventsProvider)
+# Register the concrete `EventsSyncProvider` and `EventsAsyncProvider` as the
+# implementations for the events feature interfaces defined in the testsuite.
+provider_registry.register("feature.events.IEventsProvider", EventsSyncProvider)
+provider_registry.register("feature.events.IEventsSyncProvider", EventsSyncProvider)
+provider_registry.register("feature.events.IEventsAsyncProvider", EventsAsyncProvider)
 
-# Register the concrete `MixinsProvider` as the implementation for the
-# `feature.mixins.IMixinsProvider` interface defined in the testsuite.
-provider_registry.register("feature.mixins.IMixinsProvider", MixinsProvider)
+# Register the concrete `MixinsSyncProvider` and `MixinsAsyncProvider` as the
+# implementations for the mixins feature interfaces defined in the testsuite.
+provider_registry.register("feature.mixins.IMixinsProvider", MixinsSyncProvider)
+provider_registry.register("feature.mixins.IMixinsSyncProvider", MixinsSyncProvider)
+provider_registry.register("feature.mixins.IMixinsAsyncProvider", MixinsAsyncProvider)
 
-# Register the concrete `QueryProvider` as the implementation for the
-# `feature.query.IQueryProvider` interface defined in the testsuite.
-provider_registry.register("feature.query.IQueryProvider", QueryProvider)
+# Register the concrete `QuerySyncProvider` and `QueryAsyncProvider` as the
+# implementations for the query feature interfaces defined in the testsuite.
+provider_registry.register("feature.query.IQueryProvider", QuerySyncProvider)
+provider_registry.register("feature.query.IQuerySyncProvider", QuerySyncProvider)
+provider_registry.register("feature.query.IQueryAsyncProvider", QueryAsyncProvider)
 
 # Register the concrete `BasicConnectionProvider` as the implementation for the
 # `feature.basic.connection.IBasicConnectionProvider` interface defined in the testsuite.
@@ -74,14 +77,11 @@ provider_registry.register("feature.basic.connection.IBasicConnectionProvider", 
 # `feature.query.connection.IQueryConnectionProvider` interface defined in the testsuite.
 provider_registry.register("feature.query.connection.IQueryConnectionProvider", QueryConnectionProvider)
 
-provider_registry.register("feature.derived_field.IDerivedFieldProvider", DerivedFieldProvider)
-
-provider_registry.register("feature.relation.IRelationProvider", RelationProvider)
+provider_registry.register("feature.relation.IRelationProvider", RelationSyncProvider)
+provider_registry.register("feature.relation.IRelationSyncProvider", RelationSyncProvider)
+provider_registry.register("feature.relation.IRelationAsyncProvider", RelationAsyncProvider)
 
 # Register benchmark providers.
-if _HAS_COMPOSITE_PK:
-    provider_registry.register("feature.composite_pk.ICompositePKProvider", CompositePKProvider)
-
 provider_registry.register("benchmark.crud.ICrudBenchmarkProvider", CrudBenchmarkProvider)
 provider_registry.register("benchmark.query.IQueryBenchmarkProvider", QueryBenchmarkProvider)
 provider_registry.register(

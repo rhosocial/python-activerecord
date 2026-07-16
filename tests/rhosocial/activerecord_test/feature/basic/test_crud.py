@@ -23,4 +23,4 @@ tests against our specific (SQLite) backend.
 # By importing *, we bring all the test functions (e.g., `test_create_user`)
 # from the generic testsuite file into this module's scope. `pytest` then
 # discovers and runs them as if they were defined directly in this file.
-from rhosocial.activerecord.testsuite.feature.basic.test_crud import *  # noqa: F403
+from rhosocial.activerecord.testsuite.feature.basic.crud.test_crud import *  # noqa: F403

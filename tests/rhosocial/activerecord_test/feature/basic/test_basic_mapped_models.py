@@ -14,7 +14,7 @@ IMPORTANT:
 
 
 # Wildcard import all test cases from the testsuite's test file.
-from rhosocial.activerecord.testsuite.feature.basic.test_example_basic_fixtures import *  # noqa: F403
+from rhosocial.activerecord.testsuite.feature.basic.fields.test_example_basic_fixtures import *  # noqa: F403
 
 
 # You can optionally add a fixture here if needed to ensure specific setup/teardown

@@ -88,31 +88,86 @@ EventTrackingModel = _select_model_class(
     EventTrackingModelBase, EventTrackingModel312, EventTrackingModel311, EventTrackingModel310, "EventTrackingModel"
 )
 
-from rhosocial.activerecord.testsuite.feature.events.interfaces import IEventsProvider  # noqa: E402
+from rhosocial.activerecord.testsuite.feature.events.interfaces import IEventsSyncProvider, IEventsAsyncProvider  # noqa: E402
 
 # ...and the scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario  # noqa: E402
 
 
-class EventsProvider(IEventsProvider):
+class EventsProviderBase:
     """
-    This is the SQLite backend's implementation for the events features test group.
-    It connects the generic tests in the testsuite with the actual SQLite database.
+    SQLite-specific shared helper base for events feature test providers.
+    Contains only non-I/O helper methods shared between sync and async providers.
     """
 
     def __init__(self):
-        # Track the actual database file used for each scenario in the current test
         self._scenario_db_files = {}
-        # Track active backends so they can be disconnected during cleanup.
-        # Without this, the aiosqlite background thread (a non-daemon
-        # threading.Thread in aiosqlite >= 0.20) is never joined and blocks
-        # process exit on Python 3.9+.
-        self._active_backends = []
-        self._active_async_backends = []
 
     def get_test_scenarios(self) -> List[str]:
         """Returns a list of names for all enabled scenarios for this backend."""
         return list(get_enabled_scenarios().keys())
+
+    def _load_sqlite_schema(self, filename: str) -> str:
+        """Helper to load a SQL schema file from this project's fixtures."""
+        # Schemas are stored in the centralized location for events feature.
+        schema_dir = os.path.join(
+            os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "events", "schema"
+        )
+        schema_path = os.path.join(schema_dir, filename)
+
+        # If the specific schema file doesn't exist, fall back to a generic one
+        if not os.path.exists(schema_path):
+            # Handle specific cases
+            if filename == "event_tests.sql":
+                return """
+                CREATE TABLE event_tests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'draft',
+                    revision INTEGER NOT NULL DEFAULT 1,
+                    content TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                );
+                """
+            elif filename == "event_tracking_models.sql":
+                return """
+                CREATE TABLE event_tracking_models (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    view_count INTEGER DEFAULT 0,
+                    last_viewed_at TEXT
+                );
+                """
+            else:
+                # Fall back to a generic schema
+                table_name = filename.replace(".sql", "")
+                return f"""
+                CREATE TABLE {table_name} (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'draft',
+                    revision INTEGER NOT NULL DEFAULT 1,
+                    content TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                );
+                """
+
+        with open(schema_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+
+class EventsSyncProvider(EventsProviderBase, IEventsSyncProvider):
+    """
+    Sync-only SQLite implementation for the events features test group.
+    Connects generic testsuite tests to the actual SQLite database.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._active_backends = []
 
     def _setup_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
         """A generic helper method to handle the setup for any given model."""
@@ -181,6 +236,66 @@ class EventsProvider(IEventsProvider):
 
         return model_class
 
+    # --- Implementation of the IEventsSyncProvider interface ---
+
+    def setup_event_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the event model tests."""
+        return self._setup_model(EventTestModel, scenario_name, "event_tests")
+
+    def setup_event_tracking_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the event tracking model tests."""
+        return self._setup_model(EventTrackingModel, scenario_name, "event_tracking_models")
+
+    def cleanup_after_test(self, scenario_name: str):
+        """
+        Performs cleanup after a test. For file-based scenarios, this involves
+        deleting the temporary database file.
+
+        Backend disconnection MUST happen before file deletion; otherwise the
+        SQLite file lock prevents removal on some platforms.
+        """
+        # First, disconnect all active backends tracked during setup.
+        for backend_instance in self._active_backends:
+            try:
+                backend_instance.disconnect()
+            except Exception:
+                pass
+        self._active_backends.clear()
+
+        # Use the dynamically generated database file if available, otherwise use the original config
+        if scenario_name in self._scenario_db_files:
+            db_file = self._scenario_db_files[scenario_name]
+            if os.path.exists(db_file):
+                try:
+                    # Attempt to remove the temp db file.
+                    os.remove(db_file)
+                    # Remove from tracking dict
+                    del self._scenario_db_files[scenario_name]
+                except OSError:
+                    # Ignore errors if the file is already gone or locked, etc.
+                    pass
+        else:
+            # Fallback to original behavior for in-memory databases
+            _, config = get_scenario(scenario_name)
+            if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
+                try:
+                    # Attempt to remove the temp db file.
+                    os.remove(config.database)
+                except OSError:
+                    # Ignore errors if the file is already gone or locked, etc.
+                    pass
+
+
+class EventsAsyncProvider(EventsProviderBase, IEventsAsyncProvider):
+    """
+    Async-only SQLite implementation for the events features test group.
+    Connects generic testsuite async tests to the actual SQLite database.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._active_async_backends = []
+
     async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
         """A generic async helper method to handle the setup for any given model."""
         from providers.scenarios import get_scenario
@@ -241,111 +356,17 @@ class EventsProvider(IEventsProvider):
 
         return model_class
 
-    # --- Implementation of the IEventsProvider interface ---
+    # --- Implementation of the IEventsAsyncProvider interface ---
 
-    def setup_event_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the event model tests."""
-        return self._setup_model(EventTestModel, scenario_name, "event_tests")
-
-    async def setup_async_event_model(self, scenario_name: str) -> Type[ActiveRecord]:
+    async def setup_event_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the async event model tests."""
         return await self._setup_async_model(AsyncEventTestModel, scenario_name, "event_tests")
 
-    def setup_event_tracking_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the event tracking model tests."""
-        return self._setup_model(EventTrackingModel, scenario_name, "event_tracking_models")
+    async def setup_event_tracking_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the async event tracking model tests."""
+        return await self._setup_async_model(EventTrackingModel, scenario_name, "event_tracking_models")
 
-    def _load_sqlite_schema(self, filename: str) -> str:
-        """Helper to load a SQL schema file from this project's fixtures."""
-        # Schemas are stored in the centralized location for events feature.
-        schema_dir = os.path.join(
-            os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "events", "schema"
-        )
-        schema_path = os.path.join(schema_dir, filename)
-
-        # If the specific schema file doesn't exist, fall back to a generic one
-        if not os.path.exists(schema_path):
-            # Handle specific cases
-            if filename == "event_tests.sql":
-                return """
-                CREATE TABLE event_tests (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'draft',
-                    revision INTEGER NOT NULL DEFAULT 1,
-                    content TEXT,
-                    created_at TEXT,
-                    updated_at TEXT
-                );
-                """
-            elif filename == "event_tracking_models.sql":
-                return """
-                CREATE TABLE event_tracking_models (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    view_count INTEGER DEFAULT 0,
-                    last_viewed_at TEXT
-                );
-                """
-            else:
-                # Fall back to a generic schema
-                table_name = filename.replace(".sql", "")
-                return f"""
-                CREATE TABLE {table_name} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'draft',
-                    revision INTEGER NOT NULL DEFAULT 1,
-                    content TEXT,
-                    created_at TEXT,
-                    updated_at TEXT
-                );
-                """
-
-        with open(schema_path, "r", encoding="utf-8") as f:
-            return f.read()
-
-    def cleanup_after_test(self, scenario_name: str):
-        """
-        Performs cleanup after a test. For file-based scenarios, this involves
-        deleting the temporary database file.
-
-        Backend disconnection MUST happen before file deletion; otherwise the
-        SQLite file lock prevents removal on some platforms.
-        """
-        # First, disconnect all active backends tracked during setup.
-        for backend_instance in self._active_backends:
-            try:
-                backend_instance.disconnect()
-            except Exception:
-                pass
-        self._active_backends.clear()
-
-        # Use the dynamically generated database file if available, otherwise use the original config
-        if scenario_name in self._scenario_db_files:
-            db_file = self._scenario_db_files[scenario_name]
-            if os.path.exists(db_file):
-                try:
-                    # Attempt to remove the temp db file.
-                    os.remove(db_file)
-                    # Remove from tracking dict
-                    del self._scenario_db_files[scenario_name]
-                except OSError:
-                    # Ignore errors if the file is already gone or locked, etc.
-                    pass
-        else:
-            # Fallback to original behavior for in-memory databases
-            _, config = get_scenario(scenario_name)
-            if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
-                try:
-                    # Attempt to remove the temp db file.
-                    os.remove(config.database)
-                except OSError:
-                    # Ignore errors if the file is already gone or locked, etc.
-                    pass
-
-    async def cleanup_after_test_async(self, scenario_name: str):
+    async def cleanup_after_test(self, scenario_name: str):
         """
         Performs cleanup after an async test. For file-based scenarios, this involves
         deleting the temporary database file.

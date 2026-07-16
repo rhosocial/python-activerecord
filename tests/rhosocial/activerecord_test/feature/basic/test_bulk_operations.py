@@ -7,4 +7,4 @@ discoverable by pytest within this project's test run.
 """
 
 
-from rhosocial.activerecord.testsuite.feature.basic.test_bulk_operations import *  # noqa: F403
+from rhosocial.activerecord.testsuite.feature.basic.bulk_crud.test_bulk_operations import *  # noqa: F403
