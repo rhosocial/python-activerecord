@@ -476,7 +476,6 @@ class AsyncSQLiteBackend(
         try:
             cursor = await self._connection.cursor()
             await cursor.execute("SELECT SQRT(4)")
-            await cursor.fetchall()  # Consume all results to prevent cursor pollution
             await cursor.close()
             return True
         except Exception:
@@ -492,7 +491,6 @@ class AsyncSQLiteBackend(
         try:
             cursor = await self._connection.cursor()
             await cursor.execute("SELECT json('{}')")
-            await cursor.fetchall()  # Consume all results to prevent cursor pollution
             await cursor.close()
             return True
         except Exception:

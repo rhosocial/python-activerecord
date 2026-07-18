@@ -487,7 +487,6 @@ class SQLiteBackend(
         try:
             cursor = self._connection.cursor()
             cursor.execute("SELECT SQRT(4)")
-            cursor.fetchall()  # Consume all results to prevent cursor pollution
             cursor.close()
             return True
         except sqlite3.Error:
@@ -503,7 +502,6 @@ class SQLiteBackend(
         try:
             cursor = self._connection.cursor()
             cursor.execute("SELECT json('{}')")
-            cursor.fetchall()  # Consume all results to prevent cursor pollution
             cursor.close()
             return True
         except sqlite3.Error:
