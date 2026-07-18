@@ -2,21 +2,19 @@
 """
 Tests for RedisCache backend.
 
-Requires a running Redis instance at localhost:16379 with password "ardev".
-If unavailable, Redis-dependent tests are skipped.
+Requires a running Redis instance reachable via the REDIS_HOST / REDIS_PORT
+environment variables (defaults: localhost:6379, no password). If unavailable,
+Redis-dependent tests are skipped — the RedisCache instance is real but the
+fixture verifies connectivity at module scope.
 
-Use ``pytest -m redis`` to include these tests.
+The pytest ``redis`` marker remains defined for callers that prefer to exclude
+Redis tests explicitly (``pytest -m 'not redis'``).
 """
 
 import pytest
 import time
 
-pytest.skip(
-    "Redis cache is not introduced in this release; source is kept for follow-up external cache design.",
-    allow_module_level=True,
-)
-
-from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache  # noqa: E402
+from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache
 from rhosocial.activerecord.relation.cache_backends import (  # noqa: E402
     RedisCache,
     RedisConfig,
