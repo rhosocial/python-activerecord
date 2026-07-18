@@ -1,0 +1,3 @@
+# tests/rhosocial/activerecord_test/feature/relation/derived/test_derived_field_json_async.py
+"""Bridge file for async feature.relation.derived.test_derived_field_json_async tests."""
+from rhosocial.activerecord.testsuite.feature.relation.derived.test_derived_field_json_async import *  # noqa: F401, F403

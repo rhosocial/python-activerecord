@@ -128,13 +128,13 @@ jobs:
           --rootdir=. \
           --confcutdir=. \
           "$TESTSUITE_DIR/benchmark/crud/test_delete_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_delete_sync.py" \
+          "$TESTSUITE_DIR/benchmark/crud/test_delete.py" \
           "$TESTSUITE_DIR/benchmark/crud/test_insert_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_insert_sync.py" \
+          "$TESTSUITE_DIR/benchmark/crud/test_insert.py" \
           "$TESTSUITE_DIR/benchmark/crud/test_query_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_query_sync.py" \
+          "$TESTSUITE_DIR/benchmark/crud/test_query.py" \
           "$TESTSUITE_DIR/benchmark/crud/test_update_async.py" \
-          "$TESTSUITE_DIR/benchmark/crud/test_update_sync.py" \
+          "$TESTSUITE_DIR/benchmark/crud/test_update.py" \
           "$TESTSUITE_DIR/benchmark/query" \
           "$TESTSUITE_DIR/benchmark/transaction" \
           "$TESTSUITE_DIR/benchmark/mixin" \

@@ -150,17 +150,19 @@ class CTEQuery(
             # If params is None, use an empty tuple
             params = params if params is not None else ()
             query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, sql_string), params)
+        elif isinstance(query, IAsyncQuery):
+            # Reject async queries to prevent sync/async mixing.
+            # Although to_sql() is itself a sync/async-agnostic pure computation
+            # (it only builds SQL and params, no I/O), a query object carries a
+            # backend reference; embedding an async query into a sync CTEQuery
+            # would produce a semantically inconsistent execution context.
+            raise TypeError(
+                f"CTEQuery (sync) cannot accept async query of type {type(query).__name__}. "
+                "Use AsyncCTEQuery for async queries."
+            )
         elif isinstance(query, IQuery):
-            # Check that the query is not an async query (sync CTEQuery should not accept async queries)
-            from ..interface import IAsyncQuery
-
-            if isinstance(query, IAsyncQuery):
-                raise TypeError(
-                    f"CTEQuery (sync) cannot accept async query of type {type(query).__name__}. "
-                    "Use AsyncCTEQuery for async queries."
-                )
-
-            # If query is an IQuery, convert it to a RawSQLExpression to avoid extra parentheses
+            # Accept sync IQuery. to_sql() is a sync, sync/async-agnostic pure
+            # computation that returns SQL and params, so it is safe to inline.
             from ..backend.expression.operators import RawSQLExpression
 
             sql, params = query.to_sql()
@@ -452,22 +454,23 @@ class AsyncCTEQuery(
             # If params is None, use an empty tuple
             params = params if params is not None else ()
             query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, sql_string), params)
-        elif isinstance(query, IQuery):
-            # Check that the query is a valid async query (async CTEQuery should accept async queries)
-            from ..interface import IAsyncQuery
-
-            if not isinstance(query, IAsyncQuery):
-                # If it's a sync IQuery (but not an async one), raise an error
-                if isinstance(query, IQuery) and not isinstance(query, IAsyncQuery):
-                    raise TypeError(
-                        f"AsyncCTEQuery (async) cannot accept sync query of type {type(query).__name__}. "
-                        "Use CTEQuery for sync queries."
-                    )
-            # If query is an IQuery, convert it to a RawSQLExpression to avoid extra parentheses
+        elif isinstance(query, IAsyncQuery):
+            # Accept async IAsyncQuery (including AsyncActiveQuery and
+            # AsyncSetOperationQuery). to_sql() is a sync, sync/async-agnostic
+            # pure computation that returns SQL and params, so it is safe to
+            # inline here regardless of the query's async execution surface.
             from ..backend.expression.operators import RawSQLExpression
 
             sql, params = query.to_sql()
             query_expr = RawSQLExpression(dialect, sql, params)
+        elif isinstance(query, IQuery):
+            # Reject sync queries to prevent sync/async mixing. The async query
+            # types are dispatched above via IAsyncQuery; anything reaching here
+            # as an IQuery (but not IAsyncQuery) is a sync query.
+            raise TypeError(
+                f"AsyncCTEQuery (async) cannot accept sync query of type {type(query).__name__}. "
+                "Use CTEQuery for sync queries."
+            )
         elif isinstance(query, statements.QueryExpression):
             # If query is a QueryExpression, convert it to a RawSQLExpression to avoid extra parentheses
             from ..backend.expression.operators import RawSQLExpression

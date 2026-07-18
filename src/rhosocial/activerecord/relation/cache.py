@@ -33,10 +33,7 @@ from datetime import datetime, timedelta
 from threading import Lock
 from typing import Any, Optional, Dict, Generic, TypeVar
 
-from .cache_backends import CacheBackend, InMemoryCache
-
-# Not introduced in this release; keep source for follow-up external cache design.
-# from .cache_backends import CacheResult
+from .cache_backends import CacheBackend, CacheResult, InMemoryCache
 
 
 @dataclass
@@ -246,26 +243,25 @@ class InstanceCache(Generic[T]):
         """
         InstanceCache._backend.set(instance, relation_name, value, config)
 
-    # Not introduced in this release; keep the metadata path for follow-up
-    # external cache design, where CacheResult/origin semantics will be settled.
-    # @staticmethod
-    # def get_with_meta(
-    #     instance: Any, relation_name: str, config: CacheConfig
-    # ) -> Optional[CacheResult[T]]:
-    #     """Get cached relation value with metadata."""
-    #     backend = InstanceCache._backend
-    #     getter = getattr(backend, "get_with_meta", None)
-    #     if getter is not None:
-    #         return getter(instance, relation_name, config)
-    #     value = backend.get(instance, relation_name, config)
-    #     if value is None:
-    #         return None
-    #     return CacheResult(
-    #         value=value,
-    #         age=0.0,
-    #         origin=backend.origin,
-    #         ttl=config.ttl,
-    #     )
+    # CacheResult/origin semantics are settled now; the metadata path is live.
+    @staticmethod
+    def get_with_meta(
+        instance: Any, relation_name: str, config: CacheConfig
+    ) -> Optional[CacheResult[T]]:
+        """Get cached relation value with metadata."""
+        backend = InstanceCache._backend
+        getter = getattr(backend, "get_with_meta", None)
+        if getter is not None:
+            return getter(instance, relation_name, config)
+        value = backend.get(instance, relation_name, config)
+        if value is None:
+            return None
+        return CacheResult(
+            value=value,
+            age=0.0,
+            origin=backend.origin,
+            ttl=config.ttl,
+        )
 
     @staticmethod
     def delete(instance: Any, relation_name: str, config: Optional[CacheConfig] = None):

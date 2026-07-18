@@ -26,8 +26,11 @@ coverage
 # Combines pytest and coverage for seamless test coverage reporting
 pytest-cov
 
-# MessagePack cache support is not introduced in this release.
-# Keep source code only for follow-up external cache design.
+# Redis client for RedisCache backend tests
+redis>=4.5,<9.0
+
+# Optional msgpack format for CacheSerializer tests
+msgpack>=1.0
 
 # Pydantic with email validation support
 # Adds email field validation capabilities to the core framework

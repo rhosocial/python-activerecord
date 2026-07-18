@@ -301,23 +301,67 @@ AsyncMixedAnnotationModel = _select_model_class(
 BulkUser = BulkUserBase
 AsyncBulkUser = AsyncBulkUserBase
 
-from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider  # noqa: E402
+from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicSyncProvider, IBasicAsyncProvider  # noqa: E402
+from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (  # noqa: E402
+    OrderItem as OrderItemBase,
+    Order as OrderBase,
+    MappedOrderItem as MappedOrderItemBase,
+    AsyncOrderItem as AsyncOrderItemBase,
+    AsyncOrder as AsyncOrderBase,
+    AsyncMappedOrderItem as AsyncMappedOrderItemBase,
+    Product,
+    ProductFormA,
+    ProductWithProxy,
+    ProductWithColumnAndAdapter,
+    AsyncProduct,
+    AsyncProductFormA,
+    AsyncProductWithProxy,
+    AsyncProductWithColumnAndAdapter,
+)
 from rhosocial.activerecord.testsuite.core.protocols import WorkerTestProtocol  # noqa: E402
 
 # ...and the scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario  # noqa: E402
 
 
-class BasicProvider(IBasicProvider, WorkerTestProtocol):
+class BasicProviderBase:
     """
-    This is the SQLite backend's implementation for the basic features test group.
-    It connects the generic tests in the testsuite with the actual SQLite database.
-
-    This provider also implements WorkerTestProtocol to enable WorkerPool tests.
+    SQLite-specific shared helper base for basic feature test providers.
+    Contains only non-I/O helper methods shared between sync and async providers.
     """
 
     def __init__(self):
         self._scenario_db_files = {}
+
+    def get_test_scenarios(self) -> List[str]:
+        """Returns a list of names for all enabled scenarios for this backend."""
+        return list(get_enabled_scenarios().keys())
+
+    def get_yes_no_adapter(self) -> BaseSQLTypeAdapter:
+        """Returns an instance of the YesOrNoBooleanAdapter."""
+        return YesOrNoBooleanAdapter()
+
+    def _load_sqlite_schema(self, filename: str) -> str:
+        """Helper to load a SQL schema file from this project's fixtures."""
+        schema_dir = os.path.join(
+            os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "basic", "schema"
+        )
+        schema_path = os.path.join(schema_dir, filename)
+
+        with open(schema_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+
+class BasicSyncProvider(BasicProviderBase, IBasicSyncProvider, WorkerTestProtocol):
+    """
+    Sync-only SQLite implementation for the basic features test group.
+    Connects generic testsuite tests to the actual SQLite database.
+
+    Also implements WorkerTestProtocol to enable WorkerPool tests.
+    """
+
+    def __init__(self):
+        super().__init__()
         # Track active backend instances for proper cleanup.
         # IMPORTANT: SQLite connections hold file locks. If we attempt to delete
         # the database file before disconnecting, the file remains locked and
@@ -327,11 +371,6 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         # See: python-activerecord-mysql/docs/zh_CN/scenarios/parallel_workers.md
         # See: python-activerecord-postgres/docs/zh_CN/scenarios/parallel_workers.md
         self._active_backends = []
-        self._active_async_backends = []
-
-    def get_test_scenarios(self) -> List[str]:
-        """Returns a list of names for all enabled scenarios for this backend."""
-        return list(get_enabled_scenarios().keys())
 
     def _setup_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
         """A generic helper method to handle the setup for any given model."""
@@ -400,6 +439,204 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
             self._active_backends.append(model_class.__backend__)
 
         return model_class
+
+    # --- Sync setup methods ---
+
+    def setup_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `User` model tests."""
+        return self._setup_model(User, scenario_name, "users")
+
+    def setup_type_case_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `TypeCase` model tests."""
+        return self._setup_model(TypeCase, scenario_name, "type_cases")
+
+    def setup_type_test_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `TypeTestModel` model tests."""
+        return self._setup_model(TypeTestModel, scenario_name, "type_tests")
+
+    def setup_validated_field_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `ValidatedFieldUser` model tests."""
+        return self._setup_model(ValidatedFieldUser, scenario_name, "validated_field_users")
+
+    def setup_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `ValidatedUser` model tests."""
+        return self._setup_model(ValidatedUser, scenario_name, "validated_users")
+
+    def setup_pydantic_validated_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `PydanticValidatedModel` model tests."""
+        return self._setup_model(PydanticValidatedModel, scenario_name, "pydantic_validated_models")
+
+    def setup_mapped_models(self, scenario_name: str):
+        """Sets up the database for MappedUser, MappedPost, and MappedComment models."""
+        user = self._setup_model(MappedUser, scenario_name, "users")
+        post = self._setup_model(MappedPost, scenario_name, "posts")
+        comment = self._setup_model(MappedComment, scenario_name, "comments")
+        return user, post, comment
+
+    def setup_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
+        """Sets up the database for ColumnMappingModel and MixedAnnotationModel."""
+        column_mapping_model = self._setup_model(ColumnMappingModel, scenario_name, "column_mapping_items")
+        mixed_annotation_model = self._setup_model(MixedAnnotationModel, scenario_name, "mixed_annotation_items")
+        return column_mapping_model, mixed_annotation_model
+
+    def setup_type_adapter_model_and_schema(self) -> Type[ActiveRecord]:
+        """Sets up the database for the `TypeAdapterTest` model tests."""
+        scenarios = self.get_test_scenarios()
+        scenario_name = scenarios[0] if scenarios else "default"
+        return self._setup_model(TypeAdapterTest, scenario_name, "type_adapter_tests")
+
+    def setup_bulk_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `BulkUser` model tests."""
+        return self._setup_model(BulkUser, scenario_name, "bulk_users")
+
+    # --- Composite PK setup methods ---
+
+    def setup_order_item_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the OrderItem model (composite PK) tests."""
+        return self._setup_model(OrderItemBase, scenario_name, "order_items")
+
+    def setup_order_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the Order model (single PK, used as reference)."""
+        return self._setup_model(OrderBase, scenario_name, "orders")
+
+    def setup_mapped_order_item_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the MappedOrderItem model (composite PK with column mapping)."""
+        return self._setup_model(MappedOrderItemBase, scenario_name, "order_items")
+
+    # --- Derived field setup methods ---
+
+    def setup_product_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return self._setup_model(Product, scenario_name, "product")
+
+    def setup_product_form_a_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return self._setup_model(ProductFormA, scenario_name, "product")
+
+    def setup_product_with_proxy_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return self._setup_model(ProductWithProxy, scenario_name, "product")
+
+    def setup_product_with_column_and_adapter_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return self._setup_model(ProductWithColumnAndAdapter, scenario_name, "product")
+
+    def get_worker_connection_params(self, scenario_name: str, fixture_type: str = None) -> dict:
+        """
+        Return serializable connection parameters for Worker processes.
+
+        This method provides all information needed to recreate the database
+        connection in a Worker process, including the schema SQL for table creation.
+
+        Args:
+            scenario_name: The test scenario name
+            fixture_type: Optional fixture type hint (e.g., 'user', 'async_user')
+                         Used to determine if async backend is needed
+        """
+        if scenario_name in self._scenario_db_files:
+            database_path = self._scenario_db_files[scenario_name]
+        else:
+            _, config = get_scenario(scenario_name)
+            database_path = config.database
+
+        is_async = fixture_type and fixture_type.startswith("async_")
+        backend_class_name = "AsyncSQLiteBackend" if is_async else "SQLiteBackend"
+
+        table_name = "users"
+        if fixture_type:
+            base_type = fixture_type.replace("async_", "")
+            table_map = {
+                "user": "users",
+                "order": "orders",
+                "order_item": "order_items",
+            }
+            table_name = table_map.get(base_type, "users")
+
+        from providers.fixtures.basic import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+            dialect = SQLiteDialect()
+            schema_sql, _ = fn(dialect, table_name).to_sql()
+        else:
+            schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+
+        return {
+            "backend_module": "rhosocial.activerecord.backend.impl.sqlite",
+            "backend_class_name": backend_class_name,
+            "config_class_module": "rhosocial.activerecord.backend.impl.sqlite.config",
+            "config_class_name": "SQLiteConnectionConfig",
+            "config_kwargs": {
+                "database": database_path,
+            },
+            "schema_sql": schema_sql,
+        }
+
+    def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:
+        """
+        Return the SQL statement to create a specific table.
+
+        Args:
+            scenario_name: The test scenario name (unused for SQLite as schema is fixed)
+            table_name: Name of the table to create
+
+        Returns:
+            CREATE TABLE SQL statement
+        """
+        from providers.fixtures.basic import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+            dialect = SQLiteDialect()
+            sql, _ = fn(dialect, table_name).to_sql()
+            return sql
+        return self._load_sqlite_schema(f"{table_name}.sql")
+
+    def cleanup_after_test(self, scenario_name: str):
+        """
+        Performs cleanup after a test. For file-based scenarios, this involves
+        disconnecting backends and deleting the temporary database file.
+
+        CRITICAL: Backend disconnection MUST happen before file deletion.
+        SQLite maintains file locks on open connections. Attempting to delete
+        a database file while connections are still open will:
+        1. Fail silently on Unix (file remains until all handles closed)
+        2. Hang indefinitely on Windows (exclusive lock prevents deletion)
+        3. Cause subsequent tests to fail due to locked database files
+        """
+        for backend_instance in self._active_backends:
+            try:
+                backend_instance.disconnect()
+            except Exception:
+                pass
+        self._active_backends.clear()
+
+        if scenario_name in self._scenario_db_files:
+            db_file = self._scenario_db_files[scenario_name]
+            if os.path.exists(db_file):
+                try:
+                    os.remove(db_file)
+                    del self._scenario_db_files[scenario_name]
+                except OSError:
+                    pass
+        else:
+            _, config = get_scenario(scenario_name)
+            if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
+                try:
+                    os.remove(config.database)
+                except OSError:
+                    pass
+
+
+class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
+    """
+    Async-only SQLite implementation for the basic features test group.
+    Connects generic testsuite async tests to the actual SQLite database.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Track active backend instances for proper cleanup.
+        # IMPORTANT: SQLite connections hold file locks. If we attempt to delete
+        # the database file before disconnecting, the file remains locked and
+        # subsequent tests will hang indefinitely waiting for the lock to release.
+        self._active_async_backends = []
 
     async def _setup_async_model(
         self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str
@@ -473,70 +710,37 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
 
         return model_class
 
-    # --- Implementation of the IBasicProvider interface ---
+    # --- Async setup methods ---
 
-    def setup_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `User` model tests."""
-        return self._setup_model(User, scenario_name, "users")
-
-    async def setup_async_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+    async def setup_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncUser` model tests."""
         return await self._setup_async_model(AsyncUser, scenario_name, "users")
 
-    def setup_type_case_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `TypeCase` model tests."""
-        return self._setup_model(TypeCase, scenario_name, "type_cases")
-
-    async def setup_async_type_case_model(self, scenario_name: str) -> Type[ActiveRecord]:
+    async def setup_type_case_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncTypeCase` model tests."""
         return await self._setup_async_model(AsyncTypeCase, scenario_name, "type_cases")
 
-    def setup_type_test_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `TypeTestModel` model tests."""
-        return self._setup_model(TypeTestModel, scenario_name, "type_tests")
-
-    async def setup_async_type_test_model(self, scenario_name: str) -> Type[ActiveRecord]:
+    async def setup_type_test_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncTypeTestModel` model tests."""
         return await self._setup_async_model(AsyncTypeTestModel, scenario_name, "type_tests")
 
-    def setup_validated_field_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `ValidatedFieldUser` model tests."""
-        return self._setup_model(ValidatedFieldUser, scenario_name, "validated_field_users")
-
-    async def setup_async_validated_field_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+    async def setup_validated_field_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncValidatedFieldUser` model tests."""
         return await self._setup_async_model(AsyncValidatedFieldUser, scenario_name, "validated_field_users")
 
-    def setup_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `ValidatedUser` model tests."""
-        return self._setup_model(ValidatedUser, scenario_name, "validated_users")
-
-    async def setup_async_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+    async def setup_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncValidatedUser` model tests."""
         return await self._setup_async_model(AsyncValidatedUser, scenario_name, "validated_users")
 
-    def setup_pydantic_validated_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `PydanticValidatedModel` model tests."""
-        return self._setup_model(PydanticValidatedModel, scenario_name, "pydantic_validated_models")
-
-    async def setup_async_pydantic_validated_model(self, scenario_name: str) -> Type[ActiveRecord]:
+    async def setup_pydantic_validated_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncPydanticValidatedModel` model tests."""
         return await self._setup_async_model(AsyncPydanticValidatedModel, scenario_name, "pydantic_validated_models")
 
-    def setup_mapped_models(self, scenario_name: str):
-        """Sets up the database for MappedUser, MappedPost, and MappedComment models."""
-        user = self._setup_model(MappedUser, scenario_name, "users")
-        post = self._setup_model(MappedPost, scenario_name, "posts")
-        comment = self._setup_model(MappedComment, scenario_name, "comments")
-        return user, post, comment
-
-    async def setup_async_mapped_models(self, scenario_name: str):
+    async def setup_mapped_models(self, scenario_name: str):
         """Sets up the database for AsyncMappedUser, AsyncMappedPost, and AsyncMappedComment models."""
-        # Use shared backend for all models to ensure proper cleanup
         user = await self._setup_async_model(AsyncMappedUser, scenario_name, "users")
         shared_backend = user.__backend__
 
-        # Configure remaining models with the same backend instance
         post_model_class = AsyncMappedPost
         post_model_class.__connection_config__ = user.__connection_config__
         post_model_class.__backend_class__ = user.__backend_class__
@@ -575,21 +779,13 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
             schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
             await model_class.__backend__.execute(schema_sql, options=options)
 
-    def setup_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
-        """Sets up the database for ColumnMappingModel and MixedAnnotationModel."""
-        column_mapping_model = self._setup_model(ColumnMappingModel, scenario_name, "column_mapping_items")
-        mixed_annotation_model = self._setup_model(MixedAnnotationModel, scenario_name, "mixed_annotation_items")
-        return column_mapping_model, mixed_annotation_model
-
-    async def setup_async_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
+    async def setup_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
         """Sets up the database for AsyncColumnMappingModel and AsyncMixedAnnotationModel."""
-        # Use shared backend for all models to ensure proper cleanup
         column_mapping_model = await self._setup_async_model(
             AsyncColumnMappingModel, scenario_name, "column_mapping_items"
         )
         shared_backend = column_mapping_model.__backend__
 
-        # Configure remaining models with the same backend instance
         mixed_annotation_model_class = AsyncMixedAnnotationModel
         mixed_annotation_model_class.__connection_config__ = column_mapping_model.__connection_config__
         mixed_annotation_model_class.__backend_class__ = column_mapping_model.__backend_class__
@@ -598,82 +794,40 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
 
         return column_mapping_model, mixed_annotation_model_class
 
-    def setup_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `TypeAdapterTest` model tests."""
-        return self._setup_model(TypeAdapterTest, scenario_name, "type_adapter_tests")
-
-    async def setup_async_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
+    async def setup_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncTypeAdapterTest` model tests."""
         return await self._setup_async_model(AsyncTypeAdapterTest, scenario_name, "type_adapter_tests")
 
-    def setup_bulk_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `BulkUser` model tests."""
-        return self._setup_model(BulkUser, scenario_name, "bulk_users")
-
-    async def setup_async_bulk_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+    async def setup_bulk_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncBulkUser` model tests."""
         return await self._setup_async_model(AsyncBulkUser, scenario_name, "bulk_users")
 
-    def get_yes_no_adapter(self) -> BaseSQLTypeAdapter:
-        """Returns an instance of the YesOrNoBooleanAdapter."""
-        return YesOrNoBooleanAdapter()
+    # --- Composite PK async setup methods ---
 
-    def _load_sqlite_schema(self, filename: str) -> str:
-        """Helper to load a SQL schema file from this project's fixtures."""
-        # Schemas are stored in the centralized location for basic feature.
-        schema_dir = os.path.join(
-            os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "basic", "schema"
-        )
-        schema_path = os.path.join(schema_dir, filename)
+    async def setup_order_item_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return await self._setup_async_model(AsyncOrderItemBase, scenario_name, "order_items")
 
-        with open(schema_path, "r", encoding="utf-8") as f:
-            return f.read()
+    async def setup_order_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return await self._setup_async_model(AsyncOrderBase, scenario_name, "orders")
 
-    def cleanup_after_test(self, scenario_name: str):
-        """
-        Performs cleanup after a test. For file-based scenarios, this involves
-        disconnecting backends and deleting the temporary database file.
+    async def setup_mapped_order_item_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return await self._setup_async_model(AsyncMappedOrderItemBase, scenario_name, "order_items")
 
-        CRITICAL: Backend disconnection MUST happen before file deletion.
-        SQLite maintains file locks on open connections. Attempting to delete
-        a database file while connections are still open will:
-        1. Fail silently on Unix (file remains until all handles closed)
-        2. Hang indefinitely on Windows (exclusive lock prevents deletion)
-        3. Cause subsequent tests to fail due to locked database files
-        """
-        # First, disconnect all active sync backends
-        # This releases file locks before we attempt to delete the database file
-        for backend_instance in self._active_backends:
-            try:
-                backend_instance.disconnect()
-            except Exception:
-                pass
-        self._active_backends.clear()
+    # --- Derived field async setup methods ---
 
-        # Use the dynamically generated database file if available, otherwise use the original config
-        if scenario_name in self._scenario_db_files:
-            db_file = self._scenario_db_files[scenario_name]
-            if os.path.exists(db_file):
-                try:
-                    # Attempt to remove the temp db file.
-                    os.remove(db_file)
-                    # Remove from tracking dict
-                    del self._scenario_db_files[scenario_name]
-                except OSError:
-                    # Ignore errors if the file is already gone or locked, etc.
-                    pass
-        else:
-            # Fallback to original behavior for in-memory databases
-            _, config = get_scenario(scenario_name)
-            if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
-                try:
-                    # Attempt to remove the temp db file.
-                    os.remove(config.database)
-                except OSError:
-                    # Ignore errors if the file is already gone or locked, etc.
-                    pass
+    async def setup_product_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return await self._setup_async_model(AsyncProduct, scenario_name, "product")
 
-    async def cleanup_after_test_async(self, scenario_name: str):
+    async def setup_product_form_a_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return await self._setup_async_model(AsyncProductFormA, scenario_name, "product")
+
+    async def setup_product_with_proxy_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return await self._setup_async_model(AsyncProductWithProxy, scenario_name, "product")
+
+    async def setup_product_with_column_and_adapter_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        return await self._setup_async_model(AsyncProductWithColumnAndAdapter, scenario_name, "product")
+
+    async def cleanup_after_test(self, scenario_name: str):
         """
         Performs async cleanup after a test. For file-based scenarios, this involves
         deleting the temporary database file.
@@ -681,8 +835,6 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         CRITICAL: Backend disconnection MUST happen before file deletion.
         See cleanup_after_test() for details on SQLite file locking behavior.
         """
-        # First, disconnect all active async backends
-        # This releases file locks before we attempt to delete the database file
         for backend_instance in self._active_async_backends:
             try:
                 await backend_instance.disconnect()
@@ -705,80 +857,3 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
                     os.remove(config.database)
                 except OSError:
                     pass
-
-    # --- Implementation of WorkerTestProtocol ---
-
-    def get_worker_connection_params(self, scenario_name: str, fixture_type: str = None) -> dict:
-        """
-        Return serializable connection parameters for Worker processes.
-
-        This method provides all information needed to recreate the database
-        connection in a Worker process, including the schema SQL for table creation.
-
-        Args:
-            scenario_name: The test scenario name
-            fixture_type: Optional fixture type hint (e.g., 'user', 'async_user')
-                         Used to determine if async backend is needed
-        """
-        # Get the database file path used in this scenario
-        if scenario_name in self._scenario_db_files:
-            database_path = self._scenario_db_files[scenario_name]
-        else:
-            _, config = get_scenario(scenario_name)
-            database_path = config.database
-
-        # Determine if async backend is needed based on fixture_type
-        is_async = fixture_type and fixture_type.startswith("async_")
-        backend_class_name = "AsyncSQLiteBackend" if is_async else "SQLiteBackend"
-
-        # Determine schema file based on fixture_type
-        table_name = "users"  # default
-        if fixture_type:
-            # Remove 'async_' prefix if present to get the base type
-            base_type = fixture_type.replace("async_", "")
-            table_map = {
-                "user": "users",
-                "order": "orders",
-                "order_item": "order_items",
-            }
-            table_name = table_map.get(base_type, "users")
-
-        from providers.fixtures.basic import TABLE_EXPRESSIONS
-
-        if fn := TABLE_EXPRESSIONS.get(table_name):
-            from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-            dialect = SQLiteDialect()
-            schema_sql, _ = fn(dialect, table_name).to_sql()
-        else:
-            schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
-
-        return {
-            "backend_module": "rhosocial.activerecord.backend.impl.sqlite",
-            "backend_class_name": backend_class_name,
-            "config_class_module": "rhosocial.activerecord.backend.impl.sqlite.config",
-            "config_class_name": "SQLiteConnectionConfig",
-            "config_kwargs": {
-                "database": database_path,
-            },
-            "schema_sql": schema_sql,
-        }
-
-    def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:
-        """
-        Return the SQL statement to create a specific table.
-
-        Args:
-            scenario_name: The test scenario name (unused for SQLite as schema is fixed)
-            table_name: Name of the table to create
-
-        Returns:
-            CREATE TABLE SQL statement
-        """
-        from providers.fixtures.basic import TABLE_EXPRESSIONS
-
-        if fn := TABLE_EXPRESSIONS.get(table_name):
-            from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-            dialect = SQLiteDialect()
-            sql, _ = fn(dialect, table_name).to_sql()
-            return sql
-        return self._load_sqlite_schema(f"{table_name}.sql")

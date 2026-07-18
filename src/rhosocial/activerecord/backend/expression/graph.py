@@ -55,12 +55,98 @@ class GraphEdge(BaseExpression):
         return self.dialect.format_graph_edge(self)
 
 
-class MatchClause(BaseExpression):
-    """Represents a MATCH clause with one or more path patterns according to SQL 2023 standard."""
+class QuantifiedPath(BaseExpression):
+    """A variable-length (quantified) graph edge path pattern.
 
-    def __init__(self, dialect: "SQLDialectBase", *path: Union[GraphVertex, GraphEdge]):
+    Represents SQL/PGQ quantified path patterns such as:
+    - ``-[e IS "label"]+``  (one or more)
+    - ``-[e IS "label"]*``  (zero or more)
+    - ``-[e IS "label"]{2,5}``  (between 2 and 5)
+
+    Not all SQL dialects support quantified paths; they are a SQL/PGQ
+    standard feature.  Dialects that implement this capability must
+    override :meth:`format_quantified_path`.
+    """
+
+    def __init__(self, dialect: "SQLDialectBase",
+                 edge: "GraphEdge",
+                 min_repeats: Optional[int] = None,
+                 max_repeats: Optional[int] = None):
+        super().__init__(dialect)
+        self.edge = edge
+        self.min_repeats = min_repeats
+        self.max_repeats = max_repeats
+
+    def to_sql(self) -> "SQLQueryAndParams":
+        return self.dialect.format_quantified_path(self)
+
+
+class PathPattern(BaseExpression):
+    """A single graph path pattern within a MATCH clause.
+
+    Wraps a sequence of vertices, edges, and quantified paths into one
+    logical pattern.  When a :class:`MatchClause` holds multiple
+    ``PathPattern`` instances they are rendered as comma-separated
+    patterns (``MATCH p1, p2``).
+
+    .. code-block:: python
+
+        p1 = PathPattern(dialect, a, e1, b)
+        p2 = PathPattern(dialect, b, e2, c)
+        match = MatchClause(dialect, p1, p2)
+        # -> MATCH (a)-[e1]->(b), (b)-[e2]->(c)
+    """
+
+    def __init__(self, dialect: "SQLDialectBase",
+                 *path: Union["GraphVertex", "GraphEdge", "QuantifiedPath"]):
         super().__init__(dialect)
         self.path = list(path)
+
+    def to_sql(self) -> "SQLQueryAndParams":
+        return self.dialect.format_path_pattern(self)
+
+
+class MatchClause(BaseExpression):
+    """Represents a MATCH clause with one or more path patterns.
+
+    Accepts either a flat sequence of vertices/edges (legacy single-path
+    API) or one or more explicit :class:`PathPattern` instances for
+    comma-separated multi-pattern support.
+
+    .. code-block:: python
+
+        # Single path (legacy API)
+        MatchClause(dialect, a, e, b)
+        # -> MATCH (a)-[e]->(b)
+
+        # Multiple comma-separated patterns
+        MatchClause(dialect, PathPattern(dialect, a, e, b),
+                           PathPattern(dialect, b, f, c))
+        # -> MATCH (a)-[e]->(b), (b)-[f]->(c)
+    """
+
+    def __init__(self, dialect: "SQLDialectBase",
+                 *args: Union["PathPattern", "GraphVertex", "GraphEdge", "QuantifiedPath"]):
+        super().__init__(dialect)
+        if len(args) > 0 and isinstance(args[0], PathPattern):
+            self.patterns = list(args)
+        else:
+            self.patterns = [PathPattern(dialect, *args)]
+
+    @property
+    def path(self) -> List[Union["GraphVertex", "GraphEdge", "QuantifiedPath"]]:
+        """Backward-compatible access to the first (or only) pattern's elements.
+
+        For single-pattern ``MatchClause`` instances this returns the flat
+        element list as the previous ``.path`` attribute did.  Raises
+        ``ValueError`` when multiple patterns are present.
+        """
+        if len(self.patterns) != 1:
+            raise ValueError(
+                "MatchClause.path is ambiguous when multiple patterns exist; "
+                "use MatchClause.patterns instead."
+            )
+        return self.patterns[0].path
 
     def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_match_clause(self)
