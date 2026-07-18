@@ -5,7 +5,10 @@ according to SQL 2023 (ISO/IEC 9075-16) standard.
 """
 
 import pytest
-from rhosocial.activerecord.backend.expression.graph import GraphVertex, GraphEdge, GraphEdgeDirection, MatchClause
+from rhosocial.activerecord.backend.expression.graph import (
+    GraphVertex, GraphEdge, GraphEdgeDirection,
+    QuantifiedPath, PathPattern, MatchClause,
+)
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -215,6 +218,129 @@ class TestGraphDirectionCombinations:
         else:
             # Check that the expected pattern appears in the right place
             assert expected_pattern in sql
+
+
+class TestQuantifiedPath:
+    """Tests for QuantifiedPath (variable-length pattern)."""
+
+    def test_default_one_or_more(self, dummy_dialect: DummyDialect):
+        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        qp = QuantifiedPath(dummy_dialect, edge)
+        sql, params = qp.to_sql()
+        assert sql == '-[e IS "knows"]->+'
+        assert params == ()
+
+    def test_zero_or_more(self, dummy_dialect: DummyDialect):
+        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        qp = QuantifiedPath(dummy_dialect, edge, min_repeats=0)
+        sql, params = qp.to_sql()
+        assert sql == '-[e IS "knows"]->*'
+
+    def test_exact_count(self, dummy_dialect: DummyDialect):
+        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        qp = QuantifiedPath(dummy_dialect, edge, min_repeats=3, max_repeats=3)
+        sql, params = qp.to_sql()
+        assert sql == '-[e IS "knows"]->{3}'
+
+    def test_range(self, dummy_dialect: DummyDialect):
+        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        qp = QuantifiedPath(dummy_dialect, edge, min_repeats=2, max_repeats=5)
+        sql, params = qp.to_sql()
+        assert sql == '-[e IS "knows"]->{2,5}'
+
+    def test_minimum_only(self, dummy_dialect: DummyDialect):
+        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        qp = QuantifiedPath(dummy_dialect, edge, min_repeats=1)
+        sql, params = qp.to_sql()
+        assert sql == '-[e IS "knows"]->{1,}'
+
+    def test_anonymous_edge(self, dummy_dialect: DummyDialect):
+        edge = GraphEdge(dummy_dialect, direction=GraphEdgeDirection.RIGHT)
+        qp = QuantifiedPath(dummy_dialect, edge)
+        sql, params = qp.to_sql()
+        assert sql == '-[]->+'
+
+
+class TestPathPattern:
+    """Tests for PathPattern (single path within MATCH)."""
+
+    def test_simple_path(self, dummy_dialect: DummyDialect):
+        a = GraphVertex(dummy_dialect, "a", "person")
+        e = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        b = GraphVertex(dummy_dialect, "b", "person")
+        pattern = PathPattern(dummy_dialect, a, e, b)
+        sql, params = pattern.to_sql()
+        assert '(a IS "person")' in sql
+        assert '-[e IS "knows"]->' in sql
+        assert '(b IS "person")' in sql
+
+    def test_with_quantified_path(self, dummy_dialect: DummyDialect):
+        a = GraphVertex(dummy_dialect, "a", "person")
+        e = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        qp = QuantifiedPath(dummy_dialect, e, min_repeats=1)
+        b = GraphVertex(dummy_dialect, "b", "person")
+        pattern = PathPattern(dummy_dialect, a, qp, b)
+        sql, params = pattern.to_sql()
+        assert '(a IS "person")' in sql
+        assert '-[e IS "knows"]->{1,}' in sql
+        assert '(b IS "person")' in sql
+
+
+class TestMatchClauseMultiPattern:
+    """Tests for MatchClause with comma-separated multiple patterns."""
+
+    def test_two_patterns(self, dummy_dialect: DummyDialect):
+        a = GraphVertex(dummy_dialect, "a", "person")
+        e1 = GraphEdge(dummy_dialect, "e1", "knows", GraphEdgeDirection.RIGHT)
+        b = GraphVertex(dummy_dialect, "b", "person")
+        p1 = PathPattern(dummy_dialect, a, e1, b)
+
+        e2 = GraphEdge(dummy_dialect, "e2", "knows", GraphEdgeDirection.RIGHT)
+        c = GraphVertex(dummy_dialect, "c", "person")
+        p2 = PathPattern(dummy_dialect, b, e2, c)
+
+        match = MatchClause(dummy_dialect, p1, p2)
+        sql, params = match.to_sql()
+        assert "MATCH" in sql
+        assert ", " in sql
+        assert sql.count("MATCH") == 1
+
+    def test_patterns_listed(self, dummy_dialect: DummyDialect):
+        a = GraphVertex(dummy_dialect, "a", "person")
+        e = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        b = GraphVertex(dummy_dialect, "b", "person")
+        p1 = PathPattern(dummy_dialect, a, e, b)
+
+        c = GraphVertex(dummy_dialect, "c", "person")
+        p2 = PathPattern(dummy_dialect, c)
+
+        match = MatchClause(dummy_dialect, p1, p2)
+        sql, params = match.to_sql()
+        assert "(a IS" in sql
+        assert "(b IS" in sql
+        assert "(c IS" in sql
+
+    def test_pattern_property_ambiguous(self, dummy_dialect: DummyDialect):
+        a = GraphVertex(dummy_dialect, "a", "person")
+        e1 = GraphEdge(dummy_dialect, "e1", "knows", GraphEdgeDirection.RIGHT)
+        e2 = GraphEdge(dummy_dialect, "e2", "knows", GraphEdgeDirection.RIGHT)
+        b = GraphVertex(dummy_dialect, "b", "person")
+        c = GraphVertex(dummy_dialect, "c", "person")
+        p1 = PathPattern(dummy_dialect, a, e1, b)
+        p2 = PathPattern(dummy_dialect, b, e2, c)
+        match = MatchClause(dummy_dialect, p1, p2)
+        with pytest.raises(ValueError, match="ambiguous"):
+            _ = match.path
+
+
+class TestCommaSeparatedPatternCapability:
+    """Tests that dialects report comma-separated pattern support correctly."""
+
+    def test_dummy_supports_comma_separated(self, dummy_dialect: DummyDialect):
+        assert dummy_dialect.supports_comma_separated_patterns() is True
+
+    def test_dummy_supports_quantified_path(self, dummy_dialect: DummyDialect):
+        assert dummy_dialect.supports_quantified_path() is True
 
 
 class TestIntegration:

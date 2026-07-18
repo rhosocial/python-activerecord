@@ -10,9 +10,10 @@ These are used in two ways:
 2. Eventually: replace .sql files entirely
 """
 
+from decimal import Decimal
 from typing import Callable, Dict
 
-from rhosocial.activerecord.backend.expression.types import BlobType, BooleanType, DateTimeType, FloatType, IntegerType, TextType, VarCharType
+from rhosocial.activerecord.backend.expression.types import BlobType, BooleanType, DateTimeType, DecimalType, FloatType, IntegerType, TextType, VarCharType
 from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,
@@ -20,6 +21,8 @@ from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
+    TableConstraint,
+    TableConstraintType,
 )
 
 
@@ -292,6 +295,88 @@ def drop_table(dialect, table_name: str) -> DropTableExpression:
     )
 
 
+def create_composite_pk_order_items_table(dialect, table_name: str = "order_items") -> CreateTableExpression:
+    return CreateTableExpression(
+        dialect=dialect,
+        table=table_name,
+        if_not_exists=False,
+        columns=[
+            ColumnDefinition("order_id", IntegerType(),
+                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("product_id", IntegerType(),
+                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("quantity", IntegerType(),
+                constraints=[
+                    ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                    ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=1),
+                ]),
+            ColumnDefinition("unit_price", DecimalType(precision=10, scale=2),
+                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ],
+        table_constraints=[
+            TableConstraint(
+                constraint_type=TableConstraintType.PRIMARY_KEY,
+                columns=["order_id", "product_id"],
+            ),
+        ],
+    )
+
+
+def create_store_inventory_table(dialect, table_name: str = "store_inventory") -> CreateTableExpression:
+    return CreateTableExpression(
+        dialect=dialect,
+        table=table_name,
+        if_not_exists=False,
+        columns=[
+            ColumnDefinition("store_id", IntegerType(),
+                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("product_id", IntegerType(),
+                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("batch_id", VarCharType(64),
+                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("stock", IntegerType(),
+                constraints=[
+                    ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                    ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=0),
+                ]),
+        ],
+        table_constraints=[
+            TableConstraint(
+                constraint_type=TableConstraintType.PRIMARY_KEY,
+                columns=["store_id", "product_id", "batch_id"],
+            ),
+        ],
+    )
+
+
+def create_orders_table(dialect, table_name: str = "orders") -> CreateTableExpression:
+    return CreateTableExpression(
+        dialect=dialect,
+        table=table_name,
+        if_not_exists=False,
+        columns=[
+            ColumnDefinition("id", IntegerType(),
+                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition("total", DecimalType(precision=10, scale=2),
+                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("created_at", TextType()),
+            ColumnDefinition("updated_at", TextType()),
+        ],
+    )
+
+
+def create_product_table(dialect, table_name: str = "product") -> CreateTableExpression:
+    return CreateTableExpression(
+        dialect=dialect, table=table_name, if_not_exists=True,
+        columns=[
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition("name", TextType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("price", FloatType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("quantity", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ],
+    )
+
+
 TABLE_EXPRESSIONS: Dict[str, Callable] = {
     "users": create_users_table,
     "type_cases": create_type_cases_table,
@@ -305,4 +390,8 @@ TABLE_EXPRESSIONS: Dict[str, Callable] = {
     "column_mapping_items": create_column_mapping_items_table,
     "mixed_annotation_items": create_mixed_annotation_items_table,
     "type_adapter_tests": create_type_adapter_tests_table,
+    "order_items": create_composite_pk_order_items_table,
+    "store_inventory": create_store_inventory_table,
+    "orders": create_orders_table,
+    "product": create_product_table,
 }

@@ -16,11 +16,6 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-pytest.skip(
-    "Cache serialization is not introduced in this release; source is kept for follow-up external cache design.",
-    allow_module_level=True,
-)
-
 from rhosocial.activerecord.relation.cache_backends._protocol import CacheSerializer  # noqa: E402
 
 # ---------------------------------------------------------------------------

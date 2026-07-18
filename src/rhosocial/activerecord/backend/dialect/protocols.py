@@ -23,6 +23,8 @@ if TYPE_CHECKING:  # pragma: no cover
         GraphTableExpression,
         GraphVertex,
         GraphEdge,
+        QuantifiedPath,
+        PathPattern,
         ColumnsClause,
         VertexTable,
         EdgeTable,
@@ -722,6 +724,22 @@ class GraphSupport(Protocol):
         """Whether graph query MATCH clause is supported."""
         ...  # pragma: no cover
 
+    def supports_quantified_path(self) -> bool:
+        """Whether variable-length (quantified) path patterns are supported.
+
+        Quantified paths use ``+``, ``*``, or ``{n,m}`` quantifiers on
+        edges, e.g. ``-[e IS "knows"]+``.
+        """
+        ...  # pragma: no cover
+
+    def supports_comma_separated_patterns(self) -> bool:
+        """Whether multiple comma-separated patterns in a single MATCH
+        clause are supported.
+
+        When ``True`` the dialect accepts ``MATCH (a)->(b), (b)->(c)``.
+        """
+        ...  # pragma: no cover
+
     def format_graph_vertex(self, vertex: "GraphVertex") -> Tuple[str, tuple]:
         """
         Formats a graph vertex expression.
@@ -746,12 +764,20 @@ class GraphSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def format_quantified_path(self, quantified: "QuantifiedPath") -> Tuple[str, tuple]:
+        """Formats a quantified (variable-length) path pattern."""
+        ...  # pragma: no cover
+
+    def format_path_pattern(self, pattern: "PathPattern") -> Tuple[str, tuple]:
+        """Formats a single path pattern (sequence of vertices & edges)."""
+        ...  # pragma: no cover
+
     def format_match_clause(self, clause: "MatchClause") -> Tuple[str, tuple]:
         """
-        Formats a MATCH clause.
+        Formats a MATCH clause with one or more patterns.
 
         Args:
-            clause: MatchClause object containing the match expression
+            clause: MatchClause object.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.

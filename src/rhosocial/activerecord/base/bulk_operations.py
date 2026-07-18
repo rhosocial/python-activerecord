@@ -385,7 +385,7 @@ class AsyncBulkOperationsMixin:
         validation_errors = []
         for i, record in enumerate(records):
             try:
-                record.validate_fields()
+                await record.validate_fields()
             except Exception as e:
                 validation_errors.append((i, str(e)))
         if validation_errors:
@@ -394,7 +394,7 @@ class AsyncBulkOperationsMixin:
         all_data = []
         for record in records:
             data = record._prepare_save_data()
-            record._trigger_event(ModelEvent.BEFORE_INSERT, data=data)
+            await record._trigger_event(ModelEvent.BEFORE_INSERT, data=data)
             all_data.append(data)
 
         if not all_data:
@@ -456,7 +456,7 @@ class AsyncBulkOperationsMixin:
         for record in records:
             record._is_from_db = True
             record.reset_tracking()
-            record._trigger_event(ModelEvent.AFTER_INSERT)
+            await record._trigger_event(ModelEvent.AFTER_INSERT)
 
         return records
 
@@ -508,14 +508,14 @@ class AsyncBulkOperationsMixin:
         validation_errors = []
         for i, record in enumerate(records):
             try:
-                record.validate_fields()
+                await record.validate_fields()
             except Exception as e:
                 validation_errors.append((i, str(e)))
         if validation_errors:
             raise BulkValidationError(validation_errors)
 
         for record in records:
-            record._trigger_event(ModelEvent.BEFORE_UPDATE)
+            await record._trigger_event(ModelEvent.BEFORE_UPDATE)
 
         for record in records:
             record._prepare_save_data()
@@ -562,7 +562,7 @@ class AsyncBulkOperationsMixin:
 
         for record in records:
             record.reset_tracking()
-            record._trigger_event(ModelEvent.AFTER_UPDATE)
+            await record._trigger_event(ModelEvent.AFTER_UPDATE)
 
         return total_affected
 
@@ -594,7 +594,7 @@ class AsyncBulkOperationsMixin:
                 )
 
         for record in records:
-            record._trigger_event(ModelEvent.BEFORE_DELETE)
+            await record._trigger_event(ModelEvent.BEFORE_DELETE)
 
         is_soft_delete = hasattr(records[0], "prepare_delete")
 
@@ -631,7 +631,7 @@ class AsyncBulkOperationsMixin:
                     if not is_soft_delete:
                         setattr(record, pk_field, None)
                     record.reset_tracking()
-                    record._trigger_event(ModelEvent.AFTER_DELETE)
+                    await record._trigger_event(ModelEvent.AFTER_DELETE)
         else:
             predicates = [cls._build_pk_where_predicate(r._get_pk_value()) for r in records]
             combined = predicates[0]
@@ -664,6 +664,6 @@ class AsyncBulkOperationsMixin:
                         for pk_field in cls.primary_key_fields():
                             setattr(record, pk_field, None)
                     record.reset_tracking()
-                    record._trigger_event(ModelEvent.AFTER_DELETE)
+                    await record._trigger_event(ModelEvent.AFTER_DELETE)
 
         return affected_rows

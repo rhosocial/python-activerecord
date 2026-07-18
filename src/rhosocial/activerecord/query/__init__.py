@@ -10,7 +10,7 @@ from .join import JoinQueryMixin
 from .async_join import AsyncJoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin, InvalidRelationPathError, RelationNotFoundError
-from .set_operation import SetOperationQuery
+from .set_operation import SetOperationQuery, AsyncSetOperationQuery
 
 __all__ = [
     "ActiveQuery",
@@ -18,6 +18,7 @@ __all__ = [
     "CTEQuery",
     "AsyncCTEQuery",
     "SetOperationQuery",
+    "AsyncSetOperationQuery",
     # Query Mixins
     "BaseQueryMixin",
     "AggregateQueryMixin",

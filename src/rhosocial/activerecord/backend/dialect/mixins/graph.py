@@ -9,6 +9,8 @@ if TYPE_CHECKING:  # pragma: no cover
         GraphEdge,
         GraphVertex,
         GraphEdgeDirection,
+        QuantifiedPath,
+        PathPattern,
         MatchClause,
         GraphTableExpression,
         ColumnsClause,
@@ -26,6 +28,18 @@ class GraphMixin:
 
     def supports_graph_match(self) -> bool:
         """Whether graph query MATCH clause is supported."""
+        return False
+
+    def supports_quantified_path(self) -> bool:
+        """Whether variable-length (quantified) path patterns are supported.
+
+        Quantified paths use ``+``, ``*``, or ``{n,m}`` quantifiers on edges.
+        """
+        return False
+
+    def supports_comma_separated_patterns(self) -> bool:
+        """Whether multiple comma-separated patterns in a single MATCH
+        clause are supported."""
         return False
 
     def format_graph_vertex(self, vertex: "GraphVertex") -> Tuple[str, tuple]:
@@ -103,9 +117,50 @@ class GraphMixin:
         sql = f"{prefix}{edge_body}{suffix}"
         return sql, ()
 
+    def format_quantified_path(self, quantified: "QuantifiedPath") -> Tuple[str, tuple]:
+        """Formats a quantified (variable-length) path pattern.
+
+        Raises :class:`UnsupportedFeatureError` when
+        :meth:`supports_quantified_path` is ``False``.
+        """
+        if not self.supports_quantified_path():
+            raise UnsupportedFeatureError(self.name, "quantified path pattern")
+
+        edge_sql, _ = quantified.edge.to_sql()
+
+        if quantified.min_repeats is None and quantified.max_repeats is None:
+            quantifier = "+"
+        elif quantified.min_repeats == 0 and quantified.max_repeats is None:
+            quantifier = "*"
+        elif quantified.min_repeats is not None and quantified.min_repeats == quantified.max_repeats:
+            quantifier = "{%d}" % quantified.min_repeats
+        elif quantified.max_repeats is None:
+            quantifier = "{%d,}" % quantified.min_repeats
+        else:
+            quantifier = "{%d,%d}" % (quantified.min_repeats, quantified.max_repeats)
+
+        return f"{edge_sql}{quantifier}", ()
+
+    def format_path_pattern(self, pattern: "PathPattern") -> Tuple[str, tuple]:
+        """Formats a single path pattern by joining its elements with spaces."""
+        if not self.supports_graph_match():
+            raise UnsupportedFeatureError(self.name, "graph MATCH clause")
+
+        parts_sql, all_params = [], []
+        for element in pattern.path:
+            sql, params = element.to_sql()
+            parts_sql.append(sql)
+            all_params.extend(params)
+        return " ".join(parts_sql), tuple(all_params)
+
     def format_match_clause(self, clause: "MatchClause") -> Tuple[str, tuple]:
         """
-        Formats a MATCH clause.
+        Formats a MATCH clause with one or more patterns.
+
+        When multiple :class:`PathPattern` instances are present they are
+        rendered as comma-separated patterns.  If the dialect does not
+        support comma-separated patterns and multiple patterns are given,
+        an :class:`UnsupportedFeatureError` is raised.
 
         Args:
             clause: MatchClause object containing the match expression
@@ -116,13 +171,20 @@ class GraphMixin:
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
-        path_sql, all_params = [], []
-        for part in clause.path:
-            sql, params = part.to_sql()
-            path_sql.append(sql)
+        has_multiple = len(clause.patterns) > 1
+        if has_multiple and not self.supports_comma_separated_patterns():
+            raise UnsupportedFeatureError(
+                self.name, "comma-separated patterns in MATCH clause"
+            )
+
+        pattern_sqls, all_params = [], []
+        for pattern in clause.patterns:
+            sql, params = pattern.to_sql()
+            pattern_sqls.append(sql)
             all_params.extend(params)
 
-        match_sql = f"MATCH {' '.join(path_sql)}"
+        separator = ", " if has_multiple else " "
+        match_sql = f"MATCH {separator.join(pattern_sqls)}"
         return match_sql, tuple(all_params)
 
 

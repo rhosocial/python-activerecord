@@ -40,8 +40,16 @@ pydantic[email]
 fastapi>=0.110
 httpx>=0.27
 
-# Redis and MessagePack cache support are not introduced in this release.
-# Keep source code only for follow-up external cache design.
+# Redis client for RedisCache backend tests
+# Redis is provided as a test/scoped service in .github/workflows/test.yml
+# on localhost:6379 via REDIS_HOST / REDIS_PORT / REDIS_DB env vars.
+redis>=5.0,<9.0
+
+# Optional msgpack format for CacheSerializer tests
+# msgpack is referenced by src/rhosocial/activerecord/relation/cache_backends/_protocol.py
+# (FORMAT_MSGPACK; # also referenced via _msgpack_default/_msgpack_object_hook).
+# Tests for the msgpack format use pytest.importorskip("msgpack"); installing this enables them.
+msgpack>=1.0
 
 # YAML file processing library
 # Used for configuration file handling and test data

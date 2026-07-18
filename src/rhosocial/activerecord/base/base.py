@@ -2,6 +2,7 @@
 """Core BaseActiveRecord implementation."""
 
 import logging
+import inspect
 from pydantic.fields import FieldInfo
 from typing import Any, Callable, Dict, List, Optional, Type, Union, get_origin, get_args, Tuple
 
@@ -673,6 +674,36 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     Core Async ActiveRecord implementation providing the fundamental ORM functionality.
     """
 
+    async def _trigger_event(self, event: ModelEvent, **kwargs) -> None:
+        """Trigger event asynchronously, awaiting coroutine handlers.
+
+        Async counterpart of :meth:`ActiveRecordBase._trigger_event` (same
+        name, ``async``/``await`` only). Sync handlers are invoked normally;
+        async handlers (coroutine functions) are awaited so that I/O
+        performed inside them (e.g. nested ``await child.save()``) actually
+        runs. Sync/async event handling stays on equal footing without
+        mixing execution models.
+        """
+        if hasattr(self, "_event_handlers"):
+            for handler in self._event_handlers[event]:
+                result = handler(self, **kwargs)
+                if inspect.isawaitable(result):
+                    await result
+
+    async def validate_fields(self, *args, **kwargs):
+        """Validate model fields asynchronously, awaiting coroutine handlers.
+
+        Async counterpart of :meth:`ActiveRecordBase.validate_fields`
+        (same name, ``async``/``await`` only). Pydantic validation and
+        ``validate_record`` remain synchronous (no I/O); only the
+        BEFORE_VALIDATE / AFTER_VALIDATE event triggers are awaited so that
+        async handlers run without mixing execution models.
+        """
+        await self._trigger_event(ModelEvent.BEFORE_VALIDATE)
+        self.model_validate(self.model_dump())
+        self.validate_record(self)
+        await self._trigger_event(ModelEvent.AFTER_VALIDATE)
+
     def _get_pk_value(self) -> Any:
         cls = self.__class__
         cols = cls.primary_key_columns()
@@ -1187,7 +1218,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         if not self.backend():
             raise DatabaseError("No backend configured")
         try:
-            self.validate_fields()
+            await self.validate_fields()
         except Exception as e:
             self.log(logging.ERROR, f"Validation error: {str(e)}")
             raise DBValidationError(str(e)) from e
@@ -1227,7 +1258,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             raise DatabaseError("No backend configured")
         if self.is_new_record:
             return 0
-        self._trigger_event(ModelEvent.BEFORE_DELETE)
+        await self._trigger_event(ModelEvent.BEFORE_DELETE)
         backend = self.backend()
         pk_value = self._get_pk_value()
         where_predicate = self._build_pk_where_predicate(pk_value)
@@ -1260,7 +1291,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                         setattr(self, pk_field, None)
             self.reset_tracking()
             self._is_from_db = False
-            self._trigger_event(ModelEvent.AFTER_DELETE)
+            await self._trigger_event(ModelEvent.AFTER_DELETE)
         return affected_rows
 
     def validate_custom(self) -> None:

@@ -628,22 +628,22 @@ class IAsyncActiveRecord(ActiveRecordBase):
 
         if is_new:
             # INSERT operation for new records
-            self._trigger_event(ModelEvent.BEFORE_INSERT, data=data)
+            await self._trigger_event(ModelEvent.BEFORE_INSERT, data=data)
             result = await self._insert_internal(data)
             if result is not None and result.affected_rows > 0:
                 self._after_save(is_new)
                 self.reset_tracking()
-            self._trigger_event(ModelEvent.AFTER_INSERT, data=data, result=result)
+            await self._trigger_event(ModelEvent.AFTER_INSERT, data=data, result=result)
         else:
             # UPDATE operation for existing records
             dirty_fields = self.dirty_fields.copy()
-            self._trigger_event(ModelEvent.BEFORE_UPDATE, data=data, dirty_fields=dirty_fields)
+            await self._trigger_event(ModelEvent.BEFORE_UPDATE, data=data, dirty_fields=dirty_fields)
             result = await self._update_internal(data)
             if result is not None and result.affected_rows > 0:
                 self._after_save(is_new)
                 self.reset_tracking()
             # Always trigger AFTER_UPDATE to allow mixins to check result
-            self._trigger_event(ModelEvent.AFTER_UPDATE, data=data, dirty_fields=dirty_fields, result=result)
+            await self._trigger_event(ModelEvent.AFTER_UPDATE, data=data, dirty_fields=dirty_fields, result=result)
 
         return result.affected_rows if result else 0
 

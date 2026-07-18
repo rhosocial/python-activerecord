@@ -520,6 +520,12 @@ class DummyDialect(
     def supports_graph_match(self) -> bool:
         return True
 
+    def supports_quantified_path(self) -> bool:
+        return True
+
+    def supports_comma_separated_patterns(self) -> bool:
+        return True
+
     def supports_graph_table(self) -> bool:
         return True
 

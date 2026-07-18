@@ -132,22 +132,87 @@ MappedComment = _select_model_class(
     MappedCommentBase, MappedComment312, MappedComment311, MappedComment310, "MappedComment"
 )
 
-from rhosocial.activerecord.testsuite.feature.query.interfaces import IQueryProvider  # noqa: E402
+from rhosocial.activerecord.testsuite.feature.query.interfaces import IQuerySyncProvider, IQueryAsyncProvider  # noqa: E402
+from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (  # noqa: E402
+    OrderItem as OrderItemBase,
+    AsyncOrderItem as AsyncOrderItemBase,
+)
 from rhosocial.activerecord.testsuite.core.protocols import WorkerTestProtocol  # noqa: E402
 
 # Scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario  # noqa: E402
 
 
-class QueryProvider(IQueryProvider, WorkerTestProtocol):
+class QueryProviderBase:
     """
-    This is the SQLite backend's implementation for the query features test group.
-    It connects the generic tests in the testsuite with the actual SQLite database.
+    SQLite-specific shared helper base for query feature test providers.
+    Contains only non-I/O helper methods shared between sync and async providers.
     """
 
     def __init__(self):
         # Track the actual database file used for each scenario in the current test run.
         self._scenario_db_files = {}
+
+    def get_test_scenarios(self) -> List[str]:
+        """Returns a list of names for all enabled scenarios for this backend."""
+        return list(get_enabled_scenarios().keys())
+
+    def _load_sqlite_schema(self, filename: str) -> str:
+        """Helper to load a SQL schema file from this project's fixtures."""
+        schema_dir = os.path.join(
+            os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "query", "schema"
+        )
+        schema_path = os.path.join(schema_dir, filename)
+        with open(schema_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    def _get_schema_sql_for_fixture_type(self, fixture_type: str) -> dict:
+        """
+        Get schema SQL for a specific fixture type.
+
+        Args:
+            fixture_type: Type of fixture ('order', 'blog', 'user', 'combined')
+
+        Returns:
+            Dictionary mapping table names to CREATE TABLE statements
+        """
+        schemas = {}
+
+        if fixture_type == "order":
+            tables = ["users", "orders", "order_items"]
+        elif fixture_type == "blog":
+            tables = ["users", "posts", "comments"]
+        elif fixture_type == "user":
+            tables = ["users"]
+        elif fixture_type == "combined":
+            tables = ["users", "orders", "order_items", "posts", "comments"]
+        else:
+            tables = ["users"]
+
+        from providers.fixtures.query import TABLE_EXPRESSIONS
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        for table in tables:
+            if fn := TABLE_EXPRESSIONS.get(table):
+                dialect = SQLiteDialect()
+                sql, _ = fn(dialect, table).to_sql()
+                schemas[table] = sql
+            else:
+                schemas[table] = self._load_sqlite_schema(f"{table}.sql")
+
+        return schemas
+
+
+class QuerySyncProvider(QueryProviderBase, IQuerySyncProvider, WorkerTestProtocol):
+    """
+    Sync-only SQLite implementation for the query features test group.
+    Connects generic testsuite tests to the actual SQLite database.
+
+    Also implements WorkerTestProtocol to enable WorkerPool tests.
+    """
+
+    def __init__(self):
+        super().__init__()
         # Track active backend instances for proper cleanup.
         # IMPORTANT: SQLite connections hold file locks. If we attempt to delete
         # the database file before disconnecting, the file remains locked and
@@ -157,11 +222,6 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         # See: python-activerecord-mysql/docs/zh_CN/scenarios/parallel_workers.md
         # See: python-activerecord-postgres/docs/zh_CN/scenarios/parallel_workers.md
         self._active_backends = []
-        self._active_async_backends = []
-
-    def get_test_scenarios(self) -> List[str]:
-        """Returns a list of names for all enabled scenarios for this backend."""
-        return list(get_enabled_scenarios().keys())
 
     # --- Synchronous Implementation ---
 
@@ -303,13 +363,45 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
     def setup_profile_fixtures(self, scenario_name: str) -> Tuple[Type[ActiveRecord], Type[ActiveRecord]]:
         return self._setup_multiple_models([(User, "users"), (Profile, "profiles")], scenario_name)
 
-    async def setup_async_profile_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
-        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import (
-            AsyncUser,
-            AsyncProfile,
-        )
+    # --- Composite PK setup ---
 
-        return await self._setup_multiple_models_async([(AsyncUser, "users"), (AsyncProfile, "profiles")], scenario_name)
+    def setup_order_item_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the composite-PK OrderItem model tests.
+        Uses basic fixtures for table definition.
+        """
+        from providers.fixtures.basic import TABLE_EXPRESSIONS
+        backend_class, original_config = get_scenario(scenario_name)
+        config = original_config
+        if original_config.database != ":memory:":
+            unique_filename = os.path.join(
+                tempfile.gettempdir(), f"test_activerecord_{scenario_name}_sync_{uuid.uuid4().hex}.sqlite"
+            )
+            self._scenario_db_files.setdefault(scenario_name, []).append(unique_filename)
+            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+            config = SQLiteConnectionConfig(
+                database=unique_filename,
+                delete_on_close=original_config.delete_on_close,
+                pragmas=original_config.pragmas,
+            )
+        OrderItemBase.configure(config, backend_class)
+        if OrderItemBase.__backend__ not in self._active_backends:
+            self._active_backends.append(OrderItemBase.__backend__)
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
+        options = ExecutionOptions(stmt_type=StatementType.DDL)
+        try:
+            drop_expr = DropTableExpression(
+                dialect=OrderItemBase.__backend__.dialect,
+                table=TableExpression(OrderItemBase.__backend__.dialect, "order_items"),
+                if_exists=True,
+            )
+            OrderItemBase.__backend__.execute(*drop_expr.to_sql(), options=options)
+        except Exception:
+            pass
+        if fn := TABLE_EXPRESSIONS.get("order_items"):
+            create_expr = fn(OrderItemBase.__backend__.dialect, "order_items")
+            OrderItemBase.__backend__.execute(*create_expr.to_sql(), options=options)
+        return OrderItemBase
 
     def cleanup_after_test(self, scenario_name: str):
         """
@@ -341,7 +433,89 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
                         pass
             del self._scenario_db_files[scenario_name]
 
-    # --- Asynchronous Implementation (Completely Separate) ---
+    def __del__(self):
+        """Ensure all temp files are cleaned up when the provider is destroyed."""
+        for scenario_name in list(self._scenario_db_files.keys()):
+            self.cleanup_after_test(scenario_name)
+
+    # --- Implementation of WorkerTestProtocol ---
+
+    def get_worker_connection_params(self, scenario_name: str, fixture_type: str = "order") -> dict:
+        """
+        Return serializable connection parameters for Worker processes.
+
+        This method provides all information needed to recreate the database
+        connection in a Worker process, including the schema SQL for table creation.
+
+        Args:
+            scenario_name: The test scenario name
+            fixture_type: Type of fixture ('order', 'blog', 'user', 'combined',
+                         or with 'async_' prefix for async backends)
+
+        Returns:
+            Dictionary with connection parameters and schema SQL
+        """
+        # Get the database file path used in this scenario
+        if scenario_name in self._scenario_db_files:
+            # Use the first file from the list (they all share the same database)
+            database_path = self._scenario_db_files[scenario_name][0]
+        else:
+            _, config = get_scenario(scenario_name)
+            database_path = config.database
+
+        # Determine if async backend is needed based on fixture_type
+        is_async = fixture_type and fixture_type.startswith("async_")
+        backend_class_name = "AsyncSQLiteBackend" if is_async else "SQLiteBackend"
+
+        # Get base fixture type (remove 'async_' prefix if present)
+        base_fixture_type = fixture_type.replace("async_", "") if fixture_type else "order"
+
+        # Build schema SQL based on fixture type
+        schema_sql = self._get_schema_sql_for_fixture_type(base_fixture_type)
+
+        return {
+            "backend_module": "rhosocial.activerecord.backend.impl.sqlite",
+            "backend_class_name": backend_class_name,
+            "config_class_module": "rhosocial.activerecord.backend.impl.sqlite.config",
+            "config_class_name": "SQLiteConnectionConfig",
+            "config_kwargs": {
+                "database": database_path,
+            },
+            "schema_sql": schema_sql,
+        }
+
+    def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:
+        """
+        Return the SQL statement to create a specific table.
+
+        Args:
+            scenario_name: The test scenario name (unused for SQLite as schema is fixed)
+            table_name: Name of the table to create
+
+        Returns:
+            CREATE TABLE SQL statement
+        """
+        from providers.fixtures.query import TABLE_EXPRESSIONS
+
+        if fn := TABLE_EXPRESSIONS.get(table_name):
+            from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+            dialect = SQLiteDialect()
+            sql, _ = fn(dialect, table_name).to_sql()
+            return sql
+        return self._load_sqlite_schema(f"{table_name}.sql")
+
+
+class QueryAsyncProvider(QueryProviderBase, IQueryAsyncProvider):
+    """
+    Async-only SQLite implementation for the query features test group.
+    Connects generic testsuite async tests to the actual SQLite database.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._active_async_backends = []
+
+    # --- Asynchronous Implementation ---
 
     async def _setup_model_async(
         self, model_class: Type[AsyncActiveRecord], scenario_name: str, table_name: str, shared_backend=None
@@ -428,7 +602,7 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
             result.append(configured_model)
         return tuple(result)
 
-    async def setup_async_order_fixtures(
+    async def setup_order_fixtures(
         self, scenario_name: str
     ) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
         """Sets up the database for async order-related models (AsyncUser, AsyncOrder, AsyncOrderItem) tests."""
@@ -441,7 +615,7 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         models_and_tables = [(AsyncUser, "users"), (AsyncOrder, "orders"), (AsyncOrderItem, "order_items")]
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)
 
-    async def setup_async_blog_fixtures(
+    async def setup_blog_fixtures(
         self, scenario_name: str
     ) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
         """Sets up the database for async blog-related models (AsyncUser, AsyncPost, AsyncComment) tests."""
@@ -451,19 +625,19 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         models_and_tables = [(AsyncUser, "users"), (AsyncPost, "posts"), (AsyncComment, "comments")]
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)
 
-    async def setup_async_json_user_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
+    async def setup_json_user_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
         """Sets up the database for async JSON user model (AsyncJsonUser) tests."""
         from rhosocial.activerecord.testsuite.feature.query.fixtures.async_json_models import AsyncJsonUser
 
         return await self._setup_multiple_models_async([(AsyncJsonUser, "json_users")], scenario_name)
 
-    async def setup_async_tree_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
+    async def setup_tree_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
         """Sets up the database for async tree structure model (AsyncNode) tests."""
         from rhosocial.activerecord.testsuite.feature.query.fixtures.async_cte_models import AsyncNode
 
         return await self._setup_multiple_models_async([(AsyncNode, "nodes")], scenario_name)
 
-    async def setup_async_extended_order_fixtures(
+    async def setup_extended_order_fixtures(
         self, scenario_name: str
     ) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
         """Sets up the database for async extended order-related models (AsyncUser, AsyncExtendedOrder, AsyncExtendedOrderItem) tests."""  # noqa: E501
@@ -480,7 +654,7 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         ]
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)
 
-    async def setup_async_combined_fixtures(
+    async def setup_combined_fixtures(
         self, scenario_name: str
     ) -> Tuple[
         Type[AsyncActiveRecord],
@@ -506,7 +680,7 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         ]
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)
 
-    async def setup_async_annotated_query_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
+    async def setup_annotated_query_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
         """Sets up the database for async models using Annotated type adapters in queries (AsyncSearchableItem) tests."""  # noqa: E501
         from rhosocial.activerecord.testsuite.feature.query.fixtures.async_annotated_adapter_models import (
             AsyncSearchableItem,
@@ -514,11 +688,11 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
 
         return await self._setup_multiple_models_async([(AsyncSearchableItem, "searchable_items")], scenario_name)
 
-    async def setup_async_mapped_models(
+    async def setup_mapped_models(
         self, scenario_name: str
     ) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
         """Sets up the database for async mapped models (AsyncMappedUser, AsyncMappedPost, AsyncMappedComment) tests."""
-        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_mapped_models import (
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.models import (
             AsyncMappedUser,
             AsyncMappedPost,
             AsyncMappedComment,
@@ -527,7 +701,58 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
         models_and_tables = [(AsyncMappedUser, "users"), (AsyncMappedPost, "posts"), (AsyncMappedComment, "comments")]
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)
 
-    async def cleanup_after_test_async(self, scenario_name: str):
+    async def setup_profile_fixtures(
+        self, scenario_name: str
+    ) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import (
+            AsyncUser,
+            AsyncProfile,
+        )
+
+        return await self._setup_multiple_models_async(
+            [(AsyncUser, "users"), (AsyncProfile, "profiles")], scenario_name
+        )
+
+    # --- Composite PK async setup ---
+
+    async def setup_order_item_model(self, scenario_name: str) -> Type[AsyncActiveRecord]:
+        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+        from providers.fixtures.basic import TABLE_EXPRESSIONS
+        _, original_config = get_scenario(scenario_name)
+        config = original_config
+        if original_config.database != ":memory:":
+            unique_filename = os.path.join(
+                tempfile.gettempdir(), f"test_activerecord_{scenario_name}_async_{uuid.uuid4().hex}.sqlite"
+            )
+            self._scenario_db_files.setdefault(scenario_name, []).append(unique_filename)
+            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+            config = SQLiteConnectionConfig(
+                database=unique_filename,
+                delete_on_close=original_config.delete_on_close,
+                pragmas=original_config.pragmas,
+            )
+        await AsyncOrderItemBase.configure(config, AsyncSQLiteBackend)
+        await AsyncOrderItemBase.__backend__.connect()
+        if AsyncOrderItemBase.__backend__ not in self._active_async_backends:
+            self._active_async_backends.append(AsyncOrderItemBase.__backend__)
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
+        options = ExecutionOptions(stmt_type=StatementType.DDL)
+        try:
+            drop_expr = DropTableExpression(
+                dialect=AsyncOrderItemBase.__backend__.dialect,
+                table=TableExpression(AsyncOrderItemBase.__backend__.dialect, "order_items"),
+                if_exists=True,
+            )
+            await AsyncOrderItemBase.__backend__.execute(*drop_expr.to_sql(), options=options)
+        except Exception:
+            pass
+        if fn := TABLE_EXPRESSIONS.get("order_items"):
+            create_expr = fn(AsyncOrderItemBase.__backend__.dialect, "order_items")
+            await AsyncOrderItemBase.__backend__.execute(*create_expr.to_sql(), options=options)
+        return AsyncOrderItemBase
+
+    async def cleanup_after_test(self, scenario_name: str):
         """
         Performs async cleanup, disconnecting backends and deleting files.
 
@@ -552,121 +777,3 @@ class QueryProvider(IQueryProvider, WorkerTestProtocol):
                     except OSError:
                         pass
             del self._scenario_db_files[scenario_name]
-
-    # --- Common Helpers ---
-
-    def _load_sqlite_schema(self, filename: str) -> str:
-        """Helper to load a SQL schema file from this project's fixtures."""
-        schema_dir = os.path.join(
-            os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "query", "schema"
-        )
-        schema_path = os.path.join(schema_dir, filename)
-        with open(schema_path, "r", encoding="utf-8") as f:
-            return f.read()
-
-    def __del__(self):
-        """Ensure all temp files are cleaned up when the provider is destroyed."""
-        for scenario_name in list(self._scenario_db_files.keys()):
-            self.cleanup_after_test(scenario_name)
-
-    # --- Implementation of WorkerTestProtocol ---
-
-    def get_worker_connection_params(self, scenario_name: str, fixture_type: str = "order") -> dict:
-        """
-        Return serializable connection parameters for Worker processes.
-
-        This method provides all information needed to recreate the database
-        connection in a Worker process, including the schema SQL for table creation.
-
-        Args:
-            scenario_name: The test scenario name
-            fixture_type: Type of fixture ('order', 'blog', 'user', 'combined',
-                         or with 'async_' prefix for async backends)
-
-        Returns:
-            Dictionary with connection parameters and schema SQL
-        """
-        # Get the database file path used in this scenario
-        if scenario_name in self._scenario_db_files:
-            # Use the first file from the list (they all share the same database)
-            database_path = self._scenario_db_files[scenario_name][0]
-        else:
-            _, config = get_scenario(scenario_name)
-            database_path = config.database
-
-        # Determine if async backend is needed based on fixture_type
-        is_async = fixture_type and fixture_type.startswith("async_")
-        backend_class_name = "AsyncSQLiteBackend" if is_async else "SQLiteBackend"
-
-        # Get base fixture type (remove 'async_' prefix if present)
-        base_fixture_type = fixture_type.replace("async_", "") if fixture_type else "order"
-
-        # Build schema SQL based on fixture type
-        schema_sql = self._get_schema_sql_for_fixture_type(base_fixture_type)
-
-        return {
-            "backend_module": "rhosocial.activerecord.backend.impl.sqlite",
-            "backend_class_name": backend_class_name,
-            "config_class_module": "rhosocial.activerecord.backend.impl.sqlite.config",
-            "config_class_name": "SQLiteConnectionConfig",
-            "config_kwargs": {
-                "database": database_path,
-            },
-            "schema_sql": schema_sql,
-        }
-
-    def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:
-        """
-        Return the SQL statement to create a specific table.
-
-        Args:
-            scenario_name: The test scenario name (unused for SQLite as schema is fixed)
-            table_name: Name of the table to create
-
-        Returns:
-            CREATE TABLE SQL statement
-        """
-        from providers.fixtures.query import TABLE_EXPRESSIONS
-
-        if fn := TABLE_EXPRESSIONS.get(table_name):
-            from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-            dialect = SQLiteDialect()
-            sql, _ = fn(dialect, table_name).to_sql()
-            return sql
-        return self._load_sqlite_schema(f"{table_name}.sql")
-
-    def _get_schema_sql_for_fixture_type(self, fixture_type: str) -> dict:
-        """
-        Get schema SQL for a specific fixture type.
-
-        Args:
-            fixture_type: Type of fixture ('order', 'blog', 'user', 'combined')
-
-        Returns:
-            Dictionary mapping table names to CREATE TABLE statements
-        """
-        schemas = {}
-
-        if fixture_type == "order":
-            tables = ["users", "orders", "order_items"]
-        elif fixture_type == "blog":
-            tables = ["users", "posts", "comments"]
-        elif fixture_type == "user":
-            tables = ["users"]
-        elif fixture_type == "combined":
-            tables = ["users", "orders", "order_items", "posts", "comments"]
-        else:
-            tables = ["users"]
-
-        from providers.fixtures.query import TABLE_EXPRESSIONS
-        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-
-        for table in tables:
-            if fn := TABLE_EXPRESSIONS.get(table):
-                dialect = SQLiteDialect()
-                sql, _ = fn(dialect, table).to_sql()
-                schemas[table] = sql
-            else:
-                schemas[table] = self._load_sqlite_schema(f"{table}.sql")
-
-        return schemas
