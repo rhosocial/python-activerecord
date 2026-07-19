@@ -19,6 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class Literal(
+    AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     StringMixin,
@@ -30,6 +31,7 @@ class Literal(
     def __init__(self, dialect: "SQLDialectBase", value: Any):
         super().__init__(dialect)
         self.value = value
+        self.alias = None
 
     def to_sql(self) -> "SQLQueryAndParams":
         sql = self.dialect.get_parameter_placeholder()
@@ -38,6 +40,10 @@ class Literal(
         # Apply type casts if any
         for target_type in self._cast_types:
             sql, params = self.dialect.format_cast_expression(sql, target_type, params, None)
+
+        # Apply alias if any
+        if self.alias:
+            sql = f"{sql} AS {self.dialect.format_identifier(self.alias)}"
 
         return sql, params
 
