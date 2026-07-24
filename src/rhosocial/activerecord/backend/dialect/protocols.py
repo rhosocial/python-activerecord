@@ -654,6 +654,13 @@ class JSONSupport(Protocol):
         """
         Format JSON expression.
 
+        Dispatches to arrow or function-based formatting depending on the
+        expression's *mode* and the dialect's capability:
+
+        - ``JSONPathMode.ARROW``:    always use arrow operators (raises if unsupported)
+        - ``JSONPathMode.FUNCTION``: always use function-based formatting
+        - ``JSONPathMode.AUTO``:     use arrow if supported, else function-based
+
         Args:
             column: Column expression or name
             path: JSON path
@@ -661,6 +668,26 @@ class JSONSupport(Protocol):
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        ...  # pragma: no cover
+
+    def format_json_arrow_expression(self, expr: Any) -> Tuple[str, Tuple]:
+        """
+        Force-arrow JSON path formatting.
+
+        Always renders the JSON path using arrow operators (-> / ->>).
+        Raises ``UnsupportedFeatureError`` when the dialect does not
+        support them.
+        """
+        ...  # pragma: no cover
+
+    def format_json_function_expression(self, expr: Any) -> Tuple[str, Tuple]:
+        """
+        Force-function JSON path formatting.
+
+        Always renders the JSON path via function-based equivalents
+        such as JSON_EXTRACT / JSON_UNQUOTE or backend-specific
+        functions (e.g. Snowflake VARIANT colon notation).
         """
         ...  # pragma: no cover
 
