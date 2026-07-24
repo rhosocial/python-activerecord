@@ -336,6 +336,10 @@ class SQLiteDialect(
         # For older versions, use runtime detection result
         return self.get_runtime_param("json1_available", False)
 
+    def supports_json_arrow_operators(self) -> bool:
+        """SQLite supports -> and ->> operators from version 3.38.0+."""
+        return self.version >= (3, 38, 0)
+
     def get_json_access_operator(self) -> str:
         """SQLite uses '->' for JSON access."""
         return "->"

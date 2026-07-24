@@ -624,6 +624,14 @@ class JSONSupport(Protocol):
         """Whether JSON type is supported."""
         ...  # pragma: no cover
 
+    def supports_json_arrow_operators(self) -> bool:
+        """Whether JSON arrow operators (-> and ->>) are supported.
+
+        Backends that do not support arrow operators use function-based
+        alternatives (e.g., JSON_EXTRACT/JSON_UNQUOTE) in format_json_expression.
+        """
+        ...  # pragma: no cover
+
     def get_json_access_operator(self) -> str:
         """
         Get JSON access operator.
