@@ -515,6 +515,19 @@ class SQLiteDialect(
         """Whether DROP TABLE IF EXISTS is supported."""
         return True
 
+    def supports_drop_table_cascade(self) -> bool:
+        """SQLite does not recognize the CASCADE keyword on DROP TABLE.
+
+        SQLite has no notion of dependent-object cascading on DROP TABLE;
+        ``DROP TABLE t CASCADE`` is a syntax error. Foreign-key behavior is
+        governed separately by ``PRAGMA foreign_keys``.
+        """
+        return False
+
+    def supports_drop_table_restrict(self) -> bool:
+        """SQLite does not recognize the RESTRICT keyword on DROP TABLE."""
+        return False
+
     def supports_rename_table(self) -> bool:
         """Whether RENAME TABLE is supported."""
         return True

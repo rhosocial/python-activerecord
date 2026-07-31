@@ -1159,6 +1159,28 @@ class TableSupport(Protocol):
         """Whether DROP TABLE IF EXISTS is supported."""
         ...  # pragma: no cover
 
+    def supports_drop_table_cascade(self) -> bool:
+        """Whether DROP TABLE accepts the CASCADE keyword (SQL-standard form).
+
+        The switch only governs whether the CASCADE token is valid syntax for
+        the dialect; it does NOT promise that dependent objects (views, foreign
+        keys, triggers, ...) are actually dropped by the database. Backends whose
+        CASCADE keyword is parsed but ignored (e.g. MySQL/MariaDB) still return
+        True, mirroring the principle that protocol switches govern syntax, not
+        functional effect.
+
+        Backend-specific cascade forms (e.g. Oracle's CASCADE CONSTRAINTS, which
+        is narrower than SQL-standard CASCADE and only drops referencing
+        constraints, not views/triggers) are declared in their respective backend
+        protocols rather than here, because they have no cross-vendor commonality
+        and negligible chance of entering the SQL standard.
+        """
+        ...  # pragma: no cover
+
+    def supports_drop_table_restrict(self) -> bool:
+        """Whether DROP TABLE accepts the RESTRICT keyword."""
+        ...  # pragma: no cover
+
     def supports_table_tablespace(self) -> bool:
         """Whether tablespace specification is supported."""
         ...  # pragma: no cover
