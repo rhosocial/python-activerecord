@@ -709,6 +709,99 @@ class TestInsertStatements:
 
     # endregion Advanced ON CONFLICT Tests
 
+    # region Multiple ON CONFLICT Clauses Tests
+
+    def test_insert_multiple_on_conflict_clauses(self, dummy_dialect: DummyDialect):
+        """Tests that a list of OnConflictClause objects renders multiple ON CONFLICT clauses."""
+        source = ValuesSource(
+            dummy_dialect, values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, "test")]]
+        )
+        clause1 = OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True)
+        clause2 = OnConflictClause(
+            dummy_dialect,
+            conflict_target=["name"],
+            update_assignments={"name": Column(dummy_dialect, "name", "excluded")},
+        )
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="products",
+            columns=["id", "name"],
+            source=source,
+            on_conflict=[clause1, clause2],
+        )
+        sql, params = insert_expr.to_sql()
+        expected_sql = (
+            'INSERT INTO "products" ("id", "name") VALUES (?, ?) '
+            'ON CONFLICT ("id") DO NOTHING '
+            'ON CONFLICT ("name") DO UPDATE SET "name" = "excluded"."name"'
+        )
+        assert sql == expected_sql
+        assert params == (1, "test")
+
+    def test_insert_multiple_on_conflict_clauses_all_do_nothing(self, dummy_dialect: DummyDialect):
+        """Tests multiple ON CONFLICT clauses all using DO NOTHING."""
+        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, 1)]])
+        clauses = [
+            OnConflictClause(dummy_dialect, conflict_target=["col_a"], do_nothing=True),
+            OnConflictClause(dummy_dialect, conflict_target=["col_b"], do_nothing=True),
+            OnConflictClause(dummy_dialect, conflict_target=["col_c"], do_nothing=True),
+        ]
+        insert_expr = InsertExpression(
+            dummy_dialect, into="t", columns=["val"], source=source, on_conflict=clauses
+        )
+        sql, params = insert_expr.to_sql()
+        assert sql.count("ON CONFLICT") == 3
+        assert sql == (
+            'INSERT INTO "t" ("val") VALUES (?) '
+            'ON CONFLICT ("col_a") DO NOTHING '
+            'ON CONFLICT ("col_b") DO NOTHING '
+            'ON CONFLICT ("col_c") DO NOTHING'
+        )
+        assert params == (1,)
+
+    def test_insert_multiple_on_conflict_with_where(self, dummy_dialect: DummyDialect):
+        """Tests multiple ON CONFLICT clauses where one carries a WHERE predicate."""
+        source = ValuesSource(
+            dummy_dialect, values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, 10)]]
+        )
+        clause1 = OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True)
+        clause2 = OnConflictClause(
+            dummy_dialect,
+            conflict_target=["name"],
+            update_assignments={"qty": Column(dummy_dialect, "qty", "excluded")},
+            update_where=Column(dummy_dialect, "qty", "products") > Column(dummy_dialect, "qty", "excluded"),
+        )
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="products",
+            columns=["id", "qty"],
+            source=source,
+            on_conflict=[clause1, clause2],
+        )
+        sql, params = insert_expr.to_sql()
+        expected_sql = (
+            'INSERT INTO "products" ("id", "qty") VALUES (?, ?) '
+            'ON CONFLICT ("id") DO NOTHING '
+            'ON CONFLICT ("name") DO UPDATE SET "qty" = "excluded"."qty" '
+            'WHERE "products"."qty" > "excluded"."qty"'
+        )
+        assert sql == expected_sql
+        assert params == (1, 10)
+
+    def test_insert_single_on_conflict_scalar_remains_unchanged(self, dummy_dialect: DummyDialect):
+        """Tests that passing a single OnConflictClause still produces identical SQL (backward compat)."""
+        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, 1)]])
+        clause = OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True)
+        insert_expr = InsertExpression(
+            dummy_dialect, into="t", columns=["val"], source=source, on_conflict=clause
+        )
+        sql, params = insert_expr.to_sql()
+        assert sql == 'INSERT INTO "t" ("val") VALUES (?) ON CONFLICT ("id") DO NOTHING'
+        assert params == (1,)
+        assert isinstance(insert_expr.on_conflict, list)
+
+    # endregion Multiple ON CONFLICT Clauses Tests
+
     # --- Validation failure tests ---
     # Note: into parameter is automatically converted in the constructor,
     # so we focus on parameters that are not automatically converted
@@ -763,8 +856,28 @@ class TestInsertStatements:
         # Manually assign invalid type to trigger validation error
         insert_expr.on_conflict = 789  # Invalid type - should be OnConflictClause
 
-        with pytest.raises(TypeError, match=r"on_conflict must be OnConflictClause, got <class 'int'>"):
+        with pytest.raises(TypeError, match=r"on_conflict must be OnConflictClause or list, got <class 'int'>"):
             insert_expr.validate(strict=True)
+
+    def test_insert_expression_invalid_on_conflict_constructor_type(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises TypeError when on_conflict is not a clause or list of clauses."""
+        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        with pytest.raises(TypeError, match=r"on_conflict must be OnConflictClause or list of OnConflictClause"):
+            InsertExpression(dummy_dialect, into="users", source=source, on_conflict=123)
+
+    def test_insert_expression_invalid_on_conflict_list_item(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises TypeError when a list item is not an OnConflictClause."""
+        source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        with pytest.raises(TypeError, match=r"on_conflict\[1\] must be OnConflictClause, got <class 'int'>"):
+            InsertExpression(
+                dummy_dialect,
+                into="users",
+                source=source,
+                on_conflict=[
+                    OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True),
+                    123,
+                ],
+            )
 
     def test_insert_expression_invalid_returning_type(self, dummy_dialect: DummyDialect):
         """Tests that InsertExpression raises TypeError for invalid returning parameter type."""

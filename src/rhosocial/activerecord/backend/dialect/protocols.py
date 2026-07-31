@@ -509,6 +509,25 @@ class UpsertSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_on_conflict_clause(self) -> bool:
+        """
+        Whether INSERT statements can carry an ON CONFLICT (or backend
+        equivalent, e.g. ON DUPLICATE KEY) clause.
+
+        Independent of ``supports_upsert()``: a dialect may support upsert
+        via another mechanism (e.g. Oracle MERGE) while rejecting the
+        ON CONFLICT clause form.
+        """
+        ...  # pragma: no cover
+
+    def supports_multiple_on_conflict_clauses(self) -> bool:
+        """
+        Whether a single INSERT can carry more than one ON CONFLICT clause.
+
+        Currently only SQLite (>= 3.35.0) supports this.
+        """
+        ...  # pragma: no cover
+
     def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
         """
         Format ON CONFLICT clause.

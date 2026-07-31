@@ -21,7 +21,7 @@ class SQLiteDMLMixin:
 
         if or_replace and or_ignore:
             raise ValueError("Cannot specify both 'or_replace' and 'or_ignore' in dialect_options.")
-        if (or_replace or or_ignore) and expr.on_conflict is not None:
+        if (or_replace or or_ignore) and expr.on_conflict:
             raise ValueError(
                 "Cannot use 'or_replace'/'or_ignore' together with 'on_conflict'. "
                 "Use either the SQLite-specific OR REPLACE/IGNORE syntax or the "
@@ -72,7 +72,7 @@ class SQLiteDMLMixin:
             sql = f"INSERT INTO {table_sql} {columns_sql} {source_sql}".strip()
 
         if expr.on_conflict:
-            conflict_sql, conflict_params = expr.on_conflict.to_sql()
+            conflict_sql, conflict_params = self.format_on_conflict_clauses(expr)
             sql += f" {conflict_sql}"
             all_params.extend(conflict_params)
 

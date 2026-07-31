@@ -469,6 +469,12 @@ class DummyDialect(
     def get_upsert_syntax_type(self) -> str:
         return "ON CONFLICT"
 
+    def supports_on_conflict_clause(self) -> bool:
+        return True
+
+    def supports_multiple_on_conflict_clauses(self) -> bool:
+        return True
+
     def supports_lateral_join(self) -> bool:
         return True
 

@@ -449,6 +449,17 @@ class SQLiteDialect(
         """
         return "ON CONFLICT"
 
+    def supports_on_conflict_clause(self) -> bool:
+        """Whether the ON CONFLICT clause form is supported in INSERT."""
+        return True
+
+    def supports_multiple_on_conflict_clauses(self) -> bool:
+        """Whether multiple ON CONFLICT clauses are supported in a single INSERT.
+
+        Multiple ON CONFLICT clauses are supported since SQLite 3.35.0.
+        """
+        return self.version >= (3, 35, 0)
+
     def supports_lateral_join(self) -> bool:
         """Whether LATERAL joins are supported."""
         # LATERAL joins are supported in SQLite

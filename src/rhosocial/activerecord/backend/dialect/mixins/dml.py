@@ -39,7 +39,7 @@ class DMLMixin:
             all_params.extend(s_params)
         sql = f"INSERT INTO {table_sql} {columns_sql} {source_sql}".strip()
         if expr.on_conflict:
-            conflict_sql, conflict_params = expr.on_conflict.to_sql()
+            conflict_sql, conflict_params = self.format_on_conflict_clauses(expr)
             sql += f" {conflict_sql}"
             all_params.extend(conflict_params)
         if expr.returning:
@@ -53,6 +53,40 @@ class DMLMixin:
             sql += f" {returning_sql}"
             all_params.extend(returning_params)
         return sql, tuple(all_params)
+
+    def format_on_conflict_clauses(self, expr) -> Tuple[str, tuple]:
+        """Format one or more ON CONFLICT clauses, gated by capability switches.
+
+        Args:
+            expr: InsertExpression carrying ``on_conflict`` (list of clauses or None).
+
+        Returns:
+            Tuple of (SQL string, parameters tuple). Returns ("", ()) when no
+            clauses are present.
+        """
+        if not expr.on_conflict:
+            return "", ()
+        if not self.supports_on_conflict_clause():
+            raise UnsupportedFeatureError(
+                self.name,
+                "ON CONFLICT clause in INSERT",
+                "This dialect does not support ON CONFLICT style clauses in "
+                "INSERT; use the backend-specific upsert mechanism instead.",
+            )
+        if len(expr.on_conflict) > 1 and not self.supports_multiple_on_conflict_clauses():
+            raise UnsupportedFeatureError(
+                self.name,
+                "multiple ON CONFLICT clauses in INSERT",
+                "This dialect supports at most one ON CONFLICT clause per "
+                "INSERT statement.",
+            )
+        parts: List[str] = []
+        params: List[Any] = []
+        for clause in expr.on_conflict:
+            clause_sql, clause_params = clause.to_sql()
+            parts.append(clause_sql)
+            params.extend(clause_params)
+        return " ".join(parts), tuple(params)
 
     def format_update_statement(self, expr) -> Tuple[str, tuple]:
         from ..exceptions import UnsupportedFeatureError
