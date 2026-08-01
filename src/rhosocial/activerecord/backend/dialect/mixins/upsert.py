@@ -24,6 +24,24 @@ class UpsertMixin:
         """
         return "ON CONFLICT"
 
+    def supports_on_conflict_clause(self) -> bool:
+        """
+        Whether the ON CONFLICT clause form is supported.
+
+        UpsertMixin ships ``format_on_conflict_clause``, so dialects mixing
+        it in are capable by default. Backends using a different upsert
+        mechanism (e.g. Oracle MERGE) override to False.
+        """
+        return True
+
+    def supports_multiple_on_conflict_clauses(self) -> bool:
+        """
+        Whether multiple ON CONFLICT clauses are supported.
+
+        Default False; only SQLite (>= 3.35.0) overrides to True.
+        """
+        return False
+
     def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
         """Format ON CONFLICT clause."""
         all_params = []

@@ -166,27 +166,28 @@ class TestJSONExpression:
     """Tests for JSONExpression class."""
 
     def test_json_extract_expression(self, dummy_dialect: DummyDialect):
-        """Test JSON extract expression (-> operation)."""
+        """Test JSON extract falls back to function-based formatting (-> operation)."""
         col = Column(dummy_dialect, "json_col")
         json_expr = JSONExpression(dummy_dialect, col, "$.name", operation="->")
         sql, params = json_expr.to_sql()
-        assert "->" in sql
-        assert params == ("$.name",)
+        assert "JSON_EXTRACT" in sql
+        assert params == ()
 
     def test_json_extract_text_expression(self, dummy_dialect: DummyDialect):
-        """Test JSON extract text expression (->> operation)."""
+        """Test JSON extract text falls back to function-based formatting (->> operation)."""
         col = Column(dummy_dialect, "json_col")
         json_expr = JSONExpression(dummy_dialect, col, "$.name", operation="->>")
         sql, params = json_expr.to_sql()
-        assert "->>" in sql
-        assert params == ("$.name",)
+        assert "JSON_UNQUOTE" in sql
+        assert "JSON_EXTRACT" in sql
+        assert params == ()
 
     def test_json_extract_with_string_column(self, dummy_dialect: DummyDialect):
         """Test JSON extract with string column name."""
         json_expr = JSONExpression(dummy_dialect, "json_col", "$.name", operation="->")
         sql, params = json_expr.to_sql()
-        assert "->" in sql
-        assert params == ("$.name",)
+        assert "JSON_EXTRACT" in sql
+        assert params == ()
 
 
 class TestArrayExpression:

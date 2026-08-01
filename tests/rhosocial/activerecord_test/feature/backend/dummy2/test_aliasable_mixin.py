@@ -102,16 +102,16 @@ class TestAliasableMixin:
         json_expr = JSONExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name", alias="name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
-        assert sql == '("data" -> ?) AS "name_field"'
-        assert params == ("$.name",)
+        assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'
+        assert params == ()
 
     def test_json_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
         """Test JSONExpression with alias specified using as_() method."""
         json_expr = JSONExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name").as_("name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
-        assert sql == '("data" -> ?) AS "name_field"'
-        assert params == ("$.name",)
+        assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'
+        assert params == ()
 
     def test_array_expression_alias_initialization(self, dummy_dialect: DummyDialect):
         """Test ArrayExpression with alias specified during initialization."""

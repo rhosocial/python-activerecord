@@ -214,12 +214,24 @@ class DropTableExpression(BaseExpression):
     - CASCADE: Automatically drops dependent objects (views, foreign keys)
     - RESTRICT: Refuses to drop if dependencies exist (default in SQL standard)
 
+    Capability gating is enforced by the dialect's ``format_drop_table_statement``
+    helper via the protocol switches ``supports_drop_table_cascade()`` and
+    ``supports_drop_table_restrict()``: asking for a behavior the dialect does
+    not support raises ``UnsupportedFeatureError`` rather than emitting a token
+    the database would reject (or silently drop).
+
     Database-specific behavior:
-    - PostgreSQL: Full CASCADE/RESTRICT support
-    - MySQL: Keywords accepted but ignored (for portability)
-    - SQLite: CASCADE/RESTRICT not supported (ignored)
-    - Oracle: Uses CASCADE CONSTRAINTS instead of CASCADE
-    - SQL Server: No CASCADE/RESTRICT (must drop FK constraints manually)
+    - PostgreSQL: Full CASCADE/RESTRICT support (both switches True)
+    - MySQL/MariaDB: CASCADE keyword is parsed but ignored (no functional
+      effect); the switches are True to reflect valid syntax, NOT valid
+      semantics. Refer to the dialect docstring for the no-op caveat.
+    - Oracle: Uses the backend-specific ``CASCADE CONSTRAINTS [PURGE]`` form
+      (narrower than SQL-standard CASCADE: only drops referencing constraints,
+      not views/triggers). Declared via Oracle's backend protocol and rendered
+      by an Oracle-specific override of ``format_drop_table_statement``.
+    - SQLite: CASCADE/RESTRICT not recognized; both switches False -> raising.
+    - SQL Server: No CASCADE/RESTRICT support; both switches False -> raising.
+    - Firebird: No CASCADE/RESTRICT support; both switches False -> raising.
 
     Args:
         dialect: The SQL dialect to use for formatting
@@ -227,9 +239,11 @@ class DropTableExpression(BaseExpression):
         if_exists: Add IF EXISTS clause to avoid error if table doesn't exist
         cascade: Optional cascade behavior:
             - None: Omit from SQL (use database default)
-            - True: Generate CASCADE (or equivalent for dialect)
-            - False: Generate RESTRICT (or equivalent for dialect)
-        dialect_options: Database-specific options (e.g., MySQL TEMPORARY, Oracle PURGE)
+            - True: Generate CASCADE (or dialect-specific equivalent form)
+            - False: Generate RESTRICT (or raise if unsupported)
+        dialect_options: Database-specific options (e.g., Oracle PURGE via
+            ``purge=True`` which, combined with cascade=True, appends PURGE
+            after the dialect-specific cascade form).
 
     Examples:
         # Simple drop
@@ -238,11 +252,16 @@ class DropTableExpression(BaseExpression):
 
         # With IF EXISTS
         DropTableExpression(dialect, "users", if_exists=True)
-        # -> DROP TABLE IF EXISTS users
+        # -> DROP TABLE IF EXISTS users  (on dialects supporting IF EXISTS)
 
-        # With CASCADE
+        # With CASCADE (PostgreSQL / MySQL / MariaDB)
         DropTableExpression(dialect, "users", cascade=True)
         # -> DROP TABLE users CASCADE
+
+        # With CASCADE on Oracle (dialect renders its own form)
+        DropTableExpression(oracle_dialect, "users", cascade=True,
+        ...                 dialect_options={"purge": True})
+        # -> DROP TABLE users CASCADE CONSTRAINTS PURGE
 
         # With schema-qualified table
         DropTableExpression(dialect, TableExpression(dialect, "users", schema_name="public"))

@@ -3,7 +3,7 @@
 Advanced SQL functions and expressions like CASE, EXISTS, ANY/ALL, Window functions,
 JSON operations, and Array operations.
 """
-
+from enum import Enum
 from typing import Any, List, Optional, Union, TYPE_CHECKING, Dict
 
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
@@ -19,6 +19,29 @@ from .query_parts import OrderByClause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
+
+
+class JSONPathMode(Enum):
+    """How a JSON path expression should be rendered by the dialect.
+
+    - ``AUTO``: Use arrow operators if supported, else function-based.
+    - ``ARROW``: Force arrow operators (-> / ->>); raises if unsupported.
+    - ``FUNCTION``: Force function-based formatting (e.g. JSON_EXTRACT).
+    """
+    AUTO = "auto"
+    ARROW = "arrow"
+    FUNCTION = "function"
+
+    @classmethod
+    def from_value(cls, value) -> "JSONPathMode":
+        """Coerce None / str / JSONPathMode to a valid JSONPathMode."""
+        if value is None:
+            return cls.AUTO
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            return cls(value)
+        raise TypeError(f"mode must be None, str, or JSONPathMode; got {type(value).__name__}")
 
 
 class CaseExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
@@ -242,7 +265,15 @@ class JSONExpression(
     TypeCastingMixin,
     SQLValueExpression,
 ):
-    """Represents JSON operations like json->, json->>."""
+    """Represents JSON operations like json->, json->>.
+
+    The *mode* parameter controls how the expression is rendered:
+    - ``JSONPathMode.AUTO`` (default / None): use arrow operators if the
+      dialect supports them, otherwise fall back to function-based formatting.
+    - ``JSONPathMode.ARROW``: force arrow operators (-> / ->>); raises
+      UnsupportedFeatureError if the dialect does not support them.
+    - ``JSONPathMode.FUNCTION``: force function-based formatting (e.g. JSON_EXTRACT).
+    """
 
     def __init__(
         self,
@@ -251,12 +282,14 @@ class JSONExpression(
         path: str,
         operation: str = "->",
         alias: Optional[str] = None,
+        mode: Union[None, str, "JSONPathMode"] = None,
     ):
         super().__init__(dialect)
         self.column = column
         self.path = path
         self.operation = operation
         self.alias = alias
+        self.mode = JSONPathMode.from_value(mode)
 
     def to_sql(self) -> "SQLQueryAndParams":
         # Delegate to the dialect's format_json_expression method

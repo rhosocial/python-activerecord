@@ -26,7 +26,7 @@ import warnings
 from abc import ABC
 from contextlib import contextmanager, asynccontextmanager
 from enum import Enum, auto
-from typing import Optional, Generator, AsyncGenerator, Tuple, TYPE_CHECKING
+from typing import Optional, Generator, AsyncGenerator, Tuple, Callable, Dict, List, TYPE_CHECKING
 
 from .errors import TransactionError, IsolationLevelError
 from ..logging.defaults import _LOGGER_TRANSACTION
@@ -76,6 +76,41 @@ class TransactionState(Enum):
     ROLLED_BACK = auto()
 
 
+class TransactionEvent(Enum):
+    """Lifecycle events for transactions.
+
+    These events fire at the outermost transaction boundary only; nested
+    savepoint commits and `rollback_to()` operations do NOT trigger
+    `BEFORE_COMMIT` / `AFTER_COMMIT` / `BEFORE_ROLLBACK` / `AFTER_ROLLBACK`
+    because they are not real transaction-level state transitions.
+
+    - BEFORE_COMMIT:    outermost `commit()` is about to issue COMMIT
+    - AFTER_COMMIT:     outermost `_do_commit()` succeeded
+    - BEFORE_ROLLBACK:  outermost `rollback()` is about to issue ROLLBACK
+    - AFTER_ROLLBACK:   outermost `_do_rollback()` succeeded
+
+    Event handlers are registered on a `TransactionManager` instance via
+    `on()` / `off()` and invoked via `_trigger_event()`. Handler signature:
+
+    ``handler(manager: TransactionManager, **kwargs) -> None``
+
+    Sync handlers are accepted on `AsyncTransactionManager` too;
+    they are called normally. Coroutine handlers are intentionally NOT
+    auto-awaited - registering a coroutine function on a sync manager
+    will receive the coroutine object without awaiting, which is the
+    caller's responsibility to detect and avoid. This keeps the
+    TransactionEvent surface simple and side-effect-free for sync use.
+
+    Async handlers SHOULD be registered only on AsyncTransactionManager;
+    awaiting is performed in AsyncTransactionManager._trigger_event().
+    """
+
+    BEFORE_COMMIT = auto()
+    AFTER_COMMIT = auto()
+    BEFORE_ROLLBACK = auto()
+    AFTER_ROLLBACK = auto()
+
+
 class TransactionManagerBase(ABC):
     """Base class for transaction managers, containing shared non-I/O logic.
 
@@ -96,6 +131,60 @@ class TransactionManagerBase(ABC):
         self._savepoint_count = 0  # Track savepoint count
         self._active_savepoints = []  # Track active savepoints
         self._state = TransactionState.INACTIVE  # Track transaction state
+        # Per-instance transaction lifecycle event handlers.
+        # Lazily initialised on first `on()` registration; absent attribute
+        # means "no handlers" so the_hot path (`commit()`/`rollback()`)
+        # can skip event dispatch entirely without dict lookups.
+        self._event_handlers: Dict[TransactionEvent, List[Callable]] = {}
+
+    def on(self, event: TransactionEvent, handler: Callable) -> None:
+        """Register a transaction lifecycle event handler.
+
+        Args:
+            event: One of :class:`TransactionEvent` (BEFORE_COMMIT,
+                AFTER_COMMIT, BEFORE_ROLLBACK, AFTER_ROLLBACK).
+            handler: A callable ``handler(manager, **kwargs)``. On sync
+                managers the callable is invoked synchronously; on
+                async managers coroutines are awaited automatically.
+
+        Handlers are stored per TransactionManager instance. To attach
+        handlers that fire even when ``backend.transaction_manager``
+        lazily re-creates the manager on a fresh backend, register after
+        acquire / on each backend creation.
+        """
+        if not isinstance(event, TransactionEvent):
+            raise TypeError(f"event must be TransactionEvent, got {type(event).__name__}")
+        if not callable(handler):
+            raise TypeError(f"handler must be callable, got {type(handler).__name__}")
+        self._event_handlers.setdefault(event, []).append(handler)
+
+    def off(self, event: TransactionEvent, handler: Callable) -> None:
+        """Remove a previously-registered handler.
+
+        No-op if the handler is not registered for ``event``.
+        """
+        if not isinstance(event, TransactionEvent):
+            raise TypeError(f"event must be TransactionEvent, got {type(event).__name__}")
+        handlers = self._event_handlers.get(event)
+        if handlers and handler in handlers:
+            handlers.remove(handler)
+
+    def _trigger_event(self, event: TransactionEvent, **kwargs) -> None:
+        """Invoke all handlers registered for ``event``.
+
+        Order is registration order. Exceptions raised by handlers are
+        allowed to propagate: a failing handler aborts the surrounding
+        commit/rollback flow at the point of dispatch, which keeps
+        transaction state predictable (failed BEFORE_COMMIT aborts the
+        commit before _do_commit() executes; failed AFTER_COMMIT has
+        already had _do_commit() succeed, so the transaction is
+        committed but user code receives the exception).
+        """
+        handlers = self._event_handlers.get(event)
+        if not handlers:
+            return
+        for handler in list(handlers):
+            handler(self, **kwargs)
 
     def _get_logging_config(self):
         config = getattr(self._backend, "_logging_config", None)
@@ -413,11 +502,28 @@ class TransactionManager(TransactionManagerBase):
             if current_level <= 1:  # Was outermost transaction
                 # Commit actual transaction
                 self.log(logging.INFO, "Committing outermost transaction")
+                # Fire BEFORE_COMMIT before _do_commit() executes. A handler
+                # raising here aborts the commit; the transaction remains
+                # active and the transaction level has already been decremented
+                # by this point - the except block restores it on raise.
+                self._trigger_event(
+                    TransactionEvent.BEFORE_COMMIT,
+                    transaction_level=current_level,
+                    isolation_level=self._isolation_level,
+                    transaction_mode=self._transaction_mode,
+                )
                 self._do_commit()
                 self._state = TransactionState.COMMITTED
                 # Reset savepoint tracking
                 self._savepoint_count = 0
                 self._active_savepoints = []
+                # Fire AFTER_COMMIT only after _do_commit() succeeded.
+                self._trigger_event(
+                    TransactionEvent.AFTER_COMMIT,
+                    transaction_level=current_level,
+                    isolation_level=self._isolation_level,
+                    transaction_mode=self._transaction_mode,
+                )
             else:
                 # Release savepoint for inner transaction
                 if self._active_savepoints:
@@ -464,11 +570,27 @@ class TransactionManager(TransactionManagerBase):
             if current_level <= 1:  # Was outermost transaction
                 # Rollback actual transaction
                 self.log(logging.INFO, "Rolling back outermost transaction")
+                # Fire BEFORE_ROLLBACK before _do_rollback() executes. A
+                # handler raising here aborts the rollback; the transaction
+                # remains active and the except block restores the level.
+                self._trigger_event(
+                    TransactionEvent.BEFORE_ROLLBACK,
+                    transaction_level=current_level,
+                    isolation_level=self._isolation_level,
+                    transaction_mode=self._transaction_mode,
+                )
                 self._do_rollback()
                 self._state = TransactionState.ROLLED_BACK
                 # Reset savepoint tracking
                 self._savepoint_count = 0
                 self._active_savepoints = []
+                # Fire AFTER_ROLLBACK only after _do_rollback() succeeded.
+                self._trigger_event(
+                    TransactionEvent.AFTER_ROLLBACK,
+                    transaction_level=current_level,
+                    isolation_level=self._isolation_level,
+                    transaction_mode=self._transaction_mode,
+                )
             else:
                 # Rollback to savepoint for inner transaction
                 if self._active_savepoints:
@@ -654,6 +776,37 @@ class AsyncTransactionManager(TransactionManagerBase):
         super().__init__(backend, logger)
         self._owner_task = None  # Track which async task owns the transaction
 
+    def on(self, event: TransactionEvent, handler: Callable) -> None:
+        """Register a transaction lifecycle event handler (async-aware).
+
+        Same registration semantics as the sync base method; both sync
+        callables and coroutine functions are accepted. Coroutine
+        functions are awaited automatically when dispatched by
+        :meth:`_trigger_event`.
+        """
+        super().on(event, handler)
+
+    def off(self, event: TransactionEvent, handler: Callable) -> None:
+        super().off(event, handler)
+
+    async def _trigger_event(self, event: TransactionEvent, **kwargs) -> None:
+        """Dispatch handlers, awaiting coroutines returned by async handlers.
+
+        Sync handlers are called normally; coroutine results are
+        awaited so I/O performed inside them (e.g. cache invalidation
+        post-commit) actually runs. Exceptions from handlers propagate
+        out, same contract as the sync base method.
+        """
+        import inspect
+
+        handlers = self._event_handlers.get(event)
+        if not handlers:
+            return
+        for handler in list(handlers):
+            result = handler(self, **kwargs)
+            if inspect.isawaitable(result):
+                await result
+
     async def _do_begin(self) -> None:
         """Begin a new transaction via backend.execute()."""
         sql, params = self._build_begin_sql()
@@ -745,10 +898,24 @@ class AsyncTransactionManager(TransactionManagerBase):
 
             if current_level <= 1:
                 self.log(logging.INFO, "Committing outermost transaction")
+                # Fire BEFORE_COMMIT before _do_commit() (see sync variant
+                # for the rationale around handler exceptions).
+                await self._trigger_event(
+                    TransactionEvent.BEFORE_COMMIT,
+                    transaction_level=current_level,
+                    isolation_level=self._isolation_level,
+                    transaction_mode=self._transaction_mode,
+                )
                 await self._do_commit()
                 self._state = TransactionState.COMMITTED
                 self._savepoint_count = 0
                 self._active_savepoints = []
+                await self._trigger_event(
+                    TransactionEvent.AFTER_COMMIT,
+                    transaction_level=current_level,
+                    isolation_level=self._isolation_level,
+                    transaction_mode=self._transaction_mode,
+                )
             else:
                 if self._active_savepoints:
                     savepoint_name = self._active_savepoints.pop()
@@ -782,10 +949,22 @@ class AsyncTransactionManager(TransactionManagerBase):
 
             if current_level <= 1:
                 self.log(logging.INFO, "Rolling back outermost transaction")
+                await self._trigger_event(
+                    TransactionEvent.BEFORE_ROLLBACK,
+                    transaction_level=current_level,
+                    isolation_level=self._isolation_level,
+                    transaction_mode=self._transaction_mode,
+                )
                 await self._do_rollback()
                 self._state = TransactionState.ROLLED_BACK
                 self._savepoint_count = 0
                 self._active_savepoints = []
+                await self._trigger_event(
+                    TransactionEvent.AFTER_ROLLBACK,
+                    transaction_level=current_level,
+                    isolation_level=self._isolation_level,
+                    transaction_mode=self._transaction_mode,
+                )
             else:
                 if self._active_savepoints:
                     savepoint_name = self._active_savepoints.pop()
