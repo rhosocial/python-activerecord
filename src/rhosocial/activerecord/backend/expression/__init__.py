@@ -104,6 +104,7 @@ from .advanced_functions import (
     WindowClause,
     WindowFunctionCall,
     JSONExpression,
+    JSONPathMode,
     ArrayExpression,
     OrderedSetAggregation,
 )
@@ -451,6 +452,7 @@ __all__ = [
     "WindowClause",
     "WindowFunctionCall",
     "JSONExpression",
+    "JSONPathMode",
     "ArrayExpression",
     "OrderedSetAggregation",
     # Query parts

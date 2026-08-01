@@ -509,6 +509,25 @@ class UpsertSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_on_conflict_clause(self) -> bool:
+        """
+        Whether INSERT statements can carry an ON CONFLICT (or backend
+        equivalent, e.g. ON DUPLICATE KEY) clause.
+
+        Independent of ``supports_upsert()``: a dialect may support upsert
+        via another mechanism (e.g. Oracle MERGE) while rejecting the
+        ON CONFLICT clause form.
+        """
+        ...  # pragma: no cover
+
+    def supports_multiple_on_conflict_clauses(self) -> bool:
+        """
+        Whether a single INSERT can carry more than one ON CONFLICT clause.
+
+        Currently only SQLite (>= 3.35.0) supports this.
+        """
+        ...  # pragma: no cover
+
     def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
         """
         Format ON CONFLICT clause.
@@ -624,6 +643,14 @@ class JSONSupport(Protocol):
         """Whether JSON type is supported."""
         ...  # pragma: no cover
 
+    def supports_json_arrow_operators(self) -> bool:
+        """Whether JSON arrow operators (-> and ->>) are supported.
+
+        Backends that do not support arrow operators use function-based
+        alternatives (e.g., JSON_EXTRACT/JSON_UNQUOTE) in format_json_expression.
+        """
+        ...  # pragma: no cover
+
     def get_json_access_operator(self) -> str:
         """
         Get JSON access operator.
@@ -646,6 +673,13 @@ class JSONSupport(Protocol):
         """
         Format JSON expression.
 
+        Dispatches to arrow or function-based formatting depending on the
+        expression's *mode* and the dialect's capability:
+
+        - ``JSONPathMode.ARROW``:    always use arrow operators (raises if unsupported)
+        - ``JSONPathMode.FUNCTION``: always use function-based formatting
+        - ``JSONPathMode.AUTO``:     use arrow if supported, else function-based
+
         Args:
             column: Column expression or name
             path: JSON path
@@ -653,6 +687,26 @@ class JSONSupport(Protocol):
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        ...  # pragma: no cover
+
+    def format_json_arrow_expression(self, expr: Any) -> Tuple[str, Tuple]:
+        """
+        Force-arrow JSON path formatting.
+
+        Always renders the JSON path using arrow operators (-> / ->>).
+        Raises ``UnsupportedFeatureError`` when the dialect does not
+        support them.
+        """
+        ...  # pragma: no cover
+
+    def format_json_function_expression(self, expr: Any) -> Tuple[str, Tuple]:
+        """
+        Force-function JSON path formatting.
+
+        Always renders the JSON path via function-based equivalents
+        such as JSON_EXTRACT / JSON_UNQUOTE or backend-specific
+        functions (e.g. Snowflake VARIANT colon notation).
         """
         ...  # pragma: no cover
 
@@ -1103,6 +1157,28 @@ class TableSupport(Protocol):
 
     def supports_if_exists_table(self) -> bool:
         """Whether DROP TABLE IF EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_table_cascade(self) -> bool:
+        """Whether DROP TABLE accepts the CASCADE keyword (SQL-standard form).
+
+        The switch only governs whether the CASCADE token is valid syntax for
+        the dialect; it does NOT promise that dependent objects (views, foreign
+        keys, triggers, ...) are actually dropped by the database. Backends whose
+        CASCADE keyword is parsed but ignored (e.g. MySQL/MariaDB) still return
+        True, mirroring the principle that protocol switches govern syntax, not
+        functional effect.
+
+        Backend-specific cascade forms (e.g. Oracle's CASCADE CONSTRAINTS, which
+        is narrower than SQL-standard CASCADE and only drops referencing
+        constraints, not views/triggers) are declared in their respective backend
+        protocols rather than here, because they have no cross-vendor commonality
+        and negligible chance of entering the SQL standard.
+        """
+        ...  # pragma: no cover
+
+    def supports_drop_table_restrict(self) -> bool:
+        """Whether DROP TABLE accepts the RESTRICT keyword."""
         ...  # pragma: no cover
 
     def supports_table_tablespace(self) -> bool:

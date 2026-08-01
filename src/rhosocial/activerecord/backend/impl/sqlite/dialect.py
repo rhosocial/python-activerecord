@@ -336,6 +336,10 @@ class SQLiteDialect(
         # For older versions, use runtime detection result
         return self.get_runtime_param("json1_available", False)
 
+    def supports_json_arrow_operators(self) -> bool:
+        """SQLite supports -> and ->> operators from version 3.38.0+."""
+        return self.version >= (3, 38, 0)
+
     def get_json_access_operator(self) -> str:
         """SQLite uses '->' for JSON access."""
         return "->"
@@ -445,6 +449,17 @@ class SQLiteDialect(
         """
         return "ON CONFLICT"
 
+    def supports_on_conflict_clause(self) -> bool:
+        """Whether the ON CONFLICT clause form is supported in INSERT."""
+        return True
+
+    def supports_multiple_on_conflict_clauses(self) -> bool:
+        """Whether multiple ON CONFLICT clauses are supported in a single INSERT.
+
+        Multiple ON CONFLICT clauses are supported since SQLite 3.35.0.
+        """
+        return self.version >= (3, 35, 0)
+
     def supports_lateral_join(self) -> bool:
         """Whether LATERAL joins are supported."""
         # LATERAL joins are supported in SQLite
@@ -499,6 +514,19 @@ class SQLiteDialect(
     def supports_if_exists_table(self) -> bool:
         """Whether DROP TABLE IF EXISTS is supported."""
         return True
+
+    def supports_drop_table_cascade(self) -> bool:
+        """SQLite does not recognize the CASCADE keyword on DROP TABLE.
+
+        SQLite has no notion of dependent-object cascading on DROP TABLE;
+        ``DROP TABLE t CASCADE`` is a syntax error. Foreign-key behavior is
+        governed separately by ``PRAGMA foreign_keys``.
+        """
+        return False
+
+    def supports_drop_table_restrict(self) -> bool:
+        """SQLite does not recognize the RESTRICT keyword on DROP TABLE."""
+        return False
 
     def supports_rename_table(self) -> bool:
         """Whether RENAME TABLE is supported."""

@@ -36,6 +36,31 @@ class TableMixin:
         """Whether DROP TABLE IF EXISTS is supported."""
         return False
 
+    def supports_drop_table_cascade(self) -> bool:
+        """Whether DROP TABLE accepts the CASCADE keyword (SQL-standard form).
+
+        Defaults to True (optimistic) so that DummyDialect exercises the full
+        generic rendering path; actual backends override to reflect whether the
+        CASCADE token is valid syntax for their DROP TABLE statement. The
+        switch governs syntax only and is silent on whether the database truly
+        drops dependent objects (e.g. MySQL/MariaDB parse-but-ignore CASCADE
+        still report True).
+
+        Oracle-specific CASCADE CONSTRAINTS / PURGE handling lives in the Oracle
+        backend protocol and overrides format_drop_table_statement; this default
+        only renders the standard CASCADE token.
+        """
+        return True
+
+    def supports_drop_table_restrict(self) -> bool:
+        """Whether DROP TABLE accepts the RESTRICT keyword.
+
+        Defaults to True (optimistic); backends that do not recognize RESTRICT
+        override to False, in which case the generic helper raises
+        UnsupportedFeatureError when a caller asks for restrict behavior.
+        """
+        return True
+
     def supports_table_tablespace(self) -> bool:
         """Whether tablespace specification is supported."""
         return False
@@ -108,15 +133,38 @@ class TableMixin:
         return "".join(parts), tuple(all_params)
 
     def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
-        """Format DROP TABLE statement (generic implementation)."""
+        """Format DROP TABLE statement (generic implementation).
+
+        Renders ``DROP TABLE [IF EXISTS] <table> [CASCADE | RESTRICT]`` with
+        capability gating: if the dialect reports ``supports_drop_table_cascade``
+        (resp. ``supports_drop_table_restrict``) as False, asking for the
+        corresponding behavior raises ``UnsupportedFeatureError`` instead of
+        emitting a token the database would reject (or silently drop).
+
+        Backend-specific cascade forms that have no cross-vendor commonality
+        (e.g. Oracle's CASCADE CONSTRAINTS plus PURGE) are NOT handled here;
+        backends override this method to render their own form.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
         parts = ["DROP TABLE"]
-        if expr.if_exists:
+        if expr.if_exists and self.supports_if_exists_table():
             parts.append("IF EXISTS")
         table_sql, table_params = expr.table.to_sql()
         parts.append(table_sql)
         if expr.cascade is True:
+            if not self.supports_drop_table_cascade():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "DROP TABLE ... CASCADE",
+                )
             parts.append("CASCADE")
         elif expr.cascade is False:
+            if not self.supports_drop_table_restrict():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "DROP TABLE ... RESTRICT",
+                )
             parts.append("RESTRICT")
         return " ".join(parts), table_params
 

@@ -536,7 +536,7 @@ class OnConflictClause(BaseExpression):
 class InsertExpression(BaseExpression):
     """
     Represents a structured INSERT statement, supporting various data sources,
-    upsert logic (ON CONFLICT), and RETURNING clauses.
+    upsert logic (single or multiple ON CONFLICT clauses), and RETURNING clauses.
     """
 
     def __init__(
@@ -546,7 +546,7 @@ class InsertExpression(BaseExpression):
         source: InsertDataSource,
         columns: Optional[List[str]] = None,
         *,
-        on_conflict: Optional[OnConflictClause] = None,
+        on_conflict: Optional[Union[OnConflictClause, List[OnConflictClause]]] = None,
         returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
@@ -555,18 +555,39 @@ class InsertExpression(BaseExpression):
         self.into = into if isinstance(into, TableExpression) else TableExpression(dialect, str(into))
         self.source = source
         self.columns = columns
-        self.on_conflict = on_conflict
+        self.on_conflict = self._normalize_on_conflict(on_conflict)
         self.returning = returning  # ReturningClause object or None
         self.dialect_options = dialect_options or {}
 
         # Perform validation
         # 1. First, check if on_conflict is used with a valid source
-        if on_conflict and not isinstance(source, (ValuesSource, SelectSource)):
+        if self.on_conflict and not isinstance(source, (ValuesSource, SelectSource)):
             raise ValueError("'on_conflict' is only supported for 'VALUES' or 'SELECT' sources.")
 
         # 2. Then, check for other misuses of DefaultValuesSource
         if isinstance(source, DefaultValuesSource) and columns:
             raise ValueError("'DEFAULT VALUES' source cannot be used with 'columns'.")
+
+    @staticmethod
+    def _normalize_on_conflict(
+        on_conflict: Optional[Union[OnConflictClause, List[OnConflictClause]]],
+    ) -> Optional[List[OnConflictClause]]:
+        """Normalize a single clause or list of clauses into a list (or None)."""
+        if on_conflict is None:
+            return None
+        if isinstance(on_conflict, OnConflictClause):
+            return [on_conflict]
+        if not isinstance(on_conflict, list):
+            raise TypeError(
+                f"on_conflict must be OnConflictClause or list of OnConflictClause, "
+                f"got {type(on_conflict)}"
+            )
+        for idx, item in enumerate(on_conflict):
+            if not isinstance(item, OnConflictClause):
+                raise TypeError(
+                    f"on_conflict[{idx}] must be OnConflictClause, got {type(item)}"
+                )
+        return on_conflict
 
     def validate(self, strict: bool = True) -> None:
         """Validate InsertExpression parameters according to SQL standard.
@@ -594,8 +615,14 @@ class InsertExpression(BaseExpression):
             raise TypeError(f"columns must be list of strings or None, got {type(self.columns)}")
 
         # Validate on_conflict parameter
-        if self.on_conflict is not None and not isinstance(self.on_conflict, OnConflictClause):
-            raise TypeError(f"on_conflict must be OnConflictClause, got {type(self.on_conflict)}")
+        if self.on_conflict is not None:
+            if not isinstance(self.on_conflict, list):
+                raise TypeError(f"on_conflict must be OnConflictClause or list, got {type(self.on_conflict)}")
+            for idx, item in enumerate(self.on_conflict):
+                if not isinstance(item, OnConflictClause):
+                    raise TypeError(
+                        f"on_conflict[{idx}] must be OnConflictClause, got {type(item)}"
+                    )
 
         # Validate returning parameter
         if self.returning is not None and not isinstance(self.returning, ReturningClause):

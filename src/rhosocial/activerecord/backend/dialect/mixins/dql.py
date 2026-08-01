@@ -118,12 +118,16 @@ class DQLMixin:
                         part_sql, part_params = source.to_sql()
                         if source.__class__.__name__ == "ValuesExpression" and source.alias is None:
                             part_sql = f"({part_sql})"
+                        if source.__class__.__name__ == "SetOperationExpression" and source.alias is None:
+                            part_sql = f"({part_sql})"
                     from_parts.append(part_sql)
                     from_expr_params.extend(part_params)
                 from_expr_sql = ", ".join(from_parts)
             else:
                 from_expr_sql, from_expr_params = expr.from_.to_sql()
                 if expr.from_.__class__.__name__ == "ValuesExpression" and expr.from_.alias is None:
+                    from_expr_sql = f"({from_expr_sql})"
+                if expr.from_.__class__.__name__ == "SetOperationExpression" and expr.from_.alias is None:
                     from_expr_sql = f"({from_expr_sql})"
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)
