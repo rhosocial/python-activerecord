@@ -174,8 +174,8 @@ class TestAdvancedExpressions:
     @pytest.mark.parametrize(
         "col_name, path, operation, expected_sql, expected_params",
         [
-            ("data", "$.name", "->", '("data" -> ?)', ("$.name",)),
-            ("metadata", "$.user.id", "->>", '("metadata" ->> ?)', ("$.user.id",)),
+            ("data", "$.name", "->", 'JSON_EXTRACT("data", \'$.name\')', ()),
+            ("metadata", "$.user.id", "->>", 'JSON_UNQUOTE(JSON_EXTRACT("metadata", \'$.user.id\'))', ()),
         ],
     )
     def test_json_expression(
