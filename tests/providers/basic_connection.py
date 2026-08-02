@@ -153,7 +153,10 @@ class BasicConnectionProvider(IBasicConnectionProvider):
 
     def cleanup_sync(self, scenario_name: str, pool: BackendPool):
         """Cleanup after sync tests."""
-        pool.close(timeout=1.0)
+        try:
+            pool.close(timeout=1.0, force=True)
+        except Exception:
+            pass
 
         # Disconnect backends
         for backend in self._active_backends:
@@ -174,7 +177,10 @@ class BasicConnectionProvider(IBasicConnectionProvider):
 
     async def cleanup_async(self, scenario_name: str, pool: AsyncBackendPool):
         """Cleanup after async tests."""
-        await pool.close(timeout=1.0)
+        try:
+            await pool.close(timeout=1.0, force=True)
+        except Exception:
+            pass
 
         # Disconnect backends
         for backend in self._active_async_backends:
