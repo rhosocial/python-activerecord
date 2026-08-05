@@ -32,8 +32,8 @@ rhosocial-activerecord-{backend}/
 │               └── impl/
 │                   └── {backend}/
 │                       ├── __init__.py
-│                       ├── backend.py       # Main backend implementation
-│                       ├── adapters.py      # Backend-specific type adapters
+│                       ├── backend.py       # Main backend implementation (may be a `backend/` subpackage)
+│                       ├── adapters.py      # Backend-specific type adapters (may be an `adapters/` subpackage)
 │                       ├── config.py        # Connection configuration
 │                       ├── dialect.py       # SQL dialect handling
 │                       ├── transaction.py   # Transaction management
@@ -43,6 +43,16 @@ rhosocial-activerecord-{backend}/
 │                       │   └── __init__.py
 │                       └── features.py      # Optional: Feature detection
 ```
+
+> **Note on layout evolution**: This diagram is the canonical/idealized structure. Existing
+> production backends may organize the same responsibilities slightly differently. In
+> particular, the PostgreSQL backend splits `backend.py` into a `backend/` subpackage
+> (`base.py`, `sync.py`, `async_backend.py`) and `adapters.py` into an `adapters/` subpackage;
+> the MySQL backend keeps them as flat files. Both also add extra subdirectories
+> (`mixins/`, `cli/`, `explain/`, `introspection/`, `schema/`, `protocols.py`, ...). When
+> following this guide, mirror the current reference implementations where practical.
+> Regardless of layout, the `expression/` and `functions/` **directories** (not `expressions.py`) are
+> required conventions.
 
 #### Expression Directory
 
@@ -114,12 +124,17 @@ Expression.to_sql() -> Dialect.format_*() -> SQL string and parameters
 - `operators.py`: SQL operations (binary, unary, arithmetic expressions)
 - `predicates.py`: SQL predicate expressions (WHERE clause conditions)
 - `query_parts.py`: SQL query clauses (WHERE, GROUP BY, HAVING, ORDER BY, etc.)
-- `statements.py`: DML/DQL/DDL statements (SELECT, INSERT, UPDATE, DELETE, etc.)
-- `functions.py`: Standalone factory functions for creating SQL expressions
+- `statements/`: DML/DQL/DDL statements (directory package, e.g. `ddl_*`, `dml`, `dql`, `explain`)
+- `functions/`: Standalone factory functions for creating SQL expressions (directory package)
 - `aggregates.py`: SQL aggregation expressions and functions
 - `advanced_functions.py`: Advanced SQL functions (CASE, CAST, EXISTS, window functions)
 - `query_sources.py`: Data source expressions (VALUES, table functions, CTEs)
 - `graph.py`: SQL Graph Query (MATCH) expressions
+- Additional modules: `collation.py`, `datetime.py`, `serialization.py`, `transaction.py`,
+  `introspection.py`, `xml.py`, `types/`
+
+> Note: `functions.py` and `statements.py` have been refactored into directory packages
+> (`functions/` and `statements/`).
 
 #### Important Limitation
 The expression system faithfully builds SQL according to user intent, but **does not validate** whether the generated SQL complies with SQL standards or can be successfully executed in the target database. Semantic validation is the responsibility of the database engine.

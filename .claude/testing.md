@@ -735,8 +735,8 @@ pytest tests/rhosocial/activerecord_test/feature/events/    # Event hook tests
 pytest tests/rhosocial/activerecord_test/feature/mixins/    # Mixin functionality tests
 
 # Backend-specific tests
-pytest tests/rhosocial/activerecord_test/feature/backend/common/   # Common backend interface tests
 pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/  # SQLite backend tests
+pytest tests/rhosocial/activerecord_test/feature/backend/dialect/ # Dialect/interface tests
 pytest tests/rhosocial/activerecord_test/feature/backend/sqlite2/  # SQLite2 backend tests
 
 # Real-world scenarios
@@ -988,11 +988,15 @@ tests/rhosocial/activerecord_test/
 - May include backend-specific subdirectories (e.g., `query/sqlite/`) for backend-specific test cases
 - Use standard pytest test discovery with descriptive test function names
 
-**2. Backend Common Tests**
-- Located in `tests/rhosocial/activerecord_test/feature/backend/common/`
-- Tests that validate common backend interface behaviors
+**2. Backend Interface / Dialect Tests**
+- Located under `tests/rhosocial/activerecord_test/feature/backend/` (e.g., `base/`, `dialect/`,
+  `sqlite/`, `sqlite2/`, ...)
+- Tests that validate backend interface behaviors, dialect SQL formatting, and transaction handling
 - Ensure all backends follow the same interface contract
 - Use provider pattern for backend adaptation
+
+> Note: A `feature/backend/common/` directory does **not** currently exist. Backend-interface
+> tests live directly under `feature/backend/<area>/` as shown above.
 
 **3. Backend-Specific Tests**
 - Located in `tests/rhosocial/activerecord_test/feature/backend/{backend_name}/`

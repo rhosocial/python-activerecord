@@ -131,13 +131,12 @@ class SQLDialectBase(ABC):
 ### Package Structure
 
 ```
-rhosocial-activerecord/          # Core package
-├── src/rhosocial/activerecord/  # Main package root
-│   ├── __init__.py             # Package initialization
-│   ├── base/                   # Core model functionality
-│   │   ├── __init__.py
-│   │   ├── base.py             # Base ActiveRecord implementation
+rhosocial-activerecord/          # Core package (PEP 420 namespace package - no __init__.py at
+├── src/rhosocial/activerecord/  #   the activerecord/ and backend/ levels; see below)
+│   │   ├── bulk_operations.py  # Bulk operations support
 │   │   ├── column_name_mixin.py # Column name handling mixin
+│   │   ├── derived_field_handler.py # Derived field handler
+│   │   ├── derived_field_mixin.py # Derived field mixin
 │   │   ├── field_adapter_mixin.py # Field adapter mixin
 │   │   ├── field_proxy.py      # Field proxy implementation
 │   │   ├── fields.py           # Field definitions
@@ -145,6 +144,7 @@ rhosocial-activerecord/          # Core package
 │   │   └── query_mixin.py      # Query functionality mixin
 │   ├── field/                  # Field mixins and types
 │   │   ├── __init__.py
+│   │   ├── composite_pk.py     # Composite primary key mixin
 │   │   ├── integer_pk.py       # Integer primary key mixin
 │   │   ├── README.md
 │   │   ├── soft_delete.py      # Soft delete mixin
@@ -162,22 +162,30 @@ rhosocial-activerecord/          # Core package
 │   │   ├── active_query.py     # Main query interface
 │   │   ├── aggregate.py        # Aggregate query functionality
 │   │   ├── async_join.py       # Async join functionality
+│   │   ├── async_relational.py # Async relational query functionality
 │   │   ├── base.py             # Base query functionality
 │   │   ├── cte_query.py        # CTE query functionality
 │   │   ├── join.py             # Join query functionality
 │   │   ├── range.py            # Range query functionality
 │   │   ├── relational.py       # Relational query functionality
-│   │   └── set_operation.py    # Set operation query functionality
+│   │   ├── set_operation.py    # Set operation query functionality
+│   │   └── utils.py            # Query utilities (placeholder conversion, etc.)
 │   ├── relation/               # Relationship components
 │   │   ├── __init__.py
 │   │   ├── async_descriptors.py # Async relationship descriptors
 │   │   ├── base.py             # Base relationship functionality
 │   │   ├── cache.py            # Relationship caching
+│   │   ├── cache_backend.py    # Cache backend abstraction
+│   │   ├── cache_backends/     # Cache backend implementations (in_memory, redis)
 │   │   ├── descriptors.py      # Relationship descriptors
-│   │   └── interfaces.py       # Relationship interfaces
-│   ├── model.py                # Main ActiveRecord class
+│   │   ├── interfaces.py       # Relationship interfaces
+│   │   └── type_resolver.py    # Relation type resolver
+│   ├── model.py                # ActiveRecord + AsyncActiveRecord classes
+│   ├── connection/             # Named connection support
+│   ├── logging/                # Logging infrastructure
+│   ├── worker/                 # Background worker support
+│   ├── types.py
 │   └── backend/                # Backend abstraction and implementations
-│       ├── __init__.py
 │       ├── base/               # Backend base classes
 │       │   ├── __init__.py
 │       │   └── base.py         # StorageBackend base class
@@ -189,16 +197,24 @@ rhosocial-activerecord/          # Core package
 │       │   ├── advanced_functions.py # Advanced SQL functions (CASE, CAST, etc.)
 │       │   ├── aggregates.py   # Aggregate function expressions
 │       │   ├── bases.py        # Base expression classes and protocols
+│       │   ├── collation.py    # Collation expressions
 │       │   ├── core.py         # Core expressions (Column, Literal, etc.)
-│       │   ├── functions.py    # Factory functions for expressions
+│       │   ├── datetime.py     # Date/time expressions
+│       │   ├── executable.py   # Executable expression support
+│       │   ├── functions/      # Factory functions (directory package)
 │       │   ├── graph.py        # Graph query expressions
+│       │   ├── introspection.py # Introspection expressions
 │       │   ├── literals.py     # Literal expressions
 │       │   ├── mixins.py       # Expression mixins with operator overloading
 │       │   ├── operators.py    # SQL operation expressions
 │       │   ├── predicates.py   # Predicate expressions
 │       │   ├── query_parts.py  # Query clause expressions
 │       │   ├── query_sources.py # Query source expressions
-│       │   └── statements.py   # SQL statement expressions
+│       │   ├── serialization.py # Expression serialization
+│       │   ├── statements/     # SQL statement expressions (directory package)
+│       │   ├── transaction.py  # Transaction-related expressions
+│       │   ├── types/          # Type-related expressions (directory package)
+│       │   └── xml.py          # SQL/XML expressions
 │       ├── impl/               # Backend implementations
 │       │   ├── dummy/          # Dummy backend for testing
 │       │   │   ├── __init__.py
@@ -208,11 +224,25 @@ rhosocial-activerecord/          # Core package
 │       │       ├── __init__.py
 │       │       ├── __main__.py
 │       │       ├── adapters.py # SQLite type adapters
-│       │       ├── backend.py  # SQLite backend implementation
+│       │       ├── backend/    # Backend implementation (directory package)
+│       │       │   ├── sync.py         # SQLiteBackend
+│       │       │   ├── async_backend.py # AsyncSQLiteBackend
+│       │       │   └── common.py
 │       │       ├── config.py   # SQLite configuration
 │       │       ├── dialect.py  # SQLite dialect implementation
 │       │       ├── transaction.py # SQLite transaction handling
-│       │       └── types.py    # SQLite-specific types
+│       │       ├── async_transaction.py # SQLite async transaction handling
+│       │       ├── expression/ # SQLite-specific expressions
+│       │       ├── functions/  # SQLite-specific SQL functions
+│       │       ├── mixins/     # SQLite dialect mixins
+│       │       ├── extension/  # SQLite extensions (FTS5, RTree, etc.)
+│       │       ├── pragma/     # PRAGMA support
+│       │       ├── explain/    # EXPLAIN support
+│       │       ├── introspection/ # SQLite introspection
+│       │       ├── schema/     # SQLite schema helpers
+│       │       ├── protocols.py # SQLite protocol declarations
+│       │       ├── cli/        # SQLite CLI tools
+│       │       └── examples/   # SQLite examples
 │       ├── config.py           # Backend configuration base classes
 │       ├── errors.py           # Backend-specific errors
 │       ├── helpers.py          # Backend helper functions
@@ -220,21 +250,33 @@ rhosocial-activerecord/          # Core package
 │       ├── output_abc.py       # Output abstraction
 │       ├── output_rich.py      # Rich output implementation
 │       ├── output.py           # Output utilities
+│       ├── protocols.py        # Backend protocol declarations
 │       ├── README.md           # Backend documentation
 │       ├── result.py           # Query result handling
-│       ├── schema.py           # Schema management
+│       ├── schema/             # Schema management (directory package: snapshot, differ, ...)
 │       ├── transaction.py      # Transaction base classes
 │       ├── type_adapter.py     # Type adaptation system
 │       └── type_registry.py    # Type adapter registry
 ```
 
+> Note: `src/rhosocial/activerecord/` and `backend/` are **PEP 420 namespace packages** — they
+> intentionally have **no `__init__.py`**, so extension backends
+> (`rhosocial-activerecord-mysql`, `rhosocial-activerecord-postgres`, ...) can drop their
+> packages into `backend/impl/{name}/` without modifying core. The tree above is representative,
+> not exhaustive; the project evolves quickly and additional modules/subpackages may exist.
+
 ### Namespace Package Structure
 
-The package follows a namespace structure that allows for distributed backend implementations:
+The `rhosocial.activerecord` package uses **PEP 420 implicit namespace packages** (no
+`__init__.py` at the `activerecord/` and `backend/` levels). This allows multiple distributions
+to contribute to the same namespace: the core package provides `base/`, `query/`, `relation/`,
+`backend/impl/dummy/`, `backend/impl/sqlite/`, etc., while extension projects ship their own
+`backend/impl/{name}/` directory (e.g., `mysql`, `postgres`) in separate distributions.
 
 ```python
-# Core package __init__.py
-__path__ = __import__('pkgutil').extend_path(__path__, __name__)
+# No __init__.py and no pkgutil.extend_path() is required anywhere in the core package.
+# Python's namespace-package mechanism resolves the merged package automatically when the
+# core and extension distributions are installed side by side.
 ```
 
 This allows multiple packages to contribute to the same namespace, enabling distributed backend implementations.
@@ -249,19 +291,24 @@ This allows multiple packages to contribute to the same namespace, enabling dist
 
 ```python
 # interface/model.py
-class IActiveRecord(BaseModel, ABC):
+class IActiveRecord(ActiveRecordBase):  # ActiveRecordBase(BaseModel, ABC)
     """Core ActiveRecord interface."""
 
     @abstractmethod
-    def save(self) -> bool:
-        """Save record to database."""
+    def save(self) -> int:
+        """Save record to database; returns number of affected rows."""
         pass
 
     @abstractmethod
-    def delete(self) -> bool:
-        """Delete record from database."""
+    def delete(self) -> int:
+        """Delete record from database; returns number of affected rows."""
         pass
+
+    # Additional abstract members (find_one, find_all, find_one_or_fail, refresh(), ...)
 ```
+
+> Note: `save()`/`delete()` return `int` (affected row count), not `bool`. An
+> `IAsyncActiveRecord` parallel interface also exists.
 
 ### 2. Model Layer
 
@@ -270,25 +317,30 @@ class IActiveRecord(BaseModel, ABC):
 **Purpose**: Business logic and data management
 
 ```python
-# Composition through mixins
+# model.py - composition through mixins (sync)
 class ActiveRecord(
     RelationManagementMixin,  # Relationship handling
     QueryMixin,                # Query capabilities
+    ColumnNameMixin,           # Column name mapping
     FieldAdapterMixin,         # Field-specific type adaptation
+    DerivedFieldMixin,         # Derived/computed fields
     MetaclassMixin,            # Metaclass-based feature handling
     BaseActiveRecord           # Core CRUD
 ):
     pass
+
+# A parallel AsyncActiveRecord uses AsyncQueryMixin + AsyncBaseActiveRecord.
 ```
 
 ### 3. Backend Layer
 
-**Location**: `backend/`
+**Location**: `backend/base/` (base classes), `backend/impl/` (implementations)
 
 **Purpose**: Database abstraction and operations
 
 ```python
-# backend/base.py
+# backend/base/base.py -> StorageBackendBase (ABC)
+# backend/base/__init__.py -> composed StorageBackend / AsyncStorageBackend
 class StorageBackend(
     # ...composed from LoggingMixin, CapabilityMixin, TypeAdaptionMixin, SQLBuildingMixin, etc.
     ABC
@@ -312,7 +364,7 @@ class StorageBackend(
 **Purpose**: Concrete database implementations
 
 ```python
-# backend/impl/sqlite/backend.py
+# backend/impl/sqlite/backend/sync.py
 class SQLiteBackend(StorageBackend):
     """SQLite-specific implementation."""
 
@@ -394,7 +446,7 @@ class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):
     title: str
     content: str
 
-# Mixins are also extensively used for backend composition (e.g., StorageBackend from backend/base.py)
+# Mixins are also extensively used for backend composition (e.g., StorageBackend in backend/base/)
 # providing modular and reusable components for database interaction.
 ```
 
@@ -404,24 +456,29 @@ class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):
 
 ```python
 # The project's query builder is ActiveQuery, composed from specialized mixins.
-from rhosocial.activerecord.query import ActiveQuery, BaseQueryMixin, AggregateQueryMixin, CTEQueryMixin, JoinQueryMixin, RangeQueryMixin, RelationalQueryMixin
+from rhosocial.activerecord.query import (
+    ActiveQuery, BaseQueryMixin, AggregateQueryMixin, JoinQueryMixin,
+    RangeQueryMixin, RelationalQueryMixin,
+)
 
 class ActiveQuery(
-    CTEQueryMixin,
+    AggregateQueryMixin,
+    BaseQueryMixin,
     JoinQueryMixin,
     RelationalQueryMixin,
     RangeQueryMixin,
-    # BaseQueryMixin and AggregateQueryMixin are inherited through CTEQueryMixin
+    IActiveQuery,
+    ISetOperationQuery,
 ):
     """
     Complete ActiveQuery implementation, combining all query mixins.
     It builds SQL by collecting conditions, orders, joins, etc.,
     and delegates to its mixins for specific functionalities.
+
+    NOTE: CTE queries are built with a separate CTEQuery class (cte_query.py),
+    which is NOT part of ActiveQuery's inheritance.
     """
     pass
-
-# Usage
-users = User.query().where("age >= ?", (18,)).order_by("-created_at").limit(10).all()
 ```
 
 ### 5. Registry Pattern
@@ -451,6 +508,9 @@ class TypeRegistry:
 
 ```python
 # The execute method in StorageBackend acts as a Template Method
+# Located in backend/base/ (StorageBackendBase in base.py; the composed StorageBackend
+# and AsyncStorageBackend in __init__.py). Mixin names below are illustrative of the
+# responsibilities; concrete composition lives in backend/base/.
 class StorageBackend(
     # ...composed from various functional mixins like SQLBuildingMixin,
     # QueryAnalysisMixin, ReturningClauseMixin, ResultProcessingMixin, etc.
@@ -485,25 +545,21 @@ class StorageBackend(
     # ... other abstract hook methods like connect(), disconnect(), etc.
 ```
 
-### 7. Factory Pattern
+### 7. Backend Registration and Binding
 
-**Purpose**: Create backend instances
+There is **no generic `create_backend()` factory function** in the core package. Backends are
+bound to a model via `configure()`, which instantiates the backend under the hood.
 
 ```python
-def create_backend(backend_type: str, **config) -> StorageBackend:
-    """Factory for backend creation."""
-    backends = {
-        'sqlite': SQLiteBackend,
-        'mysql': MySQLBackend,
-        'postgresql': PostgreSQLBackend,
-    }
-
-    backend_class = backends.get(backend_type)
-    if not backend_class:
-        raise ValueError(f"Unknown backend: {backend_type}")
-
-    return backend_class(**config)
+# configure() builds the backend from a config + backend_class and binds it to the model.
+User.configure(config, SQLiteBackend)   # or MySQLBackend, PostgresBackend, etc.
+# -> internally: cls.__backend__ = backend_class(connection_config=config, ...)
+#    and calls backend.introspect_and_adapt()
 ```
+
+Because all backends share a namespace package (`rhosocial.activerecord.backend.impl.{name}`),
+each backend can be imported and configured independently without a central factory mapping
+backend names to classes.
 
 ## Class Hierarchy
 
@@ -512,32 +568,45 @@ def create_backend(backend_type: str, **config) -> StorageBackend:
 ```
 BaseModel (Pydantic)
     └── IActiveRecord (Interface - implemented by BaseActiveRecord)
-        └── BaseActiveRecord (Core implementation, implements IActiveRecord)
+        └── BaseActiveRecord / AsyncBaseActiveRecord (Core implementations)
             # ActiveRecord is composed from these mixins and BaseActiveRecord
-            └── QueryMixin
             └── RelationManagementMixin
+            └── QueryMixin            # AsyncActiveRecord uses AsyncQueryMixin
+            └── ColumnNameMixin
             └── FieldAdapterMixin
+            └── DerivedFieldMixin
             └── MetaclassMixin
-                └── ActiveRecord (Full implementation, combines BaseActiveRecord and mixins)
+                └── ActiveRecord (Full sync implementation)
+                └── AsyncActiveRecord (Full async implementation)
                     └── User, Post, etc. (User models)
 ```
+
+Note: The actual composition (`model.py`) is `ActiveRecord(RelationManagementMixin,
+QueryMixin, ColumnNameMixin, FieldAdapterMixin, DerivedFieldMixin, MetaclassMixin,
+BaseActiveRecord)`, and a parallel `AsyncActiveRecord` class exists for async support.
 
 ### Backend Hierarchy
 
 ```
-StorageBackendBase (ABC)
+StorageBackendBase (ABC)                # backend/base/base.py
     # Composed from mixins for sync operations
-    └── StorageBackend (ABC)
-        └── SQLiteBackend # Concrete implementation
-        # └── MySQLBackend (if implemented)
-        # └── PostgreSQLBackend (if implemented)
+    └── StorageBackend (ABC)            # backend/base/__init__.py
+        └── SQLiteBackend               # backend/impl/sqlite/backend/sync.py
+        # └── MySQLBackend (extension: rhosocial-activerecord-mysql)
+        # └── PostgreSQLBackend (extension: rhosocial-activerecord-postgres)
+        # ...
 
 StorageBackendBase (ABC)
     # Composed from mixins for async operations
-    └── AsyncStorageBackend (ABC)
-        └── # AsyncSQLiteBackend (if implemented)
-        # └── AsyncMySQLBackend (if implemented)
+    └── AsyncStorageBackend (ABC)       # backend/base/__init__.py
+        └── AsyncSQLiteBackend          # backend/impl/sqlite/backend/async_backend.py (implemented)
+        # └── AsyncMySQLBackend (extension)
+        # ...
 ```
+
+> Note: `StorageBackendBase` lives in `backend/base/base.py`; the composed `StorageBackend` and
+> `AsyncStorageBackend` (both ABC) are re-exported from `backend/base/__init__.py`. The async
+> SQLite backend is fully implemented.
 
 ## Module Interactions
 
@@ -563,11 +632,11 @@ User.configure(config, SQLiteBackend)
 ### Query Execution Flow
 
 ```
-User.where("name = ?", ("John",))
+User.query().where("name = ?", ("John",))
     ↓
-QueryBuilder.where()
+ActiveQuery.where()  # builds a RawSQLPredicate / typed predicate in the WHERE clause
     ↓
-QueryBuilder.build()
+ActiveQuery.to_sql()
     ↓
 Backend.execute()
     ↓
@@ -586,11 +655,13 @@ User instances
 
 The project maintains **minimal core dependencies** by design:
 
-```python
+```toml
 # Minimal core dependencies - Pydantic only
+[project]
 dependencies = [
-    "pydantic>=2.0.0",  # Data validation and model definition
-    "typing_extensions>=4.0.0",  # Backported typing features for Python 3.8
+    "pydantic==2.10.6; python_version == '3.8'",          # Data validation and model definition
+    "pydantic>=2.12.0; python_version >= '3.9'",
+    "typing_extensions>=4.0.0",                            # Backported typing features for Python 3.8
 ]
 ```
 
@@ -598,36 +669,31 @@ dependencies = [
 
 ### Optional Dependencies
 
-```python
-extras_require = {
-    "mysql": ["mysql-connector-python>=8.0.0"],  # MySQL backend
-    "postgresql": ["psycopg2>=2.9.0"],  # PostgreSQL backend
-    "dev": ["pytest", "black", "mypy"],  # Development tools
-}
+The core package does **not** depend on any native database driver directly. Backend support is
+provided by separate extension distributions, exposed as optional extras:
+
+```toml
+[project.optional-dependencies]
+mysql = ["rhosocial-activerecord-mysql>=1.0.0,<2.0.0"]    # MySQL backend extension
+postgres = ["rhosocial-activerecord-postgres>=1.0.0,<2.0.0"]  # PostgreSQL backend extension
 ```
+
+Each backend extension depends on its own native driver (e.g., `mysql-connector-python`,
+`psycopg`) and ships its own `backend/impl/{name}/` package.
 
 ### Backend Discovery
 
+There is **no `discover_backends()` function** in the core package. Backends are imported
+explicitly and bound to models via `configure()`:
+
 ```python
-# Dynamic backend loading - no ORM dependencies
-def discover_backends():
-    """Discover installed backends."""
-    backends = {}
+# Users (or extension entry points) import the backend explicitly.
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+# Installed extensions are importable the same way:
+#   from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+#   from rhosocial.activerecord.backend.impl.postgres import PostgresBackend
 
-    # Check for installed backends (each uses only native drivers)
-    try:
-        from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
-        backends['mysql'] = MySQLBackend  # Uses mysql-connector-python directly
-    except ImportError:
-        pass
-
-    try:
-        from rhosocial.activerecord.backend.impl.postgresql import PostgreSQLBackend
-        backends['postgresql'] = PostgreSQLBackend  # Uses psycopg2 directly
-    except ImportError:
-        pass
-
-    return backends
+User.configure(SQLiteConnectionConfig(database="app.db"), SQLiteBackend)
 ```
 
 ## Extension Points
@@ -668,11 +734,11 @@ class User(ActiveRecord):
 class UserQueryMixin:
     @classmethod
     def find_by_email(cls, email: str):
-        return cls.where("email = ?", (email,)).first()
+        return cls.query().where("email = ?", (email,)).one()
 
     @classmethod
     def active_users(cls):
-        return cls.where(is_active=True)
+        return cls.query().where(cls.c.is_active == True).all()  # noqa: E712
 
 class User(UserQueryMixin, ActiveRecord):
     pass

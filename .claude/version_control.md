@@ -28,10 +28,10 @@ rhosocial-activerecord-{backend} (Backend Extensions)
 #### Current Support Matrix
 
 **Version 1.0.x** (Current):
-- **Supported**: Python 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
+- **Supported**: Python 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14 (and 3.15 in CI/classifiers)
 - **Free-threaded builds**: Python 3.13t, 3.14t
 - **Tested on CI**: All above versions
-- **Pydantic compatibility**: 2.10.x (last version supporting Python 3.8)
+- **Pydantic compatibility**: 2.10.x (last version supporting Python 3.8); `>=2.12.0` for Python 3.9+
 
 **Version 1.1.x and later** (Planned):
 - **Minimum version**: To be determined (likely Python 3.10+)
@@ -58,6 +58,7 @@ Python Version | EOL Date    | rhosocial-activerecord Support Status
 3.12           | 2028-10     | Full support
 3.13           | 2029-10     | Full support
 3.14           | 2030-10     | Full support
+3.15           | 2031-10     | Partial support (beta in CI/classifiers)
 ```
 
 **Note**: Python 3.8 has reached end-of-life as of October 2024. Version 1.0.x continues to support it due to widespread usage, but 1.1.x and later will likely drop support.
@@ -160,6 +161,12 @@ __version__ = "2!1.0.0a1"            # Epoch + Alpha
 __version__ = "1.0.0-beta.2.post3"   # Beta with post-release
 __version__ = "1.0.0.dev4+local.1"   # Dev version + local build
 ```
+
+> **Note**: The `__version__` strings above illustrate the **version format** only. The
+> `rhosocial.activerecord` package is a PEP 420 namespace package with **no `__init__.py` and no
+> `__version__` attribute**. The canonical version is declared in `pyproject.toml` as
+> `[project] version` (currently `1.0.0.dev29`). Version-bump commits edit `pyproject.toml`, not
+> any `__init__.py`.
 
 #### Version Components
 
@@ -802,8 +809,8 @@ git checkout -b release/v1.2.0
 git push origin release/v1.2.0
 
 # Bump version to alpha
-__version__ = "1.2.0a1"
-git add src/rhosocial/activerecord/__init__.py
+# version = "1.2.0a1"   # in pyproject.toml ([project] version)
+git add pyproject.toml
 git commit -m "chore: bump version to 1.2.0a1 (alpha phase)"
 git push origin release/v1.2.0
 
@@ -818,17 +825,17 @@ git push origin --delete release/v1.2.0.dev4
 git checkout release/v1.2.0
 git pull origin release/v1.2.0
 
-# Bump version within same branch
+# Bump version within same branch (edit [project] version in pyproject.toml)
 # Alpha to Beta:
-__version__ = "1.2.0b1"
+version = "1.2.0b1"
 
 # Beta to RC:
-__version__ = "1.2.0rc1"
+version = "1.2.0rc1"
 
 # RC to Final:
-__version__ = "1.2.0"
+version = "1.2.0"
 
-git add src/rhosocial/activerecord/__init__.py
+git add pyproject.toml
 git commit -m "chore: bump version to 1.2.0b1 (beta phase)"
 git push origin release/v1.2.0
 ```
@@ -1539,7 +1546,7 @@ rm .claude/tmp/my-commit-message.txt
 ### Scope Guidelines
 
 **Optional but recommended** for multi-component projects:
-See the [.gemini/feature_points.md](.gemini/feature_points.md) document for a complete list and description of valid scopes.
+See the [.claude/feature_points.md](.claude/feature_points.md) document for a complete list and description of valid scopes.
 
 **Core Package Scopes**:
 
@@ -2117,7 +2124,7 @@ towncrier build --draft --version 1.2.0a1
 - [ ] **CHANGELOG.md built** (towncrier build --version X.Y.Z --yes)
 - [ ] Fragments removed after build
 - [ ] Documentation updated and builds successfully
-- [ ] Version number updated in `__init__.py`
+- [ ] Version number updated in `pyproject.toml` (`[project] version`)
 - [ ] Git tag created with version number
 - [ ] Release notes drafted
 ```
@@ -2125,8 +2132,8 @@ towncrier build --draft --version 1.2.0a1
 **Release Commit Sequence**:
 
 ```bash
-# 1. Last pre-release commit is version bump
-__version__ = "1.2.0rc3"
+# 1. Last pre-release commit is version bump (edit [project] version in pyproject.toml)
+# version = "1.2.0rc3"
 git commit -m "chore: bump version to 1.2.0rc3"
 
 # 2. When ready for final release, build changelog
@@ -2484,8 +2491,8 @@ git checkout main
 git pull origin main
 
 # Bump version to 1.2.1
-__version__ = "1.2.1"
-git add src/rhosocial/activerecord/__init__.py
+# version = "1.2.1"   # in pyproject.toml
+git add pyproject.toml
 git commit -m "chore: bump version to 1.2.1"
 
 # Build changelog
@@ -2561,8 +2568,8 @@ git checkout main
 git pull origin main
 
 # Immediate PATCH release
-__version__ = "1.2.1"
-git add src/rhosocial/activerecord/__init__.py
+# version = "1.2.1"   # in pyproject.toml
+git add pyproject.toml
 git commit -m "chore: bump version to 1.2.1 - SECURITY RELEASE"
 
 # Build changelog
@@ -2868,7 +2875,7 @@ def test_recursive_cte(tree_fixtures):
 - [ ] **Changelog fragments reviewed** (towncrier build --draft)
 - [ ] **CHANGELOG.md built** (towncrier build --version X.Y.Z --yes)
 - [ ] Fragments removed after build
-- [ ] Version number updated in `__init__.py`
+- [ ] Version number updated in `pyproject.toml` (`[project] version`)
 - [ ] Git tag created with version number
 - [ ] Release notes drafted
 
