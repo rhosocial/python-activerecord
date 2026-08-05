@@ -1,5 +1,18 @@
 # Experimental Features Guide
 
+> **Status Note**: This document describes the **future** policy for handling "Experimental"
+> features and does **not** apply to the current stage of the project.
+>
+> **Why**: The project is currently in the **pre-release development phase** (`1.0.x.dev*`).
+> During this phase, the entire codebase is inherently unstable and APIs may change
+> arbitrarily between dev/alpha/beta versions. Therefore there is **no separate "experimental"
+> category** of features, and none of the `@experimental` infrastructure described below exists
+> in the codebase.
+>
+> This policy will take effect only **after the first stable release (`1.0.0`)**. At that point,
+> features introduced into stable versions that need real-world validation will be marked
+> "Experimental". Until `1.0.0` is released, contributors should ignore this guide.
+
 ## 1. Overview
 
 This document defines the rules, lifecycle, and usage guidelines for "Experimental" features within the `rhosocial-activerecord` project. Experimental features are intended to provide a way to test new ideas and gather feedback in real-world environments without immediately committing to a stable API.
@@ -45,7 +58,7 @@ def experimental(thing):
     Decorator to mark a function, method, or class as experimental.
     """
     @wraps(thing)
-    def wrapper(*args, #, **kwargs): # Original mistake was here: #, **kwargs)
+    def wrapper(*args, **kwargs):
         warnings.warn(
             f"{thing.__name__} is an experimental feature. "
             "Its API may change or be removed in future releases without notice. "

@@ -26,15 +26,13 @@ if TYPE_CHECKING:
     from ..model import ActiveRecord
 
 
-# 为 Column 类添加别名方法
-def _as_(self, alias: str):
-    """Set column alias"""
-    self.alias = alias
-    return self
-
-
-# 将 as_ 方法附加到 Column 类
-Column.as_ = _as_
+# 为表达式提供别名能力的是 AliasableMixin（backend/expression/mixins.py）
+# Column 等表达式类继承该 mixin，从而获得 as_() 方法（并非通过 monkey-patch 附加）：
+#   class AliasableMixin:
+#       def as_(self, alias: str):
+#           """Set column alias"""
+#           self.alias = alias
+#           return self
 
 
 class FieldProxy:

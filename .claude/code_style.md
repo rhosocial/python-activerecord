@@ -34,10 +34,17 @@ multi_line_output = 3
 line_length = 100
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py38"
+
+[tool.ruff.lint]
 select = ["E", "F", "B"]
+ignore = ["B024"]
 ```
+
+> **Note**: The project uses **line length 120** for `ruff` (see `pyproject.toml`). The
+> `[tool.black]` / `[tool.isort]` configuration uses 100. When these conflict on formatting,
+> follow the `ruff format` conventions used by the project's tooling.
 
 ### Import Organization
 
@@ -144,8 +151,9 @@ ModelT = TypeVar('ModelT', bound='IActiveRecord')
 
 # Query-related names
 # Use placeholder expressions for where clauses
-User.where("age >= ?", (18,)) # age >= 18
-User.where("name LIKE ?", ('%john%',))  # name LIKE '%john%'
+# NOTE: where() is called on the query builder returned by Model.query(), NOT on the model class
+User.query().where("age >= ?", (18,)) # age >= 18
+User.query().where("name LIKE ?", ('%john%',))  # name LIKE '%john%'
 
 # Class attributes
 class User(ActiveRecord):
@@ -663,12 +671,17 @@ Follow the established module structure:
 - `operators.py`: SQL operations
 - `predicates.py`: Predicate expressions
 - `query_parts.py`: Query clauses
-- `statements.py`: DML/DDL statements
-- `functions.py`: Factory functions
+- `statements/`: SQL statement expressions (directory package, e.g. `ddl_*`, `dml`, `dql`, `explain`)
+- `functions/`: Factory functions for expressions (directory package)
 - `aggregates.py`: Aggregation expressions
 - `advanced_functions.py`: Advanced SQL features
 - `query_sources.py`: Data source expressions
 - `graph.py`: Graph query expressions
+- Additional modules: `collation.py`, `datetime.py`, `serialization.py`, `transaction.py`,
+  `introspection.py`, `xml.py`, `types/`
+
+> Note: `functions.py` and `statements.py` have been refactored into directory packages
+> (`functions/` and `statements/`). New flat modules listed above complement them.
 
 ### Example Expression Class
 
@@ -717,15 +730,49 @@ def format_identifier(self, identifier: str) -> str:
 - [ ] Expression-dialect separation maintained
 - [ ] Expression system module organization followed
 
-### RawSQLPredicate / RawSQLExpression Prohibition
+### RawSQLPredicate / RawSQLExpression
 
-`RawSQLPredicate` (and its underlying `RawSQLExpression`) must NOT be used anywhere in the codebase, including tests, examples, documentation, CLI tools, or temporary scripts.
+`RawSQLExpression` and `RawSQLPredicate` (`backend/expression/operators.py`) embed a raw SQL
+fragment directly into the query, bypassing the typed expression building mechanism. They are
+**used internally by the core query builder** and therefore are not categorically forbidden.
 
-Rationale:
-- `RawSQLPredicate` takes raw SQL strings, bypassing the entire expression system's type safety, parameterization, and dialect adaptation mechanisms.
-- The pattern it represents contradicts the design philosophy of the rhosocial-activerecord expression system.
-- All SQL generation MUST go through the expression system's typed API (`ComparisonPredicate`, `IsNullPredicate`, `Column`, `Literal`, etc.).
+#### Why the core uses them
 
-Code that uses `RawSQLPredicate` is a negative indicator and must be refactored to use typed predicates from the expression system.
+The public `where()` API accepts both a typed `SQLPredicate` and a raw SQL placeholder string:
 
-Exceptions: None.
+```python
+Model.query().where(User.c.age >= 18)          # typed predicate (preferred)
+Model.query().where("age >= ?", (18,))          # raw string + params
+```
+
+To implement the second form, `BaseQueryMixin.where()` converts the string into a
+`RawSQLPredicate` (`query/base.py`), converting `?` placeholders to the dialect's native
+format and passing the parameters separately. So any code path that intentionally accepts raw
+SQL fragment strings relies on `RawSQLPredicate` under the hood.
+
+#### Security analysis
+
+- **Values are still parameterized.** `RawSQLPredicate`/`RawSQLExpression` bind parameters via
+  a separate params tuple, so values are always sent through placeholders and never
+  naively concatenated. The SQL string itself, however, is embedded verbatim.
+- **The SQL fragment string is trusted input.** The security boundary is: the SQL structure
+  (*identifiers*, operators, keywords) comes from the developer/caller, and only *values* come
+  from user data through `?` placeholders. Concatenating untrusted user input into the SQL
+  string is **SQL injection** and is forbidden.
+- `where()` additionally warns (`UserWarning`) when a string condition contains no `?`
+  placeholder, since such a fragment is a red flag for user-input concatenation.
+
+#### Usage rules
+
+1. **Prefer typed predicates** (`ComparisonPredicate`, `IsNullPredicate`, `Column`,
+   `Literal`, and field-proxy expressions like `User.c.age >= 18`) wherever possible.
+2. When accepting/creating a raw SQL fragment string, **never concatenate user input** into it.
+   Route all user-controlled *values* through `?` placeholders + a params tuple.
+3. Keep raw SQL used by the core builder confined to the query-building layer; do not spread
+   ad-hoc raw SQL across feature/model code. If you find yourself writing a new
+   `RawSQLPredicate` in business logic, prefer a typed predicate instead.
+4. Tests/examples that intentionally exercise raw-SQL APIs are acceptable as long as they
+   demonstrate parameterization (values through placeholders, not concatenation).
+
+Violating rule 2 (concatenating user input into a raw SQL fragment) is the only case that is
+categorically prohibited here — it is a SQL injection vulnerability.
