@@ -622,96 +622,22 @@ class TimestampMixin:
 
 ## Expression-Dialect System Coding Standards
 
-### Expression Class Guidelines
+> The full architecture, module layout, protocol/mixin table, and "how to add a protocol"
+> workflow live in the **`dev-expression-dialect`** skill. Coding-relevant rules summarized here:
 
-1. **Proper Inheritance**:
-   - All expression classes must inherit from `BaseExpression`
-   - Value expressions inherit from `SQLValueExpression`
-   - Predicate expressions inherit from `SQLPredicate`
-   - Use appropriate mixins for functionality (e.g., `ArithmeticMixin`, `ComparisonMixin`)
-
-2. **Protocol Implementation**:
-   - Implement `ToSQLProtocol` with proper `to_sql()` method
-   - Return `SQLQueryAndParams` type (SQL string and parameter tuple)
-   - Never directly concatenate SQL strings in expression classes
-
-3. **Dialect Delegation**:
-   - Always delegate formatting to dialect methods
-   - Use `self.dialect.format_*()` methods for all SQL formatting
-   - Maintain separation between query structure and SQL generation
-
-4. **Explicit Control**:
-   - Expression classes should not maintain internal state
-   - No hidden behaviors or automatic operations
-   - Keep expressions stateless and pure
-   - Unlike systems with complex object state management, our expressions are simple and predictable
-
-### Dialect Class Guidelines
-
-1. **Base Class Inheritance**:
-   - All dialect classes must inherit from `SQLDialectBase`
-   - Implement all required abstract methods
-
-2. **Formatting Methods**:
-   - Implement `format_*` methods for all SQL formatting needs
-   - Handle identifier quoting appropriately
-   - Properly handle parameter binding
-
-3. **Database-Specific Logic**:
-   - Include database-specific syntax variations
-   - Handle version-specific features
-   - Implement feature detection where needed
-
-### Expression System Module Organization
-
-Follow the established module structure:
-- `bases.py`: Abstract base classes and protocols
-- `core.py`: Core expressions (columns, literals, functions)
-- `mixins.py`: Operator overloading capabilities
-- `operators.py`: SQL operations
-- `predicates.py`: Predicate expressions
-- `query_parts.py`: Query clauses
-- `statements/`: SQL statement expressions (directory package, e.g. `ddl_*`, `dml`, `dql`, `explain`)
-- `functions/`: Factory functions for expressions (directory package)
-- `aggregates.py`: Aggregation expressions
-- `advanced_functions.py`: Advanced SQL features
-- `query_sources.py`: Data source expressions
-- `graph.py`: Graph query expressions
-- Additional modules: `collation.py`, `datetime.py`, `serialization.py`, `transaction.py`,
-  `introspection.py`, `xml.py`, `types/`
-
-> Note: `functions.py` and `statements.py` have been refactored into directory packages
-> (`functions/` and `statements/`). New flat modules listed above complement them.
-
-### Example Expression Class
-
-```python
-from typing import TYPE_CHECKING
-from . import bases, mixins
-
-if TYPE_CHECKING:  # pragma: no cover
-    from ..dialect import SQLDialectBase
-
-class MyExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    """Represents a custom SQL expression."""
-    def __init__(self, dialect: "SQLDialectBase", value: str):
-        super().__init__(dialect)
-        self.value = value
-
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
-        # Delegate formatting to dialect
-        formatted_value = self.dialect.format_string_literal(self.value)
-        return formatted_value, (self.value,)
-```
-
-### Example Dialect Method
-
-```python
-def format_identifier(self, identifier: str) -> str:
-    """Format identifier with proper quoting."""
-    # Database-specific identifier formatting
-    return f'"{identifier}"'  # Example for standard SQL
-```
+- All expression classes inherit from `BaseExpression` (`SQLValueExpression` for values,
+  `SQLPredicate` for predicates); use mixins (`ArithmeticMixin`, `ComparisonMixin`, ...) for
+  operator support.
+- Implement `ToSQLProtocol.to_sql()` returning `SQLQueryAndParams` (SQL string + params tuple).
+- **Never** concatenate SQL strings in expression classes — delegate all formatting to
+  `self.dialect.format_*()`.
+- Expressions are stateless and pure; no hidden behaviors or automatic operations.
+- Dialect classes inherit `SQLDialectBase`, implement all abstract methods + `format_*` methods,
+  handle identifier quoting and parameter binding, and include database/version-specific logic.
+- Module organization: `bases.py`, `core.py`, `mixins.py`, `operators.py`, `predicates.py`,
+  `query_parts.py`, `statements/` (dir pkg), `functions/` (dir pkg), `aggregates.py`,
+  `advanced_functions.py`, `query_sources.py`, `graph.py`, plus `collation.py`, `datetime.py`,
+  `serialization.py`, `transaction.py`, `introspection.py`, `xml.py`, `types/`.
 
 ## Code Review Checklist
 
