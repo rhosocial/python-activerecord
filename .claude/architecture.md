@@ -19,18 +19,18 @@ Expression.to_sql() -> Dialect.format_*() -> SQL string and parameters
 ```
 
 #### Main Modules
-- `bases.py`: Abstract base classes and protocol definitions
-- `core.py`: Core expression components (columns, literals, function calls, subqueries)
-- `mixins.py`: Mixin classes that provide operator-overloading capabilities
-- `operators.py`: SQL operations (binary, unary, arithmetic expressions)
-- `predicates.py`: SQL predicate expressions (WHERE clause conditions)
-- `query_parts.py`: SQL query clauses (WHERE, GROUP BY, HAVING, ORDER BY, etc.)
-- `statements.py`: DML/DQL/DDL statements (SELECT, INSERT, UPDATE, DELETE, etc.)
-- `functions.py`: Standalone factory functions for creating SQL expression objects
-- `aggregates.py`: Expressions related to SQL aggregation and aggregate functions
-- `advanced_functions.py`: Advanced SQL functions and expressions (CASE, CAST, EXISTS, window functions, etc.)
-- `query_sources.py`: Data source expressions (VALUES, table functions, lateral joins, CTEs, etc.)
-- `graph.py`: SQL Graph Query (MATCH) expression building blocks
+
+`backend/expression/`: `bases.py`, `core.py`, `literals.py`, `executable.py`, `mixins.py`,
+`operators.py`, `predicates.py`, `query_parts.py`, `statements/` (directory pkg: `ddl_*`, `dml`,
+`dql`, `explain`), `functions/` (directory pkg), `aggregates.py`, `advanced_functions.py`,
+`query_sources.py`, `graph.py`, plus `collation.py`, `datetime.py`, `serialization.py`,
+`transaction.py`, `introspection.py`, `xml.py`, `types/`.
+
+> Note: `functions.py` and `statements.py` were refactored into directory packages
+> (`functions/` and `statements/`).
+>
+> Full protocol/mixin table, golden rules, and "how to add a protocol" workflow are in the
+> **`dev-expression-dialect`** skill.
 
 #### Important Limitations
 The expression system faithfully builds SQL according to user intent, but **does not validate** whether the generated SQL complies with SQL standards or can be successfully executed in the target database. Semantic validation is the responsibility of the database engine.
