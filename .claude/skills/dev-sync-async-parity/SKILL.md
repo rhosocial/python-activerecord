@@ -14,144 +14,153 @@ metadata:
 
 # Sync/Async API Parity Rules
 
-This guide covers the strict sync/async parity requirements for rhosocial-activerecord framework development, with emphasis on **backend and transaction symmetry** as the foundation of all parity.
+This guide covers the strict sync/async parity requirements for rhosocial-activerecord
+framework development, with emphasis on **backend and transaction symmetry** as the foundation
+of all parity.
 
 ## Core Philosophy
 
 ### Backend & Transaction: The True Foundation
 
-**Backend 和 Transaction 才是同步异步对等的真正基础。**
+**Backend and Transaction are the real foundation of sync/async equivalence.**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Application Layer                          │
-│     ActiveRecord / AsyncActiveRecord (依赖于 Backend)          │
-│     ActiveQuery / AsyncActiveQuery (依赖于 Backend)           │
+│     ActiveRecord / AsyncActiveRecord (depends on Backend)     │
+│     ActiveQuery / AsyncActiveQuery (depends on Backend)       │
 ├─────────────────────────────────────────────────────────────┤
 │                    Backend Layer                             │
-│     StorageBackend / AsyncStorageBackend (核心对等)            │
-│     Transaction / AsyncTransaction (核心对等)                  │
+│     StorageBackend / AsyncStorageBackend (core parity)        │
+│     Transaction / AsyncTransaction (core parity)              │
 ├─────────────────────────────────────────────────────────────┤
 │                    Database Layer                            │
 │            SQLite / PostgreSQL / MySQL / etc.               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**关键理解：**
-- `ActiveRecord` 依赖于 `StorageBackend`
-- `AsyncActiveRecord` 依赖于 `AsyncStorageBackend`
-- 如果只有同步 `StorageBackend`，那么 `AsyncActiveRecord` 无法真正工作
-- **Backend/Transaction 的对等是整个框架同步异步对等的前提条件**
+**Key insight:**
+- `ActiveRecord` depends on `StorageBackend`
+- `AsyncActiveRecord` depends on `AsyncStorageBackend`
+- Without an async `StorageBackend`, `AsyncActiveRecord` cannot truly work
+- **Backend/Transaction parity is the prerequisite for the whole framework's sync/async parity**
 
-## Backend 实现状态
+## Backend Implementation Status
 
-### 当前状态说明
+### Current Status
 
-**并非所有 Backend 都需要同时提供同步和异步版本：**
+**Not every backend must ship both sync and async variants.** The async SQLite backend is
+already **implemented in the production source**; a separate test-only async backend also exists
+for validating the async abstraction.
 
-| Backend 位置 | 同步实现 | 异步实现 | 用途 |
-|-------------|---------|---------|------|
-| `src/rhosocial/activerecord/backend/impl/sqlite/` | ✅ 已实现 | ❌ 未实现 | 生产使用 |
-| `tests/` (模拟) | ✅ 测试用 | ✅ 测试用 | 仅供测试 |
+| Location | Sync implementation | Async implementation | Purpose |
+|----------|---------------------|----------------------|---------|
+| `src/rhosocial/activerecord/backend/impl/sqlite/` | ✅ `SQLiteBackend` (`backend/sync.py`) | ✅ `AsyncSQLiteBackend` (`backend/async_backend.py`) | Production |
+| `tests/rhosocial/activerecord_test/feature/backend/sqlite_async/` | — | ✅ test-only async backend (aiosqlite) | Testing only |
 
 ```python
-# src/rhosocial/activerecord/backend/impl/sqlite/backend.py
-# ✅ 同步 Backend 已实现，可用于生产
+# Production sync backend
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
 class SQLiteBackend(StorageBackend):
     def connect(self): ...
     def execute(self, sql: str, params=None): ...
-    def begin_transaction(self): ...
-    def commit(self): ...
-    def rollback(self): ...
 
-# tests/rhosocial/activerecord_test/.../async_sqlite_backend.py
-# ⚠️ 异步 Backend 仅在 tests 目录中，用于测试异步 API
+# Production async backend (backend/impl/sqlite/backend/async_backend.py)
 class AsyncSQLiteBackend(AsyncStorageBackend):
     async def connect(self): ...
     async def execute(self, sql: str, params=None): ...
+
+# Test-only async backend (tests/.../backend/sqlite_async/async_backend.py)
+# Validates the async abstraction with aiosqlite; NOT for production use.
+class AsyncSQLiteBackend(AsyncStorageBackend):
+    async def execute(self, sql: str, params=None): ...
 ```
 
-### 为什么异步 Backend 可能不需要？
+### When an Async Backend May Not Be Needed
 
-1. **纯同步应用场景**：许多应用不需要异步数据库访问
-2. **测试覆盖**：测试目录中的异步实现主要用于验证异步 API 设计
-3. **社区贡献**：异步实现可以由社区按需补充
-4. **性能考量**：对于简单应用，同步版本已足够
+Async support follows the **driver's native capabilities** — respect whichever variant the
+backend genuinely provides (see Q1/Q2). Reasons an async backend may be absent:
 
-## 两条对等链
+1. **No native async driver**: the database driver is synchronous-only (e.g. Firebird), and we do
+   not force an artificial async wrapper
+2. **Pure-sync use cases**: many applications do not need async database access
+3. **Community contribution**: async support can be added on demand when a driver enables it
 
-### 第一条对等链：Backend 层（核心）
+## The Two Parity Chains
 
-```
-StorageBackend (同步基础)
-    ↓ 依赖
-BaseActiveRecord / ActiveQuery (同步 API)
-
-AsyncStorageBackend (异步基础)
-    ↓ 依赖
-AsyncBaseActiveRecord / AsyncActiveQuery (异步 API)
-```
-
-### 第二条对等链：Transaction 层
+### Chain 1: Backend Layer (core)
 
 ```
-Transaction (同步事务)
-    ↓ 提供事务支持
+StorageBackend (sync foundation)
+    ↓ dependency
+BaseActiveRecord / ActiveQuery (sync API)
+
+AsyncStorageBackend (async foundation)
+    ↓ dependency
+AsyncBaseActiveRecord / AsyncActiveQuery (async API)
+```
+
+### Chain 2: Transaction Layer
+
+```
+Transaction (sync transactions)
+    ↓ provides transaction support
 BaseActiveRecord.save() / BaseActiveRecord.delete()
 
-AsyncTransaction (异步事务)
-    ↓ 提供事务支持
+AsyncTransaction (async transactions)
+    ↓ provides transaction support
 AsyncBaseActiveRecord.save() / AsyncBaseActiveRecord.delete()
 ```
 
-## 六条核心规则
+## Six Core Rules
 
-### 规则一：类命名
+### Rule 1: Class Naming
 
-对等链上的每一层都需要添加 `Async` 前缀：
+Every layer on the parity chain adds an `Async` prefix:
 
 ```python
-# Backend 层
+# Backend layer
 StorageBackend → AsyncStorageBackend
 
-# Transaction 层
+# Transaction layer
 Transaction → AsyncTransaction
 
-# ActiveRecord 层
+# ActiveRecord layer
 BaseActiveRecord → AsyncBaseActiveRecord
 
-# Query 层
+# Query layer
 ActiveQuery → AsyncActiveQuery
 RelationQuery → AsyncRelationQuery
 ```
 
-### 规则二：方法命名（关键）
+### Rule 2: Method Naming (critical)
 
-**方法名必须完全相同** - 禁止使用 `_async` 后缀：
+**Method names must be identical** — the `_async` suffix is forbidden:
 
 ```python
-# ✅ 正确 - 方法名相同
+# ✅ Correct - same method names
 class StorageBackend:
     def execute(self, sql: str, params=None): ...
 
 class AsyncStorageBackend:
     async def execute(self, sql: str, params=None): ...
 
-# ✅ 正确 - 事务方法
+# ✅ Correct - transaction methods
 class Transaction:
     def commit(self): ...
 
 class AsyncTransaction:
     async def commit(self): ...
 
-# ❌ 错误 - 禁止使用 _async 后缀
+# ❌ Wrong - _async suffix is forbidden
 class AsyncStorageBackend:
     async def execute_async(self, sql: str, params=None): ...
 ```
 
-### 规则三：Docstring 要求
+### Rule 3: Docstring Requirements
 
-异步版本的首句必须包含 "asynchronously"：
+The first sentence of the async version must contain "asynchronously":
 
 ```python
 class StorageBackend:
@@ -175,12 +184,12 @@ class AsyncTransaction:
         ...
 ```
 
-### 规则四：字段/属性声明顺序
+### Rule 4: Field/Property Declaration Order
 
-同步和异步版本的属性声明顺序必须完全一致：
+The sync and async versions must declare attributes in exactly the same order:
 
 ```python
-# StorageBackend 的属性顺序
+# StorageBackend attribute order
 class StorageBackend:
     _connection: Optional[Connection]
     _dialect: Optional[SQLDialect]
@@ -189,22 +198,22 @@ class StorageBackend:
     @property
     def dialect(self): ...
 
-# AsyncStorageBackend 必须保持相同顺序
+# AsyncStorageBackend must keep the same order
 class AsyncStorageBackend:
     _connection: Optional[AsyncConnection]
     _dialect: Optional[SQLDialect]
     _transaction: Optional[AsyncTransaction]
     
     @property
-    def dialect(self): ...  # 顺序一致
+    def dialect(self): ...  # same order
 ```
 
-### 规则五：功能对等
+### Rule 5: Functional Parity
 
-如果同步版本有某个功能，异步版本必须提供对应功能：
+If the sync version has a feature, the async version must provide the corresponding feature:
 
 ```python
-# ✅ 正确 - 功能对等
+# ✅ Correct - functional parity
 class StorageBackend:
     def execute(self, sql: str, params=None): ...
     def execute_many(self, sql: str, params_list): ...
@@ -219,66 +228,75 @@ class AsyncStorageBackend:
     async def commit(self): ...
     async def rollback(self): ...
 
-# ❌ 错误 - 功能缺失
+# ❌ Wrong - missing functionality
 class AsyncStorageBackend:
     async def execute(self, sql: str, params=None): ...
-    # 缺少 execute_many、事务方法
+    # missing execute_many and transaction methods
 ```
 
-### 规则六：测试对等
+### Rule 6: Testing Parity
 
-测试必须遵循严格的同步/异步对等：
+Tests must follow strict sync/async parity:
 
 ```python
-# 夹具对等
+# Fixture parity
 @pytest.fixture
 def backend(sqlite_provider): ...
 @pytest.fixture
 def async_backend(sqlite_provider): ...
 
-# 测试类对等
+# Test class parity
 class TestBackendExecute:
     def test_execute_basic(self, backend): ...
 
 class TestAsyncBackendExecute:
     @pytest.mark.asyncio
-    async def test_execute_basic(self, async_backend): ...  # 方法名相同
+    async def test_execute_basic(self, async_backend): ...  # same method name
 
-# 测试方法对等
+# Test method parity
 class TestTransactionCommit:
     def test_commit_success(self, backend): ...
     def test_commit_failure(self, backend): ...
 
 class TestAsyncTransactionCommit:
     @pytest.mark.asyncio
-    async def test_commit_success(self, async_backend): ...  # 相同方法名
+    async def test_commit_success(self, async_backend): ...  # same method name
     @pytest.mark.asyncio
-    async def test_commit_failure(self, async_backend): ...  # 相同方法名
+    async def test_commit_failure(self, async_backend): ...  # same method name
 ```
 
-## 实现异步 Backend 的指南
+## Implementing an Async Backend
 
-### 何时需要实现异步 Backend？
+### When to Implement an Async Backend?
 
-1. **生产环境需要**：如果应用使用 async/await 框架（如 FastAPI）
-2. **性能需求**：高并发场景需要异步数据库访问
-3. **社区请求**：用户明确需要异步支持
+1. **Production need**: the app uses an async/await framework (e.g. FastAPI)
+2. **Performance requirements**: high-concurrency scenarios need async database access
+3. **Community demand**: users explicitly need async support
 
-### 异步 Backend 的实现策略
+### Async Backend Implementation Strategies
 
-#### 策略一：基于同步版本包装
+> Real async backends are built on the driver's **native async support**. The strategies below
+> illustrate the surface an async backend must provide; prefer a native async driver over any
+> synthetic wrapping (see Q2).
+
+#### Strategy 1: Wrap the sync version
+
+> **⚠️ Conceptual illustration only** as a mental model for what an async backend must surface to
+> the application. This thread-pool wrapping approach is **not** an endorsed production pattern —
+> per Q2 we respect the driver and do not fabricate async by wrapping sync in an executor. A
+> production async backend should be backed by a native async driver.
 
 ```python
-# src/rhosocial/activerecord/backend/impl/sqlite/async_backend.py
+# backend/impl/sqlite/backend/async_backend.py (conceptual)
 import asyncio
 from typing import Optional, Tuple, Any
 
 
 class AsyncSQLiteBackend:
-    """异步 SQLite Backend - 基于同步版本包装。"""
+    """Async SQLite backend - wraps the sync version."""
     
     def __init__(self, database: str = ":memory:"):
-        """Initialize with same parameters as sync version."""
+        """Initialize with the same parameters as the sync version."""
         self._sync_backend = SQLiteBackend(database)
         self._connected = False
     
@@ -302,7 +320,7 @@ class AsyncSQLiteBackend:
         sql: str,
         params: Optional[Tuple] = None
     ) -> Any:
-        """Execute SQL asynchronously (runs sync in thread pool)."""
+        """Execute SQL asynchronously (runs sync in a thread pool)."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
@@ -322,16 +340,16 @@ class AsyncSQLiteBackend:
         await self.execute("ROLLBACK")
 ```
 
-#### 策略二：使用原生异步驱动
+#### Strategy 2: Use a native async driver
 
 ```python
-# src/rhosocial/activerecord/backend/impl/postgresql/async_backend.py
-# 使用 asyncpg 或其他原生异步驱动
+# backend/impl/postgres/backend/async_backend.py (conceptual)
+# Uses asyncpg or another native async driver
 import asyncpg
 
 
 class AsyncPostgreSQLBackend:
-    """使用原生异步驱动的 Backend。"""
+    """Backend using a native async driver."""
     
     def __init__(self, dsn: str):
         """Initialize with connection string."""
@@ -350,75 +368,73 @@ class AsyncPostgreSQLBackend:
             return await conn.fetch(sql)
 ```
 
-## 验证检查清单
+## Verification Checklist
 
-实现或修改代码时，使用以下清单验证：
+Use this checklist when implementing or modifying code:
 
-### Backend 层验证
+### Backend Layer Verification
 
-- [ ] 同步 Backend 实现了 `StorageBackend` 协议
-- [ ] 异步 Backend 实现了 `AsyncStorageBackend` 协议
-- [ ] 同步/异步方法名完全相同
-- [ ] 异步方法使用 `async def`
-- [ ] 异步方法首句包含 "asynchronously"
-- [ ] 属性声明顺序一致
-- [ ] 事务方法完整对等
+- [ ] Sync backend implements the `StorageBackend` protocol
+- [ ] Async backend implements the `AsyncStorageBackend` protocol
+- [ ] Sync/async method names are identical
+- [ ] Async methods use `async def`
+- [ ] Async method first sentence contains "asynchronously"
+- [ ] Attribute declaration order is consistent
+- [ ] Transaction methods are fully parallel
 
-### 测试层验证
+### Testing Layer Verification
 
-- [ ] 同步测试使用 `backend` 夹具
-- [ ] 异步测试使用 `async_backend` 夹具
-- [ ] 测试类名添加 `Async` 前缀
-- [ ] 测试方法名完全相同
-- [ ] 异步测试使用 `@pytest.mark.asyncio`
-- [ ] 架构文件共享
+- [ ] Sync tests use the `backend` fixture
+- [ ] Async tests use the `async_backend` fixture
+- [ ] Test class names add an `Async` prefix
+- [ ] Test method names are identical
+- [ ] Async tests use `@pytest.mark.asyncio`
+- [ ] Shared architecture files
 
-### 文档层验证
+### Documentation Layer Verification
 
-- [ ] 同步 API 文档完整
-- [ ] 异步 API 文档首句包含 "asynchronously"
-- [ ] 说明了同步/异步 Backend 的可用状态
+- [ ] Sync API documentation is complete
+- [ ] Async API documentation first sentence contains "asynchronously"
+- [ ] Sync/async backend availability status is documented
 
-## 常见问题
+## FAQ
 
-### Q1: 什么时候可以只提供同步 Backend？
+### Q1: When may I provide only a sync backend?
 
-当：
-- 应用场景明确是同步的
-- 异步版本仅用于测试验证设计
-- 社区尚未贡献异步实现
+**Whenever the underlying driver has no native async support — that is the default, not an
+exception.** Async implementation is opt-in and follows the driver:
 
-### Q2: 如何在只有同步 Backend 时使用异步 API？
+- The driver provides no async interface (e.g. many native DB drivers are synchronous-only)
+- The use case is clearly sync
+- The community has not yet contributed an async implementation
 
-**方案一：使用执行器包装**
+No artificial async wrapper should be created for such backends (see Q2).
 
-```python
-# 用户代码
-async def some_async_function():
-    loop = asyncio.get_event_loop()
-    # 在线程池中执行同步 Backend 操作
-    result = await loop.run_in_executor(
-        None,
-        lambda: User.find_one(User.c.id == 1)
-    )
-    return result
-```
+### Q2: Can I use the async API when a backend only has a sync implementation?
 
-**方案二：使用模拟异步 Backend**
+**Respect the backend's actual driver.** Async support is a property of the underlying driver,
+not something to force. Use whichever variant the backend genuinely provides — and if a backend
+does not have a native async driver, do **not** paper over it by wrapping the sync implementation
+in asyncio plumbing to make it "async".
 
-```python
-# tests/conftest.py
-@pytest.fixture
-def async_backend(sqlite_provider):
-    """测试用异步 Backend - 包装同步版本。"""
-    return AsyncSQLiteBackend(":memory:")
-```
+For example, Firebird currently ships only a sync backend (no native async driver). That is fine:
+applications targeting Firebird simply use the sync API. Forcing an async wrapper there would add
+blocking thread-pool machinery with no real async I/O benefit, so we deliberately do not do it.
 
-### Q3: 如何验证异步 Backend 的正确性？
+**Policy:**
+- Backends expose an async implementation **only when** their driver natively supports it.
+- Use the sync variant as-is when async is unavailable; the async API is simply not offered for
+  that backend.
+- Do **not** create artificial async wrappers (thread-pool / executor bridges) to emulate async
+  where the driver has no async support.
+- A test-only async backend exists for the SQLite feature tree purely to validate the async
+  abstraction in the test suite — it is not a substitute for a real async production backend.
 
-1. **复用同步测试**：基于相同逻辑编写异步版本测试
-2. **对比执行结果**：确保同步/异步返回相同数据
-3. **测试错误处理**：验证异步错误传播
+### Q3: How do I verify the correctness of an async backend?
+
+1. **Reuse sync tests**: write async tests based on the same logic
+2. **Compare results**: ensure sync/async return the same data
+3. **Test error handling**: verify async error propagation
 
 ```python
 class TestAsyncBackendErrorHandling:
@@ -427,31 +443,29 @@ class TestAsyncBackendErrorHandling:
         self,
         async_backend: AsyncSQLiteBackend
     ):
-        """验证异步错误处理与同步一致。"""
+        """Verify async error handling matches sync."""
         with pytest.raises(SyntaxError):
             await async_backend.execute("INVALID SQL")
 ```
 
-## 快速参考
+## Quick Reference
 
-### 命名对照表
+### Naming Table
 
-| 同步 | 异步 | 层级 |
-|-----|------|-----|
+| Sync | Async | Layer |
+|------|-------|-------|
 | `StorageBackend` | `AsyncStorageBackend` | Backend |
 | `Transaction` | `AsyncTransaction` | Transaction |
 | `BaseActiveRecord` | `AsyncBaseActiveRecord` | ActiveRecord |
 | `ActiveQuery` | `AsyncActiveQuery` | Query |
 
-### 导入路径
+### Import Paths
 
 ```python
-# 同步 Backend
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+# Production sync/async backends
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 
-# 异步 Backend（仅测试目录）
-from tests.async_backend import AsyncSQLiteBackend
-
-# 同步/异步通用
+# Sync/async common
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 ```

@@ -36,503 +36,40 @@ class SupportsTransaction(Protocol):
     def rollback(self) -> None: ...
 ```
 
-## Core Protocols
+## Core Protocols (Where They Live)
 
-### Storage Backend Protocol
+Protocol definitions are **authoritative in the source code** — do not duplicate them here. When
+implementing or extending a protocol, **read the actual definition** at these locations:
 
-The base protocol for all storage backends.
+| Protocol area | Location | Examples |
+|---------------|----------|----------|
+| SQL dialect feature protocols | `src/rhosocial/activerecord/backend/dialect/protocols.py` | `CTESupport`, `WindowFunctionSupport`, `JoinSupport`, `ReturningSupport`, `UpsertSupport`, `MergeSupport`, `GraphSupport`, `ArraySupport`, `JSONSupport`, ... (all `@runtime_checkable` `Support` protocols) |
+| Backend / query access protocols | `src/rhosocial/activerecord/interface/query.py` | `IBackend`, `IAsyncBackend`, `IQueryBuilding` |
+| Model interface | `src/rhosocial/activerecord/interface/model.py` | `IActiveRecord`, `IAsyncActiveRecord` |
+| Base interfaces | `src/rhosocial/activerecord/interface/base.py` | backend/transaction base protocols |
 
-```python
-# src/rhosocial/activerecord/backend/base/protocols.py
-from typing import Protocol, runtime_checkable, Any, List, Optional, Tuple
-from ..expression.bases import SQLQueryAndParams
+The dialect protocols are **the primary feature-detection surface** — dozens of
+`XxxSupport` protocols, each with a `supports_xxx()` method. The complete, up-to-date list is in
+`backend/dialect/protocols.py`; **always check that file** rather than relying on any table in
+this guide or other docs (the `dev-expression-dialect` skill lists them for quick reference, but
+the source file is the source of truth).
 
-
-@runtime_checkable
-class StorageBackendProtocol(Protocol):
-    """Protocol that all storage backends must implement."""
-    
-    @property
-    def dialect(self) -> 'SQLDialectProtocol':
-        """Get the SQL dialect for this backend."""
-        ...
-    
-    def connect(self) -> None:
-        """Establish database connection."""
-        ...
-    
-    def disconnect(self) -> None:
-        """Close database connection."""
-        ...
-    
-    def execute(
-        self,
-        sql: str,
-        params: Optional[Tuple] = None,
-        returning: bool = False
-    ) -> Any:
-        """Execute a SQL query."""
-        ...
-    
-    def execute_many(
-        self,
-        sql: str,
-        params_list: List[Tuple] = None
-    ) -> List[Any]:
-        """Execute the same SQL with multiple parameter sets."""
-        ...
-
-
-@runtime_checkable
-class AsyncStorageBackendProtocol(Protocol):
-    """Protocol for async storage backends."""
-    
-    @property
-    def dialect(self) -> 'SQLDialectProtocol':
-        """Get the SQL dialect for this backend."""
-        ...
-    
-    async def connect(self) -> None:
-        """Establish database connection asynchronously."""
-        ...
-    
-    async def disconnect(self) -> None:
-        """Close database connection asynchronously."""
-        ...
-    
-    async def execute(
-        self,
-        sql: str,
-        params: Optional[Tuple] = None,
-        returning: bool = False
-    ) -> Any:
-        """Execute a SQL query asynchronously."""
-        ...
-    
-    async def execute_many(
-        self,
-        sql: str,
-        params_list: List[Tuple] = None
-    ) -> List[Any]:
-        """Execute the same SQL with multiple parameter sets asynchronously."""
-        ...
-```
-
-### SQL Dialect Protocol
-
-Protocol for SQL dialect implementations.
-
-```python
-# src/rhosocial/activerecord/backend/dialect/protocols.py
-from typing import Protocol, runtime_checkable, List, Optional, Tuple
-from ..expression.bases import SQLQueryAndParams
-
-
-@runtime_checkable
-class SQLDialectProtocol(Protocol):
-    """Protocol for SQL dialect implementations."""
-    
-    def format_identifier(self, identifier: str) -> str:
-        """Format a SQL identifier with proper quoting."""
-        ...
-    
-    def format_string_literal(self, value: str) -> str:
-        """Format a string literal for SQL."""
-        ...
-    
-    def format_column_reference(
-        self,
-        table: Optional[str],
-        column: str
-    ) -> str:
-        """Format a column reference for SQL."""
-        ...
-    
-    def supports_returning_clause(self) -> bool:
-        """Check if RETURNING clause is supported."""
-        ...
-    
-    def supports_window_functions(self) -> bool:
-        """Check if window functions are supported."""
-        ...
-    
-    def supports_cte(self) -> bool:
-        """Check if CTEs are supported."""
-        ...
-    
-    def supports_recursive_cte(self) -> bool:
-        """Check if recursive CTEs are supported."""
-        ...
-    
-    def supports_transactions(self) -> bool:
-        """Check if transactions are supported."""
-        ...
-    
-    def supports_foreign_keys(self) -> bool:
-        """Check if foreign keys are supported."""
-        ...
-    
-    def supports_indexed_by(self) -> bool:
-        """Check if INDEXED BY is supported."""
-        ...
-    
-    def supports_auto_increment(self) -> bool:
-        """Check if AUTOINCREMENT is supported."""
-        ...
-    
-    def supports_default_values(self) -> bool:
-        """Check if DEFAULT values are supported."""
-        ...
-    
-    def supports_is_null(self) -> bool:
-        """Check if IS NULL is supported."""
-        ...
-    
-    def supports_like(self) -> bool:
-        """Check if LIKE operator is supported."""
-        ...
-    
-    def supports_ilike(self) -> bool:
-        """Check if ILIKE (case-insensitive LIKE) is supported."""
-        ...
-    
-    def supports_between(self) -> bool:
-        """Check if BETWEEN operator is supported."""
-        ...
-    
-    def supports_in_clause(self) -> bool:
-        """Check if IN clause is supported."""
-        ...
-    
-    def supports_exists(self) -> bool:
-        """Check if EXISTS subquery is supported."""
-        ...
-    
-    def supports_subqueries(self) -> bool:
-        """Check if subqueries are supported."""
-        ...
-    
-    def supports_join(self) -> bool:
-        """Check if JOINs are supported."""
-        ...
-    
-    def supports_left_join(self) -> bool:
-        """Check if LEFT JOIN is supported."""
-        ...
-    
-    def supports_right_join(self) -> bool:
-        """Check if RIGHT JOIN is supported."""
-        ...
-    
-    def supports_inner_join(self) -> bool:
-        """Check if INNER JOIN is supported."""
-        ...
-    
-    def supports_outer_join(self) -> bool:
-        """Check if OUTER JOIN is supported."""
-        ...
-    
-    def supports_cross_join(self) -> bool:
-        """Check if CROSS JOIN is supported."""
-        ...
-    
-    def supports_distinct(self) -> bool:
-        """Check if DISTINCT is supported."""
-        ...
-    
-    def supports_group_by(self) -> bool:
-        """Check if GROUP BY is supported."""
-        ...
-    
-    def supports_having(self) -> bool:
-        """Check if HAVING is supported."""
-        ...
-    
-    def supports_order_by(self) -> bool:
-        """Check if ORDER BY is supported."""
-        ...
-    
-    def supports_limit(self) -> bool:
-        """Check if LIMIT is supported."""
-        ...
-    
-    def supports_offset(self) -> bool:
-        """Check if OFFSET is supported."""
-        ...
-    
-    def supports_union(self) -> bool:
-        """Check if UNION is supported."""
-        ...
-    
-    def supports_union_all(self) -> bool:
-        """Check if UNION ALL is supported."""
-        ...
-    
-    def supports_intersect(self) -> bool:
-        """Check if INTERSECT is supported."""
-        ...
-    
-    def supports_except(self) -> bool:
-        """Check if EXCEPT is supported."""
-        ...
-    
-    def supports_case(self) -> bool:
-        """Check if CASE expression is supported."""
-        ...
-    
-    def supports_case_when(self) -> bool:
-        """Check if CASE WHEN expression is supported."""
-        ...
-    
-    def supports_coalesce(self) -> bool:
-        """Check if COALESCE function is supported."""
-        ...
-    
-    def supports_nullif(self) -> bool:
-        """Check if NULLIF function is supported."""
-        ...
-    
-    def supports_concat(self) -> bool:
-        """Check if CONCAT function is supported."""
-        ...
-    
-    def supports_substring(self) -> bool:
-        """Check if SUBSTRING function is supported."""
-        ...
-    
-    def supports_length(self) -> bool:
-        """Check if LENGTH function is supported."""
-        ...
-    
-    def supports_upper(self) -> bool:
-        """Check if UPPER function is supported."""
-        ...
-    
-    def supports_lower(self) -> bool:
-        """Check if LOWER function is supported."""
-        ...
-    
-    def supports_trim(self) -> bool:
-        """Check if TRIM function is supported."""
-        ...
-    
-    def supports_replace(self) -> bool:
-        """Check if REPLACE function is supported."""
-        ...
-    
-    def supports_date_functions(self) -> bool:
-        """Check if date functions are supported."""
-        ...
-    
-    def supports_datetime_functions(self) -> bool:
-        """Check if datetime functions are supported."""
-        ...
-    
-    def supports_extract(self) -> bool:
-        """Check if EXTRACT function is supported."""
-        ...
-    
-    def supports_date_trunc(self) -> bool:
-        """Check if DATE_TRUNC function is supported."""
-        ...
-    
-    def supports_date_add(self) -> bool:
-        """Check if DATE_ADD function is supported."""
-        ...
-    
-    def supports_date_diff(self) -> bool:
-        """Check if DATE_DIFF function is supported."""
-        ...
-    
-    def supports_aggregate_functions(self) -> bool:
-        """Check if aggregate functions are supported."""
-        ...
-    
-    def supports_count(self) -> bool:
-        """Check if COUNT function is supported."""
-        ...
-    
-    def supports_sum(self) -> bool:
-        """Check if SUM function is supported."""
-        ...
-    
-    def supports_avg(self) -> bool:
-        """Check if AVG function is supported."""
-        ...
-    
-    def supports_min(self) -> bool:
-        """Check if MIN function is supported."""
-        ...
-    
-    def supports_max(self) -> bool:
-        """Check if MAX function is supported."""
-        ...
-    
-    def supports_first(self) -> bool:
-        """Check if FIRST function is supported."""
-        ...
-    
-    def supports_last(self) -> bool:
-        """Check if LAST function is supported."""
-        ...
-    
-    def supports_stddev(self) -> bool:
-        """Check if STDDEV function is supported."""
-        ...
-    
-    def supports_variance(self) -> bool:
-        """Check if VARIANCE function is supported."""
-        ...
-    
-    def supports_round(self) -> bool:
-        """Check if ROUND function is supported."""
-        ...
-    
-    def supports_floor(self) -> bool:
-        """Check if FLOOR function is supported."""
-        ...
-    
-    def supports_ceil(self) -> bool:
-        """Check if CEILING function is supported."""
-        ...
-    
-    def supports_abs(self) -> bool:
-        """Check if ABS function is supported."""
-        ...
-    
-    def supports_power(self) -> bool:
-        """Check if POWER function is supported."""
-        ...
-    
-    def supports_sqrt(self) -> bool:
-        """Check if SQRT function is supported."""
-        ...
-    
-    def supports_mod(self) -> bool:
-        """Check if MOD function is supported."""
-        ...
-    
-    def supports_cast(self) -> bool:
-        """Check if CAST expression is supported."""
-        ...
-    
-    def supports_type_cast(self) -> bool:
-        """Check if type casting is supported."""
-        ...
-```
-
-### Query Protocol
-
-Protocol for query builders.
-
-```python
-# src/rhosocial/activerecord/query/protocols.py
-from typing import Protocol, runtime_checkable, List, Optional, Any
-from ..expression.bases import SQLExpression
-
-
-@runtime_checkable
-class QueryProtocol(Protocol):
-    """Protocol for query builders."""
-    
-    def where(
-        self,
-        condition: SQLExpression
-    ) -> 'QueryProtocol':
-        """Add WHERE clause."""
-        ...
-    
-    def and_(
-        self,
-        condition: SQLExpression
-    ) -> 'QueryProtocol':
-        """Add AND condition."""
-        ...
-    
-    def or_(
-        self,
-        condition: SQLExpression
-    ) -> 'QueryProtocol':
-        """Add OR condition."""
-        ...
-    
-    def order_by(
-        self,
-        *columns: SQLExpression,
-        ascending: bool = True
-    ) -> 'QueryProtocol':
-        """Add ORDER BY clause."""
-        ...
-    
-    def group_by(
-        self,
-        *columns: SQLExpression
-    ) -> 'QueryProtocol':
-        """Add GROUP BY clause."""
-        ...
-    
-    def having(
-        self,
-        condition: SQLExpression
-    ) -> 'QueryProtocol':
-        """Add HAVING clause."""
-        ...
-    
-    def limit(self, count: int) -> 'QueryProtocol':
-        """Add LIMIT clause."""
-        ...
-    
-    def offset(self, count: int) -> 'QueryProtocol':
-        """Add OFFSET clause."""
-        ...
-    
-    def select(self, *columns: str) -> 'QueryProtocol':
-        """Select specific columns."""
-        ...
-    
-    def distinct(self) -> 'QueryProtocol':
-        """Add DISTINCT clause."""
-        ...
-    
-    def all(self) -> List[Any]:
-        """Execute query and return all results."""
-        ...
-    
-    def first(self) -> Optional[Any]:
-        """Execute query and return first result."""
-        ...
-    
-    def count(self) -> int:
-        """Return count of matching records."""
-        ...
-    
-    def exists(self) -> bool:
-        """Check if any records match."""
-        ...
-    
-    def delete(self) -> int:
-        """Delete matching records."""
-        ...
-    
-    def update(self, **kwargs) -> int:
-        """Update matching records."""
-        ...
-    
-    def to_sql(self) -> str:
-        """Get SQL query string."""
-        ...
-    
-    def compile(self) -> SQLExpression:
-        """Compile to SQL expression."""
-        ...
-```
+**Conventions for these protocols:**
+- All are `@runtime_checkable` `Protocol` classes
+- Feature protocols expose a `supports_*() -> bool` method (feature detection)
+- Formatting protocols expose `format_*()` methods (SQL generation)
+- Backend/query access protocols expose accessor methods (e.g. `backend()`) and are mixed into
+  ABC query/model classes
 
 ## Feature Detection Pattern
 
 ### Using Protocols for Conditional Feature Detection
 
+Conceptual illustration — the real `with_cte`/`with_recursive_cte` are implemented in
+`query/cte_query.py` (CTEQuery), and feature gates use `TypeError` (no `NotSupportedError`
+class exists in the core):
+
 ```python
-# src/rhosocial/activerecord/query/active_query.py
 from typing import TYPE_CHECKING, Optional
 from ..expression.bases import SQLExpression
 
@@ -540,8 +77,8 @@ if TYPE_CHECKING:
     from ...backend.base import StorageBackend
 
 
-class ActiveQuery:
-    """ActiveRecord query builder."""
+class CTEQuery:
+    """ActiveRecord CTE query builder."""
     
     def __init__(self, model_class, backend=None):
         self.model_class = model_class
@@ -550,19 +87,19 @@ class ActiveQuery:
     def with_cte(
         self,
         name: str,
-        cte_query: 'ActiveQuery'
-    ) -> 'ActiveQuery':
+        cte_query: 'CTEQuery'
+    ) -> 'CTEQuery':
         """Add CTE using protocol detection."""
         from ..dialect.protocols import CTESupport
         
         # Check if backend supports CTEs
         if not isinstance(self.backend.dialect, CTESupport):
-            raise NotSupportedError(
+            raise TypeError(
                 f"Backend {type(self.backend).__name__} doesn't support CTEs"
             )
         
         if not self.backend.dialect.supports_cte():
-            raise NotSupportedError("CTEs are not supported")
+            raise TypeError("CTEs are not supported")
         
         # Add CTE to query
         self._ctes.append((name, cte_query))
@@ -571,28 +108,29 @@ class ActiveQuery:
     def with_recursive_cte(
         self,
         name: str,
-        base_query: 'ActiveQuery',
-        recursive_query: 'ActiveQuery'
-    ) -> 'ActiveQuery':
+        base_query: 'CTEQuery',
+        recursive_query: 'CTEQuery'
+    ) -> 'CTEQuery':
         """Add recursive CTE."""
         from ..dialect.protocols import CTESupport
         
         if not isinstance(self.backend.dialect, CTESupport):
-            raise NotSupportedError(
+            raise TypeError(
                 f"Backend {type(self.backend).__name__} doesn't support CTEs"
             )
         
         if not self.backend.dialect.supports_recursive_cte():
-            raise NotSupportedError("Recursive CTEs are not supported")
+            raise TypeError("Recursive CTEs are not supported")
         
         self._recursive_cte = (name, base_query, recursive_query)
         return self
 ```
-
 ### Protocol-Based Validation
 
+Conceptual example (no such `validators.py` in the core — adapt the pattern to the real
+`interface/` layer):
+
 ```python
-# src/rhosocial/activerecord/backend/base/validators.py
 from typing import Protocol, runtime_checkable, TypeVar, Type
 
 
@@ -604,7 +142,7 @@ class ValidatableBackend(Protocol):
     """Protocol for backend validation."""
     
     @property
-    def dialect(self) -> 'SQLDialectProtocol':
+    def dialect(self) -> 'SQLDialect':
         """Get the dialect."""
         ...
     
@@ -625,53 +163,32 @@ def validate_backend(backend: T) -> T:
         raise ValueError(f"Backend validation failed: {backend}")
     
     return backend
-
-
-# Usage
-backend = SQLiteBackend("sqlite:///app.db")
-validate_backend(backend)
-backend.connect()
 ```
 
 ### Decorator-Based Protocol Checking
 
+The **`requires_protocol`** decorator exists in the **testsuite** package
+(`rhosocial.activerecord.testsuite.utils.common`), applied to tests via a pytest marker;
+the runtime check is done by the testsuite's `check_protocol_requirements` fixture in
+`conftest.py`:
+
 ```python
-# src/rhosocial/activerecord/backend/base/decorators.py
-from functools import wraps
-from typing import Protocol, runtime_checkable, TypeVar, Callable, Any
+from rhosocial.activerecord.testsuite.utils import requires_protocol
+from rhosocial.activerecord.backend.dialect.protocols import WindowFunctionSupport
 
+# Protocol-level requirement
+@requires_protocol(WindowFunctionSupport)
+def test_window_functions(fixtures):
+    pass
 
-F = TypeVar('F', bound=Callable[..., Any])
-
-
-def requires_protocol(
-    protocol_class: Type[Protocol],
-    feature_name: str
-) -> Callable[[F], F]:
-    """Decorator to require a protocol for a method."""
-    
-    def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(self, *args, **kwargs) -> Any:
-            if not isinstance(self, protocol_class):
-                raise NotImplementedError(
-                    f"{self.__class__.__name__} doesn't implement "
-                    f"{protocol_class.__name__} required for {feature_name}"
-                )
-            return func(self, *args, **kwargs)
-        return wrapper
-    return decorator
-
-
-# Usage
-class StorageBackend:
-    """Base storage backend."""
-    
-    @requires_protocol(CTESupport, 'CTE support')
-    def with_cte(self, name: str, query):
-        """Add CTE to query."""
-        ...
+# Specific-method requirement
+@requires_protocol(WindowFunctionSupport, 'supports_window_functions')
+def test_window_functions(fixtures):
+    pass
 ```
+
+The `requires_functions(*names)` marker checks dialect `supports_functions()` support the same
+way. Use these markers (not hand-rolled decorators) for tests that need a backend feature.
 
 ## Backend Abstraction Examples
 
@@ -689,7 +206,7 @@ class StorageBackend(Protocol):
     """Protocol for storage backend."""
     
     @property
-    def dialect(self) -> 'SQLDialectProtocol':
+    def dialect(self) -> 'SQLDialect':
         """Get the dialect."""
         ...
     
@@ -707,7 +224,7 @@ class AbstractStorageBackend(ABC):
     
     @property
     @abstractmethod
-    def dialect(self) -> 'SQLDialectProtocol':
+    def dialect(self) -> 'SQLDialect':
         """Get the dialect."""
         ...
     
@@ -733,15 +250,14 @@ class AbstractStorageBackend(ABC):
 
 ### SQLite Backend Implementation
 
+Conceptual illustration of a concrete backend implementing the protocols (the real SQLite
+backend lives in `backend/impl/sqlite/backend/` as a package — `sync.py`, `async_backend.py`,
+`common.py` — and composes `StorageBackend` from `backend/base/`):
+
 ```python
-# src/rhosocial/activerecord/backend/impl/sqlite/backend.py
 import sqlite3
 from typing import Any, List, Optional, Tuple, Type
 from ...base import StorageBackend as BaseStorageBackend
-from ...base.protocols import (
-    StorageBackendProtocol,
-    AsyncStorageBackendProtocol,
-)
 from ..dialect import SQLiteDialect
 
 
@@ -829,73 +345,33 @@ class SQLiteBackend(BaseStorageBackend):
 
 ## Async Protocol Definition
 
+Async variants mirror the sync protocols 1:1 — same structure, same feature surface, with
+`async def` methods. The authoritative async interfaces live in `interface/` (e.g.
+`IAsyncBackend`, `IAsyncActiveRecord`, `IAsyncQuery`); **read those files** rather than copying
+a protocol listing here. See the `dev-sync-async-parity` skill for the equivalence rules.
+
 ```python
-# src/rhosocial/activerecord/backend/base/async_protocols.py
-from typing import Protocol, runtime_checkable, Any, List, Optional, Tuple
-from ..expression.bases import SQLQueryAndParams
-
-
-@runtime_checkable
-class AsyncStorageBackendProtocol(Protocol):
-    """Protocol for async storage backends."""
-    
-    @property
-    def dialect(self) -> 'SQLDialectProtocol':
-        """Get the SQL dialect."""
-        ...
-    
-    async def connect(self) -> None:
-        """Establish database connection asynchronously."""
-        ...
-    
-    async def disconnect(self) -> None:
-        """Close database connection asynchronously."""
-        ...
-    
-    async def execute(
-        self,
-        sql: str,
-        params: Optional[Tuple] = None
-    ) -> Any:
-        """Execute SQL query asynchronously."""
-        ...
-    
-    async def execute_many(
-        self,
-        sql: str,
-        params_list: List[Tuple] = None
-    ) -> List[Any]:
-        """Execute SQL with multiple parameter sets asynchronously."""
-        ...
-    
-    async def begin_transaction(self) -> None:
-        """Begin transaction asynchronously."""
-        ...
-    
-    async def commit(self) -> None:
-        """Commit transaction asynchronously."""
-        ...
-    
-    async def rollback(self) -> None:
-        """Rollback transaction asynchronously."""
-        ...
+# Conceptual shape only — the async protocol's I/O-bound methods are async.
+async def connect(self) -> None: ...
+async def disconnect(self) -> None: ...
+async def execute(self, sql, params=None) -> Any: ...
 ```
 
 ## Protocol Composition
 
 ### Composing Multiple Protocols
 
+Conceptual example of composing protocols to describe a combined capability (the async SQLite
+backend is real at `backend/impl/sqlite/backend/async_backend.py`, but the exact classes below
+are illustrative):
+
 ```python
-# src/rhosocial/activerecord/backend/impl/sqlite/async_backend.py
 from typing import Protocol, runtime_checkable, Any, List, Optional, Tuple
-from ....backend.base.async_protocols import AsyncStorageBackendProtocol
 from ....backend.dialect.protocols import CTESupport, WindowFunctionSupport
-from ..backend import SQLiteBackend
 
 
 @runtime_checkable
 class AsyncSQLiteBackendProtocol(
-    AsyncStorageBackendProtocol,
     CTESupport,
     WindowFunctionSupport,
     Protocol
@@ -954,7 +430,7 @@ class AsyncSQLiteBackend:
 ### Protocol Verification in Tests
 
 ```python
-# tests/test_protocols.py
+# Conceptual test — verify a backend/dialect satisfies the required protocols via isinstance()
 import pytest
 from typing import Type
 
@@ -962,75 +438,29 @@ from typing import Type
 def test_sqlite_backend_protocol():
     """Test SQLite backend implements required protocols."""
     from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
-    from rhosocial.activerecord.backend.base.protocols import (
-        StorageBackendProtocol,
-    )
-    from rhosocial.activerecord.backend.dialect.protocols import (
-        SQLDialectProtocol,
-        CTESupport,
-    )
+    from rhosocial.activerecord.backend.dialect.protocols import CTESupport
     
     backend = SQLiteBackend(":memory:")
     
-    # Check backend implements StorageBackendProtocol
-    assert isinstance(backend, StorageBackendProtocol)
-    
-    # Check dialect implements SQLDialectProtocol
-    assert isinstance(backend.dialect, SQLDialectProtocol)
-    
-    # Check dialect supports CTEs
+    # Check dialect supports CTEs via the feature protocol
     assert isinstance(backend.dialect, CTESupport)
     assert backend.dialect.supports_cte() is True
-
-
-def test_async_backend_protocol():
-    """Test async backend implements required protocols."""
-    from rhosocial.activerecord.backend.impl.sqlite import (
-        AsyncSQLiteBackend,
-    )
-    from rhosocial.activerecord.backend.base.async_protocols import (
-        AsyncStorageBackendProtocol,
-    )
-    
-    backend = AsyncSQLiteBackend(":memory:")
-    
-    # Check async backend implements AsyncStorageBackendProtocol
-    assert isinstance(backend, AsyncStorageBackendProtocol)
 ```
 
 ### Protocol-Based Feature Detection in Tests
 
+Conceptual fixture pattern for feature gating (the testsuite prefers the `@requires_protocol`
+marker, which handles skipping centrally — see above):
+
 ```python
-# tests/conftest.py
 import pytest
-from typing import Type
 
 
 @pytest.fixture
 def supports_ctes(backend) -> bool:
     """Check if backend supports CTEs."""
-    from rhosocial.activerecord.backend.dialect.protocols import (
-        CTESupport,
-    )
+    from rhosocial.activerecord.backend.dialect.protocols import CTESupport
     return isinstance(backend.dialect, CTESupport)
-
-
-@pytest.fixture
-def supports_window_functions(backend) -> bool:
-    """Check if backend supports window functions."""
-    from rhosocial.activerecord.backend.dialect.protocols import (
-        WindowFunctionSupport,
-    )
-    return isinstance(backend.dialect, WindowFunctionSupport)
-
-
-@pytest.fixture
-def supports_transactions(backend) -> bool:
-    """Check if backend supports transactions."""
-    from rhosocial.activerecord.backend.dialect.protocols import (
-        TransactionSupport,
-    )
-    return isinstance(backend.dialect, TransactionSupport)
 
 
 # Usage in tests
@@ -1047,9 +477,7 @@ class TestCTEQueries:
     
     def test_recursive_cte(self, backend, supports_ctes):
         """Test recursive CTE query."""
-        from rhosocial.activerecord.backend.dialect.protocols import (
-            CTESupport,
-        )
+        from rhosocial.activerecord.backend.dialect.protocols import CTESupport
         
         if not isinstance(backend.dialect, CTESupport):
             pytest.skip("Backend doesn't support CTEs")

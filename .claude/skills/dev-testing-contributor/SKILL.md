@@ -17,6 +17,104 @@ metadata:
 
 This guide covers the testing architecture for rhosocial-activerecord framework development, including the Provider pattern, Testsuite architecture, and protocol-based feature detection.
 
+## Two Distinct Test Universes
+
+There are **two fundamentally different kinds of tests** with different authors, locations, and
+purposes. Do not treat them the same way.
+
+### 1. Backend tests (`feature/backend/`)
+
+These test a **specific backend's own internals** — how it talks to its database driver, generates
+dialect SQL, adapts types, and manages connections.
+
+- **Location**: reside in each backend's own repository under
+  `tests/rhosocial/<backend>_test/feature/backend/` (e.g. the core project has
+  `sqlite/`, `sqlite_async/`, `dummy/`, `dummy2/`, `dialect/`, `migration/`,
+  `named_connection/`, `named_expression/`, `schema/`, plus concurrency/security/output tests).
+- **Author**: the backend's own maintainers. They are **not imported from the shared testsuite**;
+  each backend writes its own.
+- **What they verify**: backend implementation details — `StorageBackend`/`AsyncStorageBackend`
+  behavior, dialect SQL formatting, `type_adapter` round-trips, connection pooling,
+  concurrency, output/result handling, security.
+- **Parity handling**: sync/async equivalence is enforced by `check_sync_async_parity.py`, but the
+  tree may opt into a per-directory `__parity__` mode (e.g. `async_only`) in its root `conftest.py`
+  when full byte-for-byte sync/async mirroring does not apply. See
+  `python-activerecord-testsuite/.claude/rules/sync_async_parity.md`.
+
+```text
+tests/rhosocial/<backend>_test/feature/backend/
+├── base/                    # storage backend base behavior
+├── dialect/                 # dialect-specific SQL generation
+├── type_adapter/            # type conversion round-trips
+├── sqlite/  sqlite_async/   # concrete impl (here: SQLite + its async variant)
+├── dummy/  dummy2/          # test-only in-memory backends
+├── concurrency/  security/  # pooling, threads, SQL safety
+└── test_helpers.py  test_output_*.py
+```
+
+### 2. ActiveRecord common test suite (`feature/{basic,query,relation,…}`)
+
+These validate **framework-level behavior that must hold identically across every backend** —
+CRUD, relations, queries, events, validation, transactions. They are a shared contract.
+
+- **Location**: authored once in
+  `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/<topic>/` and
+  consumed by every backend.
+- **Author**: the testsuite maintainers. A backend **imports these generic tests** (via bridge files
+  / `collect_ignore_glob`) rather than rewriting them.
+- **Backend-agnostic**: tests never reference a concrete backend. They depend on the **provider**
+  defined in that topic's `interfaces.py` (`IBasicSyncProvider`, etc.), which the backend
+  implements to supply models, fixtures, and connection setup. `requires_protocols` /
+  `requires_functions` decorators skip cases a backend cannot support.
+- **Parity handling**: strict sync/async mirror (`test_foo.py` ↔ `test_foo_async.py`, identical
+  method names) per the six parity rules. Every backend exercising these must do so in both
+  variants (or deliberately exclude one variant via `collect_ignore_glob`).
+
+```text
+python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/
+└── <topic>/
+    ├── conftest.py     # topic-level fixtures / skip logic
+    ├── interfaces.py   # provider contract the backend implements
+    ├── fixtures/       # topic-shared fixture model classes (versioned models.py)
+    ├── test_*.py       # generic sync test
+    └── test_*_async.py # generic async test
+```
+
+**How to decide:** is the test about *how a particular backend behaves internally*? → backend
+tests (written by that backend). Is it about *how the ORM behaves over any backend*? → the generic
+suite (imported by all backends). Code in `src/rhosocial/activerecord/backend/**` is covered by
+backend tests; `src/rhosocial/activerecord/model.py`, `field.py`, and `query/**` are covered by the
+generic suite.
+
+### Testsuite Categories: `feature` / `benchmark` / `realworld`
+
+The shared testsuite (2) is itself subdivided into **three categories** under
+`src/rhosocial/activerecord/testsuite/`, each with a different import requirement and maturity:
+
+```text
+src/rhosocial/activerecord/testsuite/
+├── feature/     # core feature contracts — REQUIRED; every backend imports these
+├── benchmark/   # shared performance/load workloads — optional but provider-backed
+└── realworld/   # complex end-to-end business scenarios — currently EMPTY (README only)
+```
+
+| Category | Content status | Import requirement | Notes |
+|----------|----------------|--------------------|-------|
+| `feature/` | Populated (`basic`, `query`, `relation`, `events`, `mixins`, `interface`, `partition`, …) | **Required** — validates correct core-feature implementation | The generic suite in section 2 |
+| `benchmark/` | Populated (`crud`, `query`, `transaction`, `mixin`, `fastapi`; `backend` is contract-only) | **Optional** — shared workloads run where a backend registers a provider | Same provider pattern as `feature/`; has its own `--benchmark-size` / `--fastapi-concurrent-rounds` options |
+| `realworld/` | Empty — only `README.md` with planned scenarios | Optional (future) | Follows the feature pattern (interfaces + fixtures) once populated; do **not** write tests there yet |
+
+Key nuances for `benchmark/`:
+
+- Provider-backed categories (`crud`, `query`, `transaction`, `mixin`, `fastapi`) mirror the
+  `feature/` pattern — testsuite defines workloads/contracts, the backend implements the provider
+  and registers it in `tests/providers/registry.py`.
+- `benchmark/backend` is the **exception**: it is a *contract-only* directory. The testsuite ships
+  no shared pytest tests or provider interface for it; each backend owns its own
+  `tests/benchmark/backend/` files (`test_execute_crud_sync/async.py`, `test_execute_many_*`) because
+  SQL placeholders, DDL, insert-id handling, `RETURNING`, and batch behavior differ per database.
+  Backends must **not** register `IBackendBenchmarkProvider`.
+
 ## Testsuite Architecture
 
 The testsuite follows a structured architecture that ensures consistency, maintainability, and proper sync/async parity.

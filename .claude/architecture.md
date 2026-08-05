@@ -769,14 +769,53 @@ The architecture is designed for minimal overhead:
 
 ### 1. Connection Pooling
 
-```python
-class PooledBackend(StorageBackend):
-    def __init__(self, config, pool_size=10):
-        self.pool = ConnectionPool(config, size=pool_size)
+Connection pooling is provided by the `connection/pool/` subpackage (sync + async), not by a
+`PooledBackend` subclass of `StorageBackend`.
 
-    def get_connection(self):
-        return self.pool.acquire()
+Key components (`src/rhosocial/activerecord/connection/pool/`):
+- `BackendPool` (`sync_pool.py`) / `AsyncBackendPool` (`async_pool.py`) — the pool managers
+- `PoolConfig` (`config.py`) — pool configuration (`min_size`, `max_size`, `backend_factory`, ...)
+- `PoolStats` (`stats.py`) — pool statistics
+- `PooledBackend` (`pooled_backend.py`) — a **dataclass wrapper** around a backend instance
+  tracking lifecycle (created/last_used/acquired timestamps, use_count, health, thread affinity);
+  it is **not** a `StorageBackend` subclass
+
+The pool supports three connection modes selected automatically or explicitly:
+- **persistent** — connections stay open across acquire/release (for `threadsafety >= 2` backends,
+  e.g. PostgreSQL/psycopg)
+- **transient** — connect on acquire / disconnect on release (for `threadsafety < 2` backends,
+  e.g. SQLite, MySQL)
+- **auto** (default) — picks persistent vs transient based on the backend's `threadsafety`
+
+```python
+from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
+
+config = PoolConfig(
+    min_size=2,
+    max_size=10,
+    backend_factory=lambda: PostgresBackend(host="localhost"),
+)
+pool = BackendPool.create(config)   # create() warms up connections
+
+# Manual acquire/release
+backend = pool.acquire()
+try:
+    result = backend.execute("SELECT 1")
+finally:
+    pool.release(backend)
+
+# Or use context managers
+with pool.connection() as backend:
+    backend.execute("SELECT 1")
+with pool.transaction() as backend:
+    backend.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+
+pool.close()
 ```
+
+Pool size can also be supplied per-config via `pool_size` (e.g. `configure(partial(prod_db,
+pool_size=20), MySQLBackend)`). Backend-level pooling knobs live in
+`backend/config.py` (`ConnectionPoolProtocol` / `ConnectionPoolMixin`).
 
 ### 2. Relation Caching (Instance-level)
 
@@ -822,13 +861,19 @@ class RelationDescriptor:
 
 ### Key Thread Safety Mechanisms
 
-# The project utilizes specific mechanisms for thread safety:
-# 1. ThreadSafeDict for mutable shared state (e.g., query eager loads, _eager_loads in RelationalQueryMixin)
-# 2. InstanceCache for per-instance caching (thread-safe for each instance's data)
-# 3. Backend connection management (e.g., SQLiteBackend uses sqlite3.connect which can be thread-safe for basic ops,
-#    or relies on external connection pooling for more robust solutions in other DBs).
+The project utilizes specific mechanisms for thread safety:
 
-# Example: ThreadSafeDict (from interface/query.py)
+1. **ThreadSafeDict** for mutable shared state (e.g., query eager loads, `_eager_loads` in
+   `RelationalQueryMixin`)
+2. **InstanceCache** for per-instance caching (thread-safe for each instance's data)
+3. **Backend connection management** — e.g., `SQLiteBackend` uses `sqlite3.connect`, which can be
+   thread-safe for basic ops, while the built-in `connection/pool/` `BackendPool` /
+   `AsyncBackendPool` provide robust pooling for other DBs (persistent/transient/auto modes
+   based on backend `threadsafety`)
+
+Example: `ThreadSafeDict` (from `interface/query.py`):
+
+```python
 from typing import Dict, Any, TypeVar
 from threading import local
 
@@ -846,11 +891,11 @@ class ThreadSafeDict(Dict[K, V]):
 
     def __getitem__(self, key: K) -> V:
         return self._local.data[key]
+```
 
-# InstanceCache for relation caching (from relation/cache.py)
-# This design ensures thread-safety by storing cache data on the instance itself
-# or using thread-local storage where appropriate, preventing race conditions
-# on shared cache structures.
+`InstanceCache` for relation caching (from `relation/cache.py`) ensures thread-safety by storing
+cache data on the instance itself or using thread-local storage where appropriate, preventing
+race conditions on shared cache structures.
 
 ## Error Handling Strategy
 
@@ -888,28 +933,48 @@ Database Driver (Driver-specific errors)
 
 ### Test Organization
 
+The test suite is a single package mirroring the source layout, not split into
+unit/integration/fixtures directories:
+
 ```
 tests/
-├── unit/           # Unit tests for individual components
-├── integration/    # Integration tests with real databases
-├── fixtures/       # Shared test fixtures
-└── benchmarks/     # Performance benchmarks
+├── conftest.py                        # Shared fixtures and hooks
+├── benchmark/                         # Performance benchmarks (activerecord_bulk, backend, relation)
+├── config/                            # Test scenario configs (e.g. redis_scenarios.yaml)
+├── providers/                         # Testsuite-style provider/fixture implementations
+│   ├── basic.py, query.py, relation.py, events.py, mixins.py ...
+│   └── registry.py                    # Provider registry
+└── rhosocial/activerecord_test/       # Main test package mirroring src layout
+    ├── feature/                       # Feature tests: basic, query, relation, events,
+    │   │                              #   mixins, interface, connection, worker, backend/
+    │   └── test_features.py           # (async variant: test_features_async.py)
+    ├── realworld/                     # Real-world scenario tests (e-commerce, finance, ...)
+    └── logging_module/                # Logging module tests
 ```
+
+Backend extension projects ship their own tests following the same
+`tests/rhosocial/activerecord_test/feature/backend/{name}/` layout. Test execution and
+PYTHONPATH requirements are in `testing.md`.
 
 ### Fixture Pattern
 
+The suite uses a **Provider pattern** to decouple tests from concrete backends. The testsuite
+(`rhosocial-activerecord-testsuite`) defines feature interfaces (e.g. `IBasicProvider`,
+`IQueryProvider`); each project registers concrete sync/async providers in a registry, and
+`tests/conftest.py` points the testsuite at it via `TESTSUITE_PROVIDER_REGISTRY`.
+
 ```python
-@pytest.fixture
-def backend_matrix():
-    """Test across multiple backends."""
-    backends = []
+# tests/providers/registry.py
+from rhosocial.activerecord.testsuite.core.registry import ProviderRegistry
+from .basic import BasicSyncProvider, BasicAsyncProvider
 
-    # Always test SQLite
-    backends.append(SQLiteBackend)
-
-    # Test others if available
-    if mysql_available():
-        backends.append(MySQLBackend)
-
-    return backends
+provider_registry = ProviderRegistry()
+provider_registry.register("feature.basic.IBasicProvider", BasicSyncProvider)
+provider_registry.register("feature.basic.IBasicSyncProvider", BasicSyncProvider)
+provider_registry.register("feature.basic.IBasicAsyncProvider", BasicAsyncProvider)
 ```
+
+Feature support is detected via **protocols** — tests use `isinstance()` checks (or
+`@requires_protocol(...)` markers) against backend protocol implementations to decide whether a
+feature test applies, so the same tests run across different backends. Full details: the
+`dev-testing-contributor` skill.
