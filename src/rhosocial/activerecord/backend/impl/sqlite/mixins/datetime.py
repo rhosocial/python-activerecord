@@ -10,6 +10,7 @@ from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
+    from rhosocial.activerecord.backend.expression import bases
     from rhosocial.activerecord.backend.expression.collation import CollateExpression
 
 _COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -36,7 +37,7 @@ class SQLiteDateTimeMixin:
         "second": "%Y-%m-%d %H:%M:%S",
     }
 
-    def format_extract_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_extract_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime field extraction for SQLite."""
         source_sql, source_params = expr.source.to_sql()
         field = expr.field.value
@@ -46,11 +47,11 @@ class SQLiteDateTimeMixin:
         sql = f"CAST(strftime('{fmt}', {source_sql}) AS INTEGER)"
         return self._apply_value_expression_modifiers(sql, source_params, expr)
 
-    def format_date_part_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_date_part_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format date_part using SQLite strftime."""
         return self.format_extract_expression(expr)
 
-    def format_date_trunc_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_date_trunc_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format date_trunc using SQLite datetime/strftime functions."""
         source_sql, source_params = expr.source.to_sql()
         field = expr.field.value
@@ -63,7 +64,7 @@ class SQLiteDateTimeMixin:
             raise UnsupportedFeatureError(self.name, f"DATE_TRUNC({field})")
         return self._apply_value_expression_modifiers(sql, source_params, expr)
 
-    def format_interval_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_interval_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """SQLite has no standalone interval literal."""
         raise UnsupportedFeatureError(
             self.name,
@@ -77,21 +78,21 @@ class SQLiteDateTimeMixin:
         unit = "day" if expr.unit.value == "week" else expr.unit.value
         return f"{sign}{value:g} {unit}"
 
-    def format_datetime_add_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_datetime_add_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime interval addition using SQLite modifiers."""
         source_sql, source_params = expr.source.to_sql()
         modifier = self._format_sqlite_interval_modifier(expr.interval, "+")
         sql = f"datetime({source_sql}, ?)"
         return self._apply_value_expression_modifiers(sql, source_params + (modifier,), expr)
 
-    def format_datetime_subtract_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_datetime_subtract_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime interval subtraction using SQLite modifiers."""
         source_sql, source_params = expr.source.to_sql()
         modifier = self._format_sqlite_interval_modifier(expr.interval, "-")
         sql = f"datetime({source_sql}, ?)"
         return self._apply_value_expression_modifiers(sql, source_params + (modifier,), expr)
 
-    def format_datetime_diff_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_datetime_diff_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime difference using SQLite julianday."""
         start_sql, start_params = expr.start.to_sql()
         end_sql, end_params = expr.end.to_sql()

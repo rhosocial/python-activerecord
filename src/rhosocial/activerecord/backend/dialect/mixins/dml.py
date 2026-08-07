@@ -1,14 +1,21 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/dml.py
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression.bases import BaseExpression
+
+if TYPE_CHECKING:
+    from ...expression.statements.dml import (
+        DeleteExpression,
+        InsertExpression,
+        UpdateExpression,
+    )
 
 
 class DMLMixin:
     """Mixin for DML (INSERT/UPDATE/DELETE) statement formatting."""
 
-    def format_insert_statement(self, expr) -> Tuple[str, tuple]:
+    def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import DefaultValuesSource, ValuesSource, SelectSource
         if self.strict_validation:
@@ -54,7 +61,7 @@ class DMLMixin:
             all_params.extend(returning_params)
         return sql, tuple(all_params)
 
-    def format_on_conflict_clauses(self, expr) -> Tuple[str, tuple]:
+    def format_on_conflict_clauses(self, expr: "InsertExpression") -> Tuple[str, tuple]:
         """Format one or more ON CONFLICT clauses, gated by capability switches.
 
         Args:
@@ -88,7 +95,7 @@ class DMLMixin:
             params.extend(clause_params)
         return " ".join(parts), tuple(params)
 
-    def format_update_statement(self, expr) -> Tuple[str, tuple]:
+    def format_update_statement(self, expr: "UpdateExpression") -> Tuple[str, tuple]:
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import QueryExpression
         all_params: List[Any] = []
@@ -143,7 +150,7 @@ class DMLMixin:
             all_params.extend(returning_params)
         return current_sql, tuple(all_params)
 
-    def format_delete_statement(self, expr) -> Tuple[str, tuple]:
+    def format_delete_statement(self, expr: "DeleteExpression") -> Tuple[str, tuple]:
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import QueryExpression
         if self.strict_validation:

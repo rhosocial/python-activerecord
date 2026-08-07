@@ -10,6 +10,7 @@ from .extension import SQLiteExtensionMixin
 from .virtual_table import SQLiteVirtualTableMixin
 from .pragma_mixin import SQLitePragmaMixin
 from .reindex import SQLiteReindexMixin
+from .maintenance import SQLiteMaintenanceMixin
 from .introspection import SQLiteIntrospectionCapabilityMixin
 from .identifier import SQLiteIdentifierMixin
 from .datetime import SQLiteDateTimeMixin
@@ -30,6 +31,7 @@ __all__ = [
     'SQLiteVirtualTableMixin',
     'SQLitePragmaMixin',
     'SQLiteReindexMixin',
+    'SQLiteMaintenanceMixin',
     'SQLiteIntrospectionCapabilityMixin',
     'SQLiteIdentifierMixin',
     'SQLiteDateTimeMixin',

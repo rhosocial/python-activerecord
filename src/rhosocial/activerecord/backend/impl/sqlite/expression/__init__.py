@@ -18,6 +18,8 @@ Directory structure:
 from .introspection import SQLiteColumnInfoExpression
 from .table_list import SQLiteTableListExpression
 from .reindex import SQLiteReindexExpression
+from .vacuum import SQLiteVacuumExpression, SQLiteAnalyzeExpression
+from .attach import SQLiteAttachExpression, SQLiteDetachExpression
 from .predicates import SQLiteMatchPredicate
 from .fts5 import (
     SQLiteFTS5CreateVirtualTable,
@@ -39,6 +41,10 @@ __all__ = [
     "SQLiteColumnInfoExpression",
     "SQLiteTableListExpression",
     "SQLiteReindexExpression",
+    "SQLiteVacuumExpression",
+    "SQLiteAnalyzeExpression",
+    "SQLiteAttachExpression",
+    "SQLiteDetachExpression",
     "SQLiteMatchPredicate",
     "SQLiteFTS5CreateVirtualTable",
     "SQLiteFTS5RankExpression",
@@ -58,6 +64,10 @@ for _expr_cls in (
     SQLiteColumnInfoExpression,
     SQLiteTableListExpression,
     SQLiteReindexExpression,
+    SQLiteVacuumExpression,
+    SQLiteAnalyzeExpression,
+    SQLiteAttachExpression,
+    SQLiteDetachExpression,
     SQLiteMatchPredicate,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
