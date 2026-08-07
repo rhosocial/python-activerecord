@@ -5,8 +5,11 @@ SQLite-specific Reindex implementation.
 This module provides the SQLiteReindexMixin class.
 """
 
-from typing import Tuple
+from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+if TYPE_CHECKING:
+    from ..expression.reindex import SQLiteReindexExpression
 
 
 class SQLiteReindexMixin:
@@ -24,7 +27,7 @@ class SQLiteReindexMixin:
         """SQLite 3.53.0+ supports REINDEX EXPRESSIONS."""
         return self.version >= (3, 53, 0)
 
-    def format_reindex_statement(self, expr) -> Tuple[str, tuple]:
+    def format_reindex_statement(self, expr: "SQLiteReindexExpression") -> Tuple[str, tuple]:
         """Format REINDEX statement for SQLite.
 
         SQLite REINDEX syntax:

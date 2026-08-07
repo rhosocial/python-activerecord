@@ -5,6 +5,14 @@ SQLite-specific Trigger implementation.
 This module provides the SQLiteTriggerMixin class.
 """
 
+from typing import Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
+        CreateTriggerExpression,
+        DropTriggerExpression,
+    )
+
 
 class SQLiteTriggerMixin:
     """SQLite trigger DDL formatting."""
@@ -41,7 +49,9 @@ class SQLiteTriggerMixin:
         """SQLite supports CREATE TRIGGER IF NOT EXISTS."""
         return True
 
-    def format_create_trigger_statement(self, expr):
+    def format_create_trigger_statement(
+        self, expr: "CreateTriggerExpression"
+    ) -> "Tuple[str, tuple]":
         """Format CREATE TRIGGER statement for SQLite."""
         from rhosocial.activerecord.backend.expression.statements import TriggerLevel
 
@@ -78,7 +88,7 @@ class SQLiteTriggerMixin:
 
         return " ".join(parts), tuple(all_params)
 
-    def format_drop_trigger_statement(self, expr):
+    def format_drop_trigger_statement(self, expr: "DropTriggerExpression") -> "Tuple[str, tuple]":
         """Format DROP TRIGGER statement for SQLite."""
         parts = ["DROP TRIGGER"]
 

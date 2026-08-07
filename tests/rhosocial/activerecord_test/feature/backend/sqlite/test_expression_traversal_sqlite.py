@@ -29,6 +29,14 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import DropT
 from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression, DropIndexExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexExpression
+from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
+    SQLiteVacuumExpression,
+    SQLiteAnalyzeExpression,
+)
+from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
+    SQLiteAttachExpression,
+    SQLiteDetachExpression,
+)
 from rhosocial.activerecord.backend.impl.sqlite.expression.predicates import SQLiteMatchPredicate
 from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import SQLiteColumnInfoExpression
 from rhosocial.activerecord.backend.impl.sqlite.expression.table_list import SQLiteTableListExpression
@@ -122,6 +130,41 @@ class TestSQLiteSpecificExpressionTraversal:
         expr = SQLiteMatchPredicate(sqlite_dialect, table="docs", query="python", negate=True)
         with pytest.raises(ValueError, match="FTS5 does not support NOT MATCH"):
             expr.to_sql()
+
+    def test_vacuum_expression(self, sqlite_dialect):
+        expr = SQLiteVacuumExpression(sqlite_dialect)
+        spec = serialization.serialize(expr)
+        restored = serialization.deserialize(spec, sqlite_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_vacuum_into_expression(self, sqlite_dialect):
+        expr = SQLiteVacuumExpression(sqlite_dialect, into="backup.db")
+        spec = serialization.serialize(expr)
+        restored = serialization.deserialize(spec, sqlite_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_vacuum_schema_expression(self, sqlite_dialect):
+        expr = SQLiteVacuumExpression(sqlite_dialect, schema="aux")
+        spec = serialization.serialize(expr)
+        restored = serialization.deserialize(spec, sqlite_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_analyze_expression(self, sqlite_dialect):
+        expr = SQLiteAnalyzeExpression(sqlite_dialect)
+        spec = serialization.serialize(expr)
+        restored = serialization.deserialize(spec, sqlite_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_attach_detach_expression(self, sqlite_dialect):
+        attach = SQLiteAttachExpression(sqlite_dialect, database="aux.db", schema="aux")
+        spec = serialization.serialize(attach)
+        restored = serialization.deserialize(spec, sqlite_dialect)
+        assert restored.to_sql() == attach.to_sql()
+
+        detach = SQLiteDetachExpression(sqlite_dialect, schema="aux")
+        spec = serialization.serialize(detach)
+        restored = serialization.deserialize(spec, sqlite_dialect)
+        assert restored.to_sql() == detach.to_sql()
 
     def test_column_info_expression(self, sqlite_dialect):
         expr = SQLiteColumnInfoExpression(sqlite_dialect, table_name="users")

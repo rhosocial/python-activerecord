@@ -7,11 +7,19 @@ SQL generation logic is migrated from the FTS5Extension class,
 eliminating the singleton delegation layer.
 """
 
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 from .extension import SQLiteExtensionMixin
+
+if TYPE_CHECKING:
+    from ..expression.fts5 import (
+        SQLiteFTS5CreateVirtualTable,
+        SQLiteFTS5HighlightExpression,
+        SQLiteFTS5RankExpression,
+        SQLiteFTS5SnippetExpression,
+    )
 
 
 class SQLiteFTS5Mixin(SQLiteExtensionMixin):
@@ -79,7 +87,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         sql = f"{self.format_identifier(table)} MATCH ?"
         return sql, (match_query,)
 
-    def format_fts5_create_virtual_table(self, expr) -> tuple:
+    def format_fts5_create_virtual_table(self, expr: "SQLiteFTS5CreateVirtualTable") -> tuple:
         """Format CREATE VIRTUAL TABLE statement for FTS5.
 
         Args:
@@ -128,7 +136,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
 
         return sql, ()
 
-    def format_fts5_rank_expression(self, expr) -> tuple:
+    def format_fts5_rank_expression(self, expr: "SQLiteFTS5RankExpression") -> tuple:
         """Format FTS5 ranking expression using bm25().
 
         Args:
@@ -162,7 +170,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
 
         return sql, ()
 
-    def format_fts5_highlight_expression(self, expr) -> tuple:
+    def format_fts5_highlight_expression(self, expr: "SQLiteFTS5HighlightExpression") -> tuple:
         """Format highlight() function expression.
 
         Args:
@@ -177,7 +185,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         )
         return sql, (expr.prefix_marker, expr.suffix_marker)
 
-    def format_fts5_snippet_expression(self, expr) -> tuple:
+    def format_fts5_snippet_expression(self, expr: "SQLiteFTS5SnippetExpression") -> tuple:
         """Format snippet() function expression.
 
         Args:

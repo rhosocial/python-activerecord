@@ -10,6 +10,14 @@ import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexExpression
+from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
+    SQLiteVacuumExpression,
+    SQLiteAnalyzeExpression,
+)
+from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
+    SQLiteAttachExpression,
+    SQLiteDetachExpression,
+)
 from rhosocial.activerecord.backend.expression.serialization import serialize, deserialize
 from rhosocial.activerecord.backend.expression.introspection import TableListExpression
 
@@ -50,6 +58,36 @@ class TestSQLiteSpecificExpressionSerialization:
         spec = serialize(expr)
         assert spec["params"]["dialect_options"] == {"temp": True}
         restored = deserialize(spec, sqlite_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+
+class TestSQLiteMaintenanceExpressionSerialization:
+    """SQLite VACUUM / ANALYZE / ATTACH / DETACH serialization tests."""
+
+    def test_vacuum_expression_roundtrip(self, sqlite_dialect):
+        expr = SQLiteVacuumExpression(sqlite_dialect)
+        spec = serialize(expr)
+        restored = deserialize(spec, sqlite_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_vacuum_into_expression_roundtrip(self, sqlite_dialect):
+        expr = SQLiteVacuumExpression(sqlite_dialect, into="backup.db")
+        restored = deserialize(serialize(expr), sqlite_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_analyze_expression_roundtrip(self, sqlite_dialect):
+        expr = SQLiteAnalyzeExpression(sqlite_dialect)
+        restored = deserialize(serialize(expr), sqlite_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_attach_expression_roundtrip(self, sqlite_dialect):
+        expr = SQLiteAttachExpression(sqlite_dialect, database="aux.db", schema="aux")
+        restored = deserialize(serialize(expr), sqlite_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_detach_expression_roundtrip(self, sqlite_dialect):
+        expr = SQLiteDetachExpression(sqlite_dialect, schema="aux")
+        restored = deserialize(serialize(expr), sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
 
