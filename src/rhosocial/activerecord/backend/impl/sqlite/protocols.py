@@ -6,7 +6,24 @@ This module defines protocol interfaces for SQLite-specific features
 that are not part of the standard SQL dialect protocols.
 """
 
-from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable
+from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .expression.attach import SQLiteAttachExpression, SQLiteDetachExpression
+    from .expression.fts5 import (
+        SQLiteFTS5CreateVirtualTable,
+        SQLiteFTS5HighlightExpression,
+        SQLiteFTS5RankExpression,
+        SQLiteFTS5SnippetExpression,
+    )
+    from .expression.geopoly import (
+        SQLiteGeopolyAreaExpression,
+        SQLiteGeopolyContainsExpression,
+        SQLiteGeopolyCreateVirtualTable,
+    )
+    from .expression.reindex import SQLiteReindexExpression
+    from .expression.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
+    from .expression.vacuum import SQLiteAnalyzeExpression, SQLiteVacuumExpression
 
 
 @runtime_checkable
@@ -287,7 +304,7 @@ class SQLiteReindexSupport(Protocol):
         """Whether REINDEX EXPRESSIONS is supported (SQLite 3.53.0+)."""
         ...
 
-    def format_reindex_statement(self, expr: Any) -> Tuple[str, tuple]:
+    def format_reindex_statement(self, expr: "SQLiteReindexExpression") -> Tuple[str, tuple]:
         """Format REINDEX statement.
 
         Args:
@@ -295,6 +312,82 @@ class SQLiteReindexSupport(Protocol):
 
         Returns:
             Tuple of (SQL string, parameters tuple)
+        """
+        ...
+
+
+@runtime_checkable
+class SQLiteMaintenanceSupport(Protocol):
+    """Protocol for SQLite database-maintenance statement support.
+
+    Covers VACUUM, ANALYZE, ATTACH DATABASE, and DETACH DATABASE.
+
+    Version Requirements:
+    - VACUUM / ANALYZE / ATTACH / DETACH: All SQLite versions (3.0+)
+    - VACUUM INTO 'filename': SQLite 3.27.0+
+    """
+
+    def supports_vacuum(self) -> bool:
+        """Whether VACUUM is supported."""
+        ...
+
+    def supports_vacuum_into(self) -> bool:
+        """Whether VACUUM INTO 'filename' is supported (SQLite 3.27.0+)."""
+        ...
+
+    def supports_analyze(self) -> bool:
+        """Whether ANALYZE is supported."""
+        ...
+
+    def supports_attach(self) -> bool:
+        """Whether ATTACH DATABASE is supported."""
+        ...
+
+    def supports_detach(self) -> bool:
+        """Whether DETACH DATABASE is supported."""
+        ...
+
+    def format_vacuum_statement(self, expr: "SQLiteVacuumExpression") -> Tuple[str, tuple]:
+        """Format a VACUUM statement.
+
+        Args:
+            expr: SQLiteVacuumExpression instance.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...
+
+    def format_analyze_statement(self, expr: "SQLiteAnalyzeExpression") -> Tuple[str, tuple]:
+        """Format an ANALYZE statement.
+
+        Args:
+            expr: SQLiteAnalyzeExpression instance.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...
+
+    def format_attach_statement(self, expr: "SQLiteAttachExpression") -> Tuple[str, tuple]:
+        """Format an ATTACH DATABASE statement.
+
+        Args:
+            expr: SQLiteAttachExpression instance.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...
+
+    def format_detach_statement(self, expr: "SQLiteDetachExpression") -> Tuple[str, tuple]:
+        """Format a DETACH DATABASE statement.
+
+        Args:
+            expr: SQLiteDetachExpression instance.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
         """
         ...
 
@@ -329,19 +422,19 @@ class SQLiteFTS5Support(Protocol):
         """Format FTS5 MATCH expression."""
         ...
 
-    def format_fts5_create_virtual_table(self, expr) -> Tuple[str, tuple]:
+    def format_fts5_create_virtual_table(self, expr: "SQLiteFTS5CreateVirtualTable") -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE for FTS5."""
         ...
 
-    def format_fts5_rank_expression(self, expr) -> Tuple[str, tuple]:
+    def format_fts5_rank_expression(self, expr: "SQLiteFTS5RankExpression") -> Tuple[str, tuple]:
         """Format FTS5 ranking expression."""
         ...
 
-    def format_fts5_highlight_expression(self, expr) -> Tuple[str, tuple]:
+    def format_fts5_highlight_expression(self, expr: "SQLiteFTS5HighlightExpression") -> Tuple[str, tuple]:
         """Format highlight() function expression."""
         ...
 
-    def format_fts5_snippet_expression(self, expr) -> Tuple[str, tuple]:
+    def format_fts5_snippet_expression(self, expr: "SQLiteFTS5SnippetExpression") -> Tuple[str, tuple]:
         """Format snippet() function expression."""
         ...
 
@@ -354,11 +447,11 @@ class SQLiteRTreeSupport(Protocol):
         """Whether R-Tree virtual table is supported."""
         ...
 
-    def format_rtree_create_virtual_table(self, expr) -> Tuple[str, tuple]:
+    def format_rtree_create_virtual_table(self, expr: "SQLiteRTreeCreateVirtualTable") -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE for R-Tree."""
         ...
 
-    def format_rtree_range_query(self, expr) -> Tuple[str, tuple]:
+    def format_rtree_range_query(self, expr: "SQLiteRTreeRangeQuery") -> Tuple[str, tuple]:
         """Format R-Tree range query."""
         ...
 
@@ -371,15 +464,15 @@ class SQLiteGeopolySupport(Protocol):
         """Whether Geopoly virtual table is supported."""
         ...
 
-    def format_geopoly_create_virtual_table(self, expr) -> Tuple[str, tuple]:
+    def format_geopoly_create_virtual_table(self, expr: "SQLiteGeopolyCreateVirtualTable") -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE for Geopoly."""
         ...
 
-    def format_geopoly_contains_query(self, expr) -> Tuple[str, tuple]:
+    def format_geopoly_contains_query(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
         """Format Geopoly point-in-polygon query."""
         ...
 
-    def format_geopoly_area_expression(self, expr) -> Tuple[str, tuple]:
+    def format_geopoly_area_expression(self, expr: "SQLiteGeopolyAreaExpression") -> Tuple[str, tuple]:
         """Format Geopoly area calculation."""
         ...
 

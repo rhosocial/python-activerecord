@@ -71,6 +71,7 @@ SQLITE_PROTOCOLS = [
     sqlite_protocols.SQLitePragmaSupport,
     sqlite_protocols.SQLiteExtensionSupport,
     sqlite_protocols.SQLiteReindexSupport,
+    sqlite_protocols.SQLiteMaintenanceSupport,
     dialect_protocols.CTESupport,
     dialect_protocols.FilterClauseSupport,
     dialect_protocols.WindowFunctionSupport,
@@ -158,6 +159,10 @@ class TestSQLiteExpressionDialectSeparation:
 
     EXPRESSION_DIALECT_PAIRS = [
         ("SQLiteReindexExpression", "format_reindex_statement"),
+        ("SQLiteVacuumExpression", "format_vacuum_statement"),
+        ("SQLiteAnalyzeExpression", "format_analyze_statement"),
+        ("SQLiteAttachExpression", "format_attach_statement"),
+        ("SQLiteDetachExpression", "format_detach_statement"),
     ]
 
     @pytest.mark.parametrize("expr_name,format_method", EXPRESSION_DIALECT_PAIRS)
@@ -195,6 +200,7 @@ SQLITE_PROTOCOL_MIXIN_PAIRS = [
     (sqlite_protocols.SQLitePragmaSupport, sqlite_mixins.SQLitePragmaMixin),
     (sqlite_protocols.SQLiteVirtualTableSupport, sqlite_mixins.SQLiteVirtualTableMixin),
     (sqlite_protocols.SQLiteReindexSupport, sqlite_mixins.SQLiteReindexMixin),
+    (sqlite_protocols.SQLiteMaintenanceSupport, sqlite_mixins.SQLiteMaintenanceMixin),
 ]
 
 

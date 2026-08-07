@@ -75,6 +75,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     IndexMixin,
     SequenceMixin,
     GeneratedColumnMixin,
+    PartitionMixin,
     # New Mixins
     PredicateMixin,
     ExpressionMixin,
@@ -96,6 +97,7 @@ if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
     from rhosocial.activerecord.backend.expression.statements import ExplainExpression
+    from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateExpression
 
 from .protocols import (
     SQLiteExtensionSupport,
@@ -106,12 +108,14 @@ from .protocols import (
     SQLiteRTreeSupport,
     SQLiteGeopolySupport,
     SQLiteJSON1Support,
+    SQLiteMaintenanceSupport,
 )
 from .mixins import (
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
     SQLiteVirtualTableMixin,
     SQLiteReindexMixin,
+    SQLiteMaintenanceMixin,
     SQLiteIdentifierMixin,
     SQLiteDateTimeMixin,
     SQLiteDDLColumnMixin,
@@ -165,6 +169,7 @@ class SQLiteDialect(
     IndexMixin,
     SequenceMixin,
     GeneratedColumnMixin,
+    PartitionMixin,
     # New Mixins (without SQLite overrides)
     PredicateMixin,
     ExpressionMixin,
@@ -182,6 +187,7 @@ class SQLiteDialect(
     SQLiteIntrospectionCapabilityMixin,
     SQLiteVirtualTableMixin,
     SQLiteReindexMixin,
+    SQLiteMaintenanceMixin,
     SQLiteFunctionMixin,
     # Extension expression mixins
     SQLiteFTS5Mixin,
@@ -240,6 +246,7 @@ class SQLiteDialect(
     SQLiteRTreeSupport,
     SQLiteGeopolySupport,
     SQLiteJSON1Support,
+    SQLiteMaintenanceSupport,
     # Introspection Protocol
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -473,7 +480,7 @@ class SQLiteDialect(
         """SQLite does not support TRUNCATE TABLE (use DELETE FROM instead)."""
         return False
 
-    def format_truncate_statement(self, expr) -> Tuple[str, tuple]:
+    def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
         """SQLite does not support TRUNCATE TABLE."""
         raise UnsupportedFeatureError(self.name, "TRUNCATE TABLE", "Use DELETE FROM instead.")
 
