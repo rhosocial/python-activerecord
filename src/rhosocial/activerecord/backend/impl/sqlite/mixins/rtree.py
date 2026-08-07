@@ -7,11 +7,14 @@ SQL generation logic is migrated from the RTreeExtension class,
 eliminating the singleton delegation layer.
 """
 
-from typing import Tuple
+from typing import Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 from .extension import SQLiteExtensionMixin
+
+if TYPE_CHECKING:
+    from ..expression.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
 
 
 class SQLiteRTreeMixin(SQLiteExtensionMixin):
@@ -33,7 +36,7 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
 
     # ========== SQL Formatting ==========
 
-    def format_rtree_create_virtual_table(self, expr) -> Tuple[str, tuple]:
+    def format_rtree_create_virtual_table(self, expr: "SQLiteRTreeCreateVirtualTable") -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement for R-Tree.
 
         Args:
@@ -76,7 +79,7 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
         sql = f"CREATE VIRTUAL TABLE {table} USING rtree({full})"
         return sql, ()
 
-    def format_rtree_range_query(self, expr) -> Tuple[str, tuple]:
+    def format_rtree_range_query(self, expr: "SQLiteRTreeRangeQuery") -> Tuple[str, tuple]:
         """Format range query for R-Tree table.
 
         Args:

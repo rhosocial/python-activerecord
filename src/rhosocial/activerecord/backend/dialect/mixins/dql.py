@@ -1,8 +1,11 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/dql.py
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression.bases import ToSQLProtocol
+
+if TYPE_CHECKING:
+    from ...expression.statements.dql import QueryExpression
 
 
 class DQLMixin:
@@ -88,7 +91,7 @@ class DQLMixin:
             all_params.extend(having_params)
         return " ".join(sql_parts), tuple(all_params)
 
-    def format_query_statement(self, expr) -> Tuple[str, tuple]:
+    def format_query_statement(self, expr: "QueryExpression") -> Tuple[str, tuple]:
         from ..exceptions import UnsupportedFeatureError
         if self.strict_validation:
             expr.validate(strict=True)

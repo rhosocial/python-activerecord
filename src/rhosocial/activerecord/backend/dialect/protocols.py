@@ -33,6 +33,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DropPropertyGraphExpression,
         AlterPropertyGraphExpression,
         JoinExpression,
+        JSONExpression,
         WindowFunctionCall,
         WindowSpecification,
         WindowFrameSpecification,
@@ -690,7 +691,7 @@ class JSONSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_json_arrow_expression(self, expr: Any) -> Tuple[str, Tuple]:
+    def format_json_arrow_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
         """
         Force-arrow JSON path formatting.
 
@@ -700,7 +701,7 @@ class JSONSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_json_function_expression(self, expr: Any) -> Tuple[str, Tuple]:
+    def format_json_function_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
         """
         Force-function JSON path formatting.
 

@@ -7,11 +7,18 @@ SQL generation logic is migrated from the GeopolyExtension class,
 eliminating the singleton delegation layer.
 """
 
-from typing import Tuple
+from typing import Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 from .extension import SQLiteExtensionMixin
+
+if TYPE_CHECKING:
+    from ..expression.geopoly import (
+        SQLiteGeopolyAreaExpression,
+        SQLiteGeopolyContainsExpression,
+        SQLiteGeopolyCreateVirtualTable,
+    )
 
 
 class SQLiteGeopolyMixin(SQLiteExtensionMixin):
@@ -33,7 +40,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
 
     # ========== SQL Formatting ==========
 
-    def format_geopoly_create_virtual_table(self, expr) -> Tuple[str, tuple]:
+    def format_geopoly_create_virtual_table(self, expr: "SQLiteGeopolyCreateVirtualTable") -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement for Geopoly.
 
         Args:
@@ -60,7 +67,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
             sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols})"
             return sql, ()
 
-    def format_geopoly_contains_query(self, expr) -> Tuple[str, tuple]:
+    def format_geopoly_contains_query(self, expr: "SQLiteGeopolyContainsExpression") -> Tuple[str, tuple]:
         """Format point-in-polygon query.
 
         Args:
@@ -73,7 +80,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
         sql = f"SELECT * FROM {table} WHERE geopoly_contains_point(_shape, ?, ?)"
         return sql, (expr.longitude, expr.latitude)
 
-    def format_geopoly_area_expression(self, expr) -> Tuple[str, tuple]:
+    def format_geopoly_area_expression(self, expr: "SQLiteGeopolyAreaExpression") -> Tuple[str, tuple]:
         """Format area calculation query.
 
         Args:
