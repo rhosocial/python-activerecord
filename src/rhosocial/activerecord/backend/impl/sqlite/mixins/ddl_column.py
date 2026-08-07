@@ -12,6 +12,15 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 class SQLiteDDLColumnMixin:
     """SQLite-specific column constraint and column definition formatting."""
 
+    def supports_add_column_if_not_exists(self) -> bool:
+        return False
+
+    def supports_drop_column_if_exists(self) -> bool:
+        return False
+
+    def supports_drop_constraint_if_exists(self) -> bool:
+        return False
+
     def format_add_index_action(self, action) -> Tuple[str, tuple]:
         raise UnsupportedFeatureError(
             self.name,
