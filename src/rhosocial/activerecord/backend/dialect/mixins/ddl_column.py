@@ -8,6 +8,15 @@ from ...expression.bases import BaseExpression, ToSQLProtocol
 class DDLColumnMixin:
     """Mixin for DDL column definition and ALTER TABLE action formatting."""
 
+    def supports_add_column_if_not_exists(self) -> bool:
+        return False
+
+    def supports_drop_column_if_exists(self) -> bool:
+        return False
+
+    def supports_drop_constraint_if_exists(self) -> bool:
+        return False
+
     def format_column_definition(self, col_def) -> Tuple[str, tuple]:
         all_params: List[Any] = []
         type_sql, _ = col_def.data_type.to_sql(self)

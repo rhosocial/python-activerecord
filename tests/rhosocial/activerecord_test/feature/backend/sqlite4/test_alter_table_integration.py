@@ -27,6 +27,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     TableConstraint,
     TableConstraintType,
 )
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.introspection.types import ColumnNullable
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
@@ -226,6 +227,49 @@ class TestAlterTableAddConstraint:
                 "INSERT INTO users (name, email) VALUES (?, ?)",
                 ("Bob", None),
             )
+
+
+class TestSQLiteIfExistsGuard:
+    """Verify SQLite rejects the unsupported IF [NOT] EXISTS qualifiers on ALTER TABLE.
+
+    SQLite supports bare ``ADD COLUMN`` / ``DROP COLUMN`` (>= 3.35.0) and
+    ``DROP CONSTRAINT`` (>= 3.53.0), but none of the vendor ``IF``
+    qualifiers. These requests must raise ``UnsupportedFeatureError``
+    rather than silently emitting invalid SQL.
+    """
+
+    def test_sqlite_rejects_add_column_if_not_exists(self, sqlite_backend):
+        """ADD COLUMN IF NOT EXISTS must raise on SQLite."""
+        action = AddColumn(
+            sqlite_backend.dialect,
+            column=ColumnDefinition("email", SQLiteTextType()),
+            if_not_exists=True,
+        )
+        with pytest.raises(UnsupportedFeatureError):
+            action.to_sql()
+
+    def test_sqlite_rejects_drop_column_if_exists(self, sqlite_backend):
+        """DROP COLUMN IF EXISTS must raise on SQLite."""
+        action = DropColumn(
+            sqlite_backend.dialect,
+            column_name="email",
+            if_exists=True,
+        )
+        with pytest.raises(UnsupportedFeatureError):
+            action.to_sql()
+
+    def test_sqlite_allows_bare_add_and_drop(self, sqlite_backend):
+        """Bare ADD/DROP COLUMN (no qualifier) must still work on SQLite."""
+        add_action = AddColumn(
+            sqlite_backend.dialect,
+            column=ColumnDefinition("email", SQLiteTextType()),
+        )
+        add_sql, _ = add_action.to_sql()
+        assert "IF NOT EXISTS" not in add_sql
+
+        drop_action = DropColumn(sqlite_backend.dialect, column_name="email")
+        drop_sql, _ = drop_action.to_sql()
+        assert "IF EXISTS" not in drop_sql
 
 
 class TestActionDialectBinding:

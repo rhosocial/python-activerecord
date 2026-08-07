@@ -12,6 +12,15 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 class SQLiteDDLColumnMixin:
     """SQLite-specific column constraint and column definition formatting."""
 
+    def supports_add_column_if_not_exists(self) -> bool:
+        return False
+
+    def supports_drop_column_if_exists(self) -> bool:
+        return False
+
+    def supports_drop_constraint_if_exists(self) -> bool:
+        return False
+
     def format_add_index_action(self, action) -> Tuple[str, tuple]:
         raise UnsupportedFeatureError(
             self.name,
@@ -25,6 +34,55 @@ class SQLiteDDLColumnMixin:
             "ALTER TABLE DROP INDEX",
             "SQLite does not support ALTER TABLE DROP INDEX. Use DROP INDEX directly.",
         )
+
+    def format_add_column_action(self, action) -> Tuple[str, tuple]:
+        """Format ALTER TABLE ADD COLUMN for SQLite.
+
+        SQLite supports ``ADD COLUMN`` but **not** the vendor extension
+        ``ADD COLUMN IF NOT EXISTS`` (and never jumps to a single-line
+        idempotent form). When ``if_not_exists=True`` is requested the
+        qualifier cannot be expressed; the caller should pre-check
+        ``PRAGMA table_info``.
+        """
+        if getattr(action, "if_not_exists", None):
+            raise UnsupportedFeatureError(
+                self.name,
+                "ALTER TABLE ADD COLUMN IF NOT EXISTS",
+                "SQLite does not support IF NOT EXISTS on ADD COLUMN. "
+                "Pre-check PRAGMA table_info before adding the column.",
+            )
+        return super().format_add_column_action(action)
+
+    def format_drop_column_action(self, action) -> Tuple[str, tuple]:
+        """ALTER TABLE DROP COLUMN for SQLite.
+
+        SQLite (>= 3.35.0) supports plain ``DROP COLUMN`` but **not** the
+        vendor extension ``DROP COLUMN IF EXISTS``. Guard against emitting
+        the unsupported qualifier.
+        """
+        if getattr(action, "if_exists", None):
+            raise UnsupportedFeatureError(
+                self.name,
+                "ALTER TABLE DROP COLUMN IF EXISTS",
+                "SQLite does not support IF EXISTS on DROP COLUMN. "
+                "Pre-check PRAGMA table_info before dropping the column.",
+            )
+        return super().format_drop_column_action(action)
+
+    def format_drop_table_constraint_action(self, action) -> Tuple[str, tuple]:
+        """ALTER TABLE DROP CONSTRAINT for SQLite.
+
+        SQLite (>= 3.53.0) supports ``DROP CONSTRAINT`` for NOT NULL and
+        CHECK constraints but **not** the ``IF EXISTS`` qualifier.
+        """
+        if getattr(action, "if_exists", None):
+            raise UnsupportedFeatureError(
+                self.name,
+                "ALTER TABLE DROP CONSTRAINT IF EXISTS",
+                "SQLite does not support IF EXISTS on DROP CONSTRAINT. "
+                "Pre-check sqlite_master / the constraint catalog before dropping.",
+            )
+        return super().format_drop_table_constraint_action(action)
 
     def format_primary_key_constraint(self, constraint) -> Tuple[str, tuple]:
         """Format PRIMARY KEY constraint, optionally with AUTOINCREMENT."""

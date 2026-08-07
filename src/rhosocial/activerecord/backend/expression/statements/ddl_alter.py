@@ -1,5 +1,49 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py
-"""ALTER TABLE DDL statement expressions."""
+"""ALTER TABLE DDL statement expressions.
+
+SQL standard reference:
+    ISO/IEC 9075-2 SQL/Foundation §11.10 ``<alter table statement>``.
+
+Vendor-extension qualifiers (``IF EXISTS`` / ``IF NOT EXISTS``):
+    The SQL standard does **not** define ``IF EXISTS`` or ``IF NOT EXISTS``
+    on ``ADD COLUMN`` (§11.11), ``DROP COLUMN`` (§11.18), or ``DROP
+    CONSTRAINT`` (§11.20). They are vendor extensions; support varies by
+    backend, version, and storage engine:
+
+    +-------------------+---------------------+-------------------+--------------------------+
+    | Backend           | ADD COLUMN INE      | DROP COLUMN IE    | DROP CONSTRAINT IE       |
+    +-------------------+---------------------+-------------------+--------------------------+
+    | PostgreSQL >= 9.6 |        yes          |       yes         |          yes             |
+    | MariaDB >= 10.0.2 |        yes          |       yes         |          yes (PK excl.)  |
+    | Snowflake         |        yes*         |       yes         |           no             |
+    | SQL Server >= 2016|         no          |       yes         |          yes             |
+    | MySQL 8.0+        |         no          |        no         |           no             |
+    | SQLite 3.35+      |         no          |        no         |  (no named DROP CONSTR.) |
+    | Oracle <= 19c     |         no          |        no         |           no             |
+    | Firebird <= 5.0.4 |         no          |        no         |           no             |
+    +-------------------+---------------------+-------------------+--------------------------+
+    INE = IF NOT EXISTS, IE = IF EXISTS.
+    (*) Snowflake: ADD COLUMN IF NOT EXISTS is **mutually exclusive** with
+    DEFAULT/IDENTITY/UNIQUE/PRIMARY KEY/FOREIGN KEY on the same column.
+
+Carrying the qualifiers:
+    ``AddColumn``, ``DropColumn``, and ``DropTableConstraint`` expose
+    ``if_not_exists`` / ``if_exists`` optional fields (default ``None``)
+    so application code can request idempotent ALTER TABLE actions
+    uniformly across backends. The fields are inert at the core layer:
+    core formatters never emit the qualifier. Each backend dialect
+    decides whether to emit it by advertising support through its local
+    ``supports_add_column_if_not_exists`` /
+    ``supports_drop_column_if_exists`` /
+    ``supports_drop_constraint_if_exists`` capability protocol and
+    overriding the corresponding ``format_*_action`` method. Backends
+    that do not support the qualifier raise
+    ``UnsupportedFeatureError`` when the field is set to ``True``,
+    directing the application layer to pre-check the system catalog
+    (``information_schema.COLUMNS`` /
+    ``information_schema.TABLE_CONSTRAINTS``, ``PRAGMA table_info``,
+    ``USER_TAB_COLUMNS``, ``RDB$RELATION_FIELDS``, etc.).
+"""
 
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
@@ -68,29 +112,62 @@ class AlterTableAction(BaseExpression):
 
 
 class AddColumn(AlterTableAction):
-    """Represents an 'ADD COLUMN' action per SQL standard."""
+    """Represents an 'ADD COLUMN' action per SQL standard.
+
+    Note:
+        The ``IF NOT EXISTS`` modifier on ``ADD COLUMN`` is **not** part
+        of the SQL standard (ISO/IEC 9075-2 §11.11). It is a vendor
+        extension supported by PostgreSQL (>= 9.6), MariaDB
+        (>= 10.0.2), Snowflake, and a few others. To enable it, set
+        ``if_not_exists=True`` and ensure the backend dialect advertises
+        ``supports_add_column_if_not_exists()`` True via its local
+        protocol. Backends that do not support this clause raise
+        ``UnsupportedFeatureError`` when ``if_not_exists=True`` is
+        passed; applications should pre-check
+        ``information_schema.COLUMNS`` (or the equivalent system
+        catalog) and branch in application code.
+
+        See module docstring for the cross-backend capability matrix.
+    """
 
     action_type: AlterTableActionType = AlterTableActionType.ADD_COLUMN
     column: ColumnDefinition
+    if_not_exists: Optional[bool]
     dialect_options: Dict[str, Any]
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         column: ColumnDefinition,
+        *,
+        if_not_exists: Optional[bool] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.column: ColumnDefinition = column
+        self.if_not_exists: Optional[bool] = if_not_exists
         self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
 class DropColumn(AlterTableAction):
-    """Represents a 'DROP COLUMN' action per SQL standard."""
+    """Represents a 'DROP COLUMN' action per SQL standard.
+
+    Note:
+        ``DROP COLUMN IF EXISTS`` is a vendor extension (PostgreSQL
+        >= 9.6, MariaDB >= 10.0.2, Snowflake, SQL Server 2016+); see
+        backend-specific ``supports_drop_column_if_exists`` capability.
+        Unsupported backends raise ``UnsupportedFeatureError`` when
+        ``if_exists=True`` is set; applications should pre-check the
+        system catalog (``information_schema.COLUMNS``,
+        ``PRAGMA table_info``, ``USER_TAB_COLUMNS``,
+        ``RDB$RELATION_FIELDS``, etc.).
+
+        See module docstring for the cross-backend capability matrix.
+    """
 
     action_type: AlterTableActionType = AlterTableActionType.DROP_COLUMN
     column_name: str
-    if_exists: bool
+    if_exists: Optional[bool]
     dialect_options: Dict[str, Any]
 
     def __init__(
@@ -98,12 +175,12 @@ class DropColumn(AlterTableAction):
         dialect: "SQLDialectBase",
         column_name: str,
         *,
-        if_exists: bool = False,
+        if_exists: Optional[bool] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.column_name: str = column_name
-        self.if_exists: bool = if_exists
+        self.if_exists: Optional[bool] = if_exists
         self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
@@ -163,10 +240,25 @@ class AddTableConstraint(AlterTableAction):
 
 
 class DropTableConstraint(AlterTableAction):
-    """SQL standard DROP CONSTRAINT operation"""
+    """SQL standard DROP CONSTRAINT operation.
+
+    Note:
+        ``DROP CONSTRAINT IF EXISTS`` is a vendor extension
+        (PostgreSQL, MariaDB, SQL Server 2016+). SQLite has no named
+        ``DROP CONSTRAINT`` at all; Snowflake supports ``DROP
+        CONSTRAINT`` but **not** with ``IF EXISTS``. See backend-specific
+        ``supports_drop_constraint_if_exists`` capability.
+        Unsupported backends raise ``UnsupportedFeatureError`` when
+        ``if_exists=True`` is set; applications should pre-check
+        ``information_schema.TABLE_CONSTRAINTS`` /
+        ``USER_CONSTRAINTS`` / ``RDB$RELATION_CONSTRAINTS``.
+
+        See module docstring for the cross-backend capability matrix.
+    """
 
     action_type: AlterTableActionType = AlterTableActionType.DROP_CONSTRAINT
     constraint_name: str
+    if_exists: Optional[bool]
     cascade: bool
     dialect_options: Dict[str, Any]
 
@@ -175,11 +267,13 @@ class DropTableConstraint(AlterTableAction):
         dialect: "SQLDialectBase",
         constraint_name: str,
         *,
+        if_exists: Optional[bool] = None,
         cascade: bool = False,
         dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.constraint_name: str = constraint_name
+        self.if_exists: Optional[bool] = if_exists
         self.cascade: bool = cascade
         self.dialect_options: Dict[str, Any] = dialect_options or {}
 
