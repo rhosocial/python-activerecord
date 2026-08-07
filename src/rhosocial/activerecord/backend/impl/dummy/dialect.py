@@ -85,6 +85,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     # DDL Protocols
     TableSupport,
     PartitionSupport,
+    AlterTableModifierSupport,
     ConstraintSupport,
     ViewSupport,
     TruncateSupport,
@@ -245,6 +246,7 @@ class DummyDialect(
     # DDL Protocols
     TableSupport,
     PartitionSupport,
+    AlterTableModifierSupport,
     ConstraintSupport,
     ViewSupport,
     TruncateSupport,

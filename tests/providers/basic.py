@@ -341,6 +341,19 @@ class BasicProviderBase:
         """Returns an instance of the YesOrNoBooleanAdapter."""
         return YesOrNoBooleanAdapter()
 
+    def get_dialect(self, scenario_name: str = "default"):
+        """Return a bare, fully-constructed SQLite dialect instance.
+
+        Used by the ``feature/basic/ddl`` subtopic (expression/dialect
+        contract). ``(3, 53, 0)`` is chosen so that plain ``DROP
+        CONSTRAINT`` support is advertised; the three ``IF [NOT] EXISTS``
+        modifiers remain unsupported and their ``supports_*`` switches stay
+        ``False``.
+        """
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        return SQLiteDialect(version=(3, 53, 0))
+
     def _load_sqlite_schema(self, filename: str) -> str:
         """Helper to load a SQL schema file from this project's fixtures."""
         schema_dir = os.path.join(
@@ -637,6 +650,10 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
         # the database file before disconnecting, the file remains locked and
         # subsequent tests will hang indefinitely waiting for the lock to release.
         self._active_async_backends = []
+
+    async def get_dialect(self, scenario_name: str = "default"):
+        """Async mirror of ``BasicProviderBase.get_dialect``."""
+        return super().get_dialect(scenario_name)
 
     async def _setup_async_model(
         self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str
