@@ -297,6 +297,14 @@ def _compute_diff(before: Any, after: Any) -> Any | None:
                 differ = PostgresSchemaDiffer()
             except ImportError:
                 differ = SchemaDiffer()
+        elif "sqlserver" in cls_lower:
+            try:
+                from rhosocial.activerecord.backend.impl.sqlserver.schema.differ import (
+                    SQLServerSchemaDiffer,
+                )
+                differ = SQLServerSchemaDiffer()
+            except ImportError:
+                differ = SchemaDiffer()
         else:
             differ = SchemaDiffer()
         return differ.compare(before, after)
