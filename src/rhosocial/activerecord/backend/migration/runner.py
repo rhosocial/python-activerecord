@@ -275,4 +275,12 @@ def _resolve_schema_differ(dialect_class: str):
             return PostgresSchemaDiffer()
         except ImportError:
             pass
+    elif "sqlserver" in dialect_class:
+        try:
+            from rhosocial.activerecord.backend.impl.sqlserver.schema.differ import (
+                SQLServerSchemaDiffer,
+            )
+            return SQLServerSchemaDiffer()
+        except ImportError:
+            pass
     return SchemaDiffer()
