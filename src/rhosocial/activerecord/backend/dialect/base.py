@@ -59,6 +59,25 @@ class SQLDialectBase:
         level_name = level.name if hasattr(level, "name") else str(level)
         return self.ISOLATION_LEVEL_NAMES.get(level_name, level_name.replace("_", " "))
 
+    def supports_microsecond_timestamp(self) -> bool:
+        """Whether TIMESTAMP values preserve microsecond (1/1000000 s) precision.
+
+        SQLite, MySQL, PostgreSQL and most other backends store datetimes with
+        microsecond precision. Firebird's ``TIMESTAMP`` only keeps 1/10000 s
+        (4 fractional digits), so backends that truncate microseconds must
+        override this to return ``False``.
+        """
+        return True
+
+    def supports_explain_plan(self) -> bool:
+        """Whether the backend supports an EXPLAIN statement that returns rows.
+
+        SQLite (``EXPLAIN QUERY PLAN``), MySQL/MariaDB, PostgreSQL, Oracle
+        (``EXPLAIN PLAN``) and SQL Server all provide one. Firebird has no
+        equivalent DSQL statement and overrides this to return ``False``.
+        """
+        return True
+
     def require_protocol(self, protocol_type: type, _feature_name: str, required_by: str) -> None:
         if not isinstance(self, protocol_type):
             raise ProtocolNotImplementedError(

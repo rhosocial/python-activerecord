@@ -84,10 +84,26 @@ class LeastTasksStrategy(SchedulingStrategy):
 
         Returns:
             Worker ID with fewest tasks, or None if no Workers ready
+
+        Notes:
+            When every ready Worker already has queued tasks while other
+            Workers are still starting up (``ready=False``), ``None`` is
+            returned so ``submit`` keeps waiting for a fresh Worker instead of
+            piling all tasks onto one busy Worker. This keeps queues balanced
+            on slow-spawning backends (e.g. Firebird) where Workers can take
+            seconds to become ready.
         """
         # Get list of ready Workers
         ready_workers = [w for w, r in worker_ready.items() if r]
         if not ready_workers:
+            return None
+
+        min_count = min(worker_task_count.get(w, 0) for w in ready_workers)
+        not_ready_workers = [w for w, r in worker_ready.items() if not r]
+        if min_count > 0 and not_ready_workers:
+            # Every ready Worker is busy and at least one Worker is still
+            # starting up: prefer waiting for the fresh Worker rather than
+            # queuing onto an already-loaded Worker.
             return None
 
         # Find Worker with minimum task count
