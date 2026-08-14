@@ -87,6 +87,7 @@ mariadb = ["rhosocial-activerecord-mariadb>=1.0.0,<2.0.0"]
 postgres = ["rhosocial-activerecord-postgres>=1.0.0,<2.0.0"]
 oracle = ["rhosocial-activerecord-oracle>=1.0.0,<2.0.0"]
 sqlserver = ["rhosocial-activerecord-sqlserver>=1.0.0,<2.0.0"]
+firebird = ["rhosocial-activerecord-firebird>=1.0.0,<2.0.0"]
 
 # Convenience extra for all database backends
 databases = [
@@ -95,6 +96,7 @@ databases = [
     "rhosocial-activerecord-postgres>=1.0.0,<2.0.0",
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
     "rhosocial-activerecord-sqlserver>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-firebird>=1.0.0,<2.0.0",
 ]
 
 # Database migration support
@@ -107,6 +109,7 @@ all = [
     "rhosocial-activerecord-postgres>=1.0.0,<2.0.0",
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
     "rhosocial-activerecord-sqlserver>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-firebird>=1.0.0,<2.0.0",
     "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
     "aiosqlite>=0.19.0",
     "aiofiles>=23.0.0",
@@ -171,7 +174,7 @@ dev = [
 
     # Static type checker
     # Provides static type analysis for Python code
-    "mypy>=1.0.0",
+    "mypy>=1.0.0,<2.0.0",
 
     # Fast Python linter
     # Provides fast linting and code quality checks

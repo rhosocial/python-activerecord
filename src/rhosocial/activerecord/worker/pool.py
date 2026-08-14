@@ -1134,6 +1134,7 @@ class WorkerPool:
         check_interval: float = 0.5,
         orphan_timeout: Optional[float] = None,
         schedule_policy: SchedulePolicy = SchedulePolicy.LEAST_TASKS,
+        ready_timeout: float = 30.0,
         # Lifecycle hooks
         on_worker_start: Optional[AnyWorkerHook] = None,
         on_worker_stop: Optional[AnyWorkerHook] = None,
@@ -1151,6 +1152,12 @@ class WorkerPool:
                 Should be much larger than normal scheduling delay (< 0.1s).
             schedule_policy: Scheduling strategy for task distribution.
                 Options: LEAST_TASKS (default), ROUND_ROBIN, RANDOM.
+            ready_timeout: Maximum seconds ``submit()`` waits for at least one
+                worker process to report ready before raising ``RuntimeError``.
+                Worker processes are started with ``multiprocessing`` ``spawn``,
+                whose startup cost (re-importing the worker entrypoint and its
+                dependency chain) can take 10+s under heavy import load, so the
+                default is intentionally generous.
             on_worker_start: Hook called when Worker process starts (for initialization)
             on_worker_stop: Hook called when Worker process stops (for cleanup)
             on_task_start: Hook called before each task execution
@@ -1159,6 +1166,7 @@ class WorkerPool:
         self._n = n_workers
         self._check_interval = check_interval
         self._orphan_timeout = orphan_timeout or max(2.0, check_interval * 4)
+        self._ready_timeout = ready_timeout
         self._ctx = mp.get_context("spawn")
         self._state = PoolState.RUNNING
         self._pool_id = str(uuid.uuid4())[:8]  # Short ID for logging
@@ -1976,7 +1984,7 @@ class WorkerPool:
             )
 
         # Wait for at least one Worker to be ready (with timeout)
-        max_wait = 5.0  # Maximum wait time for workers to be ready
+        max_wait = self._ready_timeout
         start_wait = time.monotonic()
         while True:
             with self._lock:
