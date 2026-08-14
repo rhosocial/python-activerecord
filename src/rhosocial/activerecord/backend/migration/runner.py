@@ -23,6 +23,7 @@ from rhosocial.activerecord.backend.migration.exceptions import (
 )
 from .record import MigrationRecord, MigrationResult, MigrationRecordStore
 from .resolver import NamedMigrationResolver
+from .snapshot import compute_schema_diff, snapshot_to_dict, take_sync_snapshot
 
 
 class MigrationRunner:
@@ -84,7 +85,7 @@ class MigrationRunner:
                 )
 
         # 4. Snapshot before
-        snapshot_before = _take_sync_snapshot(backend) if not dry_run else None
+        snapshot_before = take_sync_snapshot(backend) if not dry_run else None
 
         # 5. Build execute callback and execute via MigrationContext
         dialect = getattr(backend, "dialect", None)
@@ -165,7 +166,7 @@ class MigrationRunner:
         # 6. Snapshot after
         snapshot_after = None
         if not dry_run and error is None:
-            snapshot_after = _take_sync_snapshot(backend)
+            snapshot_after = take_sync_snapshot(backend)
 
         # 7. Version conflict check (duplicate version, different FQN)
         if not dry_run and record_store:
@@ -190,15 +191,15 @@ class MigrationRunner:
                 applied_at=datetime.now(timezone.utc),
                 success=success,
                 error_message=str(error) if error else None,
-                snapshot_before=_snapshot_to_dict(snapshot_before),
-                snapshot_after=_snapshot_to_dict(snapshot_after),
+                snapshot_before=snapshot_to_dict(snapshot_before),
+                snapshot_after=snapshot_to_dict(snapshot_after),
             )
             record_store.record(record)
 
         if error:
             raise error
 
-        snapshot_diff = _compute_diff(snapshot_before, snapshot_after)
+        snapshot_diff = compute_schema_diff(snapshot_before, snapshot_after, dialect)
 
         return MigrationResult(
             version=self._migration.version,
@@ -208,79 +209,3 @@ class MigrationRunner:
             dry_run_sql=collected_sql,
             snapshot_diff=snapshot_diff,
         )
-
-
-def _take_sync_snapshot(backend: Any) -> Any | None:
-    """Capture a schema snapshot via the backend's introspector and dialect sync."""
-    try:
-        introspector = getattr(backend, "introspector", None)
-        dialect = getattr(backend, "dialect", None)
-        if introspector is None or dialect is None:
-            return None
-        from rhosocial.activerecord.backend.schema import SyncSchemaSnapshotBuilder
-
-        builder = SyncSchemaSnapshotBuilder(introspector, dialect)
-        return builder.build()
-    except Exception:
-        return None
-
-
-def _snapshot_to_dict(snapshot: Any) -> dict | None:
-    if snapshot is None:
-        return None
-    try:
-        return snapshot.to_dict()
-    except Exception:
-        return None
-
-
-def _compute_diff(before: Any, after: Any) -> Any | None:
-    if before is None or after is None:
-        return None
-    try:
-        dialect_class = getattr(type(before), "dialect_class", before) if hasattr(before, "dialect_class") else ""
-        cls_lower = dialect_class.lower() if isinstance(dialect_class, str) else ""
-
-        differ = _resolve_schema_differ(cls_lower)
-        return differ.compare(before, after)
-    except Exception:
-        return None
-
-
-def _resolve_schema_differ(dialect_class: str):
-    """Resolve the appropriate schema differ for the given dialect class name."""
-    from rhosocial.activerecord.backend.schema.differ import SchemaDiffer
-
-    if "sqlite" in dialect_class:
-        try:
-            from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
-                SQLiteSchemaDiffer,
-            )
-            return SQLiteSchemaDiffer()
-        except ImportError:
-            pass
-    elif "mysql" in dialect_class:
-        try:
-            from rhosocial.activerecord.backend.impl.mysql.schema.differ import (
-                MySQLSchemaDiffer,
-            )
-            return MySQLSchemaDiffer()
-        except ImportError:
-            pass
-    elif "postgres" in dialect_class:
-        try:
-            from rhosocial.activerecord.backend.impl.postgres.schema.differ import (
-                PostgresSchemaDiffer,
-            )
-            return PostgresSchemaDiffer()
-        except ImportError:
-            pass
-    elif "sqlserver" in dialect_class:
-        try:
-            from rhosocial.activerecord.backend.impl.sqlserver.schema.differ import (
-                SQLServerSchemaDiffer,
-            )
-            return SQLServerSchemaDiffer()
-        except ImportError:
-            pass
-    return SchemaDiffer()
