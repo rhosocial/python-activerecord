@@ -1,3 +1,23 @@
+## [v1.0.0.dev29] - 2026-08-14
+
+### Added
+
+- Implemented composite primary key (composite PK) support: add CompositePKMixin, full CRUD, bulk operations, relation layer integration, and bilingual documentation. ([#107](https://github.com/rhosocial/python-activerecord/issues/107))
+- Implemented SchemaSnapshot & SchemaDiff subsystem for database schema comparison, along with DataType system refactoring (format_data_type returns Tuple[str, tuple]) and SQLite backend compatibility fixes. ([#108](https://github.com/rhosocial/python-activerecord/issues/108))
+- Implemented named migration system with NamedMigration base class, MigrationRunner/AsyncMigrationRunner, BatchMigrationRunner, CLI integration (--list/--describe/--dry-run/--all/--async/--param/--single-transaction), and JSONFileMigrationRecordStore. Dry-run invokes to_sql() on all named expressions, providing both SQL preview and dialect compatibility validation. ([#109](https://github.com/rhosocial/python-activerecord/issues/109))
+- Added `AsyncNamedMigration` base class and `AsyncNamedMigrationResolver` as the asynchronous counterparts of `NamedMigration` / `NamedMigrationResolver`. `AsyncMigrationRunner` now resolves and accepts only `AsyncNamedMigration` subclasses, mirroring the existing `AsyncProcedure` / `AsyncProcedureRunner` contract. Users implement `async def up()` / `async def down()` (or `async def run()`) using `await ctx.execute(...)` against an `AsyncMigrationContext`. Also introduced `supports_fulltext_search()` on the `IndexSupport` protocol / `IndexMixin` (distinct from `supports_fulltext_index()` for DDL). SQLite dialect now reports fulltext query capability (FTS5) via `supports_fulltext_search()`. Documentation extended with a composite-PK lookup cheatsheet, relationship `foreign_key` tuple semantics, and cursor-pagination notes in en_US/zh_CN. ([#110](https://github.com/rhosocial/python-activerecord/issues/110))
+- Add QuantifiedPath and PathPattern expression nodes for graph property queries, GraphSupport protocol methods (supports_quantified_path, supports_comma_separated_patterns, format_quantified_path, format_path_pattern), and capability-gated default implementations in GraphMixin ([#111](https://github.com/rhosocial/python-activerecord/issues/111))
+- Add TransactionEvent lifecycle event system, JSONPathMode dispatch (arrow vs function-based formatting), multiple ON CONFLICT clauses support, DROP TABLE CASCADE/RESTRICT capability switches, and fix set operation parentheses wrapping. ([#113](https://github.com/rhosocial/python-activerecord/issues/113))
+- Added optional `if_not_exists` / `if_exists` qualifiers to the `AddColumn`, `DropColumn`, and `DropTableConstraint` ALTER TABLE actions so application code can request idempotent schema changes uniformly. The fields default to `None` and are inert at the core layer; each backend dialect decides whether to emit the qualifier. SQLite (which does not support any of these vendor qualifiers) now raises `UnsupportedFeatureError` instead of silently emitting invalid `DROP COLUMN IF EXISTS` SQL. ([#115](https://github.com/rhosocial/python-activerecord/issues/115))
+- Added SQLite maintenance statement support: `SQLiteVacuumExpression` (VACUUM, VACUUM schema, VACUUM INTO gated on SQLite 3.27.0+), `SQLiteAnalyzeExpression`, `SQLiteAttachExpression`, and `SQLiteDetachExpression`. Added `SQLiteMaintenanceMixin` and the `SQLiteMaintenanceSupport` protocol wired into `SQLiteDialect`, plus `AlterTableModifierSupport` / `PartitionSupport` protocol conformance in the dialect MRO. ([#116](https://github.com/rhosocial/python-activerecord/issues/116))
+
+
+
+### Fixed
+
+- Fixed composite primary-key lookup to respect field-name mapping and corrected `pk_field` accessor during model refresh. Fixed `format_add_index_action` to include the column list in generated SQL for `AddIndex` alter actions. Added `supports_fulltext_search` to the `IndexSupport` protocol for consistent cross-DB compatibility checks. ([#110](https://github.com/rhosocial/python-activerecord/issues/110))
+
+
 ## [v1.0.0.dev28] - 2026-06-15
 
 
