@@ -23,6 +23,7 @@ from .exceptions import (
 )
 from .record import MigrationRecord, MigrationResult, MigrationRecordStore
 from .resolver import AsyncNamedMigrationResolver
+from .snapshot import compute_schema_diff, snapshot_to_dict, take_async_snapshot
 
 
 class AsyncMigrationRunner:
@@ -86,7 +87,7 @@ class AsyncMigrationRunner:
                 )
 
         # 4. Snapshot before
-        snapshot_before = await _take_async_snapshot(backend) if not dry_run else None
+        snapshot_before = await take_async_snapshot(backend) if not dry_run else None
 
         # 5. Build execute callback based on dry_run flag
         dialect = getattr(backend, "dialect", None)
@@ -195,7 +196,7 @@ class AsyncMigrationRunner:
         # 7. Snapshot after
         snapshot_after = None
         if not dry_run and error is None:
-            snapshot_after = await _take_async_snapshot(backend)
+            snapshot_after = await take_async_snapshot(backend)
 
         # 8. Version conflict check
         if not dry_run and record_store:
@@ -220,15 +221,15 @@ class AsyncMigrationRunner:
                 applied_at=datetime.now(timezone.utc),
                 success=success,
                 error_message=str(error) if error else None,
-                snapshot_before=_snapshot_to_dict(snapshot_before),
-                snapshot_after=_snapshot_to_dict(snapshot_after),
+                snapshot_before=snapshot_to_dict(snapshot_before),
+                snapshot_after=snapshot_to_dict(snapshot_after),
             )
             record_store.record(record)
 
         if error:
             raise error
 
-        snapshot_diff = _compute_diff(snapshot_before, snapshot_after)
+        snapshot_diff = compute_schema_diff(snapshot_before, snapshot_after, dialect)
 
         return MigrationResult(
             version=self._migration.version,
@@ -238,75 +239,3 @@ class AsyncMigrationRunner:
             dry_run_sql=collected_sql,
             snapshot_diff=snapshot_diff,
         )
-
-
-async def _take_async_snapshot(backend: Any) -> Any | None:
-    """Capture a schema snapshot via the backend's introspector and dialect async."""
-    try:
-        introspector = getattr(backend, "introspector", None)
-        dialect = getattr(backend, "dialect", None)
-        if introspector is None or dialect is None:
-            return None
-        from rhosocial.activerecord.backend.schema import AsyncSchemaSnapshotBuilder
-
-        builder = AsyncSchemaSnapshotBuilder(introspector, dialect)
-        return await builder.build()
-    except Exception:
-        return None
-
-
-def _snapshot_to_dict(snapshot: Any) -> dict | None:
-    if snapshot is None:
-        return None
-    try:
-        return snapshot.to_dict()
-    except Exception:
-        return None
-
-
-def _compute_diff(before: Any, after: Any) -> Any | None:
-    if before is None or after is None:
-        return None
-    try:
-        dialect_class = getattr(type(before), "dialect_class", before) if hasattr(before, "dialect_class") else ""
-        cls_lower = dialect_class.lower() if isinstance(dialect_class, str) else ""
-
-        from rhosocial.activerecord.backend.schema.differ import SchemaDiffer
-
-        if "sqlite" in cls_lower:
-            try:
-                from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
-                    SQLiteSchemaDiffer,
-                )
-                differ = SQLiteSchemaDiffer()
-            except ImportError:
-                differ = SchemaDiffer()
-        elif "mysql" in cls_lower:
-            try:
-                from rhosocial.activerecord.backend.impl.mysql.schema.differ import (
-                    MySQLSchemaDiffer,
-                )
-                differ = MySQLSchemaDiffer()
-            except ImportError:
-                differ = SchemaDiffer()
-        elif "postgres" in cls_lower:
-            try:
-                from rhosocial.activerecord.backend.impl.postgres.schema.differ import (
-                    PostgresSchemaDiffer,
-                )
-                differ = PostgresSchemaDiffer()
-            except ImportError:
-                differ = SchemaDiffer()
-        elif "sqlserver" in cls_lower:
-            try:
-                from rhosocial.activerecord.backend.impl.sqlserver.schema.differ import (
-                    SQLServerSchemaDiffer,
-                )
-                differ = SQLServerSchemaDiffer()
-            except ImportError:
-                differ = SchemaDiffer()
-        else:
-            differ = SchemaDiffer()
-        return differ.compare(before, after)
-    except Exception:
-        return None

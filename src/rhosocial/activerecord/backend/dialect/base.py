@@ -11,6 +11,9 @@ from typing import Optional, Tuple, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
 
+if TYPE_CHECKING:
+    from ..schema.differ import SchemaDiffer
+
 
 class SQLDialectBase:
     """
@@ -77,6 +80,19 @@ class SQLDialectBase:
         equivalent DSQL statement and overrides this to return ``False``.
         """
         return True
+
+    def create_schema_differ(self) -> "SchemaDiffer":
+        """Return a schema differ for this dialect's comparison rules.
+
+        Backend dialects override this to supply backend-specific comparison
+        (e.g. ``SQLiteSchemaDiffer``, ``MySQLSchemaDiffer``). The default
+        returns the generic :class:`~rhosocial.activerecord.backend.schema.differ.SchemaDiffer`.
+        This is the dependency-inversion point: the core never imports
+        concrete backend differ implementations.
+        """
+        from ..schema.differ import SchemaDiffer
+
+        return SchemaDiffer()
 
     def require_protocol(self, protocol_type: type, _feature_name: str, required_by: str) -> None:
         if not isinstance(self, protocol_type):

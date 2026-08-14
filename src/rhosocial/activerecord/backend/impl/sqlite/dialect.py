@@ -294,6 +294,14 @@ class SQLiteDialect(
         """Return the SQLite version this dialect is configured for."""
         return self.version
 
+    def create_schema_differ(self):
+        """Return the SQLite schema differ (content-based FK matching)."""
+        from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
+            SQLiteSchemaDiffer,
+        )
+
+        return SQLiteSchemaDiffer()
+
     # region Protocol Support Checks based on version
     def supports_basic_cte(self) -> bool:
         """Basic CTEs are supported since SQLite 3.8.3."""
