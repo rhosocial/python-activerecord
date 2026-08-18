@@ -166,12 +166,6 @@ def _add_named_procedure_graph_arguments(parser: argparse.ArgumentParser) -> Non
         help="Output format.",
     )
     parser.add_argument(
-        "--async",
-        dest="is_async",
-        action="store_true",
-        help="Use asynchronous execution.",
-    )
-    parser.add_argument(
         "--trace",
         action="store_true",
         dest="trace",
@@ -234,21 +228,25 @@ def handle_named_procedure_graph(
             if not backend_async_factory:
                 print("Error: Async backend not available", file=sys.stderr)
                 sys.exit(1)
-            async_backend = backend_async_factory()
-            runner = AsyncProcedureGraphRunner(
-                async_backend,
-                dialect=dialect,
-                dry_run=args.dry_run,
-                trace=args.trace,
-            )
-            try:
-                import asyncio
+            import asyncio
 
-                graph = resolver.build(dialect, params)
-                result = asyncio.run(runner.run(graph, params))
-            finally:
-                if disconnect_async:
-                    disconnect_async()
+            async def _run_graph_async():
+                async_backend = backend_async_factory()
+                await async_backend.connect()
+                try:
+                    runner = AsyncProcedureGraphRunner(
+                        async_backend,
+                        dialect=dialect,
+                        dry_run=args.dry_run,
+                        trace=args.trace,
+                    )
+                    graph = resolver.build(dialect, params)
+                    return await runner.run(graph, params)
+                finally:
+                    if disconnect_async:
+                        await disconnect_async()
+
+            result = asyncio.run(_run_graph_async())
             _print_result(result, provider, args.format)
             return
         else:

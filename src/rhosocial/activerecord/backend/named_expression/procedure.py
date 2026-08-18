@@ -50,13 +50,59 @@ Usage:
 """
 
 import inspect
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional, Union
 
 from .resolver import resolve_named_expression
+
+
+def _coerce_param_value(value: Any, annotation: Any) -> Any:
+    """Coerce a raw (CLI string) parameter value to the annotated type.
+
+    Named procedures declare typed parameters (e.g. ``threshold: int = 100``),
+    but CLI ``--param key=value`` passes raw strings.  This helper converts the
+    value to the declared type so typed procedures behave as documented.
+
+    Falls back to the original value when the annotation is unknown or the
+    conversion fails, so callers that pass already-typed values are unaffected.
+    """
+    if annotation is None or value is None:
+        return value
+    target = annotation
+    origin = getattr(target, "__origin__", None)
+    if origin is Union or getattr(target, "__class__", None).__name__ == "_UnionGenericAlias":
+        args = [a for a in getattr(target, "__args__", ()) if a is not type(None)]
+        target = args[0] if args else None
+    if target is None or target is Any:
+        return value
+    if isinstance(value, target) and not isinstance(value, str):
+        return value
+    try:
+        if target is bool:
+            if isinstance(value, str):
+                low = value.strip().lower()
+                if low in ("1", "true", "yes", "on"):
+                    return True
+                if low in ("0", "false", "no", "off"):
+                    return False
+            return bool(value)
+        if target is int:
+            return int(value)
+        if target is float:
+            return float(value)
+        if target is str:
+            return str(value)
+        # Fallback for complex types (list/dict): try JSON parsing
+        try:
+            return json.loads(value) if isinstance(value, str) else value
+        except (ValueError, TypeError):
+            return value
+    except (TypeError, ValueError):
+        return value
 
 
 def _build_execute_callback(backend: Any) -> Callable[[str, Any, Dict[str, Any]], Dict[str, Any]]:
@@ -1185,7 +1231,8 @@ class ProcedureRunner(_BaseProcedureRunner):
         user_params = user_params or {}
         for name, value in user_params.items():
             if name in self._params_info:
-                setattr(proc_instance, name, value)
+                annotation = self._params_info[name].get("annotation")
+                setattr(proc_instance, name, _coerce_param_value(value, annotation))
 
         static_ctx = _DryRunContext()
         try:
@@ -1339,7 +1386,8 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         user_params = user_params or {}
         for name, value in user_params.items():
             if name in self._params_info:
-                setattr(proc_instance, name, value)
+                annotation = self._params_info[name].get("annotation")
+                setattr(proc_instance, name, _coerce_param_value(value, annotation))
 
         static_ctx = _AsyncDryRunContext()
         try:

@@ -53,9 +53,9 @@ def handle(args):
             async_backend = AsyncSQLiteBackend(connection_config=config)
             return async_backend
 
-        async def disconnect_async():
-            if async_backend and getattr(async_backend, "_connection", None):
-                await async_backend.disconnect()
+        async def disconnect_async(backend=None):
+            if backend and getattr(backend, "_connection", None):
+                await backend.disconnect()
 
         handle_nm(
             args,

@@ -179,12 +179,6 @@ def create_named_expression_parser(
         action="store_true",
         help="Execute EXPLAIN and interpret execution plan.",
     )
-    ne_parser.add_argument(
-        "--async",
-        dest="is_async",
-        action="store_true",
-        help="Use asynchronous execution (requires async database driver).",
-    )
     return ne_parser
 
 
@@ -251,6 +245,58 @@ def _execute_expression(
         sys.exit(1)
 
     result = execute_query(sql, params, stmt_type)
+
+    if not result:
+        provider.display_no_result_object()
+    else:
+        provider.display_success(result.affected_rows, result.duration)
+        if result.data:
+            provider.display_results(result.data, use_ascii=args.rich_ascii)
+        else:
+            provider.display_no_data()
+
+
+async def _execute_expression_async(
+    expression: Any,
+    args: Any,
+    execute_query: Callable,
+    provider: Any,
+) -> None:
+    """Execute a resolved expression asynchronously (awaits the query)."""
+    if not isinstance(expression, Executable):
+        print(
+            f"Error: expression returned {type(expression).__name__}, "
+            "which does not implement Executable protocol. "
+            "Direct SQL strings are not allowed. Use 'query' subcommand for raw SQL.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    stmt_type = expression.statement_type
+    sql, params = expression.to_sql()
+
+    if args.dry_run:
+        print("[DRY RUN] SQL:")
+        print(f"  {sql}")
+        print(f"Params: {params}")
+        return
+
+    if stmt_type == StatementType.EXPLAIN and not args.explain:
+        print(
+            "Error: EXPLAIN expressions require --dry-run or --explain for execution.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if stmt_type not in (StatementType.DQL, StatementType.SELECT) and not args.force:
+        print(
+            f"[WARN] expression is a {stmt_type.name} statement, not a SELECT query.",
+            file=sys.stderr,
+        )
+        print("This may modify data. Use --force to proceed.", file=sys.stderr)
+        sys.exit(1)
+
+    result = await execute_query(sql, params, stmt_type)
 
     if not result:
         provider.display_no_result_object()
@@ -463,7 +509,7 @@ def handle_named_expression(
         backend = None
         try:
             backend = backend_async_factory()
-            dialect = get_dialect_async(backend)
+            dialect = await get_dialect_async(backend)
             resolver = NamedExpressionResolver(qualified_name).load()
             expression = resolver.execute(dialect, user_params)
 
@@ -478,10 +524,10 @@ def handle_named_expression(
                     print(f"Params: {params}")
                 return
 
-            _execute_expression(
+            await _execute_expression_async(
                 expression,
                 args,
-                lambda sql, params, stmt_type: execute_query_async(sql, params, stmt_type),
+                execute_query_async,
                 provider,
             )
 
