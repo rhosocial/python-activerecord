@@ -55,7 +55,7 @@ jobs:
         pip install -r requirements-dev.txt
         pip install codecov build
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev16
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
 
     - name: Run tests with coverage
       env:
@@ -64,9 +64,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        coverage run -m pytest tests/
-        coverage xml
-        coverage report
+        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest --cov=rhosocial --cov-branch --cov-report=xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
@@ -114,7 +112,7 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev16
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
 
     - name: Run benchmark suite
       env:
@@ -229,6 +227,7 @@ jobs:
     permissions:
       contents: read
     strategy:
+      fail-fast: false
       matrix:
         include:
           - python-version: "3.8"
@@ -280,7 +279,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev16
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
 
     - name: Run tests
       env:
@@ -289,7 +288,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/
+        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
 
   test-free-threaded:
     name: Run tests with Python ${{ matrix.python-version }} free-threaded
@@ -341,7 +340,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev16
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
 
     - name: Run tests
       env:
@@ -350,7 +349,7 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/
+        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
 
   test-python-315-experimental:
     name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && ' free-threaded' || '' }} (experimental)
@@ -399,7 +398,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev16
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
 
     - name: Run tests
       env:
@@ -408,4 +407,4 @@ jobs:
         REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
-        python -m pytest tests/
+        python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest

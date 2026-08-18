@@ -152,14 +152,13 @@ class RelationProviderBase:
 
     def _make_unique_config(self, scenario_name, original_config):
         if original_config.database != ":memory:":
-            unique_filename = os.path.join(
-                tempfile.gettempdir(),
-                f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite",
-            )
+            from providers.pooling import resolve_database_file, should_keep_database
+
+            unique_filename = resolve_database_file(scenario_name)
             self._scenario_db_files.setdefault(scenario_name, []).append(unique_filename)
             return SQLiteConnectionConfig(
                 database=unique_filename,
-                delete_on_close=original_config.delete_on_close,
+                delete_on_close=original_config.delete_on_close and not should_keep_database(scenario_name),
                 pragmas=original_config.pragmas,
             )
         return original_config
@@ -345,12 +344,17 @@ class RelationSyncProvider(RelationProviderBase, IRelationSyncProvider):
         self._sync_relation_boundary_setup = False
 
         if scenario_name in self._scenario_db_files:
-            for db_file in self._scenario_db_files.pop(scenario_name):
-                if db_file and os.path.exists(db_file):
-                    try:
-                        os.remove(db_file)
-                    except OSError:
-                        pass
+            from providers.pooling import should_keep_database
+
+            if not should_keep_database(scenario_name):
+                for db_file in self._scenario_db_files.pop(scenario_name):
+                    if db_file and os.path.exists(db_file):
+                        try:
+                            os.remove(db_file)
+                        except OSError:
+                            pass
+            else:
+                self._scenario_db_files.pop(scenario_name, None)
 
 
 class RelationAsyncProvider(RelationProviderBase, IRelationAsyncProvider):
@@ -536,9 +540,14 @@ class RelationAsyncProvider(RelationProviderBase, IRelationAsyncProvider):
         self._async_relation_boundary_setup = False
 
         if scenario_name in self._scenario_db_files:
-            for db_file in self._scenario_db_files.pop(scenario_name):
-                if db_file and os.path.exists(db_file):
-                    try:
-                        os.remove(db_file)
-                    except OSError:
-                        pass
+            from providers.pooling import should_keep_database
+
+            if not should_keep_database(scenario_name):
+                for db_file in self._scenario_db_files.pop(scenario_name):
+                    if db_file and os.path.exists(db_file):
+                        try:
+                            os.remove(db_file)
+                        except OSError:
+                            pass
+            else:
+                self._scenario_db_files.pop(scenario_name, None)

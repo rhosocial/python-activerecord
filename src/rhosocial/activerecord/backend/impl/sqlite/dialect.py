@@ -294,6 +294,18 @@ class SQLiteDialect(
         """Return the SQLite version this dialect is configured for."""
         return self.version
 
+    def _effective_version(self) -> Tuple[int, int, int]:
+        """Resolve the version used for capability checks.
+
+        Returns the explicitly configured or adapted version, falling back to
+        the sqlite3 library version, which is always known without adaptation.
+        """
+        if self._version is not None:
+            return self._version
+        import sqlite3
+
+        return tuple(sqlite3.sqlite_version_info[:3])
+
     def create_schema_differ(self):
         """Return the SQLite schema differ (content-based FK matching)."""
         from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
@@ -305,15 +317,15 @@ class SQLiteDialect(
     # region Protocol Support Checks based on version
     def supports_basic_cte(self) -> bool:
         """Basic CTEs are supported since SQLite 3.8.3."""
-        return self.version >= (3, 8, 3)
+        return self._effective_version() >= (3, 8, 3)
 
     def supports_recursive_cte(self) -> bool:
         """Recursive CTEs are supported since SQLite 3.8.3."""
-        return self.version >= (3, 8, 3)
+        return self._effective_version() >= (3, 8, 3)
 
     def supports_materialized_cte(self) -> bool:
         """MATERIALIZED hint is supported since SQLite 3.35.0."""
-        return self.version >= (3, 35, 0)
+        return self._effective_version() >= (3, 35, 0)
 
     def supports_returning_insert(self) -> bool:
         """RETURNING clause is supported for INSERT since SQLite 3.35.0."""

@@ -52,6 +52,11 @@ from rhosocial.activerecord.worker.pool import (
 from rhosocial.activerecord.worker import TaskContext
 
 
+# WorkerPool tests spawn sub-processes and rely on process/timing state, so
+# they must not run concurrently with other tests under xdist.
+pytestmark = pytest.mark.serial
+
+
 def simple_task(ctx: TaskContext, n: int) -> int:
     """Simple task: return n * 2"""
     return n * 2

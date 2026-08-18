@@ -56,8 +56,10 @@ class QueryConnectionProvider(IQueryConnectionProvider):
         return ["memory"]
 
     def _create_temp_db(self) -> str:
-        """Create a temporary database file."""
-        db_path = os.path.join(tempfile.gettempdir(), f"test_query_connection_pool_{uuid.uuid4().hex}.sqlite")
+        """Create a temporary database file (pooled when pooling is active)."""
+        from providers.pooling import resolve_database_file
+
+        db_path = resolve_database_file("memory", suffix=".conn.sqlite")
         self._temp_files.append(db_path)
         return db_path
 
@@ -143,12 +145,15 @@ class QueryConnectionProvider(IQueryConnectionProvider):
         self._active_backends.clear()
 
         # Clean up temp files
-        for path in self._temp_files:
-            try:
-                if os.path.exists(path):
-                    os.unlink(path)
-            except Exception:
-                pass
+        from providers.pooling import pooling_active
+
+        if not pooling_active():
+            for path in self._temp_files:
+                try:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                except Exception:
+                    pass
         self._temp_files.clear()
 
     async def cleanup_async(self, scenario_name: str, pool: AsyncBackendPool):
@@ -164,10 +169,13 @@ class QueryConnectionProvider(IQueryConnectionProvider):
         self._active_async_backends.clear()
 
         # Clean up temp files
-        for path in self._temp_files:
-            try:
-                if os.path.exists(path):
-                    os.unlink(path)
-            except Exception:
-                pass
+        from providers.pooling import pooling_active
+
+        if not pooling_active():
+            for path in self._temp_files:
+                try:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                except Exception:
+                    pass
         self._temp_files.clear()

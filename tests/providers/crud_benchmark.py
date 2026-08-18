@@ -139,15 +139,13 @@ class CrudBenchmarkProvider:
 
     def _make_config(self, scenario, original_config):
         from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+        from providers.pooling import resolve_database_file, should_keep_database
 
-        unique_filename = os.path.join(
-            tempfile.gettempdir(),
-            f"benchmark_activerecord_{scenario}_{uuid.uuid4().hex}.sqlite",
-        )
+        unique_filename = resolve_database_file(scenario, suffix=".bench.sqlite")
         self._scenario_db_files[scenario] = unique_filename
         return SQLiteConnectionConfig(
             database=unique_filename,
-            delete_on_close=original_config.delete_on_close,
+            delete_on_close=original_config.delete_on_close and not should_keep_database(scenario),
             pragmas=original_config.pragmas,
         )
 
