@@ -18,7 +18,6 @@ SQLite db file and verifies each layer reaches its documented design goal:
 
 import io
 import json
-import os
 import sqlite3
 from contextlib import redirect_stderr, redirect_stdout
 
@@ -27,6 +26,12 @@ import pytest
 from rhosocial.activerecord.backend.impl.sqlite.__main__ import main
 
 NS = "rhosocial.activerecord_test.feature.backend.cli.named_series"
+
+# This module relies on module/class-scoped fixtures that build up shared
+# database state incrementally (up V001 -> up V002 -> down V002 ...).  Under
+# pytest-xdist each worker has its own tmp_path, so the whole module must run
+# in a single worker to preserve that ordering.
+pytestmark = pytest.mark.xdist_group("named_series_deep")
 
 
 def run_cli(argv):
@@ -186,9 +191,9 @@ def seeded_db(db_path, tmp_path_factory):
     """db with users+posts tables, seeded via the CLI (named-expression)."""
     db = str(tmp_path_factory.mktemp("named_series_seed") / "seed.db")
     # migrate up
-    for mig, rec in [
-        ("V001CreateUsers", "rs_users"),
-        ("V002CreatePosts", "rs_posts"),
+    for mig in [
+        "V001CreateUsers",
+        "V002CreatePosts",
     ]:
         out, err, exc = run_cli(
             [
@@ -413,9 +418,9 @@ class TestProgression:
         db = str(tmp_path / "chain.db")
 
         # 1. migration up creates tables
-        for mig, rec in [
-            ("V001CreateUsers", "rs_users"),
-            ("V002CreatePosts", "rs_posts"),
+        for mig in [
+            "V001CreateUsers",
+            "V002CreatePosts",
         ]:
             out, err, exc = run_cli(
                 [
@@ -466,9 +471,9 @@ class TestProgression:
         assert {"carol", "dave"} <= names
 
         # 6. clean up: migration down drops everything
-        for mig, rec in [
-            ("V002CreatePosts", "rs_posts"),
-            ("V001CreateUsers", "rs_users"),
+        for mig in [
+            "V002CreatePosts",
+            "V001CreateUsers",
         ]:
             out, err, exc = run_cli(
                 [

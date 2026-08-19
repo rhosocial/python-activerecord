@@ -139,7 +139,7 @@ class TestNamedConnection:
             "def mem_db():\n"
             "    return SQLiteConnectionConfig(database=':memory:')\n"
         )
-        env = dict(os.environ, PYTHONPATH=str(mod_dir))
+        env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(mod_dir)] + sys.path))
         # run in a subprocess so PYTHONPATH applies to the named-connection import
         import subprocess
 
