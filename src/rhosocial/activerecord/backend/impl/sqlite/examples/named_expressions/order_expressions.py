@@ -21,25 +21,44 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
+    ColumnConstraint,
+    ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
+from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
+    IntegerType,
+    TextType,
+)
+
+
+def _column(name: str, type_name: str):
+    """Build a ColumnDefinition from a compact 'name TYPE [PRIMARY KEY]' spec."""
+    data_type = IntegerType() if type_name == "INTEGER" else TextType()
+    constraints = []
+    if "PRIMARY KEY" in type_name:
+        constraints.append(ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY))
+    return ColumnDefinition(name=name, data_type=data_type, constraints=constraints)
+
 
 tables = [
-    ("orders", ["id INTEGER PRIMARY KEY", "status TEXT", "user_id INTEGER"]),
-    ("inventory", ["id INTEGER PRIMARY KEY", "order_id INTEGER", "available INTEGER"]),
-    ("notifications", ["id INTEGER PRIMARY KEY", "user_id INTEGER", "type TEXT"]),
-    ("payments", ["id INTEGER PRIMARY KEY", "order_id INTEGER", "status TEXT", "transaction_id TEXT"]),
-    ("order_records", ["id INTEGER PRIMARY KEY", "order_id INTEGER", "created_at TEXT"]),
+    ("orders", [("id", "INTEGER PRIMARY KEY"), ("status", "TEXT"), ("user_id", "INTEGER")]),
+    ("inventory", [("id", "INTEGER PRIMARY KEY"), ("order_id", "INTEGER"), ("available", "INTEGER")]),
+    ("notifications", [("id", "INTEGER PRIMARY KEY"), ("user_id", "INTEGER"), ("type", "TEXT")]),
+    (
+        "payments",
+        [("id", "INTEGER PRIMARY KEY"), ("order_id", "INTEGER"), ("status", "TEXT"), ("transaction_id", "TEXT")],
+    ),
+    ("order_records", [("id", "INTEGER PRIMARY KEY"), ("order_id", "INTEGER"), ("created_at", "TEXT")]),
 ]
 
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
         table=table_name,
-        columns=[ColumnDefinition(c.split()[0], c.split()[1]) for c in columns],
+        columns=[_column(name, type_name) for name, type_name in columns],
         if_not_exists=True,
     )
     sql, params = create.to_sql()
@@ -54,7 +73,7 @@ for table, data in [
         insert = InsertExpression(
             dialect=dialect,
             into=table,
-            columns=[c.split()[0] for c in tables[[t for t, _ in tables].index(table)][1]],
+            columns=[name for name, _ in tables[[t for t, _ in tables].index(table)][1]],
             source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
         )
         sql, params = insert.to_sql()
