@@ -18,7 +18,7 @@ from typing import runtime_checkable
 if sys.version_info >= (3, 10):
     from typing import TypeAlias  # pragma: no cover
 else:
-    from typing_extensions import TypeAlias
+    from typing_extensions import TypeAlias  # pragma: no cover
 
 from .mixins import LogicalMixin
 

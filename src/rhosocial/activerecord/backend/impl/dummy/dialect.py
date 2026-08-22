@@ -41,10 +41,11 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 3. Override format_* methods where the database deviates from SQL standard
 """
 
+import re
+
 from typing import Dict, List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType, BigIntType, BlobType, BooleanType, CharType, CustomType,
     DateType, DateTimeType, DecimalType, DoubleType, FloatType,
@@ -156,7 +157,10 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TransactionControlMixin,
 )
 
+_COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 if TYPE_CHECKING:
+    from rhosocial.activerecord.backend.expression.collation import CollateExpression
     from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
     from rhosocial.activerecord.backend.expression.transaction import (
         BeginTransactionExpression,
@@ -439,6 +443,19 @@ class DummyDialect(
 
     def supports_collate_expression(self) -> bool:
         return True
+
+    def validate_collation_name(self, expr: "CollateExpression") -> str:
+        """Validate a collation name and return its SQL representation.
+
+        Dummy is a generic SQL-generation test dialect, so it validates that
+        the collation name is a syntactically valid identifier without binding
+        to any concrete database's collation catalog. This mirrors the other
+        dialects (e.g. SQLite's regex check) while remaining deliberately
+        permissive.
+        """
+        if not _COLLATION_NAME_RE.fullmatch(expr.collation_name):
+            raise ValueError(f"Invalid collation name: {expr.collation_name!r}")
+        return expr.collation_name
 
     def supports_window_functions(self) -> bool:
         return True
