@@ -72,6 +72,7 @@ from .protocols import (
     FunctionSupport,
     ILIKESupport,
     GeneratedColumnSupport,
+    AutoIncrementSupport,
 )
 from .mixins import (
     WindowFunctionMixin,
@@ -105,6 +106,7 @@ from .mixins import (
     FunctionMixin,
     ILIKEMixin,
     GeneratedColumnMixin,
+    AutoIncrementMixin,
 )
 
 # Import Explain types from expression module to make them available in dialect module

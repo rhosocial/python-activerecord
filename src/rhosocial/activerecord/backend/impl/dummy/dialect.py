@@ -14,8 +14,10 @@ Architecture Notes:
 The dialect mixins in rhosocial.activerecord.backend.dialect.mixins provide
 standard SQL implementations for various features. Each mixin includes:
 
-1. supports_* methods: Return False by default, indicating the feature is
-   not supported. Concrete dialects override these to enable features.
+1. supports_* methods: Return the generic SQL-standard behaviour. Features
+   that are not universal across databases default to False; concrete
+   dialects override a method ONLY when their actual capability differs
+   from the generic implementation (overrides read as a per-backend diff).
 
 2. format_* methods: Provide standard SQL generation for the feature.
    These follow SQL standard syntax and are designed to work with the
@@ -96,6 +98,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TriggerSupport,
     FunctionSupport,
     GeneratedColumnSupport,
+    AutoIncrementSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -143,6 +146,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
+    AutoIncrementMixin,
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
@@ -213,6 +217,7 @@ class DummyDialect(
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
+    AutoIncrementMixin,
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
@@ -268,6 +273,7 @@ class DummyDialect(
     TriggerSupport,
     FunctionSupport,
     GeneratedColumnSupport,
+    AutoIncrementSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol

@@ -40,6 +40,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SequenceSupport,
     TriggerSupport,
     GeneratedColumnSupport,
+    AutoIncrementSupport,
     # Introspection Protocol
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -50,6 +51,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     DDLTypeSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
+    AutoIncrementMixin,
     CollationMixin,
     CTEMixin,
     FilterClauseMixin,
@@ -75,6 +77,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     IndexMixin,
     SequenceMixin,
     GeneratedColumnMixin,
+    AutoIncrementMixin,
     PartitionMixin,
     # New Mixins
     PredicateMixin,
@@ -169,6 +172,7 @@ class SQLiteDialect(
     IndexMixin,
     SequenceMixin,
     GeneratedColumnMixin,
+    AutoIncrementMixin,
     PartitionMixin,
     # New Mixins (without SQLite overrides)
     PredicateMixin,
@@ -237,6 +241,7 @@ class SQLiteDialect(
     SequenceSupport,
     TriggerSupport,
     GeneratedColumnSupport,
+    AutoIncrementSupport,
     # SQLite-specific protocols
     SQLiteExtensionSupport,
     SQLitePragmaSupport,
