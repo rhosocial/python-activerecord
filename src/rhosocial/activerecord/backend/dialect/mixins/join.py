@@ -17,7 +17,18 @@ class LateralJoinMixin:
     def format_lateral_expression(
         self, expr_sql: str, expr_params: Tuple[Any, ...], alias: Optional[str], join_type: str
     ) -> Tuple[str, Tuple]:
-        """Format LATERAL expression."""
+        """Format LATERAL expression.
+
+        Raises UnsupportedFeatureError when the dialect reports no LATERAL
+        support.  Backends only override this method to translate LATERAL
+        into an alternative syntax (e.g. CROSS APPLY).
+        """
+        if not self.supports_lateral_join():
+            raise UnsupportedFeatureError(
+                self.name,
+                "LATERAL join",
+                "Restructure the query with a plain subquery or a CTE instead.",
+            )
         if alias is not None:
             sql = f"{join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(alias)}"
         else:

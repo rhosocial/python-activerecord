@@ -43,9 +43,9 @@ class TestSQLiteDialectOtherFeatures:
         assert not dialect.supports_explain_format("YAML")
 
     def test_supports_lateral_join(self):
-        """Test LATERAL JOIN support"""
+        """Test LATERAL JOIN support - SQLite does not support the LATERAL keyword."""
         dialect = SQLiteDialect()
-        assert dialect.supports_lateral_join()
+        assert not dialect.supports_lateral_join()
 
     def test_supports_for_update_skip_locked(self):
         """Test FOR UPDATE SKIP LOCKED support"""
