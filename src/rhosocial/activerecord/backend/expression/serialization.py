@@ -19,10 +19,14 @@ corruption or deserialization errors.
 """
 
 import inspect
+import json
 import warnings
 from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING
 
 from .bases import BaseExpression
+from .codec import decode_value as _codec_decode_value
+from .codec import encode_value as _codec_encode_value
+from .codec import register_codec
 
 if TYPE_CHECKING:  # pragma: no cover
     from .dialect import SQLDialectBase
@@ -150,6 +154,9 @@ class ExpressionSerializer:
             return [self._serialize_value(item, depth + 1) for item in value]
         if isinstance(value, dict):
             return {key: self._serialize_value(val, depth + 1) for key, val in value.items()}
+        encoded = _codec_encode_value(value)
+        if encoded is not None:
+            return encoded
         return value
 
     def deserialize(self, spec: Dict[str, Any], dialect: "SQLDialectBase") -> BaseExpression:
@@ -235,6 +242,8 @@ class ExpressionSerializer:
             )
 
         if isinstance(value, dict):
+            if "__value__" in value:
+                return _codec_decode_value(value)
             if "__tuple__" in value:
                 return tuple(self._deserialize_value(item, dialect, depth + 1) for item in value["__tuple__"])
             if "__expr__" in value:
@@ -249,6 +258,47 @@ class ExpressionSerializer:
         if isinstance(value, tuple):
             return tuple(self._deserialize_value(item, dialect, depth + 1) for item in value)
         return value
+
+
+    def serialize_json(self, expr: BaseExpression) -> str:
+        """Serialize an expression instance into a JSON string.
+
+        The JSON container walking/escaping is delegated to the standard
+        library ``json``; only non-JSON-native values (datetime, Decimal,
+        bytes, UUID, set, Enum, ...) are encoded via :func:`register_codec`
+        codecs through the ``json.dumps(default=...)`` hook.
+        """
+        return json.dumps(self.serialize(expr), default=_codec_encode_value)
+
+    def deserialize_json(self, spec_str: str, dialect: "SQLDialectBase") -> BaseExpression:
+        """Reconstruct an expression from a JSON string produced by
+        :meth:`serialize_json`.
+
+        Non-JSON-native values are restored through the registered codecs
+        via the ``json.loads(object_hook=...)`` hook.
+        """
+        restored = json.loads(spec_str, object_hook=_codec_decode_value)
+        return self.deserialize(restored, dialect)
+
+    def serialize_xml(self, expr: BaseExpression) -> bytes:
+        """Serialize an expression instance into an XML document (bytes).
+
+        The spec (with codec-encoded ``__value__`` markers) is rendered into
+        an XML document by :mod:`xml_serialization`, which uses the standard
+        library ``xml.etree.ElementTree``.
+        """
+        from . import xml_serialization
+
+        return xml_serialization.serialize_xml(self.serialize(expr))
+
+    def deserialize_xml(self, payload: bytes, dialect: "SQLDialectBase") -> BaseExpression:
+        """Reconstruct an expression from an XML document produced by
+        :meth:`serialize_xml`.
+        """
+        from . import xml_serialization
+
+        spec = xml_serialization.deserialize_xml(payload)
+        return self.deserialize(spec, dialect)
 
 
 _default_serializer = ExpressionSerializer()
@@ -286,6 +336,44 @@ def deserialize(
         A fully reconstructed BaseExpression instance
     """
     return _default_serializer.deserialize(spec, dialect)
+
+
+def serialize_json(expr: BaseExpression) -> str:
+    """Serialize an expression instance into a JSON string.
+
+    Convenience wrapper around ``_default_serializer.serialize_json()``.
+    """
+    return _default_serializer.serialize_json(expr)
+
+
+def deserialize_json(
+    spec_str: str,
+    dialect: "SQLDialectBase",
+) -> BaseExpression:
+    """Reconstruct an expression from a JSON string.
+
+    Convenience wrapper around ``_default_serializer.deserialize_json()``.
+    """
+    return _default_serializer.deserialize_json(spec_str, dialect)
+
+
+def serialize_xml(expr: BaseExpression) -> bytes:
+    """Serialize an expression instance into an XML document (bytes).
+
+    Convenience wrapper around ``_default_serializer.serialize_xml()``.
+    """
+    return _default_serializer.serialize_xml(expr)
+
+
+def deserialize_xml(
+    payload: bytes,
+    dialect: "SQLDialectBase",
+) -> BaseExpression:
+    """Reconstruct an expression from an XML document (bytes).
+
+    Convenience wrapper around ``_default_serializer.deserialize_xml()``.
+    """
+    return _default_serializer.deserialize_xml(payload, dialect)
 
 
 def _reconstruct(
