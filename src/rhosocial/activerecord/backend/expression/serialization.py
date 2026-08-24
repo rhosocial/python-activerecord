@@ -325,7 +325,18 @@ def _reconstruct(
             continue
         if pname in params:
             valid_params[pname] = params[pname]
-    return cls(dialect, **valid_params)
+
+    # Most expression classes declare dialect as the first parameter, but the
+    # DataType value-object family declares it as an optional trailing keyword
+    # (e.g. VarCharType(length=None, dialect=None)). Detect the convention so
+    # dialect is always injected correctly.
+    first_param = next(
+        (p.name for p in sig.parameters.values() if p.name != "self"),
+        None,
+    )
+    if first_param == "dialect":
+        return cls(dialect, **valid_params)
+    return cls(**{**valid_params, "dialect": dialect})
 
 
 class ExpressionFactory:
@@ -440,49 +451,36 @@ class ExpressionRegistry:
 
     @classmethod
     def _auto_register_builtins(cls) -> None:
-        """Auto-register all built-in expression classes."""
+        """Auto-register all built-in expression classes.
+
+        Walks the whole ``backend/expression`` package tree (including
+        ``statements/``, ``collation.py``, ``datetime.py``, ``xml.py`` and
+        ``types/``) and registers every class defined there that subclasses
+        :class:`~rhosocial.activerecord.backend.expression.bases.BaseExpression`.
+        Registration is idempotent: re-exported classes resolve to the same FQN.
+        """
         import pkgutil
         import importlib
-        from . import (
-            core,
-            predicates,
-            operators,
-            query_parts,
-            query_sources,
-            aggregates,
-            advanced_functions,
-        )
-        from . import introspection, transaction, graph
-        from . import statements as statements_pkg
 
-        modules = [
-            core,
-            predicates,
-            operators,
-            query_parts,
-            query_sources,
-            aggregates,
-            advanced_functions,
-            introspection,
-            transaction,
-            graph,
-        ]
-
-        for mod in modules:
-            for name in dir(mod):
-                obj = getattr(mod, name, None)
-                if isinstance(obj, type) and issubclass(obj, BaseExpression) and obj is not BaseExpression:
-                    cls.register(obj)
+        pkg = importlib.import_module(__name__.rsplit(".", 1)[0])
 
         for _, modname, _ in pkgutil.walk_packages(
-            path=statements_pkg.__path__,
-            prefix=statements_pkg.__name__ + ".",
+            path=pkg.__path__,
+            prefix=pkg.__name__ + ".",
             onerror=lambda x: None,
         ):
-            sub_mod = importlib.import_module(modname)
+            try:
+                sub_mod = importlib.import_module(modname)
+            except Exception:
+                continue
             for name in dir(sub_mod):
                 obj = getattr(sub_mod, name, None)
-                if isinstance(obj, type) and issubclass(obj, BaseExpression) and obj is not BaseExpression:
+                if (
+                    isinstance(obj, type)
+                    and obj.__module__ == modname
+                    and issubclass(obj, BaseExpression)
+                    and obj is not BaseExpression
+                ):
                     cls.register(obj)
 
 

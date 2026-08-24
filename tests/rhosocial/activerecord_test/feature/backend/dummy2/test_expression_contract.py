@@ -45,6 +45,15 @@ def _special_constructors():
         OnConflictClause,
         UpdateExpression,
     )
+    from rhosocial.activerecord.backend.expression.datetime import (
+        DatePartExpression,
+        DateTimeDiffExpression,
+        DateTimeSubtractExpression,
+        DateTimeAddExpression,
+        DateTruncExpression,
+        ExtractExpression,
+        IntervalExpression,
+    )
 
     def json_expr(d):
         return JSONExpression(d, Literal(d, '{"a": 1}'), path="$.a")
@@ -70,12 +79,40 @@ def _special_constructors():
     def update_expr(d):
         return UpdateExpression(d, table=_table(d), assignments={"a": Literal(d, 1)})
 
+    def extract_expr(d):
+        return ExtractExpression(d, "YEAR", Column(d, "created_at"))
+
+    def datepart_expr(d):
+        return DatePartExpression(d, "YEAR", Column(d, "created_at"))
+
+    def datetrunc_expr(d):
+        return DateTruncExpression(d, "year", Column(d, "created_at"))
+
+    def interval_expr(d):
+        return IntervalExpression(d, 7, "day")
+
+    def datetime_diff_expr(d):
+        return DateTimeDiffExpression(d, "day", Column(d, "a"), Column(d, "b"))
+
+    def datetime_sub_expr(d):
+        return DateTimeSubtractExpression(d, Column(d, "a"), IntervalExpression(d, 1, "day"))
+
+    def datetime_add_expr(d):
+        return DateTimeAddExpression(d, Column(d, "a"), IntervalExpression(d, 1, "day"))
+
     return {
         "advanced_functions.JSONExpression": json_expr,
         "query_parts.JoinExpression": join_expr,
         "ddl_partition.PartitionClause": partition_clause,
         "dml.OnConflictClause": on_conflict,
         "dml.UpdateExpression": update_expr,
+        "datetime.ExtractExpression": extract_expr,
+        "datetime.DatePartExpression": datepart_expr,
+        "datetime.DateTruncExpression": datetrunc_expr,
+        "datetime.IntervalExpression": interval_expr,
+        "datetime.DateTimeDiffExpression": datetime_diff_expr,
+        "datetime.DateTimeSubtractExpression": datetime_sub_expr,
+        "datetime.DateTimeAddExpression": datetime_add_expr,
     }
 
 
