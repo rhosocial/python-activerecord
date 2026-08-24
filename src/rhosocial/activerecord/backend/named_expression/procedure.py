@@ -1045,14 +1045,15 @@ class _BaseProcedureRunner:
     Not part of the public API. Subclasses must implement load() and run().
     """
 
-    def __init__(self, qualified_name: str) -> None:
+    def __init__(self, qualified_name: str, *, allowed_modules=None) -> None:
         self._qualified_name = qualified_name
+        self._allowed_modules = list(allowed_modules) if allowed_modules else None
         self._procedure_class: Optional[type] = None
         self._params_info: Dict[str, Any] = {}
         self._module_name, self._class_name = self._parse_qualified_name(qualified_name)
 
     @staticmethod
-    def _parse_qualified_name(qualified_name: str):
+    def _parse_qualified_name_static(qualified_name: str):
         parts = qualified_name.rsplit(".", 1)
         if len(parts) != 2:
             from .exceptions import NamedExpressionError
@@ -1061,6 +1062,15 @@ class _BaseProcedureRunner:
                 f"Invalid qualified name '{qualified_name}'. Must be in format 'module.path.ClassName'"
             )
         return parts[0], parts[1]
+
+    def _parse_qualified_name(self, qualified_name: str):
+        module_name, class_name = self._parse_qualified_name_static(qualified_name)
+        from .exceptions import NamedExpressionModuleNotAllowedError
+        from .resolver import _module_allowed
+
+        if not _module_allowed(module_name, self._allowed_modules):
+            raise NamedExpressionModuleNotAllowedError(module_name, self._allowed_modules or [])
+        return module_name, class_name
 
     @property
     def qualified_name(self) -> str:

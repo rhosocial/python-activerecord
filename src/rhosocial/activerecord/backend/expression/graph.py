@@ -128,6 +128,10 @@ class MatchClause(BaseExpression):
     def __init__(self, dialect: "SQLDialectBase",
                  *args: Union["PathPattern", "GraphVertex", "GraphEdge", "QuantifiedPath"]):
         super().__init__(dialect)
+        # Keep the raw constructor arguments so that the introspection-based
+        # get_params() (and therefore serialization round-trip) can rebuild
+        # an equivalent instance.
+        self.args = list(args)
         if len(args) > 0 and isinstance(args[0], PathPattern):
             self.patterns = list(args)
         else:

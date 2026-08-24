@@ -53,6 +53,7 @@ Usage:
 from .exceptions import (
     NamedExpressionError,
     NamedExpressionNotFoundError,
+    NamedExpressionModuleNotAllowedError,
     NamedExpressionModuleNotFoundError,
     NamedExpressionInvalidReturnTypeError,
     NamedExpressionInvalidParameterError,
@@ -124,6 +125,7 @@ from .graph_resolver import (
 __all__ = [
     "NamedExpressionError",
     "NamedExpressionNotFoundError",
+    "NamedExpressionModuleNotAllowedError",
     "NamedExpressionModuleNotFoundError",
     "NamedExpressionInvalidReturnTypeError",
     "NamedExpressionInvalidParameterError",

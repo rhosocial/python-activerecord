@@ -9,6 +9,9 @@ intentionally NOT serialized - it must be supplied at deserialization time.
 Reserved special keys in serialized param dicts:
     "__tuple__"  →  Python tuple value (since tuple is not JSON native)
     "__expr__"   →  Nested BaseExpression instance
+    "__cast__"   →  TypeConversionMixin cast chain (list of target types),
+                    captured at serialize time and re-applied at deserialize
+                    time via cast() so fluent-API cast state round-trips.
 
 IMPORTANT: User-defined expression params MUST NOT use these reserved keys
 in their get_params() return values. Using these keys will cause data
@@ -17,7 +20,7 @@ corruption or deserialization errors.
 
 import inspect
 import warnings
-from typing import Any, Dict, Type, TYPE_CHECKING
+from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING
 
 from .bases import BaseExpression
 
@@ -46,6 +49,10 @@ class ExpressionSerializer:
         warn_threshold: Depth threshold for serialization warnings (default: 0.8).
                         When serialized depth exceeds max_depth * warn_threshold,
                         a warning is issued to alert potential deserialization issues.
+        allowed_types: Optional allowlist of expression class FQNs applied during
+                       deserialization. Entries may be exact FQNs or module
+                       prefixes ending with ".*" (e.g. "rhosocial…expression.core.*").
+                       ``None`` (default) allows any registered expression class.
 
     Example:
         # Default configuration
@@ -56,12 +63,20 @@ class ExpressionSerializer:
         # Custom configuration
         deep_serializer = ExpressionSerializer(max_depth=128, warn_threshold=0.9)
         deep_serializer.serialize(deep_expr)  # May issue warning
+
+        # Read-only tool channel: only value/predicate/SELECT expressions
+        readonly = ExpressionSerializer(allowed_types=[
+            "rhosocial.activerecord.backend.expression.core.*",
+            "rhosocial.activerecord.backend.expression.predicates.*",
+            "rhosocial.activerecord.backend.expression.statements.dql.QueryExpression",
+        ])
     """
 
     def __init__(
         self,
         max_depth: int = _DEFAULT_MAX_DEPTH,
         warn_threshold: float = _DEFAULT_WARN_THRESHOLD,
+        allowed_types: Optional[Sequence[str]] = None,
     ):
         if max_depth <= 0:
             raise ValueError("max_depth must be a positive integer")
@@ -69,7 +84,25 @@ class ExpressionSerializer:
             raise ValueError("warn_threshold must be between 0 and 1")
         self.max_depth = max_depth
         self.warn_threshold = warn_threshold
+        self.allowed_types: Optional[tuple] = tuple(allowed_types) if allowed_types else None
         self._warn_issued: bool = False
+
+    def _type_allowed(self, fqn: str) -> bool:
+        """Check whether an expression class FQN passes the allowlist.
+
+        Entries ending with ".*" act as module-prefix wildcards; others
+        must match the FQN exactly. ``None`` allowlist means unrestricted.
+        """
+        if self.allowed_types is None:
+            return True
+        for entry in self.allowed_types:
+            if entry.endswith(".*"):
+                prefix = entry[:-2]
+                if fqn == prefix or fqn.startswith(prefix + "."):
+                    return True
+            elif fqn == entry:
+                return True
+        return False
 
     def serialize(self, expr: BaseExpression, _depth: int = 0) -> Dict[str, Any]:
         """Serialize an expression instance into a JSON-serializable dict.
@@ -99,6 +132,9 @@ class ExpressionSerializer:
             self._warn_issued = True
 
         params = self._serialize_value(expr.get_params(), _depth + 1)
+        cast_types = getattr(expr, "cast_types", None)
+        if cast_types:
+            params["__cast__"] = list(cast_types)
         return {
             "type": f"{expr.__class__.__module__}.{expr.__class__.__name__}",
             "params": params,
@@ -159,6 +195,11 @@ class ExpressionSerializer:
                 f"'type' must be a fully qualified name (module.ClassName), got '{fqn}'"
             )
 
+        if not self._type_allowed(fqn):
+            raise ExpressionDeserializationError(
+                f"Expression type '{fqn}' is not in the allowed types list"
+            )
+
         try:
             expr_class = ExpressionRegistry.lookup(fqn)
         except ExpressionDeserializationError as e:
@@ -169,10 +210,21 @@ class ExpressionSerializer:
 
         params = spec.get("params", {})
         deserialized_params = self._deserialize_value(params, dialect, depth + 1)
+        cast_types = None
+        if isinstance(deserialized_params, dict) and "__cast__" in deserialized_params:
+            cast_types = deserialized_params.pop("__cast__")
         try:
-            return _reconstruct(expr_class, dialect, deserialized_params)
+            expr = _reconstruct(expr_class, dialect, deserialized_params)
         except TypeError as e:
             raise ExpressionDeserializationError(f"Failed to reconstruct expression '{fqn}': {e}") from e
+        if cast_types:
+            if not hasattr(expr, "cast"):
+                raise ExpressionDeserializationError(
+                    f"'{fqn}' carries '__cast__' but does not support cast()"
+                )
+            for target_type in cast_types:
+                expr = expr.cast(target_type)
+        return expr
 
     def _deserialize_value(self, value: Any, dialect: "SQLDialectBase", depth: int) -> Any:
         """Recursively deserialize a value with depth tracking."""
