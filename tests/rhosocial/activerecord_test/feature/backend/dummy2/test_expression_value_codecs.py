@@ -139,7 +139,56 @@ class TestCustomCodecRegistration:
         restored = deserialize_json(serialize_json(lit), dummy_dialect)
         assert restored.value == fractions.Fraction(3, 4)
 
+    def test_custom_codec_non_str_scalar_payload(self, dummy_dialect):
+        """A codec whose payload is a non-str scalar (int) round-trips through
+        dict / JSON / XML; the XML layer tags scalar payloads by type."""
+        from rhosocial.activerecord.backend.expression.codec import _CODECS
+
+        class Intish(int):
+            pass
+
+        register_codec("_intish", Intish, encode=int, decode=Intish)
+        try:
+            lit = Literal(dummy_dialect, Intish(21))
+            assert deserialize(serialize(lit), dummy_dialect).value == Intish(21)
+            assert deserialize_json(serialize_json(lit), dummy_dialect).value == Intish(21)
+            assert deserialize_xml(serialize_xml(lit), dummy_dialect).value == Intish(21)
+        finally:
+            _CODECS.pop("_intish", None)
+
     def test_duplicate_tag_rejected(self):
+        from rhosocial.activerecord.backend.expression.codec import _CODECS
+
         register_codec("_dup_check", str, encode=str, decode=str)
-        with pytest.raises(ValueError, match="already registered"):
-            register_codec("_dup_check", str, encode=str, decode=str)
+        try:
+            with pytest.raises(ValueError, match="already registered"):
+                register_codec("_dup_check", str, encode=str, decode=str)
+        finally:
+            _CODECS.pop("_dup_check", None)
+
+    def test_catch_all_codec_lowest_priority(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.codec import decode_value, encode_value, _CODECS
+
+        # py_type=None registers a catch-all used during decode only.
+        register_codec(
+            "_catch_all",
+            None,
+            encode=lambda v: {"marked": True},
+            decode=lambda p: p["marked"],
+        )
+        try:
+            # A known type must win over the catch-all during encode.
+            assert encode_value(dt.datetime(2026, 1, 1))["__value__"][0] == "dt"
+            # py_type=None table entry is skipped during encode (line 85).
+            assert encode_value(slice(1, 2)) is None
+            # During decode the catch-all handles unknown tags.
+            assert decode_value({"__value__": ["_catch_all", {"marked": True}]}) is True
+        finally:
+            _CODECS.pop("_catch_all", None)
+
+    def test_decode_unknown_tag_passthrough(self):
+        from rhosocial.activerecord.backend.expression.codec import decode_value
+
+        # Unknown __value__ tag must fall through untouched (not crash).
+        result = decode_value({"__value__": ["no_such_tag", "x"]})
+        assert result == {"__value__": ["no_such_tag", "x"]}

@@ -829,3 +829,154 @@ class TestDDLRoundtrip:
         expr = ExplainExpression(dummy_dialect, statement=Column(dummy_dialect, "users"))
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
+
+
+class TestAllowedTypesAllowlist:
+    """ExpressionSerializer.allowed_types restricts deserialization to a
+    fixed set of expression classes (exact FQNs or module-prefix wildcards)."""
+
+    def test_none_allowlist_allows_anything(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        col = Column(dummy_dialect, "id")
+        spec = serialize(col)
+        restored = ExpressionSerializer(allowed_types=None).deserialize(spec, dummy_dialect)
+        assert restored.to_sql() == col.to_sql()
+
+    def test_exact_fqn_allowed(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        col = Column(dummy_dialect, "id")
+        spec = serialize(col)
+        serializer = ExpressionSerializer(
+            allowed_types=["rhosocial.activerecord.backend.expression.core.Column"]
+        )
+        restored = serializer.deserialize(spec, dummy_dialect)
+        assert restored.to_sql() == col.to_sql()
+
+    def test_module_wildcard_allowed(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        col = Column(dummy_dialect, "id")
+        lit = Literal(dummy_dialect, 1)
+        serializer = ExpressionSerializer(
+            allowed_types=["rhosocial.activerecord.backend.expression.core.*"]
+        )
+        assert serializer.deserialize(serialize(col), dummy_dialect).to_sql() == col.to_sql()
+        assert serializer.deserialize(serialize(lit), dummy_dialect).to_sql() == lit.to_sql()
+
+    def test_disallowed_type_raises(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        col = Column(dummy_dialect, "id")
+        spec = serialize(col)
+        serializer = ExpressionSerializer(
+            allowed_types=["rhosocial.activerecord.backend.expression.predicates.*"]
+        )
+        with pytest.raises(ExpressionDeserializationError, match="not in the allowed types"):
+            serializer.deserialize(spec, dummy_dialect)
+
+    def test_json_channel_enforces_allowlist(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        col = Column(dummy_dialect, "id")
+        json_str = ExpressionSerializer().serialize_json(col)
+        serializer = ExpressionSerializer(
+            allowed_types=["rhosocial.activerecord.backend.expression.predicates.*"]
+        )
+        with pytest.raises(ExpressionDeserializationError, match="not in the allowed types"):
+            serializer.deserialize_json(json_str, dummy_dialect)
+
+    def test_xml_channel_enforces_allowlist(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        col = Column(dummy_dialect, "id")
+        xml_bytes = ExpressionSerializer().serialize_xml(col)
+        serializer = ExpressionSerializer(
+            allowed_types=["rhosocial.activerecord.backend.expression.predicates.*"]
+        )
+        with pytest.raises(ExpressionDeserializationError, match="not in the allowed types"):
+            serializer.deserialize_xml(xml_bytes, dummy_dialect)
+
+    def test_wildcard_does_not_leak_across_modules(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+        from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+
+        pred = ComparisonPredicate(
+            dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1)
+        )
+        spec = serialize(pred)
+        # core.* must NOT admit predicates.* classes.
+        serializer = ExpressionSerializer(
+            allowed_types=["rhosocial.activerecord.backend.expression.core.*"]
+        )
+        with pytest.raises(ExpressionDeserializationError, match="not in the allowed types"):
+            serializer.deserialize(spec, dummy_dialect)
+
+
+class TestCastChainDeserializationError:
+    """__cast__ on a class that does not support cast() must raise, not crash."""
+
+    def test_cast_unsupported_expression_raises(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        spec = {
+            "type": "rhosocial.activerecord.backend.expression.query_parts.WhereClause",
+            "params": {
+                "condition": {
+                    "__expr__": {
+                        "type": "rhosocial.activerecord.backend.expression.predicates.IsNullPredicate",
+                        "params": {"expr": {"__expr__": {
+                            "type": "rhosocial.activerecord.backend.expression.core.Column",
+                            "params": {"name": "a"},
+                        }}},
+                    },
+                },
+                "__cast__": ["INTEGER"],
+            },
+        }
+        with pytest.raises(ExpressionDeserializationError, match="does not support cast"):
+            ExpressionSerializer().deserialize(spec, dummy_dialect)
+
+
+class TestGetParamsWarningPaths:
+    """Defensive warnings raised by BaseExpression.get_params()."""
+
+    def test_var_keyword_not_stored_as_dict_warns(self, dummy_dialect):
+        import warnings
+
+        from rhosocial.activerecord.backend.expression.bases import BaseExpression
+
+        class BadKwargsExpr(BaseExpression):
+            def __init__(self, dialect, **kwargs):
+                super().__init__(dialect)
+                self.kwargs = ["not", "a", "dict"]
+
+            def to_sql(self):
+                return "", ()
+
+        expr = BadKwargsExpr(dummy_dialect)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            params = expr.get_params()
+        assert any("VAR_KEYWORD" in str(x.message) and "not stored as a dict" in str(x.message) for x in w)
+        assert params == {}
+
+    def test_missing_attribute_warns(self, dummy_dialect):
+        import warnings
+
+        from rhosocial.activerecord.backend.expression.bases import BaseExpression
+
+        class NoAttrExpr(BaseExpression):
+            def __init__(self, dialect, missing_param):
+                super().__init__(dialect)
+
+            def to_sql(self):
+                return "", ()
+
+        expr = NoAttrExpr(dummy_dialect, 1)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            params = expr.get_params()
+        assert any("cannot find attribute" in str(x.message) for x in w)
+        assert params == {}
