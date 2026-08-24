@@ -140,5 +140,6 @@ class TestCustomCodecRegistration:
         assert restored.value == fractions.Fraction(3, 4)
 
     def test_duplicate_tag_rejected(self):
-        with pytest.raises(ValueError):
-            register_codec("fract", str, encode=str, decode=str)
+        register_codec("_dup_check", str, encode=str, decode=str)
+        with pytest.raises(ValueError, match="already registered"):
+            register_codec("_dup_check", str, encode=str, decode=str)
