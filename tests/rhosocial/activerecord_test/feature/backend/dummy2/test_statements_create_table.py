@@ -506,13 +506,27 @@ class TestCreateTableStatements:
             )
 
     def test_partition_clause_requires_strategy_enum(self, dummy_dialect: DummyDialect):
-        """Tests PartitionClause requires a PartitionStrategy enum value."""
-        with pytest.raises(TypeError, match="method must be a PartitionStrategy"):
+        """Tests PartitionClause rejects non-enum method values.
+
+        PartitionClause accepts both the PartitionStrategy enum and its string
+        value (so deserialization round-trips), but arbitrary strings are
+        rejected.
+        """
+        with pytest.raises(TypeError, match="method must be a"):
             PartitionClause(
                 dialect=dummy_dialect,
-                method="RANGE",
+                method="NOT_A_STRATEGY",
                 keys=[Column(dummy_dialect, "created_date")],
             )
+
+    def test_partition_clause_accepts_enum_string_value(self, dummy_dialect: DummyDialect):
+        """Tests PartitionClause accepts the string form of a strategy value."""
+        expr = PartitionClause(
+            dialect=dummy_dialect,
+            method="RANGE",
+            keys=[Column(dummy_dialect, "created_date")],
+        )
+        assert expr.method == "RANGE"
 
     def test_partition_clause_rejects_malicious_method_without_logging_value(self, dummy_dialect: DummyDialect):
         """Tests malicious method values are rejected without echoing the value."""

@@ -12,6 +12,9 @@ Reserved special keys in serialized param dicts:
     "__cast__"   →  TypeConversionMixin cast chain (list of target types),
                     captured at serialize time and re-applied at deserialize
                     time via cast() so fluent-API cast state round-trips.
+    "__vdc__"    →  Dataclass value (FQN + field values), structurally encoded
+                    so BaseExpression / Enum / nested-dataclass fields round-trip.
+    "__value__"  →  Non-JSON-native scalar encoded via a registered codec.
 
 IMPORTANT: User-defined expression params MUST NOT use these reserved keys
 in their get_params() return values. Using these keys will cause data
@@ -21,6 +24,7 @@ corruption or deserialization errors.
 import inspect
 import json
 import warnings
+from dataclasses import is_dataclass
 from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING
 
 from .bases import BaseExpression
@@ -148,6 +152,20 @@ class ExpressionSerializer:
         """Recursively serialize a value, handling BaseExpression instances and containers."""
         if isinstance(value, BaseExpression):
             return {"__expr__": self.serialize(value, _depth=depth)}
+        if is_dataclass(value) and not isinstance(value, type):
+            # Structurally encode a dataclass so its BaseExpression / Enum /
+            # nested-dataclass fields also round-trip.
+            import dataclasses
+
+            return {
+                "__vdc__": [
+                    f"{type(value).__module__}.{type(value).__qualname__}",
+                    {
+                        f.name: self._serialize_value(getattr(value, f.name), depth + 1)
+                        for f in dataclasses.fields(value)
+                    },
+                ]
+            }
         if isinstance(value, tuple):
             return {"__tuple__": [self._serialize_value(item, depth + 1) for item in value]}
         if isinstance(value, list):
@@ -246,6 +264,8 @@ class ExpressionSerializer:
                 return _codec_decode_value(value)
             if "__tuple__" in value:
                 return tuple(self._deserialize_value(item, dialect, depth + 1) for item in value["__tuple__"])
+            if "__vdc__" in value:
+                return self._deserialize_dataclass(value["__vdc__"], dialect, depth)
             if "__expr__" in value:
                 inner_spec = {
                     "type": value["__expr__"].get("type"),
@@ -258,6 +278,20 @@ class ExpressionSerializer:
         if isinstance(value, tuple):
             return tuple(self._deserialize_value(item, dialect, depth + 1) for item in value)
         return value
+
+    def _deserialize_dataclass(self, payload: Any, dialect: "SQLDialectBase", depth: int) -> Any:
+        """Reconstruct a dataclass encoded via the ``__vdc__`` reserved key."""
+        import dataclasses
+        import importlib
+
+        fqn, fields = payload
+        mod, _, qual = fqn.rpartition(".")
+        cls = getattr(importlib.import_module(mod), qual)
+        kwargs = {
+            name: self._deserialize_value(val, dialect, depth + 1)
+            for name, val in fields.items()
+        }
+        return cls(**kwargs)
 
 
     def serialize_json(self, expr: BaseExpression) -> str:

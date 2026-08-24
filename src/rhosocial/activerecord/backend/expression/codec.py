@@ -76,7 +76,8 @@ for _tag, (_t, _e, _dd) in _DEFAULT_CODECS.items():
 def encode_value(value: Any) -> Optional[Dict[str, Any]]:
     """Encode a non-JSON-native value into ``{"__value__": [tag, payload]}``.
 
-    Returns ``None`` when the value is JSON-native (or unknown).
+    Returns ``None`` when the value is JSON-native (or unknown). Dataclass
+    instances are handled by the serializer layer via a reserved key, not here.
     """
     # Most-specific types first; Enum is a base class so check it last.
     for tag, (py_type, encode, _decode) in _CODECS.items():

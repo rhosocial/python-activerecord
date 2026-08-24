@@ -45,6 +45,7 @@ PARAMS_EL = "params"
 EXPR_NODE = "expr"
 VALUE_NODE = "value"
 CAST_NODE = "cast"
+VDC_NODE = "vdc"
 NULL = "null"
 ITEM = "item"
 
@@ -88,6 +89,11 @@ def _fill_value(parent: ET.Element, value: Any) -> None:
             node = ET.SubElement(parent, VALUE_NODE)
             node.set("tag", payload[0])
             _fill_payload(node, payload[1])
+        elif "__vdc__" in value:
+            payload = value["__vdc__"]
+            node = ET.SubElement(parent, VDC_NODE)
+            node.set("class", payload[0])
+            _fill_dict(ET.SubElement(node, PARAMS_EL), payload[1])
         elif "__cast__" in value:
             node = ET.SubElement(parent, CAST_NODE)
             for item in value["__cast__"]:
@@ -173,9 +179,19 @@ def _decode_value(el: ET.Element) -> Any:
         return {"__expr__": _decode_expr_spec(el)}
     if tag == VALUE_NODE:
         return {"__value__": [el.get("tag") or "", _decode_payload(el)]}
+    if tag == VDC_NODE:
+        params_el = _find_params(el)
+        return {"__vdc__": [el.get("class") or "", _decode_dict(params_el)]}
     if tag == CAST_NODE:
         return {"__cast__": [_text(c) for c in el]}
     return None
+
+
+def _find_params(el: ET.Element) -> ET.Element:
+    for c in el:
+        if c.tag == PARAMS_EL:
+            return c
+    return el
 
 
 def _decode_payload(el: ET.Element) -> Any:
