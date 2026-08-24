@@ -38,8 +38,3 @@ class SQLiteColumnInfoExpression(ColumnInfoExpression):
     ):
         super().__init__(dialect, table_name, schema, include_hidden)
         self.use_xinfo_pragma = use_xinfo_pragma
-
-    def get_params(self) -> dict:
-        params = super().get_params()
-        params["use_xinfo_pragma"] = self.use_xinfo_pragma
-        return params

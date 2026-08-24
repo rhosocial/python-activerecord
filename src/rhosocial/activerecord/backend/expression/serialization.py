@@ -293,50 +293,63 @@ def _reconstruct(
     dialect: "SQLDialectBase",
     params: Dict[str, Any],
 ) -> BaseExpression:
-    """Reconstruct an expression instance, handling VAR_POSITIONAL parameters."""
+    """Reconstruct an expression instance, handling VAR_POSITIONAL/VAR_KEYWORD parameters."""
     params = dict(params)
     sig = inspect.signature(cls.__init__)
 
     varargs_param = None
+    varkwargs_param = None
     for name, param in sig.parameters.items():
         if param.kind == inspect.Parameter.VAR_POSITIONAL:
             varargs_param = name
-            break
+        elif param.kind == inspect.Parameter.VAR_KEYWORD:
+            varkwargs_param = name
 
     if varargs_param and varargs_param in params:
         varargs = params.pop(varargs_param)
         pos_args = []
         keyword_params = {}
+        named = {"self", "dialect", varargs_param}
         for pname, param in sig.parameters.items():
-            if pname in ("self", "dialect"):
-                continue
-            if pname == varargs_param:
+            if pname in named:
                 continue
             if pname in params:
                 if param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
-                    pos_args.append(params[pname])
+                    pos_args.append(params.pop(pname))
                 else:
-                    keyword_params[pname] = params[pname]
+                    keyword_params[pname] = params.pop(pname)
+        if varkwargs_param:
+            # leftover keys that are not named parameters belong to **kwargs
+            keyword_params[varkwargs_param] = params
         return cls(dialect, *pos_args, *varargs, **keyword_params)
 
-    valid_params = {}
-    for pname, _ in sig.parameters.items():
-        if pname in ("self", "dialect"):
-            continue
-        if pname in params:
-            valid_params[pname] = params[pname]
+    # Partition params: named ones vs. extras for **kwargs.
+    named_keys = {
+        pname
+        for pname, param in sig.parameters.items()
+        if pname not in ("self", "dialect")
+        and param.kind != inspect.Parameter.VAR_KEYWORD
+    }
+    named_params = {p: v for p, v in params.items() if p in named_keys}
+    extra_params = {
+        p: v
+        for p, v in params.items()
+        if p not in named_keys and p not in ("self", "dialect") and p != varkwargs_param
+    }
+
+    valid_params = {p: v for p, v in named_params.items()}
 
     # Most expression classes declare dialect as the first parameter, but the
     # DataType value-object family declares it as an optional trailing keyword
     # (e.g. VarCharType(length=None, dialect=None)). Detect the convention so
     # dialect is always injected correctly.
     first_param = next(
-        (p.name for p in sig.parameters.values() if p.name != "self"),
+        (p for p in sig.parameters if p != "self"),
         None,
     )
     if first_param == "dialect":
-        return cls(dialect, **valid_params)
-    return cls(**{**valid_params, "dialect": dialect})
+        return cls(dialect, **valid_params, **extra_params)
+    return cls(**{**valid_params, "dialect": dialect}, **extra_params)
 
 
 class ExpressionFactory:

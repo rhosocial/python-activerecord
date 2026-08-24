@@ -64,15 +64,3 @@ class AggregateFunctionCall(
         including any attached FILTER clause.
         """
         return self.dialect.format_function_call(self, self._filter_predicate)
-
-    def get_params(self) -> dict:
-        """
-        Returns a dict of parameters for serialization, including filter predicate.
-
-        Note: The filter parameter is set via fluent API (filter()) rather than
-        __init__, so it must be explicitly included here for serialization.
-        """
-        params = super().get_params()
-        if self._filter_predicate is not None:
-            params["filter_predicate"] = self._filter_predicate
-        return params

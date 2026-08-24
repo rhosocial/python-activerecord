@@ -123,6 +123,7 @@ class TestGetParamsFallback:
             def __init__(self, dialect, *values, **kwargs):
                 super().__init__(dialect)
                 self._values = list(values)
+                self.kwargs = dict(kwargs)
                 self.extra = kwargs.get("extra")
 
             def to_sql(self):
@@ -132,6 +133,7 @@ class TestGetParamsFallback:
         params = expr.get_params()
         assert "values" in params
         assert params["values"] == [1, 2, 3]
+        assert params["extra"] == "x"
 
     def test_get_params_missing_attribute_warns(self, dialect):
         # A subclass whose declared __init__ parameter has no matching

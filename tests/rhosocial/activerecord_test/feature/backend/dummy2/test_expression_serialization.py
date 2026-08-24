@@ -681,7 +681,7 @@ class TestIntrospectionExpressionRoundtrip:
 
         expr = TableListExpression(dummy_dialect)
         spec = serialize(expr)
-        assert "schema" not in spec["params"]
+        assert spec["params"]["schema"] is None
         assert spec["params"]["include_views"] is True
         assert spec["params"]["include_system"] is False
 
@@ -705,7 +705,7 @@ class TestIntrospectionExpressionRoundtrip:
 
         expr = ColumnInfoExpression(dummy_dialect, "users")
         spec = serialize(expr)
-        assert "schema" not in spec["params"]
+        assert spec["params"]["schema"] is None
 
     def test_column_info_expression_with_schema_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression

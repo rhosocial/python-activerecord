@@ -253,3 +253,44 @@ class TestInitParamAttributeContract:
             "KNOWN_NON_AUTO_CONSTRUCTIBLE with a reason, or fix): "
             + ", ".join(unexpected_skips)
         )
+
+    def test_no_get_params_override(self):
+        """The generic get_params() is the single serialization path.
+
+        Every registered expression class must NOT override get_params().
+        The only exception is a VAR_POSITIONAL class that performs genuine
+        raw-vs-normalized round-trip rewriting (e.g. JSONArrayExpression
+        style) - none exist in the core registry, so the rule is absolute
+        here. Adding an override reintroduces the special-casing that
+        caused serialization gaps; instead fold state into __init__.
+        """
+        ExpressionRegistry._auto_register_builtins()
+        import inspect as _inspect
+        from rhosocial.activerecord.backend.expression.bases import BaseExpression
+        offenders = []
+        for fqn, cls in ExpressionRegistry._registry.items():
+            if inspect.isabstract(cls):
+                continue
+            src = _inspect.getsource(cls.get_params)
+            sig = _inspect.signature(cls.__init__)
+            is_vararg = any(
+                p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+                for p in sig.parameters.values()
+            )
+            if cls.get_params is not BaseExpression.get_params:
+                offenders.append((fqn, is_vararg))
+        assert not offenders, (
+            "Expression classes must not override get_params() (generic path "
+            "covers __init__-params and same-name kwargs). Fold state into "
+            "__init__ instead. Offenders: "
+        ) + ", ".join(f"{f} (vararg={v})" for f, v in offenders)
+
+    def test_var_keyword_resolves_same_name_attr(self, dummy_dialect):
+        """VAR_KEYWORD extras must serialize as merged top-level params."""
+        from rhosocial.activerecord.backend.expression.collation import CollateExpression
+        expr = CollateExpression(dummy_dialect, Literal(dummy_dialect, "a"), "NOCASE",
+                                 binary=True, pad="PAD")
+        params = expr.get_params()
+        assert params.get("binary") is True
+        assert params.get("pad") == "PAD"
+        assert "collation_options" not in params
