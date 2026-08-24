@@ -146,7 +146,10 @@ def serialize_xml(spec: Dict[str, Any]) -> bytes:
 # ---------- decode ----------
 
 def _text(el: ET.Element) -> str:
-    return (el.text or "").strip()
+    # ElementTree preserves text exactly as written by _scalar_to_text; do NOT
+    # strip, otherwise string values with leading/trailing whitespace (e.g.
+    # SUBSTR(' .+*#', ...)) are corrupted by the round-trip.
+    return el.text or ""
 
 
 def _scalar_from(text: str, type_attr: Optional[str]) -> Any:

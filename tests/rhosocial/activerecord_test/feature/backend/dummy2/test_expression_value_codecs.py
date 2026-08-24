@@ -102,6 +102,12 @@ class TestXmlCodecRoundtrip:
             assert restored.value == value
             assert type(restored.value) is type(value)
 
+    def test_xml_string_whitespace_preserved(self, dummy_dialect):
+        """XML round-trip must not strip leading/trailing whitespace in strings."""
+        for value in [" .+*#", "hello world  ", "  x", "a b", "", "   "]:
+            restored = deserialize_xml(serialize_xml(Literal(dummy_dialect, value)), dummy_dialect)
+            assert restored.value == value, f"{value!r} -> {restored.value!r}"
+
     def test_xml_tuple_preserved(self, dummy_dialect):
         lit = Literal(dummy_dialect, (1, "a", 2.0))
         restored = deserialize_xml(serialize_xml(lit), dummy_dialect)
