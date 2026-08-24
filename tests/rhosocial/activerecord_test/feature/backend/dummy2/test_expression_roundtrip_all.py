@@ -28,7 +28,7 @@ from rhosocial.activerecord.backend.expression.serialization import (
     serialize_xml,
 )
 
-from rhosocial.activerecord_test.feature.backend.expression_test_utils import make_instance
+from rhosocial.activerecord.testsuite.utils.expression import make_instance
 
 
 def assert_params_equal(a, b, path="params"):
@@ -114,7 +114,10 @@ class TestExpressionRoundtripAll:
 def test_coverage_report():
     """Surface classes that could not be constructed, so coverage is transparent."""
     from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+    from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
+
     dialect = DummyDialect()
+    ExpressionRegistry._auto_register_builtins()
     constructed = 0
     skipped = []
     for fqn, cls in REGISTERED.items():

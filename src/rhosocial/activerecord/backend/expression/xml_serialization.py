@@ -164,7 +164,7 @@ def _decode_value(el: ET.Element) -> Any:
     tag = el.tag
     if tag == NULL:
         return None
-    if tag not in (LIST, TUPLE_NODE, MAP, EXPR_NODE, VALUE_NODE, CAST_NODE, "s"):
+    if tag not in (LIST, TUPLE_NODE, MAP, EXPR_NODE, VALUE_NODE, CAST_NODE, VDC_NODE, "s"):
         # unknown tag fallback
         return None
     if tag == "s":

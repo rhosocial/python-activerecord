@@ -21,7 +21,7 @@ import pytest
 from rhosocial.activerecord.backend.expression.core import Column, Literal
 from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
 
-from rhosocial.activerecord_test.feature.backend.expression_test_utils import (
+from rhosocial.activerecord.testsuite.utils.expression import (
     _placeholder_for,
     _try_construct,
     special_constructors,
