@@ -22,6 +22,7 @@ from rhosocial.activerecord.backend.expression import (
     TableExpression,
     QueryExpression,
     Subquery,
+    WildcardExpression,
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
     CTEExpression,
@@ -29,10 +30,19 @@ from rhosocial.activerecord.backend.expression.query_sources import (
     SetOperationExpression,
     ValuesExpression,
 )
-from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
-from rhosocial.activerecord.backend.expression.advanced_functions import ExistsExpression
+from rhosocial.activerecord.backend.expression.query_parts import (
+    GroupByHavingClause,
+    LimitOffsetClause,
+    OrderByClause,
+    JoinExpression,
+)
+from rhosocial.activerecord.backend.expression.advanced_functions import (
+    ExistsExpression,
+    CaseExpression,
+)
 from rhosocial.activerecord.backend.expression.functions.string import concat_op
 from rhosocial.activerecord.backend.expression.functions.type_conversion import cast
+from rhosocial.activerecord.backend.expression.predicates import LikePredicate
 from rhosocial.activerecord.backend.expression.serialization import (
     serialize,
     deserialize,
@@ -218,12 +228,188 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     return WithQueryExpression(d, ctes=[input_cte, digits_cte, x_cte], main_query=main, recursive=True)
 
 
+def build_bom(d):
+    """Build a multi-level Bill of Materials explosion query (tree recursion).
+
+    WITH RECURSIVE BOM_Explosion AS (
+      SELECT child_id, quantity, quantity AS total_qty
+      FROM parts_tree WHERE parent_id = 1
+      UNION ALL
+      SELECT c.child_id, c.quantity, b.total_qty * c.quantity
+      FROM parts_tree c JOIN BOM_Explosion b ON c.parent_id = b.child_id
+    )
+    SELECT child_id, SUM(total_qty) AS required_count
+    FROM BOM_Explosion GROUP BY child_id;
+    """
+    anchor = QueryExpression(
+        d,
+        select=[Column(d, "child_id"), Column(d, "quantity"), Column(d, "quantity").as_("total_qty")],
+        from_=TableExpression(d, "parts_tree"),
+        where=Column(d, "parent_id") == Literal(d, 1),
+    )
+    step = QueryExpression(
+        d,
+        select=[
+            Column(d, "child_id", "c"),
+            Column(d, "quantity", "c"),
+            Column(d, "total_qty", "b") * Column(d, "quantity", "c"),
+        ],
+        from_=[
+            TableExpression(d, "parts_tree", alias="c"),
+            TableExpression(d, "BOM_Explosion", alias="b"),
+        ],
+        where=Column(d, "parent_id", "c") == Column(d, "child_id", "b"),
+    )
+    union = SetOperationExpression(d, left=anchor, right=step, operation="UNION", all_=True)
+    cte = CTEExpression(
+        d, name="BOM_Explosion", query=union, columns=["child_id", "quantity", "total_qty"]
+    )
+    main = QueryExpression(
+        d,
+        select=[Column(d, "child_id"), FunctionCall(d, "SUM", Column(d, "total_qty")).as_("required_count")],
+        from_=TableExpression(d, "BOM_Explosion"),
+        group_by_having=GroupByHavingClause(d, group_by=[Column(d, "child_id")]),
+    )
+    return WithQueryExpression(d, ctes=[cte], main_query=main)
+
+
+def build_flight_paths(d):
+    """Build a cheapest-flight / BFS path search with cycle detection (graph).
+
+    WITH RECURSIVE FlightPaths AS (
+      SELECT destination, price, 1 AS depth, 'TPE -> ' || destination AS path
+      FROM flights WHERE departure = 'TPE'
+      UNION ALL
+      SELECT f.destination, p.price + f.price, p.depth + 1, p.path || ' -> ' || f.destination
+      FROM flights f JOIN FlightPaths p ON f.departure = p.destination
+      WHERE p.path NOT LIKE '%' || f.destination || '%' AND p.depth < 5
+    )
+    SELECT * FROM FlightPaths WHERE destination = 'JFK' ORDER BY price ASC LIMIT 1;
+    """
+    anchor = QueryExpression(
+        d,
+        select=[
+            Column(d, "destination"),
+            Column(d, "price"),
+            Literal(d, 1),
+            concat_op(d, Literal(d, "TPE -> "), Column(d, "destination")),
+        ],
+        from_=TableExpression(d, "flights"),
+        where=Column(d, "departure") == Literal(d, "TPE"),
+    )
+    step = QueryExpression(
+        d,
+        select=[
+            Column(d, "destination", "f"),
+            Column(d, "price", "p") + Column(d, "price", "f"),
+            Column(d, "depth", "p") + Literal(d, 1),
+            concat_op(d, Column(d, "path", "p"), Literal(d, " -> "), Column(d, "destination", "f")),
+        ],
+        from_=[
+            TableExpression(d, "flights", alias="f"),
+            TableExpression(d, "FlightPaths", alias="p"),
+        ],
+        where=(
+            LikePredicate(
+                d,
+                "NOT LIKE",
+                Column(d, "path", "p"),
+                concat_op(d, Literal(d, "%"), Column(d, "destination", "f"), Literal(d, "%")),
+            )
+        )
+        & (Column(d, "depth", "p") < Literal(d, 5)),
+    )
+    union = SetOperationExpression(d, left=anchor, right=step, operation="UNION", all_=True)
+    cte = CTEExpression(
+        d, name="FlightPaths", query=union, columns=["destination", "price", "depth", "path"]
+    )
+    main = QueryExpression(
+        d,
+        select=[WildcardExpression(d)],
+        from_=TableExpression(d, "FlightPaths"),
+        where=Column(d, "destination") == Literal(d, "JFK"),
+        order_by=OrderByClause(d, [Column(d, "price")]),
+        limit_offset=LimitOffsetClause(d, limit=Literal(d, 1)),
+    )
+    return WithQueryExpression(d, ctes=[cte], main_query=main)
+
+
+def build_game_of_life(d):
+    """Build a single-generation Conway's Game of Life step (cellular automaton).
+
+    Expands each live cell's 8 neighbours via UNION ALL, counts them with
+    GROUP BY, then applies the birth / survival rules with CASE WHEN against
+    a LEFT JOIN of the live table.
+    """
+    live = TableExpression(d, "live", alias="l")
+    x = Column(d, "x")
+    y = Column(d, "y")
+    gen = Column(d, "gen")
+
+    def neighbor(dx, dy):
+        return QueryExpression(
+            d,
+            select=[
+                (x + Literal(d, dx)).as_("x"),
+                (y + Literal(d, dy)).as_("y"),
+                gen,
+            ],
+            from_=live,
+        )
+
+    offsets = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+    expansion = neighbor(*offsets[0])
+    for dx, dy in offsets[1:]:
+        expansion = SetOperationExpression(
+            d, left=expansion, right=neighbor(dx, dy), operation="UNION", all_=True
+        )
+
+    nb = Subquery(d, expansion, alias="nb")
+    neighbors = QueryExpression(
+        d,
+        select=[Column(d, "x"), Column(d, "y"), Column(d, "gen"), FunctionCall(d, "COUNT", Literal(d, "*")).as_("cnt")],
+        from_=nb,
+        group_by_having=GroupByHavingClause(
+            d, group_by=[Column(d, "x"), Column(d, "y"), Column(d, "gen")]
+        ),
+    )
+    nsub = Subquery(d, neighbors, alias="n")
+    l_x_null = Column(d, "x", "l").is_null()
+    alive = CaseExpression(
+        d,
+        cases=[
+            (l_x_null & (Column(d, "cnt", "n") == Literal(d, 3)), Literal(d, 1)),
+            ((~l_x_null) & Column(d, "cnt", "n").in_([2, 3]), Literal(d, 1)),
+        ],
+        else_result=Literal(d, 0),
+    )
+    on = (
+        (Column(d, "x", "l") == Column(d, "x", "n"))
+        & (Column(d, "y", "l") == Column(d, "y", "n"))
+        & (Column(d, "gen", "l") == Column(d, "gen", "n"))
+    )
+    join = JoinExpression(d, left_table=nsub, right_table=live, join_type="LEFT JOIN", condition=on)
+    return QueryExpression(
+        d,
+        select=[
+            Column(d, "x", "n"),
+            Column(d, "y", "n"),
+            Column(d, "gen", "n") + Literal(d, 1),
+            alive,
+        ],
+        from_=join,
+    )
+
+
 class TestComplexWithExpressionRoundtrip:
     """Complex WITH RECURSIVE expression trees round-trip losslessly."""
 
     @pytest.mark.parametrize("name,builder", [
         ("mandelbrot", build_mandelbrot),
         ("sudoku", build_sudoku),
+        ("bom", build_bom),
+        ("flight_paths", build_flight_paths),
+        ("game_of_life", build_game_of_life),
     ])
     def test_roundtrip_all_encodings(self, sqlite_dialect, name, builder):
         d = sqlite_dialect
@@ -264,5 +450,67 @@ class TestComplexWithExpressionRoundtrip:
             expected = "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
             assert len(rows) == 1
             assert rows[0][0] == expected
+        finally:
+            conn.close()
+
+    def test_bom_explosion_computes_quantities(self, sqlite_dialect):
+        """BOM recursion multiplies quantities down the tree and sums per part."""
+        q = build_bom(sqlite_dialect)
+        sql, params = q.to_sql()
+        conn = sqlite3.connect(":memory:")
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE parts_tree(parent_id INT, child_id INT, quantity INT);
+                INSERT INTO parts_tree VALUES
+                 (1, 2, 2), (1, 3, 1), (2, 4, 3), (2, 5, 2), (3, 6, 4),
+                 (4, 7, 1), (6, 8, 2), (6, 9, 1);
+                """
+            )
+            cur = conn.execute(sql, params)
+            result = dict(cur.fetchall())
+            assert result == {
+                2: 2, 3: 1, 4: 6, 5: 4, 6: 4, 7: 6, 8: 8, 9: 4,
+            }
+        finally:
+            conn.close()
+
+    def test_flight_paths_finds_cheapest_route(self, sqlite_dialect):
+        """BFS with cycle detection finds the cheapest TPE -> JFK flight."""
+        q = build_flight_paths(sqlite_dialect)
+        sql, params = q.to_sql()
+        conn = sqlite3.connect(":memory:")
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE flights(departure TEXT, destination TEXT, price INT);
+                INSERT INTO flights VALUES
+                 ('TPE','HKG',120),('TPE','NRT',200),('TPE','LAX',800),
+                 ('HKG','JFK',600),('NRT','JFK',500),('NRT','LAX',400),('LAX','JFK',300);
+                """
+            )
+            cur = conn.execute(sql, params)
+            rows = cur.fetchall()
+            assert len(rows) == 1
+            assert rows[0][1] == 420  # TPE -> HKG (120) -> JFK (300)
+            assert rows[0][3] == "TPE -> HKG -> JFK"
+        finally:
+            conn.close()
+
+    def test_game_of_life_evolves_glider(self, sqlite_dialect):
+        """Conway rules (CASE WHEN + neighbour counting) evolve a glider correctly."""
+        q = build_game_of_life(sqlite_dialect)
+        sql, params = q.to_sql()
+        conn = sqlite3.connect(":memory:")
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE live(x INT, y INT, gen INT);
+                INSERT INTO live VALUES (1,0,0),(2,1,0),(0,2,0),(1,2,0),(2,2,0);
+                """
+            )
+            cur = conn.execute(sql, params)
+            next_gen = sorted((r[0], r[1]) for r in cur.fetchall() if r[3] == 1)
+            assert next_gen == [(0, 1), (1, 2), (1, 3), (2, 1), (2, 2)]
         finally:
             conn.close()
