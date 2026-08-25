@@ -1565,6 +1565,10 @@ class SchemaSupport(Protocol):
     - SQLite: No schema concept (database file is the entire database)
     """
 
+    def supports_schema(self) -> bool:
+        """Whether the database models named schema namespaces at all."""
+        ...  # pragma: no cover
+
     def supports_create_schema(self) -> bool:
         """Whether CREATE SCHEMA is supported."""
         ...  # pragma: no cover
