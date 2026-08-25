@@ -119,6 +119,12 @@ class FieldProxy:
                 This method is useful for creating aliased versions of the same table
                 in self-joins or complex queries.
 
+                Aliased columns are static ``alias.column`` references: an
+                aliased range can only be addressed by its alias, so schema/
+                table qualifiers and later ``__table_name__`` changes do not
+                apply to them. Pair this with ``join(..., alias=...)`` using
+                the same alias name.
+
                 Args:
                     alias: The table alias to use
 
@@ -144,12 +150,20 @@ class FieldProxy:
 
             def __getattr__(self, field_name: str):
                 """
-                Dynamically create a Column expression for the requested field.
+                Dynamically create a column expression for the requested field.
 
                 This method is called when accessing a specific field (e.g., User.c.name).
                 It looks up the field in the model's field definitions, resolves the
                 appropriate column name (handling UseColumn annotations), and creates
                 a Column expression object.
+
+                Qualifier binding:
+                    schema/table are captured from the model's CURRENT state at
+                    access time. If ``__schema_name__`` / ``__table_name__``
+                    change afterwards, rebuild the condition (or build it after
+                    the change); already-built expressions keep their original
+                    qualifiers. Hand-written ``Column`` objects behave the same
+                    way and are never rewritten by the framework.
 
                 Args:
                     field_name: The name of the field to access
@@ -161,7 +175,7 @@ class FieldProxy:
                     AttributeError: If the field doesn't exist on the model
 
                 Example:
-                    # Accessing User.c.name returns a Column object that can be used in queries
+                    # Accessing User.c.name returns a column expression usable in queries
                     where_clause = User.c.name == 'John'  # Creates a comparison predicate
                     where_clause = User.c.age > 18        # Creates a comparison predicate
                     where_clause = User.c.email.like('%@gmail.com')  # Creates a LIKE predicate
@@ -186,5 +200,4 @@ class FieldProxy:
                 backend = self._model_class.backend()
                 dialect: "SQLDialectBase" = backend.dialect
                 return Column(dialect, column_name, table=table_name, schema_name=schema_name)
-
         return _FieldAccessor(owner, self._table_alias)

@@ -107,6 +107,17 @@ class JoinQueryMixin:
     ) -> "IQuery[IActiveRecord]":
         """
         Adds a JOIN clause to the query (defaults to INNER JOIN).
+
+        Notes:
+            - Each side keeps its own schema/table qualifiers (columns from
+              ``Model.c.*`` are fully qualified), so joining models that live
+              in different schemas works directly — e.g. PostgreSQL renders
+              ``FROM "shop"."orders" JOIN "crm"."customers" ON ...``.
+            - For self-joins pass an explicit ``alias`` and address the joined
+              copy through ``Model.c.with_table_alias(alias)``; see FieldProxy.
+            - Unqualified hand-written columns follow standard SQL resolution;
+              genuinely ambiguous references raise a database error rather
+              than being silently attributed to either side.
         """
         return self._perform_join("JOIN", right, on, alias, on_params=on_params)
 
