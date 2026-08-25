@@ -33,8 +33,10 @@ class AsyncJoinQueryMixin:
         # Check if it's an async model class
         if issubclass(right, IAsyncActiveRecord):
             table_name = right.table_name()
-            # Use provided alias, or table name as alias
-            return TableExpression(dialect, table_name, schema_name=right.schema_name(), alias=alias or table_name)
+            # Only alias when explicitly requested. Forced aliases would turn
+            # every range into an aliased one, breaking schema-qualified column
+            # references emitted from plain field accessors.
+            return TableExpression(dialect, table_name, schema_name=right.schema_name(), alias=alias)
         if isinstance(right, (TableExpression, JoinExpression)):
             # If an alias is provided, apply it to the expression
             if alias:
@@ -74,11 +76,12 @@ class AsyncJoinQueryMixin:
 
         if self.join_clause is None:
             # First join. The left table is the main model's table.
+            # No implicit alias: plain (schema-qualified) column references in
+            # ON/WHERE predicates must stay resolvable against this range.
             left_table = TableExpression(
                 dialect,
                 self.model_class.table_name(),
                 schema_name=self.model_class.schema_name(),
-                alias=self.model_class.table_name(),
             )
             self.join_clause = JoinExpression(
                 dialect=dialect,

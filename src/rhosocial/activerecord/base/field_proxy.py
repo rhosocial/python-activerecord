@@ -126,13 +126,17 @@ class FieldProxy:
                     _FieldAccessor: A new accessor instance with the specified alias
 
                 Example:
-                    # For self-join queries
+                    # For self-join queries: give the joined range an explicit
+                    # alias via join(alias=...), then address it through a
+                    # matching with_table_alias accessor.
+                    subs = User.c.with_table_alias('subordinates')
                     managers = User.query().join(
-                        User.alias('subordinates'),
-                        User.c.id == User.alias('subordinates').reports_to_id
+                        User,
+                        on=User.c.reports_to_id == subs.id,
+                        alias='subordinates',
                     ).select(
                         User.c.name.as_('manager'),
-                        User.alias('subordinates').name.as_('subordinate')
+                        subs.name.as_('subordinate')
                     ).all()
                 """
                 new_accessor = _FieldAccessor(self._model_class, alias)
