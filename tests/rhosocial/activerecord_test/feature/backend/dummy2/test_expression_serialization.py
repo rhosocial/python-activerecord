@@ -913,6 +913,37 @@ class TestAllowedTypesAllowlist:
         with pytest.raises(ExpressionDeserializationError, match="not in the allowed types"):
             serializer.deserialize(spec, dummy_dialect)
 
+    def test_recursive_enforcement_rejects_nested_disallowed(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        pred = ComparisonPredicate(
+            dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1)
+        )
+        spec = serialize(pred)
+        # predicates.* allowed at top level, but nested Column/Literal from core.* are not.
+        serializer = ExpressionSerializer(
+            allowed_types=["rhosocial.activerecord.backend.expression.predicates.*"]
+        )
+        with pytest.raises(ExpressionDeserializationError, match="not in the allowed types"):
+            serializer.deserialize(spec, dummy_dialect)
+
+    def test_recursive_enforcement_allows_all_nested(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        pred = ComparisonPredicate(
+            dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1)
+        )
+        spec = serialize(pred)
+        # Both top-level predicates.* and nested core.* are allowed.
+        serializer = ExpressionSerializer(
+            allowed_types=[
+                "rhosocial.activerecord.backend.expression.predicates.*",
+                "rhosocial.activerecord.backend.expression.core.*",
+            ]
+        )
+        restored = serializer.deserialize(spec, dummy_dialect)
+        assert restored.to_sql() == pred.to_sql()
+
 
 class TestCastChainDeserializationError:
     """__cast__ on a class that does not support cast() must raise, not crash."""
