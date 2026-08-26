@@ -27,7 +27,7 @@ class JoinType(Enum):
     CROSS = "CROSS JOIN"  # CROSS JOIN
     # Additional types could be added if needed
     # MySQL-specific
-    STRAIGHT = "STRAIGHT JOIN"  # MySQL STRAIGHT_JOIN
+    STRAIGHT = "STRAIGHT_JOIN"  # MySQL STRAIGHT_JOIN
     # Other database-specific types could be added here
 
 

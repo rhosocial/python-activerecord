@@ -84,6 +84,10 @@ class JoinMixin:
         """Whether NATURAL JOIN is supported. Defaults to True."""
         return True
 
+    def supports_straight_join(self) -> bool:
+        """Whether MySQL STRAIGHT_JOIN is supported. Defaults to False."""
+        return False
+
     def format_join_expression(self, join_expr: "JoinExpression") -> Tuple[str, Tuple]:
         """
         Generic implementation for formatting a JOIN expression.

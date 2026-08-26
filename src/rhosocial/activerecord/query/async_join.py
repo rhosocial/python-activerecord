@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/query/async_join.py
 """AsyncJoinQueryMixin implementation for building async JOIN clauses using a chained expression model."""
 
-from typing import Union, Type, Optional, Iterable
+from typing import List, Union, Type, Optional, Iterable
 
 from ..interface import IAsyncQuery, IAsyncActiveRecord
 from ..backend.expression import SQLPredicate, TableExpression, RawSQLPredicate, JoinExpression
@@ -68,6 +68,7 @@ class AsyncJoinQueryMixin:
         alias: Optional[str],
         natural: bool = False,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IAsyncQuery":
         """Internal helper to construct and chain join expressions."""
         dialect = self.backend().dialect
@@ -89,12 +90,14 @@ class AsyncJoinQueryMixin:
                 right_table=right_table,
                 join_type=join_type,
                 condition=condition,
+                using=using,
                 natural=natural,
             )
         else:
             # Subsequent join. Chain onto the existing JoinExpression.
             self.join_clause = self.join_clause.join(
-                right_table=right_table, join_type=join_type, condition=condition, natural=natural
+                right_table=right_table, join_type=join_type, condition=condition,
+                using=using, natural=natural,
             )
         return self
 
@@ -104,11 +107,12 @@ class AsyncJoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IAsyncQuery":
         """
         Adds a JOIN clause to the query (defaults to INNER JOIN).
         """
-        return self._perform_join("JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("JOIN", right, on, alias, on_params=on_params, using=using)
 
     def inner_join(
         self,
@@ -116,11 +120,12 @@ class AsyncJoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IAsyncQuery":
         """
         Adds an INNER JOIN clause to the query.
         """
-        return self._perform_join("INNER JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("INNER JOIN", right, on, alias, on_params=on_params, using=using)
 
     def left_join(
         self,
@@ -128,11 +133,12 @@ class AsyncJoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IAsyncQuery":
         """
         Adds a LEFT JOIN clause to the query.
         """
-        return self._perform_join("LEFT JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("LEFT JOIN", right, on, alias, on_params=on_params, using=using)
 
     def right_join(
         self,
@@ -140,11 +146,12 @@ class AsyncJoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IAsyncQuery":
         """
         Adds a RIGHT JOIN clause to the query.
         """
-        return self._perform_join("RIGHT JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("RIGHT JOIN", right, on, alias, on_params=on_params, using=using)
 
     def full_join(
         self,
@@ -152,11 +159,28 @@ class AsyncJoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IAsyncQuery":
         """
         Adds a FULL OUTER JOIN clause to the query.
         """
-        return self._perform_join("FULL JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("FULL JOIN", right, on, alias, on_params=on_params, using=using)
+
+    def straight_join(
+        self,
+        right: Union[str, Type["IAsyncActiveRecord"], TableExpression],
+        on: Optional[Union[str, SQLPredicate]] = None,
+        alias: Optional[str] = None,
+        on_params: Optional[Iterable] = None,
+    ) -> "IAsyncQuery[IAsyncActiveRecord]":
+        """
+        Adds a MySQL STRAIGHT_JOIN clause (forces the optimizer's join order).
+
+        Only supported by backends whose dialect declares
+        ``supports_straight_join()``; gate tests with
+        ``requires_protocol("JoinSupport", "supports_straight_join")``.
+        """
+        return self._perform_join("STRAIGHT_JOIN", right, on, alias, on_params=on_params)
 
     def cross_join(
         self, right: Union[str, Type["IAsyncActiveRecord"], TableExpression], alias: Optional[str] = None
