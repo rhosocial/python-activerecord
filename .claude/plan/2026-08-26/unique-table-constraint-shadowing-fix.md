@@ -114,3 +114,27 @@ rhosocial-user 的 federation 模块随即恢复 DDL 级 UNIQUE 声明：
 3. 结论：上述现象在修复前后行为一致（worker 用例在含/不含修复的两种
    树状态下均复现），与本重命名无因果关联。建议后续单独排查沙箱的
    子进程/信号语义。
+
+### 3.6 逐后端审计矩阵（2026-08-26 补充）
+
+对全部九个后端实现仓库做两层核验：
+
+**静态层**：grep 九个 `src/rhosocial/activerecord/backend/impl/*/`
+——除 SQLite 外，没有任何后端定义表分发器所调用的四个名字
+（format_pk_constraint / format_unique_constraint /
+format_table_check_constraint / format_foreign_key_constraint），
+也没有后端整体覆盖 format_table_constraint_sql。故其余后端一律继承
+基础方言的正确实现。
+
+**动态层**：以命名空间合并 PYTHONPATH + DBAPI 桩加载各方言类并实际
+编译 TableConstraintType.UNIQUE：
+
+| 后端 | 结果 | 说明 |
+|---|---|---|
+| sqlite | ✅ | 本修复直接验证 |
+| firebird / bigquery / snowflake / mariadb / sqlserver / oracle | ✅ | 编译通过 |
+| clickhouse | ⚠️ 设计如此 | 方言显式抛 UnsupportedFeatureError：不支持 UNIQUE 表约束（能力矩阵声明，非缺陷） |
+| mysql / postgres | ◐ 未能在本机动态验证 | 方言模块顶层深入导入驱动子模块，桩机制无法完全模拟；由静态层结论 + 两后端自有 CI 中复合主键约束（同一分发器路径）长期绿灯背书 |
+
+结论：该遮蔽缺陷为 SQLite 独有；其余全部后端继承共享基类实现，
+行为一致正确。
