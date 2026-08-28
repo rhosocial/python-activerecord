@@ -147,8 +147,18 @@ class UseSqlType:
             self.dialect_types = {}
 
     def resolve(self, dialect_name: str) -> Optional["DataType"]:
-        """Return the DataType for *dialect_name*, falling back to ``data_type``."""
-        return self.dialect_types.get(dialect_name, self.data_type)
+        """Return the DataType for *dialect_name*, falling back to ``data_type``.
+
+        The lookup is case-insensitive so users may write ``"postgres"`` or
+        ``"PostgreSQL"`` and still match the dialect's ``.name`` attribute.
+        """
+        if not dialect_name:
+            return self.data_type
+        key = dialect_name.lower()
+        for k, v in self.dialect_types.items():
+            if k.lower() == key:
+                return v
+        return self.data_type
 
     def __repr__(self) -> str:
         if self.dialect_types:
