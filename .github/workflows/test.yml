@@ -55,7 +55,7 @@ jobs:
         pip install -r requirements-dev.txt
         pip install codecov build
 
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
 
     - name: Run tests with coverage
       env:
@@ -112,7 +112,7 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
 
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
 
     - name: Run benchmark suite
       env:
@@ -279,7 +279,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
 
     - name: Run tests
       env:
@@ -340,7 +340,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
 
     - name: Run tests
       env:
@@ -398,7 +398,7 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
-        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@feature/parallel-testing"
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev17"
 
     - name: Run tests
       env:
