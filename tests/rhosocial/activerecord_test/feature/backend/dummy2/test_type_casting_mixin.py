@@ -63,8 +63,8 @@ class TestTypeCastingMixin:
     def test_cast_with_alias(self, dummy_dialect: DummyDialect):
         """Test type cast with alias."""
         col = Column(dummy_dialect, "value")
-        col.cast("INTEGER").as_("int_value")
-        sql, params = col.to_sql()
+        expr = col.cast("INTEGER").as_("int_value")
+        sql, params = expr.to_sql()
         assert sql == 'CAST("value" AS INTEGER) AS "int_value"'
         assert params == ()
 
@@ -109,9 +109,9 @@ class TestTypeCastingMixin:
         col = Column(dummy_dialect, "value")
         col.cast("TEXT")
         # Verify as_ method exists and works
-        col.as_("text_value")
-        assert col.alias == "text_value"
-        sql, params = col.to_sql()
+        aliased = col.as_("text_value")
+        assert aliased.alias == "text_value"
+        sql, params = aliased.to_sql()
         assert 'AS "text_value"' in sql
 
     def test_cast_expression_inheritance_chain(self, dummy_dialect: DummyDialect):
@@ -154,8 +154,8 @@ class TestTypeCastingMixin:
     def test_chained_cast_after_alias(self, dummy_dialect: DummyDialect):
         """Test chained cast after applying alias."""
         col = Column(dummy_dialect, "amount")
-        col.cast("MONEY").as_("m").cast("NUMERIC")
-        sql, params = col.to_sql()
+        expr = col.cast("MONEY").as_("m").cast("NUMERIC")
+        sql, params = expr.to_sql()
         # The cast should wrap the previous expression
         assert "CAST(" in sql
         assert "AS NUMERIC)" in sql

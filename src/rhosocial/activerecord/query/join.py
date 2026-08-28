@@ -30,8 +30,8 @@ class JoinQueryMixin:
         dialect = self.backend().dialect
         if isinstance(right, str):
             return TableExpression(dialect, right, alias=alias)
-        # Check if it's a model class
-        if issubclass(right, IActiveRecord):
+        # Check if it's a model class (an actual class object, not an instance)
+        if isinstance(right, type) and issubclass(right, IActiveRecord):
             table_name = right.table_name()
             # Only alias when explicitly requested. Forced aliases would turn
             # every range into an aliased one, breaking schema-qualified column
@@ -40,7 +40,7 @@ class JoinQueryMixin:
         if isinstance(right, (TableExpression, JoinExpression)):
             # If an alias is provided, apply it to the expression
             if alias:
-                right.as_(alias)
+                return right.as_(alias)
             return right
         raise TypeError(f"Unsupported type for 'right' join argument: {type(right)}")
 

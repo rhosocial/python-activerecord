@@ -26,6 +26,7 @@ The dialect parameter is always inherited from the left-hand side operand,
 ensuring consistent SQL generation across the expression tree.
 """
 
+import copy
 from typing import Any, Union, List, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -52,18 +53,29 @@ class AliasableMixin:
         This method enables the AS clause in SQL generation, allowing expressions
         to be referenced by a different name in the query context.
 
+        NOTE: This returns a NEW (shallow-copied) expression with the alias set;
+        the original instance is left unchanged. This allows a single expression
+        to be safely reused in multiple contexts (e.g. SELECT, ORDER BY, nested
+        arithmetic) without leaking the alias into every occurrence.
+
         Args:
             alias: The alias name to assign to this expression
 
         Returns:
-            Self with the alias applied, enabling method chaining
+            A new expression with the alias applied, enabling method chaining
 
         Example:
             >>> col = Column(dialect, "first_name").as_("fname")
             >>> # When used in a query, this will generate: "first_name AS fname"
         """
-        self.alias = alias
-        return self
+        new = copy.copy(self)
+        new.alias = alias
+        # Shallow copy shares mutable per-instance collections (e.g.
+        # ``_cast_types``); give the copy its own list so later mutation
+        # (such as ``cast()``) never contaminates the original.
+        if hasattr(new, "_cast_types"):
+            new._cast_types = list(new._cast_types)
+        return new
 
 
 class ComparisonMixin:

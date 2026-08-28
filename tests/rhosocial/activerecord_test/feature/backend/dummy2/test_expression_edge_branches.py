@@ -99,8 +99,9 @@ class TestCoreExpressionBranches:
 
     def test_binary_arithmetic_with_cast(self, dialect):
         expr = BinaryArithmeticExpression(dialect, "+", Column(dialect, "price"), Literal(dialect, 10))
-        expr.cast("DECIMAL").as_("total")
-        sql, params = expr.to_sql()
+        expr.cast("DECIMAL")
+        aliased = expr.as_("total")
+        sql, params = aliased.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
         assert "total" in sql
 
