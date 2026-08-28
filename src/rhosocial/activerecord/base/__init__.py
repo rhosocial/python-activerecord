@@ -15,6 +15,7 @@ from .fields import (
     IndexDefinition,
 )
 from .ddl import TableConstraint, TableConstraintType, TableOptions
+from .ddl_generator import ModelSchemaGenerator
 from .metaclass import MetaclassMixin, ActiveRecordMetaclass
 from .ddl_mixin import DDLMixin
 
@@ -42,6 +43,7 @@ __all__ = [
     "TableConstraint",
     "IndexDefinition",
     "TableOptions",
+    "ModelSchemaGenerator",
     "MetaclassMixin",
     "ActiveRecordMetaclass",
     "DDLMixin",

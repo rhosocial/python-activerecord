@@ -79,3 +79,34 @@ class DDLMixin:
         DDLFieldAnnotationHandler,
         DDLModelAnnotationHandler,
     ]
+
+    # ------------------------------------------------------------------
+    # DDL generation entry point (Phase 2)
+    # ------------------------------------------------------------------
+    @classmethod
+    def generate_ddl(cls, dialect=None, *, if_not_exists=False, temporary=False):
+        """Generate a ``CreateTableExpression`` instance for this model.
+
+        The generator returns an *expression instance* — it does not emit SQL
+        directly. Callers decide what to do with it (e.g. ``.to_sql()``).
+
+        By default the dialect is taken from the model's configured backend
+        (``cls.backend().dialect``); callers may pass an explicit *dialect* to
+        generate DDL for a specific backend without configuring one.
+
+        Args:
+            dialect: An optional ``SQLDialectBase``; when ``None`` the model's
+                ``cls.backend().dialect`` is used.
+            if_not_exists: Request ``IF NOT EXISTS`` (subject to backend support).
+            temporary: Request a ``TEMPORARY`` table.
+
+        Returns:
+            A ``CreateTableExpression`` instance.
+        """
+        from .ddl_generator import ModelSchemaGenerator
+
+        if dialect is None:
+            dialect = cls.backend().dialect
+        return ModelSchemaGenerator.generate(
+            cls, dialect, if_not_exists=if_not_exists, temporary=temporary
+        )

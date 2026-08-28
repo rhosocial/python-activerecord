@@ -158,6 +158,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DMLMixin,
     DDLColumnMixin,
     DDLTypeMixin,
+    DDLTypeSuggestionMixin,
     TransactionControlMixin,
 )
 
@@ -229,6 +230,7 @@ class DummyDialect(
     DMLMixin,
     DDLTypeMixin,
     DDLTypeSupport,
+    DDLTypeSuggestionMixin,
     DDLColumnMixin,
     TransactionControlMixin,
     # Protocols for type checking

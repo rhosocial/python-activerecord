@@ -86,6 +86,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     IdentifierMixin,
     DateTimeMixin,
     DDLColumnMixin,
+    DDLTypeSuggestionMixin,
     DMLMixin,
     TransactionControlMixin,
     ViewMixin,
@@ -199,6 +200,7 @@ class SQLiteDialect(
     SQLiteGeopolyMixin,
     # DataType formatting and parsing
     SQLiteTypeSupportMixin,
+    DDLTypeSuggestionMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
     CollationMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)

@@ -2400,3 +2400,29 @@ class DDLTypeSupport(Protocol):
         Auto-generated from the ``@handles`` registry in ``DDLTypeMixin``.
         """
         ...  # pragma: no cover
+
+
+# ============================================================
+# Column type suggestion (model → DDL generation)
+# ============================================================
+
+
+@runtime_checkable
+class ColumnTypeSuggestion(Protocol):
+    """Dialect-provided suggestion of SQL ``DataType`` for a Python type.
+
+    Used by the model-layer DDL generator (``ModelSchemaGenerator``) when a
+    field carries no explicit ``UseSqlType`` annotation. The dialect maps the
+    annotated Python type to the *recommended* ``DataType`` for this backend;
+    callers may still override per-field via ``UseSqlType``.
+
+    Implementations typically come from ``DDLTypeSuggestionMixin``.
+    """
+
+    def suggest_column_type(self, python_type: Type) -> Optional["DataType"]:
+        """Return the suggested ``DataType`` for *python_type*.
+
+        Returns ``None`` when the dialect has no suggestion for the type; the
+        caller then falls back to a neutral default mapping.
+        """
+        ...  # pragma: no cover

@@ -15,7 +15,7 @@ dispatch logic; it does **not** register any types itself.
 
 from __future__ import annotations
 
-from typing import Tuple, TYPE_CHECKING
+from typing import Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...expression.types._base import DataType
@@ -94,3 +94,62 @@ class DDLTypeMixin:
                         sql_name = dt_cls.__name__
                     result.append((dt_cls, sql_name))
         return result
+
+
+class DDLTypeSuggestionMixin:
+    """Mixin providing ``suggest_column_type()`` for DDL generation.
+
+    The default mapping is backend-neutral ("reasonable lowest common
+    denominator"): it deliberately avoids backend-specific types such as
+    PostgreSQL ``UUID``/``JSONB`` or MySQL ``ENUM``. Backend dialects that
+    want richer suggestions override :meth:`suggest_column_type` directly.
+
+    Resolution order in the caller (``ModelSchemaGenerator``):
+
+    1. field-level ``UseSqlType`` annotation wins outright;
+    2. otherwise ``dialect.suggest_column_type(python_type)`` is consulted;
+    3. ``None`` return falls back to this neutral default.
+    """
+
+    def suggest_column_type(self, python_type: type) -> "Optional[DataType]":
+        """Return the neutral default ``DataType`` for *python_type*."""
+        return _NEUTRAL_TYPE_SUGGESTIONS.get(python_type)
+
+
+def _build_neutral_suggestions() -> dict:
+    import datetime as _dt
+    import decimal as _dec
+    import enum as _enum
+    import uuid as _uuid
+
+    from ...expression.types import (
+        BlobType,
+        BooleanType,
+        DateType,
+        DateTimeType,
+        DecimalType,
+        DoubleType,
+        IntegerType,
+        TextType,
+        TimeType,
+        VarCharType,
+    )
+
+    return {
+        str: TextType(),
+        int: IntegerType(),
+        bool: BooleanType(),
+        float: DoubleType(),
+        bytes: BlobType(),
+        _dt.datetime: DateTimeType(),
+        _dt.date: DateType(),
+        _dt.time: TimeType(),
+        _dec.Decimal: DecimalType(),
+        _uuid.UUID: VarCharType(36),
+        dict: TextType(),
+        list: TextType(),
+        _enum.Enum: VarCharType(64),
+    }
+
+
+_NEUTRAL_TYPE_SUGGESTIONS: dict = _build_neutral_suggestions()

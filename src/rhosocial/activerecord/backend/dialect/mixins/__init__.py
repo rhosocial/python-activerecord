@@ -50,7 +50,7 @@ from .datetime import DateTimeMixin
 from .dql import DQLMixin
 from .dml import DMLMixin
 from .ddl_column import DDLColumnMixin
-from .ddl_type import DDLTypeMixin
+from .ddl_type import DDLTypeMixin, DDLTypeSuggestionMixin
 from .transaction import TransactionControlMixin
 
 __all__ = [
@@ -103,5 +103,6 @@ __all__ = [
     "DMLMixin",
     "DDLColumnMixin",
     "DDLTypeMixin",
+    "DDLTypeSuggestionMixin",
     "TransactionControlMixin",
 ]
