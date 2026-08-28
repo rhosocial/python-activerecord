@@ -41,6 +41,7 @@ from .ilike import ILIKEMixin
 from .trigger import TriggerMixin
 from .function import FunctionMixin
 from .generated_column import GeneratedColumnMixin
+from .auto_increment import AutoIncrementMixin
 from .introspection import IntrospectionMixin, AsyncIntrospectionMixin
 from .identifier import IdentifierMixin
 from .predicate import PredicateMixin
@@ -91,6 +92,7 @@ __all__ = [
     "TriggerMixin",
     "FunctionMixin",
     "GeneratedColumnMixin",
+    "AutoIncrementMixin",
     "IntrospectionMixin",
     "AsyncIntrospectionMixin",
     "IdentifierMixin",

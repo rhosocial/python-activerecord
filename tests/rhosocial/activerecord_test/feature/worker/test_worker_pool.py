@@ -52,6 +52,11 @@ from rhosocial.activerecord.worker.pool import (
 from rhosocial.activerecord.worker import TaskContext
 
 
+# WorkerPool tests spawn sub-processes and rely on process/timing state, so
+# they must not run concurrently with other tests under xdist.
+pytestmark = pytest.mark.serial
+
+
 def simple_task(ctx: TaskContext, n: int) -> int:
     """Simple task: return n * 2"""
     return n * 2
@@ -185,17 +190,17 @@ class TestWorkerHandle:
 
         # Cleanup
         proc.terminate()
-        proc.join(timeout=2)
+        proc.join(timeout=10)
         if proc.is_alive():
             proc.kill()
-            proc.join(timeout=2)
+            proc.join(timeout=10)
 
     def test_handle_properties_dead(self):
         """Test WorkerHandle properties when process is dead"""
         ctx = mp.get_context("spawn")
         proc = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc.start()
-        proc.join(timeout=2)
+        proc.join(timeout=10)
 
         handle = WorkerHandle(1, proc)
 
@@ -219,7 +224,7 @@ class TestWorkerHandle:
         assert handle.is_alive is True
 
         handle.terminate()
-        handle.join(timeout=2)
+        handle.join(timeout=10)
 
         assert handle.is_alive is False
 
@@ -234,7 +239,7 @@ class TestWorkerHandle:
         assert handle.is_alive is True
 
         handle.kill()
-        handle.join(timeout=2)
+        handle.join(timeout=10)
 
         assert handle.is_alive is False
         # On most systems, SIGKILL results in exitcode -9
@@ -249,7 +254,7 @@ class TestWorkerHandle:
 
         handle = WorkerHandle(4, proc)
         handle.stop(StopSignal.TERMINATE)
-        handle.join(timeout=2)
+        handle.join(timeout=10)
 
         assert handle.is_alive is False
 
@@ -262,7 +267,7 @@ class TestWorkerHandle:
 
         handle = WorkerHandle(5, proc)
         handle.stop(StopSignal.KILL)
-        handle.join(timeout=2)
+        handle.join(timeout=10)
 
         assert handle.is_alive is False
 
@@ -282,7 +287,7 @@ class TestWorkerHandle:
 
         # Cleanup
         proc.terminate()
-        proc.join(timeout=2)
+        proc.join(timeout=10)
 
     def test_handle_join_returns_bool(self):
         """Test join() returns True if process exited, False otherwise"""
@@ -293,7 +298,7 @@ class TestWorkerHandle:
         handle = WorkerHandle(7, proc)
 
         # Wait with timeout, should return True when process exits
-        result = handle.join(timeout=2)
+        result = handle.join(timeout=10)
         assert result is True  # Process exited
 
         # Join on already exited process
@@ -324,7 +329,7 @@ class TestWorkerRegistry:
 
         # Cleanup
         proc.terminate()
-        proc.join(timeout=2)
+        proc.join(timeout=10)
 
     def test_all(self):
         """Test all() method"""
@@ -345,7 +350,7 @@ class TestWorkerRegistry:
         # Cleanup
         for proc in [proc1, proc2]:
             proc.terminate()
-            proc.join(timeout=2)
+            proc.join(timeout=10)
 
     def test_alive_and_dead(self):
         """Test alive() and dead() methods"""
@@ -355,7 +360,7 @@ class TestWorkerRegistry:
         # Dead process
         proc_dead = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc_dead.start()
-        proc_dead.join(timeout=2)
+        proc_dead.join(timeout=10)
 
         # Alive process
         proc_alive = ctx.Process(target=_sleepy_worker, daemon=True)
@@ -375,7 +380,7 @@ class TestWorkerRegistry:
 
         # Cleanup
         proc_alive.terminate()
-        proc_alive.join(timeout=2)
+        proc_alive.join(timeout=10)
 
     def test_count_and_alive_count(self):
         """Test count() and alive_count() methods"""
@@ -384,7 +389,7 @@ class TestWorkerRegistry:
 
         proc_dead = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc_dead.start()
-        proc_dead.join(timeout=2)
+        proc_dead.join(timeout=10)
 
         proc_alive = ctx.Process(target=_sleepy_worker, daemon=True)
         proc_alive.start()
@@ -398,7 +403,7 @@ class TestWorkerRegistry:
 
         # Cleanup
         proc_alive.terminate()
-        proc_alive.join(timeout=2)
+        proc_alive.join(timeout=10)
 
     def test_replace(self):
         """Test replace() method"""
@@ -419,8 +424,8 @@ class TestWorkerRegistry:
         # Cleanup
         proc1.terminate()
         proc2.terminate()
-        proc1.join(timeout=2)
-        proc2.join(timeout=2)
+        proc1.join(timeout=10)
+        proc2.join(timeout=10)
 
     def test_wids(self):
         """Test wids() method"""
@@ -441,8 +446,8 @@ class TestWorkerRegistry:
         # Cleanup
         proc1.terminate()
         proc2.terminate()
-        proc1.join(timeout=2)
-        proc2.join(timeout=2)
+        proc1.join(timeout=10)
+        proc2.join(timeout=10)
 
     def test_remove_with_sentinel(self):
         """Test remove() with SENTINEL signal (no process kill)"""
@@ -462,7 +467,7 @@ class TestWorkerRegistry:
 
         # Cleanup
         proc.terminate()
-        proc.join(timeout=2)
+        proc.join(timeout=10)
 
     def test_remove_with_terminate(self):
         """Test remove() with TERMINATE signal"""
@@ -477,7 +482,7 @@ class TestWorkerRegistry:
         # Remove with TERMINATE
         removed = registry.remove(0, signal=StopSignal.TERMINATE)
         assert removed is not None
-        proc.join(timeout=2)
+        proc.join(timeout=10)
         assert not proc.is_alive()
 
     def test_remove_with_kill(self):
@@ -493,7 +498,7 @@ class TestWorkerRegistry:
         # Remove with KILL
         removed = registry.remove(0, signal=StopSignal.KILL)
         assert removed is not None
-        proc.join(timeout=2)
+        proc.join(timeout=10)
         assert not proc.is_alive()
 
     def test_remove_nonexistent(self):
@@ -759,7 +764,7 @@ class TestWorkerHandleEdgeCases:
         ctx = mp.get_context("spawn")
         proc = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc.start()
-        proc.join(timeout=2)
+        proc.join(timeout=10)
 
         handle = WorkerHandle(0, proc)
         assert handle.is_alive is False
@@ -773,7 +778,7 @@ class TestWorkerHandleEdgeCases:
         ctx = mp.get_context("spawn")
         proc = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc.start()
-        proc.join(timeout=2)
+        proc.join(timeout=10)
 
         handle = WorkerHandle(1, proc)
         assert handle.is_alive is False

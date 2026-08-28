@@ -28,10 +28,10 @@ class Literal(
 ):
     """Represents a literal value in a SQL query."""
 
-    def __init__(self, dialect: "SQLDialectBase", value: Any):
+    def __init__(self, dialect: "SQLDialectBase", value: Any, *, alias: Optional[str] = None):
         super().__init__(dialect)
         self.value = value
-        self.alias = None
+        self.alias = alias
 
     def to_sql(self) -> "SQLQueryAndParams":
         sql = self.dialect.get_parameter_placeholder()

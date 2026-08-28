@@ -99,8 +99,15 @@ class SQLiteDDLColumnMixin:
         """Format NULL constraint."""
         return " NULL", ()
 
-    def format_unique_constraint(self, constraint) -> Tuple[str, tuple]:
-        """Format UNIQUE constraint."""
+    def format_column_unique_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Format a COLUMN-level UNIQUE constraint.
+
+        NOTE: deliberately named ``..._column_...`` so it cannot shadow the
+        TABLE-level ``SQLDialectBase.format_unique_constraint(t_const)``
+        defined in ``backend.dialect.mixins.ddl_column`` — the two share a
+        name but different signatures/return shapes (tuple vs str), and the
+        table dispatcher joins plain strings only.
+        """
         return " UNIQUE", ()
 
     def format_default_constraint(self, constraint) -> Tuple[str, tuple]:
@@ -169,7 +176,8 @@ class SQLiteDDLColumnMixin:
             ColumnConstraintType.PRIMARY_KEY: self.format_primary_key_constraint,
             ColumnConstraintType.NOT_NULL: self.format_not_null_constraint,
             ColumnConstraintType.NULL: self.format_null_constraint,
-            ColumnConstraintType.UNIQUE: self.format_unique_constraint,
+            ColumnConstraintType.UNIQUE:
+                self.format_column_unique_constraint,
             ColumnConstraintType.DEFAULT: self.format_default_constraint,
             ColumnConstraintType.CHECK: self.format_check_constraint,
             ColumnConstraintType.FOREIGN_KEY: self.format_column_fk_constraint,

@@ -323,6 +323,16 @@ class ComparisonMixin:
         from .core import Literal
         from .predicates import InPredicate
 
+        to_query_expression = getattr(values, "to_query_expression", None)
+        if callable(to_query_expression):
+            # An ActiveQuery-like object: render as an IN subquery.
+            from .core import Subquery
+
+            return InPredicate(self.dialect, self, Subquery(self.dialect, to_query_expression()))
+        if hasattr(values, "to_sql"):
+            # Already an expression (e.g. Subquery): pass through.
+            return InPredicate(self.dialect, self, values)
+
         return InPredicate(self.dialect, self, Literal(self.dialect, tuple(values)))
 
     def not_in(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":

@@ -233,12 +233,6 @@ End-to-end demo scripts with UP/DOWN round-trip verification:
         help="Migration parameter. Can be specified multiple times.",
     )
     nm_parser.add_argument(
-        "--async",
-        action="store_true",
-        dest="is_async",
-        help="Use async backend for migration execution.",
-    )
-    nm_parser.add_argument(
         "--all",
         action="store_true",
         dest="all_migrations",
@@ -441,7 +435,7 @@ def _print_result(result: Any, direction: Any) -> None:
     if result.dry_run:
         print(f"[DRY RUN] Migration '{result.version}' ({direction.value})")
         if result.dry_run_sql:
-            for fqn, sql, params_sql in result.dry_run_sql:
+            for fqn, sql, _params_sql in result.dry_run_sql:
                 print(f"  {fqn}  →  {sql}")
         else:
             print("  (no SQL generated)")
@@ -524,7 +518,8 @@ async def _handle_named_migration_async(
         if args.dry_run:
             _print_dry_run_info(runner.migration, direction, record_store, user_params)
 
-        backend = await backend_async_factory()
+        backend = backend_async_factory()
+        await backend.connect()
 
         from .record import MigrationResult
 
@@ -613,7 +608,8 @@ async def _handle_all_mode_async(
         if args.dry_run:
             _print_batch_dry_run(batch, direction, record_store)
 
-        backend = await backend_async_factory()
+        backend = backend_async_factory()
+        await backend.connect()
 
         ordered = batch._topological_order()
         if direction == MigrationDirection.DOWN:

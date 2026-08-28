@@ -3,7 +3,7 @@
 SQL operations like binary, unary, and arithmetic expressions.
 """
 
-from typing import Any, Tuple, List, TYPE_CHECKING
+from typing import Any, Optional, Tuple, List, TYPE_CHECKING
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
 from .mixins import (
     AliasableMixin,
@@ -120,11 +120,20 @@ class BinaryArithmeticExpression(
 ):
     """Represents a binary arithmetic operation."""
 
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"):
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        op: str,
+        left: "SQLValueExpression",
+        right: "SQLValueExpression",
+        *,
+        alias: "Optional[str]" = None,
+    ):
         super().__init__(dialect)
         self.op = op
         self.left = left
         self.right = right
+        self.alias = alias
 
     def to_sql(self) -> Tuple[str, tuple]:
         left_sql, left_params = self.left.to_sql()

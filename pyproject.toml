@@ -285,6 +285,9 @@ markers = [
     "requires_cross_join: marks tests requiring CROSS JOIN support",
     "requires_natural_join: marks tests requiring NATURAL JOIN support",
     "requires_lateral_join: marks tests requiring LATERAL join support",
+
+    # Parallel execution markers (from testsuite)
+    "serial: marks tests that must run serially (never concurrently with other tests)",
 ]
 
 [tool.coverage.run]

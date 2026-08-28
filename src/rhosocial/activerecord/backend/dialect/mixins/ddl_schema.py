@@ -11,6 +11,16 @@ if TYPE_CHECKING:  # pragma: no cover
 class SchemaMixin:
     """Mixin for schema DDL support."""
 
+    def supports_schema(self) -> bool:
+        """Whether the database models named schema namespaces at all.
+
+        Umbrella switch over the granular ``supports_*_schema`` flags below.
+        Backends without namespaces (SQLite, Firebird) keep this False;
+        PostgreSQL, SQL Server, Oracle, Snowflake and MySQL-family databases
+        (where a schema is a database) return True.
+        """
+        return False
+
     def supports_create_schema(self) -> bool:
         """Whether CREATE SCHEMA is supported."""
         return False

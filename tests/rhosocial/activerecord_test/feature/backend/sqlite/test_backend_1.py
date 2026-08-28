@@ -46,17 +46,21 @@ class TestSQLiteBackendCoveragePart1:
                     print(f"Warning: Failed to delete file {file_path}: {e}")
 
     def test_set_pragma_exception_handling(self, temp_db_path):
-        """Test set_pragma exception handling by using invalid pragma"""
+        """Test set_pragma rejects an unknown pragma name."""
         # Use SQLiteConnectionConfig to create a configuration
         config = SQLiteConnectionConfig(database=temp_db_path)
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
-        # Use an invalid pragma value that will cause an error
-        with pytest.raises(ConnectionError) as exc_info:
-            backend.set_pragma("invalid_pragma", "'; DROP TABLE users; --")
+        # Unknown pragma name is rejected by the whitelist validation
+        with pytest.raises(ValueError) as exc_info:
+            backend.set_pragma("invalid_pragma", "value")
 
-        assert "Failed to set pragma" in str(exc_info.value)
+        assert "Unknown PRAGMA" in str(exc_info.value)
+
+        # Unsafe value is also rejected by the whitelist validation
+        with pytest.raises(ValueError):
+            backend.set_pragma("journal_mode", "'; DROP TABLE users; --")
 
         backend.disconnect()
 

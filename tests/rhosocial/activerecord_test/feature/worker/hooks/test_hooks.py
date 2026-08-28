@@ -37,6 +37,12 @@ from rhosocial.activerecord_test.feature.worker.hooks.sample_hooks import (
     hook_with_args,
 )
 
+import pytest
+
+# These tests share global marker files under TEMP_DIR and spawn WorkerPool
+# sub-processes, so they must not run concurrently with each other under xdist.
+pytestmark = pytest.mark.serial
+
 # Cross-platform temporary directory
 TEMP_DIR = tempfile.gettempdir()
 

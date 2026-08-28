@@ -84,10 +84,23 @@ pytest tests/rhosocial/activerecord_test/realworld/finance/
 pytest tests/benchmark/
 ```
 
-## 5. CRITICAL: No Parallel Test Execution
+## 5. Parallel Test Execution
 
-Do **not** run tests with `pytest-xdist`/parallel workers. Concurrent runs collide on shared
-`:memory:`/named SQLite connections and temporary files. Run tests serially.
+CI runs the suite in parallel with `pytest-xdist` (`-n auto`/`-n 8 --dist=loadgroup`) loading the
+testsuite plugin (`-p rhosocial.activerecord.testsuite.conftest`). Shared-state tests — Redis
+caches, worker pools, hook ordering, batch-loading state — are pinned to one worker with the
+`serial` marker, and scenario pools use per-database names, so concurrent workers do not collide
+on SQLite connections or temp files.
+
+Locally, only parallelize **with the testsuite plugin loaded**:
+
+```bash
+export PYTHONPATH=src:tests
+python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
+```
+
+Running `pytest -n` without the plugin still risks collisions on shared `:memory:`/named SQLite
+connections and temp files — in that case run serially.
 
 ## 6. Free-Threaded Python (3.13t / 3.14t)
 
@@ -121,7 +134,7 @@ schema file management, and sync/async parity rules.
 
 Quick correctness checklist (also see skill):
 - ✅ `PYTHONPATH=src` before pytest
-- ✅ install testsuite, never run parallel
+- ✅ install testsuite; parallelize only with the plugin + serial markers (see §5)
 - ✅ provider always returns tuples
 - ✅ backend access via `model.backend()` / `model.__backend__` (per `IActiveRecord`)
 - ✅ access fixtures via `pytest_runtest_call` + `item.funcargs` in plugins

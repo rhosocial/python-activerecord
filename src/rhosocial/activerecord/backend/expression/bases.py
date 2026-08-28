@@ -18,7 +18,7 @@ from typing import runtime_checkable
 if sys.version_info >= (3, 10):
     from typing import TypeAlias  # pragma: no cover
 else:
-    from typing_extensions import TypeAlias
+    from typing_extensions import TypeAlias  # pragma: no cover
 
 from .mixins import LogicalMixin
 
@@ -134,16 +134,16 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
         convention:  param `foo`  →  self._foo  (fallback: self.foo)
 
         VAR_POSITIONAL (*args) parameters are returned as a list.
-        VAR_KEYWORD (**kwargs) parameters are skipped — subclasses that use
-        **kwargs must override this method.
+        VAR_KEYWORD (**kwargs) parameters are resolved through the same
+        convention — a class that accepts **kwargs MUST store the collected
+        extras under an attribute named after the parameter (e.g. `self.kwargs`
+        or `self.collation_options`) so the round-trip can reconstruct them.
         """
         sig = inspect.signature(self.__class__.__init__)
         params: Dict[str, Any] = {}
 
         for name, param in sig.parameters.items():
             if name in ("self", "dialect"):
-                continue
-            if param.kind == inspect.Parameter.VAR_KEYWORD:
                 continue
 
             private = f"_{name}"
@@ -160,7 +160,22 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
                 )
                 continue
 
-            if param.kind == inspect.Parameter.VAR_POSITIONAL:
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                # **kwargs extras must be stored as a dict on an attribute named
+                # after the parameter (e.g. self.kwargs, self.collation_options).
+                # They are merged into the top-level params so that
+                # reconstruction `cls(..., **value)` re-expands them correctly.
+                if not isinstance(value, dict):
+                    warnings.warn(
+                        f"{self.__class__.__name__}.get_params(): VAR_KEYWORD "
+                        f"parameter '{name}' is not stored as a dict (got "
+                        f"{type(value).__name__}). Store the collected kwargs "
+                        "in an attribute of the same name as a dict.",
+                        stacklevel=2,
+                    )
+                    continue
+                params.update(value)
+            elif param.kind == inspect.Parameter.VAR_POSITIONAL:
                 params[name] = list(value)
             else:
                 params[name] = value

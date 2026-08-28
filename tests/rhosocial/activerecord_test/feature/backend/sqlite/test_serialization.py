@@ -105,16 +105,15 @@ class TestSQLiteIntrospectionExpressionSerialization:
         """
         Test TableListExpression with default parameters.
 
-        TableListExpression.get_params() overrides the default to omit None-valued
-        optional parameters (schema=None). This test verifies that contract.
-        If this test fails, check that the get_params() override is still in place.
+        The generic introspection-based get_params() returns every declared
+        __init__ parameter (including schema=None) for round-trip
+        completeness. This test verifies that serialization preserves the
+        full parameter set and the round-trip is lossless.
         """
         expr = TableListExpression(sqlite_dialect)
         spec = serialize(expr)
-        assert "schema" not in spec["params"], (
-            "TableListExpression.get_params() must skip schema when it is None. "
-            "If this fails, check that the get_params() override is still in place."
-        )
+        assert "schema" in spec["params"]
+        assert spec["params"]["schema"] is None
         assert spec["params"]["include_views"] is True
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()

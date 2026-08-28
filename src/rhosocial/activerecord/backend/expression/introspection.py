@@ -76,21 +76,6 @@ class IntrospectionExpression(BaseExpression):
         self._schema = name
         return self
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters collected by this expression.
-
-        Subclasses should override this method to return specific parameters
-        combined with the base parameters.
-
-        Returns:
-            Dictionary containing all parameters. Keys depend on the
-            expression type and configuration.
-        """
-        params: Dict[str, Any] = {}
-        if self._schema is not None:
-            params["schema"] = self._schema
-        return params
-
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL query and parameters.
 
@@ -226,20 +211,6 @@ class TableListExpression(IntrospectionExpression):
         self._table_type = ttype
         return self
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters for this expression.
-
-        Returns:
-            Dictionary containing: schema (if set), include_views,
-            include_system, and table_type (if set).
-        """
-        params = super().get_params()
-        params["include_views"] = self._include_views
-        params["include_system"] = self._include_system
-        if self._table_type is not None:
-            params["table_type"] = self._table_type
-        return params
-
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_table_list_query method.
 
@@ -365,20 +336,6 @@ class TableInfoExpression(IntrospectionExpression):
         self._include_foreign_keys = value
         return self
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters for this expression.
-
-        Returns:
-            Dictionary containing: table_name, schema (if set),
-            include_columns, include_indexes, and include_foreign_keys.
-        """
-        params = super().get_params()
-        params["table_name"] = self._table_name
-        params["include_columns"] = self._include_columns
-        params["include_indexes"] = self._include_indexes
-        params["include_foreign_keys"] = self._include_foreign_keys
-        return params
-
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_table_info_query method.
 
@@ -457,18 +414,6 @@ class ColumnInfoExpression(IntrospectionExpression):
         self._include_hidden = value
         return self
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters for this expression.
-
-        Returns:
-            Dictionary containing: table_name, schema (if set),
-            and include_hidden.
-        """
-        params = super().get_params()
-        params["table_name"] = self._table_name
-        params["include_hidden"] = self._include_hidden
-        return params
-
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_column_info_query method.
 
@@ -524,16 +469,6 @@ class IndexInfoExpression(IntrospectionExpression):
         self._table_name = name
         return self
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters for this expression.
-
-        Returns:
-            Dictionary containing: table_name and schema (if set).
-        """
-        params = super().get_params()
-        params["table_name"] = self._table_name
-        return params
-
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_index_info_query method.
 
@@ -588,16 +523,6 @@ class ForeignKeyExpression(IntrospectionExpression):
         """
         self._table_name = name
         return self
-
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters for this expression.
-
-        Returns:
-            Dictionary containing: table_name and schema (if set).
-        """
-        params = super().get_params()
-        params["table_name"] = self._table_name
-        return params
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_foreign_key_query method.
@@ -657,16 +582,6 @@ class ViewListExpression(IntrospectionExpression):
         """
         self._include_system = value
         return self
-
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters for this expression.
-
-        Returns:
-            Dictionary containing: schema (if set) and include_system.
-        """
-        params = super().get_params()
-        params["include_system"] = self._include_system
-        return params
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_view_list_query method.
@@ -747,18 +662,6 @@ class ViewInfoExpression(IntrospectionExpression):
         self._include_columns = value
         return self
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters for this expression.
-
-        Returns:
-            Dictionary containing: view_name, schema (if set),
-            and include_columns.
-        """
-        params = super().get_params()
-        params["view_name"] = self._view_name
-        params["include_columns"] = self._include_columns
-        return params
-
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_view_info_query method.
 
@@ -816,17 +719,6 @@ class TriggerListExpression(IntrospectionExpression):
         """
         self._table_name = table_name
         return self
-
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters for this expression.
-
-        Returns:
-            Dictionary containing: schema (if set) and table_name (if set).
-        """
-        params = super().get_params()
-        if self._table_name is not None:
-            params["table_name"] = self._table_name
-        return params
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_trigger_list_query method.
@@ -905,19 +797,6 @@ class TriggerInfoExpression(IntrospectionExpression):
         """
         self._table_name = table_name
         return self
-
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters for this expression.
-
-        Returns:
-            Dictionary containing: trigger_name, schema (if set),
-            and table_name (if set).
-        """
-        params = super().get_params()
-        params["trigger_name"] = self._trigger_name
-        if self._table_name is not None:
-            params["table_name"] = self._table_name
-        return params
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_trigger_info_query method.

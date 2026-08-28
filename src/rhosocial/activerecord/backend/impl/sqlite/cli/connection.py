@@ -38,6 +38,12 @@ def add_connection_args(parser):
         dest="connection_params",
         help="Connection parameter override for named connection. Can be specified multiple times.",
     )
+    parser.add_argument(
+        "--async",
+        action="store_true",
+        dest="is_async",
+        help="Use asynchronous backend",
+    )
 
 
 def create_connection_parent_parser():

@@ -221,14 +221,11 @@ class ActiveQuery(
 
         return record
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
-        """Generate the SQL query string and parameters for ActiveQuery.
+    def to_query_expression(self) -> "statements.QueryExpression":
+        """Build the underlying QueryExpression for this query.
 
-        This method overrides the base implementation to use the model's table name
-        instead of a placeholder.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
+        Public so predicates (e.g. ``IN``) can embed this query as a
+        subquery without reaching into private state.
         """
         # Get dialect from backend
         dialect = self.backend().dialect
@@ -239,7 +236,7 @@ class ActiveQuery(
         )
 
         # Create QueryExpression with all components
-        query_expr = statements.QueryExpression(
+        return statements.QueryExpression(
             dialect,
             select=self.select_columns,
             from_=self.join_clause if self.join_clause else from_clause,
@@ -250,8 +247,17 @@ class ActiveQuery(
             for_update=self._for_update_clause,
         )
 
+    def to_sql(self) -> "bases.SQLQueryAndParams":
+        """Generate the SQL query string and parameters for ActiveQuery.
+
+        This method overrides the base implementation to use the model's table name
+        instead of a placeholder.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
         # Generate SQL using the QueryExpression
-        return query_expr.to_sql()
+        return self.to_query_expression().to_sql()
 
     def union(self, other: "IQuery") -> "SetOperationQuery":
         """Perform a UNION operation with another query.

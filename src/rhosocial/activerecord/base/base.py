@@ -365,6 +365,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             column_mapping=column_mapping,
             column_adapters=column_adapters,
             returning_columns=returning_columns,
+            primary_key=self.primary_key(),
         )
         self.log(
             logging.INFO,
@@ -1031,6 +1032,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             column_mapping=column_mapping,
             column_adapters=column_adapters,
             returning_columns=returning_columns,
+            primary_key=self.primary_key(),
         )
         self.log(
             logging.INFO,

@@ -132,8 +132,8 @@ class TestBatchLoading:
 
     def test_partial_cache_loads_remaining(self):
         """Test that only uncached instances are loaded."""
-        RecordingBatchLoader()
         relation = AuthorForBatch.get_relation("books")
+        relation._loader = RecordingBatchLoader()
         relation._cache_config = CacheConfig()
 
         author1 = AuthorForBatch(id=1, name="Author 1")

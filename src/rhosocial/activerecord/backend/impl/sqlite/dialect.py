@@ -40,6 +40,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SequenceSupport,
     TriggerSupport,
     GeneratedColumnSupport,
+    AutoIncrementSupport,
     # Introspection Protocol
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -50,6 +51,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     DDLTypeSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
+    AutoIncrementMixin,
     CollationMixin,
     CTEMixin,
     FilterClauseMixin,
@@ -75,6 +77,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     IndexMixin,
     SequenceMixin,
     GeneratedColumnMixin,
+    AutoIncrementMixin,
     PartitionMixin,
     # New Mixins
     PredicateMixin,
@@ -169,6 +172,7 @@ class SQLiteDialect(
     IndexMixin,
     SequenceMixin,
     GeneratedColumnMixin,
+    AutoIncrementMixin,
     PartitionMixin,
     # New Mixins (without SQLite overrides)
     PredicateMixin,
@@ -237,6 +241,7 @@ class SQLiteDialect(
     SequenceSupport,
     TriggerSupport,
     GeneratedColumnSupport,
+    AutoIncrementSupport,
     # SQLite-specific protocols
     SQLiteExtensionSupport,
     SQLitePragmaSupport,
@@ -294,6 +299,18 @@ class SQLiteDialect(
         """Return the SQLite version this dialect is configured for."""
         return self.version
 
+    def _effective_version(self) -> Tuple[int, int, int]:
+        """Resolve the version used for capability checks.
+
+        Returns the explicitly configured or adapted version, falling back to
+        the sqlite3 library version, which is always known without adaptation.
+        """
+        if self._version is not None:
+            return self._version
+        import sqlite3
+
+        return tuple(sqlite3.sqlite_version_info[:3])
+
     def create_schema_differ(self):
         """Return the SQLite schema differ (content-based FK matching)."""
         from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (
@@ -305,15 +322,15 @@ class SQLiteDialect(
     # region Protocol Support Checks based on version
     def supports_basic_cte(self) -> bool:
         """Basic CTEs are supported since SQLite 3.8.3."""
-        return self.version >= (3, 8, 3)
+        return self._effective_version() >= (3, 8, 3)
 
     def supports_recursive_cte(self) -> bool:
         """Recursive CTEs are supported since SQLite 3.8.3."""
-        return self.version >= (3, 8, 3)
+        return self._effective_version() >= (3, 8, 3)
 
     def supports_materialized_cte(self) -> bool:
         """MATERIALIZED hint is supported since SQLite 3.35.0."""
-        return self.version >= (3, 35, 0)
+        return self._effective_version() >= (3, 35, 0)
 
     def supports_returning_insert(self) -> bool:
         """RETURNING clause is supported for INSERT since SQLite 3.35.0."""
@@ -475,10 +492,61 @@ class SQLiteDialect(
         """
         return self.version >= (3, 35, 0)
 
+    # Probed once per process and shared across instances: the result depends only on the
+    # linked SQLite library build, which is fixed for the lifetime of the process.
+    _lateral_support: Optional[bool] = None
+
     def supports_lateral_join(self) -> bool:
-        """Whether LATERAL joins are supported."""
-        # LATERAL joins are supported in SQLite
-        return True
+        """Whether LATERAL joins are supported.
+
+        No released SQLite version implements the ``LATERAL`` keyword (the
+        grammar does not even reserve it), so this returns False on every
+        known build.  We nevertheless probe the linked library once and cache
+        the result, so support is detected automatically if a future version
+        introduces it.
+        """
+        if self._lateral_support is None:
+            try:
+                import sqlite3 as _sq3
+
+                conn = _sq3.connect(":memory:")
+                conn.execute("SELECT 1 FROM (SELECT 1) AS t CROSS JOIN LATERAL (SELECT 1) AS s")
+                conn.close()
+                result = True
+            except Exception:
+                result = False
+            # Write through to the class so every instance shares one probe
+            # per process (per class, for subclass safety).
+            type(self)._lateral_support = result
+        return self._lateral_support
+
+    def format_values_expression(
+        self,
+        values: List[Tuple[Any, ...]],
+        alias: Optional[str],
+        column_names: Optional[List[str]],
+    ) -> Tuple[str, Tuple]:
+        """SQLite override: VALUES does not support ``AS alias(col, ...)`` syntax.
+
+        The base ``ExpressionMixin`` implementation appends a parenthesised
+        column-name list after the table alias, e.g.
+        ``(VALUES (1,'a')) AS "v"("id","n")``.  SQLite rejects this with
+        ``near "(": syntax error`` for every version tested (up to 3.46).
+        Column names must instead be assigned through an outer CTE or by
+        referencing the implicit ``column1``/``column2`` names.
+        """
+        all_params: List[Any] = []
+        rows_sql: List[str] = []
+        for row in values:
+            placeholders = ", ".join([self.get_parameter_placeholder()] * len(row))
+            rows_sql.append(f"({placeholders})")
+            all_params.extend(row)
+        values_sql = ", ".join(rows_sql)
+        if alias is not None:
+            sql = f"(VALUES {values_sql}) AS {self.format_identifier(alias)}"
+        else:
+            sql = f"VALUES {values_sql}"
+        return sql, tuple(all_params)
 
     def supports_ordered_set_aggregation(self) -> bool:
         """Whether ordered-set aggregate functions are supported."""

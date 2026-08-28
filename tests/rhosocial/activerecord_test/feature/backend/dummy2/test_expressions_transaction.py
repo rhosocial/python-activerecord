@@ -175,16 +175,16 @@ class TestRollbackTransactionExpression:
         assert params == {"savepoint": "test_sp"}
 
     def test_rollback_get_params_empty(self, dummy_dialect: DummyDialect):
-        """Test get_params returns empty dict when no savepoint."""
+        """Test get_params returns savepoint=None when none set."""
         expr = RollbackTransactionExpression(dummy_dialect)
         params = expr.get_params()
-        assert params == {}
+        assert params == {"savepoint": None}
 
     def test_rollback_get_params(self, dummy_dialect: DummyDialect):
-        """Test get_params returns empty dict."""
+        """Test get_params returns savepoint=None when none set."""
         expr = RollbackTransactionExpression(dummy_dialect)
         params = expr.get_params()
-        assert params == {}
+        assert params == {"savepoint": None}
 
 
 class TestSavepointExpression:
@@ -322,10 +322,10 @@ class TestSetTransactionExpression:
         assert params["deferrable"]
 
     def test_get_params_empty(self, dummy_dialect: DummyDialect):
-        """Test get_params returns empty dict when nothing set."""
+        """Test get_params returns defaults when nothing set."""
         expr = SetTransactionExpression(dummy_dialect)
         params = expr.get_params()
-        assert params == {}
+        assert params == {"isolation_level": None, "mode": None, "session": False, "deferrable": None}
 
 
 class TestAllIsolationLevels:

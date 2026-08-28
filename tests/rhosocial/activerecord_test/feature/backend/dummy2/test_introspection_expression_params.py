@@ -55,10 +55,10 @@ class TestTableListExpressionParams:
         """Test TableListExpression default values."""
         expr = TableListExpression(dialect=dummy_dialect)
         params = expr.get_params()
-        assert "schema" not in params
+        assert params.get("schema") is None
         assert params.get("include_views") is True
         assert params.get("include_system") is False
-        assert "table_type" not in params
+        assert params.get("table_type") is None
 
     def test_fluent_api_override(self, dummy_dialect):
         """Test fluent API can override constructor values."""
@@ -92,7 +92,7 @@ class TestTableInfoExpressionParams:
         expr = TableInfoExpression(dialect=dummy_dialect, table_name="users")
         params = expr.get_params()
         assert params.get("table_name") == "users"
-        assert "schema" not in params
+        assert params.get("schema") is None
         assert params.get("include_columns") is True
         assert params.get("include_indexes") is True
         assert params.get("include_foreign_keys") is True
@@ -125,7 +125,7 @@ class TestColumnInfoExpressionParams:
         expr = ColumnInfoExpression(dialect=dummy_dialect, table_name="users")
         params = expr.get_params()
         assert params.get("table_name") == "users"
-        assert "schema" not in params
+        assert params.get("schema") is None
         assert params.get("include_hidden") is False
 
 
@@ -144,7 +144,7 @@ class TestIndexInfoExpressionParams:
         expr = IndexInfoExpression(dialect=dummy_dialect, table_name="users")
         params = expr.get_params()
         assert params.get("table_name") == "users"
-        assert "schema" not in params
+        assert params.get("schema") is None
 
 
 class TestForeignKeyExpressionParams:
@@ -162,7 +162,7 @@ class TestForeignKeyExpressionParams:
         expr = ForeignKeyExpression(dialect=dummy_dialect, table_name="posts")
         params = expr.get_params()
         assert params.get("table_name") == "posts"
-        assert "schema" not in params
+        assert params.get("schema") is None
 
 
 class TestViewListExpressionParams:
@@ -179,7 +179,7 @@ class TestViewListExpressionParams:
         """Test ViewListExpression default values."""
         expr = ViewListExpression(dialect=dummy_dialect)
         params = expr.get_params()
-        assert "schema" not in params
+        assert params.get("schema") is None
         assert params.get("include_system") is False
 
     def test_fluent_api_override(self, dummy_dialect):
@@ -205,7 +205,7 @@ class TestViewInfoExpressionParams:
         expr = ViewInfoExpression(dialect=dummy_dialect, view_name="user_view")
         params = expr.get_params()
         assert params.get("view_name") == "user_view"
-        assert "schema" not in params
+        assert params.get("schema") is None
         assert params.get("include_columns") is True
 
 
@@ -223,8 +223,8 @@ class TestTriggerListExpressionParams:
         """Test TriggerListExpression default values."""
         expr = TriggerListExpression(dialect=dummy_dialect)
         params = expr.get_params()
-        assert "schema" not in params
-        assert "table_name" not in params
+        assert params.get("schema") is None
+        assert params.get("table_name") is None
 
     def test_fluent_api_for_table(self, dummy_dialect):
         """Test for_table fluent API."""
@@ -251,5 +251,5 @@ class TestTriggerInfoExpressionParams:
         expr = TriggerInfoExpression(dialect=dummy_dialect, trigger_name="my_trigger")
         params = expr.get_params()
         assert params.get("trigger_name") == "my_trigger"
-        assert "schema" not in params
-        assert "table_name" not in params
+        assert params.get("schema") is None
+        assert params.get("table_name") is None

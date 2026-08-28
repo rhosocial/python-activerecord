@@ -52,10 +52,28 @@ from .exceptions import (
     NamedExpressionInvalidReturnTypeError,
     NamedExpressionInvalidParameterError,
     NamedExpressionMissingParameterError,
+    NamedExpressionModuleNotAllowedError,
     NamedExpressionModuleNotFoundError,
     NamedExpressionNotCallableError,
     NamedExpressionNotFoundError,
 )
+
+
+def _module_allowed(module_name: str, allowed_modules: Optional[List[str]]) -> bool:
+    """Check whether a module name is covered by an allowlist of prefixes.
+
+    A module matches a prefix if it equals the prefix or starts with
+    ``prefix + "."``. ``None`` (or empty) means unrestricted, keeping
+    the legacy behavior for CLI/local usage. Deployments that expose
+    resolution to untrusted input (e.g. an MCP server) should always
+    pass an explicit allowlist.
+    """
+    if not allowed_modules:
+        return True
+    return any(
+        module_name == prefix or module_name.startswith(prefix + ".")
+        for prefix in allowed_modules
+    )
 
 
 def _resolve_annotation(ann: Any, ns: dict) -> Any:
@@ -214,22 +232,38 @@ class NamedExpressionResolver:
         >>> expression = resolver.execute(dialect, {"limit": 100})
     """
 
-    def __init__(self, qualified_name: str):
+    def __init__(
+        self,
+        qualified_name: str,
+        *,
+        allowed_modules: Optional[List[str]] = None,
+    ):
         """Initialize resolver with a fully qualified name.
 
         Args:
             qualified_name: Fully qualified Python name in format 'module.path.callable'.
                 Must contain exactly one dot separating module from callable name.
+            allowed_modules: Optional allowlist of module prefixes. When provided,
+                only modules matching the allowlist may be imported. ``None``
+                (default) preserves legacy unrestricted behavior for local/CLI
+                usage; networked deployments should always pass an allowlist.
 
         Raises:
             NamedExpressionNotFoundError: If qualified_name format is invalid
                 (must be 'module.path.callable' with exactly one dot).
+            NamedExpressionModuleNotAllowedError: If the module is not allowed.
 
         Example:
             >>> resolver = NamedExpressionResolver("myapp.queries.user_active")
-            >>> resolver = NamedExpressionResolver("project.models.queries.orders_pending")
+            >>> resolver = NamedExpressionResolver(
+            ...     "myapp.queries.user_active",
+            ...     allowed_modules=["myapp.queries", "myapp.reports"],
+            ... )
         """
         self._qualified_name = qualified_name
+        self._allowed_modules: Optional[List[str]] = (
+            list(allowed_modules) if allowed_modules else None
+        )
         self._module_name: str = ""
         self._attr_name: str = ""
         self._callable: Optional[Callable] = None
@@ -256,6 +290,10 @@ class NamedExpressionResolver:
             )
         self._module_name = parts[0]
         self._attr_name = parts[1]
+        if not _module_allowed(self._module_name, self._allowed_modules):
+            raise NamedExpressionModuleNotAllowedError(
+                self._module_name, self._allowed_modules or []
+            )
 
     @property
     def qualified_name(self) -> str:
@@ -625,6 +663,8 @@ def resolve_named_expression(
     qualified_name: str,
     dialect: Any,
     user_params: Optional[Dict[str, Any]] = None,
+    *,
+    allowed_modules: Optional[List[str]] = None,
 ) -> BaseExpression:
     """Resolve and execute a named expression in one step.
 
@@ -657,7 +697,7 @@ def resolve_named_expression(
         ...     {"limit": 50}
         ... )
     """
-    resolver = NamedExpressionResolver(qualified_name).load()
+    resolver = NamedExpressionResolver(qualified_name, allowed_modules=allowed_modules).load()
     return resolver.execute(dialect, user_params)
 
 

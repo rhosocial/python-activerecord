@@ -9,7 +9,7 @@ import sys
 from .cli import register_commands, COMMAND_NAMES
 
 
-def main():
+def main(argv=None):
     parser = __import__("argparse").ArgumentParser(
         description="Execute SQL queries against a SQLite backend.",
         formatter_class=__import__("argparse").RawTextHelpFormatter,
@@ -18,7 +18,7 @@ def main():
 
     register_commands(subparsers)
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.command is None:
         cmd_list = ", ".join(f"'{c}'" for c in COMMAND_NAMES[:-1])
