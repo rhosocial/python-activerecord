@@ -3,7 +3,7 @@
 This module provides a mixin for handling custom column names for model fields.
 """
 
-from typing import ClassVar, Dict, Optional, Type, Any, Tuple, Union, get_type_hints
+from typing import ClassVar, Dict, Optional, Type, Any, Tuple, get_type_hints
 from functools import lru_cache
 
 from .fields import UseColumn

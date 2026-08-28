@@ -24,6 +24,8 @@ class ColumnConstraintType(Enum):
     CHECK = "CHECK"
     FOREIGN_KEY = "FOREIGN KEY"
     DEFAULT = "DEFAULT"
+    COLLATE = "COLLATE"  # Column-level collation (MySQL, PostgreSQL, SQLite)
+    CHARACTER_SET = "CHARACTER SET"  # Column-level character set (MySQL/MariaDB)
 
 
 @dataclass
@@ -43,6 +45,10 @@ class ColumnConstraint:
     deferrable: Optional[bool] = None  # DEFERRABLE / NOT DEFERRABLE (None = omit)
     initially_deferred: Optional[bool] = None  # INITIALLY DEFERRED / INITIALLY IMMEDIATE (None = omit)
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+    # Column-level CHARACTER SET (MySQL/MariaDB)
+    character_set: Optional[str] = None  # e.g. "utf8mb4"
+    # Column-level COLLATION (MySQL, PostgreSQL, SQLite)
+    collation: Optional[str] = None  # e.g. "utf8mb4_unicode_ci"
 
 
 class GeneratedColumnType(Enum):
@@ -150,6 +156,39 @@ class IndexDefinition:
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
 
 
+@dataclass
+class TableOptions:
+    """Represents table-level options (CHARACTER SET, COLLATION, ENGINE, etc.).
+
+    Different attributes are emitted by different backends. Backends that do not
+    support a given option silently drop it rather than raising; let the dialect
+    decide which options to emit.
+
+    Attributes:
+        charset: Character set name  (MySQL/MariaDB/SQL Server; e.g. "utf8mb4")
+        collation: Collation name    (MySQL/MariaDB/PostgreSQL/SQLite; e.g. "utf8mb4_unicode_ci")
+        engine: Storage engine       (MySQL/MariaDB; e.g. "InnoDB")
+        tablespace: Table tablespace (PostgreSQL/Oracle; e.g. "users_ts")
+        comment: Table comment       (MySQL/PostgreSQL; e.g. "User accounts table")
+        dialect_options: Database-specific key-value pairs forwarded as-is
+    """
+
+    charset: Optional[str] = None
+    collation: Optional[str] = None
+    engine: Optional[str] = None
+    tablespace: Optional[str] = None
+    comment: Optional[str] = None
+    dialect_options: Optional[Dict[str, Any]] = None
+
+    def has_options(self) -> bool:
+        """Return True if at least one option is set (ignoring dialect_options)."""
+        return any(
+            v is not None
+            for k, v in self.__dict__.items()
+            if k != "dialect_options"
+        )
+
+
 class CreateTableExpression(BaseExpression):
     """Represents a comprehensive CREATE TABLE statement supporting full SQL standard features."""
 
@@ -160,6 +199,7 @@ class CreateTableExpression(BaseExpression):
         columns: List[ColumnDefinition],  # List of column definitions with constraints
         indexes: Optional[List[IndexDefinition]] = None,  # Table indexes
         table_constraints: Optional[List[TableConstraint]] = None,  # Table-level constraints
+        table_options: Optional["TableOptions"] = None,  # Table-level options (charset, collation, engine, …)
         temporary: bool = False,  # TEMPORARY table flag
         if_not_exists: bool = False,  # IF NOT EXISTS flag
         inherits: Optional[List[str]] = None,  # PostgreSQL INHERITS clause
@@ -182,6 +222,7 @@ class CreateTableExpression(BaseExpression):
         self.columns = columns  # List of column definitions with embedded constraints
         self.indexes = indexes or []  # List of indexes to create
         self.table_constraints = table_constraints or []  # List of table-level constraints
+        self.table_options = table_options  # Typed table-level options (charset, collation, …)
         self.temporary = temporary  # Temporary table flag
         self.if_not_exists = if_not_exists  # IF NOT EXISTS flag
         self.inherits = inherits or []  # Tables to inherit from (PostgreSQL-specific)
