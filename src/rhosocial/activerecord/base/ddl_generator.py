@@ -182,7 +182,8 @@ class ModelSchemaGenerator:
         python_type = _python_type_of(field)
         suggest = getattr(dialect, "suggest_column_type", None)
         if suggest is not None and python_type is not None:
-            suggested = suggest(python_type)
+            version = getattr(dialect, "version", None)
+            suggested = suggest(python_type, version)
             if suggested is not None:
                 return suggested
         # Ultimate neutral fallback.

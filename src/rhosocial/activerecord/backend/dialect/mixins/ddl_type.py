@@ -111,8 +111,15 @@ class DDLTypeSuggestionMixin:
     3. ``None`` return falls back to this neutral default.
     """
 
-    def suggest_column_type(self, python_type: type) -> "Optional[DataType]":
-        """Return the neutral default ``DataType`` for *python_type*."""
+    def suggest_column_type(
+        self, python_type: type, version: "Optional[Tuple[int, int, int]]" = None
+    ) -> "Optional[DataType]":
+        """Return the neutral default ``DataType`` for *python_type*.
+
+        The neutral mapping is backend- and version-agnostic, so *version* is
+        ignored here; backend-specific mixins override this method to make
+        version-gated decisions.
+        """
         return _NEUTRAL_TYPE_SUGGESTIONS.get(python_type)
 
 

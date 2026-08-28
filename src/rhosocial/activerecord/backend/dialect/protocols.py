@@ -2419,8 +2419,17 @@ class ColumnTypeSuggestion(Protocol):
     Implementations typically come from ``DDLTypeSuggestionMixin``.
     """
 
-    def suggest_column_type(self, python_type: Type) -> Optional["DataType"]:
+    def suggest_column_type(
+        self, python_type: Type, version: Optional[Tuple[int, int, int]] = None
+    ) -> Optional["DataType"]:
         """Return the suggested ``DataType`` for *python_type*.
+
+        *version* is the backend server version (major, minor, patch) when
+        known, allowing version-gated suggestions (e.g. JSON requires
+        MySQL 5.7+). It may be ``None`` when the dialect is not connected to
+        a live backend; a dialect MUST NOT silently guess the version and
+        MUST return ``None`` (or raise) for version-dependent types when
+        *version* is unknown.
 
         Returns ``None`` when the dialect has no suggestion for the type; the
         caller then falls back to a neutral default mapping.
