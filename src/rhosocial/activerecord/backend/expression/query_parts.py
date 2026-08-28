@@ -11,6 +11,7 @@ from typing import Tuple, List, Union, Optional, Any, Dict, TYPE_CHECKING
 
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams
 from .core import Subquery, TableExpression
+from .mixins import AliasableMixin
 
 
 class JoinType(Enum):
@@ -329,7 +330,7 @@ class GroupingExpression(BaseExpression):
         return self.dialect.format_grouping_expression(self.operation, self.expressions)
 
 
-class JoinExpression(BaseExpression):
+class JoinExpression(AliasableMixin, BaseExpression):
     """
     Represents a JOIN expression (e.g., table1 JOIN table2 ON condition).
 
@@ -338,6 +339,8 @@ class JoinExpression(BaseExpression):
 
     This class supports chaining of joins using the join() method and convenience methods
     like inner_join(), left_join(), etc., enabling complex multi-table joins.
+    As an ``AliasableMixin`` subclass, ``as_()`` returns a NEW aliased copy and
+    never mutates the original (see ``AliasableMixin.as_``).
 
     Example Usage:
         # Basic INNER JOIN with ON condition
