@@ -51,6 +51,7 @@ Usage:
 from .exceptions import (
     NamedConnectionError,
     NamedConnectionNotFoundError,
+    NamedConnectionModuleNotAllowedError,
     NamedConnectionModuleNotFoundError,
     NamedConnectionInvalidReturnTypeError,
     NamedConnectionInvalidParameterError,
@@ -76,6 +77,7 @@ from .cli import (
 __all__ = [
     "NamedConnectionError",
     "NamedConnectionNotFoundError",
+    "NamedConnectionModuleNotAllowedError",
     "NamedConnectionModuleNotFoundError",
     "NamedConnectionInvalidReturnTypeError",
     "NamedConnectionInvalidParameterError",

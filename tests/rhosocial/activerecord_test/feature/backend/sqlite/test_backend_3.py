@@ -106,15 +106,19 @@ class TestSQLiteBackendCoveragePart3Fixed:
         backend = SQLiteBackend(connection_config=config)
 
         # Should only update internal dictionary without error
-        backend.set_pragma("test_pragma", "test_value")
-        assert backend.pragmas["test_pragma"] == "test_value"
+        backend.set_pragma("journal_mode", "WAL")
+        assert backend.pragmas["journal_mode"] == "WAL"
+
+        # Unknown pragma name is rejected by the whitelist validation
+        with pytest.raises(ValueError):
+            backend.set_pragma("test_pragma", "test_value")
 
         # Verify pragma is applied when connection is established
         backend.connect()
 
         # For testing, let's use a real pragma
         cursor = backend._connection.cursor()
-        cursor.execute("PRAGMA test_pragma")
+        cursor.execute("PRAGMA journal_mode")
         # Note: custom pragmas might not be queryable, so we just verify no error occurs
 
         backend.disconnect()

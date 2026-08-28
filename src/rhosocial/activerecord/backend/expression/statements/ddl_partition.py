@@ -45,12 +45,19 @@ class PartitionClause(BaseExpression):
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        if not isinstance(method, self.strategy_type):
+        if isinstance(method, self.strategy_type):
+            normalized_method = method.value
+        elif isinstance(method, str) and any(
+            entry.value == method for entry in self.strategy_type
+        ):
+            # Accept the normalized string form produced by get_params() so
+            # deserialization round-trips without needing the Enum object.
+            normalized_method = method
+        else:
             raise TypeError(
-                f"method must be a {self.strategy_type.__name__} value, "
-                f"got {type(method).__name__}"
+                f"method must be a {self.strategy_type.__name__} value or its "
+                f"string value, got {type(method).__name__}"
             )
-        normalized_method = method.value
         if not isinstance(normalized_method, str):
             raise TypeError(f"{self.strategy_type.__name__} values must be strings")
         if not keys:

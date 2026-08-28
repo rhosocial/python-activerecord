@@ -26,6 +26,7 @@ can check protocol implementation before execution.
 """
 
 from rhosocial.activerecord.testsuite.core.registry import ProviderRegistry
+from . import pooling  # noqa: F401  (registers the pool reset handler on import)
 from .basic import BasicSyncProvider, BasicAsyncProvider
 from .events import EventsSyncProvider, EventsAsyncProvider
 from .mixins import MixinsSyncProvider, MixinsAsyncProvider

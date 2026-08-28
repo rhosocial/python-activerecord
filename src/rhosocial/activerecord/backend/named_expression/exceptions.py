@@ -48,6 +48,28 @@ class NamedExpressionError(Exception):
     pass
 
 
+class NamedExpressionModuleNotAllowedError(NamedExpressionError):
+    """Raised when the module of a qualified name is not in the allowlist.
+
+    This exception supports the security model where resolvers only import
+    modules explicitly permitted by the deployment (module prefix allowlist).
+
+    Args:
+        module_name: The module that was rejected.
+        allowed_modules: The allowlist of permitted module prefixes.
+    """
+
+    def __init__(self, module_name: str, allowed_modules: List[str]):
+        self.module_name = module_name
+        self.allowed_modules = list(allowed_modules)
+        error_msg = (
+            f"Module '{module_name}' is not in the allowed modules list: "
+            f"{self.allowed_modules}. Configure allowed_modules on the resolver "
+            "to permit this module prefix."
+        )
+        super().__init__(error_msg)
+
+
 class NamedExpressionNotFoundError(NamedExpressionError):
     """Raised when a named expression callable cannot be found.
 

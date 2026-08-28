@@ -233,15 +233,15 @@ class QuerySyncProvider(QueryProviderBase, IQuerySyncProvider, WorkerTestProtoco
         config = original_config
 
         if original_config.database != ":memory:":
-            unique_filename = os.path.join(
-                tempfile.gettempdir(), f"test_activerecord_{scenario_name}_sync_{uuid.uuid4().hex}.sqlite"
-            )
+            from providers.pooling import resolve_database_file, should_keep_database
+
+            unique_filename = resolve_database_file(scenario_name)
             self._scenario_db_files.setdefault(scenario_name, []).append(unique_filename)
             from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
             config = SQLiteConnectionConfig(
                 database=unique_filename,
-                delete_on_close=original_config.delete_on_close,
+                delete_on_close=original_config.delete_on_close and not should_keep_database(scenario_name),
                 pragmas=original_config.pragmas,
             )
 
@@ -425,12 +425,15 @@ class QuerySyncProvider(QueryProviderBase, IQuerySyncProvider, WorkerTestProtoco
 
         # Then delete the database files
         if scenario_name in self._scenario_db_files:
-            for db_file in self._scenario_db_files[scenario_name]:
-                if os.path.exists(db_file):
-                    try:
-                        os.remove(db_file)
-                    except OSError:
-                        pass
+            from providers.pooling import should_keep_database
+
+            if not should_keep_database(scenario_name):
+                for db_file in self._scenario_db_files[scenario_name]:
+                    if os.path.exists(db_file):
+                        try:
+                            os.remove(db_file)
+                        except OSError:
+                            pass
             del self._scenario_db_files[scenario_name]
 
     def __del__(self):
@@ -527,15 +530,15 @@ class QueryAsyncProvider(QueryProviderBase, IQueryAsyncProvider):
         config = original_config
 
         if original_config.database != ":memory:":
-            unique_filename = os.path.join(
-                tempfile.gettempdir(), f"test_activerecord_{scenario_name}_async_{uuid.uuid4().hex}.sqlite"
-            )
+            from providers.pooling import resolve_database_file, should_keep_database
+
+            unique_filename = resolve_database_file(scenario_name)
             self._scenario_db_files.setdefault(scenario_name, []).append(unique_filename)
             from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
             config = SQLiteConnectionConfig(
                 database=unique_filename,
-                delete_on_close=original_config.delete_on_close,
+                delete_on_close=original_config.delete_on_close and not should_keep_database(scenario_name),
                 pragmas=original_config.pragmas,
             )
 
@@ -770,10 +773,13 @@ class QueryAsyncProvider(QueryProviderBase, IQueryAsyncProvider):
 
         # Then delete the database files
         if scenario_name in self._scenario_db_files:
-            for db_file in self._scenario_db_files[scenario_name]:
-                if os.path.exists(db_file):
-                    try:
-                        os.remove(db_file)
-                    except OSError:
-                        pass
+            from providers.pooling import should_keep_database
+
+            if not should_keep_database(scenario_name):
+                for db_file in self._scenario_db_files[scenario_name]:
+                    if os.path.exists(db_file):
+                        try:
+                            os.remove(db_file)
+                        except OSError:
+                            pass
             del self._scenario_db_files[scenario_name]

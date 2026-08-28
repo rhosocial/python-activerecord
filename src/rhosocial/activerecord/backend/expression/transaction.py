@@ -34,16 +34,6 @@ class TransactionExpression(BaseExpression):
     def __init__(self, dialect: "SQLDialectBase"):
         super().__init__(dialect)
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters.
-
-        Subclasses should override this method to return specific parameters.
-
-        Returns:
-            Dictionary containing all parameters.
-        """
-        return {}
-
 
 class BeginTransactionExpression(TransactionExpression):
     """Expression for BEGIN TRANSACTION statement.
@@ -58,14 +48,22 @@ class BeginTransactionExpression(TransactionExpression):
         sql, params = expr.to_sql()
     """
 
-    def __init__(self, dialect: "SQLDialectBase"):
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        *,
+        isolation_level: Optional[IsolationLevel] = None,
+        mode: Optional[TransactionMode] = None,
+        deferrable: Optional[bool] = None,
+        begin_type: Optional[str] = None,
+    ):
         super().__init__(dialect)
-        self._isolation_level: Optional[IsolationLevel] = None
-        self._mode: Optional[TransactionMode] = None
+        self._isolation_level: Optional[IsolationLevel] = isolation_level
+        self._mode: Optional[TransactionMode] = mode
         # PostgreSQL-specific: deferrable mode for SERIALIZABLE
-        self._deferrable: Optional[bool] = None
+        self._deferrable: Optional[bool] = deferrable
         # SQLite-specific: BEGIN transaction type (DEFERRED|IMMEDIATE|EXCLUSIVE)
-        self._begin_type: Optional[str] = None
+        self._begin_type: Optional[str] = begin_type
 
     def isolation_level(self, level: IsolationLevel) -> "BeginTransactionExpression":
         """Set the transaction isolation level.
@@ -135,23 +133,6 @@ class BeginTransactionExpression(TransactionExpression):
         self._begin_type = begin_type
         return self
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters.
-
-        Returns:
-            Dictionary containing isolation_level, mode, deferrable, and begin_type.
-        """
-        params: Dict[str, Any] = {}
-        if self._isolation_level is not None:
-            params["isolation_level"] = self._isolation_level
-        if self._mode is not None:
-            params["mode"] = self._mode
-        if self._deferrable is not None:
-            params["deferrable"] = self._deferrable
-        if self._begin_type is not None:
-            params["begin_type"] = self._begin_type
-        return params
-
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_begin_transaction method."""
         return self._dialect.format_begin_transaction(self)
@@ -189,9 +170,9 @@ class RollbackTransactionExpression(TransactionExpression):
         sql, params = expr.to_sql()
     """
 
-    def __init__(self, dialect: "SQLDialectBase"):
+    def __init__(self, dialect: "SQLDialectBase", *, savepoint: Optional[str] = None):
         super().__init__(dialect)
-        self._savepoint: Optional[str] = None
+        self._savepoint: Optional[str] = savepoint
 
     def to_savepoint(self, name: str) -> "RollbackTransactionExpression":
         """Rollback to a specific savepoint.
@@ -204,17 +185,6 @@ class RollbackTransactionExpression(TransactionExpression):
         """
         self._savepoint = name
         return self
-
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters.
-
-        Returns:
-            Dictionary containing savepoint name if set.
-        """
-        params: Dict[str, Any] = {}
-        if self._savepoint is not None:
-            params["savepoint"] = self._savepoint
-        return params
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_rollback_transaction method."""
@@ -241,14 +211,6 @@ class SavepointExpression(TransactionExpression):
         """Get the savepoint name."""
         return self._name
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters.
-
-        Returns:
-            Dictionary containing the savepoint name.
-        """
-        return {"name": self._name}
-
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_savepoint method."""
         return self._dialect.format_savepoint(self)
@@ -274,14 +236,6 @@ class ReleaseSavepointExpression(TransactionExpression):
         """Get the savepoint name."""
         return self._name
 
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters.
-
-        Returns:
-            Dictionary containing the savepoint name.
-        """
-        return {"name": self._name}
-
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_release_savepoint method."""
         return self._dialect.format_release_savepoint(self)
@@ -301,12 +255,20 @@ class SetTransactionExpression(TransactionExpression):
         sql, params = expr.to_sql()
     """
 
-    def __init__(self, dialect: "SQLDialectBase"):
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        *,
+        isolation_level: Optional[IsolationLevel] = None,
+        mode: Optional[TransactionMode] = None,
+        session: bool = False,
+        deferrable: Optional[bool] = None,
+    ):
         super().__init__(dialect)
-        self._isolation_level: Optional[IsolationLevel] = None
-        self._mode: Optional[TransactionMode] = None
-        self._session: bool = False
-        self._deferrable: Optional[bool] = None
+        self._isolation_level: Optional[IsolationLevel] = isolation_level
+        self._mode: Optional[TransactionMode] = mode
+        self._session: bool = session
+        self._deferrable: Optional[bool] = deferrable
 
     def isolation_level(self, level: IsolationLevel) -> "SetTransactionExpression":
         """Set the transaction isolation level.
@@ -364,23 +326,6 @@ class SetTransactionExpression(TransactionExpression):
         """
         self._deferrable = value
         return self
-
-    def get_params(self) -> Dict[str, Any]:
-        """Get all parameters.
-
-        Returns:
-            Dictionary containing isolation_level, mode, session, and deferrable.
-        """
-        params: Dict[str, Any] = {}
-        if self._isolation_level is not None:
-            params["isolation_level"] = self._isolation_level
-        if self._mode is not None:
-            params["mode"] = self._mode
-        if self._session:
-            params["session"] = self._session
-        if self._deferrable is not None:
-            params["deferrable"] = self._deferrable
-        return params
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL, delegating to dialect's format_set_transaction method."""

@@ -499,6 +499,8 @@ class TestCTEQueries:
 6. **Use protocols for feature detection** in conditional code
 7. **Document protocol requirements** for backend implementations
 8. **Follow the Expression-Dialect separation** - protocols define interface, implementations provide behavior
+9. **Pair every `XxxSupport` with an `XxxMixin`** - the mixin holds the generic implementation; concrete dialects compose the pair and override a method only when their behaviour deviates (see `dev-expression-dialect` → "Override Discipline")
+10. **Keep Support/Mixin ordering identical** - a pair's position in `protocols.py`, `mixins/__init__.py`, `dialect/__init__.py`, and every dialect's base list must match
 
 ## Protocol Checklist
 

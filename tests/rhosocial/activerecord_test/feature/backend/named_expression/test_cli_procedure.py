@@ -91,6 +91,7 @@ class TestCreateNamedProcedureParser:
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers()
         parent = argparse.ArgumentParser(add_help=False)
+        parent.add_argument("--async", action="store_true", dest="is_async")
 
         np_parser = create_named_procedure_parser(subparsers, parent)
 

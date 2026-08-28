@@ -11,6 +11,7 @@ from .range import RangeQueryMixin
 from .set_operation import SetOperationQuery
 from .utils import convert_qmark_placeholder
 from ..backend.base import StorageBackend, AsyncStorageBackend
+from ..backend.dialect.exceptions import UnsupportedFeatureError
 from ..backend.expression import statements, WildcardExpression, TableExpression, query_sources, bases
 from ..backend.expression.query_sources import CTEExpression
 from ..interface import ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IAsyncSetOperationQuery, IQuery, IAsyncQuery
@@ -64,6 +65,16 @@ class CTEQuery(
         # Check that the backend is NOT an async backend (sync version should not use async backend)
         if isinstance(backend, AsyncStorageBackend):
             raise TypeError(f"CTEQuery requires a synchronous StorageBackend, got {type(backend).__name__}")
+
+        # Check that the backend's dialect supports CTEs
+        dialect = backend.dialect
+        if not dialect.supports_basic_cte():
+            raise UnsupportedFeatureError(
+                dialect.name,
+                "CTE (Common Table Expressions)",
+                "This backend does not support CTE queries. "
+                "Check dialect.supports_basic_cte() before building a CTEQuery.",
+            )
 
         super().__init__(backend)  # Initialize BaseQueryMixin with backend
         self._backend = backend
@@ -368,6 +379,16 @@ class AsyncCTEQuery(
         # Check that the backend IS an async backend (async version should use async backend)
         if not isinstance(backend, AsyncStorageBackend):
             raise TypeError(f"AsyncCTEQuery requires an AsyncStorageBackend, got {type(backend).__name__}")
+
+        # Check that the backend's dialect supports CTEs
+        dialect = backend.dialect
+        if not dialect.supports_basic_cte():
+            raise UnsupportedFeatureError(
+                dialect.name,
+                "CTE (Common Table Expressions)",
+                "This backend does not support CTE queries. "
+                "Check dialect.supports_basic_cte() before building a CTEQuery.",
+            )
 
         super().__init__(backend)  # Initialize BaseQueryMixin with backend
         self._backend = backend

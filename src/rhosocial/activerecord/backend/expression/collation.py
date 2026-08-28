@@ -34,13 +34,15 @@ class CollateExpression(
         dialect: "SQLDialectBase",
         expression: SQLValueExpression,
         collation: Union[str, Enum],
+        *,
+        alias: Optional[str] = None,
         **collation_options: Any,
     ):
         super().__init__(dialect)
         self.expression = expression
         self.collation = collation
+        self.alias: Optional[str] = alias
         self.collation_options: Dict[str, Any] = dict(collation_options)
-        self.alias: Optional[str] = None
 
     @property
     def collation_name(self) -> str:

@@ -192,12 +192,6 @@ def create_named_procedure_parser(
         choices=["auto", "step", "none"],
         help="Transaction mode: auto (default), step (commit each step), none (no transaction)",
     )
-    np_parser.add_argument(
-        "--async",
-        dest="is_async",
-        action="store_true",
-        help="Use asynchronous execution (requires async database driver).",
-    )
     return np_parser
 
 
@@ -303,6 +297,7 @@ def handle_named_procedure(
     async def run_async():
         try:
             backend = backend_async_factory()
+            await backend.connect()
             from .procedure import AsyncProcedureRunner
 
             runner = AsyncProcedureRunner(qualified_name).load()

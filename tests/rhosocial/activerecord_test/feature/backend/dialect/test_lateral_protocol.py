@@ -6,13 +6,18 @@ This test creates a dialect that does not support lateral joins and table functi
 the corresponding formatting methods raise appropriate errors.
 """
 
+import pytest
+
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, LateralJoinMixin, LateralJoinSupport
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.mixins import IdentifierMixin, DQLMixin, ExpressionMixin
 from rhosocial.activerecord.backend.expression import Column, QueryExpression, TableExpression, Subquery
 from rhosocial.activerecord.backend.expression.query_sources import LateralExpression, TableFunctionExpression
 
 
-class NoLateralDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DQLMixin, LateralJoinMixin, LateralJoinSupport):
+class NoLateralDialect(
+    SQLDialectBase, IdentifierMixin, ExpressionMixin, DQLMixin, LateralJoinMixin, LateralJoinSupport
+):
     """Dialect that does not support lateral joins and table functions."""
 
     def supports_lateral_join(self) -> bool:
@@ -29,11 +34,13 @@ def test_no_lateral_dialect_does_not_support_lateral_features():
 
 
 def test_format_lateral_expression_reports_no_support():
-    """Test that format_lateral_expression method reports no support in no-lateral dialect."""
+    """Test that format_lateral_expression raises when the dialect reports no support."""
     dialect = NoLateralDialect()
 
-    # Verify that the dialect reports no lateral join support
     assert not dialect.supports_lateral_join()
+    with pytest.raises(UnsupportedFeatureError) as excinfo:
+        dialect.format_lateral_expression("(SELECT 1)", (), "lateral_data", "CROSS")
+    assert "LATERAL join" in str(excinfo.value)
 
 
 def test_lateral_expression_integration_reports_no_support():

@@ -40,8 +40,3 @@ class SQLiteTableListExpression(TableListExpression):
     ):
         super().__init__(dialect, schema, include_views, include_system, table_type)
         self.use_table_list_pragma = use_table_list_pragma
-
-    def get_params(self) -> dict:
-        params = super().get_params()
-        params["use_table_list_pragma"] = self.use_table_list_pragma
-        return params

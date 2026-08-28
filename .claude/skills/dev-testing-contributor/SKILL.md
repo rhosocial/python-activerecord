@@ -47,7 +47,10 @@ tests/rhosocial/<backend>_test/feature/backend/
 ├── dialect/                 # dialect-specific SQL generation
 ├── type_adapter/            # type conversion round-trips
 ├── sqlite/  sqlite_async/   # concrete impl (here: SQLite + its async variant)
-├── dummy/  dummy2/          # test-only in-memory backends
+├── dummy/                   # protocol support surface (all supports_* True;
+│                            #   member-completeness enforcement) — no real DB
+├── dummy2/                  # expression to_sql() via the generic reference
+│                            #   dialect — tests expressions/protocols/mixins
 ├── concurrency/  security/  # pooling, threads, SQL safety
 └── test_helpers.py  test_output_*.py
 ```

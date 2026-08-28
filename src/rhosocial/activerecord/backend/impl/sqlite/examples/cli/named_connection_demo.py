@@ -6,12 +6,11 @@ Demonstrates how to invoke named connections (Named Connection) via SQLite CLI.
 
 Usage:
     cd src/rhosocial/activerecord/backend/impl/sqlite/examples
-    PYTHONPATH=../../../../..:. python3 cli/named_connection_demo.py
+    python3 cli/named_connection_demo.py
 
 Or use CLI directly:
     python -m rhosocial.activerecord.backend.impl.sqlite named-connection \
-        --named-connection rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory \
-        --show
+        --show rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db
 """
 
 # ============================================================
@@ -21,11 +20,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Setup: ensure examples modules can be discovered
-project_root = Path(__file__).parent.parent.parent.parent.parent.parent
-examples_dir = project_root / "src" / "rhosocial" / "activerecord" / "backend" / "impl" / "sqlite" / "examples"
-sys.path.insert(0, str(project_root / "src"))
-sys.path.insert(0, str(examples_dir))
+# Setup: ensure the package is importable from source (if not installed)
+project_root = Path(__file__).resolve().parents[8]
+src_dir = project_root / "src"
+sys.path.insert(0, str(src_dir))
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
@@ -37,33 +35,29 @@ This section demonstrates typical Named Connection CLI usage.
 
 ```bash
 python -m rhosocial.activerecord.backend.impl.sqlite named-connection \
-    --named-connection rhosocial.activerecord.backend.impl.sqlite.examples.named_connections \
-    --list
+    --list rhosocial.activerecord.backend.impl.sqlite.examples.named_connections
 ```
 
 ### 2. View single connection configuration details
 
 ```bash
 python -m rhosocial.activerecord.backend.impl.sqlite named-connection \
-    --named-connection rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db \
-    --show
+    --show rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db
 ```
 
 ### 3. Dry-run: resolve connection configuration
 
 ```bash
 python -m rhosocial.activerecord.backend.impl.sqlite named-connection \
-    --named-connection rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db \
-    --describe
+    --describe rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db
 ```
 
 ### 4. Resolve connection with parameters
 
 ```bash
 python -m rhosocial.activerecord.backend.impl.sqlite named-connection \
-    --named-connection rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.file.file_db \
-    --describe \
-    --conn-param database=custom.db
+    --describe rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.file.file_db \
+    --param delete_on_close=False
 ```
 
 ### 5. Use named connection in query
@@ -77,12 +71,17 @@ python -m rhosocial.activerecord.backend.impl.sqlite query \
 
 
 def run_cli_command(args):
-    """Execute CLI command and print output."""
+    """Execute CLI command and print output.
+
+    The subprocess runs with cwd=project_root so the examples directory
+    (which contains a 'types' module) is not on the child's sys.path and
+    cannot shadow the Python standard library 'types' module.
+    """
     cmd = [sys.executable, "-m", "rhosocial.activerecord.backend.impl.sqlite"] + args
     print(f"\n{'=' * 60}")
     print(f"Running: {' '.join(cmd)}")
     print("=" * 60)
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(project_root))
     print(result.stdout)
     if result.stderr:
         print(f"STDERR: {result.stderr}")
@@ -98,9 +97,8 @@ def main():
     run_cli_command(
         [
             "named-connection",
-            "--named-connection",
-            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections",
             "--list",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections",
         ]
     )
 
@@ -109,9 +107,8 @@ def main():
     run_cli_command(
         [
             "named-connection",
-            "--named-connection",
-            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
             "--show",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
         ]
     )
 
@@ -120,9 +117,8 @@ def main():
     run_cli_command(
         [
             "named-connection",
-            "--named-connection",
-            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
             "--describe",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory.memory_db",
         ]
     )
 
@@ -131,11 +127,10 @@ def main():
     run_cli_command(
         [
             "named-connection",
-            "--named-connection",
-            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.file.file_db",
             "--describe",
-            "--conn-param",
-            "database=custom.db",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.file.file_db",
+            "--param",
+            "delete_on_close=False",
         ]
     )
 

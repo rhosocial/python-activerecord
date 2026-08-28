@@ -140,18 +140,85 @@ class NewFeatureSupport(Protocol):
     def supports_new_feature(self) -> bool: ...
     def format_new_feature_statement(self, expr): ...
 
-# 2. main package mixins.py (SQL-standard default)
+# 2. main package mixins.py — generic implementation; the supports_* default
+#    must represent the COMMON behaviour across databases (usually False for
+#    non-universal features, True for near-universal ones like auto-increment)
 class NewFeatureMixin:
     def supports_new_feature(self): return False
     def format_new_feature_statement(self, expr): ...
 
-# 3. dialect extension: override in {backend}/dialect.py
+# 3. concrete dialects: compose the pair; override ONLY methods whose real
+#    capability/behaviour differs from the generic implementation
 
-# 4. dummy dialect: add NewFeatureMixin/NewFeatureSupport, support returns True
+# 4. dummy dialect: compose NewFeatureMixin/NewFeatureSupport and override
+#    supports_* to True only where the generic default is not already True
 
 # 5. tests: tests/.../dummy2/test_new_feature.py (expression),
 #    tests/.../dummy/test_dummy_protocol_support.py (protocol support)
 ```
+
+### Override Discipline (Generic-First)
+
+Generic mixins implement the standard/common behaviour **once**. A concrete
+dialect composes a Support/Mixin pair and inherits that behaviour untouched;
+it overrides a method **only when its real capability differs from the
+generic implementation**. Never re-declare a method just to return the same
+value the mixin already provides.
+
+Rationale:
+- Concrete backends stay minimal — no boilerplate restating standard behaviour.
+- The overrides in `{backend}/dialect.py` read as an exact diff against the
+  generic implementation, so backends can be compared at a glance.
+- Enforcement lives in `tests/.../dummy/test_dummy_protocol_member_completeness.py`
+  (every protocol method must exist on `DummyDialect`) plus per-feature tests
+  asserting `"method_name" not in ConcreteDialect.__dict__` for dialects that
+  match the generic behaviour.
+
+Example: `AutoIncrementMixin.supports_auto_increment()` defaults to `True`
+(nearly all databases generate keys server-side). SQLite and the dummy
+dialect simply compose the pair with zero overrides; ClickHouse alone
+overrides it to `False`, which documents its deviation.
+
+## The Dummy Dialect: Generic Reference and Test Vehicle
+
+`backend/impl/dummy/dialect.py` (`DummyDialect`) is the SQL-standard
+reference dialect and the vehicle for testing everything that does not
+require a real database connection.
+
+**Scope — compose (almost) everything:**
+
+- Compose every generic `XxxSupport`/`XxxMixin` pair, so each protocol's
+  code path is reachable in tests without a database.
+- The only exclusions are capabilities that inherently need a real server:
+  introspection is composed but every `supports_introspection*()` returns
+  `False`; backend-specific data types are not modelled (core types get
+  standard formatters via `DDLTypeMixin.handles(...)` for expression
+  `to_sql()` testing).
+
+**Behaviour — switches fully on:**
+
+- Every feature-detection method returns `True`, either inherited from the
+  generic mixin or overridden where the generic default differs. Dummy is a
+  *reference switchboard*, not a simulation of any real product.
+
+**Enforcement:**
+
+- `tests/.../dummy/test_dummy_protocol_member_completeness.py` dynamically
+  discovers every Protocol in `protocols.py` (excluding only
+  `IntrospectionSupport`) and fails unless `DummyDialect` composes it and
+  implements all of its members.
+
+**Test organization — indirect coverage of the generic layer:**
+
+- `tests/.../feature/backend/dummy/` — protocol support surface: every
+  `supports_*()` verified `True`, plus member-completeness enforcement.
+- `tests/.../feature/backend/dummy2/` — expression `to_sql()` generation:
+  exercises the generic Expression classes through the dummy dialect's
+  standard formatting, i.e. tests generic expressions, protocols, and
+  mixin implementations indirectly, with no database involved.
+
+When you add a protocol/mixin pair (see "Adding a New Protocol"), extending
+both directories is part of the definition of done.
 
 ## Why This Matters
 

@@ -78,6 +78,12 @@ class ActiveRecordBase(BaseModel, ABC):
         Returns the class's __table_name__ attribute by default. Subclasses can override
         for dynamic table names.
 
+        Qualifier binding:
+            Column expressions built through ``Model.c.field`` capture this
+            value at construction time. If a dynamic override returns a
+            different name later, build new conditions after the change;
+            existing expressions keep the qualifiers they were created with.
+
         Returns:
             str: Database table name
 
@@ -108,6 +114,20 @@ class ActiveRecordBase(BaseModel, ABC):
         Returns the class's __schema_name__ attribute by default. Subclasses can override
         for dynamic schema names.
 
+        Schema namespaces:
+            On databases that support schemas (PostgreSQL, SQL Server, ...),
+            every statement generated for the model uses qualified references:
+            ``"tenant"."users"`` on PostgreSQL, ``[tenant].[users]`` on SQL
+            Server. Leave ``__schema_name__`` unset to resolve through the
+            connection's default schema / search_path. Joins across schemas
+            work naturally because each model's columns carry their own full
+            qualifiers.
+
+        Qualifier binding:
+            Like ``table_name()``, this is captured when column expressions
+            are built; for tenant-style switching, rebuild conditions after
+            changing the schema (or use one model class per schema).
+
         Returns:
             Optional[str]: Schema name, or None if not set
 
@@ -116,6 +136,15 @@ class ActiveRecordBase(BaseModel, ABC):
             def schema_name(cls):
                 # Dynamic schema based on tenant
                 return f"tenant_{cls.get_tenant_id()}"
+
+            Cross-schema join (each side keeps its own qualifiers):
+
+                Order.query().join(
+                    Customer,
+                    on=Order.c.customer_id == Customer.c.id,
+                ).select(Order.c.id, Customer.c.name)
+                # PostgreSQL: FROM "shop"."orders"
+                #             JOIN "crm"."customers" ON ...
         """
         return cls.__schema_name__
 

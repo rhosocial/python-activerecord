@@ -14,8 +14,10 @@ Architecture Notes:
 The dialect mixins in rhosocial.activerecord.backend.dialect.mixins provide
 standard SQL implementations for various features. Each mixin includes:
 
-1. supports_* methods: Return False by default, indicating the feature is
-   not supported. Concrete dialects override these to enable features.
+1. supports_* methods: Return the generic SQL-standard behaviour. Features
+   that are not universal across databases default to False; concrete
+   dialects override a method ONLY when their actual capability differs
+   from the generic implementation (overrides read as a per-backend diff).
 
 2. format_* methods: Provide standard SQL generation for the feature.
    These follow SQL standard syntax and are designed to work with the
@@ -41,10 +43,11 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 3. Override format_* methods where the database deviates from SQL standard
 """
 
+import re
+
 from typing import Dict, List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType, BigIntType, BlobType, BooleanType, CharType, CustomType,
     DateType, DateTimeType, DecimalType, DoubleType, FloatType,
@@ -95,6 +98,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TriggerSupport,
     FunctionSupport,
     GeneratedColumnSupport,
+    AutoIncrementSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -142,6 +146,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
+    AutoIncrementMixin,
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
@@ -156,7 +161,10 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TransactionControlMixin,
 )
 
+_COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 if TYPE_CHECKING:
+    from rhosocial.activerecord.backend.expression.collation import CollateExpression
     from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
     from rhosocial.activerecord.backend.expression.transaction import (
         BeginTransactionExpression,
@@ -209,6 +217,7 @@ class DummyDialect(
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
+    AutoIncrementMixin,
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
@@ -264,6 +273,7 @@ class DummyDialect(
     TriggerSupport,
     FunctionSupport,
     GeneratedColumnSupport,
+    AutoIncrementSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -439,6 +449,19 @@ class DummyDialect(
 
     def supports_collate_expression(self) -> bool:
         return True
+
+    def validate_collation_name(self, expr: "CollateExpression") -> str:
+        """Validate a collation name and return its SQL representation.
+
+        Dummy is a generic SQL-generation test dialect, so it validates that
+        the collation name is a syntactically valid identifier without binding
+        to any concrete database's collation catalog. This mirrors the other
+        dialects (e.g. SQLite's regex check) while remaining deliberately
+        permissive.
+        """
+        if not _COLLATION_NAME_RE.fullmatch(expr.collation_name):
+            raise ValueError(f"Invalid collation name: {expr.collation_name!r}")
+        return expr.collation_name
 
     def supports_window_functions(self) -> bool:
         return True

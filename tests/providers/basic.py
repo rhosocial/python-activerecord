@@ -398,10 +398,10 @@ class BasicSyncProvider(BasicProviderBase, IBasicSyncProvider, WorkerTestProtoco
         config = original_config  # default to the original config
 
         if original_config.database != ":memory:":
-            # For file-based scenarios, create a unique temporary file
-            unique_filename = os.path.join(
-                tempfile.gettempdir(), f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
-            )
+            # For file-based scenarios, use a (possibly pooled) database file.
+            from providers.pooling import resolve_database_file, should_keep_database
+
+            unique_filename = resolve_database_file(scenario_name)
 
             # Store the actual database file used for this scenario in this test
             self._scenario_db_files[scenario_name] = unique_filename
@@ -411,7 +411,7 @@ class BasicSyncProvider(BasicProviderBase, IBasicSyncProvider, WorkerTestProtoco
 
             config = SQLiteConnectionConfig(
                 database=unique_filename,
-                delete_on_close=original_config.delete_on_close,
+                delete_on_close=original_config.delete_on_close and not should_keep_database(scenario_name),
                 pragmas=original_config.pragmas,
             )
 
@@ -621,13 +621,16 @@ class BasicSyncProvider(BasicProviderBase, IBasicSyncProvider, WorkerTestProtoco
         self._active_backends.clear()
 
         if scenario_name in self._scenario_db_files:
-            db_file = self._scenario_db_files[scenario_name]
-            if os.path.exists(db_file):
-                try:
-                    os.remove(db_file)
-                    del self._scenario_db_files[scenario_name]
-                except OSError:
-                    pass
+            from providers.pooling import should_keep_database
+
+            if not should_keep_database(scenario_name):
+                db_file = self._scenario_db_files[scenario_name]
+                if os.path.exists(db_file):
+                    try:
+                        os.remove(db_file)
+                    except OSError:
+                        pass
+            del self._scenario_db_files[scenario_name]
         else:
             _, config = get_scenario(scenario_name)
             if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
@@ -673,10 +676,10 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
         config = original_config  # default to the original config
 
         if original_config.database != ":memory:":
-            # For file-based scenarios, create a unique temporary file
-            unique_filename = os.path.join(
-                tempfile.gettempdir(), f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
-            )
+            # For file-based scenarios, use a (possibly pooled) database file.
+            from providers.pooling import resolve_database_file, should_keep_database
+
+            unique_filename = resolve_database_file(scenario_name)
 
             # Store the actual database file used for this scenario in this test
             self._scenario_db_files[scenario_name] = unique_filename
@@ -686,7 +689,7 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
 
             config = SQLiteConnectionConfig(
                 database=unique_filename,
-                delete_on_close=original_config.delete_on_close,
+                delete_on_close=original_config.delete_on_close and not should_keep_database(scenario_name),
                 pragmas=original_config.pragmas,
             )
 
@@ -860,13 +863,16 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
         self._active_async_backends.clear()
 
         if scenario_name in self._scenario_db_files:
-            db_file = self._scenario_db_files[scenario_name]
-            if os.path.exists(db_file):
-                try:
-                    os.remove(db_file)
-                    del self._scenario_db_files[scenario_name]
-                except OSError:
-                    pass
+            from providers.pooling import should_keep_database
+
+            if not should_keep_database(scenario_name):
+                db_file = self._scenario_db_files[scenario_name]
+                if os.path.exists(db_file):
+                    try:
+                        os.remove(db_file)
+                    except OSError:
+                        pass
+            del self._scenario_db_files[scenario_name]
         else:
             _, config = get_scenario(scenario_name)
             if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):

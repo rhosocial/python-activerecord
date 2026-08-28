@@ -18,6 +18,9 @@ from .procedure_graph import (
     StepNode,
 )
 
+# Fallback statement type for graph steps whose expression does not expose one.
+_DEFAULT_STMT_TYPE = None
+
 
 class ProcedureGraphValidationError(ProcedureError):
     """Raised when ProcedureGraph validation fails."""
@@ -145,7 +148,7 @@ class ProcedureGraphRunner:
 
         t0 = time.monotonic()
         try:
-            sql, params = self._resolve_step(node, ctx)
+            sql, params, stmt_type = self._resolve_step(node, ctx)
             entry.sql = sql
             entry.params = params
 
@@ -154,11 +157,11 @@ class ProcedureGraphRunner:
                 result.steps_dry_run.append(entry)
                 return
 
-            rows = self._execute(sql, params)
+            rows = self._execute(sql, params, stmt_type)
             entry.result = rows
             entry.status = StepStatus.OK
 
-            ctx.bind(node.bind_output, rows)
+            ctx.bind(node.bind_output, _as_rows(rows))
             result.steps_done.append(entry)
 
         except Exception as e:
@@ -173,8 +176,10 @@ class ProcedureGraphRunner:
         self,
         node: StepNode,
         ctx: GraphContext,
-    ) -> Tuple[str, tuple]:
-        """Resolve a step to SQL and parameters."""
+    ) -> Tuple[str, tuple, Any]:
+        """Resolve a step to SQL, parameters, and statement type."""
+        from rhosocial.activerecord.backend.options import StatementType
+
         resolved_params = {**node.params, **node.bind}
         resolved_params = _interpolate_dict(resolved_params, ctx)
 
@@ -182,17 +187,24 @@ class ProcedureGraphRunner:
             from .resolver import resolve_named_expression
 
             expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)
-            return expr.to_sql()
+            stmt_type = getattr(expr, "statement_type", StatementType.DQL)
+            return (*expr.to_sql(), stmt_type)
 
         elif node.kind == StepKind.EXPRESSION:
-            return node.expression.to_sql()
+            expr = node.expression
+            stmt_type = getattr(expr, "statement_type", StatementType.DQL)
+            return (*expr.to_sql(), stmt_type)
 
         elif node.kind == StepKind.SUBGRAPH:
             raise ProcedureError("SUBGRAPH must be expanded before execution")
 
-    def _execute(self, sql: str, params: tuple) -> Any:
+    def _execute(self, sql: str, params: tuple, stmt_type: Any = None) -> Any:
         """Execute SQL on the backend."""
-        return self._backend.execute(sql, params)
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+
+        return self._backend.execute(
+            sql, params, options=ExecutionOptions(stmt_type=stmt_type or _DEFAULT_STMT_TYPE)
+        )
 
 
 class AsyncProcedureGraphRunner:
@@ -278,7 +290,7 @@ class AsyncProcedureGraphRunner:
 
         t0 = time.monotonic()
         try:
-            sql, params = self._resolve_step(node, ctx)
+            sql, params, stmt_type = self._resolve_step(node, ctx)
             entry.sql = sql
             entry.params = params
 
@@ -287,11 +299,11 @@ class AsyncProcedureGraphRunner:
                 result.steps_dry_run.append(entry)
                 return
 
-            rows = await self._execute(sql, params)
+            rows = await self._execute(sql, params, stmt_type)
             entry.result = rows
             entry.status = StepStatus.OK
 
-            ctx.bind(node.bind_output, rows)
+            ctx.bind(node.bind_output, _as_rows(rows))
             result.steps_done.append(entry)
 
         except Exception as e:
@@ -306,8 +318,10 @@ class AsyncProcedureGraphRunner:
         self,
         node: StepNode,
         ctx: GraphContext,
-    ) -> Tuple[str, tuple]:
-        """Resolve a step to SQL and parameters."""
+    ) -> Tuple[str, tuple, Any]:
+        """Resolve a step to SQL, parameters, and statement type."""
+        from rhosocial.activerecord.backend.options import StatementType
+
         resolved_params = {**node.params, **node.bind}
         resolved_params = _interpolate_dict(resolved_params, ctx)
 
@@ -315,17 +329,36 @@ class AsyncProcedureGraphRunner:
             from .resolver import resolve_named_expression
 
             expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)
-            return expr.to_sql()
+            stmt_type = getattr(expr, "statement_type", StatementType.DQL)
+            return (*expr.to_sql(), stmt_type)
 
         elif node.kind == StepKind.EXPRESSION:
-            return node.expression.to_sql()
+            expr = node.expression
+            stmt_type = getattr(expr, "statement_type", StatementType.DQL)
+            return (*expr.to_sql(), stmt_type)
 
         elif node.kind == StepKind.SUBGRAPH:
             raise ProcedureError("SUBGRAPH must be expanded before execution")
 
-    async def _execute(self, sql: str, params: tuple) -> Any:
+    async def _execute(self, sql: str, params: tuple, stmt_type: Any = None) -> Any:
         """Execute SQL on the async backend."""
-        return await self._backend.execute(sql, params)
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+
+        return await self._backend.execute(
+            sql, params, options=ExecutionOptions(stmt_type=stmt_type or _DEFAULT_STMT_TYPE)
+        )
+
+
+def _as_rows(result: Any) -> Any:
+    """Normalize an execution result for bind-output path extraction.
+
+    ``ProcedureGraph.bind_output`` uses path notation such as ``rows[0].total``
+    (or ``data[0].total``).  The runner executes via ``backend.execute()`` which
+    returns a QueryResult; extract ``.data`` and expose it under both the
+    ``rows`` and ``data`` keys so either notation resolves.
+    """
+    data = result.data if hasattr(result, "data") else result
+    return {"rows": data, "data": data}
 
 
 def _interpolate_dict(

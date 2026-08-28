@@ -22,7 +22,7 @@ from rhosocial.activerecord.relation.cache_backends import (  # noqa: E402
     InMemoryCache,
 )
 
-pytestmark = pytest.mark.redis
+pytestmark = [pytest.mark.redis, pytest.mark.serial]
 
 
 class _DummyModel:

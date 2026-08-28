@@ -38,7 +38,9 @@ class JsonOutputProvider(OutputProvider):
         sys.stdout.write(json.dumps(data, indent=2, ensure_ascii=False, default=self._json_serializer) + "\n")
 
     def display_no_data(self):
+        # Keep JSON output machine-parseable: an empty result set is `[]`.
         logger.info("No data returned.")
+        sys.stdout.write("[]\n")
 
     def display_no_result_object(self):
         logger.info("Query executed, but no result object returned.")

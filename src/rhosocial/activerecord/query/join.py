@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/query/join.py
 """JoinQueryMixin implementation for building JOIN clauses using a chained expression model."""
 
-from typing import Union, Type, Optional, Iterable
+from typing import List, Union, Type, Optional, Iterable
 
 from ..interface import IQuery, IActiveRecord
 from ..backend.expression import SQLPredicate, TableExpression, RawSQLPredicate, JoinExpression
@@ -33,8 +33,10 @@ class JoinQueryMixin:
         # Check if it's a model class
         if issubclass(right, IActiveRecord):
             table_name = right.table_name()
-            # Use provided alias, or table name as alias
-            return TableExpression(dialect, table_name, schema_name=right.schema_name(), alias=alias or table_name)
+            # Only alias when explicitly requested. Forced aliases would turn
+            # every range into an aliased one, breaking schema-qualified column
+            # references emitted from plain field accessors.
+            return TableExpression(dialect, table_name, schema_name=right.schema_name(), alias=alias)
         if isinstance(right, (TableExpression, JoinExpression)):
             # If an alias is provided, apply it to the expression
             if alias:
@@ -66,6 +68,7 @@ class JoinQueryMixin:
         alias: Optional[str],
         natural: bool = False,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IQuery[IActiveRecord]":
         """Internal helper to construct and chain join expressions."""
         dialect = self.backend().dialect
@@ -74,11 +77,12 @@ class JoinQueryMixin:
 
         if self.join_clause is None:
             # First join. The left table is the main model's table.
+            # No implicit alias: plain (schema-qualified) column references in
+            # ON/WHERE predicates must stay resolvable against this range.
             left_table = TableExpression(
                 dialect,
                 self.model_class.table_name(),
                 schema_name=self.model_class.schema_name(),
-                alias=self.model_class.table_name(),
             )
             self.join_clause = JoinExpression(
                 dialect=dialect,
@@ -86,12 +90,14 @@ class JoinQueryMixin:
                 right_table=right_table,
                 join_type=join_type,
                 condition=condition,
+                using=using,
                 natural=natural,
             )
         else:
             # Subsequent join. Chain onto the existing JoinExpression.
             self.join_clause = self.join_clause.join(
-                right_table=right_table, join_type=join_type, condition=condition, natural=natural
+                right_table=right_table, join_type=join_type, condition=condition,
+                using=using, natural=natural,
             )
         return self
 
@@ -101,11 +107,23 @@ class JoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IQuery[IActiveRecord]":
         """
         Adds a JOIN clause to the query (defaults to INNER JOIN).
+
+        Notes:
+            - Each side keeps its own schema/table qualifiers (columns from
+              ``Model.c.*`` are fully qualified), so joining models that live
+              in different schemas works directly — e.g. PostgreSQL renders
+              ``FROM "shop"."orders" JOIN "crm"."customers" ON ...``.
+            - For self-joins pass an explicit ``alias`` and address the joined
+              copy through ``Model.c.with_table_alias(alias)``; see FieldProxy.
+            - Unqualified hand-written columns follow standard SQL resolution;
+              genuinely ambiguous references raise a database error rather
+              than being silently attributed to either side.
         """
-        return self._perform_join("JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("JOIN", right, on, alias, on_params=on_params, using=using)
 
     def inner_join(
         self,
@@ -113,11 +131,12 @@ class JoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IQuery[IActiveRecord]":
         """
         Adds an INNER JOIN clause to the query.
         """
-        return self._perform_join("INNER JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("INNER JOIN", right, on, alias, on_params=on_params, using=using)
 
     def left_join(
         self,
@@ -125,11 +144,12 @@ class JoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IQuery[IActiveRecord]":
         """
         Adds a LEFT JOIN clause to the query.
         """
-        return self._perform_join("LEFT JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("LEFT JOIN", right, on, alias, on_params=on_params, using=using)
 
     def right_join(
         self,
@@ -137,11 +157,12 @@ class JoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IQuery[IActiveRecord]":
         """
         Adds a RIGHT JOIN clause to the query.
         """
-        return self._perform_join("RIGHT JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("RIGHT JOIN", right, on, alias, on_params=on_params, using=using)
 
     def full_join(
         self,
@@ -149,11 +170,28 @@ class JoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
+        using: Optional[List[str]] = None,
     ) -> "IQuery[IActiveRecord]":
         """
         Adds a FULL OUTER JOIN clause to the query.
         """
-        return self._perform_join("FULL JOIN", right, on, alias, on_params=on_params)
+        return self._perform_join("FULL JOIN", right, on, alias, on_params=on_params, using=using)
+
+    def straight_join(
+        self,
+        right: Union[str, Type["IActiveRecord"], TableExpression],
+        on: Optional[Union[str, SQLPredicate]] = None,
+        alias: Optional[str] = None,
+        on_params: Optional[Iterable] = None,
+    ) -> "IQuery[IActiveRecord]":
+        """
+        Adds a MySQL STRAIGHT_JOIN clause (forces the optimizer's join order).
+
+        Only supported by backends whose dialect declares
+        ``supports_straight_join()``; gate tests with
+        ``requires_protocol("JoinSupport", "supports_straight_join")``.
+        """
+        return self._perform_join("STRAIGHT_JOIN", right, on, alias, on_params=on_params)
 
     def cross_join(
         self, right: Union[str, Type["IActiveRecord"], TableExpression], alias: Optional[str] = None

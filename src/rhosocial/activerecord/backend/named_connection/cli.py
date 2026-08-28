@@ -201,6 +201,16 @@ def create_named_connection_parser(
         help="Module or connection qualified name (required for --show and --describe, optional for --list).",
     )
 
+    # Parameter override for describe (dry-run resolve)
+    nc_parser.add_argument(
+        "--param",
+        action="append",
+        metavar="KEY=VALUE",
+        default=[],
+        dest="param",
+        help="Connection parameter override for the resolved config. Can be specified multiple times.",
+    )
+
     # Primary mode: list connections in a module
     nc_parser.add_argument(
         "--list",

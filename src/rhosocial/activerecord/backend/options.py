@@ -86,6 +86,9 @@ class UpdateOptions:
     returning_columns: Optional[List[str]] = None
     # Schema name for schema-qualified table references (e.g., schema_name.table).
     schema_name: Optional[str] = None
+    # The name of the primary key column. (Used by backends that need to
+    # exclude the PK from SET assignments, e.g. ClickHouse).
+    primary_key: Optional[str] = None
 
 
 @dataclass
@@ -109,6 +112,8 @@ class BulkInsertOptions:
     returning_columns: Optional[List[str]] = None
     # Schema name for schema-qualified table references.
     schema_name: Optional[str] = None
+    # The name of the primary key column. (Used by backends that generate ids).
+    primary_key: Optional[str] = None
 
 
 @dataclass

@@ -94,6 +94,7 @@ class BulkOperationsMixin:
                 column_mapping=column_mapping,
                 returning_columns=returning_columns,
                 auto_commit=False,
+                primary_key=cls.primary_key() if not is_composite else None,
             )
             result = backend.bulk_insert(opts)
 
@@ -422,6 +423,7 @@ class AsyncBulkOperationsMixin:
                 column_mapping=column_mapping,
                 returning_columns=returning_columns,
                 auto_commit=False,
+                primary_key=cls.primary_key() if not is_composite else None,
             )
             result = await backend.bulk_insert(opts)
 

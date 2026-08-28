@@ -64,13 +64,23 @@ class NamedProcedureGraphResolver:
         >>> graph = resolver.build(dialect, {"month": "2026-04"})
     """
 
-    def __init__(self, qualified_name: str):
+    def __init__(
+        self,
+        qualified_name: str,
+        *,
+        allowed_modules: Optional[List[str]] = None,
+    ):
         """Initialize resolver with qualified name.
 
         Args:
             qualified_name: Fully qualified Python name (module.path.callable).
+            allowed_modules: Optional allowlist of module prefixes. When provided,
+                only modules matching the allowlist may be imported.
         """
         self._qualified_name = qualified_name
+        self._allowed_modules: Optional[List[str]] = (
+            list(allowed_modules) if allowed_modules else None
+        )
         self._module_name: str = ""
         self._attr_name: str = ""
         self._callable: Optional[Callable] = None
@@ -88,6 +98,13 @@ class NamedProcedureGraphResolver:
             )
         self._module_name = parts[0]
         self._attr_name = parts[1]
+        from .resolver import _module_allowed
+        from .exceptions import NamedExpressionModuleNotAllowedError
+
+        if not _module_allowed(self._module_name, self._allowed_modules):
+            raise NamedExpressionModuleNotAllowedError(
+                self._module_name, self._allowed_modules or []
+            )
 
     @property
     def qualified_name(self) -> str:

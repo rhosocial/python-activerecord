@@ -47,10 +47,26 @@ from rhosocial.activerecord.backend.config import BaseConfig
 from .exceptions import (
     NamedConnectionInvalidParameterError,
     NamedConnectionMissingParameterError,
+    NamedConnectionModuleNotAllowedError,
     NamedConnectionModuleNotFoundError,
     NamedConnectionNotCallableError,
     NamedConnectionNotFoundError,
 )
+
+
+def _module_allowed(module_name: str, allowed_modules: Optional[List[str]]) -> bool:
+    """Check whether a module name is covered by an allowlist of prefixes.
+
+    A module matches a prefix if it equals the prefix or starts with
+    ``prefix + "."``. ``None`` (or empty) means unrestricted, keeping
+    the legacy behavior for CLI/local usage.
+    """
+    if not allowed_modules:
+        return True
+    return any(
+        module_name == prefix or module_name.startswith(prefix + ".")
+        for prefix in allowed_modules
+    )
 from .validators import validate_connection_config, filter_sensitive_fields
 
 
@@ -82,17 +98,28 @@ class NamedConnectionResolver:
         >>> config = resolver.resolve({"pool_size": 20})
     """
 
-    def __init__(self, qualified_name: str):
+    def __init__(
+        self,
+        qualified_name: str,
+        *,
+        allowed_modules: Optional[List[str]] = None,
+    ):
         """Initialize resolver with a fully qualified name.
 
         Args:
             qualified_name: Fully qualified Python name in format 'module.path.callable'.
                 Must contain exactly one dot separating module from callable name.
+            allowed_modules: Optional allowlist of module prefixes. When provided,
+                only modules matching the allowlist may be imported.
 
         Raises:
             NamedConnectionNotFoundError: If qualified_name format is invalid.
+            NamedConnectionModuleNotAllowedError: If the module is not allowed.
         """
         self._qualified_name = qualified_name
+        self._allowed_modules: Optional[List[str]] = (
+            list(allowed_modules) if allowed_modules else None
+        )
         self._module_name: str = ""
         self._attr_name: str = ""
         self._callable: Optional[Callable] = None
@@ -111,6 +138,10 @@ class NamedConnectionResolver:
             )
         self._module_name = parts[0]
         self._attr_name = parts[1]
+        if not _module_allowed(self._module_name, self._allowed_modules):
+            raise NamedConnectionModuleNotAllowedError(
+                self._module_name, self._allowed_modules or []
+            )
 
     @property
     def qualified_name(self) -> str:
@@ -338,6 +369,8 @@ class NamedConnectionResolver:
 def resolve_named_connection(
     qualified_name: str,
     user_params: Optional[Dict[str, Any]] = None,
+    *,
+    allowed_modules: Optional[List[str]] = None,
 ) -> BaseConfig:
     """Resolve and execute a named connection in one step.
 
@@ -358,7 +391,7 @@ def resolve_named_connection(
         ...     {"pool_size": 20}
         ... )
     """
-    resolver = NamedConnectionResolver(qualified_name).load()
+    resolver = NamedConnectionResolver(qualified_name, allowed_modules=allowed_modules).load()
     return resolver.resolve(user_params)
 
 

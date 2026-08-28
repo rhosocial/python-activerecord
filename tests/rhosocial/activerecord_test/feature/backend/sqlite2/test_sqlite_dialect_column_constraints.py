@@ -57,7 +57,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE)
 
-        sql, params = dialect.format_unique_constraint(constraint)
+        sql, params = dialect.format_column_unique_constraint(constraint)
 
         assert sql == " UNIQUE"
         assert params == ()

@@ -38,6 +38,25 @@ class NamedConnectionError(Exception):
     pass
 
 
+class NamedConnectionModuleNotAllowedError(NamedConnectionError):
+    """Raised when the module of a qualified name is not in the allowlist.
+
+    Args:
+        module_name: The module that was rejected.
+        allowed_modules: The allowlist of permitted module prefixes.
+    """
+
+    def __init__(self, module_name: str, allowed_modules):
+        self.module_name = module_name
+        self.allowed_modules = list(allowed_modules)
+        error_msg = (
+            f"Module '{module_name}' is not in the allowed modules list: "
+            f"{self.allowed_modules}. Configure allowed_modules on the resolver "
+            "to permit this module prefix."
+        )
+        super().__init__(error_msg)
+
+
 class NamedConnectionNotFoundError(NamedConnectionError):
     """Raised when a named connection callable cannot be found.
 

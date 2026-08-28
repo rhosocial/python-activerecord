@@ -335,6 +335,17 @@ class TestDummyProtocolSupport:
 
     # endregion
 
+    # region Auto Increment Support
+    def test_auto_increment_support_methods(self, dialect):
+        """Test AutoIncrementSupport protocol methods.
+
+        DummyDialect composes AutoIncrementMixin and inherits the generic
+        behaviour without overriding it (override discipline).
+        """
+        assert dialect.supports_auto_increment() is True
+
+    # endregion
+
     # region Base Dialect Methods
     def test_base_dialect_methods(self, dialect):
         """Test base dialect support methods not in protocols."""

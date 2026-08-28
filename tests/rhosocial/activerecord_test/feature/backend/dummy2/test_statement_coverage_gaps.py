@@ -114,7 +114,7 @@ class TestTransactionBeginType:
     def test_get_params_without_begin_type(self, dummy_dialect):
         expr = BeginTransactionExpression(dummy_dialect)
         params = expr.get_params()
-        assert "begin_type" not in params
+        assert params.get("begin_type") is None
 
 
 class TestAlterTableModifyChangeColumn:

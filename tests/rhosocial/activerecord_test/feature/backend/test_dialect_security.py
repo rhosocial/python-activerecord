@@ -275,3 +275,16 @@ def test_format_partition_method_rejects_invalid_method_without_echoing_value(di
 def dialect():
     """Create a test dialect."""
     return TestDialect()
+
+
+# ── SQLite PRAGMA escaping & whitelist ─────────────────────────────────
+
+
+def test_format_identifier_prevents_name_injection():
+    """format_identifier must double-quote embedded quotes."""
+    from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+    d = SQLDialectBase()
+    # core base wraps in double-quotes and escapes embedded "
+    assert d.format_identifier("normal") == '"normal"'
+    assert d.format_identifier('it"self') == '"it""self"'
+    assert d.format_identifier("") == '""'
