@@ -118,6 +118,10 @@ class TableMixin:
                 all_params.extend(storage_params)
         if expr.tablespace:
             parts.append(f" TABLESPACE {self.format_identifier(expr.tablespace)}")
+        elif getattr(expr, "table_options", None) is not None:
+            to_ts = getattr(expr.table_options, "tablespace", None)
+            if to_ts:
+                parts.append(f" TABLESPACE {self.format_identifier(to_ts)}")
         if expr.inherits:
             inherits_str = ", ".join(self.format_identifier(table) for table in expr.inherits)
             parts.append(f" INHERITS ({inherits_str})")
