@@ -27,6 +27,7 @@ raise ``UnsupportedFeatureError``; the caller decides how to degrade.
 
 from typing import Any, Dict, List, Optional, Type
 
+from ..backend.dialect.mixins.ddl_type import _NEUTRAL_TYPE_SUGGESTIONS
 from ..backend.expression.types import IntegerType
 from ..backend.expression.statements.ddl_table import (
     ColumnConstraint,
@@ -67,6 +68,16 @@ def _unwrap_annotation(annotation: Any) -> Optional[Type]:
     return None
 
 
+def _is_optional_annotation(annotation: Any) -> bool:
+    """Return whether an annotation is ``Optional[T]`` (nullable)."""
+    import typing
+
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union:
+        return any(a is type(None) for a in typing.get_args(annotation))
+    return False
+
+
 class ModelSchemaGenerator:
     """Turn an ``ActiveRecord`` model into a ``CreateTableExpression``.
 
@@ -90,6 +101,11 @@ class ModelSchemaGenerator:
         """Build a ``CreateTableExpression`` for *model_class* under *dialect*."""
         table_name = getattr(model_class, "__table_name__", None) or model_class.__name__
         columns = cls._build_columns(model_class, dialect)
+        version_column = cls._version_column(model_class)
+        if version_column is not None and version_column.name not in {
+            column.name for column in columns
+        }:
+            columns = list(columns) + [version_column]
         indexes = list(getattr(model_class, "__ddl_indexes__", []) or [])
         constraints = list(getattr(model_class, "__ddl_constraints__", []) or [])
         table_options = getattr(model_class, "__ddl_table_options__", None)
@@ -146,6 +162,16 @@ class ModelSchemaGenerator:
             col_constraints: List[ColumnConstraint] = list(
                 field_constraints.get(field_name, [])
             )
+            # NOT NULL for required (non-nullable) fields — an ``Optional[T]``
+            # field or a field with a default stays nullable.
+            if (
+                field.is_required()
+                and not _is_optional_annotation(getattr(field, "annotation", None))
+                and column_name not in pk_columns
+            ):
+                col_constraints.append(
+                    ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)
+                )
             # Single-column PK (not auto-managed via __ddl_constraints__)
             if (
                 not model_class.is_composite_pk()
@@ -164,6 +190,27 @@ class ModelSchemaGenerator:
             )
 
         return columns
+
+    @classmethod
+    def _version_column(cls, model_class: type) -> Optional[ColumnDefinition]:
+        """Return the optimistic-lock ``version`` column, if the model uses it.
+
+        ``OptimisticLockMixin`` declares ``_version: Version`` (``field/version.py``)
+        as a private attribute, so it does not appear in ``model_fields``. Read
+        its ``db_column`` and emit it explicitly so the derived DDL keeps the
+        optimistic-lock column.
+        """
+        version = getattr(model_class, "_version", None)
+        db_column = getattr(version, "db_column", None)
+        if not db_column:
+            return None
+        return ColumnDefinition(
+            name=db_column,
+            data_type=IntegerType(),
+            constraints=[
+                ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)
+            ],
+        )
 
     @classmethod
     def _resolve_data_type(
@@ -188,6 +235,10 @@ class ModelSchemaGenerator:
             suggested = suggest(python_type, version)
             if suggested is not None:
                 return suggested
+        # Dialect returned None (or has no suggestion support): fall back to
+        # the backend-neutral suggestion map instead of silently using INT.
+        if python_type is not None and python_type in _NEUTRAL_TYPE_SUGGESTIONS:
+            return _NEUTRAL_TYPE_SUGGESTIONS[python_type]
         # Ultimate neutral fallback.
         return IntegerType()
 
