@@ -13,7 +13,12 @@ Covers:
 import datetime
 import decimal
 import uuid
-from typing import Annotated, Optional
+import sys
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:
+    from typing_extensions import Annotated
+from typing import Optional
 
 import pytest
 
