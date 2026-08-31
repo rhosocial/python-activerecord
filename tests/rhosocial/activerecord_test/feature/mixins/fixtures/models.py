@@ -13,7 +13,7 @@ from datetime import datetime
 from pydantic import Field
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
-from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin, OptimisticLockMixin, SoftDeleteMixin, AsyncSoftDeleteMixin
+from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, SoftDeleteMixin, AsyncSoftDeleteMixin
 
 
 class TimestampedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
@@ -25,7 +25,7 @@ class TimestampedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
     content: str
 
 
-class VersionedProduct(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
+class VersionedProduct(IntegerPKMixin, DefaultOptimisticLockMixin, ActiveRecord):
     """Product model with optimistic locking"""
     __table_name__ = "versioned_products"
 
@@ -43,7 +43,7 @@ class Task(IntegerPKMixin, SoftDeleteMixin, ActiveRecord):
     is_completed: bool = Field(default=False)
 
 
-class CombinedArticle(IntegerPKMixin, TimestampMixin, OptimisticLockMixin, SoftDeleteMixin, ActiveRecord):
+class CombinedArticle(IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, SoftDeleteMixin, ActiveRecord):
     """Article model combining all mixins"""
     __table_name__ = "combined_articles"
 
@@ -62,7 +62,7 @@ class AsyncTimestampedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     content: str
 
 
-class AsyncVersionedProduct(IntegerPKMixin, OptimisticLockMixin, AsyncActiveRecord):
+class AsyncVersionedProduct(IntegerPKMixin, DefaultOptimisticLockMixin, AsyncActiveRecord):
     """Product model with optimistic locking (async version)"""
     __table_name__ = "versioned_products"
 
@@ -80,7 +80,7 @@ class AsyncTask(IntegerPKMixin, AsyncSoftDeleteMixin, AsyncActiveRecord):
     is_completed: bool = Field(default=False)
 
 
-class AsyncCombinedArticle(IntegerPKMixin, TimestampMixin, OptimisticLockMixin, AsyncSoftDeleteMixin, AsyncActiveRecord):
+class AsyncCombinedArticle(IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, AsyncSoftDeleteMixin, AsyncActiveRecord):
     """Article model combining all mixins (async version)"""
     __table_name__ = "combined_articles"
 

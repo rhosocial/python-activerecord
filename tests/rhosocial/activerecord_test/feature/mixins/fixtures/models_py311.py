@@ -16,7 +16,7 @@ from typing import Self
 from pydantic import Field
 
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin, OptimisticLockMixin, SoftDeleteMixin
+from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, SoftDeleteMixin
 
 
 # Declare that this module requires Python 3.11+
@@ -40,7 +40,7 @@ class TimestampedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
         return self
 
 
-class VersionedProduct(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
+class VersionedProduct(IntegerPKMixin, DefaultOptimisticLockMixin, ActiveRecord):
     """Product model with optimistic locking.
 
     Python 3.11+ version using | syntax and Self type.
@@ -79,7 +79,7 @@ class Task(IntegerPKMixin, SoftDeleteMixin, ActiveRecord):
         return self
 
 
-class CombinedArticle(IntegerPKMixin, TimestampMixin, OptimisticLockMixin, SoftDeleteMixin, ActiveRecord):
+class CombinedArticle(IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, SoftDeleteMixin, ActiveRecord):
     """Article model combining all mixins.
 
     Python 3.11+ version using | syntax and Self type.

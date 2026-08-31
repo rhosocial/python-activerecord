@@ -1715,15 +1715,18 @@ class TestConcurrentAccess:
         timeout_count = [0]
         lock = threading.Lock()
 
+        import time
+
         def acquire_and_hold():
             try:
-                backend = pool.acquire(timeout=0.3)
+                # Generous acquire window: pool/backend creation on slow CI
+                # runners must not starve the first two acquirers.
+                backend = pool.acquire(timeout=5.0)
                 with lock:
                     acquired_count[0] += 1
-                # Hold connection for a while
-                import time
-
-                time.sleep(0.2)
+                # Hold well past the acquire window of the waiting threads so
+                # the remaining three deterministically time out.
+                time.sleep(6.0)
                 pool.release(backend)
             except TimeoutError:
                 with lock:
@@ -1737,9 +1740,10 @@ class TestConcurrentAccess:
             for t in threads:
                 t.join()
 
-            # Some should succeed, some should timeout
-            assert acquired_count[0] >= 2  # At least 2 should get connections
-            assert timeout_count[0] >= 1  # At least 1 should timeout
+            # The first two hold for 6s while the rest wait at most 5s:
+            # exactly two acquire and three time out.
+            assert acquired_count[0] == 2
+            assert timeout_count[0] == 3
         finally:
             pool.close(timeout=0.1)
 
@@ -2353,10 +2357,13 @@ class TestAsyncConcurrentAccess:
 
         async def acquire_and_hold():
             try:
-                backend = await pool.acquire(timeout=0.3)
+                # Generous acquire window: pool/backend creation on slow CI
+                # runners must not starve the first two acquirers.
+                backend = await pool.acquire(timeout=5.0)
                 acquired_count[0] += 1
-                # Hold connection for a while
-                await asyncio.sleep(0.2)
+                # Hold well past the acquire window of the waiting tasks so
+                # the remaining three deterministically time out.
+                await asyncio.sleep(6.0)
                 await pool.release(backend)
             except TimeoutError:
                 timeout_count[0] += 1
@@ -2366,9 +2373,10 @@ class TestAsyncConcurrentAccess:
             tasks = [acquire_and_hold() for _ in range(5)]
             await asyncio.gather(*tasks)
 
-            # Some should succeed, some should timeout
-            assert acquired_count[0] >= 2  # At least 2 should get connections
-            assert timeout_count[0] >= 1  # At least 1 should timeout
+            # The first two hold for 6s while the rest wait at most 5s:
+            # exactly two acquire and three time out.
+            assert acquired_count[0] == 2
+            assert timeout_count[0] == 3
         finally:
             await pool.close(timeout=0.1)
 
