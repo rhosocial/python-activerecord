@@ -57,6 +57,7 @@ from rhosocial.activerecord.backend.expression.types import (
 )
 from rhosocial.activerecord.backend.dialect.protocols import (
     DDLTypeSupport,
+    ColumnTypeSuggestion,
     SQLXMLSupport,
     SQLXMLParsingSupport,
     SQLXMLSerializationSupport,
@@ -231,6 +232,7 @@ class DummyDialect(
     DDLTypeMixin,
     DDLTypeSupport,
     DDLTypeSuggestionMixin,
+    ColumnTypeSuggestion,
     DDLColumnMixin,
     TransactionControlMixin,
     # Protocols for type checking
