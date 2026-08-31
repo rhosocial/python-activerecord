@@ -257,11 +257,17 @@ class UUIDAdapter(BaseSQLTypeAdapter):
             if isinstance(value, UUID):
                 return value
             # Only allow conversion from str and bytes, which are unambiguous.
-            if isinstance(value, (str, bytes)):
+            if isinstance(value, str):
                 try:
                     return UUID(value)
                 except ValueError as e:
                     # Catch cases like "not-a-uuid"
+                    raise TypeError(f"Cannot convert {type(value).__name__} to UUID: {e}") from e
+            if isinstance(value, bytes):
+                try:
+                    # 16 raw bytes -> binary form; otherwise treat as hex text.
+                    return UUID(bytes=value) if len(value) == 16 else UUID(value.decode("ascii"))
+                except (ValueError, UnicodeDecodeError) as e:
                     raise TypeError(f"Cannot convert {type(value).__name__} to UUID: {e}") from e
         # For any other type (like int), fall through and raise the TypeError.
         raise TypeError(
