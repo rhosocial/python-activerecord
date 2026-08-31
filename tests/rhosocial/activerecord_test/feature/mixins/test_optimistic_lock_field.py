@@ -22,7 +22,11 @@ from rhosocial.activerecord.backend.errors import DatabaseError
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.base.ddl_generator import ModelSchemaGenerator
-from rhosocial.activerecord.field import IntegerPKMixin, OptimisticLockMixin
+from rhosocial.activerecord.field import (
+    DefaultOptimisticLockMixin,
+    IntegerPKMixin,
+    OptimisticLockMixin,
+)
 from rhosocial.activerecord.model import ActiveRecord
 from pydantic import Field
 
@@ -48,7 +52,7 @@ def _register(model_class, backend, create: bool = True):
 def _fresh_model(backend, **class_kwargs):
     """Build a fresh model class per test to avoid cross-test state."""
 
-    class Model(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
+    class Model(IntegerPKMixin, DefaultOptimisticLockMixin, ActiveRecord):
         __table_name__ = "lock_items"
         __backend__ = backend
         id: Optional[int] = None
@@ -129,81 +133,51 @@ def test_insert_normalises_seeded_version(lock_backend):
     assert model.find_one(item.id).version == 1
 
 
-def test_column_knob_wired_end_to_end(lock_backend):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-
-        class CustomColumn(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
-            __table_name__ = "custom_lock"
-            __backend__ = lock_backend
-            __version_column__ = "row_ver"
-            id: Optional[int] = None
-            name: str
-
-        shadow = [w for w in caught if "shadow" in str(w.message).lower()]
-    assert not shadow
-
-    _register(CustomColumn, lock_backend)
-    sql, _ = ModelSchemaGenerator.generate(CustomColumn, lock_backend.dialect).to_sql()
-    assert '"row_ver" INTEGER NOT NULL' in sql
-
-    item = CustomColumn(name="a")
-    item.save()
-    item.name = "b"
-    item.save()
-    condition_sql, _ = item.get_update_conditions()[0].to_sql()
-    assert "row_ver" in condition_sql
-    assert CustomColumn.find_one(item.id).version == 2
-
-
-def test_use_column_redeclaration_compat(lock_backend):
-    """The supported mixin-field-override pattern (see get_column_to_field_map):
-    the model redeclares the field with UseColumn + the full annotation set.
-    pydantic emits an attribute-shadowing warning for redeclaration — cosmetic
-    and accepted; the recommended customisation is the ``__version_column__``
-    knob which avoids redeclaration entirely."""
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-
-        class Redeclared(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
-            __table_name__ = "redeclared_lock"
-            __backend__ = lock_backend
-            id: Optional[int] = None
-            version: Annotated[
-                int, UseColumn("row_ver"),
-                UseConstraint(ColumnConstraintType.NOT_NULL),
-            ] = Field(default=1, ge=1)
-            name: str
-
-    _register(Redeclared, lock_backend)
-    sql, _ = ModelSchemaGenerator.generate(Redeclared, lock_backend.dialect).to_sql()
-    assert '"row_ver" INTEGER NOT NULL' in sql
-
-    item = Redeclared(name="a")
-    item.save()
-    item.name = "b"
-    item.save()
-    assert Redeclared.find_one(item.id).version == 2
-
-
-def test_increment_knob_and_validation(lock_backend):
-    class IncrementTwo(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
-        __table_name__ = "inc_two"
+def test_base_mixin_requires_declared_field(lock_backend):
+    """Base OptimisticLockMixin declares no field — missing one fails fast."""
+    class NoField(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
+        __table_name__ = "no_field"
         __backend__ = lock_backend
-        __version_increment_by__ = 2
         id: Optional[int] = None
         name: str
 
-    _register(IncrementTwo, lock_backend)
-    item = IncrementTwo(name="a")
-    item.save()
-    item.name = "b"
-    item.save()
-    assert IncrementTwo.find_one(item.id).version == 3
+    with pytest.raises(TypeError, match="__version_field__"):
+        NoField(name="x")
 
 
-def test_negative_version_rejected_by_field_validation(lock_backend):
-    model = _fresh_model(lock_backend)
-    _register(model, lock_backend)
-    with pytest.raises(Exception):
-        model(name="a", version=0)
+def test_base_mixin_with_custom_field_name(lock_backend):
+    """Base mixin + self-declared field: no redeclaration, no shadow warning."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        class Article(OptimisticLockMixin, ActiveRecord):
+            __table_name__ = "articles"
+            __backend__ = lock_backend
+            __version_field__ = "row_version"
+            __version_increment_by__ = 2
+            id: Optional[int] = None
+            name: str
+            row_version: Annotated[
+                int, UseColumn("row_ver"), UseConstraint(ColumnConstraintType.NOT_NULL)
+            ] = Field(default=1, ge=1)
+
+    shadow = [w for w in caught if "shadow" in str(w.message).lower()]
+    assert not shadow
+
+    sql, _ = ModelSchemaGenerator.generate(Article, lock_backend.dialect).to_sql()
+    assert '"row_ver" INTEGER NOT NULL' in sql
+    lock_backend.execute(sql)
+
+    article = Article(name="a")
+    article.save()
+    assert article.row_version == 1
+    article.name = "b"
+    article.save()
+    assert article.row_version == 3
+
+    # The old name is gone: pydantic rejects writes to unknown attributes.
+    with pytest.raises(ValueError, match='no field "version"'):
+        article.version = 99
+    article.name = "c"
+    article.save()
+    assert Article.find_one(article.id).row_version == 5

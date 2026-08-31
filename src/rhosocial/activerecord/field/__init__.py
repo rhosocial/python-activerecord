@@ -3,12 +3,13 @@
 
 from .integer_pk import IntegerPKMixin
 from .timestamp import TimestampMixin
-from .version import OptimisticLockMixin
+from .version import OptimisticLockMixin, DefaultOptimisticLockMixin
 from .soft_delete import SoftDeleteMixin, AsyncSoftDeleteMixin
 from .uuid import UUIDMixin
 from .composite_pk import CompositePKMixin
 
 __all__ = [
     "IntegerPKMixin", "TimestampMixin", "OptimisticLockMixin",
+    "DefaultOptimisticLockMixin",
     "SoftDeleteMixin", "AsyncSoftDeleteMixin", "UUIDMixin", "CompositePKMixin",
 ]
