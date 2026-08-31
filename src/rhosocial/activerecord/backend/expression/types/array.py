@@ -29,14 +29,14 @@ class ArrayType(DataType):
        **Best practice**::
 
            # Good — backend-specific element type
-           col_type = PostgresArrayType(PostgresIntegerType())
+           col_type = PostgresArrayType(element_type=PostgresIntegerType())
 
            # Avoid — generic element type; will raise TypeError at render time
            col_type = ArrayType(IntegerType())
     """
 
-    def __init__(self, element_type: DataType, dimensions: int = 1,
-                 dialect: Optional["SQLDialectBase"] = None):
+    def __init__(self, dialect: Optional["SQLDialectBase"] = None, *,
+                 element_type: DataType, dimensions: int = 1):
         super().__init__(dialect)
         self.element_type = element_type
         self.dimensions = dimensions

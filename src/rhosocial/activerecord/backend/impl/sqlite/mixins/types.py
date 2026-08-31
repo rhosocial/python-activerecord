@@ -235,7 +235,7 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
 
         # INTEGER affinity
         if self._INTEGER_TYPES.match(upper):
-            return SQLiteIntegerType()
+            return SQLiteIntegerType(dialect=self)
 
         # TEXT affinity — try to extract length parameter
         if self._TEXT_TYPES.match(upper):
@@ -243,7 +243,7 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
             m = re.search(r"\((\d+)\)", stripped)
             if m:
                 length = int(m.group(1))
-            return SQLiteTextType(length)
+            return SQLiteTextType(dialect=self, length=length)
 
         # REAL affinity
         if self._REAL_TYPES.match(upper):
@@ -251,19 +251,19 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
             m = re.search(r"\((\d+)\)", stripped)
             if m:
                 precision = int(m.group(1))
-            return SQLiteRealType(precision)
+            return SQLiteRealType(dialect=self, precision=precision)
 
         # NUMERIC affinity — try to extract precision/scale
         if self._NUMERIC_TYPES.match(upper):
             nums = re.findall(r"\d+", stripped)
             if len(nums) >= 2:
-                return SQLiteNumericType(int(nums[0]), int(nums[1]))
+                return SQLiteNumericType(dialect=self, precision=int(nums[0]), scale=int(nums[1]))
             if len(nums) == 1:
-                return SQLiteNumericType(int(nums[0]))
-            return SQLiteNumericType()
+                return SQLiteNumericType(dialect=self, precision=int(nums[0]))
+            return SQLiteNumericType(dialect=self)
 
         # BLOB affinity
         if self._BLOB_TYPES.match(upper):
-            return SQLiteBlobType()
+            return SQLiteBlobType(dialect=self)
 
-        return CustomType(stripped)
+        return CustomType(dialect=self, raw=stripped)

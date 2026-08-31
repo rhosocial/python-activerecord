@@ -226,7 +226,7 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(
             name="email",
-            data_type=SQLiteTextType(255),
+            data_type=SQLiteTextType(length=255),
             constraints=[
                 ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE),
@@ -243,7 +243,7 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(
             name="status",
-            data_type=SQLiteTextType(50),
+            data_type=SQLiteTextType(length=50),
             constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value="active")],
         )
 
@@ -295,7 +295,7 @@ class TestFormatColumnDefinition:
 
         col_def = ColumnDefinition(
             name="full_name",
-            data_type=SQLiteTextType(255),
+            data_type=SQLiteTextType(length=255),
             generated_expression=mock_expr,
             generated_type=GeneratedColumnType.VIRTUAL,
         )
@@ -331,7 +331,7 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(
             name="optional_field",
-            data_type=SQLiteTextType(100),
+            data_type=SQLiteTextType(length=100),
             constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.NULL)],
         )
 

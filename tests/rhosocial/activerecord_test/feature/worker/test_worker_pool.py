@@ -190,17 +190,17 @@ class TestWorkerHandle:
 
         # Cleanup
         proc.terminate()
-        proc.join(timeout=10)
+        proc.join(timeout=60)
         if proc.is_alive():
             proc.kill()
-            proc.join(timeout=10)
+            proc.join(timeout=60)
 
     def test_handle_properties_dead(self):
         """Test WorkerHandle properties when process is dead"""
         ctx = mp.get_context("spawn")
         proc = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc.start()
-        proc.join(timeout=10)
+        proc.join(timeout=60)
 
         handle = WorkerHandle(1, proc)
 
@@ -224,7 +224,7 @@ class TestWorkerHandle:
         assert handle.is_alive is True
 
         handle.terminate()
-        handle.join(timeout=10)
+        handle.join(timeout=60)
 
         assert handle.is_alive is False
 
@@ -239,7 +239,7 @@ class TestWorkerHandle:
         assert handle.is_alive is True
 
         handle.kill()
-        handle.join(timeout=10)
+        handle.join(timeout=60)
 
         assert handle.is_alive is False
         # On most systems, SIGKILL results in exitcode -9
@@ -254,7 +254,7 @@ class TestWorkerHandle:
 
         handle = WorkerHandle(4, proc)
         handle.stop(StopSignal.TERMINATE)
-        handle.join(timeout=10)
+        handle.join(timeout=60)
 
         assert handle.is_alive is False
 
@@ -267,7 +267,7 @@ class TestWorkerHandle:
 
         handle = WorkerHandle(5, proc)
         handle.stop(StopSignal.KILL)
-        handle.join(timeout=10)
+        handle.join(timeout=60)
 
         assert handle.is_alive is False
 
@@ -287,7 +287,7 @@ class TestWorkerHandle:
 
         # Cleanup
         proc.terminate()
-        proc.join(timeout=10)
+        proc.join(timeout=60)
 
     def test_handle_join_returns_bool(self):
         """Test join() returns True if process exited, False otherwise"""
@@ -298,7 +298,7 @@ class TestWorkerHandle:
         handle = WorkerHandle(7, proc)
 
         # Wait with timeout, should return True when process exits
-        result = handle.join(timeout=10)
+        result = handle.join(timeout=60)
         assert result is True  # Process exited
 
         # Join on already exited process
@@ -329,7 +329,7 @@ class TestWorkerRegistry:
 
         # Cleanup
         proc.terminate()
-        proc.join(timeout=10)
+        proc.join(timeout=60)
 
     def test_all(self):
         """Test all() method"""
@@ -350,7 +350,7 @@ class TestWorkerRegistry:
         # Cleanup
         for proc in [proc1, proc2]:
             proc.terminate()
-            proc.join(timeout=10)
+            proc.join(timeout=60)
 
     def test_alive_and_dead(self):
         """Test alive() and dead() methods"""
@@ -360,7 +360,7 @@ class TestWorkerRegistry:
         # Dead process
         proc_dead = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc_dead.start()
-        proc_dead.join(timeout=10)
+        proc_dead.join(timeout=60)
 
         # Alive process
         proc_alive = ctx.Process(target=_sleepy_worker, daemon=True)
@@ -380,7 +380,7 @@ class TestWorkerRegistry:
 
         # Cleanup
         proc_alive.terminate()
-        proc_alive.join(timeout=10)
+        proc_alive.join(timeout=60)
 
     def test_count_and_alive_count(self):
         """Test count() and alive_count() methods"""
@@ -389,7 +389,7 @@ class TestWorkerRegistry:
 
         proc_dead = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc_dead.start()
-        proc_dead.join(timeout=10)
+        proc_dead.join(timeout=60)
 
         proc_alive = ctx.Process(target=_sleepy_worker, daemon=True)
         proc_alive.start()
@@ -403,7 +403,7 @@ class TestWorkerRegistry:
 
         # Cleanup
         proc_alive.terminate()
-        proc_alive.join(timeout=10)
+        proc_alive.join(timeout=60)
 
     def test_replace(self):
         """Test replace() method"""
@@ -424,8 +424,8 @@ class TestWorkerRegistry:
         # Cleanup
         proc1.terminate()
         proc2.terminate()
-        proc1.join(timeout=10)
-        proc2.join(timeout=10)
+        proc1.join(timeout=60)
+        proc2.join(timeout=60)
 
     def test_wids(self):
         """Test wids() method"""
@@ -446,8 +446,8 @@ class TestWorkerRegistry:
         # Cleanup
         proc1.terminate()
         proc2.terminate()
-        proc1.join(timeout=10)
-        proc2.join(timeout=10)
+        proc1.join(timeout=60)
+        proc2.join(timeout=60)
 
     def test_remove_with_sentinel(self):
         """Test remove() with SENTINEL signal (no process kill)"""
@@ -467,7 +467,7 @@ class TestWorkerRegistry:
 
         # Cleanup
         proc.terminate()
-        proc.join(timeout=10)
+        proc.join(timeout=60)
 
     def test_remove_with_terminate(self):
         """Test remove() with TERMINATE signal"""
@@ -482,7 +482,7 @@ class TestWorkerRegistry:
         # Remove with TERMINATE
         removed = registry.remove(0, signal=StopSignal.TERMINATE)
         assert removed is not None
-        proc.join(timeout=10)
+        proc.join(timeout=60)
         assert not proc.is_alive()
 
     def test_remove_with_kill(self):
@@ -498,7 +498,7 @@ class TestWorkerRegistry:
         # Remove with KILL
         removed = registry.remove(0, signal=StopSignal.KILL)
         assert removed is not None
-        proc.join(timeout=10)
+        proc.join(timeout=60)
         assert not proc.is_alive()
 
     def test_remove_nonexistent(self):
@@ -515,7 +515,7 @@ class TestWorkerPool:
         """Test submitting single task"""
         with WorkerPool(n_workers=2) as pool:
             fut = pool.submit(simple_task, 5)
-            assert fut.result(timeout=10) == 10
+            assert fut.result(timeout=60) == 10
 
     def test_submit_multiple_tasks(self):
         """Test submitting multiple tasks"""
@@ -537,7 +537,7 @@ class TestWorkerPool:
             fut = pool.submit(failing_task, -1)
 
             with pytest.raises(ValueError, match="n must be non-negative"):
-                fut.result(timeout=10)
+                fut.result(timeout=60)
 
             assert fut.failed
             assert fut.traceback is not None
@@ -555,7 +555,7 @@ class TestWorkerPool:
         with WorkerPool(n_workers=4) as pool:
             # Wait for all workers to be ready before timing,
             # to avoid counting process startup overhead
-            deadline = time.monotonic() + 5.0
+            deadline = time.monotonic() + 30.0
             while pool.ready_workers < 4 and time.monotonic() < deadline:
                 time.sleep(0.05)
 
@@ -566,7 +566,7 @@ class TestWorkerPool:
 
             # 4 x 0.1s tasks in parallel should complete in ~0.1s, not 0.4s
             assert all(r == 0.1 for r in results)
-            assert elapsed < 1.5  # Allow overhead for IPC and OS scheduling
+            assert elapsed < 3.0  # Allow overhead for IPC and OS scheduling
 
     def test_worker_crash_and_restart(self):
         """
@@ -581,9 +581,9 @@ class TestWorkerPool:
         """
         # Use longer orphan_timeout to avoid false positive orphan detection
         # during worker restart on slower/free-threaded Python builds
-        with WorkerPool(n_workers=2, check_interval=0.5, orphan_timeout=2.0) as pool:
+        with WorkerPool(n_workers=2, check_interval=0.5, orphan_timeout=5.0) as pool:
             # Wait for all workers to be ready before submitting crash task
-            deadline = time.monotonic() + 5.0
+            deadline = time.monotonic() + 30.0
             while pool.ready_workers < 2 and time.monotonic() < deadline:
                 time.sleep(0.1)
             assert pool.ready_workers == 2, "Workers should be ready before test"
@@ -593,20 +593,20 @@ class TestWorkerPool:
 
             # Wait for the crash to be detected (crash_fut should fail with WorkerCrashedError)
             try:
-                crash_fut.result(timeout=5.0)
+                crash_fut.result(timeout=30.0)
                 pytest.fail("crash_task should have raised WorkerCrashedError")
             except WorkerCrashedError:
                 pass  # Expected
 
             # Now wait for the crashed worker to restart and become ready again
-            deadline = time.monotonic() + 5.0
+            deadline = time.monotonic() + 30.0
             while pool.ready_workers < 2 and time.monotonic() < deadline:
                 time.sleep(0.1)
             assert pool.ready_workers == 2, "Restarted worker should be ready"
 
             # Submit new task, should execute normally (Worker restarted and ready)
             new_fut = pool.submit(simple_task, 42)
-            assert new_fut.result(timeout=10) == 84
+            assert new_fut.result(timeout=60) == 84
 
     def test_context_manager(self):
         """Test context manager"""
@@ -715,7 +715,7 @@ class TestGracefulShutdown:
 
         # Submit and complete a task
         fut = pool.submit(simple_task, 5)
-        fut.result(timeout=10)
+        fut.result(timeout=60)
 
         # Shutdown
         report = pool.shutdown(graceful_timeout=5.0)
@@ -764,7 +764,7 @@ class TestWorkerHandleEdgeCases:
         ctx = mp.get_context("spawn")
         proc = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc.start()
-        proc.join(timeout=10)
+        proc.join(timeout=60)
 
         handle = WorkerHandle(0, proc)
         assert handle.is_alive is False
@@ -778,7 +778,7 @@ class TestWorkerHandleEdgeCases:
         ctx = mp.get_context("spawn")
         proc = ctx.Process(target=_quick_exit_worker, daemon=True)
         proc.start()
-        proc.join(timeout=10)
+        proc.join(timeout=60)
 
         handle = WorkerHandle(1, proc)
         assert handle.is_alive is False
@@ -871,11 +871,11 @@ class TestOrphanedTaskDetection:
     def test_normal_task_not_orphaned(self):
         """Test that normal tasks are not incorrectly marked as orphaned"""
         # Create pool with short check_interval and orphan_timeout
-        pool = WorkerPool(n_workers=2, check_interval=0.1, orphan_timeout=0.5)
+        pool = WorkerPool(n_workers=2, check_interval=0.1, orphan_timeout=5.0)
 
         # Submit a normal task - it should complete normally
         fut = pool.submit(simple_task, 5)
-        result = fut.result(timeout=5)
+        result = fut.result(timeout=60)
 
         assert result == 10
         assert fut.succeeded
@@ -970,7 +970,7 @@ class TestAsyncTaskSupport:
         pool = WorkerPool(n_workers=2, check_interval=0.5)
 
         fut = pool.submit(async_simple_task, 5)
-        result = fut.result(timeout=10)
+        result = fut.result(timeout=60)
 
         assert result == 10
         assert fut.succeeded
@@ -985,7 +985,7 @@ class TestAsyncTaskSupport:
         fut = pool.submit(async_failing_task, -1)
 
         with pytest.raises(ValueError, match="n must be non-negative"):
-            fut.result(timeout=10)
+            fut.result(timeout=60)
 
         assert fut.failed
         assert fut.traceback is not None

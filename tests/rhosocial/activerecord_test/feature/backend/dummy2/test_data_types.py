@@ -71,18 +71,18 @@ class TestDefaultRendering:
 
     def test_numeric_types(self, dialect):
         assert FloatType().to_sql(dialect) == ("FLOAT", ())
-        assert FloatType(24).to_sql(dialect) == ("FLOAT(24)", ())
+        assert FloatType(precision=24).to_sql(dialect) == ("FLOAT(24)", ())
         assert RealType().to_sql(dialect) == ("REAL", ())
         assert DoubleType().to_sql(dialect) == ("DOUBLE PRECISION", ())
         assert DecimalType().to_sql(dialect) == ("DECIMAL", ())
-        assert DecimalType(10).to_sql(dialect) == ("DECIMAL(10)", ())
-        assert DecimalType(10, 2).to_sql(dialect) == ("DECIMAL(10,2)", ())
+        assert DecimalType(precision=10).to_sql(dialect) == ("DECIMAL(10)", ())
+        assert DecimalType(precision=10, scale=2).to_sql(dialect) == ("DECIMAL(10,2)", ())
 
     def test_string_types(self, dialect):
         assert CharType().to_sql(dialect) == ("CHAR", ())
-        assert CharType(10).to_sql(dialect) == ("CHAR(10)", ())
+        assert CharType(length=10).to_sql(dialect) == ("CHAR(10)", ())
         assert VarCharType().to_sql(dialect) == ("VARCHAR", ())
-        assert VarCharType(255).to_sql(dialect) == ("VARCHAR(255)", ())
+        assert VarCharType(length=255).to_sql(dialect) == ("VARCHAR(255)", ())
         assert TextType().to_sql(dialect) == ("TEXT", ())
 
     def test_boolean_type(self, dialect):
@@ -94,25 +94,25 @@ class TestDefaultRendering:
     def test_datetime_types(self, dialect):
         assert DateType().to_sql(dialect) == ("DATE", ())
         assert TimeType().to_sql(dialect) == ("TIME", ())
-        assert TimeType(6).to_sql(dialect) == ("TIME(6)", ())
+        assert TimeType(precision=6).to_sql(dialect) == ("TIME(6)", ())
         assert TimeTzType().to_sql(dialect) == ("TIME WITH TIME ZONE", ())
-        assert TimeTzType(3).to_sql(dialect) == ("TIME(3) WITH TIME ZONE", ())
+        assert TimeTzType(precision=3).to_sql(dialect) == ("TIME(3) WITH TIME ZONE", ())
         assert DateTimeType().to_sql(dialect) == ("DATETIME", ())
-        assert DateTimeType(3).to_sql(dialect) == ("DATETIME(3)", ())
+        assert DateTimeType(precision=3).to_sql(dialect) == ("DATETIME(3)", ())
         assert TimestampType().to_sql(dialect) == ("TIMESTAMP", ())
-        assert TimestampType(3).to_sql(dialect) == ("TIMESTAMP(3)", ())
+        assert TimestampType(precision=3).to_sql(dialect) == ("TIMESTAMP(3)", ())
         assert TimestampTzType().to_sql(dialect) == ("TIMESTAMP WITH TIME ZONE", ())
-        assert TimestampTzType(3).to_sql(dialect) == ("TIMESTAMP(3) WITH TIME ZONE", ())
+        assert TimestampTzType(precision=3).to_sql(dialect) == ("TIMESTAMP(3) WITH TIME ZONE", ())
         assert IntervalType().to_sql(dialect) == ("INTERVAL", ())
-        assert IntervalType("YEAR TO MONTH").to_sql(dialect) == ("INTERVAL YEAR TO MONTH", ())
+        assert IntervalType(fields="YEAR TO MONTH").to_sql(dialect) == ("INTERVAL YEAR TO MONTH", ())
 
     def test_json_types(self, dialect):
         assert JsonType().to_sql(dialect) == ("JSON", ())
         assert JsonBType().to_sql(dialect) == ("JSONB", ())
 
     def test_custom_type(self, dialect):
-        assert CustomType("GEOMETRY").to_sql(dialect) == ("GEOMETRY", ())
-        assert CustomType("VARCHAR(255)").to_sql(dialect) == ("VARCHAR(255)", ())
+        assert CustomType(raw="GEOMETRY").to_sql(dialect) == ("GEOMETRY", ())
+        assert CustomType(raw="VARCHAR(255)").to_sql(dialect) == ("VARCHAR(255)", ())
 
 
 # ---------------------------------------------------------------------------
@@ -125,26 +125,26 @@ class TestEqualityAndHashing:
 
     def test_equal_types(self):
         assert IntegerType() == IntegerType()
-        assert VarCharType(255) == VarCharType(255)
-        assert DecimalType(10, 2) == DecimalType(10, 2)
+        assert VarCharType(length=255) == VarCharType(length=255)
+        assert DecimalType(precision=10, scale=2) == DecimalType(precision=10, scale=2)
         assert FloatType() == FloatType()
-        assert CustomType("UUID") == CustomType("UUID")
+        assert CustomType(raw="UUID") == CustomType(raw="UUID")
 
     def test_not_equal_different_params(self):
-        assert VarCharType(255) != VarCharType(100)
-        assert DecimalType(10, 2) != DecimalType(10, 3)
-        assert FloatType(24) != FloatType(53)
-        assert TimestampType(3) != TimestampType(6)
+        assert VarCharType(length=255) != VarCharType(length=100)
+        assert DecimalType(precision=10, scale=2) != DecimalType(precision=10, scale=3)
+        assert FloatType(precision=24) != FloatType(precision=53)
+        assert TimestampType(precision=3) != TimestampType(precision=6)
 
     def test_not_equal_different_types(self):
-        assert IntegerType() != VarCharType(255)
+        assert IntegerType() != VarCharType(length=255)
         assert BooleanType() != IntegerType()
         assert JsonType() != JsonBType()
 
     def test_hashing(self):
         assert hash(IntegerType()) == hash(IntegerType())
-        assert hash(VarCharType(255)) == hash(VarCharType(255))
-        s = {IntegerType(), VarCharType(255), IntegerType()}
+        assert hash(VarCharType(length=255)) == hash(VarCharType(length=255))
+        s = {IntegerType(), VarCharType(length=255), IntegerType()}
         assert len(s) == 2
 
 
@@ -157,7 +157,7 @@ class TestSameTypeEquivalence:
     """Equivalence checks based on synonyms."""
 
     def test_same_type_is_equivalent(self):
-        assert VarCharType(255).is_equivalent(VarCharType(255))
+        assert VarCharType(length=255).is_equivalent(VarCharType(length=255))
         assert IntegerType().is_equivalent(IntegerType())
 
     def test_synonym_classes_are_equivalent(self):
@@ -166,7 +166,7 @@ class TestSameTypeEquivalence:
 
     def test_different_classes_not_equivalent(self):
         assert not JsonType().is_equivalent(JsonBType())
-        assert not IntegerType().is_equivalent(VarCharType(255))
+        assert not IntegerType().is_equivalent(VarCharType(length=255))
 
 
 # ---------------------------------------------------------------------------
@@ -182,9 +182,9 @@ class TestCustomTypeFallback:
         return _dummy_dialect()
 
     def test_custom_type_eq_hash(self, dialect):
-        ct1 = CustomType("SOME_UNKNOWN_TYPE")
-        ct2 = CustomType("SOME_UNKNOWN_TYPE")
-        ct3 = CustomType("OTHER_TYPE")
+        ct1 = CustomType(raw="SOME_UNKNOWN_TYPE")
+        ct2 = CustomType(raw="SOME_UNKNOWN_TYPE")
+        ct3 = CustomType(raw="OTHER_TYPE")
         assert ct1 == ct2
         assert ct1 != ct3
         assert hash(ct1) == hash(ct2)
@@ -222,7 +222,7 @@ class TestDialectRendering:
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
             SQLiteTextType,
         )
-        v = SQLiteTextType(255)
+        v = SQLiteTextType(length=255)
         sql, _ = v.to_sql(dialect)
         assert sql == "TEXT(255)"
 
@@ -230,7 +230,7 @@ class TestDialectRendering:
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
             SQLiteNumericType,
         )
-        d = SQLiteNumericType(10, 2)
+        d = SQLiteNumericType(precision=10, scale=2)
         sql, _ = d.to_sql(dialect)
         assert sql == "NUMERIC"
 

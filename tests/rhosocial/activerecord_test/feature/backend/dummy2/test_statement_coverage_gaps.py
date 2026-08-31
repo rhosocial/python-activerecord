@@ -127,7 +127,7 @@ class TestAlterTableModifyChangeColumn:
     def test_modify_column_action(self, dummy_dialect):
         from unittest.mock import patch
 
-        col_def = ColumnDefinition("name", VarCharType(255))
+        col_def = ColumnDefinition("name", VarCharType(length=255))
         action = ModifyColumn(dummy_dialect, column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,
@@ -141,7 +141,7 @@ class TestAlterTableModifyChangeColumn:
     def test_change_column_action(self, dummy_dialect):
         from unittest.mock import patch
 
-        col_def = ColumnDefinition("new_name", VarCharType(255))
+        col_def = ColumnDefinition("new_name", VarCharType(length=255))
         action = ChangeColumn(dummy_dialect, old_name="old_name", column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,

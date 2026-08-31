@@ -152,10 +152,10 @@ def _build_neutral_suggestions() -> dict:
         _dt.date: DateType(),
         _dt.time: TimeType(),
         _dec.Decimal: DecimalType(),
-        _uuid.UUID: VarCharType(36),
+        _uuid.UUID: VarCharType(length=36),
         dict: TextType(),
         list: TextType(),
-        _enum.Enum: VarCharType(64),
+        _enum.Enum: VarCharType(length=64),
     }
 
 

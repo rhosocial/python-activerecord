@@ -740,7 +740,7 @@ class TestDeleteStatements:
         # Create a ColumnDefinition with DEFAULT constraint but no value
         col_def = ColumnDefinition(
             name="test_col",
-            data_type=VarCharType(255),
+            data_type=VarCharType(length=255),
             constraints=[
                 ColumnConstraint(
                     constraint_type=ColumnConstraintType.DEFAULT,

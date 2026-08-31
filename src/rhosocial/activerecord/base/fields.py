@@ -110,7 +110,7 @@ class UseSqlType:
 
     1. Single type (applies to all backends)::
 
-        status: Annotated[str, UseSqlType(VarCharType(50))]
+        status: Annotated[str, UseSqlType(VarCharType(length=50))]
 
     2. Per-dialect selectable (the ``default`` key is the fallback)::
 

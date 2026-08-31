@@ -361,38 +361,38 @@ class TestCrossTypeDataTypes:
     """Cross-type inequality branches (type(self) is not type(other))."""
 
     def test_datetime_types_inequality(self):
-        assert TimeType(6) != DateTimeType(6)
-        assert TimeTzType(2) != TimeType(2)
-        assert DateTimeType(6) != TimestampType(6)
-        assert TimestampType(6) != TimestampTzType(6)
-        assert TimestampTzType(0) != DateTimeType(0)
-        assert IntervalType("YEAR") != TimeType(1)
+        assert TimeType(precision=6) != DateTimeType(precision=6)
+        assert TimeTzType(precision=2) != TimeType(precision=2)
+        assert DateTimeType(precision=6) != TimestampType(precision=6)
+        assert TimestampType(precision=6) != TimestampTzType(precision=6)
+        assert TimestampTzType(precision=0) != DateTimeType(precision=0)
+        assert IntervalType(fields="YEAR") != TimeType(precision=1)
 
     def test_string_types_inequality(self):
-        assert CharType(10) != VarCharType(10)
-        assert VarCharType(10) != CharType(10)
-        assert CharType(10) != CustomType("CHAR(10)")
+        assert CharType(length=10) != VarCharType(length=10)
+        assert VarCharType(length=10) != CharType(length=10)
+        assert CharType(length=10) != CustomType(raw="CHAR(10)")
 
     def test_numeric_types_inequality(self):
-        assert FloatType(24) != DecimalType(10, 2)
-        assert DecimalType(10, 2) != FloatType(24)
-        assert FloatType(24) != IntegerType()
+        assert FloatType(precision=24) != DecimalType(precision=10, scale=2)
+        assert DecimalType(precision=10, scale=2) != FloatType(precision=24)
+        assert FloatType(precision=24) != IntegerType()
 
     def test_array_and_custom_inequality(self):
-        assert ArrayType(IntegerType()) != ArrayType(CharType(10))
-        assert ArrayType(IntegerType()) != CharType(10)
-        assert ArrayType(IntegerType()).is_equivalent(CharType(10)) is False
-        assert CustomType("geometry") != IntegerType()
+        assert ArrayType(element_type=IntegerType()) != ArrayType(element_type=CharType(length=10))
+        assert ArrayType(element_type=IntegerType()) != CharType(length=10)
+        assert ArrayType(element_type=IntegerType()).is_equivalent(CharType(length=10)) is False
+        assert CustomType(raw="geometry") != IntegerType()
 
     def test_hash_branches(self):
-        assert hash(CharType(10)) == hash(CharType(10))
-        assert hash(DecimalType(10, 2)) == hash(DecimalType(10, 2))
+        assert hash(CharType(length=10)) == hash(CharType(length=10))
+        assert hash(DecimalType(precision=10, scale=2)) == hash(DecimalType(precision=10, scale=2))
 
     def test_timetz_timestamptz_equality(self):
-        assert TimeTzType(2) == TimeTzType(2)
-        assert TimeTzType(2) != TimeTzType(3)
-        assert TimestampTzType(0) == TimestampTzType(0)
-        assert TimestampTzType(0) != TimestampTzType(1)
+        assert TimeTzType(precision=2) == TimeTzType(precision=2)
+        assert TimeTzType(precision=2) != TimeTzType(precision=3)
+        assert TimestampTzType(precision=0) == TimestampTzType(precision=0)
+        assert TimestampTzType(precision=0) != TimestampTzType(precision=1)
 
     def test_trigger_info_trigger_name_setter(self, dialect):
         from rhosocial.activerecord.backend.expression.introspection import TriggerInfoExpression

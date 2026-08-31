@@ -165,7 +165,7 @@ class TestCreateTableStatements:
                     ColumnConstraint(ColumnConstraintType.NOT_NULL),
                 ],
             ),
-            ColumnDefinition("name", VarCharType(255), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("name", VarCharType(length=255), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ColumnDefinition("email", TextType()),
         ]
 
@@ -193,7 +193,7 @@ class TestCreateTableStatements:
         """Tests CREATE TEMPORARY TABLE statement."""
         columns = [
             ColumnDefinition(
-                "session_id", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
+                "session_id", VarCharType(length=50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
             ),
             ColumnDefinition("data", TextType()),
         ]
@@ -209,8 +209,8 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE with UNIQUE column constraint."""
         columns = [
             ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("username", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)]),
-            ColumnDefinition("email", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)]),
+            ColumnDefinition("username", VarCharType(length=50), constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)]),
+            ColumnDefinition("email", VarCharType(length=100), constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)]),
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="users", columns=columns)
@@ -224,10 +224,10 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE with DEFAULT column constraints."""
         columns = [
             ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("name", VarCharType(100)),
+            ColumnDefinition("name", VarCharType(length=100)),
             ColumnDefinition(
                 "status",
-                VarCharType(20),
+                VarCharType(length=20),
                 constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="active")],
             ),
             ColumnDefinition(
@@ -253,7 +253,7 @@ class TestCreateTableStatements:
 
         columns = [
             ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("name", VarCharType(100)),
+            ColumnDefinition("name", VarCharType(length=100)),
             ColumnDefinition(
                 "age", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.CHECK, check_condition=age_check)]
             ),
@@ -276,7 +276,7 @@ class TestCreateTableStatements:
                     ColumnConstraint(ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))
                 ],
             ),
-            ColumnDefinition("product_name", VarCharType(100)),
+            ColumnDefinition("product_name", VarCharType(length=100)),
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="orders", columns=columns)
@@ -289,7 +289,7 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE with table-level constraints."""
         columns = [
             ColumnDefinition("id", IntegerType()),
-            ColumnDefinition("name", VarCharType(100)),
+            ColumnDefinition("name", VarCharType(length=100)),
             ColumnDefinition("category_id", IntegerType()),
         ]
 
@@ -341,7 +341,7 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE with tablespace specification."""
         columns = [
             ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("name", VarCharType(100)),
+            ColumnDefinition("name", VarCharType(length=100)),
         ]
 
         create_table_expr = CreateTableExpression(
@@ -383,7 +383,7 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE with indexes."""
         columns = [
             ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("email", VarCharType(100)),
+            ColumnDefinition("email", VarCharType(length=100)),
             ColumnDefinition("created_at", TimestampType()),
         ]
 
@@ -406,7 +406,7 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
             ColumnDefinition(
-                "name", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
+                "name", VarCharType(length=100), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
             ),  # Explicitly NOT NULL using constraint
             ColumnDefinition(
                 "description", TextType(), constraints=[ColumnConstraint(ColumnConstraintType.NULL)]
@@ -431,7 +431,7 @@ class TestCreateTableStatements:
                 constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
                 comment="Primary identifier",
             ),
-            ColumnDefinition("name", VarCharType(100), comment="User's display name"),
+            ColumnDefinition("name", VarCharType(length=100), comment="User's display name"),
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="users_with_comments", columns=columns)
@@ -619,7 +619,7 @@ class TestCreateTableStatements:
 
     def test_create_table_with_inherits(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with INHERITS clause (PostgreSQL specific)."""
-        columns = [ColumnDefinition("id", IntegerType()), ColumnDefinition("extra_field", VarCharType(50))]
+        columns = [ColumnDefinition("id", IntegerType()), ColumnDefinition("extra_field", VarCharType(length=50))]
 
         create_table_expr = CreateTableExpression(
             dummy_dialect, table="child_table", columns=columns, inherits=["parent_table", "audit_table"]
@@ -636,7 +636,7 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition(
                 "id",
-                CustomType("SERIAL"),
+                CustomType(raw="SERIAL"),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                     ColumnConstraint(ColumnConstraintType.NOT_NULL),
@@ -663,7 +663,7 @@ class TestCreateTableStatements:
             ),
             ColumnDefinition(
                 "status",
-                VarCharType(20),
+                VarCharType(length=20),
                 constraints=[
                     ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="pending"),
                     ColumnConstraint(ColumnConstraintType.NOT_NULL),  # Use constraint instead of nullable flag
@@ -713,7 +713,7 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition(
                 "status",
-                VarCharType(20),
+                VarCharType(length=20),
                 constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT)],  # No default value provided
             )
         ]

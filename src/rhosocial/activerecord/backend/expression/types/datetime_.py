@@ -17,7 +17,7 @@ class TimeType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
+    def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
         self.precision = precision
 
@@ -35,7 +35,7 @@ class TimeTzType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
+    def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
         self.precision = precision
 
@@ -53,7 +53,7 @@ class DateTimeType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
+    def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
         self.precision = precision
 
@@ -71,7 +71,7 @@ class TimestampType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
+    def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
         self.precision = precision
 
@@ -89,7 +89,7 @@ class TimestampTzType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
+    def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
         self.precision = precision
 
@@ -107,7 +107,7 @@ class IntervalType(DataType):
 
     fields: Optional[str] = None  # e.g. 'YEAR', 'MONTH', 'DAY TO SECOND'
 
-    def __init__(self, fields: Optional[str] = None, dialect=None):
+    def __init__(self, dialect=None, *, fields: Optional[str] = None):
         super().__init__(dialect)
         self.fields = fields
 

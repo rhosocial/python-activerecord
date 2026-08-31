@@ -46,12 +46,12 @@ class TestGeneratedColumnBasic:
         columns = [
             ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
             ColumnDefinition(
-                "first_name", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
+                "first_name", VarCharType(length=50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
             ),
-            ColumnDefinition("last_name", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("last_name", VarCharType(length=50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ColumnDefinition(
                 "full_name",
-                VarCharType(101),
+                VarCharType(length=101),
                 generated_expression=(
                     Column(dummy_dialect, "first_name")
                     + Literal(dummy_dialect, " ")
@@ -156,11 +156,11 @@ class TestGeneratedColumnExpressions:
     def test_string_concatenation(self, dummy_dialect: DummyDialect):
         """Test generated column with string concatenation."""
         columns = [
-            ColumnDefinition("first", VarCharType(50)),
-            ColumnDefinition("last", VarCharType(50)),
+            ColumnDefinition("first", VarCharType(length=50)),
+            ColumnDefinition("last", VarCharType(length=50)),
             ColumnDefinition(
                 "full",
-                VarCharType(101),
+                VarCharType(length=101),
                 generated_expression=(
                     Column(dummy_dialect, "first") + Literal(dummy_dialect, " ") + Column(dummy_dialect, "last")
                 ),

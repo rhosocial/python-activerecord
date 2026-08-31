@@ -63,7 +63,7 @@ class ColumnDefinition:
     """Represents a column's definition within a CREATE/ALTER TABLE statement."""
 
     name: str
-    data_type: "DataType"  # Column type expression (e.g. VarCharType(255), IntegerType(), DecimalType(10,2))
+    data_type: "DataType"  # Column type expression (e.g. VarCharType(length=255), IntegerType(), DecimalType(precision=10, scale=2))
     constraints: List[ColumnConstraint] = field(default_factory=list)  # Column constraints
     comment: Optional[str] = None  # Column comment
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options

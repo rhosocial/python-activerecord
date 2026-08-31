@@ -322,7 +322,7 @@ def create_nodes_table(dialect, table_name: str = "nodes") -> CreateTableExpress
         columns=[
             ColumnDefinition("id", IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition("name", VarCharType(100),
+            ColumnDefinition("name", VarCharType(length=100),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ColumnDefinition("parent_id", IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=RawSQLExpression(dialect, "NULL"))]),

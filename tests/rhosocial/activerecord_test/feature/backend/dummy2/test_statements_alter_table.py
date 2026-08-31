@@ -38,7 +38,7 @@ class TestAlterTableStatements:
 
     def test_add_column_action(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD COLUMN action."""
-        column_def = ColumnDefinition("email", VarCharType(100), comment="User's email address")
+        column_def = ColumnDefinition("email", VarCharType(length=100), comment="User's email address")
         add_action = AddColumn(dummy_dialect, column=column_def)
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="users", actions=[add_action])
@@ -149,7 +149,7 @@ class TestAlterTableStatements:
 
     def test_alter_table_with_dialect_options(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with dialect-specific options."""
-        column_def = ColumnDefinition(name="new_field", data_type=VarCharType(50))
+        column_def = ColumnDefinition(name="new_field", data_type=VarCharType(length=50))
         add_action = AddColumn(dummy_dialect, column=column_def)
 
         alter_expr = AlterTableExpression(
@@ -281,7 +281,7 @@ class TestAlterTableStatements:
 
     def test_add_column_action_direct(self, dummy_dialect: DummyDialect):
         """Tests direct ADD COLUMN action creation and formatting."""
-        column_def = ColumnDefinition("phone", VarCharType(20), comment="User's phone number")
+        column_def = ColumnDefinition("phone", VarCharType(length=20), comment="User's phone number")
         add_action = AddColumn(dummy_dialect, column=column_def)
         # Action now has dialect bound at construction time
         sql, params = add_action.to_sql()
@@ -382,7 +382,7 @@ class TestAlterTableStatements:
                 self.column = column
                 self.action_type = "UNKNOWN_ACTION_TYPE"  # Use an unknown action type
 
-        column_def = ColumnDefinition("test_col", VarCharType(50))
+        column_def = ColumnDefinition("test_col", VarCharType(length=50))
         unknown_action = UnknownAction(dummy_dialect, column_def)
 
         sql, params = unknown_action.to_sql()
@@ -515,7 +515,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(
             name="username",
-            data_type=VarCharType(50),
+            data_type=VarCharType(length=50),
             constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],  # Use constraint instead of nullable flag
             comment="Username (cannot be null)",
         )
@@ -571,7 +571,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(
             name="status",
-            data_type=VarCharType(20),
+            data_type=VarCharType(length=20),
             constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="active")],  # Default value
             comment="Status field with default value",
         )
@@ -696,7 +696,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(
             name="email",
-            data_type=VarCharType(100),
+            data_type=VarCharType(length=100),
             constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)],  # Unique constraint
             comment="Unique email address",
         )

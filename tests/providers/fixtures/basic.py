@@ -194,7 +194,7 @@ def create_posts_table(dialect, table_name: str = "posts") -> CreateTableExpress
                 constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
             ColumnDefinition("author", IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition("title", VarCharType(255),
+            ColumnDefinition("title", VarCharType(length=255),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ColumnDefinition("content", TextType()),
             ColumnDefinition("published_at", DateTimeType()),
@@ -332,7 +332,7 @@ def create_store_inventory_table(dialect, table_name: str = "store_inventory") -
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ColumnDefinition("product_id", IntegerType(),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition("batch_id", VarCharType(64),
+            ColumnDefinition("batch_id", VarCharType(length=64),
                 constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ColumnDefinition("stock", IntegerType(),
                 constraints=[

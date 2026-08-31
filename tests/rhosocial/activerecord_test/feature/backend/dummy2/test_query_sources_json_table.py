@@ -12,7 +12,7 @@ class TestJSONTableExpression:
         """Test basic JSON_TABLE expression."""
         columns = [
             JSONTableColumn(name="id", data_type=IntegerType(), path="$.id"),
-            JSONTableColumn(name="name", data_type=VarCharType(255), path="$.name"),
+            JSONTableColumn(name="name", data_type=VarCharType(length=255), path="$.name"),
         ]
 
         json_table = JSONTableExpression(
@@ -50,7 +50,7 @@ class TestJSONTableExpression:
         """Test JSON_TABLE with multiple columns."""
         columns = [
             JSONTableColumn(name="user_id", data_type=IntegerType(), path="$.userId"),
-            JSONTableColumn(name="user_name", data_type=VarCharType(100), path="$.userName"),
+            JSONTableColumn(name="user_name", data_type=VarCharType(length=100), path="$.userName"),
             JSONTableColumn(name="active", data_type=BooleanType(), path="$.isActive"),
             JSONTableColumn(name="score", data_type=DecimalType(precision=5, scale=2), path="$.score"),
         ]
@@ -73,7 +73,7 @@ class TestJSONTableExpression:
         """Test JSON_TABLE expression used in a query FROM clause."""
         columns = [
             JSONTableColumn(name="id", data_type=IntegerType(), path="$.id"),
-            JSONTableColumn(name="title", data_type=VarCharType(200), path="$.title"),
+            JSONTableColumn(name="title", data_type=VarCharType(length=200), path="$.title"),
         ]
 
         json_table = JSONTableExpression(
@@ -129,7 +129,7 @@ class TestJSONTableExpression:
         """Test JSON_TABLE with different column data types."""
         columns = [
             JSONTableColumn(name="int_col", data_type=IntegerType(), path="$.intField"),
-            JSONTableColumn(name="str_col", data_type=VarCharType(255), path="$.strField"),
+            JSONTableColumn(name="str_col", data_type=VarCharType(length=255), path="$.strField"),
             JSONTableColumn(name="bool_col", data_type=BooleanType(), path="$.boolField"),
             JSONTableColumn(name="date_col", data_type=DateType(), path="$.dateField"),
             JSONTableColumn(name="float_col", data_type=FloatType(), path="$.floatField"),
@@ -195,11 +195,11 @@ class TestJSONTableExpression:
 
     def test_json_table_column_attributes(self, dummy_dialect: DummyDialect):
         """Test that JSONTableColumn attributes are properly handled."""
-        col = JSONTableColumn(name="test_col", data_type=VarCharType(50), path="$.test")
+        col = JSONTableColumn(name="test_col", data_type=VarCharType(length=50), path="$.test")
 
         # Verify the dataclass attributes
         assert col.name == "test_col"
-        assert col.data_type == VarCharType(50)
+        assert col.data_type == VarCharType(length=50)
         assert col.path == "$.test"
 
         columns = [col]
@@ -218,7 +218,7 @@ class TestJSONTableExpression:
         """Test JSON_TABLE expression without alias."""
         columns = [
             JSONTableColumn(name="id", data_type=IntegerType(), path="$.id"),
-            JSONTableColumn(name="name", data_type=VarCharType(255), path="$.name"),
+            JSONTableColumn(name="name", data_type=VarCharType(length=255), path="$.name"),
         ]
 
         # Create JSONTableExpression without alias

@@ -60,7 +60,7 @@ class TestDataTypeSerialization:
             _data_type_to_dict,
             _data_type_from_dict,
         )
-        dt = VarCharType(255)
+        dt = VarCharType(length=255)
         restored = _data_type_from_dict(_data_type_to_dict(dt))
         assert restored.length == 255
 
@@ -69,7 +69,7 @@ class TestDataTypeSerialization:
             _data_type_to_dict,
             _data_type_from_dict,
         )
-        dt = ArrayType(IntegerType(), dimensions=2)
+        dt = ArrayType(element_type=IntegerType(), dimensions=2)
         restored = _data_type_from_dict(_data_type_to_dict(dt))
         assert isinstance(restored.element_type, IntegerType)
         assert restored.dimensions == 2
@@ -79,7 +79,7 @@ class TestDataTypeSerialization:
             _data_type_to_dict,
             _data_type_from_dict,
         )
-        dt = DecimalType(10, 2)
+        dt = DecimalType(precision=10, scale=2)
         restored = _data_type_from_dict(_data_type_to_dict(dt))
         assert restored.precision == 10
         assert restored.scale == 2
@@ -115,7 +115,7 @@ class TestSnapshotSerialization:
             schema="public",
             ordinal_position=2,
             data_type="VARCHAR(255)",
-            parsed_data_type=VarCharType(255),
+            parsed_data_type=VarCharType(length=255),
             nullable=ColumnNullable.NULLABLE,
         )
         tbl = TableInfo(
@@ -408,7 +408,7 @@ class TestSnapshotDiffRoundtrip:
             ColumnInfo(
                 name="name", table_name="users", schema="public",
                 ordinal_position=2, data_type="VARCHAR(255)",
-                parsed_data_type=VarCharType(255),
+                parsed_data_type=VarCharType(length=255),
                 nullable=ColumnNullable.NULLABLE,
             ),
         ]
@@ -476,7 +476,7 @@ class TestSnapshotDiffRoundtrip:
         new_col = ColumnInfo(
             name="email", table_name="users", schema="public",
             ordinal_position=3, data_type="VARCHAR(255)",
-            parsed_data_type=VarCharType(255),
+            parsed_data_type=VarCharType(length=255),
             nullable=ColumnNullable.NULLABLE,
         )
         new_tbl = TableInfo(

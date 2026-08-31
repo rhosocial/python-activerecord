@@ -13,7 +13,7 @@ class FloatType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
+    def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
         self.precision = precision
 
@@ -40,8 +40,8 @@ class DecimalType(DataType):
     precision: Optional[int] = None
     scale: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None,
-                 scale: Optional[int] = None, dialect=None):
+    def __init__(self, dialect=None, *,
+                 precision: Optional[int] = None, scale: Optional[int] = None):
         super().__init__(dialect)
         self.precision = precision
         self.scale = scale

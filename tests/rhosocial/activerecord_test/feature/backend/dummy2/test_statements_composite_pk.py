@@ -46,7 +46,7 @@ class TestCompositePKDDL:
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
                 ColumnDefinition("product_id", IntegerType(),
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition("batch_id", VarCharType(64),
+                ColumnDefinition("batch_id", VarCharType(length=64),
                     constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[

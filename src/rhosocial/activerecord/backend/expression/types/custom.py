@@ -17,7 +17,7 @@ class CustomType(DataType):
 
     raw: str
 
-    def __init__(self, raw: str, dialect=None):
+    def __init__(self, dialect=None, *, raw: str):
         super().__init__(dialect)
         self.raw = raw
 

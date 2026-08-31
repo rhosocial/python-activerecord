@@ -407,7 +407,7 @@ class DummyDialect(
     def parse_type(self, raw: str) -> CustomType:
         """Parse a raw SQL type string — dummy dialect always returns CustomType."""
         from rhosocial.activerecord.backend.expression.types import CustomType
-        return CustomType(raw.strip())
+        return CustomType(dialect=self, raw=raw.strip())
 
     # region Protocol Support Checks - Core Features
     def supports_xmlparse(self) -> bool:

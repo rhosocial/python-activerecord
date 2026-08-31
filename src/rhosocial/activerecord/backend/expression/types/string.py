@@ -13,7 +13,7 @@ class CharType(DataType):
 
     length: Optional[int] = None
 
-    def __init__(self, length: Optional[int] = None, dialect=None):
+    def __init__(self, dialect=None, *, length: Optional[int] = None):
         super().__init__(dialect)
         self.length = length
 
@@ -31,7 +31,7 @@ class VarCharType(DataType):
 
     length: Optional[int] = None
 
-    def __init__(self, length: Optional[int] = None, dialect=None):
+    def __init__(self, dialect=None, *, length: Optional[int] = None):
         super().__init__(dialect)
         self.length = length
 

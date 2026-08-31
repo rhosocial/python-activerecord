@@ -97,7 +97,7 @@ def test_format_column_definition_data_type_validation(dialect):
     """Test that column definition validates data_type."""
     col_def = ColumnDefinition(
         name="test_col",
-        data_type=VarCharType(255),
+        data_type=VarCharType(length=255),
     )
 
     sql, params = dialect.format_column_definition(col_def)

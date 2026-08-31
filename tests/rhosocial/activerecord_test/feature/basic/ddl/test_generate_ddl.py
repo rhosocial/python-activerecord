@@ -74,7 +74,7 @@ class _Article(ActiveRecord):
     ]
 
     id: int
-    title: Annotated[str, UseSqlType(VarCharType(255))]
+    title: Annotated[str, UseSqlType(VarCharType(length=255))]
     slug: Annotated[str, UseIndex("idx_slug")]
     status: Annotated[str, UseConstraint(CCT.COLLATE, collation="utf8mb4_bin")]
     author: str
@@ -116,8 +116,8 @@ class TestFieldLevelDeclarations:
 
     def test_use_sql_type_single(self):
         u = _Article.__ddl_field_sql_types__["title"]
-        assert u.data_type == VarCharType(255)
-        assert u.resolve("sqlite") == VarCharType(255)
+        assert u.data_type == VarCharType(length=255)
+        assert u.resolve("sqlite") == VarCharType(length=255)
 
     def test_use_sql_type_per_dialect(self):
         class _M(ActiveRecord):

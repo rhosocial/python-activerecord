@@ -59,7 +59,7 @@ class DDLMixin:
             ]
 
             # Field-level DDL markers
-            email: Annotated[str, UseSqlType(VarCharType(255))]
+            email: Annotated[str, UseSqlType(VarCharType(length=255))]
             name:  Annotated[str, UseIndex("idx_name", unique=False)]
             bio:   Annotated[str, UseConstraint(
                 ColumnConstraintType.COLLATE,

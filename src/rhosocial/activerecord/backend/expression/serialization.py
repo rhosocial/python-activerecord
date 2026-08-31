@@ -461,11 +461,10 @@ def _reconstruct(
 
     valid_params = {p: v for p, v in named_params.items()}
 
-    # Most expression classes declare dialect as the first parameter, but the
-    # DataType value-object family declares it as an optional trailing keyword
-    # (e.g. VarCharType(length=None, dialect=None)) — or not at all for
-    # backend value objects (e.g. MySQLYearType(display_width=None)). Detect
-    # the convention so dialect is only injected when the class accepts it.
+    # Unified convention: dialect is the first positional parameter of every
+    # expression class, including DataType value objects (optional there —
+    # types may be declared before a dialect exists). Detect whether the
+    # class accepts a dialect at all so it is only injected when supported.
     if "dialect" not in sig.parameters:
         return cls(**valid_params, **extra_params)
     first_param = next(
