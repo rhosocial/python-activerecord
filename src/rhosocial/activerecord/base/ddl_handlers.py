@@ -65,7 +65,14 @@ class DDLFieldAnnotationHandler:
         try:
             hints = get_type_hints(new_class, include_extras=True)
         except (NameError, AttributeError, TypeError):
-            hints = getattr(new_class, "__annotations__", {})
+            # Python 3.8's typing.get_type_hints has no ``include_extras``;
+            # typing_extensions backports it, preserving Annotated metadata.
+            try:
+                from typing_extensions import get_type_hints as _te_get_type_hints
+
+                hints = _te_get_type_hints(new_class, include_extras=True)
+            except (ImportError, NameError, AttributeError, TypeError):
+                hints = getattr(new_class, "__annotations__", {})
 
         sql_types: Dict[str, UseSqlType] = {}
         indexes: Dict[str, List[IndexDefinition]] = {}

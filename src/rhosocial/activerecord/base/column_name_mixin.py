@@ -41,9 +41,15 @@ class ColumnNameAnnotationHandler:
         try:
             hints = get_type_hints(new_class, include_extras=True)
         except (NameError, AttributeError, TypeError):
-            # Fallback to __annotations__ if get_type_hints fails
-            # (e.g., due to forward references or other issues)
-            hints = getattr(new_class, "__annotations__", {})
+            # Python 3.8's typing.get_type_hints has no ``include_extras``;
+            # typing_extensions backports it, preserving Annotated metadata.
+            try:
+                from typing_extensions import get_type_hints as _te_get_type_hints
+
+                hints = _te_get_type_hints(new_class, include_extras=True)
+            except (ImportError, NameError, AttributeError, TypeError):
+                # Last resort: raw annotations (loses Annotated metadata).
+                hints = getattr(new_class, "__annotations__", {})
 
         for field_name, field_type in hints.items():
             column_name = ColumnNameAnnotationHandler._extract_and_validate_column_name(field_name, field_type)
