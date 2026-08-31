@@ -101,11 +101,6 @@ class ModelSchemaGenerator:
         """Build a ``CreateTableExpression`` for *model_class* under *dialect*."""
         table_name = getattr(model_class, "__table_name__", None) or model_class.__name__
         columns = cls._build_columns(model_class, dialect)
-        version_column = cls._version_column(model_class)
-        if version_column is not None and version_column.name not in {
-            column.name for column in columns
-        }:
-            columns = list(columns) + [version_column]
         indexes = list(getattr(model_class, "__ddl_indexes__", []) or [])
         constraints = list(getattr(model_class, "__ddl_constraints__", []) or [])
         table_options = getattr(model_class, "__ddl_table_options__", None)
@@ -192,27 +187,6 @@ class ModelSchemaGenerator:
         return columns
 
     @classmethod
-    def _version_column(cls, model_class: type) -> Optional[ColumnDefinition]:
-        """Return the optimistic-lock ``version`` column, if the model uses it.
-
-        ``OptimisticLockMixin`` declares ``_version: Version`` (``field/version.py``)
-        as a private attribute, so it does not appear in ``model_fields``. Read
-        its ``db_column`` and emit it explicitly so the derived DDL keeps the
-        optimistic-lock column.
-        """
-        version = getattr(model_class, "_version", None)
-        db_column = getattr(version, "db_column", None)
-        if not db_column:
-            return None
-        return ColumnDefinition(
-            name=db_column,
-            data_type=IntegerType(),
-            constraints=[
-                ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)
-            ],
-        )
-
-    @classmethod
     def _resolve_data_type(
         cls,
         field: Any,
@@ -231,8 +205,8 @@ class ModelSchemaGenerator:
         if suggest is not None and python_type is not None:
             # Read the raw server version without triggering the dialect's
             # "not adapted" exception; None when the dialect is unconnected.
-            version = getattr(dialect, "_version", None)
-            suggested = suggest(python_type, version)
+            server_version = getattr(dialect, "_version", None)
+            suggested = suggest(python_type, server_version)
             if suggested is not None:
                 return suggested
         # Dialect returned None (or has no suggestion support): fall back to

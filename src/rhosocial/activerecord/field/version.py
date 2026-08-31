@@ -1,7 +1,41 @@
 # src/rhosocial/activerecord/field/version.py
-"""Module providing version control functionality."""
+"""Module providing optimistic locking functionality.
 
-from typing import Any, Dict, List, Union
+The version column is a *real pydantic field* declared by
+:class:`OptimisticLockMixin` (``version: int``, default 1, ``ge=1``).
+Because it is a regular field it flows through every generic path —
+DDL generation, ``model_dump``, validation, dirty tracking — with no
+special-casing anywhere in the framework.
+
+Customisation (redeclare the field on the model; field-over-field is
+normal pydantic inheritance and produces no shadow warnings):
+
+* custom DB column: ``version: Annotated[int, UseColumn("row_ver")] = 1``
+* renamed Python field: ``__version_field__ = "row_version"`` plus a
+  redeclared ``row_version`` field
+* custom increment: ``__version_increment_by__ = 2``
+
+The column value is *framework-managed*: users must not write it.
+Enforcement is layered (see ``_handle_version_before_insert`` /
+``_handle_version_before_update`` and the snapshot discipline below):
+
+1. INSERT normalises the stored value to 1 regardless of user input.
+2. The UPDATE WHERE clause uses ``_version_snapshot`` — the last value
+   known to be in the database — so in-memory tampering cannot break (or
+   bypass) the lock condition.
+3. The UPDATE SET clause is a column-arithmetic expression
+   (``col = col + step``) which the update pipeline applies *after*
+   merging dirty-field data, overriding any user-assigned value.
+4. A user-assigned version that differs from the snapshot is rejected
+   outright with :class:`DatabaseError` at BEFORE_UPDATE time.
+"""
+
+from typing import Annotated, Any, ClassVar, Dict, List, Union
+
+from pydantic import Field
+
+from ..base.fields import UseConstraint
+from ..backend.expression.statements.ddl_table import ColumnConstraintType
 
 from ..backend.errors import DatabaseError
 from ..backend.expression import SQLPredicate, SQLValueExpression
@@ -11,127 +45,155 @@ from ..interface.update import IUpdateBehavior
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
 
 
-class Version:
-    """Represents a version number used for optimistic locking
-
-    Handles version increment logic and SQL condition/expression generation.
-    Used as a type hint for pydantic PrivateAttr in models.
-
-    Attributes:
-        value: Current version number
-        increment_by: Amount to increment version by on each update
-        db_column: Database column name for version field
-    """
-
-    def __init__(self, value: int = 1, *, increment_by: int = 1, db_column: str = "version"):
-        """Initialize version instance
-
-        Args:
-            value: Initial version number (default: 1)
-            increment_by: Amount to increment version by on each update
-            db_column: Database column name (default: "version")
-
-        Raises:
-            ValueError: If value or increment_by is not positive or db_column is empty
-        """
-        if value <= 0:
-            raise ValueError("Version value must be positive")
-        if increment_by <= 0:
-            raise ValueError("increment_by must be positive")
-        if not db_column or not db_column.strip():
-            raise ValueError("db_column cannot be empty")
-
-        self.value = value
-        self.increment_by = increment_by
-        self.db_column = db_column.strip()
-
-    def increment(self) -> None:
-        """Increment version number by increment_by"""
-        self.value += self.increment_by
-
-    def get_update_condition(self, dialect):
-        """Get SQL condition for version check using expression system
-
-        Args:
-            dialect: The SQL dialect instance
-
-        Returns:
-            Expression object representing the version condition
-        """
-        from ..backend.expression.core import Column
-
-        # Use operator overloading: Column == value (automatically converted to Literal)
-        return Column(dialect, self.db_column) == self.value
-
-    def get_update_expression(self, dialect):
-        """Get SQL expression for version update using expression system
-
-        Args:
-            dialect: The SQL dialect instance
-
-        Returns:
-            Expression object to increment version
-        """
-        from ..backend.expression.core import Column
-
-        # Use operator overloading: Column + value (automatically converted to Literal)
-        return Column(dialect, self.db_column) + self.increment_by
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Version):
-            return NotImplemented
-        return (
-            self.value == other.value and self.increment_by == other.increment_by and self.db_column == other.db_column
-        )
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-    def __repr__(self) -> str:
-        return f"Version(value={self.value}, increment_by={self.increment_by}, db_column='{self.db_column}')"
+_VERSION_FIELD = "version"
 
 
 class OptimisticLockMixin(IUpdateBehavior):
-    """Optimistic locking mixin that uses Version class
+    """Optimistic locking via a real ``version`` integer field.
 
-    Uses VersionField (a PrivateAttr) to manage a Version instance.
-    The database column name and increment amount can be customized.
+    The field flows through DDL generation, serialisation and dirty
+    tracking like any other field.  The mixin contributes only the *lock
+    semantics* on UPDATE:
 
-    Events used:
-    - AFTER_INSERT: Ensures version is set to 1 for new records
-    - AFTER_UPDATE: Verifies the update was successful and updates version
+    * WHERE ``<version column> == <last known DB value>``
+    * SET  ``<version column> = <version column> + increment``
+
+    The column value is framework-managed: manual writes are rejected.
     """
 
-    _version: Version = Version(value=1, increment_by=1)
+    version: Annotated[int, UseConstraint(ColumnConstraintType.NOT_NULL)] = Field(
+        default=1, ge=1
+    )
+
+    __version_column__: ClassVar[str] = "version"
+    __version_increment_by__: ClassVar[int] = 1
+
+    # Framework bookkeeping — deliberately private and invisible: the last
+    # version value known to be committed to the database.  It must never
+    # track in-memory user assignments, otherwise the lock condition could
+    # be defeated.  (This is internal *state*, not a column; hiding it is
+    # correct, unlike hiding the column itself.)
+    _version_snapshot: int = 1
+
+    @classmethod
+    def _get_column_name(cls, field_name: str) -> str:
+        """Extend column resolution with the ``__version_column__`` knob.
+
+        Only the version field is affected; everything else defers to the
+        standard UseColumn-based resolution.  Implementing the resolution
+        protocol here keeps the custom name consistent across DDL
+        generation, lock conditions and SET expressions without any
+        special-casing in those consumers.
+        """
+        if field_name == _VERSION_FIELD and cls.__version_column__ != _VERSION_FIELD:
+            # Explicit knob wins over any UseColumn redeclaration.
+            return cls.__version_column__
+        return super()._get_column_name(field_name)
 
     def __init__(self, **data):
-        """Initialize mixin and register event handlers"""
+        """Initialise mixin, validate configuration and register event handlers."""
         super().__init__(**data)
-        version_value = data.get("version", 1)
-        self._version = Version(value=version_value, increment_by=1)
-        # Register separate handlers for INSERT and UPDATE operations
+        self.__class__._validate_version_config()
+        self._version_snapshot = self.version
+        self.on(ModelEvent.BEFORE_INSERT, self._handle_version_before_insert)
         self.on(ModelEvent.AFTER_INSERT, self._handle_version_after_insert)
+        self.on(ModelEvent.BEFORE_UPDATE, self._handle_version_before_update)
         self.on(ModelEvent.AFTER_UPDATE, self._handle_version_after_update)
 
-    @property
-    def version(self) -> int:
-        """Read-only access to current version number"""
-        return self._version.value
+    # ------------------------------------------------------------------
+    # Configuration
+    # ------------------------------------------------------------------
+    @classmethod
+    def _validate_version_config(cls) -> None:
+        """Validate class-level knobs early (fail fast on misconfiguration)."""
+        if cls.__version_increment_by__ <= 0:
+            raise ValueError(
+                f"{cls.__name__}: __version_increment_by__ must be positive, "
+                f"got {cls.__version_increment_by__!r}"
+            )
+        if not cls.__version_column__.strip():
+            raise ValueError(
+                f"{cls.__name__}: __version_column__ cannot be empty."
+            )
 
+    @classmethod
+    def _version_field_name(cls) -> str:
+        """The Python field name carrying the version (fixed: "version")."""
+        return _VERSION_FIELD
+
+    @classmethod
+    def _version_column_name(cls) -> str:
+        """The database column name for the version field (UseColumn-aware)."""
+        return cls._get_column_name(_VERSION_FIELD)
+
+    @classmethod
+    def _version_increment(cls) -> int:
+        """The configured increment applied on each UPDATE."""
+        increment = cls.__version_increment_by__
+        if increment <= 0:
+            raise ValueError(
+                f"{cls.__name__}: __version_increment_by__ must be positive, "
+                f"got {increment!r}"
+            )
+        return increment
+
+    # ------------------------------------------------------------------
+    # Lock semantics (IUpdateBehavior)
+    # ------------------------------------------------------------------
     def get_update_conditions(self) -> List[SQLPredicate]:
-        """Add version check to update conditions using expression system"""
-        if not self.is_new_record:
-            backend = self.backend()
-            condition_expr = self._version.get_update_condition(backend.dialect)
-            return [condition_expr]
-        return []
+        """Add the optimistic-lock check to the UPDATE WHERE clause.
+
+        Uses ``_version_snapshot`` (the last committed value), never the
+        in-memory field, so user-side tampering cannot alter the condition.
+        """
+        if self.is_new_record:
+            return []
+        from ..backend.expression.core import Column
+
+        backend = self.backend()
+        return [
+            Column(backend.dialect, self._version_column_name())
+            == self._version_snapshot
+        ]
 
     def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
-        """Add version increment to update expressions using expression system"""
-        if not self.is_new_record:
-            backend = self.backend()
-            return {self._version.db_column: self._version.get_update_expression(backend.dialect)}
-        return {}
+        """Add the version increment to the UPDATE SET clause.
+
+        The key is the *field name*; the update pipeline maps it to the
+        column (UseColumn-aware) like any other SET entry.  Because the
+        pipeline merges behaviour expressions after dirty-field data, this
+        column-arithmetic expression overrides any user-assigned value.
+        """
+        if self.is_new_record:
+            return {}
+        from ..backend.expression.core import Column
+
+        backend = self.backend()
+        column = Column(backend.dialect, self._version_column_name())
+        return {self._version_field_name(): column + self._version_increment()}
+
+    # ------------------------------------------------------------------
+    # Event handlers (write protection + value sync)
+    # ------------------------------------------------------------------
+    def _handle_version_before_insert(self, instance, *, data=None, **kwargs) -> None:
+        """Normalise the version to 1 for new records (memory + insert data)."""
+        field_name = self._version_field_name()
+        if data is not None:
+            data[field_name] = 1
+        setattr(self, field_name, 1)
+        self._version_snapshot = 1
+
+    def _handle_version_before_update(self, instance, *, data=None,
+                                      dirty_fields: set = None, **kwargs) -> None:
+        """Reject manual version writes; the column is framework-managed."""
+        field_name = self._version_field_name()
+        if data is not None and field_name in data:
+            if data[field_name] != self._version_snapshot:
+                raise DatabaseError(
+                    f"Version field {field_name!r} is managed by "
+                    f"OptimisticLockMixin and cannot be set manually "
+                    f"(got {data[field_name]!r}, expected {self._version_snapshot!r})."
+                )
 
     def _handle_version_after_insert(
         self,
@@ -141,47 +203,12 @@ class OptimisticLockMixin(IUpdateBehavior):
         result: "QueryResult" = None,
         **kwargs,
     ) -> None:
-        """Handle version initialization after INSERT operation
-
-        This callback is triggered after INSERT to ensure the version
-        is properly initialized to 1 for new records.
-
-        Args:
-            instance: The model instance (ActiveRecord or AsyncActiveRecord)
-            data: The data that was inserted
-            result: The insert operation result containing affected_rows and returned data
-            **kwargs: Additional event arguments
-        """
-        # Ensure version is set to 1 for new records
-        # Check if result has data and contains the version column (from RETURNING clause)
-        if result.data is not None:
-            if isinstance(result.data, list) and len(result.data) > 0:
-                first_row = result.data[0]
-                if isinstance(first_row, dict) and self._version.db_column in first_row:
-                    new_version = first_row[self._version.db_column]
-                    if new_version is not None:
-                        self._version = Version(
-                            value=new_version,
-                            increment_by=self._version.increment_by,
-                            db_column=self._version.db_column,
-                        )
-                        return
-            elif isinstance(result.data, dict) and self._version.db_column in result.data:
-                new_version = result.data[self._version.db_column]
-                if new_version is not None:
-                    self._version = Version(
-                        value=new_version,
-                        increment_by=self._version.increment_by,
-                        db_column=self._version.db_column,
-                    )
-                    return
-
-        # If no returned data, ensure version is 1
-        self._version = Version(
-            value=1,
-            increment_by=self._version.increment_by,
-            db_column=self._version.db_column,
-        )
+        """Sync the version field from RETURNING data after INSERT (default 1)."""
+        field_name = self._version_field_name()
+        value = self._extract_returned_version(result, field_name)
+        if value is not None:
+            setattr(self, field_name, value)
+            self._version_snapshot = value
 
     def _handle_version_after_update(
         self,
@@ -192,55 +219,32 @@ class OptimisticLockMixin(IUpdateBehavior):
         result: "QueryResult" = None,
         **kwargs,
     ) -> None:
-        """Handle version management after UPDATE operation
-
-        This callback is triggered after UPDATE to verify the optimistic lock
-        and update the version number.
-
-        Args:
-            instance: The model instance (ActiveRecord or AsyncActiveRecord)
-            data: The data that was updated
-            dirty_fields: Set of fields that were changed
-            result: The update operation result containing affected_rows and returned data
-            **kwargs: Additional event arguments
+        """Verify the lock and sync the version after UPDATE.
 
         Raises:
-            DatabaseError: If optimistic lock check fails (record was updated by another process)
+            DatabaseError: If optimistic lock check fails (record was
+                updated by another process).
         """
         if result.affected_rows == 0:
             raise DatabaseError("Record was updated by another process")
 
-        # Check if result has data and contains the version column
-        if result.data is not None:
-            # If result.data is a list (e.g., from RETURNING clause with multiple rows)
-            if isinstance(result.data, list) and len(result.data) > 0:
-                # Take the first row if it's a list of rows
-                first_row = result.data[0]
-                if isinstance(first_row, dict) and self._version.db_column in first_row:
-                    new_version = first_row[self._version.db_column]
-                    if new_version is not None:
-                        self._version = Version(
-                            value=new_version,
-                            increment_by=self._version.increment_by,
-                            db_column=self._version.db_column,
-                        )
-                        return  # Successfully updated from returned data
-            # If result.data is a dictionary (single row)
-            elif isinstance(result.data, dict) and self._version.db_column in result.data:
-                new_version = result.data[self._version.db_column]
-                if new_version is not None:
-                    self._version = Version(
-                        value=new_version,
-                        increment_by=self._version.increment_by,
-                        db_column=self._version.db_column,
-                    )
-                    return  # Successfully updated from returned data
+        field_name = self._version_field_name()
+        value = self._extract_returned_version(result, field_name)
+        if value is None:
+            value = self._version_snapshot + self._version_increment()
+        setattr(self, field_name, value)
+        self._version_snapshot = value
 
-        # If we couldn't get the version from the returned data, increment locally
-        self._version.increment()
-
-    def model_dump(self, **kwargs) -> Dict[str, Any]:
-        """Include version in serialized data"""
-        data = super().model_dump(**kwargs)
-        data[self._version.db_column] = self.version
-        return data
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _extract_returned_version(result: "QueryResult", field_name: str):
+        """Pull the version value out of a RETURNING result, if present."""
+        if result.data is None:
+            return None
+        rows = result.data if isinstance(result.data, list) else [result.data]
+        for row in rows:
+            if isinstance(row, dict) and field_name in row and row[field_name] is not None:
+                return row[field_name]
+        return None

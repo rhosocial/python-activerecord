@@ -1,0 +1,209 @@
+# tests/rhosocial/activerecord_test/feature/mixins/test_optimistic_lock_field.py
+"""Optimistic-lock real-field behaviour (plan: version-real-field-refactor).
+
+Covers the framework-managed column contract:
+
+* ``version`` is a real pydantic field — DDL, ``model_dump`` and validation
+  flow through the generic paths with no generator special-casing;
+* manual writes are rejected (BEFORE_UPDATE) and never enter dirty data;
+* the UPDATE WHERE clause uses the committed-value snapshot, so tampering
+  can neither break nor bypass the lock;
+* customisation knobs: ``__version_column__`` (wired through the standard
+  column-resolution protocol), ``__version_field__`` rename,
+  ``__version_increment_by__``.
+"""
+
+import warnings
+from typing import Annotated, Optional
+
+import pytest
+
+from rhosocial.activerecord.backend.errors import DatabaseError
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.base.ddl_generator import ModelSchemaGenerator
+from rhosocial.activerecord.field import IntegerPKMixin, OptimisticLockMixin
+from rhosocial.activerecord.model import ActiveRecord
+from pydantic import Field
+
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    ColumnConstraintType,
+)
+from rhosocial.activerecord.base.fields import UseColumn, UseConstraint
+
+
+def _make_backend():
+    backend = SQLiteBackend(connection_config=SQLiteConnectionConfig(database=":memory:"))
+    backend.connect()
+    backend.introspect_and_adapt()
+    return backend
+
+
+def _register(model_class, backend, create: bool = True):
+    sql, _ = ModelSchemaGenerator.generate(model_class, backend.dialect).to_sql()
+    if create:
+        backend.execute(sql)
+
+
+def _fresh_model(backend, **class_kwargs):
+    """Build a fresh model class per test to avoid cross-test state."""
+
+    class Model(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
+        __table_name__ = "lock_items"
+        __backend__ = backend
+        id: Optional[int] = None
+        name: str
+
+    Model.__name__ = f"LockModel_{id(Model)}"
+    return Model
+
+
+@pytest.fixture
+def lock_backend():
+    backend = _make_backend()
+    yield backend
+    backend.disconnect()
+
+
+def test_version_flows_through_generic_paths(lock_backend):
+    model = _fresh_model(lock_backend)
+    _register(model, lock_backend)
+
+    e = ModelSchemaGenerator.generate(model, lock_backend.dialect)
+    names = [c.name for c in e.columns]
+    assert "version" in names
+    sql, _ = e.to_sql()
+    assert '"version" INTEGER NOT NULL' in sql
+
+    item = model(name="a")
+    assert item.save() == 1
+    assert item.version == 1
+    assert "version" in item.model_dump()
+
+    item.name = "b"
+    assert item.save() == 1
+    assert item.version == 2
+    fresh = model.find_one(item.id)
+    assert fresh.version == 2
+
+
+def test_manual_version_write_rejected(lock_backend):
+    model = _fresh_model(lock_backend)
+    _register(model, lock_backend)
+
+    item = model(name="a")
+    item.save()
+
+    item.version = 999
+    with pytest.raises(DatabaseError, match="managed by OptimisticLockMixin"):
+        item.save()
+
+    # Database untouched by the rejected attempt.
+    fresh = model.find_one(item.id)
+    assert fresh.version == 1
+
+
+def test_stale_snapshot_conflicts(lock_backend):
+    model = _fresh_model(lock_backend)
+    _register(model, lock_backend)
+
+    item = model(name="a")
+    item.save()
+
+    other = model.find_one(item.id)
+    other.name = "edited-elsewhere"
+    other.save()  # version -> 2 in DB
+
+    item.name = "edited-stale"
+    with pytest.raises(DatabaseError, match="updated by another process"):
+        item.save()
+
+
+def test_insert_normalises_seeded_version(lock_backend):
+    model = _fresh_model(lock_backend)
+    _register(model, lock_backend)
+
+    item = model(name="a", version=999)
+    item.save()
+    assert item.version == 1
+    assert model.find_one(item.id).version == 1
+
+
+def test_column_knob_wired_end_to_end(lock_backend):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        class CustomColumn(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
+            __table_name__ = "custom_lock"
+            __backend__ = lock_backend
+            __version_column__ = "row_ver"
+            id: Optional[int] = None
+            name: str
+
+        shadow = [w for w in caught if "shadow" in str(w.message).lower()]
+    assert not shadow
+
+    _register(CustomColumn, lock_backend)
+    sql, _ = ModelSchemaGenerator.generate(CustomColumn, lock_backend.dialect).to_sql()
+    assert '"row_ver" INTEGER NOT NULL' in sql
+
+    item = CustomColumn(name="a")
+    item.save()
+    item.name = "b"
+    item.save()
+    condition_sql, _ = item.get_update_conditions()[0].to_sql()
+    assert "row_ver" in condition_sql
+    assert CustomColumn.find_one(item.id).version == 2
+
+
+def test_use_column_redeclaration_compat(lock_backend):
+    """The supported mixin-field-override pattern (see get_column_to_field_map):
+    the model redeclares the field with UseColumn + the full annotation set.
+    pydantic emits an attribute-shadowing warning for redeclaration — cosmetic
+    and accepted; the recommended customisation is the ``__version_column__``
+    knob which avoids redeclaration entirely."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        class Redeclared(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
+            __table_name__ = "redeclared_lock"
+            __backend__ = lock_backend
+            id: Optional[int] = None
+            version: Annotated[
+                int, UseColumn("row_ver"),
+                UseConstraint(ColumnConstraintType.NOT_NULL),
+            ] = Field(default=1, ge=1)
+            name: str
+
+    _register(Redeclared, lock_backend)
+    sql, _ = ModelSchemaGenerator.generate(Redeclared, lock_backend.dialect).to_sql()
+    assert '"row_ver" INTEGER NOT NULL' in sql
+
+    item = Redeclared(name="a")
+    item.save()
+    item.name = "b"
+    item.save()
+    assert Redeclared.find_one(item.id).version == 2
+
+
+def test_increment_knob_and_validation(lock_backend):
+    class IncrementTwo(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
+        __table_name__ = "inc_two"
+        __backend__ = lock_backend
+        __version_increment_by__ = 2
+        id: Optional[int] = None
+        name: str
+
+    _register(IncrementTwo, lock_backend)
+    item = IncrementTwo(name="a")
+    item.save()
+    item.name = "b"
+    item.save()
+    assert IncrementTwo.find_one(item.id).version == 3
+
+
+def test_negative_version_rejected_by_field_validation(lock_backend):
+    model = _fresh_model(lock_backend)
+    _register(model, lock_backend)
+    with pytest.raises(Exception):
+        model(name="a", version=0)

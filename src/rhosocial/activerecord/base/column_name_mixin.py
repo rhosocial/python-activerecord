@@ -233,9 +233,11 @@ class ColumnNameMixin:
             reverse_mapping[column_name] = field_name
 
         # Second pass: Process implicit mappings, skipping any that conflict with explicit ones.
+        # Resolution goes through _get_column_name so behaviour-provided
+        # overrides (e.g. the optimistic-lock column knob) apply consistently
+        # on both the write and the read path.
         for field_name in implicit_mappers:
-            # For implicit mappers, the column name is the same as the field name.
-            column_name = field_name
+            column_name = cls._get_column_name(field_name)
             if column_name not in reverse_mapping:
                 reverse_mapping[column_name] = field_name
 
