@@ -13,8 +13,15 @@ Covers the framework-managed column contract:
   ``__version_increment_by__``.
 """
 
+import sys
 import warnings
-from typing import Annotated, Optional
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:  # pragma: no cover - 3.8 compatibility
+    from typing_extensions import Annotated
+
+from typing import Optional
 
 import pytest
 
