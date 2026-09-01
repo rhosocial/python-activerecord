@@ -18,6 +18,11 @@ class RoutineSupportMixin:
         ``(mode, name, type)``, or ``(name, type)``.
         """
         if isinstance(param, tuple):
+            if len(param) == 4:
+                mode, name, type_sql, extra = param
+                return (
+                    f"{mode} {self.format_identifier(name)} {type_sql} {extra}"
+                )
             if len(param) == 3:
                 mode, name, type_sql = param
                 return f"{mode} {self.format_identifier(name)} {type_sql}"
