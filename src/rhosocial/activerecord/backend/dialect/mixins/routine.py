@@ -18,11 +18,6 @@ class RoutineSupportMixin:
         ``(mode, name, type)``, or ``(name, type)``.
         """
         if isinstance(param, tuple):
-            if len(param) == 4:
-                mode, name, type_sql, extra = param
-                return (
-                    f"{mode} {self.format_identifier(name)} {type_sql} {extra}"
-                )
             if len(param) == 3:
                 mode, name, type_sql = param
                 return f"{mode} {self.format_identifier(name)} {type_sql}"
@@ -31,7 +26,4 @@ class RoutineSupportMixin:
                 return f"{self.format_identifier(name)} {type_sql}"
         if isinstance(param, str):
             return param
-        raise TypeError(
-            f"Cannot format routine parameter: {type(param).__name__} "
-            f"({param!r})"
-        )
+        raise ValueError(f"Invalid parameter definition: {param!r}")
