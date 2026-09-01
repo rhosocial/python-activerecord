@@ -16,14 +16,14 @@ from typing import Self
 from pydantic import Field
 
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, SoftDeleteMixin
+from rhosocial.activerecord.field import IntegerPKMixin, DefaultTimestampMixin, DefaultOptimisticLockMixin, DefaultSoftDeleteMixin
 
 
 # Declare that this module requires Python 3.11+
 __requires_python__ = (3, 11)
 
 
-class TimestampedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class TimestampedPost(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """Blog post model with timestamps.
 
     Python 3.11+ version using | syntax and Self type.
@@ -57,7 +57,7 @@ class VersionedProduct(IntegerPKMixin, DefaultOptimisticLockMixin, ActiveRecord)
         return self
 
 
-class Task(IntegerPKMixin, SoftDeleteMixin, ActiveRecord):
+class Task(IntegerPKMixin, DefaultSoftDeleteMixin, ActiveRecord):
     """Task model supporting soft deletion.
 
     Python 3.11+ version using | syntax and Self type.
@@ -79,7 +79,7 @@ class Task(IntegerPKMixin, SoftDeleteMixin, ActiveRecord):
         return self
 
 
-class CombinedArticle(IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, SoftDeleteMixin, ActiveRecord):
+class CombinedArticle(IntegerPKMixin, DefaultTimestampMixin, DefaultOptimisticLockMixin, DefaultSoftDeleteMixin, ActiveRecord):
     """Article model combining all mixins.
 
     Python 3.11+ version using | syntax and Self type.

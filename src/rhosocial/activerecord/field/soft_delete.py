@@ -1,9 +1,24 @@
 # src/rhosocial/activerecord/field/soft_delete.py
-"""Module providing soft delete functionality."""
+"""Module providing soft delete functionality.
+
+Two classes, per "who defines the column, who declares it":
+
+* :class:`SoftDeleteMixin` — **semantics only** (mark / filter / restore).
+  Declares no field; point it at the model's declared datetime field via
+  ``__deleted_at_field__``.
+* :class:`DefaultSoftDeleteMixin` — adds the conventional
+  ``deleted_at: Optional[datetime]`` field.
+* :class:`AsyncSoftDeleteMixin` / :class:`DefaultAsyncSoftDeleteMixin` —
+  async ``restore`` counterparts of the above.
+
+For async models use the ``Async*`` variants, which keep sync/async on
+equal footing without mixing execution models.
+"""
 
 from datetime import datetime, timezone
+from typing import ClassVar, Dict, Any, Optional
+
 from pydantic import Field
-from typing import Dict, Any, Optional
 
 from ..backend.expression.core import Column
 from ..backend.expression import ComparisonPredicate, Literal
@@ -12,56 +27,68 @@ from ..query import ActiveQuery
 
 
 class SoftDeleteMixin:
-    """Implements soft delete functionality (sync).
+    """Soft-delete *semantics* — declares no field.
 
-    Instead of actual deletion, marks records as deleted using timestamp.
-    Provides methods to:
-    - Soft delete records
-    - Query including/excluding deleted records
-    - Restore deleted records
-
-    For async models use :class:`AsyncSoftDeleteMixin`, which provides the
-    async ``restore`` counterpart. Sync/async stay on equal footing without
-    mixing execution models.
+    The model (or a subclass like :class:`DefaultSoftDeleteMixin`) declares
+    a datetime field and announces it via ``__deleted_at_field__``; it must
+    exist or instantiation fails fast.
     """
 
-    deleted_at: Optional[datetime] = Field(default=None)
+    __deleted_at_field__: ClassVar[str] = "deleted_at"
 
     def __init__(self, **data):
         super().__init__(**data)
+        self.__class__._validate_soft_delete_config()
         self.on(ModelEvent.BEFORE_DELETE, self._mark_as_deleted)
 
+    @classmethod
+    def _validate_soft_delete_config(cls) -> None:
+        """Fail fast when the configured field name does not exist."""
+        field_name = cls.__deleted_at_field__
+        if field_name not in cls.model_fields:
+            raise TypeError(
+                f"{cls.__name__}: __deleted_at_field__ = {field_name!r} does "
+                f"not name a model field. Declare the soft-delete field (e.g. "
+                f"`{field_name}: Optional[datetime] = Field(default=None)`) or "
+                f"use DefaultSoftDeleteMixin."
+            )
+
+    @classmethod
+    def _deleted_at_column(cls) -> str:
+        """The database column name for the soft-delete field (UseColumn-aware)."""
+        return cls._get_column_name(cls.__deleted_at_field__)
+
     def _mark_as_deleted(self, instance: "SoftDeleteMixin", **kwargs):
-        """Mark record as soft deleted by setting deleted_at timestamp."""
-        instance.deleted_at = datetime.now(timezone.utc)
+        """Mark record as soft deleted by setting the configured field."""
+        setattr(instance, self.__deleted_at_field__, datetime.now(timezone.utc))
 
     def prepare_delete(self) -> Dict[str, Any]:
-        """Prepare soft delete data"""
-        if self.deleted_at is None:
-            raise ValueError("deleted_at not set, ensure BEFORE_DELETE event is triggered")
-        return {"deleted_at": self.deleted_at}
+        """Prepare soft delete data (field name as key; mapped downstream)."""
+        field_name = self.__deleted_at_field__
+        value = getattr(self, field_name)
+        if value is None:
+            raise ValueError(
+                f"{field_name} not set, ensure BEFORE_DELETE event is triggered"
+            )
+        return {field_name: value}
 
     @classmethod
     def query(cls) -> "ActiveQuery":
-        """Return query builder excluding soft-deleted records using expression system."""
+        """Return query builder excluding soft-deleted records."""
         backend = cls.backend()
-        # Use is_null() method from ComparisonMixin to check for non-deleted records
-        # Records where deleted_at is NULL are considered not deleted
-        non_deleted_condition = Column(backend.dialect, "deleted_at").is_null()
+        non_deleted_condition = Column(backend.dialect, cls._deleted_at_column()).is_null()
         return super().query().where(non_deleted_condition)
 
     @classmethod
     def query_with_deleted(cls) -> "ActiveQuery":
-        """Return query including all records (no soft delete filter)"""
+        """Return query including all records (no soft delete filter)."""
         return super().query()
 
     @classmethod
     def query_only_deleted(cls) -> "ActiveQuery":
-        """Return query for only soft-deleted records using expression system."""
+        """Return query for only soft-deleted records."""
         backend = cls.backend()
-        # Use is_not_null() method from ComparisonMixin to check for deleted records
-        # Records where deleted_at is NOT NULL are considered deleted
-        deleted_condition = Column(backend.dialect, "deleted_at").is_not_null()
+        deleted_condition = Column(backend.dialect, cls._deleted_at_column()).is_not_null()
         return super().query().where(deleted_condition)
 
     def _build_restore_condition(self):
@@ -92,18 +119,23 @@ class SoftDeleteMixin:
 
     def restore(self) -> int:
         """Restore a soft-deleted record using expression system."""
-        if self.deleted_at is None:
+        field_name = self.__deleted_at_field__
+        if getattr(self, field_name) is None:
             return 0
 
         from ..backend.options import UpdateOptions
 
         condition_expr = self._build_restore_condition()
-        update_options = UpdateOptions(table=self.table_name(), data={"deleted_at": None}, where=condition_expr)
+        update_options = UpdateOptions(
+            table=self.table_name(),
+            data={self._deleted_at_column(): None},
+            where=condition_expr,
+        )
 
         result = self.backend().update(update_options)
 
         if result.affected_rows > 0:
-            self.deleted_at = None
+            setattr(self, field_name, None)
             self.reset_tracking()
 
         return result.affected_rows
@@ -112,27 +144,47 @@ class SoftDeleteMixin:
 class AsyncSoftDeleteMixin(SoftDeleteMixin):
     """Async counterpart of :class:`SoftDeleteMixin`.
 
-    Inherits all shared state (``deleted_at``), event registration
-    (``_mark_as_deleted``), query classmethods and ``prepare_delete`` from
-    :class:`SoftDeleteMixin`. Only :meth:`restore` is overridden to ``await``
-    the backend I/O, keeping sync/async on equal footing without mixing
-    execution models.
+    Inherits the semantics (knob, event registration, query classmethods,
+    ``prepare_delete``) from :class:`SoftDeleteMixin` and declares no field;
+    only :meth:`restore` is overridden to ``await`` the backend I/O.
     """
 
     async def restore(self) -> int:
         """Restore a soft-deleted record asynchronously using expression system."""
-        if self.deleted_at is None:
+        field_name = self.__deleted_at_field__
+        if getattr(self, field_name) is None:
             return 0
 
         from ..backend.options import UpdateOptions
 
         condition_expr = self._build_restore_condition()
-        update_options = UpdateOptions(table=self.table_name(), data={"deleted_at": None}, where=condition_expr)
+        update_options = UpdateOptions(
+            table=self.table_name(),
+            data={self._deleted_at_column(): None},
+            where=condition_expr,
+        )
 
         result = await self.backend().update(update_options)
 
         if result.affected_rows > 0:
-            self.deleted_at = None
+            setattr(self, field_name, None)
             self.reset_tracking()
 
         return result.affected_rows
+
+
+class DefaultSoftDeleteMixin(SoftDeleteMixin):
+    """Soft-delete semantics with the conventional field declared.
+
+    Adds ``deleted_at: Optional[datetime]`` (default ``None``) so models can
+    simply mix it in.  Use :class:`SoftDeleteMixin` directly when the field
+    should carry a different Python name or column.
+    """
+
+    deleted_at: Optional[datetime] = Field(default=None)
+
+
+class DefaultAsyncSoftDeleteMixin(AsyncSoftDeleteMixin):
+    """Async soft-delete semantics with the conventional field declared."""
+
+    deleted_at: Optional[datetime] = Field(default=None)

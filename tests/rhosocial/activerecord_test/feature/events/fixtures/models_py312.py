@@ -18,14 +18,14 @@ from pydantic import Field
 
 from rhosocial.activerecord.interface import ModelEvent
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
+from rhosocial.activerecord.field import IntegerPKMixin, DefaultTimestampMixin
 
 
 # Declare that this module requires Python 3.12+
 __requires_python__ = (3, 12)
 
 
-class EventTestModel(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class EventTestModel(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """A model class for testing event mechanisms.
 
     Python 3.12+ version using | syntax, Self type, and @override.

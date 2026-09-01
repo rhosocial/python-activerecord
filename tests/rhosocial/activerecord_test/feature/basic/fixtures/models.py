@@ -22,7 +22,7 @@ from rhosocial.activerecord.base.field_proxy import FieldProxy
 from rhosocial.activerecord.backend.errors import ValidationError
 # These mixins are assumed to be provided by the core `rhosocial-activerecord`
 # package to handle common field behaviors like auto-incrementing IDs or timestamps.
-from rhosocial.activerecord.field import TimestampMixin, UUIDMixin, IntegerPKMixin, CompositePKMixin
+from rhosocial.activerecord.field import DefaultTimestampMixin, UUIDMixin, IntegerPKMixin, CompositePKMixin
 
 try:
     from typing import Annotated, ClassVar
@@ -106,7 +106,7 @@ class AsyncTypeTestModel(UUIDMixin, AsyncActiveRecord):
     nullable_field: Optional[str] = Field(default=None)
 
 
-class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class User(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """A standard User model for general CRUD operation testing."""
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -119,7 +119,7 @@ class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
     balance: float = 0.0
     is_active: bool = True
 
-class AsyncUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncUser(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """A standard User model for general CRUD operation testing."""
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -350,7 +350,7 @@ class AsyncTypeAdapterTest(AsyncActiveRecord):
 
 # --- End of module-level definitions ---
 
-class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class MappedUser(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """User model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "users"
@@ -366,10 +366,10 @@ class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
     email_address: Annotated[str, UseColumn("email")]
 
     # Python field: creation_date, which maps to the 'created_at' column.
-    # This overrides the `created_at` field from TimestampMixin.
+    # This overrides the `created_at` field from DefaultTimestampMixin.
     creation_date: Annotated[Optional[datetime], UseColumn("created_at")] = None
 
-class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncMappedUser(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """User model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "users"
@@ -386,11 +386,11 @@ class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     email_address: Annotated[str, UseColumn("email")]
 
     # Python field: creation_date, which maps to the 'created_at' column.
-    # This overrides the `created_at` field from TimestampMixin.
+    # This overrides the `created_at` field from DefaultTimestampMixin.
     creation_date: Annotated[Optional[datetime], UseColumn("created_at")] = None
 
 
-class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class MappedPost(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """Post model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "posts"
@@ -414,7 +414,7 @@ class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
     # Python field: is_published, Database column: published
     is_published: Annotated[bool, UseColumn("published")]
 
-class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncMappedPost(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """Post model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "posts"
@@ -440,7 +440,7 @@ class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     is_published: Annotated[bool, UseColumn("published")]
 
 
-class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class MappedComment(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """Comment model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "comments"
@@ -459,13 +459,13 @@ class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
     comment_text: Annotated[str, UseColumn("text")]
 
     # Python field: comment_creation_date, maps to 'created_at' column.
-    # This overrides the `created_at` field from TimestampMixin.
+    # This overrides the `created_at` field from DefaultTimestampMixin.
     comment_creation_date: Annotated[Optional[datetime], UseColumn("created_at")] = None
 
     # Python field: is_approved, Database column: approved
     is_approved: Annotated[bool, UseColumn("approved")]
 
-class AsyncMappedComment(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncMappedComment(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """Comment model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "comments"
@@ -485,7 +485,7 @@ class AsyncMappedComment(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     comment_text: Annotated[str, UseColumn("text")]
 
     # Python field: comment_creation_date, maps to 'created_at' column.
-    # This overrides the `created_at` field from TimestampMixin.
+    # This overrides the `created_at` field from DefaultTimestampMixin.
     comment_creation_date: Annotated[Optional[datetime], UseColumn("created_at")] = None
 
     # Python field: is_approved, Database column: approved
@@ -734,7 +734,7 @@ class AsyncStoreInventory(CompositePKMixin, AsyncActiveRecord):
     stock: int = 0
 
 
-class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class Order(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """Single-column auto-increment PK — backward compatibility control group."""
     __table_name__ = "orders"
     __primary_key__ = "id"
@@ -744,7 +744,7 @@ class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
     total: Decimal = Decimal("0.00")
 
 
-class AsyncOrder(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncOrder(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """Async variant of Order."""
     __table_name__ = "orders"
     __primary_key__ = "id"

@@ -13,10 +13,10 @@ from datetime import datetime
 from pydantic import Field
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
-from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, SoftDeleteMixin, AsyncSoftDeleteMixin
+from rhosocial.activerecord.field import IntegerPKMixin, DefaultTimestampMixin, DefaultOptimisticLockMixin, DefaultSoftDeleteMixin, DefaultAsyncSoftDeleteMixin
 
 
-class TimestampedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class TimestampedPost(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """Blog post model with timestamps"""
     __table_name__ = "timestamped_posts"
 
@@ -34,7 +34,7 @@ class VersionedProduct(IntegerPKMixin, DefaultOptimisticLockMixin, ActiveRecord)
     price: float = Field(default=0.0)
 
 
-class Task(IntegerPKMixin, SoftDeleteMixin, ActiveRecord):
+class Task(IntegerPKMixin, DefaultSoftDeleteMixin, ActiveRecord):
     """Task model supporting soft deletion"""
     __table_name__ = "tasks"
 
@@ -43,7 +43,7 @@ class Task(IntegerPKMixin, SoftDeleteMixin, ActiveRecord):
     is_completed: bool = Field(default=False)
 
 
-class CombinedArticle(IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, SoftDeleteMixin, ActiveRecord):
+class CombinedArticle(IntegerPKMixin, DefaultTimestampMixin, DefaultOptimisticLockMixin, DefaultSoftDeleteMixin, ActiveRecord):
     """Article model combining all mixins"""
     __table_name__ = "combined_articles"
 
@@ -53,7 +53,7 @@ class CombinedArticle(IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin
     status: str = Field(default="draft")
 
 
-class AsyncTimestampedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncTimestampedPost(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """Blog post model with timestamps (async version)"""
     __table_name__ = "timestamped_posts"
 
@@ -71,7 +71,7 @@ class AsyncVersionedProduct(IntegerPKMixin, DefaultOptimisticLockMixin, AsyncAct
     price: float = Field(default=0.0)
 
 
-class AsyncTask(IntegerPKMixin, AsyncSoftDeleteMixin, AsyncActiveRecord):
+class AsyncTask(IntegerPKMixin, DefaultAsyncSoftDeleteMixin, AsyncActiveRecord):
     """Task model supporting soft deletion (async version)"""
     __table_name__ = "tasks"
 
@@ -80,7 +80,7 @@ class AsyncTask(IntegerPKMixin, AsyncSoftDeleteMixin, AsyncActiveRecord):
     is_completed: bool = Field(default=False)
 
 
-class AsyncCombinedArticle(IntegerPKMixin, TimestampMixin, DefaultOptimisticLockMixin, AsyncSoftDeleteMixin, AsyncActiveRecord):
+class AsyncCombinedArticle(IntegerPKMixin, DefaultTimestampMixin, DefaultOptimisticLockMixin, DefaultAsyncSoftDeleteMixin, AsyncActiveRecord):
     """Article model combining all mixins (async version)"""
     __table_name__ = "combined_articles"
 

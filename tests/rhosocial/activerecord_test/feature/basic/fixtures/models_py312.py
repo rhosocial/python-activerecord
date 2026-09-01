@@ -25,7 +25,7 @@ from rhosocial.activerecord.base.fields import UseAdapter, UseColumn
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 from rhosocial.activerecord.base.field_proxy import FieldProxy
 from rhosocial.activerecord.backend.errors import ValidationError
-from rhosocial.activerecord.field import CompositePKMixin, TimestampMixin, UUIDMixin, IntegerPKMixin
+from rhosocial.activerecord.field import CompositePKMixin, DefaultTimestampMixin, UUIDMixin, IntegerPKMixin
 from typing import Annotated, ClassVar
 
 
@@ -133,7 +133,7 @@ class AsyncTypeTestModel(UUIDMixin, AsyncActiveRecord):
     nullable_field: str | None = Field(default=None)
 
 
-class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class User(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """A standard User model for general CRUD operation testing.
 
     Python 3.12+ version using | syntax, Self type, and @override.
@@ -165,7 +165,7 @@ class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
         return self
 
 
-class AsyncUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncUser(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """A standard User model for general CRUD operation testing.
 
     Python 3.12+ version using | syntax, Self type, and @override.
@@ -405,7 +405,7 @@ class AsyncTypeAdapterTest(AsyncActiveRecord):
     optional_custom_bool: Annotated[bool | None, UseAdapter(YesOrNoBooleanAdapter(), str)] = None
 
 
-class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class MappedUser(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """User model with custom column name mappings.
 
     Python 3.12+ version using | syntax, Self type, and @override.
@@ -424,7 +424,7 @@ class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
         return self
 
 
-class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncMappedUser(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """User model with custom column name mappings.
 
     Python 3.12+ version using | syntax.
@@ -439,7 +439,7 @@ class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     creation_date: Annotated[datetime | None, UseColumn("created_at")] = None
 
 
-class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class MappedPost(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """Post model with custom column name mappings.
 
     Python 3.12+ version using | syntax.
@@ -455,7 +455,7 @@ class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
     is_published: Annotated[bool, UseColumn("published")]
 
 
-class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncMappedPost(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """Post model with custom column name mappings.
 
     Python 3.12+ version using | syntax.
@@ -472,7 +472,7 @@ class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     is_published: Annotated[bool, UseColumn("published")]
 
 
-class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class MappedComment(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """Comment model with custom column name mappings.
 
     Python 3.12+ version using | syntax.
@@ -488,7 +488,7 @@ class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
     is_approved: Annotated[bool, UseColumn("approved")]
 
 
-class AsyncMappedComment(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncMappedComment(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """Comment model with custom column name mappings.
 
     Python 3.12+ version using | syntax.
@@ -752,7 +752,7 @@ class AsyncStoreInventory(CompositePKMixin, AsyncActiveRecord):
     stock: int = 0
 
 
-class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class Order(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """Single-column auto-increment PK -- backward compatibility control group."""
     __table_name__ = "orders"
     __primary_key__ = "id"
@@ -762,7 +762,7 @@ class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
     total: Decimal = Decimal("0.00")
 
 
-class AsyncOrder(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncOrder(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """Async variant of Order."""
     __table_name__ = "orders"
     __primary_key__ = "id"

@@ -14,10 +14,10 @@ from pydantic import Field
 
 from rhosocial.activerecord.interface import ModelEvent
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
-from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
+from rhosocial.activerecord.field import IntegerPKMixin, DefaultTimestampMixin
 
 
-class EventTestModel(IntegerPKMixin, TimestampMixin, ActiveRecord):
+class EventTestModel(IntegerPKMixin, DefaultTimestampMixin, ActiveRecord):
     """A model class for testing event mechanisms"""
     __table_name__ = "event_tests"
 
@@ -44,7 +44,7 @@ class EventTestModel(IntegerPKMixin, TimestampMixin, ActiveRecord):
         self._event_logs.clear()
 
 
-class AsyncEventTestModel(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncEventTestModel(IntegerPKMixin, DefaultTimestampMixin, AsyncActiveRecord):
     """An async model class for testing event mechanisms"""
     __table_name__ = "event_tests"
 
