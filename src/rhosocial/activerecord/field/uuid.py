@@ -5,8 +5,10 @@ import uuid
 from typing import Dict, Any
 from pydantic import Field
 
+from ..interface.update import IDataPreparationBehavior
 
-class UUIDMixin:
+
+class UUIDMixin(IDataPreparationBehavior):
     """Adds UUID primary key support.
 
     Automatically generates UUIDs for new records.

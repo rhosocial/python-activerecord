@@ -252,7 +252,7 @@ class SQLXMLQueryingMixin:
         """Whether SQL/XML XMLTABLE is supported."""
         return False
 
-    def _format_xml_passing_clause(
+    def format_xml_passing_clause(
         self,
         expressions: List["BaseExpression"],
         mechanism: Optional["XMLPassingMechanism"] = None,
@@ -280,7 +280,7 @@ class SQLXMLQueryingMixin:
         query_sql, query_params = expr.query.to_sql()
         parts = [query_sql]
         all_params = list(query_params)
-        passing_sql, passing_params = self._format_xml_passing_clause(
+        passing_sql, passing_params = self.format_xml_passing_clause(
             expr.passing,
             expr.passing_mechanism,
         )
@@ -303,7 +303,7 @@ class SQLXMLQueryingMixin:
         query_sql, query_params = expr.query.to_sql()
         parts = [query_sql]
         all_params = list(query_params)
-        passing_sql, passing_params = self._format_xml_passing_clause(
+        passing_sql, passing_params = self.format_xml_passing_clause(
             expr.passing,
             expr.passing_mechanism,
         )
@@ -322,7 +322,7 @@ class SQLXMLQueryingMixin:
         row_sql, row_params = expr.row_pattern.to_sql()
         parts = [row_sql]
         all_params = list(row_params)
-        passing_sql, passing_params = self._format_xml_passing_clause(
+        passing_sql, passing_params = self.format_xml_passing_clause(
             expr.passing,
             expr.passing_mechanism,
         )

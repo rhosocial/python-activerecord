@@ -45,10 +45,10 @@ class CTEMixin:
         """Format a complete query with WITH clause."""
         if not cte_sql_parts:
             return main_query_sql
-        with_clause = self._format_with_clause(cte_sql_parts, has_recursive)
+        with_clause = self.format_with_clause(cte_sql_parts, has_recursive)
         return f"{with_clause} {main_query_sql}"
 
-    def _format_with_clause(self, ctes_sql: List[str], has_recursive: bool = False) -> str:
+    def format_with_clause(self, ctes_sql: List[str], has_recursive: bool = False) -> str:
         """Helper to format complete WITH clause from list of CTE definitions."""
         if not ctes_sql:
             return ""

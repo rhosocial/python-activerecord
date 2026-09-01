@@ -73,7 +73,7 @@ class SQLiteDateTimeMixin:
         )
 
     @staticmethod
-    def _format_sqlite_interval_modifier(expr, sign: str) -> str:
+    def format_sqlite_interval_modifier(expr, sign: str) -> str:
         value = expr.value * 7 if expr.unit.value == "week" else expr.value
         unit = "day" if expr.unit.value == "week" else expr.unit.value
         return f"{sign}{value:g} {unit}"
@@ -81,14 +81,14 @@ class SQLiteDateTimeMixin:
     def format_datetime_add_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime interval addition using SQLite modifiers."""
         source_sql, source_params = expr.source.to_sql()
-        modifier = self._format_sqlite_interval_modifier(expr.interval, "+")
+        modifier = self.format_sqlite_interval_modifier(expr.interval, "+")
         sql = f"datetime({source_sql}, ?)"
         return self._apply_value_expression_modifiers(sql, source_params + (modifier,), expr)
 
     def format_datetime_subtract_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime interval subtraction using SQLite modifiers."""
         source_sql, source_params = expr.source.to_sql()
-        modifier = self._format_sqlite_interval_modifier(expr.interval, "-")
+        modifier = self.format_sqlite_interval_modifier(expr.interval, "-")
         sql = f"datetime({source_sql}, ?)"
         return self._apply_value_expression_modifiers(sql, source_params + (modifier,), expr)
 

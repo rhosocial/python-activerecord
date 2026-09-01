@@ -254,6 +254,14 @@ class SQLXMLQueryingSupport(Protocol):
         """Format a SQL/XML XMLEXISTS predicate."""
         ...  # pragma: no cover
 
+    def format_xml_passing_clause(
+        self,
+        expressions: List["BaseExpression"],
+        mechanism: Optional["XMLPassingMechanism"] = None,
+    ) -> "Tuple[str, tuple]":
+        """Format the PASSING clause fragment shared by XML expressions."""
+        ...  # pragma: no cover
+
     def format_xmltable_expression(self, expr: "XMLTableExpression") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLTABLE expression."""
         ...  # pragma: no cover

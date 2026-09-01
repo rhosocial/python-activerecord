@@ -4,7 +4,7 @@ Interface for model update behavior customization.
 """
 
 from abc import ABC
-from typing import Dict, List
+from typing import Any, Dict, List
 from ..backend.expression import SQLValueExpression, SQLPredicate
 
 
@@ -46,45 +46,20 @@ class IUpdateBehavior(ABC):
             which will be automatically skipped during updates.
 
         Example:
-            def get_update_conditions(self):
-                from ..backend.expression import ComparisonPredicate, Column, Literal
-                # Method 1: Using explicit expression objects
-                return [
-                    # Optimistic locking: ensure version hasn't changed
-                    ComparisonPredicate(
-                        self.backend().dialect,
-                        "=",
-                        Column(self.backend().dialect, "version"),
-                        Literal(self.backend().dialect, self.version)
-                    ),
-                    # Ensure updated_at hasn't changed since last read
-                    ComparisonPredicate(
-                        self.backend().dialect,
-                        "<=",
-                        Column(self.backend().dialect, "updated_at"),
-                        Literal(self.backend().dialect, self.updated_at)
-                    )
-                ]
+            The framework ships a complete implementation:
+            ``DefaultOptimisticLockMixin`` (``field/version.py``) uses this
+            hook to reject concurrent updates via a version column — prefer
+            mixing it in over hand-rolling a lock.
 
-            # Method 1: Using explicit expression objects (shown above)
+            For a custom behaviour, return predicates built from expression
+            objects or the field proxy::
 
-            Method 2: Using field proxy (if your model uses field_proxy)
-            Assuming your model has a field proxy like: c = FieldProxy()
-            def get_update_conditions(self):
-                # This generates ComparisonPredicate objects automatically
-                return [
-                    (self.__class__.c.version == self.version),  # Generates ComparisonPredicate
-                    (self.__class__.c.updated_at <= self.updated_at)  # Generates ComparisonPredicate
-                ]
-
-            Method 3: More complex field proxy example with multiple conditions
-            def get_update_conditions(self):
-                # Using field proxy for complex conditions
-                return [
-                    (self.__class__.c.version == self.version),  # Optimistic locking
-                    (self.__class__.c.status == 'active'),       # Ensure status is active
-                    (self.__class__.c.locked_until < 'NOW()'),   # Ensure not locked
-                ]
+                def get_update_conditions(self):
+                    # Field proxy (c) generates ComparisonPredicate objects
+                    return [
+                        (self.__class__.c.status == 'active'),      # Ensure status is active
+                        (self.__class__.c.locked_until < 'NOW()'),  # Ensure not locked
+                    ]
 
         Note:
             All conditions returned by this method will be combined with AND logic
@@ -164,3 +139,44 @@ class IUpdateBehavior(ABC):
             by the _update_internal method.
         """
         return None  # Return None by default if not overridden
+
+
+class IDeleteBehavior(ABC):
+    """Interface for model deletion behavior customization.
+
+    Implementing this interface (e.g. ``SoftDeleteMixin``) tells the
+    framework that ``delete()`` should be routed through
+    :meth:`prepare_delete` instead of issuing a hard DELETE.
+
+    Implementors return the update payload (field -> value) describing the
+    soft-deleted state; the framework wraps it in an UPDATE with the
+    primary-key WHERE predicate.
+    """
+
+    def prepare_delete(self) -> Dict[str, Any]:
+        """Return the update payload for the soft delete.
+
+        Returns:
+            Dict[str, Any]: Field-name -> value mapping applied via UPDATE.
+        """
+        raise NotImplementedError
+
+
+class IDataPreparationBehavior(ABC):
+    """Interface for hooking into save-data preparation.
+
+    Implementors (e.g. ``UUIDMixin``) may adjust the field payload right
+    before persistence — filling generated values, normalizing types, etc.
+    """
+
+    def prepare_save_data(self, data: Dict[str, Any], is_new: bool) -> Dict[str, Any]:
+        """Adjust the payload prepared for INSERT/UPDATE.
+
+        Args:
+            data: The field payload about to be persisted.
+            is_new: True when the record is about to be inserted.
+
+        Returns:
+            Dict[str, Any]: The (possibly modified) payload.
+        """
+        return data

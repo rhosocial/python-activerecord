@@ -23,10 +23,11 @@ from pydantic import Field
 from ..backend.expression.core import Column
 from ..backend.expression import ComparisonPredicate, Literal
 from ..interface import ModelEvent
+from ..interface.update import IDeleteBehavior
 from ..query import ActiveQuery
 
 
-class SoftDeleteMixin:
+class SoftDeleteMixin(IDeleteBehavior):
     """Soft-delete *semantics* — declares no field.
 
     The model (or a subclass like :class:`DefaultSoftDeleteMixin`) declares
