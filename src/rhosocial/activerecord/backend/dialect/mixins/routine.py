@@ -11,8 +11,7 @@ from typing import Any  # noqa: F401 (reserved for subclass use)
 class RoutineSupportMixin:
     """Shared defaults for stored-routine DDL rendering."""
 
-    @staticmethod
-    def format_param(dialect, param) -> str:
+    def format_param(self, param) -> str:
         """Format a stored-routine parameter definition.
 
         A param may be a plain string (``IN name TYPE``), a tuple
@@ -21,10 +20,10 @@ class RoutineSupportMixin:
         if isinstance(param, tuple):
             if len(param) == 3:
                 mode, name, type_sql = param
-                return f"{mode} {dialect.format_identifier(name)} {type_sql}"
+                return f"{mode} {self.format_identifier(name)} {type_sql}"
             if len(param) == 2:
                 name, type_sql = param
-                return f"{dialect.format_identifier(name)} {type_sql}"
+                return f"{self.format_identifier(name)} {type_sql}"
         if isinstance(param, str):
             return param
         raise TypeError(
