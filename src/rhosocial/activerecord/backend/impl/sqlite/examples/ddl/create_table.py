@@ -22,7 +22,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, TimestampType
     IndexDefinition,
 )
 

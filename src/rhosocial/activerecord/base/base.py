@@ -646,7 +646,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
         all_suggestions = cls.backend().get_default_adapter_suggestions()
         for field_name, field_info in model_fields.items():
-            column_name = cls._get_column_name(field_name)
+            column_name = cls.get_column_name(field_name)
             field_py_type = field_info.annotation
             original_type = field_py_type
             origin = get_origin(field_py_type)
@@ -1315,7 +1315,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
         all_suggestions = cls.backend().get_default_adapter_suggestions()
         for field_name, field_info in model_fields.items():
-            column_name = cls._get_column_name(field_name)
+            column_name = cls.get_column_name(field_name)
             field_py_type = field_info.annotation
             original_type = field_py_type
             origin = get_origin(field_py_type)

@@ -17,8 +17,8 @@ and, for each field, derives a ``ColumnDefinition``:
 3. **Constraints** from the ``UseConstraint`` annotation plus the primary key
    (and NOT NULL for required fields when appropriate).
 
-Table-level declarations (``TableOptions``, ``__indexes__``,
-``__constraints__``, composite primary key) are assembled directly.
+Table-level declarations (``TableOptions``, ``__table_indexes__``,
+``__table_constraints__``, composite primary key) are assembled directly.
 
 Backend capability is protocolised: features the target dialect does not
 support (e.g. a partial index on a backend without partial-index support)
@@ -135,13 +135,13 @@ class ModelSchemaGenerator:
 
         model_fields: Dict[str, FieldInfo] = dict(model_class.model_fields)
         field_sql_types: Dict[str, UseSqlType] = getattr(
-            model_class, "__ddl_field_sql_types__", {}
+            model_class, "__table_field_sql_types__", {}
         )
         field_constraints: Dict[str, List[ColumnConstraint]] = getattr(
-            model_class, "__ddl_field_constraints__", {}
+            model_class, "__table_field_constraints__", {}
         )
 
-        get_column_name = getattr(model_class, "_get_column_name", None)
+        get_column_name = getattr(model_class, "get_column_name", None)
         pk_columns = set(model_class.primary_key_columns())
 
         columns: List[ColumnDefinition] = []

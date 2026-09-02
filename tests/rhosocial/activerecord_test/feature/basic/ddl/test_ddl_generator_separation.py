@@ -42,7 +42,7 @@ def test_extensibility_is_protocol_based():
     """Any extension point must be a documented generic hook, not a name check.
 
     The generator may only consult protocols/annotations that any behaviour
-    can implement equally (e.g. ``__ddl_field_constraints__``), never
+    can implement equally (e.g. ``__table_field_constraints__``), never
     behaviour-specific names.
     """
     src = GENERATOR_PATH.read_text(encoding="utf-8")

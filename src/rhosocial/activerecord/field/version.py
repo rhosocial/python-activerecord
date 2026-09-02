@@ -117,7 +117,7 @@ class OptimisticLockMixin(IUpdateBehavior):
     @classmethod
     def _version_column_name(cls) -> str:
         """The database column name for the version field (UseColumn-aware)."""
-        return cls._get_column_name(cls.__version_field__)
+        return cls.get_column_name(cls.__version_field__)
 
     @classmethod
     def _version_increment(cls) -> int:

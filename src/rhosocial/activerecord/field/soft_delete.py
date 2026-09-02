@@ -57,7 +57,7 @@ class SoftDeleteMixin(IDeleteBehavior):
     @classmethod
     def _deleted_at_column(cls) -> str:
         """The database column name for the soft-delete field (UseColumn-aware)."""
-        return cls._get_column_name(cls.__deleted_at_field__)
+        return cls.get_column_name(cls.__deleted_at_field__)
 
     def _mark_as_deleted(self, instance: "SoftDeleteMixin", **kwargs):
         """Mark record as soft deleted by setting the configured field."""

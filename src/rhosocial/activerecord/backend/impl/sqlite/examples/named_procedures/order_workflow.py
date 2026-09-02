@@ -47,14 +47,14 @@ def _column(name: str, type_name: str):
 
 
 tables = [
-    ("orders", [("id", "INTEGER PRIMARY KEY"), ("status", "TEXT"), ("user_id", "INTEGER")]),
-    ("inventory", [("id", "INTEGER PRIMARY KEY"), ("order_id", "INTEGER"), ("available", "INTEGER")]),
-    ("notifications", [("id", "INTEGER PRIMARY KEY"), ("user_id", "INTEGER"), ("type", "TEXT")]),
+    ("orders", [("id", "INTEGER PRIMARY KEY"), ("status", TextType()), ("user_id", IntegerType())]),
+    ("inventory", [("id", "INTEGER PRIMARY KEY"), ("order_id", IntegerType()), ("available", IntegerType())]),
+    ("notifications", [("id", "INTEGER PRIMARY KEY"), ("user_id", IntegerType()), ("type", TextType())]),
     (
         "payments",
-        [("id", "INTEGER PRIMARY KEY"), ("order_id", "INTEGER"), ("status", "TEXT"), ("transaction_id", "TEXT")],
+        [("id", "INTEGER PRIMARY KEY"), ("order_id", IntegerType()), ("status", TextType()), ("transaction_id", TextType())],
     ),
-    ("order_records", [("id", "INTEGER PRIMARY KEY"), ("order_id", "INTEGER"), ("created_at", "TEXT")]),
+    ("order_records", [("id", "INTEGER PRIMARY KEY"), ("order_id", IntegerType()), ("created_at", TextType())]),
 ]
 
 for table_name, columns in tables:

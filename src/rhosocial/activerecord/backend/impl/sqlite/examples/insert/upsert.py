@@ -27,8 +27,8 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     DropTableExpression,
 )
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, TimestampType
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -40,7 +40,7 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(
             "id",
-            IntegerType(),
+            "INTEGER",
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -48,7 +48,7 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "username",
-            TextType(),
+            "TEXT",
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(ColumnConstraintType.UNIQUE),
@@ -56,7 +56,7 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "email",
-            TextType(),
+            "TEXT",
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],

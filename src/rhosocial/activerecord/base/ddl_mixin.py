@@ -42,7 +42,7 @@ class DDLMixin:
             )
 
             # Composite indexes
-            __indexes__ = [
+            __table_indexes__ = [
                 IndexDefinition(
                     name="idx_name_email",
                     columns=["name", "email"],
@@ -51,7 +51,7 @@ class DDLMixin:
             ]
 
             # Table-level constraints
-            __constraints__ = [
+            __table_constraints__ = [
                 TableConstraint(
                     constraint_type=TableConstraintType.CHECK,
                     check_condition=...,  # SQLPredicate
@@ -67,9 +67,9 @@ class DDLMixin:
             )]
 
     Attributes:
-        * ``__ddl_field_sql_types__``   dataclass attribute set by the metaclass
-        * ``__ddl_field_indexes__``     dataclass attribute set by the metaclass
-        * ``__ddl_field_constraints__`` dataclass attribute set by the metaclass
+        * ``__table_field_sql_types__``   dataclass attribute set by the metaclass
+        * ``__table_field_indexes__``     dataclass attribute set by the metaclass
+        * ``__table_field_constraints__`` dataclass attribute set by the metaclass
         * ``__ddl_indexes__``           dataclass attribute set by the metaclass
         * ``__ddl_table_options__``     dataclass attribute set by the metaclass
         * ``__ddl_constraints__``       dataclass attribute set by the metaclass

@@ -132,7 +132,7 @@ class ColumnNameMixin:
     __field_column_names__: ClassVar[Dict[str, str]] = {}
 
     @classmethod
-    def _get_column_name(cls, field_name: str) -> str:
+    def get_column_name(cls, field_name: str) -> str:
         """
         Get the database column name for a given field.
 
@@ -152,7 +152,7 @@ class ColumnNameMixin:
         """
         Get the Python field name for a given database column name.
 
-        This is the reverse mapping of _get_column_name().
+        This is the reverse mapping of get_column_name().
 
         Args:
             column_name: The database column name
@@ -184,7 +184,7 @@ class ColumnNameMixin:
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
 
         for field_name in model_fields.keys():
-            mapping[field_name] = cls._get_column_name(field_name)
+            mapping[field_name] = cls.get_column_name(field_name)
 
         return mapping
 
@@ -239,11 +239,11 @@ class ColumnNameMixin:
             reverse_mapping[column_name] = field_name
 
         # Second pass: Process implicit mappings, skipping any that conflict with explicit ones.
-        # Resolution goes through _get_column_name so behaviour-provided
+        # Resolution goes through get_column_name so behaviour-provided
         # overrides (e.g. the optimistic-lock column knob) apply consistently
         # on both the write and the read path.
         for field_name in implicit_mappers:
-            column_name = cls._get_column_name(field_name)
+            column_name = cls.get_column_name(field_name)
             if column_name not in reverse_mapping:
                 reverse_mapping[column_name] = field_name
 
@@ -325,7 +325,7 @@ class ColumnNameMixin:
             result = User._map_fields_to_columns(field_data)
             # Returns: {"id": 1, "name": "Alice"}
         """
-        return {cls._get_column_name(field): value for field, value in field_data.items()}
+        return {cls.get_column_name(field): value for field, value in field_data.items()}
 
     @classmethod
     def _map_columns_to_fields(cls, column_data: Dict[str, Any]) -> Dict[str, Any]:

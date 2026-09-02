@@ -3,7 +3,7 @@
 Project-specific tests for the DDL generation system (Phase 1 + Phase 2).
 
 Covers:
-- Table-level declarations: TableOptions, __indexes__, __constraints__
+- Table-level declarations: TableOptions, __table_indexes__, __table_constraints__
 - Field-level declarations: UseSqlType, UseIndex, UseConstraint
 - ModelSchemaGenerator: type resolution, PK, auto-increment, composite PK
 - ActiveRecord.generate_ddl(): returns expression INSTANCE (not SQL)
@@ -66,11 +66,11 @@ class _Article(ActiveRecord):
     __table_options__ = TableOptions(
         charset="utf8mb4", collation="utf8mb4_unicode_ci", engine="InnoDB"
     )
-    __indexes__ = [
+    __table_indexes__ = [
         IndexDefinition(name="idx_title_status", columns=["title", "status"]),
         IndexDefinition(name="uq_slug", columns=["slug"], unique=True),
     ]
-    __constraints__ = [
+    __table_constraints__ = [
         TableConstraint(
             name="uq_title_author",
             constraint_type=TableConstraintType.UNIQUE,
@@ -120,7 +120,7 @@ class TestTableLevelDeclarations:
 class TestFieldLevelDeclarations:
 
     def test_use_sql_type_single(self):
-        u = _Article.__ddl_field_sql_types__["title"]
+        u = _Article.__table_field_sql_types__["title"]
         assert u.data_type == VarCharType(length=255)
         assert u.resolve("sqlite") == VarCharType(length=255)
 
@@ -129,7 +129,7 @@ class TestFieldLevelDeclarations:
             meta: Annotated[dict, UseSqlType({
                 "postgres": JsonBType(), "mysql": JsonType(), "default": TextType(),
             })]
-        u = _M.__ddl_field_sql_types__["meta"]
+        u = _M.__table_field_sql_types__["meta"]
         assert u.resolve("postgres") == JsonBType()
         assert u.resolve("mysql") == JsonType()
         assert u.resolve("sqlite") == TextType()
@@ -139,13 +139,13 @@ class TestFieldLevelDeclarations:
             UseSqlType({"postgres": JsonBType()})
 
     def test_use_index_to_index_definition(self):
-        idxs = _Article.__ddl_field_indexes__["slug"]
+        idxs = _Article.__table_field_indexes__["slug"]
         assert len(idxs) == 1
         assert idxs[0].name == "idx_slug"
         assert idxs[0].columns == ["slug"]
 
     def test_use_constraint_collate(self):
-        cs = _Article.__ddl_field_constraints__["status"]
+        cs = _Article.__table_field_constraints__["status"]
         assert len(cs) == 1
         assert cs[0].constraint_type == CCT.COLLATE
         assert cs[0].collation == "utf8mb4_bin"

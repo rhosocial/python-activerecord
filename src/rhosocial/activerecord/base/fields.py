@@ -173,7 +173,7 @@ class UseIndex:
     with the CREATE TABLE statement (or as a separate CREATE INDEX for backends
     that do not support inline indexes).
 
-    For multi-column (composite) indexes, declare ``__indexes__`` on the model
+    For multi-column (composite) indexes, declare ``__table_indexes__`` on the model
     class instead.
 
     Example::
@@ -226,7 +226,7 @@ class UseConstraint:
     generated CREATE TABLE statement.
 
     For table-level constraints (CHECK spanning multiple columns, composite
-    UNIQUE, composite FOREIGN KEY), declare ``__constraints__`` on the model
+    UNIQUE, composite FOREIGN KEY), declare ``__table_constraints__`` on the model
     class instead.
 
     Example::

@@ -33,7 +33,7 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table="users",
     columns=[
-        ColumnDefinition("id", IntegerType()),
+        ColumnDefinition("id", "INT"),
         ColumnDefinition("name", TextType()),
     ],
     if_not_exists=True,
@@ -62,7 +62,6 @@ backend.execute(sql, params)
 # SECTION: UNION (using SetOperationExpression)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
     QueryExpression,
     TableExpression,
     SetOperationExpression,
