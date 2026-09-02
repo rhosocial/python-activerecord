@@ -223,7 +223,7 @@ class SQLiteVirtualTableSupport(Protocol):
     def format_create_virtual_table(
         self,
         module: str,
-        table_name: str,
+        table: str,
         columns: List[str],
         options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, tuple]:
@@ -231,7 +231,7 @@ class SQLiteVirtualTableSupport(Protocol):
 
         Args:
             module: Virtual table module (rtree, fts5, geopoly, etc.)
-            table_name: Name of the virtual table
+            table: Name of the virtual table
             columns: List of column names
             options: Optional module-specific options
 
@@ -242,13 +242,13 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_drop_virtual_table(
         self,
-        table_name: str,
+        table: str,
         if_exists: bool = False,
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for virtual table.
 
         Args:
-            table_name: Name of the virtual table
+            table: Name of the virtual table
             if_exists: Add IF EXISTS clause
 
         Returns:

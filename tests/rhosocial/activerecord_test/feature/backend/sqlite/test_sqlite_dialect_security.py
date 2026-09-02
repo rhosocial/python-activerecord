@@ -141,7 +141,7 @@ def test_format_column_info_query_with_malicious_table_name(dialect):
     """
     from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
 
-    expr = ColumnInfoExpression(dialect, table_name='t"; DROP TABLE users--')
+    expr = ColumnInfoExpression(dialect, table='t"; DROP TABLE users--')
     sql, params = dialect.format_column_info_query(expr)
     # DROP TABLE appears inside the quoted identifier — verify balanced quotes
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
@@ -151,7 +151,7 @@ def test_format_column_info_query_normal_table(dialect):
     """Column info query with normal table name works."""
     from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
 
-    expr = ColumnInfoExpression(dialect, table_name="users")
+    expr = ColumnInfoExpression(dialect, table="users")
     sql, params = dialect.format_column_info_query(expr)
     assert '"users"' in sql
     assert params == ()
@@ -169,7 +169,7 @@ def test_format_index_info_query_with_malicious_table_name(dialect):
     """
     from rhosocial.activerecord.backend.expression.introspection import IndexInfoExpression
 
-    expr = IndexInfoExpression(dialect, table_name='t"; DELETE FROM users--')
+    expr = IndexInfoExpression(dialect, table='t"; DELETE FROM users--')
     sql, params = dialect.format_index_info_query(expr)
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
 
@@ -186,7 +186,7 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
     """
     from rhosocial.activerecord.backend.expression.introspection import ForeignKeyExpression
 
-    expr = ForeignKeyExpression(dialect, table_name='t"; DROP TABLE users--')
+    expr = ForeignKeyExpression(dialect, table='t"; DROP TABLE users--')
     sql, params = dialect.format_foreign_key_query(expr)
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
 
@@ -241,10 +241,10 @@ def test_format_create_trigger_function_name_quoted(dialect):
 
     expr = CreateTriggerExpression(
         dialect=dialect,
-        trigger_name="test_trigger",
+        trigger="test_trigger",
         timing=TriggerTiming.AFTER,
         events=[TriggerEvent.INSERT],
-        table_name="users",
+        table="users",
         level=TriggerLevel.ROW,
         function_name="my_func",
     )
@@ -267,10 +267,10 @@ def test_format_create_trigger_malicious_function_name(dialect):
 
     expr = CreateTriggerExpression(
         dialect=dialect,
-        trigger_name="test_trigger",
+        trigger="test_trigger",
         timing=TriggerTiming.AFTER,
         events=[TriggerEvent.INSERT],
-        table_name="users",
+        table="users",
         level=TriggerLevel.ROW,
         function_name='f"; DROP TABLE users--',
     )

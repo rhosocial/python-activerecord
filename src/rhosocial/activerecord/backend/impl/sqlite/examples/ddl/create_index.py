@@ -21,7 +21,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     columns=[
         ColumnDefinition(
             "id",
@@ -54,7 +54,7 @@ from rhosocial.activerecord.backend.expression.types import IntegerType, TextTyp
 create_idx = CreateIndexExpression(
     dialect=dialect,
     index_name="idx_users_email",
-    table_name="users",
+    table="users",
     columns=["email"],
     unique=True,
     if_not_exists=True,

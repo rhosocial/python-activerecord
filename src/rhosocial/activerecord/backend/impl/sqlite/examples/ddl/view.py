@@ -26,6 +26,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     DropTableExpression,
 )
 from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
@@ -34,7 +35,7 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table="users",
     columns=[
-        ColumnDefinition("id", "INT"),
+        ColumnDefinition("id", IntegerType()),
         ColumnDefinition("name", TextType()),
     ],
     if_not_exists=True,

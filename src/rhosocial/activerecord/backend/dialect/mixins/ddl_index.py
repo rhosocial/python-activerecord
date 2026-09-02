@@ -135,9 +135,9 @@ class IndexMixin:
         parts = ["CREATE FULLTEXT INDEX"]
         if expr.if_not_exists and self.supports_index_if_not_exists():
             parts.append("IF NOT EXISTS")
-        parts.append(self.format_identifier(expr.index_name))
+        parts.append(self.format_identifier(expr.index))
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(self.format_identifier(expr.table))
 
         cols_str = ", ".join(self.format_identifier(c) for c in expr.columns)
         parts.append(f"({cols_str})")
@@ -155,9 +155,9 @@ class IndexMixin:
         parts = ["DROP INDEX"]
         if expr.if_exists and self.supports_index_if_exists():
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.index_name))
+        parts.append(self.format_identifier(expr.index))
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(self.format_identifier(expr.table))
 
         return " ".join(parts), ()
 
@@ -171,9 +171,9 @@ class IndexMixin:
         parts.append("INDEX")
         if expr.if_not_exists:
             parts.append("IF NOT EXISTS")
-        parts.append(self.format_identifier(expr.index_name))
+        parts.append(self.format_identifier(expr.index))
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(self.format_identifier(expr.table))
 
         if expr.index_type:
             parts.append(f"USING {expr.index_type}")
@@ -207,8 +207,8 @@ class IndexMixin:
         parts = ["DROP INDEX"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.index_name))
-        if expr.table_name:
+        parts.append(self.format_identifier(expr.index))
+        if expr.table:
             parts.append("ON")
-            parts.append(self.format_identifier(expr.table_name))
+            parts.append(self.format_identifier(expr.table))
         return " ".join(parts), ()

@@ -42,7 +42,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPre
 # are passed via the options dict.
 create_sql, create_params = dialect.format_create_virtual_table(
     module="fts4",
-    table_name="documents",
+    table="documents",
     columns=["title", "content"],
     options={"tokenize": "porter"},
 )

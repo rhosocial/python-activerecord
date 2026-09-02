@@ -74,14 +74,14 @@ class TestTableInfoExpressionParams:
         """Test TableInfoExpression accepts all parameters at construction."""
         expr = TableInfoExpression(
             dialect=dummy_dialect,
-            table_name="users",
+            table="users",
             schema="public",
             include_columns=False,
             include_indexes=False,
             include_foreign_keys=False,
         )
         params = expr.get_params()
-        assert params.get("table_name") == "users"
+        assert params.get("table") == "users"
         assert params.get("schema") == "public"
         assert params.get("include_columns") is False
         assert params.get("include_indexes") is False
@@ -89,9 +89,9 @@ class TestTableInfoExpressionParams:
 
     def test_constructor_defaults(self, dummy_dialect):
         """Test TableInfoExpression default values."""
-        expr = TableInfoExpression(dialect=dummy_dialect, table_name="users")
+        expr = TableInfoExpression(dialect=dummy_dialect, table="users")
         params = expr.get_params()
-        assert params.get("table_name") == "users"
+        assert params.get("table") == "users"
         assert params.get("schema") is None
         assert params.get("include_columns") is True
         assert params.get("include_indexes") is True
@@ -100,12 +100,12 @@ class TestTableInfoExpressionParams:
     def test_fluent_api_override(self, dummy_dialect):
         """Test fluent API can override constructor values."""
         expr = (
-            TableInfoExpression(dialect=dummy_dialect, table_name="users", include_columns=False)
+            TableInfoExpression(dialect=dummy_dialect, table="users", include_columns=False)
             .include_columns(True)
-            .table_name("posts")
+            .table("posts")
         )
         params = expr.get_params()
-        assert params.get("table_name") == "posts"
+        assert params.get("table") == "posts"
         assert params.get("include_columns") is True
 
 
@@ -114,17 +114,17 @@ class TestColumnInfoExpressionParams:
 
     def test_constructor_with_all_params(self, dummy_dialect):
         """Test ColumnInfoExpression accepts all parameters at construction."""
-        expr = ColumnInfoExpression(dialect=dummy_dialect, table_name="users", schema="public", include_hidden=True)
+        expr = ColumnInfoExpression(dialect=dummy_dialect, table="users", schema="public", include_hidden=True)
         params = expr.get_params()
-        assert params.get("table_name") == "users"
+        assert params.get("table") == "users"
         assert params.get("schema") == "public"
         assert params.get("include_hidden") is True
 
     def test_constructor_defaults(self, dummy_dialect):
         """Test ColumnInfoExpression default values."""
-        expr = ColumnInfoExpression(dialect=dummy_dialect, table_name="users")
+        expr = ColumnInfoExpression(dialect=dummy_dialect, table="users")
         params = expr.get_params()
-        assert params.get("table_name") == "users"
+        assert params.get("table") == "users"
         assert params.get("schema") is None
         assert params.get("include_hidden") is False
 
@@ -134,16 +134,16 @@ class TestIndexInfoExpressionParams:
 
     def test_constructor_with_schema(self, dummy_dialect):
         """Test IndexInfoExpression accepts schema parameter."""
-        expr = IndexInfoExpression(dialect=dummy_dialect, table_name="users", schema="main")
+        expr = IndexInfoExpression(dialect=dummy_dialect, table="users", schema="main")
         params = expr.get_params()
-        assert params.get("table_name") == "users"
+        assert params.get("table") == "users"
         assert params.get("schema") == "main"
 
     def test_constructor_defaults(self, dummy_dialect):
         """Test IndexInfoExpression default values."""
-        expr = IndexInfoExpression(dialect=dummy_dialect, table_name="users")
+        expr = IndexInfoExpression(dialect=dummy_dialect, table="users")
         params = expr.get_params()
-        assert params.get("table_name") == "users"
+        assert params.get("table") == "users"
         assert params.get("schema") is None
 
 
@@ -152,16 +152,16 @@ class TestForeignKeyExpressionParams:
 
     def test_constructor_with_schema(self, dummy_dialect):
         """Test ForeignKeyExpression accepts schema parameter."""
-        expr = ForeignKeyExpression(dialect=dummy_dialect, table_name="posts", schema="public")
+        expr = ForeignKeyExpression(dialect=dummy_dialect, table="posts", schema="public")
         params = expr.get_params()
-        assert params.get("table_name") == "posts"
+        assert params.get("table") == "posts"
         assert params.get("schema") == "public"
 
     def test_constructor_defaults(self, dummy_dialect):
         """Test ForeignKeyExpression default values."""
-        expr = ForeignKeyExpression(dialect=dummy_dialect, table_name="posts")
+        expr = ForeignKeyExpression(dialect=dummy_dialect, table="posts")
         params = expr.get_params()
-        assert params.get("table_name") == "posts"
+        assert params.get("table") == "posts"
         assert params.get("schema") is None
 
 
@@ -214,23 +214,23 @@ class TestTriggerListExpressionParams:
 
     def test_constructor_with_all_params(self, dummy_dialect):
         """Test TriggerListExpression accepts all parameters at construction."""
-        expr = TriggerListExpression(dialect=dummy_dialect, schema="main", table_name="users")
+        expr = TriggerListExpression(dialect=dummy_dialect, schema="main", table="users")
         params = expr.get_params()
         assert params.get("schema") == "main"
-        assert params.get("table_name") == "users"
+        assert params.get("table") == "users"
 
     def test_constructor_defaults(self, dummy_dialect):
         """Test TriggerListExpression default values."""
         expr = TriggerListExpression(dialect=dummy_dialect)
         params = expr.get_params()
         assert params.get("schema") is None
-        assert params.get("table_name") is None
+        assert params.get("table") is None
 
     def test_fluent_api_for_table(self, dummy_dialect):
         """Test for_table fluent API."""
-        expr = TriggerListExpression(dialect=dummy_dialect, table_name="users").for_table("posts")
+        expr = TriggerListExpression(dialect=dummy_dialect, table="users").for_table("posts")
         params = expr.get_params()
-        assert params.get("table_name") == "posts"
+        assert params.get("table") == "posts"
 
 
 class TestTriggerInfoExpressionParams:
@@ -239,17 +239,17 @@ class TestTriggerInfoExpressionParams:
     def test_constructor_with_all_params(self, dummy_dialect):
         """Test TriggerInfoExpression accepts all parameters at construction."""
         expr = TriggerInfoExpression(
-            dialect=dummy_dialect, trigger_name="my_trigger", schema="main", table_name="users"
+            dialect=dummy_dialect, trigger="my_trigger", schema="main", table="users"
         )
         params = expr.get_params()
-        assert params.get("trigger_name") == "my_trigger"
+        assert params.get("trigger") == "my_trigger"
         assert params.get("schema") == "main"
-        assert params.get("table_name") == "users"
+        assert params.get("table") == "users"
 
     def test_constructor_defaults(self, dummy_dialect):
         """Test TriggerInfoExpression default values."""
-        expr = TriggerInfoExpression(dialect=dummy_dialect, trigger_name="my_trigger")
+        expr = TriggerInfoExpression(dialect=dummy_dialect, trigger="my_trigger")
         params = expr.get_params()
-        assert params.get("trigger_name") == "my_trigger"
+        assert params.get("trigger") == "my_trigger"
         assert params.get("schema") is None
-        assert params.get("table_name") is None
+        assert params.get("table") is None

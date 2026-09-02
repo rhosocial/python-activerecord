@@ -20,12 +20,12 @@ class SQLiteGeopolyCreateVirtualTable(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         content_table: Optional[str] = None,
         extra_columns: Optional[List[str]] = None,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        self.table = table
         self.content_table = content_table
         self.extra_columns = extra_columns or []
 
@@ -39,12 +39,12 @@ class SQLiteGeopolyContainsExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         longitude: float,
         latitude: float,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        self.table = table
         self.longitude = longitude
         self.latitude = latitude
 
@@ -58,10 +58,10 @@ class SQLiteGeopolyAreaExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        self.table = table
 
     def to_sql(self) -> SQLQueryAndParams:
         return self.dialect.format_geopoly_area_expression(self)

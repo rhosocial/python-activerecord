@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/sqlite4/test_sqlite_353_integration.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite4/test_sqlite_3_53_integration.py
 """
 Integration tests for SQLite 3.53.0 dialect capability detection.
 

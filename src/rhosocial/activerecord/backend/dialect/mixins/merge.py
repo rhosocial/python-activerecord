@@ -17,7 +17,7 @@ class MergeMixin:
     def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
         """Format MERGE statement."""
         all_params: List[Any] = []
-        target_sql, target_params = expr.target_table.to_sql()
+        target_sql, target_params = expr.target.to_sql()
         all_params.extend(target_params)
         source_sql, source_params = expr.source.to_sql()
         all_params.extend(source_params)

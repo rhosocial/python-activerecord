@@ -30,7 +30,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 departments_table = CreateTableExpression(
     dialect=dialect,
-    table_name="departments",
+    table="departments",
     columns=[
         ColumnDefinition(
             "id",
@@ -55,7 +55,7 @@ backend.execute(sql, params)
 
 employees_table = CreateTableExpression(
     dialect=dialect,
-    table_name="employees",
+    table="employees",
     columns=[
         ColumnDefinition(
             "id",

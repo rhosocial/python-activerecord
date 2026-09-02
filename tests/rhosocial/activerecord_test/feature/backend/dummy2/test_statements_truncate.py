@@ -8,7 +8,7 @@ class TestTruncateStatements:
 
     def test_basic_truncate(self, dummy_dialect: DummyDialect):
         """Tests basic TRUNCATE TABLE statement."""
-        truncate_expr = TruncateExpression(dummy_dialect, table_name="users")
+        truncate_expr = TruncateExpression(dummy_dialect, table="users")
         sql, params = truncate_expr.to_sql()
 
         assert 'TRUNCATE TABLE "users"' in sql
@@ -16,7 +16,7 @@ class TestTruncateStatements:
 
     def test_truncate_with_restart_identity(self, dummy_dialect: DummyDialect):
         """Tests TRUNCATE TABLE with RESTART IDENTITY option."""
-        truncate_expr = TruncateExpression(dummy_dialect, table_name="orders", restart_identity=True)
+        truncate_expr = TruncateExpression(dummy_dialect, table="orders", restart_identity=True)
         sql, params = truncate_expr.to_sql()
 
         assert 'TRUNCATE TABLE "orders"' in sql
@@ -25,7 +25,7 @@ class TestTruncateStatements:
 
     def test_truncate_with_cascade(self, dummy_dialect: DummyDialect):
         """Tests TRUNCATE TABLE with CASCADE option."""
-        truncate_expr = TruncateExpression(dummy_dialect, table_name="products", cascade=True)
+        truncate_expr = TruncateExpression(dummy_dialect, table="products", cascade=True)
         sql, params = truncate_expr.to_sql()
 
         assert 'TRUNCATE TABLE "products"' in sql
@@ -34,7 +34,7 @@ class TestTruncateStatements:
 
     def test_truncate_with_all_options(self, dummy_dialect: DummyDialect):
         """Tests TRUNCATE TABLE with both RESTART IDENTITY and CASCADE options."""
-        truncate_expr = TruncateExpression(dummy_dialect, table_name="inventory", restart_identity=True, cascade=True)
+        truncate_expr = TruncateExpression(dummy_dialect, table="inventory", restart_identity=True, cascade=True)
         sql, params = truncate_expr.to_sql()
 
         assert 'TRUNCATE TABLE "inventory"' in sql
@@ -44,7 +44,7 @@ class TestTruncateStatements:
 
     def test_truncate_with_dialect_options(self, dummy_dialect: DummyDialect):
         """Tests TRUNCATE TABLE with dialect-specific options."""
-        truncate_expr = TruncateExpression(dummy_dialect, table_name="logs", dialect_options={"custom_option": "value"})
+        truncate_expr = TruncateExpression(dummy_dialect, table="logs", dialect_options={"custom_option": "value"})
         sql, params = truncate_expr.to_sql()
 
         assert 'TRUNCATE TABLE "logs"' in sql

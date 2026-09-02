@@ -187,31 +187,31 @@ class IntrospectorMixin:
             expr = expr.table_type(table_type)
         return expr.to_sql()
 
-    def _build_column_info_sql(self, table_name: str, schema: Optional[str]) -> Tuple[str, tuple]:
+    def _build_column_info_sql(self, table: str, schema: Optional[str]) -> Tuple[str, tuple]:
         """Build SQL for column information query."""
         from ..expression.introspection import ColumnInfoExpression
 
         # Use provided schema or default
         target_schema = schema if schema is not None else self._get_default_schema()
-        expr = ColumnInfoExpression(self.dialect, table_name).schema(target_schema)
+        expr = ColumnInfoExpression(self.dialect, table).schema(target_schema)
         return expr.to_sql()
 
-    def _build_index_info_sql(self, table_name: str, schema: Optional[str]) -> Tuple[str, tuple]:
+    def _build_index_info_sql(self, table: str, schema: Optional[str]) -> Tuple[str, tuple]:
         """Build SQL for index information query."""
         from ..expression.introspection import IndexInfoExpression
 
         # Use provided schema or default
         target_schema = schema if schema is not None else self._get_default_schema()
-        expr = IndexInfoExpression(self.dialect, table_name).schema(target_schema)
+        expr = IndexInfoExpression(self.dialect, table).schema(target_schema)
         return expr.to_sql()
 
-    def _build_foreign_key_sql(self, table_name: str, schema: Optional[str]) -> Tuple[str, tuple]:
+    def _build_foreign_key_sql(self, table: str, schema: Optional[str]) -> Tuple[str, tuple]:
         """Build SQL for foreign key query."""
         from ..expression.introspection import ForeignKeyExpression
 
         # Use provided schema or default
         target_schema = schema if schema is not None else self._get_default_schema()
-        expr = ForeignKeyExpression(self.dialect, table_name).schema(target_schema)
+        expr = ForeignKeyExpression(self.dialect, table).schema(target_schema)
         return expr.to_sql()
 
     def _build_view_list_sql(self, schema: Optional[str], include_system: bool) -> Tuple[str, tuple]:
@@ -232,15 +232,15 @@ class IntrospectorMixin:
         expr = ViewInfoExpression(self.dialect, view_name).schema(target_schema)
         return expr.to_sql()
 
-    def _build_trigger_list_sql(self, table_name: Optional[str], schema: Optional[str]) -> Tuple[str, tuple]:
+    def _build_trigger_list_sql(self, table: Optional[str], schema: Optional[str]) -> Tuple[str, tuple]:
         """Build SQL for trigger list query."""
         from ..expression.introspection import TriggerListExpression
 
         # Use provided schema or default
         target_schema = schema if schema is not None else self._get_default_schema()
         expr = TriggerListExpression(self.dialect).schema(target_schema)
-        if table_name:
-            expr = expr.for_table(table_name)
+        if table:
+            expr = expr.for_table(table)
         return expr.to_sql()
 
     # ------------------------------------------------------------------ #
@@ -259,17 +259,17 @@ class IntrospectorMixin:
         ...
 
     @abstractmethod
-    def _parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[ColumnInfo]:
+    def _parse_columns(self, rows: List[Dict[str, Any]], table: str, schema: str) -> List[ColumnInfo]:
         """Parse column list from query result rows."""
         ...
 
     @abstractmethod
-    def _parse_indexes(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IndexInfo]:
+    def _parse_indexes(self, rows: List[Dict[str, Any]], table: str, schema: str) -> List[IndexInfo]:
         """Parse index list from query result rows."""
         ...
 
     @abstractmethod
-    def _parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[ForeignKeyInfo]:
+    def _parse_foreign_keys(self, rows: List[Dict[str, Any]], table: str, schema: str) -> List[ForeignKeyInfo]:
         """Parse foreign key list from query result rows."""
         ...
 
@@ -345,93 +345,94 @@ class SyncAbstractIntrospector(IntrospectorMixin, ABC):
         self._set_cached(key, result)
         return result
 
-    def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
+    def get_table_info(self, table: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Return detailed information for a specific table, including columns,
         indexes, and foreign keys."""
-        key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.TABLE, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-        table = next((t for t in self.list_tables(schema) if t.name == table_name), None)
+        table = next((t for t in self.list_tables(schema) if t.name == table), None)
         if table is None:
             return None
-        table.columns = self.list_columns(table_name, schema)
-        table.indexes = self.list_indexes(table_name, schema)
-        table.foreign_keys = self.list_foreign_keys(table_name, schema)
-        self._set_cached(key, table)
-        return table
+        info = table
+        info.columns = self.list_columns(table.name, schema)
+        info.indexes = self.list_indexes(table.name, schema)
+        info.foreign_keys = self.list_foreign_keys(table.name, schema)
+        self._set_cached(key, info)
+        return info
 
-    def table_exists(self, table_name: str, schema: Optional[str] = None) -> bool:
+    def table_exists(self, table: str, schema: Optional[str] = None) -> bool:
         """Return True if the named table exists."""
-        return self.get_table_info(table_name, schema) is not None
+        return self.get_table_info(table, schema) is not None
 
-    def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
+    def list_columns(self, table: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """List all columns of the given table."""
         target = schema if schema is not None else self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.COLUMN, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-        sql, params = self._build_column_info_sql(table_name, schema)
-        result = self._parse_columns(self._executor.execute(sql, params), table_name, target)
+        sql, params = self._build_column_info_sql(table, schema)
+        result = self._parse_columns(self._executor.execute(sql, params), table, target)
         self._set_cached(key, result)
         return result
 
-    def get_column_info(self, table_name: str, column_name: str, schema: Optional[str] = None) -> Optional[ColumnInfo]:
+    def get_column_info(self, table: str, column_name: str, schema: Optional[str] = None) -> Optional[ColumnInfo]:
         """Return information for a specific column, or None if not found."""
         return next(
-            (c for c in self.list_columns(table_name, schema) if c.name == column_name),
+            (c for c in self.list_columns(table, schema) if c.name == column_name),
             None,
         )
 
-    def column_exists(self, table_name: str, column_name: str, schema: Optional[str] = None) -> bool:
+    def column_exists(self, table: str, column_name: str, schema: Optional[str] = None) -> bool:
         """Return True if the named column exists in the given table."""
-        return self.get_column_info(table_name, column_name, schema) is not None
+        return self.get_column_info(table, column_name, schema) is not None
 
-    def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
+    def list_indexes(self, table: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of the given table."""
         target = schema if schema is not None else self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.INDEX, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-        sql, params = self._build_index_info_sql(table_name, schema)
-        result = self._parse_indexes(self._executor.execute(sql, params), table_name, target)
+        sql, params = self._build_index_info_sql(table, schema)
+        result = self._parse_indexes(self._executor.execute(sql, params), table, target)
         self._set_cached(key, result)
         return result
 
-    def get_index_info(self, table_name: str, index_name: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
+    def get_index_info(self, table: str, index: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
         """Return information for a specific index, or None if not found."""
         return next(
-            (i for i in self.list_indexes(table_name, schema) if i.name == index_name),
+            (i for i in self.list_indexes(table, schema) if i.name == index),
             None,
         )
 
-    def get_primary_key(self, table_name: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
+    def get_primary_key(self, table: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
         """Return the primary key index for the given table, or None."""
         return next(
-            (i for i in self.list_indexes(table_name, schema) if i.is_primary),
+            (i for i in self.list_indexes(table, schema) if i.is_primary),
             None,
         )
 
-    def list_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
+    def list_foreign_keys(self, table: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """List all foreign keys of the given table."""
         target = schema if schema is not None else self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.FOREIGN_KEY, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.FOREIGN_KEY, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-        sql, params = self._build_foreign_key_sql(table_name, schema)
-        result = self._parse_foreign_keys(self._executor.execute(sql, params), table_name, target)
+        sql, params = self._build_foreign_key_sql(table, schema)
+        result = self._parse_foreign_keys(self._executor.execute(sql, params), table, target)
         self._set_cached(key, result)
         return result
 
     def get_foreign_key_info(
-        self, table_name: str, fk_name: str, schema: Optional[str] = None
+        self, table: str, fk_name: str, schema: Optional[str] = None
     ) -> Optional[ForeignKeyInfo]:
         """Return information for a specific foreign key, or None if not found."""
         return next(
-            (fk for fk in self.list_foreign_keys(table_name, schema) if fk.name == fk_name),
+            (fk for fk in self.list_foreign_keys(table, schema) if fk.name == fk_name),
             None,
         )
 
@@ -470,24 +471,24 @@ class SyncAbstractIntrospector(IntrospectorMixin, ABC):
 
     def list_triggers(
         self,
-        table_name: Optional[str] = None,
+        table: Optional[str] = None,
         schema: Optional[str] = None,
     ) -> List[TriggerInfo]:
         """List all triggers, optionally filtered by table."""
         target = schema if schema is not None else self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.TRIGGER, table_name or "*", schema=schema)
+        key = self._make_cache_key(IntrospectionScope.TRIGGER, table or "*", schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-        sql, params = self._build_trigger_list_sql(table_name, schema)
+        sql, params = self._build_trigger_list_sql(table, schema)
         result = self._parse_triggers(self._executor.execute(sql, params), target)
         self._set_cached(key, result)
         return result
 
-    def get_trigger_info(self, trigger_name: str, schema: Optional[str] = None) -> Optional[TriggerInfo]:
+    def get_trigger_info(self, trigger: str, schema: Optional[str] = None) -> Optional[TriggerInfo]:
         """Return information for a specific trigger, or None if not found."""
         return next(
-            (t for t in self.list_triggers(schema=schema) if t.name == trigger_name),
+            (t for t in self.list_triggers(schema=schema) if t.name == trigger),
             None,
         )
 
@@ -549,100 +550,101 @@ class AsyncAbstractIntrospector(IntrospectorMixin, ABC):
         self._set_cached(key, result)
         return result
 
-    async def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
+    async def get_table_info(self, table: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Return detailed information for a specific table, including columns,
         indexes, and foreign keys."""
-        key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.TABLE, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
         table = next(
-            (t for t in await self.list_tables(schema) if t.name == table_name),
+            (t for t in await self.list_tables(schema) if t.name == table),
             None,
         )
         if table is None:
             return None
-        table.columns = await self.list_columns(table_name, schema)
-        table.indexes = await self.list_indexes(table_name, schema)
-        table.foreign_keys = await self.list_foreign_keys(table_name, schema)
-        self._set_cached(key, table)
-        return table
+        info = table
+        info.columns = await self.list_columns(table.name, schema)
+        info.indexes = await self.list_indexes(table.name, schema)
+        info.foreign_keys = await self.list_foreign_keys(table.name, schema)
+        self._set_cached(key, info)
+        return info
 
-    async def table_exists(self, table_name: str, schema: Optional[str] = None) -> bool:
+    async def table_exists(self, table: str, schema: Optional[str] = None) -> bool:
         """Return True if the named table exists."""
-        return await self.get_table_info(table_name, schema) is not None
+        return await self.get_table_info(table, schema) is not None
 
-    async def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
+    async def list_columns(self, table: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """List all columns of the given table."""
         target = schema if schema is not None else self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.COLUMN, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-        sql, params = self._build_column_info_sql(table_name, schema)
-        result = self._parse_columns(await self._executor.execute(sql, params), table_name, target)
+        sql, params = self._build_column_info_sql(table, schema)
+        result = self._parse_columns(await self._executor.execute(sql, params), table, target)
         self._set_cached(key, result)
         return result
 
     async def get_column_info(
-        self, table_name: str, column_name: str, schema: Optional[str] = None
+        self, table: str, column_name: str, schema: Optional[str] = None
     ) -> Optional[ColumnInfo]:
         """Return information for a specific column, or None if not found."""
         return next(
-            (c for c in await self.list_columns(table_name, schema) if c.name == column_name),
+            (c for c in await self.list_columns(table, schema) if c.name == column_name),
             None,
         )
 
-    async def column_exists(self, table_name: str, column_name: str, schema: Optional[str] = None) -> bool:
+    async def column_exists(self, table: str, column_name: str, schema: Optional[str] = None) -> bool:
         """Return True if the named column exists in the given table."""
-        return await self.get_column_info(table_name, column_name, schema) is not None
+        return await self.get_column_info(table, column_name, schema) is not None
 
-    async def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
+    async def list_indexes(self, table: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of the given table."""
         target = schema if schema is not None else self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.INDEX, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-        sql, params = self._build_index_info_sql(table_name, schema)
-        result = self._parse_indexes(await self._executor.execute(sql, params), table_name, target)
+        sql, params = self._build_index_info_sql(table, schema)
+        result = self._parse_indexes(await self._executor.execute(sql, params), table, target)
         self._set_cached(key, result)
         return result
 
     async def get_index_info(
-        self, table_name: str, index_name: str, schema: Optional[str] = None
+        self, table: str, index: str, schema: Optional[str] = None
     ) -> Optional[IndexInfo]:
         """Return information for a specific index, or None if not found."""
         return next(
-            (i for i in await self.list_indexes(table_name, schema) if i.name == index_name),
+            (i for i in await self.list_indexes(table, schema) if i.name == index),
             None,
         )
 
-    async def get_primary_key(self, table_name: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
+    async def get_primary_key(self, table: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
         """Return the primary key index for the given table, or None."""
         return next(
-            (i for i in await self.list_indexes(table_name, schema) if i.is_primary),
+            (i for i in await self.list_indexes(table, schema) if i.is_primary),
             None,
         )
 
-    async def list_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
+    async def list_foreign_keys(self, table: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """List all foreign keys of the given table."""
         target = schema if schema is not None else self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.FOREIGN_KEY, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.FOREIGN_KEY, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-        sql, params = self._build_foreign_key_sql(table_name, schema)
-        result = self._parse_foreign_keys(await self._executor.execute(sql, params), table_name, target)
+        sql, params = self._build_foreign_key_sql(table, schema)
+        result = self._parse_foreign_keys(await self._executor.execute(sql, params), table, target)
         self._set_cached(key, result)
         return result
 
     async def get_foreign_key_info(
-        self, table_name: str, fk_name: str, schema: Optional[str] = None
+        self, table: str, fk_name: str, schema: Optional[str] = None
     ) -> Optional[ForeignKeyInfo]:
         """Return information for a specific foreign key, or None if not found."""
         return next(
-            (fk for fk in await self.list_foreign_keys(table_name, schema) if fk.name == fk_name),
+            (fk for fk in await self.list_foreign_keys(table, schema) if fk.name == fk_name),
             None,
         )
 
@@ -681,23 +683,23 @@ class AsyncAbstractIntrospector(IntrospectorMixin, ABC):
 
     async def list_triggers(
         self,
-        table_name: Optional[str] = None,
+        table: Optional[str] = None,
         schema: Optional[str] = None,
     ) -> List[TriggerInfo]:
         """List all triggers, optionally filtered by table."""
         target = schema if schema is not None else self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.TRIGGER, table_name or "*", schema=schema)
+        key = self._make_cache_key(IntrospectionScope.TRIGGER, table or "*", schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
-        sql, params = self._build_trigger_list_sql(table_name, schema)
+        sql, params = self._build_trigger_list_sql(table, schema)
         result = self._parse_triggers(await self._executor.execute(sql, params), target)
         self._set_cached(key, result)
         return result
 
-    async def get_trigger_info(self, trigger_name: str, schema: Optional[str] = None) -> Optional[TriggerInfo]:
+    async def get_trigger_info(self, trigger: str, schema: Optional[str] = None) -> Optional[TriggerInfo]:
         """Return information for a specific trigger, or None if not found."""
         return next(
-            (t for t in await self.list_triggers(schema=schema) if t.name == trigger_name),
+            (t for t in await self.list_triggers(schema=schema) if t.name == trigger),
             None,
         )

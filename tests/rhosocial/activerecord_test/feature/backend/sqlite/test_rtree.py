@@ -56,7 +56,7 @@ class TestSQLiteRTreeCreateVirtualTableConstruction:
     def test_2d_default(self):
         sql, params = SQLiteRTreeCreateVirtualTable(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="places"
+            table="places"
         ).to_sql()
         assert sql == (
             'CREATE VIRTUAL TABLE "places" USING rtree('
@@ -68,21 +68,21 @@ class TestSQLiteRTreeCreateVirtualTableConstruction:
     def test_3d(self):
         sql, _ = SQLiteRTreeCreateVirtualTable(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="volumes", dimensions=3
+            table="volumes", dimensions=3
         ).to_sql()
         assert '"min0", "max0", "min1", "max1", "min2", "max2"' in sql
 
     def test_1d(self):
         sql, _ = SQLiteRTreeCreateVirtualTable(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="intervals", dimensions=1
+            table="intervals", dimensions=1
         ).to_sql()
         assert '"min0", "max0"' in sql
 
     def test_with_content_table(self):
         sql, params = SQLiteRTreeCreateVirtualTable(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="places", content_table="places_data"
+            table="places", content_table="places_data"
         ).to_sql()
         assert "content='places_data'" in sql
         assert params == ()
@@ -90,7 +90,7 @@ class TestSQLiteRTreeCreateVirtualTableConstruction:
     def test_with_content_rowid(self):
         sql, params = SQLiteRTreeCreateVirtualTable(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="places", content_table="places_data",
+            table="places", content_table="places_data",
             content_rowid="pk"
         ).to_sql()
         assert "content='places_data'" in sql
@@ -100,14 +100,14 @@ class TestSQLiteRTreeCreateVirtualTableConstruction:
     def test_content_rowid_without_content(self):
         sql, _ = SQLiteRTreeCreateVirtualTable(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="places", content_rowid="pk"
+            table="places", content_rowid="pk"
         ).to_sql()
         assert "content_rowid" not in sql
 
     def test_unsupported_version_raises_error(self):
         expr = SQLiteRTreeCreateVirtualTable(
             SQLiteDialect(version=(3, 5, 0)),
-            table_name="places"
+            table="places"
         )
         with pytest.raises(UnsupportedFeatureError) as exc:
             expr.to_sql()
@@ -125,7 +125,7 @@ class TestSQLiteRTreeInjectionSafety:
         with pytest.raises(ValueError, match="Unsafe identifier"):
             SQLiteRTreeCreateVirtualTable(
                 SQLiteDialect(version=(3, 6, 0)),
-                table_name="places",
+                table="places",
                 content_table="tab'; DROP TABLE users; --"
             ).to_sql()
 
@@ -133,7 +133,7 @@ class TestSQLiteRTreeInjectionSafety:
         with pytest.raises(ValueError, match="Unsafe identifier"):
             SQLiteRTreeCreateVirtualTable(
                 SQLiteDialect(version=(3, 6, 0)),
-                table_name="places", content_table="x",
+                table="places", content_table="x",
                 content_rowid="pk'; DROP TABLE t; --"
             ).to_sql()
 
@@ -144,7 +144,7 @@ class TestSQLiteRTreeRangeQueryConstruction:
     def test_2d_range(self):
         sql, params = SQLiteRTreeRangeQuery(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="places",
+            table="places",
             ranges=[(0.0, 10.0), (0.0, 10.0)]
         ).to_sql()
         assert sql == (
@@ -157,7 +157,7 @@ class TestSQLiteRTreeRangeQueryConstruction:
     def test_3d_range(self):
         sql, params = SQLiteRTreeRangeQuery(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="volumes",
+            table="volumes",
             ranges=[(0, 1), (0, 1), (0, 1)]
         ).to_sql()
         assert params == (1, 0, 1, 0, 1, 0)
@@ -166,7 +166,7 @@ class TestSQLiteRTreeRangeQueryConstruction:
     def test_1d_range(self):
         sql, params = SQLiteRTreeRangeQuery(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="intervals",
+            table="intervals",
             ranges=[(5.0, 10.0)]
         ).to_sql()
         assert sql == (
@@ -178,7 +178,7 @@ class TestSQLiteRTreeRangeQueryConstruction:
     def test_with_custom_column_names(self):
         sql, params = SQLiteRTreeRangeQuery(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="places",
+            table="places",
             ranges=[(0.0, 10.0), (0.0, 10.0)],
             column_names=[("x_min", "x_max"), ("y_min", "y_max")]
         ).to_sql()
@@ -188,7 +188,7 @@ class TestSQLiteRTreeRangeQueryConstruction:
     def test_single_custom_column_in_2d(self):
         sql, params = SQLiteRTreeRangeQuery(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name="places",
+            table="places",
             ranges=[(0.0, 10.0), (0.0, 10.0)],
             column_names=[("x_min", "x_max")]
         ).to_sql()
@@ -198,7 +198,7 @@ class TestSQLiteRTreeRangeQueryConstruction:
     def test_special_chars_in_table_name(self):
         sql, _ = SQLiteRTreeRangeQuery(
             SQLiteDialect(version=(3, 6, 0)),
-            table_name='my"table',
+            table='my"table',
             ranges=[(0.0, 1.0)]
         ).to_sql()
         assert '"my""table"."min0"' in sql
@@ -225,7 +225,7 @@ class TestRTreeScenario:
             pytest.skip("R-Tree not available in this SQLite build")
 
         sql, _ = SQLiteRTreeCreateVirtualTable(
-            dialect, table_name="places"
+            dialect, table="places"
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
@@ -250,7 +250,7 @@ class TestRTreeScenario:
             pytest.skip("R-Tree not available in this SQLite build")
 
         sql, _ = SQLiteRTreeCreateVirtualTable(
-            dialect, table_name="boxes", dimensions=3
+            dialect, table="boxes", dimensions=3
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
@@ -274,7 +274,7 @@ class TestRTreeScenario:
             pytest.skip("R-Tree not available in this SQLite build")
 
         sql, _ = SQLiteRTreeCreateVirtualTable(
-            dialect, table_name="verify_places"
+            dialect, table="verify_places"
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
         cols = backend.fetch_all("PRAGMA table_info(verify_places)")
@@ -284,7 +284,7 @@ class TestRTreeScenario:
         """Test that SQL generation produces correct content table syntax."""
         dialect = SQLiteDialect(version=(3, 35, 0))
         sql, _ = SQLiteRTreeCreateVirtualTable(
-            dialect, table_name="places_idx", content_table="places_data"
+            dialect, table="places_idx", content_table="places_data"
         ).to_sql()
         assert "content='places_data'" in sql
         assert "rtree" in sql

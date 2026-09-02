@@ -105,7 +105,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     def format_create_virtual_table(
         self,
         module: str,
-        table_name: str,
+        table: str,
         columns: List[str],
         options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, tuple]:
@@ -113,7 +113,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
 
         Args:
             module: Virtual table module (rtree, fts5, geopoly, etc.)
-            table_name: Name of the virtual table
+            table: Name of the virtual table
             columns: List of column names
             options: Optional module-specific options
 
@@ -125,26 +125,26 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         """
         if module not in _KNOWN_VTABLE_MODULES and not module.isidentifier():
             raise ValueError(f"Unsafe virtual table module name: {module!r}")
-        name = self.format_identifier(table_name)
+        name = self.format_identifier(table)
         cols = ", ".join(self.format_identifier(c) for c in columns)
         sql = f"CREATE VIRTUAL TABLE {name} USING {module}({cols})"
         return sql, ()
 
     def format_drop_virtual_table(
         self,
-        table_name: str,
+        table: str,
         if_exists: bool = False,
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for a virtual table.
 
         Args:
-            table_name: Name of the virtual table
+            table: Name of the virtual table
             if_exists: Add IF EXISTS clause
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        name = self.format_identifier(table_name)
+        name = self.format_identifier(table)
         if if_exists:
             return f"DROP TABLE IF EXISTS {name}", ()
         return f"DROP TABLE {name}", ()

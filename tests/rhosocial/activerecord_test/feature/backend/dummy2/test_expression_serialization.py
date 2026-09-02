@@ -236,7 +236,7 @@ class TestCrossDialectFastFail:
         from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexExpression
 
         sqlite_dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
+        expr = SQLiteReindexExpression(sqlite_dialect, table="users")
         spec = serialize(expr)
 
         assert "sqlite" in spec["type"]

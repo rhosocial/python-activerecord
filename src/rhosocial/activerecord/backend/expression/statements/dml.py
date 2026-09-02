@@ -48,7 +48,7 @@ class MergeExpression(BaseExpression):
     exists in the target table that matches the source row according to the ON condition.
 
     Basic syntax:
-        MERGE INTO target_table
+        MERGE INTO target
         USING source
         ON condition
         WHEN MATCHED THEN action
@@ -59,7 +59,7 @@ class MergeExpression(BaseExpression):
         # Simple merge: update if exists, insert if not
         merge = MergeExpression(
             dialect,
-            target_table="products",
+            target="products",
             source=ValuesSource(dialect, [[1, "Product A", 19.99]], "new_products", ["id", "name", "price"]),
             on_condition=Column(dialect, "id", "tgt") == Column(dialect, "id", "src"),
             when_matched=[
@@ -87,7 +87,7 @@ class MergeExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        target_table: Union[str, "TableExpression"],
+        target: Union[str, "TableExpression"],
         source: Union[
             "Subquery", "TableExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"
         ],
@@ -97,8 +97,8 @@ class MergeExpression(BaseExpression):
         when_not_matched_by_source: Optional[List[MergeAction]] = None,
     ):  # WHEN NOT MATCHED BY SOURCE THEN ... (not supported by all DBs)
         super().__init__(dialect)
-        self.target_table = (
-            target_table if isinstance(target_table, TableExpression) else TableExpression(dialect, str(target_table))
+        self.target = (
+            target if isinstance(target, TableExpression) else TableExpression(dialect, str(target))
         )
         self.source = source
         self.on_condition = on_condition

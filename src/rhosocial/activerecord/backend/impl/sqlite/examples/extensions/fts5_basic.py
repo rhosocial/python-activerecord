@@ -38,14 +38,14 @@ print("1. FTS5 Virtual Table Creation")
 print("=" * 60)
 
 # 1a. Basic FTS5 table (default unicode61 tokenizer)
-expr = SQLiteFTS5CreateVirtualTable(dialect, table_name="articles", columns=["title", "body"])
+expr = SQLiteFTS5CreateVirtualTable(dialect, table="articles", columns=["title", "body"])
 sql, _ = expr.to_sql()
 print("\n[1a] Basic FTS5 table (default tokenizer):")
 print(f"    SQL: {sql}")
 backend.execute(sql, options=ddl_opts)
 
 # 1b. FTS5 table with Porter stemmer tokenizer
-expr = SQLiteFTS5CreateVirtualTable(dialect, table_name="posts", columns=["content"], tokenizer="porter")
+expr = SQLiteFTS5CreateVirtualTable(dialect, table="posts", columns=["content"], tokenizer="porter")
 sql, _ = expr.to_sql()
 print("\n[1b] FTS5 with Porter stemmer:")
 print(f"    SQL: {sql}")
@@ -53,7 +53,7 @@ backend.execute(sql, options=ddl_opts)
 
 # 1c. FTS5 table with unicode61 + diacritics removal + prefix indexing
 expr = SQLiteFTS5CreateVirtualTable(
-    dialect, table_name="texts", columns=["content"],
+    dialect, table="texts", columns=["content"],
     tokenizer="unicode61", tokenizer_options={"remove_diacritics": 1}, prefix=[2, 3]
 )
 sql, _ = expr.to_sql()
@@ -62,7 +62,7 @@ print(f"    SQL: {sql}")
 backend.execute(sql, options=ddl_opts)
 
 # 1d. FTS5 table with ascii tokenizer (ASCII-only word boundaries)
-expr = SQLiteFTS5CreateVirtualTable(dialect, table_name="ascii_docs", columns=["title", "body"], tokenizer="ascii")
+expr = SQLiteFTS5CreateVirtualTable(dialect, table="ascii_docs", columns=["title", "body"], tokenizer="ascii")
 sql, _ = expr.to_sql()
 print("\n[1d] FTS5 with ascii tokenizer:")
 print(f"    SQL: {sql}")
@@ -251,7 +251,7 @@ print("=" * 60)
 
 # 5a. Basic highlight with default <b> markers
 print("\n  --- 5a. highlight() with default <b> markers ---")
-hl_expr = SQLiteFTS5HighlightExpression(dialect, table_name="articles", column="title")
+hl_expr = SQLiteFTS5HighlightExpression(dialect, table="articles", column="title")
 hl_sql, hl_params = hl_expr.to_sql()
 full_sql = f"SELECT {hl_sql} as highlighted, title FROM articles WHERE articles MATCH ?"
 r = backend.fetch_all(full_sql, hl_params + ("python",))
@@ -373,7 +373,7 @@ print("=" * 60)
 
 # Check if trigram is supported (SQLite >= 3.34.0)
 if "trigram" in dialect.get_supported_fts5_tokenizers():
-    expr = SQLiteFTS5CreateVirtualTable(dialect, table_name="substrings", columns=["content"], tokenizer="trigram")
+    expr = SQLiteFTS5CreateVirtualTable(dialect, table="substrings", columns=["content"], tokenizer="trigram")
     sql, _ = expr.to_sql()
     backend.execute(sql, options=ddl_opts)
     print("\n  Created 'substrings' table with trigram tokenizer")

@@ -239,7 +239,7 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get("table_name", "")
+        table_name = params.get("table", "")
         schema = params.get("schema") or "main"
 
         sql = f"SELECT name, type, sql FROM {schema}.sqlite_master WHERE name = ?"
@@ -258,7 +258,7 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get("table_name", "")
+        table_name = params.get("table", "")
         include_hidden = params.get("include_hidden", False)
         schema = params.get("schema") or "main"
 
@@ -282,7 +282,7 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get("table_name", "")
+        table_name = params.get("table", "")
         schema = params.get("schema") or "main"
 
         sql = f"PRAGMA {schema}.index_list({self.format_identifier(table_name)})"
@@ -300,7 +300,7 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get("table_name", "")
+        table_name = params.get("table", "")
         schema = params.get("schema") or "main"
 
         sql = f"PRAGMA {schema}.foreign_key_list({self.format_identifier(table_name)})"
@@ -360,7 +360,7 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get("table_name")
+        table_name = params.get("table")
         schema = params.get("schema") or "main"
 
         sql = f"SELECT name, tbl_name, sql FROM {schema}.sqlite_master WHERE type = 'trigger'"
@@ -383,7 +383,7 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        trigger_name = params.get("trigger_name", "")
+        trigger_name = params.get("trigger", "")
         schema = params.get("schema") or "main"
 
         sql = f"SELECT name, tbl_name, sql FROM {schema}.sqlite_master WHERE type = 'trigger' AND name = ?"

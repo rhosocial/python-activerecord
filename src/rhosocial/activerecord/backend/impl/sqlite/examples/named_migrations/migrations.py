@@ -52,7 +52,7 @@ class V003CreateCustomTable(NamedMigration):
     Accepts a ``table_name`` parameter (default ``custom_table``).
     Usage::
 
-        named-migration ... V003CreateCustomTable --param table_name=my_config
+        named-migration ... V003CreateCustomTable --param table=my_config
     """
 
     version = "v003_create_custom_table"

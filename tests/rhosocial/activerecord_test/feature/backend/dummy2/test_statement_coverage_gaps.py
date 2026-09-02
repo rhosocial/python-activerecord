@@ -65,7 +65,7 @@ class TestDmlStatementTypes:
         condition = ComparisonPredicate(dummy_dialect, "=", col, Literal(dummy_dialect, 1))
         expr = MergeExpression(
             dummy_dialect,
-            target_table=TableExpression(dummy_dialect, "users"),
+            target=TableExpression(dummy_dialect, "users"),
             source=TableExpression(dummy_dialect, "new_users"),
             on_condition=condition,
         )
@@ -131,7 +131,7 @@ class TestAlterTableModifyChangeColumn:
         action = ModifyColumn(dummy_dialect, column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,
-            table_name="users",
+            table="users",
             actions=[action],
         )
         with patch.object(dummy_dialect, "format_modify_column_action", return_value=("MODIFY name VARCHAR(255)", ())):
@@ -145,7 +145,7 @@ class TestAlterTableModifyChangeColumn:
         action = ChangeColumn(dummy_dialect, old_name="old_name", column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,
-            table_name="users",
+            table="users",
             actions=[action],
         )
         with patch.object(

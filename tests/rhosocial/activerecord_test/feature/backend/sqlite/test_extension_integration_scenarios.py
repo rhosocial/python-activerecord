@@ -83,7 +83,7 @@ class TestGeoDocumentScenario:
         # --- Setup: FTS5 virtual table ---
         backend.execute(
             *SQLiteFTS5CreateVirtualTable(
-                dialect, table_name="docs_fts",
+                dialect, table="docs_fts",
                 columns=["title", "body", "author"]
             ).to_sql(),
             options=ddl
@@ -92,7 +92,7 @@ class TestGeoDocumentScenario:
         # --- Setup: R-Tree virtual table ---
         backend.execute(
             *SQLiteRTreeCreateVirtualTable(
-                dialect, table_name="doc_locations"
+                dialect, table="doc_locations"
             ).to_sql(),
             options=ddl
         )
@@ -174,7 +174,7 @@ class TestGeoDocumentScenario:
         # --- Spatial search via expression ---
         rows = backend.fetch_all(
             *SQLiteRTreeRangeQuery(
-                dialect, table_name="doc_locations",
+                dialect, table="doc_locations",
                 ranges=[(10, 50), (10, 50)]
             ).to_sql()
         )
@@ -194,7 +194,7 @@ class TestGeoDocumentScenario:
                     right_table=Subquery(
                         dialect,
                         SQLiteRTreeRangeQuery(
-                            dialect, table_name="doc_locations",
+                            dialect, table="doc_locations",
                             ranges=[(0, 50), (0, 50)]
                         ),
                         alias="loc"
@@ -258,7 +258,7 @@ class TestGeofencingScenario:
         # --- Setup geopoly zones with extra columns ---
         backend.execute(
             *SQLiteGeopolyCreateVirtualTable(
-                dialect, table_name="zones",
+                dialect, table="zones",
                 extra_columns=["name", "category", "config"]
             ).to_sql(),
             options=ddl
@@ -299,7 +299,7 @@ class TestGeofencingScenario:
         # --- FTS5 for zone name search ---
         backend.execute(
             *SQLiteFTS5CreateVirtualTable(
-                dialect, table_name="zone_fts", columns=["name", "category"]
+                dialect, table="zone_fts", columns=["name", "category"]
             ).to_sql(),
             options=ddl
         )
@@ -325,7 +325,7 @@ class TestGeofencingScenario:
         # --- Geofencing query: check if device at (1, 1) is inside any zone ---
         rows = backend.fetch_all(
             *SQLiteGeopolyContainsExpression(
-                dialect, table_name="zones", longitude=1.0, latitude=1.0
+                dialect, table="zones", longitude=1.0, latitude=1.0
             ).to_sql()
         )
         assert len(rows) >= 1
@@ -334,7 +334,7 @@ class TestGeofencingScenario:
         # --- Point outside all zones ---
         rows = backend.fetch_all(
             *SQLiteGeopolyContainsExpression(
-                dialect, table_name="zones", longitude=100.0, latitude=100.0
+                dialect, table="zones", longitude=100.0, latitude=100.0
             ).to_sql()
         )
         assert len(rows) == 0
@@ -381,7 +381,7 @@ class TestGeofencingScenario:
         # --- Area calculation via expression ---
         rows = backend.fetch_all(
             *SQLiteGeopolyAreaExpression(
-                dialect, table_name="zones"
+                dialect, table="zones"
             ).to_sql()
         )
         assert len(rows) == 2
@@ -441,7 +441,7 @@ class TestSpatialCatalogScenario:
         # --- R-Tree spatial index via expression ---
         backend.execute(
             *SQLiteRTreeCreateVirtualTable(
-                dialect, table_name="features_rtree"
+                dialect, table="features_rtree"
             ).to_sql(),
             options=ddl
         )
@@ -449,7 +449,7 @@ class TestSpatialCatalogScenario:
         # --- FTS5 text index (standalone) via expression ---
         backend.execute(
             *SQLiteFTS5CreateVirtualTable(
-                dialect, table_name="features_fts",
+                dialect, table="features_fts",
                 columns=["name", "description"]
             ).to_sql(),
             options=ddl
@@ -505,7 +505,7 @@ class TestSpatialCatalogScenario:
         # --- Spatial search via expression ---
         rows = backend.fetch_all(
             *SQLiteRTreeRangeQuery(
-                dialect, table_name="features_rtree",
+                dialect, table="features_rtree",
                 ranges=[(10, 100), (10, 100)]
             ).to_sql()
         )
@@ -552,7 +552,7 @@ class TestSpatialCatalogScenario:
                         right_table=Subquery(
                             dialect,
                             SQLiteRTreeRangeQuery(
-                                dialect, table_name="features_rtree",
+                                dialect, table="features_rtree",
                                 ranges=[(100, 600), (100, 600)]
                             ),
                             alias="rt"

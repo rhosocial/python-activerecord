@@ -57,7 +57,7 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
     def test_basic(self):
         expr = SQLiteGeopolyCreateVirtualTable(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones"
+            table="zones"
         )
         sql, params = expr.to_sql()
         assert sql == 'CREATE VIRTUAL TABLE "zones" USING geopoly()'
@@ -66,14 +66,14 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
     def test_with_content_table(self):
         sql, _ = SQLiteGeopolyCreateVirtualTable(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones", content_table="zones_data"
+            table="zones", content_table="zones_data"
         ).to_sql()
         assert "content='zones_data'" in sql
 
     def test_with_extra_columns(self):
         sql, _ = SQLiteGeopolyCreateVirtualTable(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones", extra_columns=["name", "category"]
+            table="zones", extra_columns=["name", "category"]
         ).to_sql()
         assert sql == (
             'CREATE VIRTUAL TABLE "zones" USING geopoly('
@@ -84,7 +84,7 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
     def test_with_extra_columns_and_content(self):
         sql, params = SQLiteGeopolyCreateVirtualTable(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones", extra_columns=["name"],
+            table="zones", extra_columns=["name"],
             content_table="zones_data"
         ).to_sql()
         assert '"name"' in sql
@@ -94,7 +94,7 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
     def test_empty_extra_columns(self):
         expr = SQLiteGeopolyCreateVirtualTable(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones", extra_columns=[]
+            table="zones", extra_columns=[]
         )
         sql, _ = expr.to_sql()
         assert sql == 'CREATE VIRTUAL TABLE "zones" USING geopoly()'
@@ -102,14 +102,14 @@ class TestSQLiteGeopolyCreateVirtualTableConstruction:
     def test_special_chars_in_extra_columns(self):
         sql, _ = SQLiteGeopolyCreateVirtualTable(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones", extra_columns=['col"name']
+            table="zones", extra_columns=['col"name']
         ).to_sql()
         assert '"col""name"' in sql
 
     def test_unsupported_version_raises_error(self):
         expr = SQLiteGeopolyCreateVirtualTable(
             SQLiteDialect(version=(3, 25, 0)),
-            table_name="zones"
+            table="zones"
         )
         with pytest.raises(UnsupportedFeatureError) as exc:
             expr.to_sql()
@@ -127,7 +127,7 @@ class TestSQLiteGeopolyInjectionSafety:
         with pytest.raises(ValueError, match="Unsafe identifier"):
             SQLiteGeopolyCreateVirtualTable(
                 SQLiteDialect(version=(3, 26, 0)),
-                table_name="zones",
+                table="zones",
                 content_table="tab'; DROP TABLE users; --"
             ).to_sql()
 
@@ -138,7 +138,7 @@ class TestSQLiteGeopolyContainsExpressionConstruction:
     def test_basic(self):
         sql, params = SQLiteGeopolyContainsExpression(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones", longitude=1.5, latitude=2.5
+            table="zones", longitude=1.5, latitude=2.5
         ).to_sql()
         assert sql == (
             'SELECT * FROM "zones" WHERE geopoly_contains_point(_shape, ?, ?)'
@@ -148,21 +148,21 @@ class TestSQLiteGeopolyContainsExpressionConstruction:
     def test_negative_coordinates(self):
         sql, params = SQLiteGeopolyContainsExpression(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones", longitude=-73.95, latitude=40.78
+            table="zones", longitude=-73.95, latitude=40.78
         ).to_sql()
         assert params == (-73.95, 40.78)
 
     def test_zero_coordinates(self):
         sql, params = SQLiteGeopolyContainsExpression(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones", longitude=0.0, latitude=0.0
+            table="zones", longitude=0.0, latitude=0.0
         ).to_sql()
         assert params == (0.0, 0.0)
 
     def test_special_chars_in_table_name(self):
         sql, _ = SQLiteGeopolyContainsExpression(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name='my"zones', longitude=1.0, latitude=2.0
+            table='my"zones', longitude=1.0, latitude=2.0
         ).to_sql()
         assert '"my""zones"' in sql
 
@@ -177,7 +177,7 @@ class TestSQLiteGeopolyAreaExpressionConstruction:
     def test_basic(self):
         sql, params = SQLiteGeopolyAreaExpression(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name="zones"
+            table="zones"
         ).to_sql()
         assert sql == (
             'SELECT *, geopoly_area(_shape) as area FROM "zones"'
@@ -187,7 +187,7 @@ class TestSQLiteGeopolyAreaExpressionConstruction:
     def test_special_chars_in_table_name(self):
         sql, _ = SQLiteGeopolyAreaExpression(
             SQLiteDialect(version=(3, 26, 0)),
-            table_name='my"zones'
+            table='my"zones'
         ).to_sql()
         assert '"my""zones"' in sql
 
@@ -213,7 +213,7 @@ class TestGeopolyScenario:
             pytest.skip("Geopoly not available in this SQLite build")
 
         sql, _ = SQLiteGeopolyCreateVirtualTable(
-            dialect, table_name="zones", extra_columns=["name"]
+            dialect, table="zones", extra_columns=["name"]
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
@@ -234,7 +234,7 @@ class TestGeopolyScenario:
             pytest.skip("Geopoly not available in this SQLite build")
 
         sql, _ = SQLiteGeopolyCreateVirtualTable(
-            dialect, table_name="zones", extra_columns=["name"]
+            dialect, table="zones", extra_columns=["name"]
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
@@ -254,7 +254,7 @@ class TestGeopolyScenario:
             pytest.skip("Geopoly not available in this SQLite build")
 
         sql, _ = SQLiteGeopolyCreateVirtualTable(
-            dialect, table_name="zones", extra_columns=["name"]
+            dialect, table="zones", extra_columns=["name"]
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 

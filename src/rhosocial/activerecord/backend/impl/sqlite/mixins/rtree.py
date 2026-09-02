@@ -56,7 +56,7 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
             cols.append(self.format_identifier(f"min{i}"))
             cols.append(self.format_identifier(f"max{i}"))
 
-        table = self.format_identifier(expr.table_name)
+        table = self.format_identifier(expr.table)
         cols_str = ", ".join(cols)
 
         parts = []
@@ -88,7 +88,7 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        table = self.format_identifier(expr.table_name)
+        table = self.format_identifier(expr.table)
         conditions = []
         params = []
         for i, (min_val, max_val) in enumerate(expr.ranges):

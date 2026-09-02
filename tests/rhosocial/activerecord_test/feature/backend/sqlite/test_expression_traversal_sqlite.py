@@ -96,13 +96,13 @@ class TestSQLiteSpecificExpressionTraversal:
     """Test SQLite-specific expressions."""
 
     def test_reindex_table_name(self, sqlite_dialect):
-        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
+        expr = SQLiteReindexExpression(sqlite_dialect, table="users")
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_reindex_index_name(self, sqlite_dialect):
-        expr = SQLiteReindexExpression(sqlite_dialect, index_name="idx_users")
+        expr = SQLiteReindexExpression(sqlite_dialect, index="idx_users")
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
@@ -167,13 +167,13 @@ class TestSQLiteSpecificExpressionTraversal:
         assert restored.to_sql() == detach.to_sql()
 
     def test_column_info_expression(self, sqlite_dialect):
-        expr = SQLiteColumnInfoExpression(sqlite_dialect, table_name="users")
+        expr = SQLiteColumnInfoExpression(sqlite_dialect, table="users")
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_column_info_expression_xinfo(self, sqlite_dialect):
-        expr = SQLiteColumnInfoExpression(sqlite_dialect, table_name="users", use_xinfo_pragma=True)
+        expr = SQLiteColumnInfoExpression(sqlite_dialect, table="users", use_xinfo_pragma=True)
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()

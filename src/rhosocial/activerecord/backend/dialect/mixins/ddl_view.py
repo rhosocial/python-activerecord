@@ -162,7 +162,7 @@ class TruncateMixin:
 
     def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
         """Format TRUNCATE statement (generic implementation)."""
-        sql = f"TRUNCATE TABLE {self.format_identifier(expr.table_name)}"
+        sql = f"TRUNCATE TABLE {self.format_identifier(expr.table)}"
         if expr.restart_identity:
             sql += " RESTART IDENTITY"
         if expr.cascade:

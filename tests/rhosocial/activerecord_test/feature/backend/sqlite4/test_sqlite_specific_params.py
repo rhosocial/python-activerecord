@@ -25,19 +25,19 @@ class TestSQLiteColumnInfoExpressionParams:
 
     def test_default_use_xinfo_pragma(self):
         """Default use_xinfo_pragma should be False."""
-        expr = SQLiteColumnInfoExpression(ALL_VERSION_DIALECT, table_name="users")
+        expr = SQLiteColumnInfoExpression(ALL_VERSION_DIALECT, table="users")
         assert expr.use_xinfo_pragma is False
 
     def test_use_xinfo_pragma_true(self):
         """Setting use_xinfo_pragma=True should be reflected in params."""
-        expr = SQLiteColumnInfoExpression(ALL_VERSION_DIALECT, table_name="users", use_xinfo_pragma=True)
+        expr = SQLiteColumnInfoExpression(ALL_VERSION_DIALECT, table="users", use_xinfo_pragma=True)
         assert expr.use_xinfo_pragma is True
         params = expr.get_params()
         assert params.get("use_xinfo_pragma") is True
 
     def test_use_xinfo_pragma_false_explicit(self):
         """Explicitly setting use_xinfo_pragma=False should be reflected."""
-        expr = SQLiteColumnInfoExpression(ALL_VERSION_DIALECT, table_name="users", use_xinfo_pragma=False)
+        expr = SQLiteColumnInfoExpression(ALL_VERSION_DIALECT, table="users", use_xinfo_pragma=False)
         assert expr.use_xinfo_pragma is False
         params = expr.get_params()
         assert params.get("use_xinfo_pragma") is False
@@ -49,10 +49,10 @@ class TestSQLiteColumnInfoExpressionParams:
             ColumnInfoExpression,
         )
 
-        expr_standard = ColumnInfoExpression(dialect=dialect, table_name="users", schema="main")
+        expr_standard = ColumnInfoExpression(dialect=dialect, table="users", schema="main")
         sql_standard, _ = expr_standard.to_sql()
 
-        expr_hidden = ColumnInfoExpression(dialect=dialect, table_name="users", schema="main", include_hidden=True)
+        expr_hidden = ColumnInfoExpression(dialect=dialect, table="users", schema="main", include_hidden=True)
         sql_hidden, _ = expr_hidden.to_sql()
 
         assert "table_info" in sql_standard and "table_xinfo" not in sql_standard

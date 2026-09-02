@@ -22,7 +22,7 @@ class SQLiteFTS5CreateVirtualTable(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         columns: List[str],
         tokenizer: Optional[str] = None,
         tokenizer_options: Optional[Dict[str, Any]] = None,
@@ -32,7 +32,7 @@ class SQLiteFTS5CreateVirtualTable(BaseExpression):
         tokenize: Optional[str] = None,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        self.table = table
         self.columns = columns
         self.tokenizer = tokenizer
         self.tokenizer_options = tokenizer_options
@@ -51,12 +51,12 @@ class SQLiteFTS5RankExpression(SQLValueExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         weights: Optional[List[float]] = None,
         bm25_params: Optional[Dict[str, float]] = None,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        self.table = table
         self.weights = weights
         self.bm25_params = bm25_params
 
@@ -70,13 +70,13 @@ class SQLiteFTS5HighlightExpression(SQLValueExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         column: str,
         prefix_marker: str = "<b>",
         suffix_marker: str = "</b>",
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        self.table = table
         self.column = column
         self.prefix_marker = prefix_marker
         self.suffix_marker = suffix_marker
@@ -91,7 +91,7 @@ class SQLiteFTS5SnippetExpression(SQLValueExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         column: str,
         prefix_marker: str = "<b>",
         suffix_marker: str = "</b>",
@@ -99,7 +99,7 @@ class SQLiteFTS5SnippetExpression(SQLValueExpression):
         ellipsis: str = "...",
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        self.table = table
         self.column = column
         self.prefix_marker = prefix_marker
         self.suffix_marker = suffix_marker

@@ -275,7 +275,7 @@ class TestAsyncPragmaIntrospectorMaintenance:
         """Test async foreign_key_check for specific table."""
         pragma = async_backend_with_tables.introspector.pragma
 
-        result = await pragma.foreign_key_check(table_name="posts")
+        result = await pragma.foreign_key_check(table="posts")
 
         assert isinstance(result, list)
 

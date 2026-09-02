@@ -24,6 +24,11 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (  # noqa: E402
     IndexDefinition,
 )
+from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
+    IntegerType,
+    TextType,
+    TimestampType,
+)
 
 columns = [
     ColumnDefinition(
@@ -65,7 +70,7 @@ indexes = [
 
 create_expr = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     columns=columns,
     indexes=indexes,
     if_not_exists=True,

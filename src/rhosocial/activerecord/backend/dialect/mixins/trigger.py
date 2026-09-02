@@ -47,7 +47,7 @@ class TriggerMixin:
         if expr.if_not_exists and self.supports_trigger_if_not_exists():
             parts.append("IF NOT EXISTS")
 
-        parts.append(self.format_identifier(expr.trigger_name))
+        parts.append(self.format_identifier(expr.trigger))
 
         parts.append(expr.timing.value)
 
@@ -59,7 +59,7 @@ class TriggerMixin:
         parts.append(events_str)
 
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(self.format_identifier(expr.table))
 
         if expr.referencing and self.supports_trigger_referencing():
             parts.append(expr.referencing)
@@ -89,10 +89,10 @@ class TriggerMixin:
         if expr.if_exists:
             parts.append("IF EXISTS")
 
-        parts.append(self.format_identifier(expr.trigger_name))
+        parts.append(self.format_identifier(expr.trigger))
 
-        if expr.table_name:
+        if expr.table:
             parts.append("ON")
-            parts.append(self.format_identifier(expr.table_name))
+            parts.append(self.format_identifier(expr.table))
 
         return " ".join(parts), ()

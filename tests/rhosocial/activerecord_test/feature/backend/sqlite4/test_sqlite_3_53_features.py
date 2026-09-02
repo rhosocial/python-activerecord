@@ -67,7 +67,7 @@ class TestSQLiteReindexExpression:
     def test_reindex_table(self):
         """Test REINDEX with table name."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-        expr = SQLiteReindexExpression(dialect, table_name="users")
+        expr = SQLiteReindexExpression(dialect, table="users")
         sql, params = expr.to_sql()
         assert sql == 'REINDEX "users"'
         assert params == ()
@@ -75,7 +75,7 @@ class TestSQLiteReindexExpression:
     def test_reindex_index(self):
         """Test REINDEX with index name."""
         dialect = SQLiteDialect(version=(3, 35, 0))
-        expr = SQLiteReindexExpression(dialect, index_name="idx_users_email")
+        expr = SQLiteReindexExpression(dialect, index="idx_users_email")
         sql, params = expr.to_sql()
         assert sql == 'REINDEX "idx_users_email"'
         assert params == ()
@@ -102,21 +102,21 @@ class TestSQLiteReindexExpression:
         """Test that index_name and expressions are mutually exclusive."""
         dialect = SQLiteDialect(version=(3, 53, 0))
         with pytest.raises(ValueError) as exc_info:
-            SQLiteReindexExpression(dialect, index_name="idx", expressions=True)
+            SQLiteReindexExpression(dialect, index="idx", expressions=True)
         assert "cannot be combined" in str(exc_info.value)
 
     def test_reindex_mutually_exclusive_table_and_expressions(self):
         """Test that table_name and expressions are mutually exclusive."""
         dialect = SQLiteDialect(version=(3, 53, 0))
         with pytest.raises(ValueError) as exc_info:
-            SQLiteReindexExpression(dialect, table_name="users", expressions=True)
+            SQLiteReindexExpression(dialect, table="users", expressions=True)
         assert "cannot be combined" in str(exc_info.value)
 
     def test_reindex_mutually_exclusive_index_and_table(self):
         """Test that index_name and table_name are mutually exclusive."""
         dialect = SQLiteDialect(version=(3, 53, 0))
         with pytest.raises(ValueError) as exc_info:
-            SQLiteReindexExpression(dialect, index_name="idx", table_name="users")
+            SQLiteReindexExpression(dialect, index="idx", table="users")
         assert "Cannot specify both" in str(exc_info.value)
 
     def test_supports_reindex_always_true(self):

@@ -120,7 +120,7 @@ def add_amount_column(dialect):
     """
     return AlterTableExpression(
         dialect,
-        table_name="orders",
+        table="orders",
         actions=[
             AddColumn(
                 dialect,
@@ -142,7 +142,7 @@ def add_orders_status_index(dialect):
     return CreateIndexExpression(
         dialect,
         index_name="idx_orders_status",
-        table_name="orders",
+        table="orders",
         columns=["status"],
         if_not_exists=True,
     )

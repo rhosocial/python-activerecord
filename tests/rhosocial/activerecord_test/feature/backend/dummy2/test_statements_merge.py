@@ -45,7 +45,7 @@ class TestMergeStatements:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_values,
             on_condition=on_condition,
             when_matched=[when_matched_update],
@@ -83,7 +83,7 @@ class TestMergeStatements:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_values,
             on_condition=on_condition,
             when_matched=[when_matched_update],
@@ -117,7 +117,7 @@ class TestMergeStatements:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_values,
             on_condition=on_condition,
             when_not_matched=[when_not_matched_insert],
@@ -150,7 +150,7 @@ class TestMergeStatements:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_values,
             on_condition=on_condition,
             when_matched=[when_matched_delete],
@@ -202,7 +202,7 @@ class TestMergeStatements:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_values,
             on_condition=on_condition,
             when_matched=[when_matched],
@@ -244,7 +244,7 @@ class TestMergeStatements:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_cancel,
             on_condition=on_condition,
             when_matched=[when_matched_delete],
@@ -297,7 +297,7 @@ class TestMergeNotMatchedBySource:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_values,
             on_condition=on_condition,
             when_matched=[when_matched_update],
@@ -338,7 +338,7 @@ class TestMergeNotMatchedBySource:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_values,
             on_condition=on_condition,
             when_not_matched_by_source=[when_not_matched_by_source_update],
@@ -381,7 +381,7 @@ class TestMergeNotMatchedBySource:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_values,
             on_condition=on_condition,
             when_not_matched_by_source=[when_not_matched_by_source_delete],

@@ -54,7 +54,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
                 getattr(self, "name", "sqlite"), "Geopoly", "Geopoly requires SQLite 3.26.0 or later."
             )
 
-        table = self.format_identifier(expr.table_name)
+        table = self.format_identifier(expr.table)
         cols = ", ".join(self.format_identifier(c) for c in expr.extra_columns) if expr.extra_columns else ""
         if expr.content_table:
             self._validate_safe_identifier(expr.content_table)
@@ -76,7 +76,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        table = self.format_identifier(expr.table_name)
+        table = self.format_identifier(expr.table)
         sql = f"SELECT * FROM {table} WHERE geopoly_contains_point(_shape, ?, ?)"
         return sql, (expr.longitude, expr.latitude)
 
@@ -89,6 +89,6 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        table = self.format_identifier(expr.table_name)
+        table = self.format_identifier(expr.table)
         sql = f"SELECT *, geopoly_area(_shape) as area FROM {table}"
         return sql, ()

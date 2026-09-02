@@ -32,8 +32,8 @@ class SQLiteReindexMixin:
 
         SQLite REINDEX syntax:
         - REINDEX                          -- Rebuild all indexes
-        - REINDEX table_name               -- Rebuild all indexes on table
-        - REINDEX index_name               -- Rebuild specific index
+        - REINDEX table               -- Rebuild all indexes on table
+        - REINDEX index               -- Rebuild specific index
         - REINDEX EXPRESSIONS              -- Rebuild all expression indexes (3.53.0+)
 
         Args:
@@ -53,11 +53,11 @@ class SQLiteReindexMixin:
                 )
             return "REINDEX EXPRESSIONS", ()
 
-        if expr.index_name:
-            return f"REINDEX {self.format_identifier(expr.index_name)}", ()
+        if expr.index:
+            return f"REINDEX {self.format_identifier(expr.index)}", ()
 
-        if expr.table_name:
-            return f"REINDEX {self.format_identifier(expr.table_name)}", ()
+        if expr.table:
+            return f"REINDEX {self.format_identifier(expr.table)}", ()
 
         return "REINDEX", ()
 

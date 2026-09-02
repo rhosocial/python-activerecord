@@ -282,8 +282,8 @@ class DDLColumnMixin:
 
     def format_drop_index_action(self, action) -> Tuple[str, tuple]:
         if hasattr(action, "if_exists") and action.if_exists:
-            return f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}", ()
-        return f"DROP INDEX {self.format_identifier(action.index_name)}", ()
+            return f"DROP INDEX IF EXISTS {self.format_identifier(action.index)}", ()
+        return f"DROP INDEX {self.format_identifier(action.index)}", ()
 
     def format_rename_column_action(self, action) -> Tuple[str, tuple]:
         return (

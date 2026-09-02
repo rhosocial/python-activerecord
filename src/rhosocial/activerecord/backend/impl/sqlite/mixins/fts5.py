@@ -130,9 +130,9 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
 
         if options:
             opts_str = ", ".join(options)
-            sql = f"CREATE VIRTUAL TABLE {self.format_identifier(expr.table_name)} USING fts5({cols_str}, {opts_str})"
+            sql = f"CREATE VIRTUAL TABLE {self.format_identifier(expr.table)} USING fts5({cols_str}, {opts_str})"
         else:
-            sql = f"CREATE VIRTUAL TABLE {self.format_identifier(expr.table_name)} USING fts5({cols_str})"
+            sql = f"CREATE VIRTUAL TABLE {self.format_identifier(expr.table)} USING fts5({cols_str})"
 
         return sql, ()
 
@@ -155,18 +155,18 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
             for k, v in expr.bm25_params.items():
                 param_parts.extend([f"'{esc(k)}'", str(v)])
             param_str = ", ".join(param_parts)
-            sql = f"bm25({self.format_identifier(expr.table_name)}, {weight_str}, {param_str})"
+            sql = f"bm25({self.format_identifier(expr.table)}, {weight_str}, {param_str})"
         elif expr.weights:
             weight_str = ", ".join(str(w) for w in expr.weights)
-            sql = f"bm25({self.format_identifier(expr.table_name)}, {weight_str})"
+            sql = f"bm25({self.format_identifier(expr.table)}, {weight_str})"
         elif expr.bm25_params:
             param_parts = []
             for k, v in expr.bm25_params.items():
                 param_parts.extend([f"'{esc(k)}'", str(v)])
             param_str = ", ".join(param_parts)
-            sql = f"bm25({self.format_identifier(expr.table_name)}, {param_str})"
+            sql = f"bm25({self.format_identifier(expr.table)}, {param_str})"
         else:
-            sql = f"bm25({self.format_identifier(expr.table_name)})"
+            sql = f"bm25({self.format_identifier(expr.table)})"
 
         return sql, ()
 
@@ -180,7 +180,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
             Tuple of (SQL string, parameters tuple)
         """
         sql = (
-            f"highlight({self.format_identifier(expr.table_name)}, "
+            f"highlight({self.format_identifier(expr.table)}, "
             f"{self.format_identifier(expr.column)}, ?, ?)"
         )
         return sql, (expr.prefix_marker, expr.suffix_marker)
@@ -195,7 +195,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
             Tuple of (SQL string, parameters tuple)
         """
         sql = (
-            f"snippet({self.format_identifier(expr.table_name)}, "
+            f"snippet({self.format_identifier(expr.table)}, "
             f"{self.format_identifier(expr.column)}, ?, ?, ?, ?)"
         )
         return sql, (expr.prefix_marker, expr.suffix_marker, expr.ellipsis, expr.context_tokens)

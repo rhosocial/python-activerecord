@@ -398,18 +398,18 @@ class DropIndex(AlterTableAction):
     """Represents a 'DROP INDEX' action."""
 
     action_type: AlterTableActionType = AlterTableActionType.DROP_INDEX
-    index_name: str
+    index: str
     if_exists: bool
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        index_name: str,
+        index: str,
         *,
         if_exists: bool = False,
     ) -> None:
         super().__init__(dialect)
-        self.index_name: str = index_name
+        self.index: str = index
         self.if_exists: bool = if_exists
 
 
@@ -491,21 +491,21 @@ class AlterTableExpression(BaseExpression):
         # Add column
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="users",
+            table="users",
             actions=[AddColumn(dialect, column=ColumnDefinition("email", "VARCHAR(100)"))]
         )
 
         # Drop column
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="products",
+            table="products",
             actions=[DropColumn(dialect, column_name="description")]
         )
 
         # Multiple actions in one statement
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="orders",
+            table="orders",
             actions=[
                 AddColumn(dialect, column=ColumnDefinition("status", "VARCHAR(20)")),
                 RenameColumn(dialect, old_name="id", new_name="order_id")
@@ -515,7 +515,7 @@ class AlterTableExpression(BaseExpression):
         # Add constraint
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="users",
+            table="users",
             actions=[
                 AddTableConstraint(
                     dialect,
@@ -530,7 +530,7 @@ class AlterTableExpression(BaseExpression):
         # Alter column properties
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="products",
+            table="products",
             actions=[
                 AlterColumn(
                     dialect,
@@ -542,14 +542,14 @@ class AlterTableExpression(BaseExpression):
         )
     """
 
-    table_name: str
+    table: str
     actions: List[AlterTableAction]
     dialect_options: Dict[str, Any]
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         actions: List[AlterTableAction],
         *,  # Force keyword arguments
         dialect_options: Optional[Dict[str, Any]] = None,
@@ -559,7 +559,7 @@ class AlterTableExpression(BaseExpression):
 
         Args:
             dialect: The SQL dialect instance that determines query generation rules
-            table_name: Name of the table to alter
+            table: Name of the table to alter
             actions: List of actions to perform on the table (per SQL standard)
             dialect_options: Additional database-specific parameters
 
@@ -568,7 +568,7 @@ class AlterTableExpression(BaseExpression):
             TypeError: If any action is not an AlterTableAction instance
         """
         super().__init__(dialect)
-        self.table_name: str = table_name
+        self.table: str = table
         # Validate all actions are AlterTableAction instances (dialect already bound)
         for action in actions:
             if not isinstance(action, AlterTableAction):

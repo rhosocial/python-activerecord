@@ -209,7 +209,7 @@ class TestClauseExpressions:
 
         merge_expr = MergeExpression(
             dummy_dialect,
-            target_table=target_table,
+            target=target_table,
             source=source_values,
             on_condition=on_condition,
             when_matched=[when_matched_update],

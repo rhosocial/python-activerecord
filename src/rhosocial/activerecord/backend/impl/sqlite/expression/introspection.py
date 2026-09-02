@@ -21,7 +21,7 @@ class SQLiteColumnInfoExpression(ColumnInfoExpression):
 
     Args:
         dialect: The SQL dialect to use for SQL generation.
-        table_name: The name of the table to query columns for.
+        table: The name of the table to query columns for.
         schema: Optional schema name. Defaults to None.
         include_hidden: Whether to include hidden columns. Defaults to False.
         use_xinfo_pragma: Whether to use PRAGMA table_xinfo instead of table_info.
@@ -31,10 +31,10 @@ class SQLiteColumnInfoExpression(ColumnInfoExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         schema: Optional[str] = None,
         include_hidden: bool = False,
         use_xinfo_pragma: bool = False,
     ):
-        super().__init__(dialect, table_name, schema, include_hidden)
+        super().__init__(dialect, table, schema, include_hidden)
         self.use_xinfo_pragma = use_xinfo_pragma

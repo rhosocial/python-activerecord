@@ -74,20 +74,20 @@ class TestTableInfoToSql:
     """Cover TableInfoExpression.to_sql() delegation and setters."""
 
     def test_table_info_to_sql(self, sqlite_dialect):
-        expr = TableInfoExpression(sqlite_dialect, table_name="users")
+        expr = TableInfoExpression(sqlite_dialect, table="users")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
         assert len(sql) > 0
 
     def test_include_indexes_setter(self, sqlite_dialect):
         """Cover introspection.py:346-347 — include_indexes setter."""
-        expr = TableInfoExpression(sqlite_dialect, table_name="users")
+        expr = TableInfoExpression(sqlite_dialect, table="users")
         result = expr.include_indexes(False)
         assert result is expr
 
     def test_include_foreign_keys_setter(self, sqlite_dialect):
         """Cover introspection.py:365-366 — include_foreign_keys setter."""
-        expr = TableInfoExpression(sqlite_dialect, table_name="users")
+        expr = TableInfoExpression(sqlite_dialect, table="users")
         result = expr.include_foreign_keys(False)
         assert result is expr
 
@@ -96,19 +96,19 @@ class TestColumnInfoToSql:
     """Cover ColumnInfoExpression.to_sql() delegation and setters."""
 
     def test_column_info_to_sql(self, sqlite_dialect):
-        expr = ColumnInfoExpression(sqlite_dialect, table_name="users")
+        expr = ColumnInfoExpression(sqlite_dialect, table="users")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
     def test_table_name_setter(self, sqlite_dialect):
         """Cover introspection.py:438-439 — table_name setter."""
-        expr = ColumnInfoExpression(sqlite_dialect, table_name="old")
-        result = expr.table_name("new")
+        expr = ColumnInfoExpression(sqlite_dialect, table="old")
+        result = expr.table("new")
         assert result is expr
 
     def test_include_hidden_setter(self, sqlite_dialect):
         """Cover introspection.py:457-458 — include_hidden setter."""
-        expr = ColumnInfoExpression(sqlite_dialect, table_name="users")
+        expr = ColumnInfoExpression(sqlite_dialect, table="users")
         result = expr.include_hidden(True)
         assert result is expr
 
@@ -117,14 +117,14 @@ class TestIndexInfoToSql:
     """Cover IndexInfoExpression.to_sql() delegation and setters."""
 
     def test_index_info_to_sql(self, sqlite_dialect):
-        expr = IndexInfoExpression(sqlite_dialect, table_name="users")
+        expr = IndexInfoExpression(sqlite_dialect, table="users")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
     def test_table_name_setter(self, sqlite_dialect):
         """Cover introspection.py:524-525 — table_name setter."""
-        expr = IndexInfoExpression(sqlite_dialect, table_name="old")
-        result = expr.table_name("new")
+        expr = IndexInfoExpression(sqlite_dialect, table="old")
+        result = expr.table("new")
         assert result is expr
 
 
@@ -132,14 +132,14 @@ class TestForeignKeyToSql:
     """Cover ForeignKeyExpression.to_sql() delegation and setters."""
 
     def test_foreign_key_to_sql(self, sqlite_dialect):
-        expr = ForeignKeyExpression(sqlite_dialect, table_name="users")
+        expr = ForeignKeyExpression(sqlite_dialect, table="users")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
     def test_table_name_setter(self, sqlite_dialect):
         """Cover introspection.py:589-590 — table_name setter."""
-        expr = ForeignKeyExpression(sqlite_dialect, table_name="old")
-        result = expr.table_name("new")
+        expr = ForeignKeyExpression(sqlite_dialect, table="old")
+        result = expr.table("new")
         assert result is expr
 
 
@@ -186,18 +186,18 @@ class TestTriggerInfoToSql:
     """Cover TriggerInfoExpression.to_sql() delegation and setters."""
 
     def test_trigger_info_to_sql(self, sqlite_dialect):
-        expr = TriggerInfoExpression(sqlite_dialect, trigger_name="update_ts")
+        expr = TriggerInfoExpression(sqlite_dialect, trigger="update_ts")
         sql, params = expr.to_sql()
         assert isinstance(sql, str)
 
     def test_trigger_name_setter(self, sqlite_dialect):
         """Cover introspection.py:888-889 — trigger_name setter."""
-        expr = TriggerInfoExpression(sqlite_dialect, trigger_name="old")
-        result = expr.trigger_name("new")
+        expr = TriggerInfoExpression(sqlite_dialect, trigger="old")
+        result = expr.trigger("new")
         assert result is expr
 
     def test_for_table_setter(self, sqlite_dialect):
         """Cover introspection.py:906-907 — for_table setter."""
-        expr = TriggerInfoExpression(sqlite_dialect, trigger_name="update_ts")
+        expr = TriggerInfoExpression(sqlite_dialect, trigger="update_ts")
         result = expr.for_table("users")
         assert result is expr

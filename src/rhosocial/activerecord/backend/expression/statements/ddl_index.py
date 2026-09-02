@@ -21,16 +21,16 @@ class CreateIndexExpression(BaseExpression):
         # Basic index
         create_idx = CreateIndexExpression(
             dialect,
-            index_name="idx_users_email",
-            table_name="users",
+            index="idx_users_email",
+            table="users",
             columns=["email"]
         )
 
         # Unique index
         create_idx = CreateIndexExpression(
             dialect,
-            index_name="idx_users_username",
-            table_name="users",
+            index="idx_users_username",
+            table="users",
             columns=["username"],
             unique=True
         )
@@ -38,16 +38,16 @@ class CreateIndexExpression(BaseExpression):
         # Composite index
         create_idx = CreateIndexExpression(
             dialect,
-            index_name="idx_orders_user_date",
-            table_name="orders",
+            index="idx_orders_user_date",
+            table="orders",
             columns=["user_id", "created_at"]
         )
 
         # Partial index (PostgreSQL)
         create_idx = CreateIndexExpression(
             dialect,
-            index_name="idx_active_users",
-            table_name="users",
+            index="idx_active_users",
+            table="users",
             columns=["email"],
             where=Column(dialect, "status") == Literal(dialect, "active")
         )
@@ -55,8 +55,8 @@ class CreateIndexExpression(BaseExpression):
         # Index with specific type
         create_idx = CreateIndexExpression(
             dialect,
-            index_name="idx_users_name_hash",
-            table_name="users",
+            index="idx_users_name_hash",
+            table="users",
             columns=["name"],
             index_type="HASH"
         )
@@ -65,8 +65,8 @@ class CreateIndexExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        index_name: str,
-        table_name: str,
+        index: str,
+        table: str,
         columns: List[Union[str, "BaseExpression"]],
         unique: bool = False,
         if_not_exists: bool = False,
@@ -79,8 +79,8 @@ class CreateIndexExpression(BaseExpression):
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        self.index_name = index_name
-        self.table_name = table_name
+        self.index = index
+        self.table = table
         self.columns = columns
         self.unique = unique
         self.if_not_exists = if_not_exists
@@ -103,36 +103,36 @@ class DropIndexExpression(BaseExpression):
         # Basic drop
         drop_idx = DropIndexExpression(
             dialect,
-            index_name="idx_users_email"
+            index="idx_users_email"
         )
 
         # Drop with IF EXISTS
         drop_idx = DropIndexExpression(
             dialect,
-            index_name="idx_old_index",
+            index="idx_old_index",
             if_exists=True
         )
 
         # Drop with table context (some databases require this)
         drop_idx = DropIndexExpression(
             dialect,
-            index_name="idx_orders_status",
-            table_name="orders"
+            index="idx_orders_status",
+            table="orders"
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        index_name: str,
-        table_name: Optional[str] = None,
+        index: str,
+        table: Optional[str] = None,
         if_exists: bool = False,
         *,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        self.index_name = index_name
-        self.table_name = table_name
+        self.index = index
+        self.table = table
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 
@@ -155,16 +155,16 @@ class CreateFulltextIndexExpression(BaseExpression):
         # Basic FULLTEXT index
         create_ft = CreateFulltextIndexExpression(
             dialect,
-            index_name="idx_articles_content",
-            table_name="articles",
+            index="idx_articles_content",
+            table="articles",
             columns=["title", "content"]
         )
 
         # FULLTEXT index with parser (MySQL)
         create_ft = CreateFulltextIndexExpression(
             dialect,
-            index_name="idx_documents_body",
-            table_name="documents",
+            index="idx_documents_body",
+            table="documents",
             columns=["body"],
             parser="ngram"
         )
@@ -172,8 +172,8 @@ class CreateFulltextIndexExpression(BaseExpression):
         # FULLTEXT index with IF NOT EXISTS
         create_ft = CreateFulltextIndexExpression(
             dialect,
-            index_name="idx_posts_content",
-            table_name="posts",
+            index="idx_posts_content",
+            table="posts",
             columns=["content"],
             if_not_exists=True
         )
@@ -182,8 +182,8 @@ class CreateFulltextIndexExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        index_name: str,
-        table_name: str,
+        index: str,
+        table: str,
         columns: List[str],
         parser: Optional[str] = None,
         if_not_exists: bool = False,
@@ -191,8 +191,8 @@ class CreateFulltextIndexExpression(BaseExpression):
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        self.index_name = index_name
-        self.table_name = table_name
+        self.index = index
+        self.table = table
         self.columns = columns
         self.parser = parser
         self.if_not_exists = if_not_exists
@@ -210,15 +210,15 @@ class DropFulltextIndexExpression(BaseExpression):
         # Basic drop
         drop_ft = DropFulltextIndexExpression(
             dialect,
-            index_name="idx_articles_content",
-            table_name="articles"
+            index="idx_articles_content",
+            table="articles"
         )
 
         # Drop with IF EXISTS
         drop_ft = DropFulltextIndexExpression(
             dialect,
-            index_name="idx_old_fulltext",
-            table_name="old_table",
+            index="idx_old_fulltext",
+            table="old_table",
             if_exists=True
         )
     """
@@ -226,15 +226,15 @@ class DropFulltextIndexExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        index_name: str,
-        table_name: str,
+        index: str,
+        table: str,
         if_exists: bool = False,
         *,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        self.index_name = index_name
-        self.table_name = table_name
+        self.index = index
+        self.table = table
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 

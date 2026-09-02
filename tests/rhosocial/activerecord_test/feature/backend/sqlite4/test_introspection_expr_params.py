@@ -58,7 +58,7 @@ class TestTableInfoExpressionExecution:
 
     def test_constructor_params_execution(self, backend_with_tables):
         """Test TableInfoExpression with constructor params can execute."""
-        expr = TableInfoExpression(dialect=backend_with_tables.dialect, table_name="users", schema="main")
+        expr = TableInfoExpression(dialect=backend_with_tables.dialect, table="users", schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_tables.execute(sql, params)
@@ -66,8 +66,8 @@ class TestTableInfoExpressionExecution:
 
     def test_fluent_vs_constructor_equivalence(self, backend_with_tables):
         """Test fluent API and constructor params produce same SQL."""
-        expr1 = TableInfoExpression(dialect=backend_with_tables.dialect, table_name="users", schema="main")
-        expr2 = TableInfoExpression(dialect=backend_with_tables.dialect, table_name="users").schema("main")
+        expr1 = TableInfoExpression(dialect=backend_with_tables.dialect, table="users", schema="main")
+        expr2 = TableInfoExpression(dialect=backend_with_tables.dialect, table="users").schema("main")
 
         sql1, params1 = expr1.to_sql()
         sql2, params2 = expr2.to_sql()
@@ -80,7 +80,7 @@ class TestColumnInfoExpressionExecution:
 
     def test_constructor_params_execution(self, backend_with_tables):
         """Test ColumnInfoExpression with constructor params can execute."""
-        expr = ColumnInfoExpression(dialect=backend_with_tables.dialect, table_name="users", schema="main")
+        expr = ColumnInfoExpression(dialect=backend_with_tables.dialect, table="users", schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_tables.execute(sql, params)
@@ -89,7 +89,7 @@ class TestColumnInfoExpressionExecution:
     def test_include_hidden_param(self, backend_with_tables):
         """Test ColumnInfoExpression with include_hidden parameter."""
         expr = ColumnInfoExpression(
-            dialect=backend_with_tables.dialect, table_name="users", schema="main", include_hidden=True
+            dialect=backend_with_tables.dialect, table="users", schema="main", include_hidden=True
         )
         sql, params = expr.to_sql()
         result = backend_with_tables.execute(sql, params)
@@ -101,7 +101,7 @@ class TestIndexInfoExpressionExecution:
 
     def test_constructor_params_execution(self, backend_with_tables):
         """Test IndexInfoExpression with constructor params can execute."""
-        expr = IndexInfoExpression(dialect=backend_with_tables.dialect, table_name="users", schema="main")
+        expr = IndexInfoExpression(dialect=backend_with_tables.dialect, table="users", schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_tables.execute(sql, params)
@@ -113,7 +113,7 @@ class TestForeignKeyExpressionExecution:
 
     def test_constructor_params_execution(self, backend_with_tables):
         """Test ForeignKeyExpression with constructor params can execute."""
-        expr = ForeignKeyExpression(dialect=backend_with_tables.dialect, table_name="posts", schema="main")
+        expr = ForeignKeyExpression(dialect=backend_with_tables.dialect, table="posts", schema="main")
         sql, params = expr.to_sql()
         assert sql is not None
         result = backend_with_tables.execute(sql, params)
@@ -173,7 +173,7 @@ class TestTriggerListExpressionExecution:
 
     def test_table_name_filter(self, backend_with_trigger):
         """Test TriggerListExpression with table_name filter."""
-        expr = TriggerListExpression(dialect=backend_with_trigger.dialect, schema="main", table_name="users")
+        expr = TriggerListExpression(dialect=backend_with_trigger.dialect, schema="main", table="users")
         sql, params = expr.to_sql()
         result = backend_with_trigger.execute(sql, params)
         assert result is not None
@@ -185,7 +185,7 @@ class TestTriggerInfoExpressionExecution:
     def test_constructor_params_execution(self, backend_with_trigger):
         """Test TriggerInfoExpression with constructor params can execute."""
         expr = TriggerInfoExpression(
-            dialect=backend_with_trigger.dialect, trigger_name="update_user_timestamp", schema="main"
+            dialect=backend_with_trigger.dialect, trigger="update_user_timestamp", schema="main"
         )
         sql, params = expr.to_sql()
         assert sql is not None
@@ -196,9 +196,9 @@ class TestTriggerInfoExpressionExecution:
         """Test TriggerInfoExpression with table_name parameter."""
         expr = TriggerInfoExpression(
             dialect=backend_with_trigger.dialect,
-            trigger_name="update_user_timestamp",
+            trigger="update_user_timestamp",
             schema="main",
-            table_name="users",
+            table="users",
         )
         sql, params = expr.to_sql()
         result = backend_with_trigger.execute(sql, params)

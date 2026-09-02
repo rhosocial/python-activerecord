@@ -24,10 +24,10 @@ class SQLiteReindexExpression(BaseExpression):
 
     Examples:
         # Rebuild all indexes on a table
-        reindex = SQLiteReindexExpression(dialect, table_name="users")
+        reindex = SQLiteReindexExpression(dialect, table="users")
 
         # Rebuild a specific index
-        reindex = SQLiteReindexExpression(dialect, index_name="idx_users_email")
+        reindex = SQLiteReindexExpression(dialect, index="idx_users_email")
 
         # Rebuild all expression indexes (SQLite 3.53.0+)
         reindex = SQLiteReindexExpression(dialect, expressions=True)
@@ -39,8 +39,8 @@ class SQLiteReindexExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        index_name: Optional[str] = None,
-        table_name: Optional[str] = None,
+        index: Optional[str] = None,
+        table: Optional[str] = None,
         expressions: bool = False,
         *,
         dialect_options: Optional[Dict[str, Any]] = None,
@@ -49,24 +49,24 @@ class SQLiteReindexExpression(BaseExpression):
 
         Args:
             dialect: The SQL dialect instance.
-            index_name: Optional specific index name to rebuild.
-            table_name: Optional table name to rebuild all indexes for.
+            index: Optional specific index name to rebuild.
+            table: Optional table name to rebuild all indexes for.
             expressions: If True, rebuild all expression indexes (SQLite 3.53.0+).
-                Mutually exclusive with index_name and table_name.
+                Mutually exclusive with index and table.
             dialect_options: Additional database-specific options.
 
         Raises:
-            ValueError: If both index_name and table_name are specified,
+            ValueError: If both index and table are specified,
                 or if expressions is True with other parameters.
         """
-        if expressions and (index_name or table_name):
-            raise ValueError("REINDEX EXPRESSIONS cannot be combined with index_name or table_name")
-        if index_name and table_name:
-            raise ValueError("Cannot specify both index_name and table_name for REINDEX")
+        if expressions and (index or table):
+            raise ValueError("REINDEX EXPRESSIONS cannot be combined with index or table")
+        if index and table:
+            raise ValueError("Cannot specify both index and table for REINDEX")
 
         super().__init__(dialect)
-        self.index_name = index_name
-        self.table_name = table_name
+        self.index = index
+        self.table = table
         self.expressions = expressions
         self.dialect_options = dialect_options or {}
 

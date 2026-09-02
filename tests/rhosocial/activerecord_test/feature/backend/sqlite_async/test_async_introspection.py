@@ -279,7 +279,7 @@ class TestAsyncTriggerIntrospection:
     @pytest.mark.asyncio
     async def test_async_list_triggers_for_table(self, async_backend_with_trigger):
         """Test async list_triggers filtered by table."""
-        triggers = await async_backend_with_trigger.introspector.list_triggers(table_name="users")
+        triggers = await async_backend_with_trigger.introspector.list_triggers(table="users")
 
         assert isinstance(triggers, list)
         assert len(triggers) >= 1

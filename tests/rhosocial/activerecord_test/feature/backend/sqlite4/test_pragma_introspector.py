@@ -264,7 +264,7 @@ class TestSyncPragmaIntrospectorMaintenance:
         """Test foreign_key_check for specific table."""
         pragma = backend_with_tables.introspector.pragma
 
-        result = pragma.foreign_key_check(table_name="posts")
+        result = pragma.foreign_key_check(table="posts")
 
         assert isinstance(result, list)
 

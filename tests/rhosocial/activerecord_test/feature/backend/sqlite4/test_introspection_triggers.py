@@ -53,14 +53,14 @@ class TestListTriggers:
 
     def test_list_triggers_filter_by_table(self, backend_with_trigger):
         """Test filtering triggers by table."""
-        triggers = backend_with_trigger.introspector.list_triggers(table_name="users")
+        triggers = backend_with_trigger.introspector.list_triggers(table="users")
 
         for trigger in triggers:
             assert trigger.table_name == "users"
 
     def test_list_triggers_filter_by_other_table(self, backend_with_trigger):
         """Test filtering triggers by table without triggers."""
-        triggers = backend_with_trigger.introspector.list_triggers(table_name="posts")
+        triggers = backend_with_trigger.introspector.list_triggers(table="posts")
 
         # posts table has no triggers
         assert len(triggers) == 0

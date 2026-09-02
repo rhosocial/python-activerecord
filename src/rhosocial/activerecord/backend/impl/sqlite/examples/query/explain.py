@@ -38,7 +38,7 @@ dialect = backend.dialect
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     columns=[
         ColumnDefinition(
             "id",
@@ -65,7 +65,7 @@ backend.execute(sql, params)
 create_index = CreateIndexExpression(
     dialect=dialect,
     index_name="idx_users_email",
-    table_name="users",
+    table="users",
     columns=["email"],
     if_not_exists=True,
 )

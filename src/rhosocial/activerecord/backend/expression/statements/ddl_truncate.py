@@ -19,23 +19,23 @@ class TruncateExpression(BaseExpression):
     additional options like RESTART IDENTITY to reset auto-increment counters.
 
     Basic syntax:
-        TRUNCATE [TABLE] table_name
+        TRUNCATE [TABLE] table
 
     Examples:
         # Basic truncate
-        truncate_expr = TruncateExpression(dialect, table_name="users")
+        truncate_expr = TruncateExpression(dialect, table="users")
 
         # Truncate with restart identity (PostgreSQL)
         truncate_expr = TruncateExpression(
             dialect,
-            table_name="users",
+            table="users",
             restart_identity=True
         )
 
         # Truncate with cascade (PostgreSQL)
         truncate_expr = TruncateExpression(
             dialect,
-            table_name="orders",
+            table="orders",
             cascade=True
         )
     """
@@ -43,7 +43,7 @@ class TruncateExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         restart_identity: bool = False,  # RESTART IDENTITY option (PostgreSQL)
         cascade: bool = False,  # CASCADE option (PostgreSQL)
         *,  # Force keyword arguments
@@ -54,13 +54,13 @@ class TruncateExpression(BaseExpression):
 
         Args:
             dialect: The SQL dialect instance that determines query generation rules
-            table_name: Name of the table to truncate
+            table: Name of the table to truncate
             restart_identity: Whether to restart identity counters (PostgreSQL-specific)
             cascade: Whether to truncate dependent tables as well (PostgreSQL-specific)
             dialect_options: Additional database-specific parameters
         """
         super().__init__(dialect)
-        self.table_name = table_name
+        self.table = table
         self.restart_identity = restart_identity  # For PostgreSQL-style RESTART IDENTITY
         self.cascade = cascade  # For PostgreSQL-style CASCADE
         self.dialect_options = dialect_options or {}

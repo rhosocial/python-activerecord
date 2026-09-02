@@ -5,7 +5,7 @@ Database introspection expression classes.
 This module defines expression classes that collect parameters for
 introspection queries. Expressions separate parameter collection from
 SQL generation:
-- Expressions collect parameters (table_name, schema, options, etc.)
+- Expressions collect parameters (table, schema, options, etc.)
 - Dialect's format_* methods generate SQL from expression parameters
 - Backends execute SQL and parse results
 
@@ -228,7 +228,7 @@ class TableInfoExpression(IntrospectionExpression):
 
     Args:
         dialect: The SQL dialect to use for SQL generation.
-        table_name: The name of the table to query.
+        table: The name of the table to query.
         schema: Optional schema name. Defaults to None.
         include_columns: Whether to include column information. Defaults to True.
         include_indexes: Whether to include index information. Defaults to True.
@@ -242,7 +242,7 @@ class TableInfoExpression(IntrospectionExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         schema: Optional[str] = None,
         include_columns: bool = True,
         include_indexes: bool = True,
@@ -252,19 +252,19 @@ class TableInfoExpression(IntrospectionExpression):
 
         Args:
             dialect: The SQL dialect to use for SQL generation.
-            table_name: The name of the table to query.
+            table: The name of the table to query.
             schema: Optional schema name. Defaults to None.
             include_columns: Whether to include column information. Defaults to True.
             include_indexes: Whether to include index information. Defaults to True.
             include_foreign_keys: Whether to include foreign key info. Defaults to True.
         """
         super().__init__(dialect, schema)
-        self._table_name = table_name
+        self._table = table
         self._include_columns: bool = include_columns
         self._include_indexes: bool = include_indexes
         self._include_foreign_keys: bool = include_foreign_keys
 
-    def table_name(self, name: str) -> "TableInfoExpression":
+    def table(self, name: str) -> "TableInfoExpression":
         """Set the table name to query.
 
         Args:
@@ -274,9 +274,9 @@ class TableInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TableInfoExpression(dialect, 'old_table').table_name('new_table')
+            >>> expr = TableInfoExpression(dialect, 'old_table').table('new_table')
         """
-        self._table_name = name
+        self._table = name
         return self
 
     def include_columns(self, value: bool = True) -> "TableInfoExpression":
@@ -352,7 +352,7 @@ class ColumnInfoExpression(IntrospectionExpression):
 
     Args:
         dialect: The SQL dialect to use for SQL generation.
-        table_name: The name of the table to query columns for.
+        table: The name of the table to query columns for.
         schema: Optional schema name. Defaults to None.
         include_hidden: Whether to include hidden columns. Defaults to False.
 
@@ -364,7 +364,7 @@ class ColumnInfoExpression(IntrospectionExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         schema: Optional[str] = None,
         include_hidden: bool = False,
     ):
@@ -372,15 +372,15 @@ class ColumnInfoExpression(IntrospectionExpression):
 
         Args:
             dialect: The SQL dialect to use for SQL generation.
-            table_name: The name of the table to query columns for.
+            table: The name of the table to query columns for.
             schema: Optional schema name. Defaults to None.
             include_hidden: Whether to include hidden columns. Defaults to False.
         """
         super().__init__(dialect, schema)
-        self._table_name = table_name
+        self._table = table
         self._include_hidden: bool = include_hidden
 
-    def table_name(self, name: str) -> "ColumnInfoExpression":
+    def table(self, name: str) -> "ColumnInfoExpression":
         """Set the table name to query columns for.
 
         Args:
@@ -390,9 +390,9 @@ class ColumnInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = ColumnInfoExpression(dialect, 'old').table_name('new')
+            >>> expr = ColumnInfoExpression(dialect, 'old').table('new')
         """
-        self._table_name = name
+        self._table = name
         return self
 
     def include_hidden(self, value: bool = True) -> "ColumnInfoExpression":
@@ -430,7 +430,7 @@ class IndexInfoExpression(IntrospectionExpression):
 
     Args:
         dialect: The SQL dialect to use for SQL generation.
-        table_name: The name of the table to query indexes for.
+        table: The name of the table to query indexes for.
         schema: Optional schema name. Defaults to None.
 
     Example:
@@ -441,20 +441,20 @@ class IndexInfoExpression(IntrospectionExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         schema: Optional[str] = None,
     ):
         """Initialize the index info expression.
 
         Args:
             dialect: The SQL dialect to use for SQL generation.
-            table_name: The name of the table to query indexes for.
+            table: The name of the table to query indexes for.
             schema: Optional schema name. Defaults to None.
         """
         super().__init__(dialect, schema)
-        self._table_name = table_name
+        self._table = table
 
-    def table_name(self, name: str) -> "IndexInfoExpression":
+    def table(self, name: str) -> "IndexInfoExpression":
         """Set the table name to query indexes for.
 
         Args:
@@ -464,9 +464,9 @@ class IndexInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = IndexInfoExpression(dialect, 'old').table_name('new')
+            >>> expr = IndexInfoExpression(dialect, 'old').table('new')
         """
-        self._table_name = name
+        self._table = name
         return self
 
     def to_sql(self) -> SQLQueryAndParams:
@@ -485,7 +485,7 @@ class ForeignKeyExpression(IntrospectionExpression):
 
     Args:
         dialect: The SQL dialect to use for SQL generation.
-        table_name: The name of the table to query foreign keys for.
+        table: The name of the table to query foreign keys for.
         schema: Optional schema name. Defaults to None.
 
     Example:
@@ -496,20 +496,20 @@ class ForeignKeyExpression(IntrospectionExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: str,
         schema: Optional[str] = None,
     ):
         """Initialize the foreign key expression.
 
         Args:
             dialect: The SQL dialect to use for SQL generation.
-            table_name: The name of the table to query foreign keys for.
+            table: The name of the table to query foreign keys for.
             schema: Optional schema name. Defaults to None.
         """
         super().__init__(dialect, schema)
-        self._table_name = table_name
+        self._table = table
 
-    def table_name(self, name: str) -> "ForeignKeyExpression":
+    def table(self, name: str) -> "ForeignKeyExpression":
         """Set the table name to query foreign keys for.
 
         Args:
@@ -519,9 +519,9 @@ class ForeignKeyExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = ForeignKeyExpression(dialect, 'old').table_name('new')
+            >>> expr = ForeignKeyExpression(dialect, 'old').table('new')
         """
-        self._table_name = name
+        self._table = name
         return self
 
     def to_sql(self) -> SQLQueryAndParams:
@@ -680,36 +680,36 @@ class TriggerListExpression(IntrospectionExpression):
     Args:
         dialect: The SQL dialect to use for SQL generation.
         schema: Optional schema name. Defaults to None.
-        table_name: Optional table name to filter triggers. Defaults to None.
+        table: Optional table name to filter triggers. Defaults to None.
 
     Example:
         >>> # List all triggers
         >>> expr = TriggerListExpression(dialect)
         >>> # List triggers for a specific table
-        >>> expr = TriggerListExpression(dialect, table_name='users')
+        >>> expr = TriggerListExpression(dialect, table='users')
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         schema: Optional[str] = None,
-        table_name: Optional[str] = None,
+        table: Optional[str] = None,
     ):
         """Initialize the trigger list expression.
 
         Args:
             dialect: The SQL dialect to use for SQL generation.
             schema: Optional schema name. Defaults to None.
-            table_name: Optional table name to filter triggers. Defaults to None.
+            table: Optional table name to filter triggers. Defaults to None.
         """
         super().__init__(dialect, schema)
-        self._table_name: Optional[str] = table_name
+        self._table: Optional[str] = table
 
-    def for_table(self, table_name: str) -> "TriggerListExpression":
+    def for_table(self, table: str) -> "TriggerListExpression":
         """Filter triggers for a specific table.
 
         Args:
-            table_name: The table name to filter triggers by.
+            table: The table name to filter triggers by.
 
         Returns:
             Self for method chaining.
@@ -717,7 +717,7 @@ class TriggerListExpression(IntrospectionExpression):
         Example:
             >>> expr = TriggerListExpression(dialect).for_table('users')
         """
-        self._table_name = table_name
+        self._table = table
         return self
 
     def to_sql(self) -> SQLQueryAndParams:
@@ -737,35 +737,35 @@ class TriggerInfoExpression(IntrospectionExpression):
 
     Args:
         dialect: The SQL dialect to use for SQL generation.
-        trigger_name: The name of the trigger to query.
+        trigger: The name of the trigger to query.
         schema: Optional schema name. Defaults to None.
-        table_name: Optional associated table name. Defaults to None.
+        table: Optional associated table name. Defaults to None.
 
     Example:
-        >>> expr = TriggerInfoExpression(dialect, 'my_trigger', table_name='users')
+        >>> expr = TriggerInfoExpression(dialect, 'my_trigger', table='users')
         >>> sql, params = expr.to_sql()
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        trigger_name: str,
+        trigger: str,
         schema: Optional[str] = None,
-        table_name: Optional[str] = None,
+        table: Optional[str] = None,
     ):
         """Initialize the trigger info expression.
 
         Args:
             dialect: The SQL dialect to use for SQL generation.
-            trigger_name: The name of the trigger to query.
+            trigger: The name of the trigger to query.
             schema: Optional schema name. Defaults to None.
-            table_name: Optional associated table name. Defaults to None.
+            table: Optional associated table name. Defaults to None.
         """
         super().__init__(dialect, schema)
-        self._trigger_name = trigger_name
-        self._table_name: Optional[str] = table_name
+        self._trigger = trigger
+        self._table: Optional[str] = table
 
-    def trigger_name(self, name: str) -> "TriggerInfoExpression":
+    def trigger(self, name: str) -> "TriggerInfoExpression":
         """Set the trigger name to query.
 
         Args:
@@ -775,19 +775,19 @@ class TriggerInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TriggerInfoExpression(dialect, 'old').trigger_name('new')
+            >>> expr = TriggerInfoExpression(dialect, 'old').trigger('new')
         """
-        self._trigger_name = name
+        self._trigger = name
         return self
 
-    def for_table(self, table_name: str) -> "TriggerInfoExpression":
+    def for_table(self, table: str) -> "TriggerInfoExpression":
         """Set the associated table name.
 
         Some databases require the table name to uniquely identify a trigger,
         as trigger names may not be globally unique.
 
         Args:
-            table_name: The associated table name.
+            table: The associated table name.
 
         Returns:
             Self for method chaining.
@@ -795,7 +795,7 @@ class TriggerInfoExpression(IntrospectionExpression):
         Example:
             >>> expr = TriggerInfoExpression(dialect, 'my_trigger').for_table('users')
         """
-        self._table_name = table_name
+        self._table = table
         return self
 
     def to_sql(self) -> SQLQueryAndParams:

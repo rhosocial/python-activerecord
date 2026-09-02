@@ -41,8 +41,8 @@ class CreateTriggerExpression(BaseExpression):
         # Basic trigger
         create_trigger = CreateTriggerExpression(
             dialect,
-            trigger_name="update_timestamp",
-            table_name="users",
+            trigger="update_timestamp",
+            table="users",
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             function_name="update_updated_at_column"
@@ -51,8 +51,8 @@ class CreateTriggerExpression(BaseExpression):
         # Trigger with condition
         create_trigger = CreateTriggerExpression(
             dialect,
-            trigger_name="check_status",
-            table_name="orders",
+            trigger="check_status",
+            table="orders",
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             update_columns=["status"],
@@ -65,8 +65,8 @@ class CreateTriggerExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        trigger_name: str,
-        table_name: str,
+        trigger: str,
+        table: str,
         timing: TriggerTiming,
         events: List[TriggerEvent],
         function_name: str,
@@ -79,8 +79,8 @@ class CreateTriggerExpression(BaseExpression):
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        self.trigger_name = trigger_name
-        self.table_name = table_name
+        self.trigger = trigger
+        self.table = table
         self.timing = timing
         self.events = events
         self.function_name = function_name
@@ -101,23 +101,23 @@ class DropTriggerExpression(BaseExpression):
     Examples:
         drop_trigger = DropTriggerExpression(
             dialect,
-            trigger_name="update_timestamp",
-            table_name="users"
+            trigger="update_timestamp",
+            table="users"
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        trigger_name: str,
-        table_name: Optional[str] = None,
+        trigger: str,
+        table: Optional[str] = None,
         if_exists: bool = False,
         *,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        self.trigger_name = trigger_name
-        self.table_name = table_name
+        self.trigger = trigger
+        self.table = table
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 

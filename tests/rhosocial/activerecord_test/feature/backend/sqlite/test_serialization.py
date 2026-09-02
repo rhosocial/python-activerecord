@@ -33,14 +33,14 @@ class TestSQLiteSpecificExpressionSerialization:
 
     def test_reindex_expression_table_name(self, sqlite_dialect):
         """Test REINDEX with table_name."""
-        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
+        expr = SQLiteReindexExpression(sqlite_dialect, table="users")
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_reindex_expression_index_name(self, sqlite_dialect):
         """Test REINDEX with index_name."""
-        expr = SQLiteReindexExpression(sqlite_dialect, index_name="idx_users")
+        expr = SQLiteReindexExpression(sqlite_dialect, index="idx_users")
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
@@ -54,7 +54,7 @@ class TestSQLiteSpecificExpressionSerialization:
 
     def test_reindex_expression_with_dialect_options(self, sqlite_dialect):
         """Test REINDEX with dialect_options."""
-        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users", dialect_options={"temp": True})
+        expr = SQLiteReindexExpression(sqlite_dialect, table="users", dialect_options={"temp": True})
         spec = serialize(expr)
         assert spec["params"]["dialect_options"] == {"temp": True}
         restored = deserialize(spec, sqlite_dialect)

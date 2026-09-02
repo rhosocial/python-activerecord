@@ -310,11 +310,11 @@ class TestIntrospectionExpressionStructure:
 
     def test_index_info_table_name(self, dialect):
         expr = IndexInfoExpression(dialect, "users")
-        assert expr.get_params()["table_name"] == "users"
+        assert expr.get_params()["table"] == "users"
 
     def test_foreign_key_table_name(self, dialect):
         expr = ForeignKeyExpression(dialect, "users")
-        assert expr.get_params()["table_name"] == "users"
+        assert expr.get_params()["table"] == "users"
 
     def test_view_list(self, dialect):
         expr = ViewListExpression(dialect)
@@ -329,28 +329,28 @@ class TestIntrospectionExpressionStructure:
     def test_trigger_info(self, dialect):
         expr = TriggerInfoExpression(dialect, "my_trigger").for_table("users")
         params = expr.get_params()
-        assert params["trigger_name"] == "my_trigger"
-        assert params["table_name"] == "users"
+        assert params["trigger"] == "my_trigger"
+        assert params["table"] == "users"
 
     def test_trigger_list(self, dialect):
         expr = TriggerInfoExpression(dialect, "t").for_table("users")
-        assert "table_name" in expr.get_params()
+        assert "table" in expr.get_params()
 
     def test_table_info_table_name_setter(self, dialect):
-        expr = TableInfoExpression(dialect, "old").table_name("new")
-        assert expr.get_params()["table_name"] == "new"
+        expr = TableInfoExpression(dialect, "old").table("new")
+        assert expr.get_params()["table"] == "new"
 
     def test_column_info_table_name_setter(self, dialect):
-        expr = ColumnInfoExpression(dialect, "old").table_name("new")
-        assert expr.get_params()["table_name"] == "new"
+        expr = ColumnInfoExpression(dialect, "old").table("new")
+        assert expr.get_params()["table"] == "new"
 
     def test_index_info_table_name_setter(self, dialect):
-        expr = IndexInfoExpression(dialect, "old").table_name("new")
-        assert expr.get_params()["table_name"] == "new"
+        expr = IndexInfoExpression(dialect, "old").table("new")
+        assert expr.get_params()["table"] == "new"
 
     def test_foreign_key_table_name_setter(self, dialect):
-        expr = ForeignKeyExpression(dialect, "old").table_name("new")
-        assert expr.get_params()["table_name"] == "new"
+        expr = ForeignKeyExpression(dialect, "old").table("new")
+        assert expr.get_params()["table"] == "new"
 
     def test_view_info_view_name_setter(self, dialect):
         expr = ViewInfoExpression(dialect, "old").view_name("new")
@@ -397,8 +397,8 @@ class TestCrossTypeDataTypes:
     def test_trigger_info_trigger_name_setter(self, dialect):
         from rhosocial.activerecord.backend.expression.introspection import TriggerInfoExpression
 
-        expr = TriggerInfoExpression(dialect, "old").trigger_name("new")
-        assert expr.get_params()["trigger_name"] == "new"
+        expr = TriggerInfoExpression(dialect, "old").trigger("new")
+        assert expr.get_params()["trigger"] == "new"
 
 
 class TestXmlFunctionsTupleArgs:

@@ -18,8 +18,8 @@ class TestTriggerMixinFormatMethods:
 
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
-            trigger_name="audit_trigger",
-            table_name="users",
+            trigger="audit_trigger",
+            table="users",
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.INSERT],
             function_name="log_audit",
@@ -48,8 +48,8 @@ class TestTriggerMixinFormatMethods:
         condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
-            trigger_name="status_trigger",
-            table_name="orders",
+            trigger="status_trigger",
+            table="orders",
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             function_name="validate_status",
@@ -72,8 +72,8 @@ class TestTriggerMixinFormatMethods:
 
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
-            trigger_name="bulk_trigger",
-            table_name="logs",
+            trigger="bulk_trigger",
+            table="logs",
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.INSERT],
             function_name="process_bulk",
@@ -94,8 +94,8 @@ class TestTriggerMixinFormatMethods:
 
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
-            trigger_name="ref_trigger",
-            table_name="audit_log",
+            trigger="ref_trigger",
+            table="audit_log",
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             function_name="capture_changes",
@@ -117,8 +117,8 @@ class TestTriggerMixinFormatMethods:
 
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
-            trigger_name="safe_trigger",
-            table_name="data",
+            trigger="safe_trigger",
+            table="data",
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.INSERT],
             function_name="validate_data",
@@ -139,8 +139,8 @@ class TestTriggerMixinFormatMethods:
 
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
-            trigger_name="col_trigger",
-            table_name="products",
+            trigger="col_trigger",
+            table="products",
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             update_columns=["price", "quantity"],
@@ -157,7 +157,7 @@ class TestTriggerMixinFormatMethods:
         """Tests format_drop_trigger_statement basic case."""
         from rhosocial.activerecord.backend.expression.statements import DropTriggerExpression
 
-        drop_trigger = DropTriggerExpression(dummy_dialect, trigger_name="old_trigger", table_name="users")
+        drop_trigger = DropTriggerExpression(dummy_dialect, trigger="old_trigger", table="users")
         sql, params = dummy_dialect.format_drop_trigger_statement(drop_trigger)
 
         assert "DROP TRIGGER" in sql
@@ -171,7 +171,7 @@ class TestTriggerMixinFormatMethods:
         from rhosocial.activerecord.backend.expression.statements import DropTriggerExpression
 
         drop_trigger = DropTriggerExpression(
-            dummy_dialect, trigger_name="maybe_trigger", table_name="temp", if_exists=True
+            dummy_dialect, trigger="maybe_trigger", table="temp", if_exists=True
         )
         sql, params = dummy_dialect.format_drop_trigger_statement(drop_trigger)
 
@@ -183,7 +183,7 @@ class TestTriggerMixinFormatMethods:
         """Tests format_drop_trigger_statement without table name."""
         from rhosocial.activerecord.backend.expression.statements import DropTriggerExpression
 
-        drop_trigger = DropTriggerExpression(dummy_dialect, trigger_name="standalone_trigger")
+        drop_trigger = DropTriggerExpression(dummy_dialect, trigger="standalone_trigger")
         sql, params = dummy_dialect.format_drop_trigger_statement(drop_trigger)
 
         assert "DROP TRIGGER" in sql

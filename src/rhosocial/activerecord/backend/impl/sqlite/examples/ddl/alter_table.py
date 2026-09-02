@@ -21,6 +21,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
@@ -29,11 +30,11 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     columns=[
         ColumnDefinition(
             "id",
-            "INTEGER",
+            IntegerType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -41,7 +42,7 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(
             "name",
-            "TEXT",
+            TextType(),
             constraints=[
                 ColumnConstraint(ColumnConstraintType.NOT_NULL),
             ],
@@ -84,7 +85,7 @@ add_col_action = AddColumn(
 
 add_col_expr = AlterTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     actions=[add_col_action],
 )
 
@@ -103,7 +104,7 @@ rename_action = RenameColumn(
 
 rename_expr = AlterTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     actions=[rename_action],
 )
 

@@ -161,7 +161,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 result["character_maximum_length"] = value
         return result
 
-    def _parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str,
+    def _parse_columns(self, rows: List[Dict[str, Any]], table: str, schema: str,
                        ddl: Optional[str] = None) -> List[ColumnInfo]:
         columns = []
         has_auto_increment = ddl is not None and "AUTOINCREMENT" in ddl.upper()
@@ -189,7 +189,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             columns.append(
                 ColumnInfo(
                     name=row["name"],
-                    table_name=table_name,
+                    table_name=table,
                     schema=schema,
                     ordinal_position=row["cid"] + 1,
                     data_type=base_type.lower(),
@@ -210,7 +210,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             )
         return columns
 
-    def _parse_indexes(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IndexInfo]:
+    def _parse_indexes(self, rows: List[Dict[str, Any]], table: str, schema: str) -> List[IndexInfo]:
         if not rows:
             return []
         idx_map: Dict[str, IndexInfo] = {}
@@ -222,7 +222,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 is_primary = idx_name.startswith("sqlite_autoindex_")
                 idx_map[idx_name] = IndexInfo(
                     name=idx_name,
-                    table_name=table_name,
+                    table_name=table,
                     schema=schema,
                     is_unique=is_unique,
                     is_primary=is_primary,
@@ -240,7 +240,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 )
         return list(idx_map.values())
 
-    def _parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[ForeignKeyInfo]:
+    def _parse_foreign_keys(self, rows: List[Dict[str, Any]], table: str, schema: str) -> List[ForeignKeyInfo]:
         if not rows:
             return []
         fk_map: Dict[int, ForeignKeyInfo] = {}
@@ -263,8 +263,8 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                     ReferentialAction.NO_ACTION,
                 )
                 fk_map[fk_id] = ForeignKeyInfo(
-                    name=f"fk_{table_name}_{fk_id}",
-                    table_name=table_name,
+                    name=f"fk_{table}_{fk_id}",
+                    table_name=table,
                     schema=schema,
                     referenced_table=row["table"],
                     on_update=on_update,
@@ -335,27 +335,27 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     # Override list_columns for auto-increment detection
     # ------------------------------------------------------------------ #
 
-    def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
+    def list_columns(self, table: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """List columns, with auto-increment detection from DDL."""
         target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.COLUMN, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
 
-        sql, params = self._build_column_info_sql(table_name, schema)
+        sql, params = self._build_column_info_sql(table, schema)
         rows = self._executor.execute(sql, params)
 
         # Query the DDL for AUTOINCREMENT detection
         ddl = None
         ddl_result = self._executor.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name=? AND tbl_name=?",
-            (table_name, table_name),
+            (table, table),
         )
         if ddl_result and ddl_result[0].get("sql"):
             ddl = ddl_result[0]["sql"]
 
-        result = self._parse_columns(rows, table_name, target_db, ddl=ddl)
+        result = self._parse_columns(rows, table, target_db, ddl=ddl)
         self._set_cached(key, result)
         return result
 
@@ -363,7 +363,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     # Override list_indexes for SQLite's two-step index query
     # ------------------------------------------------------------------ #
 
-    def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
+    def list_indexes(self, table: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of the given table.
 
         SQLite requires two queries:
@@ -371,13 +371,13 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         2. PRAGMA index_xinfo(index) - get column info for each index
         """
         target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.INDEX, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
 
         # Step 1: Get index list
-        index_rows = self.pragma.index_list(table_name, target_db)
+        index_rows = self.pragma.index_list(table, target_db)
         if not index_rows:
             return []
 
@@ -433,7 +433,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
             indexes.append(
                 IndexInfo(
                     name=idx_name,
-                    table_name=table_name,
+                    table_name=table,
                     schema=target_db,
                     is_unique=is_unique,
                     is_primary=is_primary,
@@ -452,25 +452,25 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     # list_tables() call and populates columns/indexes/FKs in one sweep.
     # ------------------------------------------------------------------ #
 
-    def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
+    def get_table_info(self, table: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.TABLE, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
 
         tables = self.list_tables(schema)
-        table = next((t for t in tables if t.name == table_name), None)
-        if table is None:
+        found = next((t for t in tables if t.name == table), None)
+        if found is None:
             return None
 
         # Copy to avoid mutating the object stored in the list_tables() cache
-        table = copy.copy(table)
-        table.columns = self.list_columns(table_name, schema)
-        table.indexes = self.list_indexes(table_name, schema)
-        table.foreign_keys = self.list_foreign_keys(table_name, schema)
-        self._set_cached(key, table)
-        return table
+        info = copy.copy(found)
+        info.columns = self.list_columns(table, schema)
+        info.indexes = self.list_indexes(table, schema)
+        info.foreign_keys = self.list_foreign_keys(table, schema)
+        self._set_cached(key, info)
+        return info
 
 
 class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector):
@@ -511,27 +511,27 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     # Override list_columns for auto-increment detection
     # ------------------------------------------------------------------ #
 
-    async def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
+    async def list_columns(self, table: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """List columns, with auto-increment detection from DDL."""
         target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.COLUMN, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
 
-        sql, params = self._build_column_info_sql(table_name, schema)
+        sql, params = self._build_column_info_sql(table, schema)
         rows = await self._executor.execute(sql, params)
 
         # Query the DDL for AUTOINCREMENT detection
         ddl = None
         ddl_result = await self._executor.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name=? AND tbl_name=?",
-            (table_name, table_name),
+            (table, table),
         )
         if ddl_result and ddl_result[0].get("sql"):
             ddl = ddl_result[0]["sql"]
 
-        result = self._parse_columns(rows, table_name, target_db, ddl=ddl)
+        result = self._parse_columns(rows, table, target_db, ddl=ddl)
         self._set_cached(key, result)
         return result
 
@@ -539,7 +539,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     # Override list_indexes for SQLite's two-step index query
     # ------------------------------------------------------------------ #
 
-    async def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
+    async def list_indexes(self, table: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of the given table.
 
         SQLite requires two queries:
@@ -547,13 +547,13 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         2. PRAGMA index_xinfo(index) - get column info for each index
         """
         target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.INDEX, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
 
         # Step 1: Get index list
-        index_rows = await self.pragma.index_list(table_name, target_db)
+        index_rows = await self.pragma.index_list(table, target_db)
         if not index_rows:
             return []
 
@@ -609,7 +609,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
             indexes.append(
                 IndexInfo(
                     name=idx_name,
-                    table_name=table_name,
+                    table_name=table,
                     schema=target_db,
                     is_unique=is_unique,
                     is_primary=is_primary,
@@ -628,22 +628,22 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     # list_tables() call and populates columns/indexes/FKs in one sweep.
     # ------------------------------------------------------------------ #
 
-    async def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
+    async def get_table_info(self, table: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         schema or self._get_default_schema()
-        key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
+        key = self._make_cache_key(IntrospectionScope.TABLE, table, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
 
         tables = await self.list_tables(schema)
-        table = next((t for t in tables if t.name == table_name), None)
-        if table is None:
+        found = next((t for t in tables if t.name == table), None)
+        if found is None:
             return None
 
         # Copy to avoid mutating the object stored in the list_tables() cache
-        table = copy.copy(table)
-        table.columns = await self.list_columns(table_name, schema)
-        table.indexes = await self.list_indexes(table_name, schema)
-        table.foreign_keys = await self.list_foreign_keys(table_name, schema)
-        self._set_cached(key, table)
-        return table
+        info = copy.copy(found)
+        info.columns = await self.list_columns(table, schema)
+        info.indexes = await self.list_indexes(table, schema)
+        info.foreign_keys = await self.list_foreign_keys(table, schema)
+        self._set_cached(key, info)
+        return info
