@@ -100,44 +100,70 @@ class UseAdapter:
 
 
 class UseSqlType:
-    """Marker for ``Annotated[T, UseSqlType(type_def)]``.
+    """Marker for ``Annotated[T, UseSqlType(*type_defs)]``.
 
-    Instructs the DDL generator to use the supplied SQL ``DataType`` instance
+    Instructs the DDL generator to use the supplied SQL ``DataType`` instance(s)
     when building a ``ColumnDefinition`` for this field, overriding the dialect's
     default type suggestion for ``T``.
 
-    The instance may be a core **generic** type (portable — every backend renders
-    it, natively or via the SQL-standard default) or a **backend-specific** type
-    (``<Backend>*Type``, e.g. ``PostgresJsonBType``). Backend-specific types are
-    rendered only by backends that register them; any other backend raises at
-    render time rather than silently substituting a lossy form.
+    One or more ``DataType`` instances may be declared. At DDL-generation time
+    the generator picks the **first** declared type the current backend's dialect
+    can render (``dialect.supports_data_type``); if none matches, it falls back
+    to ``dialect.suggest_column_type(python_type)``, and raises if that also
+    yields nothing. Declaration order therefore expresses backend priority.
+
+    Each instance may be a core **generic** type (portable — every backend
+    renders it, natively or via the SQL-standard default) or a **backend-specific**
+    type (``<Backend>*Type``, e.g. ``PostgresJsonBType``, which renders only on
+    its owning backend). Backend-specific types render only on backends that
+    register them; any other backend skips them (and falls back) rather than
+    silently substituting a lossy form.
 
     Examples::
 
         # Generic — portable across backends
         status: Annotated[str, UseSqlType(VarCharType(length=50))]
 
-        # Backend-specific — renders only on the owning backend (PostgreSQL here)
-        metadata: Annotated[dict, UseSqlType(JsonBType())]
+        # Backend-priority: JSONB on PostgreSQL, JSON elsewhere, LONGTEXT on
+        # MySQL < 5.7 (where JSON is unavailable)
+        payload: Annotated[dict, UseSqlType(
+            PostgresJsonBType(), JsonType(), MySQLLongTextType(),
+        )]
 
     Attributes:
-        data_type: The ``DataType`` instance to use.
+        data_types: Tuple of the declared ``DataType`` instances (deduplicated,
+            first occurrence wins), in declaration order.
+        data_type: The first (primary) ``DataType`` instance — kept as a
+            convenience alias for single-type use.
     """
 
-    def __init__(self, data_type: "DataType"):
+    def __init__(self, *data_types: "DataType"):
         from ..backend.expression.types import DataType
 
-        if not isinstance(data_type, DataType):
+        if not data_types:
             raise TypeError(
-                f"UseSqlType expects a single DataType instance, got "
-                f"{type(data_type).__name__}. Per-dialect string-keyed mappings "
-                f"are no longer supported: use a generic type (each backend "
-                f"resolves it natively) or a backend-specific type."
+                "UseSqlType requires at least one DataType instance, e.g. "
+                "UseSqlType(VarCharType(length=50))."
             )
-        self.data_type = data_type
+        for t in data_types:
+            if not isinstance(t, DataType):
+                raise TypeError(
+                    f"UseSqlType expects one or more DataType instances, got "
+                    f"{type(t).__name__}. Per-dialect string-keyed mappings are "
+                    f"not supported: use a generic type (each backend resolves "
+                    f"it natively), a backend-specific type, or several types "
+                    f"in declaration order."
+                )
+        # Deduplicate by value-object equality; keep first occurrence.
+        seen: list = []
+        for t in data_types:
+            if t not in seen:
+                seen.append(t)
+        self.data_types: tuple = tuple(seen)
+        self.data_type = self.data_types[0]
 
     def __repr__(self) -> str:
-        return f"UseSqlType({self.data_type!r})"
+        return f"UseSqlType({', '.join(repr(t) for t in self.data_types)})"
 
 
 class UseIndex:

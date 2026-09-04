@@ -224,15 +224,38 @@ class ModelSchemaGenerator:
     ) -> Any:
         """Resolve a field's SQL ``DataType``.
 
-        ``UseSqlType`` carries the exact ``DataType`` instance to use; there is
-        no per-dialect resolution — a generic type is rendered by every backend
-        (natively or via the SQL-standard default), while a backend-specific
-        type is rendered only by backends that register it (others raise at
-        render time). If no ``UseSqlType`` is present, the dialect's type
-        suggestion for the field's Python type is consulted.
+        When a ``UseSqlType`` declaration is present, the first declared type
+        the current dialect can render is selected (declaration order = backend
+        priority). If none matches, the dialect's own type suggestion for the
+        field's Python type is consulted; if that also yields nothing, an error
+        is raised (the user explicitly declared types, so we do not silently
+        substitute a neutral fallback).
+
+        Without a declaration, the dialect's suggestion is used, then the
+        backend-neutral map, then ``IntegerType`` as a last resort.
         """
         if use_sql_type is not None:
-            return use_sql_type.data_type
+            selected = cls._select_supported_type(use_sql_type.data_types, dialect)
+            if selected is not None:
+                return selected
+            python_type = _python_type_of(field)
+            suggest = getattr(dialect, "suggest_column_type", None)
+            if suggest is not None and python_type is not None:
+                server_version = getattr(dialect, "_version", None)
+                suggested = suggest(python_type, server_version)
+                if suggested is not None:
+                    return suggested
+            dialect_name = getattr(dialect, "name", type(dialect).__name__)
+            declared = ", ".join(
+                f"{type(t).__module__}.{type(t).__qualname__}"
+                for t in use_sql_type.data_types
+            )
+            raise TypeError(
+                f"{dialect_name}: none of the declared UseSqlType types is "
+                f"renderable here ({declared}) and there is no suggested type "
+                f"for {python_type or 'unknown'}. Declare a type this backend "
+                f"supports or remove the declaration to use the backend default."
+            )
         python_type = _python_type_of(field)
         suggest = getattr(dialect, "suggest_column_type", None)
         if suggest is not None and python_type is not None:
@@ -248,6 +271,17 @@ class ModelSchemaGenerator:
             return _NEUTRAL_TYPE_SUGGESTIONS[python_type]
         # Ultimate neutral fallback.
         return IntegerType()
+
+    @staticmethod
+    def _select_supported_type(data_types: tuple, dialect: Any) -> Optional[Any]:
+        """Return the first declared type the dialect can render, else None."""
+        supports = getattr(dialect, "supports_data_type", None)
+        if supports is None:
+            return None
+        for dt in data_types:
+            if supports(dt):
+                return dt
+        return None
 
     @staticmethod
     def _primary_key_column_constraint(

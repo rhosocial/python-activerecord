@@ -88,8 +88,16 @@ class DDLFieldAnnotationHandler:
             )
             if not hasattr(field_type, "__metadata__"):
                 continue
+            seen_sql_type = False
             for meta in field_type.__metadata__:
                 if isinstance(meta, UseSqlType) and meta.data_type is not None:
+                    if seen_sql_type:
+                        raise TypeError(
+                            f"Field {field_name!r} declares multiple UseSqlType "
+                            f"markers. Combine the types into a single "
+                            f"UseSqlType(type_a, type_b, ...) instead."
+                        )
+                    seen_sql_type = True
                     sql_types[field_name] = meta
                 elif isinstance(meta, UseIndex):
                     indexes.setdefault(field_name, []).append(

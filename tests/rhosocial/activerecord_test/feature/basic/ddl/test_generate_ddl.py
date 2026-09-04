@@ -130,12 +130,21 @@ class TestFieldLevelDeclarations:
 
     def test_use_sql_type_dict_form_rejected(self):
         """Per-dialect string-keyed mappings are no longer supported."""
-        with pytest.raises(TypeError, match="single DataType"):
+        with pytest.raises(TypeError, match="DataType instances"):
             UseSqlType({"postgres": JsonBType(), "default": TextType()})
 
     def test_use_sql_type_non_datatype_rejected(self):
-        with pytest.raises(TypeError, match="single DataType"):
+        with pytest.raises(TypeError, match="DataType instances"):
             UseSqlType("VARCHAR(255)")
+
+    def test_use_sql_type_empty_rejected(self):
+        with pytest.raises(TypeError, match="at least one DataType"):
+            UseSqlType()
+
+    def test_use_sql_type_multiple_and_dedupe(self):
+        u = UseSqlType(JsonType(), JsonType(), TextType())
+        assert [type(t).__name__ for t in u.data_types] == ["JsonType", "TextType"]
+        assert type(u.data_type).__name__ == "JsonType"
 
     def test_use_index_to_index_definition(self):
         idxs = _Article.__table_field_indexes__["slug"]
@@ -446,3 +455,69 @@ class TestTypeVocabulary:
         dialect = DummyDialect()
         assert dialect.format_data_type(CustomType(raw="geometry(Point,4326)")) == (
             "geometry(Point,4326)", ())
+
+
+# ---------------------------------------------------------------------------
+# Multi-type UseSqlType: first-renderable selection / fallback / error
+# ---------------------------------------------------------------------------
+
+class TestMultiTypeSelection:
+
+    def _generate(self, model, dialect):
+        return ModelSchemaGenerator.generate_create_table(model, dialect)
+
+    def test_first_renderable_type_selected(self):
+        """JsonBType (postgres-only) is skipped on sqlite; JsonType wins."""
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        class _M(ActiveRecord):
+            payload: Annotated[dict, UseSqlType(JsonBType(), JsonType())]
+
+        expr = self._generate(_M, SQLiteDialect())
+        assert isinstance(expr.columns[0].data_type, JsonType)
+
+    def test_declaration_order_is_priority(self):
+        """When both are renderable, the first declared type wins."""
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+        class _A(ActiveRecord):
+            payload: Annotated[dict, UseSqlType(JsonType(), TextType())]
+
+        class _B(ActiveRecord):
+            payload: Annotated[dict, UseSqlType(TextType(), JsonType())]
+
+        expr_a = self._generate(_A, DummyDialect())
+        expr_b = self._generate(_B, DummyDialect())
+        assert isinstance(expr_a.columns[0].data_type, JsonType)
+        assert isinstance(expr_b.columns[0].data_type, TextType)
+
+    def test_none_renderable_falls_back_to_suggestion(self):
+        """JsonBType (postgres-only) on sqlite -> suggest(dict -> TextType)."""
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        class _M(ActiveRecord):
+            payload: Annotated[dict, UseSqlType(JsonBType())]
+
+        expr = self._generate(_M, SQLiteDialect())
+        assert isinstance(expr.columns[0].data_type, TextType)
+
+    def test_none_renderable_and_no_suggestion_raises(self):
+        """A dialect with no suggestion and no renderable declared type errors."""
+        from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
+
+        class _BareDialect(DDLTypeMixin):
+            pass
+
+        class _M(ActiveRecord):
+            payload: Annotated[dict, UseSqlType(JsonBType())]
+
+        with pytest.raises(TypeError, match="none of the declared UseSqlType"):
+            self._generate(_M, _BareDialect())
+
+    def test_multiple_use_sql_type_markers_rejected(self):
+        """Two Annotated UseSqlType markers on one field is ambiguous -> error."""
+        with pytest.raises(TypeError, match="multiple UseSqlType markers"):
+            class _M(ActiveRecord):
+                payload: Annotated[
+                    dict, UseSqlType(JsonType()), UseSqlType(TextType()),
+                ]
