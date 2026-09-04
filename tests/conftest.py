@@ -43,8 +43,12 @@ def _install_aiosqlite_closed_loop_guard() -> None:
         return
 
     core = aiosqlite.core
+    worker = getattr(core, "_connection_worker_thread", None)
+    if worker is None:
+        # aiosqlite < 0.21 ships a different worker layout; guard not applicable.
+        return
 
-    if getattr(core._connection_worker_thread, "_closed_loop_guard", False):
+    if getattr(worker, "_closed_loop_guard", False):
         return
 
     set_result = core.set_result
