@@ -8,7 +8,6 @@ specific behaviors and SQL dialect.
 """
 
 import logging
-import re
 import sqlite3
 import time
 from datetime import datetime
@@ -31,12 +30,6 @@ from ..explain import (
     SQLiteExplainResult,
     SQLiteExplainQueryPlanResult,
 )
-
-# Only alphanumerics, underscore, sign and dot are safe to inline in a PRAGMA
-# value. This accepts valid values (ON/OFF/0/1/True/False/NORMAL/MEMORY/cache
-# sizes) while rejecting anything that could break out of the statement.
-_SAFE_PRAGMA_VALUE_RE = re.compile(r"^[A-Za-z0-9_+\-.\s]+$")
-
 
 class SQLiteBackend(
     SyncExplainBackendMixin,
@@ -139,25 +132,18 @@ class SQLiteBackend(
                 # Dangerous: Accepting user input directly
                 # backend.set_pragma(user_input_key, user_input_value)  # NEVER do this!
         """
-        pragma_value_str = str(pragma_value)
-        # Validate the PRAGMA name against the known whitelist to prevent SQL
-        # injection via a raw concatenated name. The value is additionally
-        # checked to only contain safe literal characters (alphanumerics,
-        # underscores, signs) so it cannot break out of the statement.
-        from ..pragma import get_pragma_info
-        info = get_pragma_info(pragma_key)
-        if info is None:
-            raise ValueError(f"Unknown PRAGMA: {pragma_key}")
-        if info.read_only:
-            raise ValueError(f"PRAGMA {pragma_key} is read-only and cannot be set")
-        if not _SAFE_PRAGMA_VALUE_RE.fullmatch(pragma_value_str):
-            raise ValueError(
-                f"Unsafe value for PRAGMA {pragma_key}: {pragma_value_str!r}"
-            )
-        self.config.pragmas[pragma_key] = pragma_value_str
+        # Whitelist-validate the name and value, then use the canonical
+        # statement built from the registry entry. No raw value is ever
+        # concatenated.
+        from .pragma_validation import PragmaValidationError, validate_pragma_value
+        try:
+            canonical_name, canonical_value = validate_pragma_value(pragma_key, pragma_value)
+        except PragmaValidationError as e:
+            raise ValueError(str(e)) from e
+        self.config.pragmas[canonical_name] = canonical_value
 
         if self._connection:
-            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value_str}"
+            pragma_statement = f"PRAGMA {canonical_name} = {canonical_value}"
             self.log(logging.DEBUG, f"Setting pragma: {pragma_statement}")
             try:
                 self._connection.execute(pragma_statement)
@@ -167,9 +153,19 @@ class SQLiteBackend(
                 raise ConnectionError(error_msg) from e
 
     def _apply_pragmas(self) -> None:
-        """Apply all pragma settings to the connection."""
+        """Apply all pragma settings to the connection.
+
+        Every entry passes through the whitelist validation. Invalid entries
+        raise immediately: a misconfigured pragma (e.g. a typo in
+        journal_mode) must fail the connection rather than silently leave a
+        safety-relevant setting at its default.
+        """
+        from .pragma_validation import PragmaValidationError, apply_pragma_statement
         for pragma_key, pragma_value in self.config.pragmas.items():
-            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value}"
+            try:
+                pragma_statement, _ = apply_pragma_statement(pragma_key, pragma_value)
+            except PragmaValidationError as e:
+                raise ConnectionError(f"Invalid pragma configuration: {e}") from e
             self.log(logging.DEBUG, f"Executing pragma: {pragma_statement}")
             try:
                 self._connection.execute(pragma_statement)
@@ -201,7 +197,19 @@ class SQLiteBackend(
             self.log(logging.INFO, "Connected to SQLite database successfully")
         except sqlite3.Error as e:
             self.log(logging.ERROR, f"Failed to connect to SQLite database: {str(e)}")
+            self._connection = None
             raise ConnectionError(f"Failed to connect: {str(e)}") from e
+        except ConnectionError:
+            # Fail fast on invalid pragma configuration: close the raw
+            # connection so a rejected connect never leaks the handle.
+            self.log(logging.ERROR, "Failed to connect: invalid pragma configuration")
+            if self._connection is not None:
+                try:
+                    self._connection.close()
+                except sqlite3.Error:
+                    pass
+                self._connection = None
+            raise
 
     def disconnect(self) -> None:
         """Close the connection to the SQLite database."""

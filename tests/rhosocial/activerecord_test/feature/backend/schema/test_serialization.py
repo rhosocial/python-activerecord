@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/feature/backend/schema/test_serialization.py
 """Tests for schema snapshot serialisation (P4) and key differ logic (P1/P2)."""
 
 from __future__ import annotations

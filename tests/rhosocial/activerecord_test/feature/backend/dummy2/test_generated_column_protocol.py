@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_generated_columns.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_generated_column_protocol.py
 from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,

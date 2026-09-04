@@ -177,6 +177,28 @@ CONFIGURATION_PRAGMAS: Dict[str, PragmaInfo] = {
         default_value=-2000,
         documentation_url="https://www.sqlite.org/pragma.html#pragma_default_cache_size",
     ),
+    "read_uncommitted": PragmaInfo(
+        name="read_uncommitted",
+        category=PragmaCategory.CONFIGURATION,
+        description="Enable/disable reading of uncommitted data from other connections",
+        read_only=False,
+        min_version=(3, 0, 0),
+        value_type=bool,
+        allowed_values=[0, 1, True, False],
+        default_value=False,
+        documentation_url="https://www.sqlite.org/pragma.html#pragma_read_uncommitted",
+    ),
+    "query_only": PragmaInfo(
+        name="query_only",
+        category=PragmaCategory.CONFIGURATION,
+        description="Prevent data changes on the database for the connection",
+        read_only=False,
+        min_version=(3, 8, 0),
+        value_type=bool,
+        allowed_values=[0, 1, True, False],
+        default_value=False,
+        documentation_url="https://www.sqlite.org/pragma.html#pragma_query_only",
+    ),
 }
 
 

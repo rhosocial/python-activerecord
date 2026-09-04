@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_expression_traversal.py
+# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_expression_traversal_dummy2.py
 """
 Comprehensive traversal tests for all generic expressions.
 

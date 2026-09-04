@@ -74,18 +74,18 @@ class TestAsyncRelationDescriptors:
     def test_async_descriptor_set_name_callback(self):
         """Test that __set_name__ is called on descriptor assignment."""
 
-        class AsyncTestModel(RelationManagementMixin, BaseModel):
+        class _AsyncTestModelHost(RelationManagementMixin, BaseModel):
             id: int
             items: ClassVar[AsyncHasMany["AsyncOtherItem"]] = AsyncHasMany(foreign_key="test_id", inverse_of="test")
 
         class AsyncOtherItem(RelationManagementMixin, BaseModel):
             id: int
             test_id: int
-            test: ClassVar[AsyncBelongsTo["AsyncTestModel"]] = AsyncBelongsTo(foreign_key="test_id", inverse_of="items")
+            test: ClassVar[AsyncBelongsTo["_AsyncTestModelHost"]] = AsyncBelongsTo(foreign_key="test_id", inverse_of="items")
 
-        relation = AsyncTestModel.get_relation("items")
+        relation = _AsyncTestModelHost.get_relation("items")
         assert relation.name == "items"
-        assert relation._owner == AsyncTestModel
+        assert relation._owner == _AsyncTestModelHost
 
     def test_async_descriptor_invalid_foreign_key_type(self):
         """Test that non-string foreign_key raises TypeError."""
@@ -142,16 +142,16 @@ class TestAsyncRelationCache:
     def test_async_instance_cache_set_get(self):
         """Test basic async instance cache set and get."""
 
-        class AsyncTestModel(RelationManagementMixin, BaseModel):
+        class _AsyncTestModelHost(RelationManagementMixin, BaseModel):
             id: int
             rel: ClassVar[AsyncHasMany["AsyncTarget"]] = AsyncHasMany(foreign_key="test_id", inverse_of="test")
 
         class AsyncTarget(RelationManagementMixin, BaseModel):
             id: int
             test_id: int
-            test: ClassVar[AsyncBelongsTo["AsyncTestModel"]] = AsyncBelongsTo(foreign_key="test_id", inverse_of="rel")
+            test: ClassVar[AsyncBelongsTo["_AsyncTestModelHost"]] = AsyncBelongsTo(foreign_key="test_id", inverse_of="rel")
 
-        instance = AsyncTestModel(id=1)
+        instance = _AsyncTestModelHost(id=1)
         config = CacheConfig(enabled=True)
 
         InstanceCache.set(instance, "rel", [{"id": 1, "name": "test"}], config)
@@ -162,7 +162,7 @@ class TestAsyncRelationCache:
     def test_async_instance_cache_disabled(self):
         """Test that caching is disabled when config.enabled is False."""
 
-        class AsyncTestModel(RelationManagementMixin, BaseModel):
+        class _AsyncTestModelHost(RelationManagementMixin, BaseModel):
             id: int
             rel: ClassVar[AsyncHasMany["AsyncTarget"]] = AsyncHasMany(foreign_key="test_id", inverse_of="test")
 
@@ -170,7 +170,7 @@ class TestAsyncRelationCache:
             id: int
             test_id: int
 
-        instance = AsyncTestModel(id=1)
+        instance = _AsyncTestModelHost(id=1)
         config = CacheConfig(enabled=False)
 
         InstanceCache.set(instance, "rel", [{"id": 1}], config)
@@ -181,7 +181,7 @@ class TestAsyncRelationCache:
     def test_async_instance_cache_delete(self):
         """Test async instance cache deletion."""
 
-        class AsyncTestModel(RelationManagementMixin, BaseModel):
+        class _AsyncTestModelHost(RelationManagementMixin, BaseModel):
             id: int
             rel: ClassVar[AsyncHasMany["AsyncTarget"]] = AsyncHasMany(foreign_key="test_id", inverse_of="test")
 
@@ -189,7 +189,7 @@ class TestAsyncRelationCache:
             id: int
             test_id: int
 
-        instance = AsyncTestModel(id=1)
+        instance = _AsyncTestModelHost(id=1)
         config = CacheConfig()
 
         InstanceCache.set(instance, "rel", [{"id": 1}], config)
@@ -206,16 +206,16 @@ class TestAsyncRelationManagementMixin:
     def test_async_register_relation(self):
         """Test registering async relation."""
 
-        class AsyncTestModel(RelationManagementMixin, BaseModel):
+        class _AsyncTestModelHost(RelationManagementMixin, BaseModel):
             id: int
 
         from rhosocial.activerecord.relation.descriptors import RelationDescriptor
 
         descriptor = RelationDescriptor(foreign_key="test_id")
-        AsyncTestModel.register_relation("test_rel", descriptor)
+        _AsyncTestModelHost.register_relation("test_rel", descriptor)
 
-        assert "test_rel" in AsyncTestModel.get_relations()
-        assert AsyncTestModel.get_relation("test_rel") == descriptor
+        assert "test_rel" in _AsyncTestModelHost.get_relations()
+        assert _AsyncTestModelHost.get_relation("test_rel") == descriptor
 
     def test_async_clear_relation_cache(self):
         """Test clearing async relation cache."""

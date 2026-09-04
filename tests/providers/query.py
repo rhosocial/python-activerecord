@@ -524,7 +524,7 @@ class QueryAsyncProvider(QueryProviderBase, IQueryAsyncProvider):
         self, model_class: Type[AsyncActiveRecord], scenario_name: str, table_name: str, shared_backend=None
     ) -> Type[AsyncActiveRecord]:
         """A generic helper method to handle the setup for any given asynchronous model."""
-        from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 
         _, original_config = get_scenario(scenario_name)
         config = original_config

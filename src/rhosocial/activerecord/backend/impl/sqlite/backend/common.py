@@ -22,7 +22,6 @@ from rhosocial.activerecord.backend.errors import (
 from rhosocial.activerecord.backend.protocols import ConcurrencyHint
 from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 
-
 DEFAULT_PRAGMAS = {
     "foreign_keys": "ON",
     "journal_mode": "WAL",
