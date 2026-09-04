@@ -627,6 +627,22 @@ class SQLiteDialect(
         # DROP COLUMN is supported since SQLite 3.35.0
         return self.version >= (3, 35, 0)
 
+    # CreateTableExpressionDiffSupport implementation
+    def _supports_alter_column_properties(self) -> bool:
+        """SQLite has no ``ALTER COLUMN``: SET/DROP DEFAULT and SET/DROP
+        NOT NULL are not available, so expression diffs route property
+        changes to a rebuild plan.
+        """
+        return False
+
+    def _supports_alter_table_index_actions(self) -> bool:
+        """SQLite rejects ``ALTER TABLE ADD/DROP INDEX`` (see
+        ``SQLiteDDLColumnMixin.format_add_index_action``); index changes
+        route to a rebuild plan (the recreated table carries the new
+        index set).
+        """
+        return False
+
     def supports_table_partitioning(self) -> bool:
         """Whether table partitioning is supported."""
         return False

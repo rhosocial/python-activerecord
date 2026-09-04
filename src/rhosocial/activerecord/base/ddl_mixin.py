@@ -81,10 +81,10 @@ class DDLMixin:
     ]
 
     # ------------------------------------------------------------------
-    # DDL generation entry point (Phase 2)
+    # DDL generation entry points (Phase 2)
     # ------------------------------------------------------------------
     @classmethod
-    def generate_ddl(cls, dialect=None, *, if_not_exists=False, temporary=False):
+    def generate_create_table(cls, dialect=None, *, if_not_exists=False, temporary=False):
         """Generate a ``CreateTableExpression`` instance for this model.
 
         The generator returns an *expression instance* — it does not emit SQL
@@ -107,6 +107,33 @@ class DDLMixin:
 
         if dialect is None:
             dialect = cls.backend().dialect
-        return ModelSchemaGenerator.generate(
+        return ModelSchemaGenerator.generate_create_table(
             cls, dialect, if_not_exists=if_not_exists, temporary=temporary
+        )
+
+    @classmethod
+    def generate_drop_table(cls, dialect=None, *, if_exists=False, cascade=None):
+        """Generate a ``DropTableExpression`` instance for this model.
+
+        Only the model's table name is derived here — dependent-object
+        behavior (``cascade``) is subject to dialect capability gating at
+        render time (``UnsupportedFeatureError`` when the dialect does not
+        support the requested form, e.g. SQLite / SQL Server).
+
+        Args:
+            dialect: An optional ``SQLDialectBase``; when ``None`` the model's
+                ``cls.backend().dialect`` is used.
+            if_exists: Request ``IF EXISTS`` (subject to backend support).
+            cascade: ``None`` (dialect default), ``True`` (CASCADE or
+                dialect-specific equivalent), ``False`` (RESTRICT).
+
+        Returns:
+            A ``DropTableExpression`` instance.
+        """
+        from .ddl_generator import ModelSchemaGenerator
+
+        if dialect is None:
+            dialect = cls.backend().dialect
+        return ModelSchemaGenerator.generate_drop_table(
+            cls, dialect, if_exists=if_exists, cascade=cascade
         )

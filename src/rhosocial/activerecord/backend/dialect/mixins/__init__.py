@@ -32,6 +32,7 @@ from .temporal import TemporalTableMixin, QualifyClauseMixin
 from .locking import LockingMixin
 from .set_operation import SetOperationMixin
 from .partition import PartitionMixin
+from .ddl_diff import CreateTableExpressionDiffMixin
 from .ddl_table import TableMixin, ConstraintMixin
 from .ddl_view import ViewMixin, TruncateMixin
 from .ddl_schema import SchemaMixin
@@ -81,6 +82,7 @@ __all__ = [
     "LockingMixin",
     "SetOperationMixin",
     "PartitionMixin",
+    "CreateTableExpressionDiffMixin",
     "TableMixin",
     "ConstraintMixin",
     "ViewMixin",

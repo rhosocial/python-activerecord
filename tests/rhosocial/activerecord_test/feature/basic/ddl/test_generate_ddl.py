@@ -6,7 +6,7 @@ Covers:
 - Table-level declarations: TableOptions, __table_indexes__, __table_constraints__
 - Field-level declarations: UseSqlType, UseIndex, UseConstraint
 - ModelSchemaGenerator: type resolution, PK, auto-increment, composite PK
-- ActiveRecord.generate_ddl(): returns expression INSTANCE (not SQL)
+- ActiveRecord.generate_create_table(): returns expression INSTANCE (not SQL)
 - Cross-backend type suggestion via ColumnTypeSuggestion protocol
 """
 
@@ -27,6 +27,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     ColumnConstraintType,
     CreateTableExpression,
+    DropTableExpression,
     TableConstraint,
     TableConstraintType,
 )
@@ -163,16 +164,16 @@ class TestFieldLevelDeclarations:
 class TestModelSchemaGenerator:
 
     def test_generate_returns_expression_instance(self):
-        expr = ModelSchemaGenerator.generate(_Article, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Article, DummyDialect())
         assert isinstance(expr, CreateTableExpression)
 
     def test_column_count_and_order(self):
-        expr = ModelSchemaGenerator.generate(_Article, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Article, DummyDialect())
         names = [c.name for c in expr.columns]
         assert names == ["id", "title", "slug", "status", "author", "body"]
 
     def test_type_resolution_use_sql_type(self):
-        expr = ModelSchemaGenerator.generate(_Article, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Article, DummyDialect())
         title_col = next(c for c in expr.columns if c.name == "title")
         assert isinstance(title_col.data_type, VarCharType)
 
@@ -184,7 +185,7 @@ class TestModelSchemaGenerator:
             ts: datetime.datetime
             amount: decimal.Decimal
 
-        expr = ModelSchemaGenerator.generate(_Simple, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Simple, DummyDialect())
         types = {c.name: type(c.data_type) for c in expr.columns}
         assert types["name"] is TextType
         assert types["count"] is IntegerType
@@ -195,14 +196,14 @@ class TestModelSchemaGenerator:
     def test_optional_type_resolution(self):
         class _Opt(ActiveRecord):
             bio: Optional[str] = None
-        expr = ModelSchemaGenerator.generate(_Opt, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Opt, DummyDialect())
         assert isinstance(expr.columns[0].data_type, TextType)
 
     def test_single_pk_auto_increment(self):
         class _Auto(ActiveRecord):
             id: int
             name: str
-        expr = ModelSchemaGenerator.generate(_Auto, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Auto, DummyDialect())
         pk_col = next(c for c in expr.columns if c.name == "id")
         pk = [c for c in pk_col.constraints if c.constraint_type == ColumnConstraintType.PRIMARY_KEY]
         assert len(pk) == 1
@@ -212,7 +213,7 @@ class TestModelSchemaGenerator:
         class _StrPK(ActiveRecord):
             __primary_key__ = "slug"
             slug: str
-        expr = ModelSchemaGenerator.generate(_StrPK, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_StrPK, DummyDialect())
         pk_col = next(c for c in expr.columns if c.name == "slug")
         pk = [c for c in pk_col.constraints if c.constraint_type == ColumnConstraintType.PRIMARY_KEY]
         assert len(pk) == 1
@@ -226,7 +227,7 @@ class TestModelSchemaGenerator:
             product_id: int
             qty: int
 
-        expr = ModelSchemaGenerator.generate(_OrderItem, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_OrderItem, DummyDialect())
         pks = [c for c in expr.table_constraints
                if c.constraint_type == TableConstraintType.PRIMARY_KEY]
         assert len(pks) == 1
@@ -239,27 +240,27 @@ class TestModelSchemaGenerator:
             )
 
     def test_table_options_propagated(self):
-        expr = ModelSchemaGenerator.generate(_Article, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Article, DummyDialect())
         assert expr.table_options is not None
         assert expr.table_options.charset == "utf8mb4"
 
     def test_indexes_propagated(self):
-        expr = ModelSchemaGenerator.generate(_Article, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Article, DummyDialect())
         names = {i.name for i in expr.indexes}
         assert "idx_title_status" in names
         assert "idx_slug" in names
 
     def test_constraints_propagated(self):
-        expr = ModelSchemaGenerator.generate(_Article, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Article, DummyDialect())
         uqs = [c for c in expr.table_constraints if c.constraint_type == TableConstraintType.UNIQUE]
         assert any(u.columns == ["title", "author"] for u in uqs)
 
     def test_if_not_exists_flag(self):
-        expr = ModelSchemaGenerator.generate(_Article, DummyDialect(), if_not_exists=True)
+        expr = ModelSchemaGenerator.generate_create_table(_Article, DummyDialect(), if_not_exists=True)
         assert expr.if_not_exists is True
 
     def test_temporary_flag(self):
-        expr = ModelSchemaGenerator.generate(_Article, DummyDialect(), temporary=True)
+        expr = ModelSchemaGenerator.generate_create_table(_Article, DummyDialect(), temporary=True)
         assert expr.temporary is True
 
     def test_per_dialect_type_override(self):
@@ -269,42 +270,56 @@ class TestModelSchemaGenerator:
                 "dummy": JsonType(), "default": TextType(),
             })]
         # DummyDialect.name == "Dummy" — resolver is case-insensitive
-        expr = ModelSchemaGenerator.generate(_Override, DummyDialect())
+        expr = ModelSchemaGenerator.generate_create_table(_Override, DummyDialect())
         assert isinstance(expr.columns[0].data_type, JsonType)
 
 
 # ---------------------------------------------------------------------------
-# ActiveRecord.generate_ddl() integration tests
+# ActiveRecord.generate_create_table() integration tests
 # ---------------------------------------------------------------------------
 
 class TestGenerateDdlApi:
 
     def test_returns_expression_instance(self):
         _Article.configure(ConnectionConfig(database=":memory:"), SQLiteBackend)
-        expr = _Article.generate_ddl()
+        expr = _Article.generate_create_table()
         assert isinstance(expr, CreateTableExpression)
 
     def test_dialect_override(self):
-        expr = _Article.generate_ddl(DummyDialect())
+        expr = _Article.generate_create_table(DummyDialect())
         assert isinstance(expr, CreateTableExpression)
         assert expr.dialect is not None
 
     def test_if_not_exists_passed_through(self):
         _Article.configure(ConnectionConfig(database=":memory:"), SQLiteBackend)
-        expr = _Article.generate_ddl(if_not_exists=True)
+        expr = _Article.generate_create_table(if_not_exists=True)
         assert expr.if_not_exists is True
 
     def test_user_calls_to_sql_themselves(self):
         """The API returns an expression; the user decides to call to_sql()."""
         _Article.configure(ConnectionConfig(database=":memory:"), SQLiteBackend)
-        expr = _Article.generate_ddl()
+        expr = _Article.generate_create_table()
         sql, params = expr.to_sql()
         assert "CREATE TABLE" in sql.upper()
         assert "articles" in sql.lower()
 
-    def test_async_model_has_generate_ddl(self):
+    def test_async_model_has_ddl_api(self):
         from rhosocial.activerecord.model import AsyncActiveRecord
-        assert hasattr(AsyncActiveRecord, "generate_ddl")
+        assert hasattr(AsyncActiveRecord, "generate_create_table")
+        assert hasattr(AsyncActiveRecord, "generate_drop_table")
+
+    def test_generate_drop_table_returns_expression_instance(self):
+        _Article.configure(ConnectionConfig(database=":memory:"), SQLiteBackend)
+        expr = _Article.generate_drop_table()
+        assert isinstance(expr, DropTableExpression)
+
+    def test_generate_drop_table_to_sql(self):
+        _Article.configure(ConnectionConfig(database=":memory:"), SQLiteBackend)
+        sql, params = _Article.generate_drop_table(if_exists=True).to_sql()
+        assert "DROP TABLE" in sql.upper()
+        assert "IF EXISTS" in sql.upper()
+        assert "articles" in sql.lower()
+        assert params == ()
 
 
 # ---------------------------------------------------------------------------
@@ -358,7 +373,7 @@ class TestDegradationContract:
         """The generator produces the expression as-declared; if a feature is
         unsupported, to_sql() raises — the generator does not drop it."""
         _Article.configure(ConnectionConfig(database=":memory:"), SQLiteBackend)
-        expr = _Article.generate_ddl()
+        expr = _Article.generate_create_table()
         # Expression carries all declared features regardless of backend support
         assert len(expr.indexes) >= 2
         assert len(expr.table_constraints) >= 1

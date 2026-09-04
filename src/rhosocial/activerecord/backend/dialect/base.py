@@ -10,12 +10,13 @@ import re
 from typing import Optional, Tuple, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
+from .mixins.ddl_diff import CreateTableExpressionDiffMixin
 
 if TYPE_CHECKING:
     from ..schema.differ import SchemaDiffer
 
 
-class SQLDialectBase:
+class SQLDialectBase(CreateTableExpressionDiffMixin):
     """
     Minimal base class for SQL dialects.
 
@@ -24,6 +25,8 @@ class SQLDialectBase:
     - parameter placeholder
     - identifier quoting and safety helpers
     - runtime protocol/feature checks
+    - expression-level CREATE TABLE diff (generic strict implementation;
+      backends override the comparison/capability hooks as needed)
 
     All SQL formatting is provided by Mixin classes composed into dialect subclasses.
     """

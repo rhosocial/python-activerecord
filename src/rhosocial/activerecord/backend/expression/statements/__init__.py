@@ -118,6 +118,9 @@ from .ddl_function import CreateFunctionExpression, DropFunctionExpression
 # Partition DDL
 from .ddl_partition import PartitionClause, PartitionStrategy
 
+# CREATE TABLE diff plans
+from .ddl_diff import DiffPlan, RebuildPlan
+
 # Re-export shared type alias
 from ._types import FromSourceType
 
@@ -212,6 +215,9 @@ __all__ = [
     # Partition DDL
     "PartitionClause",
     "PartitionStrategy",
+    # CREATE TABLE diff plans
+    "DiffPlan",
+    "RebuildPlan",
     # Type aliases
     "FromSourceType",
 ]

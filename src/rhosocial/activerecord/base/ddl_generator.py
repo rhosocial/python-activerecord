@@ -3,9 +3,10 @@
 Model-level DDL generation (Phase 2 of the "derive DDL from ActiveRecord" plan).
 
 Bridges the gap between an ``ActiveRecord`` model declaration and the
-expression-layer ``CreateTableExpression``:
+expression-layer DDL statements:
 
-    User.generate_ddl()  →  "CREATE TABLE users (...);"
+    User.generate_create_table()  →  CreateTableExpression
+    User.generate_drop_table()    →  DropTableExpression
 
 The generator walks the model's Pydantic ``model_fields`` in declaration order
 and, for each field, derives a ``ColumnDefinition``:
@@ -34,6 +35,7 @@ from ..backend.expression.statements.ddl_table import (
     ColumnConstraintType,
     ColumnDefinition,
     CreateTableExpression,
+    DropTableExpression,
     TableConstraint,
     TableConstraintType,
     TableOptions,
@@ -79,18 +81,21 @@ def _is_optional_annotation(annotation: Any) -> bool:
 
 
 class ModelSchemaGenerator:
-    """Turn an ``ActiveRecord`` model into a ``CreateTableExpression``.
+    """Turn an ``ActiveRecord`` model into DDL statement expressions.
 
-    The generator's job is to *produce the expression instance*, not to emit
-    SQL. Callers receive a ``CreateTableExpression`` and may call ``.to_sql()``
-    (or otherwise transform / inspect it) as they see fit.
+    The generator's job is to *produce expression instances*, not to emit
+    SQL. Callers receive a ``CreateTableExpression`` (via
+    :meth:`generate_create_table`) or a ``DropTableExpression`` (via
+    :meth:`generate_drop_table`) and may call ``.to_sql()``
+    (or otherwise transform / inspect them) as they see fit.
 
-    Callers normally use the ``ActiveRecord.generate_ddl()`` classmethod, which
-    is a thin wrapper around :meth:`generate`.
+    Callers normally use the ``ActiveRecord.generate_create_table()`` /
+    ``ActiveRecord.generate_drop_table()`` classmethods, which are thin
+    wrappers around :meth:`generate_create_table` / :meth:`generate_drop_table`.
     """
 
     @classmethod
-    def generate(
+    def generate_create_table(
         cls,
         model_class: type,
         dialect: Any,
@@ -124,6 +129,30 @@ class ModelSchemaGenerator:
             table_options=table_options,
             temporary=temporary,
             if_not_exists=if_not_exists,
+        )
+
+    @classmethod
+    def generate_drop_table(
+        cls,
+        model_class: type,
+        dialect: Any,
+        *,
+        if_exists: bool = False,
+        cascade: Optional[bool] = None,
+    ) -> DropTableExpression:
+        """Build a ``DropTableExpression`` for *model_class* under *dialect*.
+
+        Only the model's table name is derived here — dependent-object behavior
+        (``cascade``) is optional and subject to dialect capability gating at
+        render time (``UnsupportedFeatureError`` when the dialect does not
+        support the requested form).
+        """
+        table_name = getattr(model_class, "__table_name__", None) or model_class.__name__
+        return DropTableExpression(
+            dialect=dialect,
+            table=table_name,
+            if_exists=if_exists,
+            cascade=cascade,
         )
 
     # ------------------------------------------------------------------

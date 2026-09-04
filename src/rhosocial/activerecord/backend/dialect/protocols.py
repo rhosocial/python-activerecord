@@ -68,6 +68,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CreateTableExpression,
         DropTableExpression,
         AlterTableExpression,
+        DiffPlan,
         CreateViewExpression,
         DropViewExpression,
         TruncateExpression,
@@ -1228,6 +1229,51 @@ class TableSupport(Protocol):
 
     def format_create_table_like(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE ... LIKE statement."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class CreateTableExpressionDiffSupport(Protocol):
+    """Protocol for expression-level CREATE TABLE diffing.
+
+    Implements the migration plan's expression-diff path (Phase 3): compare
+    two ``CreateTableExpression`` instances bound to the *same* dialect and
+    produce a :class:`~...statements.ddl_diff.DiffPlan`.
+
+    The generic :class:`~...dialect.mixins.ddl_diff.CreateTableExpressionDiffMixin`
+    provides a strict default implementation. Backend dialects override it to:
+
+    - relax equivalence rules (e.g. MySQL ``INT`` ≡ ``INTEGER``)
+    - force rebuild paths where in-place ALTER is impossible
+      (e.g. SQLite column-type changes)
+
+    Reliability and round-trip testing are each backend's own responsibility,
+    mirroring the ``SchemaDiffer`` (snapshot-based) division of labor. The two
+    diff paths are complementary and deliberately not merged:
+
+    - expression diff (this protocol): model version v1 → v2 migrations
+    - snapshot diff (``SchemaDiffer``): live-database drift detection and
+      convergence tests
+    """
+
+    def diff_create_table(
+        self, old: "CreateTableExpression", new: "CreateTableExpression"
+    ) -> "DiffPlan":
+        """Compute the diff between two CREATE TABLE expressions.
+
+        Args:
+            old: Current table definition.
+            new: Desired table definition.
+
+        Returns:
+            A ``DiffPlan`` whose ``alters``/``rebuild`` fields are mutually
+            exclusive (see ``ddl_diff.DiffPlan``).
+
+        Raises:
+            ValueError: If the two expressions are bound to different dialects
+                or describe different tables (explicit renames must be issued
+                separately).
+        """
         ...  # pragma: no cover
 
 

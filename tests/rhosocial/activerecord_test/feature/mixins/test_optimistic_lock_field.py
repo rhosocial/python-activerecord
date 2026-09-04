@@ -51,7 +51,7 @@ def _make_backend():
 
 
 def _register(model_class, backend, create: bool = True):
-    sql, _ = ModelSchemaGenerator.generate(model_class, backend.dialect).to_sql()
+    sql, _ = ModelSchemaGenerator.generate_create_table(model_class, backend.dialect).to_sql()
     if create:
         backend.execute(sql)
 
@@ -80,7 +80,7 @@ def test_version_flows_through_generic_paths(lock_backend):
     model = _fresh_model(lock_backend)
     _register(model, lock_backend)
 
-    e = ModelSchemaGenerator.generate(model, lock_backend.dialect)
+    e = ModelSchemaGenerator.generate_create_table(model, lock_backend.dialect)
     names = [c.name for c in e.columns]
     assert "version" in names
     sql, _ = e.to_sql()
@@ -171,7 +171,7 @@ def test_base_mixin_with_custom_field_name(lock_backend):
     shadow = [w for w in caught if "shadow" in str(w.message).lower()]
     assert not shadow
 
-    sql, _ = ModelSchemaGenerator.generate(Article, lock_backend.dialect).to_sql()
+    sql, _ = ModelSchemaGenerator.generate_create_table(Article, lock_backend.dialect).to_sql()
     assert '"row_ver" INTEGER NOT NULL' in sql
     lock_backend.execute(sql)
 

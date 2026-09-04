@@ -240,6 +240,27 @@ class CreateTableExpression(BaseExpression):
         """Get the table name (for backward compatibility)."""
         return self.table.name
 
+    def diff(self, other: "CreateTableExpression") -> "DiffPlan":
+        """Structural diff against another CREATE TABLE declaration.
+
+        Delegates to the dialect's diff implementation
+        (``CreateTableExpressionDiffSupport`` protocol; the generic
+        ``CreateTableExpressionDiffMixin`` provides a strict default that
+        backends may relax).
+
+        Args:
+            other: Desired table definition, bound to the *same* dialect.
+
+        Returns:
+            A ``DiffPlan`` whose ``alters``/``rebuild`` fields are mutually
+            exclusive (see ``statements.ddl_diff.DiffPlan``).
+
+        Raises:
+            ValueError: If *other* is bound to a different dialect or
+                describes a different table.
+        """
+        return self.dialect.diff_create_table(self, other)
+
     def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the CREATE TABLE statement to the configured dialect."""
         return self.dialect.format_create_table_statement(self)
