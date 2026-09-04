@@ -19,10 +19,24 @@ Example::
     from rhosocial.activerecord.examples.ddl_types import TypedUser
     from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
+    # (1) Explicit dialect — no backend/connection required.
     sql, params = TypedUser.generate_create_table(dialect=SQLiteDialect()).to_sql()
+
+    # (2) Reuse the model's configured backend dialect (dialect=None default).
+    from rhosocial.activerecord.backend.config import ConnectionConfig
+    from rhosocial.activerecord.backend.impl.sqlite.backend.sync import SQLiteBackend
+    TypedUser.configure(ConnectionConfig(database=":memory:"), SQLiteBackend)
+    sql, params = TypedUser.generate_create_table().to_sql()
 """
 
-from typing import Annotated, Optional
+import sys
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated, Optional
+else:  # pragma: no cover - Python 3.8
+    from typing import Optional
+
+    from typing_extensions import Annotated
 
 from rhosocial.activerecord.base.fields import UseSqlType
 from rhosocial.activerecord.backend.expression.types import (
