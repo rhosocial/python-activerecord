@@ -3,7 +3,7 @@
 
 import pytest
 
-pytestmark = [pytest.mark.feature, pytest.mark.backend]
+pytestmark = [pytest.mark.backend]
 
 PROTOCOLS_PKG = "rhosocial.activerecord.backend.dialect.protocols"
 

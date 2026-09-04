@@ -6,6 +6,18 @@ from __future__ import annotations
 from typing import Optional
 
 from ._base import DataType
+from ._validation import (
+    DATETIME_PRECISION_MAX,
+    DATETIME_PRECISION_MIN,
+    require_optional_range,
+)
+
+
+def _validate_datetime_precision(cls_name: str, precision: Optional[int]) -> Optional[int]:
+    """Shared SQL-standard range for datetime second-fraction precision."""
+    return require_optional_range(
+        precision, cls_name, "precision", DATETIME_PRECISION_MIN, DATETIME_PRECISION_MAX
+    )
 
 
 class DateType(DataType):
@@ -19,7 +31,7 @@ class TimeType(DataType):
 
     def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
-        self.precision = precision
+        self.precision = _validate_datetime_precision(type(self).__name__, precision)
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
@@ -37,7 +49,7 @@ class TimeTzType(DataType):
 
     def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
-        self.precision = precision
+        self.precision = _validate_datetime_precision(type(self).__name__, precision)
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
@@ -55,7 +67,7 @@ class DateTimeType(DataType):
 
     def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
-        self.precision = precision
+        self.precision = _validate_datetime_precision(type(self).__name__, precision)
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
@@ -73,7 +85,7 @@ class TimestampType(DataType):
 
     def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
-        self.precision = precision
+        self.precision = _validate_datetime_precision(type(self).__name__, precision)
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
@@ -91,7 +103,7 @@ class TimestampTzType(DataType):
 
     def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
-        self.precision = precision
+        self.precision = _validate_datetime_precision(type(self).__name__, precision)
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):

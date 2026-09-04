@@ -6,16 +6,27 @@ from __future__ import annotations
 from typing import Optional
 
 from ._base import DataType
+from ._validation import (
+    FLOAT_PRECISION_MAX,
+    FLOAT_PRECISION_MIN,
+    require_optional_range,
+)
 
 
 class FloatType(DataType):
     """FLOAT[(p)] — approximate numeric, variable precision."""
 
+    # SQL standard: FLOAT precision is the binary mantissa bit count.
+    PRECISION_MIN = FLOAT_PRECISION_MIN
+    PRECISION_MAX = FLOAT_PRECISION_MAX
+
     precision: Optional[int] = None
 
     def __init__(self, dialect=None, *, precision: Optional[int] = None):
         super().__init__(dialect)
-        self.precision = precision
+        self.precision = require_optional_range(
+            precision, type(self).__name__, "precision", self.PRECISION_MIN, self.PRECISION_MAX
+        )
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
@@ -37,14 +48,23 @@ class DoubleType(DataType):
 class DecimalType(DataType):
     """DECIMAL[(p[,s])] / NUMERIC[(p[,s])] — exact fixed-point."""
 
+    # SQL standard: precision >= 1; 0 <= scale <= precision. No standard
+    # upper bound on precision (backends may set one via PRECISION_MAX).
+    PRECISION_MIN = 1
+    PRECISION_MAX: Optional[int] = None
+
     precision: Optional[int] = None
     scale: Optional[int] = None
 
     def __init__(self, dialect=None, *,
                  precision: Optional[int] = None, scale: Optional[int] = None):
         super().__init__(dialect)
-        self.precision = precision
-        self.scale = scale
+        self.precision = require_optional_range(
+            precision, type(self).__name__, "precision", self.PRECISION_MIN, self.PRECISION_MAX
+        )
+        self.scale = require_optional_range(
+            scale, type(self).__name__, "scale", 0, self.precision if self.precision is not None else None
+        )
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):

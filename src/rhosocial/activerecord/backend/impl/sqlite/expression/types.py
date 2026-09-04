@@ -27,6 +27,11 @@ from rhosocial.activerecord.backend.expression.types import (
     IntegerType,
     TextType,
 )
+from rhosocial.activerecord.backend.expression.types._validation import (
+    FLOAT_PRECISION_MAX,
+    FLOAT_PRECISION_MIN,
+    require_optional_range,
+)
 
 
 class SQLiteIntegerType(IntegerType):
@@ -53,9 +58,15 @@ class SQLiteTextType(TextType):
 
     length: int | None = None
 
+    # SQLite has no length limit for TEXT; mirror the core string types' floor.
+    LENGTH_MIN = 1
+    LENGTH_MAX = None
+
     def __init__(self, dialect=None, *, length: int | None = None):
         super().__init__(dialect)
-        self.length = length
+        self.length = require_optional_range(
+            length, type(self).__name__, "length", self.LENGTH_MIN, self.LENGTH_MAX
+        )
 
     @classmethod
     def synonyms(cls) -> Set[str]:
@@ -73,7 +84,9 @@ class SQLiteRealType(DataType):
 
     def __init__(self, dialect=None, *, precision: int | None = None):
         super().__init__(dialect)
-        self.precision = precision
+        self.precision = require_optional_range(
+            precision, type(self).__name__, "precision", FLOAT_PRECISION_MIN, FLOAT_PRECISION_MAX
+        )
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
@@ -101,8 +114,12 @@ class SQLiteNumericType(DataType):
     def __init__(self, dialect=None, *,
                  precision: int | None = None, scale: int | None = None):
         super().__init__(dialect)
-        self.precision = precision
-        self.scale = scale
+        self.precision = require_optional_range(
+            precision, type(self).__name__, "precision", 1, None
+        )
+        self.scale = require_optional_range(
+            scale, type(self).__name__, "scale", 0, self.precision if self.precision is not None else None
+        )
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):

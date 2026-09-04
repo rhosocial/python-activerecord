@@ -24,7 +24,7 @@ from rhosocial.activerecord.backend.expression.functions.string import trim
 from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 
 
-class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin, DDLTypeMixin):
+class SecurityTestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin, DDLTypeMixin):
     """Test dialect for security tests."""
 
     name = "test"
@@ -141,7 +141,7 @@ def test_trim_direction_validation(dialect):
 
 def test_trim_direction_rejects_invalid(dialect):
     """Test that invalid trim direction is rejected."""
-    dialect = TestDialect()
+    dialect = SecurityTestDialect()
     col = Column(dialect, "name")
 
     with pytest.raises(ValueError, match="Invalid trim direction"):
@@ -274,7 +274,7 @@ def test_format_partition_method_rejects_invalid_method_without_echoing_value(di
 @pytest.fixture
 def dialect():
     """Create a test dialect."""
-    return TestDialect()
+    return SecurityTestDialect()
 
 
 # ── SQLite PRAGMA escaping & whitelist ─────────────────────────────────
