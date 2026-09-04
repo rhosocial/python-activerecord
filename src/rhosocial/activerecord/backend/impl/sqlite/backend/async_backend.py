@@ -8,7 +8,9 @@ Uses aiosqlite library for async SQLite operations.
 
 import logging
 import sqlite3
+import threading
 import time
+import weakref
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -44,6 +46,23 @@ class AsyncSQLiteBackend(
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
     _sqlite_version_cache: Optional[Tuple[int, int, int]] = None
+
+    # Registry of live (connected) backends. Used by the test harness to
+    # reap backends whose owner forgot to disconnect before the event loop
+    # closed — an aiosqlite worker thread left behind that way crashes with
+    # "Event loop is closed" when it tries to deliver a result.
+    _LIVE_BACKENDS: "weakref.WeakSet[AsyncSQLiteBackend]" = weakref.WeakSet()
+    _LIVE_BACKENDS_LOCK = threading.Lock()
+
+    @classmethod
+    def iter_live_backends(cls) -> List["AsyncSQLiteBackend"]:
+        """Return backends that are currently known to be connected.
+
+        The WeakSet is best-effort: entries disappear on GC, so a backend
+        that was abandoned without disconnect may already be gone here.
+        """
+        with cls._LIVE_BACKENDS_LOCK:
+            return [b for b in list(cls._LIVE_BACKENDS) if b.is_connected()]
 
     def __init__(
         self,
@@ -207,6 +226,8 @@ class AsyncSQLiteBackend(
             self._connection.row_factory = aiosqlite.Row
             await self._apply_pragmas()
             self.logger.info(f"Connected to SQLite database: {self.config.database}")
+            with self._LIVE_BACKENDS_LOCK:
+                self._LIVE_BACKENDS.add(self)
         except ConnectionError:
             # Fail fast on invalid pragma configuration: close the raw
             # connection so a rejected connect never leaks the aiosqlite
@@ -247,11 +268,45 @@ class AsyncSQLiteBackend(
             if self.config.delete_on_close and not self.config.is_memory_db():
                 await self._delete_database_files()
             self.logger.info("Disconnected from SQLite database")
+            with self._LIVE_BACKENDS_LOCK:
+                self._LIVE_BACKENDS.discard(self)
         except ConnectionError:
             raise
         except Exception as e:
             self.logger.error(f"Error during disconnect: {e}")
             raise ConnectionError(f"Failed to disconnect: {e}") from e
+
+    def close_sync(self) -> None:
+        """Synchronously close the backend without an event loop.
+
+        Escape hatch for cleanup when the owning event loop is already
+        closed (e.g. test teardown after an async test forgot to
+        disconnect). Closes the raw sqlite3 connection, then stops the
+        aiosqlite worker thread via the stop sentinel — without any
+        future callback, so nothing is delivered back to a dead loop.
+        """
+        conn = self._connection
+        if conn is None:
+            return
+        try:
+            inner = getattr(conn, "_connection", None)
+            if inner is not None:
+                inner.close()
+        finally:
+            try:
+                from aiosqlite.core import _STOP_RUNNING_SENTINEL
+                conn._tx.put((None, lambda: _STOP_RUNNING_SENTINEL))
+            except Exception:
+                pass
+            try:
+                conn.join(timeout=5.0)
+            except Exception:
+                pass
+        self._connection = None
+        self._cursor = None
+        self._transaction_manager = None
+        with self._LIVE_BACKENDS_LOCK:
+            self._LIVE_BACKENDS.discard(self)
 
     async def _delete_database_files(self) -> None:
         """Delete database files when delete_on_close is enabled.

@@ -17,3 +17,28 @@ import os
 # `setdefault` is used to ensure that this value is set only if it hasn't been
 # set already, allowing for overrides in different environments if needed.
 os.environ.setdefault("TESTSUITE_PROVIDER_REGISTRY", "providers.registry:provider_registry")
+
+import pytest
+
+
+def pytest_configure(config):
+    """Register the async-backend reap hook, if the async backend is importable."""
+    try:
+        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+    except ImportError:  # pragma: no cover - core backend always present here
+        return
+
+    @pytest.fixture(autouse=True)
+    def _reap_abandoned_async_backends():
+        """Fail fast on async backends left connected across a test.
+
+        A backend still connected at teardown means its owner forgot to
+        disconnect; once this function-scoped loop closes, the aiosqlite
+        worker thread crashes with 'Event loop is closed' (the source of
+        the flaky PytestUnhandledThreadExceptionWarning in CI). Closing
+        it here keeps the leak visible in *this* test instead of a
+        random later one, and stops the worker thread cleanly.
+        """
+        yield
+        for backend in AsyncSQLiteBackend.iter_live_backends():
+            backend.close_sync()
