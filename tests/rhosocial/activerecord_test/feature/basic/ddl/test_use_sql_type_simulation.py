@@ -19,7 +19,12 @@ it; the first such type wins; otherwise the dialect's suggestion is used;
 otherwise an error is raised.
 """
 
-from typing import Annotated
+import sys
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:  # pragma: no cover - Python 3.8
+    from typing_extensions import Annotated
 
 import pytest
 
