@@ -395,7 +395,17 @@ class TestTypeVocabulary:
         assert dialect.format_data_type(DecimalType(precision=10, scale=2)) == (
             "DECIMAL(10, 2)", ())
         assert dialect.format_data_type(JsonType()) == ("JSON", ())
-        assert dialect.format_data_type(CustomType(raw="GEOMETRY")) == ("GEOMETRY", ())
+
+    def test_custom_type_requires_explicit_registration(self):
+        """CustomType has no base default: backends must opt in, otherwise render
+        raises (raw SQL passthrough is a security-sensitive escape hatch)."""
+        from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
+
+        class _BareDialect(DDLTypeMixin):
+            pass
+
+        with pytest.raises(TypeError, match="no formatter"):
+            _BareDialect().format_data_type(CustomType(raw="GEOMETRY"))
 
     def test_sqlite_does_not_silently_substitute_specific_types(self):
         """SQLite no longer maps tz/JSONB types to lossy NUMERIC/TEXT."""

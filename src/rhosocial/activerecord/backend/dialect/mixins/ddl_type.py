@@ -25,7 +25,6 @@ from ...expression.types import (
     BlobType,
     BooleanType,
     CharType,
-    CustomType,
     DateType,
     DateTimeType,
     DecimalType,
@@ -182,9 +181,11 @@ class DDLTypeMixin:
     def _default_json(self, data_type) -> SQLQueryAndParams:
         return "JSON", ()
 
-    @handles(CustomType)
-    def _default_custom(self, data_type) -> SQLQueryAndParams:
-        return data_type.raw, ()
+    # NOTE: ``CustomType`` deliberately has NO base default renderer. Raw SQL
+    # passthrough is a security-sensitive escape hatch, so each backend must
+    # explicitly opt in by registering ``@handles(CustomType)`` (SQLite, SQL
+    # Server, dummy do). On backends without a registration, rendering a
+    # ``CustomType`` raises instead of silently emitting the raw string.
 
     # ------------------------------------------------------------------
     # Dispatch
