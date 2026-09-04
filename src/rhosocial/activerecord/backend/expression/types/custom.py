@@ -13,6 +13,14 @@ class CustomType(DataType):
 
     Preserves the raw SQL type string verbatim so round-trips stay
     lossless even when the framework does not know the type.
+
+    .. warning::
+
+       ``raw`` is emitted **verbatim** into generated DDL — it bypasses all
+       validation and escaping. Only pass trusted, hard-coded type strings
+       (e.g. ``CustomType("GEOMETRY")``). Never interpolate external input,
+       configuration values or database-introspection output into ``raw``:
+       that is a SQL injection vector.
     """
 
     raw: str

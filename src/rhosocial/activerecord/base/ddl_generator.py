@@ -222,13 +222,17 @@ class ModelSchemaGenerator:
         use_sql_type: Optional[UseSqlType],
         dialect: Any,
     ) -> Any:
-        """Resolve a field's SQL ``DataType``, honouring per-dialect overrides."""
-        dialect_name = getattr(dialect, "name", None)
+        """Resolve a field's SQL ``DataType``.
+
+        ``UseSqlType`` carries the exact ``DataType`` instance to use; there is
+        no per-dialect resolution — a generic type is rendered by every backend
+        (natively or via the SQL-standard default), while a backend-specific
+        type is rendered only by backends that register it (others raise at
+        render time). If no ``UseSqlType`` is present, the dialect's type
+        suggestion for the field's Python type is consulted.
+        """
         if use_sql_type is not None:
-            resolved = use_sql_type.resolve(dialect_name)
-            if resolved is not None:
-                return resolved
-            # Fall through to suggestion if UseSqlType has no applicable type.
+            return use_sql_type.data_type
         python_type = _python_type_of(field)
         suggest = getattr(dialect, "suggest_column_type", None)
         if suggest is not None and python_type is not None:

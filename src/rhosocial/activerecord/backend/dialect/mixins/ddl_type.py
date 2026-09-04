@@ -2,26 +2,72 @@
 """``DDLTypeMixin`` — registry-based type formatting mechanism.
 
 Each backend registers its own ``DataType`` formatters via
-``@DDLTypeMixin.handles(TypeClass)``.  The base mixin provides only the
-dispatch logic; it does **not** register any types itself.
+``@DDLTypeMixin.handles(TypeClass)``.  The base mixin provides default
+formatters for the portable **generic** core types so every dialect can render
+them (SQL-standard forms) even before backend-specific overrides are added.
 
 .. note::
 
-   ``handles`` is a ``@staticmethod`` that tags the decorated method.
-   ``__init_subclass__`` then scans for tagged methods and builds a
-   per-subclass ``_type_formatters`` dict so that registrations stay
-   isolated and never conflict.
+   ``handles`` is a plain decorator function that tags the decorated method and
+   is re-attached to the mixin as a staticmethod.  ``__init_subclass__`` walks
+   the MRO in definition order (base → subclass) to build a per-subclass
+   ``_type_formatters`` dict, so a backend's own ``@handles(<SameType>)``
+   registration deterministically overrides the base default — it does **not**
+   depend on member-name ordering.
 """
 
 from __future__ import annotations
 
 from typing import Optional, Tuple, TYPE_CHECKING
 
+from ...expression.types import (
+    BigIntType,
+    BlobType,
+    BooleanType,
+    CharType,
+    CustomType,
+    DateType,
+    DateTimeType,
+    DecimalType,
+    DoubleType,
+    FloatType,
+    IntType,
+    IntegerType,
+    JsonType,
+    RealType,
+    SmallIntType,
+    TextType,
+    TimeType,
+    TimestampType,
+    VarCharType,
+)
+
 if TYPE_CHECKING:
     from ...expression.types._base import DataType
 
 
 SQLQueryAndParams = Tuple[str, tuple]
+
+#: Module prefix of the core generic ``DataType`` classes.  Parent-class
+#: dispatch in :meth:`DDLTypeMixin.format_data_type` is limited to types
+#: defined under this prefix (i.e. core generic types and their core aliases
+#: such as ``IntType``).  Backend-specific types defined in
+#: ``backend/impl/<name>/...`` are **not** silently absorbed by a parent
+#: handler: they must be registered explicitly on each backend that supports
+#: them, otherwise rendering raises.
+_CORE_TYPES_PREFIX = "rhosocial.activerecord.backend.expression.types"
+
+
+def handles(*data_type_classes):
+    """Decorator — tag a method as a formatter for *data_type_classes*.
+
+    The actual registration happens in ``__init_subclass__`` so each subclass
+    gets its own isolated registry.
+    """
+    def decorator(fn):
+        fn._handles_types = data_type_classes
+        return fn
+    return decorator
 
 
 class DDLTypeMixin:
@@ -34,7 +80,12 @@ class DDLTypeMixin:
             def format_data_type_int(self, data_type: MySQLIntType) -> SQLQueryAndParams:
                 return "INT UNSIGNED" if data_type.unsigned else "INT", ()
 
-    ``format_data_type()`` walks the MRO to find a matching formatter.
+    ``format_data_type()`` first looks for an exact-class registration; when
+    the concrete type is a core generic type, it falls back to the nearest
+    registered ancestor (e.g. ``IntType`` → ``IntegerType`` handler).
+    Backend-specific types (defined outside the core types package) are **not**
+    matched by ancestor registration — an explicit ``@handles`` is required.
+
     Unregistered types raise ``TypeError``.
     """
 
@@ -42,39 +93,135 @@ class DDLTypeMixin:
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        cls._type_formatters = {}
-        for member_name in dir(cls):
-            member = getattr(cls, member_name, None)
-            handles_types = getattr(member, "_handles_types", None)
-            if handles_types is not None:
-                for dt_cls in handles_types:
-                    cls._type_formatters[dt_cls] = member_name
+        formatters = {}
+        for klass in reversed(cls.__mro__):
+            for member_name, member in vars(klass).items():
+                handles_types = getattr(member, "_handles_types", None)
+                if handles_types is not None:
+                    for dt_cls in handles_types:
+                        formatters[dt_cls] = member_name
+        cls._type_formatters = formatters
 
-    @staticmethod
-    def handles(*data_type_classes):
-        """Decorator — tag a method as a formatter for *data_type_classes*.
+    # ------------------------------------------------------------------
+    # Base default formatters for generic (portable) core types.
+    # Backends override by tagging their own @handles(<SameType>); the
+    # MRO-aware registry build makes the backend registration win.
+    # ------------------------------------------------------------------
 
-        The actual registration happens in ``__init_subclass__`` so each
-        subclass gets its own isolated registry.
-        """
-        def decorator(fn):
-            fn._handles_types = data_type_classes
-            return fn
-        return decorator
+    @handles(IntegerType, IntType)
+    def _default_integer(self, data_type) -> SQLQueryAndParams:
+        return "INTEGER", ()
+
+    @handles(SmallIntType)
+    def _default_smallint(self, data_type) -> SQLQueryAndParams:
+        return "SMALLINT", ()
+
+    @handles(BigIntType)
+    def _default_bigint(self, data_type) -> SQLQueryAndParams:
+        return "BIGINT", ()
+
+    @handles(FloatType)
+    def _default_float(self, data_type) -> SQLQueryAndParams:
+        return (f"FLOAT({data_type.precision})" if data_type.precision is not None else "FLOAT"), ()
+
+    @handles(RealType)
+    def _default_real(self, data_type) -> SQLQueryAndParams:
+        return "REAL", ()
+
+    @handles(DoubleType)
+    def _default_double(self, data_type) -> SQLQueryAndParams:
+        return "DOUBLE PRECISION", ()
+
+    @handles(DecimalType)
+    def _default_decimal(self, data_type) -> SQLQueryAndParams:
+        sql = "DECIMAL"
+        if data_type.precision is not None:
+            sql += f"({data_type.precision}"
+            if data_type.scale is not None:
+                sql += f", {data_type.scale}"
+            sql += ")"
+        return sql, ()
+
+    @handles(BooleanType)
+    def _default_boolean(self, data_type) -> SQLQueryAndParams:
+        return "BOOLEAN", ()
+
+    @handles(CharType)
+    def _default_char(self, data_type) -> SQLQueryAndParams:
+        return (f"CHAR({data_type.length})" if data_type.length is not None else "CHAR"), ()
+
+    @handles(VarCharType)
+    def _default_varchar(self, data_type) -> SQLQueryAndParams:
+        return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
+
+    @handles(TextType)
+    def _default_text(self, data_type) -> SQLQueryAndParams:
+        return "TEXT", ()
+
+    @handles(BlobType)
+    def _default_blob(self, data_type) -> SQLQueryAndParams:
+        return "BLOB", ()
+
+    @handles(DateType)
+    def _default_date(self, data_type) -> SQLQueryAndParams:
+        return "DATE", ()
+
+    @handles(TimeType)
+    def _default_time(self, data_type) -> SQLQueryAndParams:
+        return (f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"), ()
+
+    @handles(DateTimeType)
+    def _default_datetime(self, data_type) -> SQLQueryAndParams:
+        return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
+
+    @handles(TimestampType)
+    def _default_timestamp(self, data_type) -> SQLQueryAndParams:
+        return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
+
+    @handles(JsonType)
+    def _default_json(self, data_type) -> SQLQueryAndParams:
+        return "JSON", ()
+
+    @handles(CustomType)
+    def _default_custom(self, data_type) -> SQLQueryAndParams:
+        return data_type.raw, ()
+
+    # ------------------------------------------------------------------
+    # Dispatch
+    # ------------------------------------------------------------------
 
     def format_data_type(self, data_type: DataType) -> SQLQueryAndParams:
+        formatter = self._find_formatter(type(data_type))
+        if formatter is None:
+            dt_cls = type(data_type)
+            raise TypeError(
+                f"{type(self).__name__} has no formatter for "
+                f"{dt_cls.__module__}.{dt_cls.__qualname__}. Register it via "
+                f"@DDLTypeMixin.handles(...) or use a type this backend supports."
+            )
+        return getattr(self, formatter)(data_type)
+
+    def _find_formatter(self, dt_cls: type) -> Optional[str]:
+        """Return the registered formatter method name for *dt_cls*, or None."""
         for klass in type(self).__mro__:
             formatters = getattr(klass, "_type_formatters", {})
-            dt_cls = type(data_type)
             if dt_cls in formatters:
-                return getattr(self, formatters[dt_cls])(data_type)
-            for registered_cls, method_name in formatters.items():
-                if issubclass(dt_cls, registered_cls):
-                    return getattr(self, method_name)(data_type)
-        raise TypeError(
-            f"{type(self).__name__} does not support {type(data_type).__name__}. "
-            f"Use an appropriate backend-specific DataType."
-        )
+                return formatters[dt_cls]
+        if dt_cls.__module__.startswith(_CORE_TYPES_PREFIX):
+            for klass in type(self).__mro__:
+                formatters = getattr(klass, "_type_formatters", {})
+                for registered_cls, method_name in formatters.items():
+                    if issubclass(dt_cls, registered_cls):
+                        return method_name
+        return None
+
+    def supports_data_type(self, data_type_or_class) -> bool:
+        """Whether this dialect can render *data_type_or_class*.
+
+        Accepts either a ``DataType`` instance or a ``DataType`` subclass.
+        """
+        dt_cls = data_type_or_class if isinstance(data_type_or_class, type) else type(data_type_or_class)
+        return self._find_formatter(dt_cls) is not None
 
     def supports_data_types(self) -> list[tuple[type, str]]:
         """Return ``(DataTypeClass, sql_name)`` pairs from the registry.
@@ -94,6 +241,9 @@ class DDLTypeMixin:
                         sql_name = dt_cls.__name__
                     result.append((dt_cls, sql_name))
         return result
+
+
+DDLTypeMixin.handles = staticmethod(handles)
 
 
 class DDLTypeSuggestionMixin:

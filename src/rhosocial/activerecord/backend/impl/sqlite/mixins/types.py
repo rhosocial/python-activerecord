@@ -21,16 +21,12 @@ from rhosocial.activerecord.backend.expression.types import (
     FloatType,
     IntType,
     IntegerType,
-    IntervalType,
-    JsonBType,
     JsonType,
     RealType,
     SmallIntType,
     TextType as CoreTextType,
     TimeType,
-    TimeTzType,
     TimestampType,
-    TimestampTzType,
     TinyIntType,
     VarCharType,
 )
@@ -142,7 +138,7 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     def format_data_type_core_blob(self, data_type: CoreBlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
-    # --- Missing core type formatters ---
+    # --- Additional core type formatters ---
 
     @DDLTypeMixin.handles(TinyIntType)
     def format_data_type_core_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
@@ -156,24 +152,8 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     def format_data_type_core_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
         return "REAL", ()
 
-    @DDLTypeMixin.handles(TimeTzType)
-    def format_data_type_core_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
-        return "NUMERIC", ()
-
-    @DDLTypeMixin.handles(TimestampTzType)
-    def format_data_type_core_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
-        return "NUMERIC", ()
-
-    @DDLTypeMixin.handles(IntervalType)
-    def format_data_type_core_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
-        return "NUMERIC", ()
-
     @DDLTypeMixin.handles(JsonType)
     def format_data_type_core_json(self, data_type: JsonType) -> Tuple[str, tuple]:
-        return "TEXT", ()
-
-    @DDLTypeMixin.handles(JsonBType)
-    def format_data_type_core_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
     @DDLTypeMixin.handles(CustomType)

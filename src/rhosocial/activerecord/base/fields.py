@@ -106,63 +106,37 @@ class UseSqlType:
     when building a ``ColumnDefinition`` for this field, overriding the dialect's
     default type suggestion for ``T``.
 
-    Two forms are accepted:
+    The instance may be a core **generic** type (portable — every backend renders
+    it, natively or via the SQL-standard default) or a **backend-specific** type
+    (``<Backend>*Type``, e.g. ``PostgresJsonBType``). Backend-specific types are
+    rendered only by backends that register them; any other backend raises at
+    render time rather than silently substituting a lossy form.
 
-    1. Single type (applies to all backends)::
+    Examples::
 
+        # Generic — portable across backends
         status: Annotated[str, UseSqlType(VarCharType(length=50))]
 
-    2. Per-dialect selectable (the ``default`` key is the fallback)::
-
-        metadata: Annotated[dict, UseSqlType({
-            "postgres": JsonBType(),
-            "mysql": JsonType(),
-            "default": TextType(),
-        })]
+        # Backend-specific — renders only on the owning backend (PostgreSQL here)
+        metadata: Annotated[dict, UseSqlType(JsonBType())]
 
     Attributes:
-        data_type: The primary ``DataType`` instance (or the ``default`` entry
-            from the per-dialect form).
-        dialect_types: ``{dialect_name: DataType}`` mapping for backends whose
-            type differs from the primary. Keys are dialect names used by
-            ``SQLDialectBase.name`` (e.g. ``"sqlite"``, ``"mysql"``,
-            ``"postgres"``).
+        data_type: The ``DataType`` instance to use.
     """
 
-    def __init__(
-        self,
-        data_type: Union["DataType", Dict[str, "DataType"]],
-    ):
-        if isinstance(data_type, dict):
-            mapping = dict(data_type)
-            self.dialect_types: Dict[str, "DataType"] = mapping
-            self.data_type: Optional["DataType"] = mapping.pop("default", None)
-            if self.data_type is None:
-                raise ValueError(
-                    "UseSqlType per-dialect mapping must include a 'default' "
-                    "fallback key, e.g. UseSqlType({'default': TextType()})"
-                )
-        else:
-            self.data_type = data_type
-            self.dialect_types = {}
+    def __init__(self, data_type: "DataType"):
+        from ..backend.expression.types import DataType
 
-    def resolve(self, dialect_name: str) -> Optional["DataType"]:
-        """Return the DataType for *dialect_name*, falling back to ``data_type``.
-
-        The lookup is case-insensitive so users may write ``"postgres"`` or
-        ``"PostgreSQL"`` and still match the dialect's ``.name`` attribute.
-        """
-        if not dialect_name:
-            return self.data_type
-        key = dialect_name.lower()
-        for k, v in self.dialect_types.items():
-            if k.lower() == key:
-                return v
-        return self.data_type
+        if not isinstance(data_type, DataType):
+            raise TypeError(
+                f"UseSqlType expects a single DataType instance, got "
+                f"{type(data_type).__name__}. Per-dialect string-keyed mappings "
+                f"are no longer supported: use a generic type (each backend "
+                f"resolves it natively) or a backend-specific type."
+            )
+        self.data_type = data_type
 
     def __repr__(self) -> str:
-        if self.dialect_types:
-            return f"UseSqlType({self.dialect_types!r}, default={self.data_type!r})"
         return f"UseSqlType({self.data_type!r})"
 
 

@@ -34,14 +34,18 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
 from rhosocial.activerecord.backend.expression.types import (
     BlobType,
     BooleanType,
+    CustomType,
     DateType,
     DateTimeType,
     DecimalType,
     DoubleType,
     IntegerType,
+    IntervalType,
     JsonBType,
     JsonType,
     TextType,
+    TimeTzType,
+    TimestampTzType,
     VarCharType,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -123,21 +127,15 @@ class TestFieldLevelDeclarations:
     def test_use_sql_type_single(self):
         u = _Article.__table_field_sql_types__["title"]
         assert u.data_type == VarCharType(length=255)
-        assert u.resolve("sqlite") == VarCharType(length=255)
 
-    def test_use_sql_type_per_dialect(self):
-        class _M(ActiveRecord):
-            meta: Annotated[dict, UseSqlType({
-                "postgres": JsonBType(), "mysql": JsonType(), "default": TextType(),
-            })]
-        u = _M.__table_field_sql_types__["meta"]
-        assert u.resolve("postgres") == JsonBType()
-        assert u.resolve("mysql") == JsonType()
-        assert u.resolve("sqlite") == TextType()
+    def test_use_sql_type_dict_form_rejected(self):
+        """Per-dialect string-keyed mappings are no longer supported."""
+        with pytest.raises(TypeError, match="single DataType"):
+            UseSqlType({"postgres": JsonBType(), "default": TextType()})
 
-    def test_use_sql_type_missing_default_raises(self):
-        with pytest.raises(ValueError, match="default"):
-            UseSqlType({"postgres": JsonBType()})
+    def test_use_sql_type_non_datatype_rejected(self):
+        with pytest.raises(TypeError, match="single DataType"):
+            UseSqlType("VARCHAR(255)")
 
     def test_use_index_to_index_definition(self):
         idxs = _Article.__table_field_indexes__["slug"]
@@ -263,13 +261,11 @@ class TestModelSchemaGenerator:
         expr = ModelSchemaGenerator.generate_create_table(_Article, DummyDialect(), temporary=True)
         assert expr.temporary is True
 
-    def test_per_dialect_type_override(self):
-        """UseSqlType per-dialect wins over dialect suggestion."""
+    def test_single_instance_applies_directly(self):
+        """UseSqlType carries the exact DataType instance, applied as-is."""
         class _Override(ActiveRecord):
-            data: Annotated[dict, UseSqlType({
-                "dummy": JsonType(), "default": TextType(),
-            })]
-        # DummyDialect.name == "Dummy" — resolver is case-insensitive
+            data: Annotated[dict, UseSqlType(JsonType())]
+
         expr = ModelSchemaGenerator.generate_create_table(_Override, DummyDialect())
         assert isinstance(expr.columns[0].data_type, JsonType)
 
@@ -377,3 +373,66 @@ class TestDegradationContract:
         # Expression carries all declared features regardless of backend support
         assert len(expr.indexes) >= 2
         assert len(expr.table_constraints) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Type vocabulary: generic default rendering / backend-specific ownership
+# ---------------------------------------------------------------------------
+
+class TestTypeVocabulary:
+
+    def test_generic_types_render_standard_sql_by_default(self):
+        """Generic core types render SQL-standard forms via the base mixin's
+        defaults, even for a backend with no overrides (portable-by-construction)."""
+        from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
+
+        class _BareDialect(DDLTypeMixin):
+            pass
+
+        dialect = _BareDialect()
+        assert dialect.format_data_type(IntegerType()) == ("INTEGER", ())
+        assert dialect.format_data_type(VarCharType(length=50)) == ("VARCHAR(50)", ())
+        assert dialect.format_data_type(DecimalType(precision=10, scale=2)) == (
+            "DECIMAL(10, 2)", ())
+        assert dialect.format_data_type(JsonType()) == ("JSON", ())
+        assert dialect.format_data_type(CustomType(raw="GEOMETRY")) == ("GEOMETRY", ())
+
+    def test_sqlite_does_not_silently_substitute_specific_types(self):
+        """SQLite no longer maps tz/JSONB types to lossy NUMERIC/TEXT."""
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+        dialect = SQLiteDialect()
+        for specific in (JsonBType(), TimestampTzType(), TimeTzType(), IntervalType()):
+            with pytest.raises(TypeError, match="no formatter"):
+                dialect.format_data_type(specific)
+
+    def test_sqlite_still_renders_generic_types(self):
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+        dialect = SQLiteDialect()
+        assert dialect.format_data_type(IntegerType()) == ("INTEGER", ())
+        assert dialect.format_data_type(JsonType()) == ("TEXT", ())
+        assert dialect.format_data_type(VarCharType(length=50)) == ("TEXT", ())
+
+    def test_backend_specific_subclass_not_absorbed(self):
+        """A backend-specific subclass of a generic type must be registered on
+        a backend to render there; other backends raise (anti-absorption)."""
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+        dialect = DummyDialect()
+        fake_mysql_type = type("MySQLXmlType", (VarCharType,), {})
+        with pytest.raises(TypeError, match="no formatter"):
+            dialect.format_data_type(fake_mysql_type())
+        assert dialect.supports_data_type(VarCharType) is True
+        assert dialect.supports_data_type(fake_mysql_type) is False
+
+    def test_supports_data_type(self):
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+        dialect = DummyDialect()
+        assert dialect.supports_data_type(IntegerType()) is True
+        assert dialect.supports_data_type(JsonBType()) is True  # dummy renders faithfully
+        assert dialect.supports_data_type(TimeTzType()) is True
+
+    def test_custom_type_raw_passthrough(self):
+        """CustomType.raw is emitted verbatim — hardcoded trusted strings only."""
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+        dialect = DummyDialect()
+        assert dialect.format_data_type(CustomType(raw="geometry(Point,4326)")) == (
+            "geometry(Point,4326)", ())
