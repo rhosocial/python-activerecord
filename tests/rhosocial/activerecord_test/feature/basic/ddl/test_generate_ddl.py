@@ -32,19 +32,27 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     TableConstraintType,
 )
 from rhosocial.activerecord.backend.expression.types import (
+    BigIntType,
     BlobType,
     BooleanType,
+    CharType,
     CustomType,
     DateType,
     DateTimeType,
     DecimalType,
     DoubleType,
+    FloatType,
+    IntType,
     IntegerType,
     IntervalType,
     JsonBType,
     JsonType,
+    RealType,
+    SmallIntType,
     TextType,
+    TimeType,
     TimeTzType,
+    TimestampType,
     TimestampTzType,
     VarCharType,
 )
@@ -279,6 +287,58 @@ class TestModelSchemaGenerator:
         assert isinstance(expr.columns[0].data_type, JsonType)
 
 
+class TestGeneratorEdgeCases:
+    """Type-resolution fallbacks and validation branches."""
+
+    def test_marker_validation_branches(self):
+        """UseColumn / UseAdapter / UseIndex construction guards."""
+        from rhosocial.activerecord.base.fields import UseAdapter, UseColumn, UseIndex
+
+        with pytest.raises(TypeError, match="column_name"):
+            UseColumn(123)
+        with pytest.raises(ValueError, match="Column name cannot be empty"):
+            UseColumn("   ")
+        with pytest.raises(TypeError, match="SQLTypeAdapter"):
+            UseAdapter("not-an-adapter", str)
+        with pytest.raises(ValueError, match="non-empty index name"):
+            UseIndex("")
+
+    def test_unresolvable_annotations_fall_back_to_integer(self):
+        """object / List[int] / Optional[Union[int, str]] cannot be unwrapped to
+        a concrete python type -> neutral fallback to IntegerType."""
+        from typing import List, Optional, Union
+
+        class _Edge(ActiveRecord):
+            a: object
+            b: List[int]
+            c: Optional[Union[int, str]]
+
+        expr = ModelSchemaGenerator.generate_create_table(_Edge, DummyDialect())
+        for col in expr.columns:
+            assert isinstance(col.data_type, IntegerType)
+
+    def test_non_integer_auto_pk_degrades(self):
+        """__pk_auto_generated__ on a non-int PK drops the auto-increment flag."""
+        class _StrPKAuto(ActiveRecord):
+            __primary_key__ = "slug"
+            __pk_auto_generated__ = True
+            slug: str
+
+        expr = ModelSchemaGenerator.generate_create_table(_StrPKAuto, DummyDialect())
+        pk_col = next(c for c in expr.columns if c.name == "slug")
+        pk = [c for c in pk_col.constraints if c.constraint_type == ColumnConstraintType.PRIMARY_KEY]
+        assert len(pk) == 1
+        assert pk[0].is_auto_increment is False
+
+    def test_invalid_table_options_rejected(self):
+        class _Bad(ActiveRecord):
+            __table_options__ = "invalid"
+            id: int
+
+        with pytest.raises(TypeError, match="TableOptions"):
+            ModelSchemaGenerator.generate_create_table(_Bad, DummyDialect())
+
+
 # ---------------------------------------------------------------------------
 # ActiveRecord.generate_create_table() integration tests
 # ---------------------------------------------------------------------------
@@ -398,12 +458,47 @@ class TestTypeVocabulary:
         class _BareDialect(DDLTypeMixin):
             pass
 
-        dialect = _BareDialect()
-        assert dialect.format_data_type(IntegerType()) == ("INTEGER", ())
-        assert dialect.format_data_type(VarCharType(length=50)) == ("VARCHAR(50)", ())
-        assert dialect.format_data_type(DecimalType(precision=10, scale=2)) == (
+        d = _BareDialect()
+        assert d.format_data_type(IntegerType()) == ("INTEGER", ())
+        assert d.format_data_type(IntType()) == ("INTEGER", ())
+        assert d.format_data_type(SmallIntType()) == ("SMALLINT", ())
+        assert d.format_data_type(BigIntType()) == ("BIGINT", ())
+        assert d.format_data_type(FloatType()) == ("FLOAT", ())
+        assert d.format_data_type(FloatType(precision=24)) == ("FLOAT(24)", ())
+        assert d.format_data_type(RealType()) == ("REAL", ())
+        assert d.format_data_type(DoubleType()) == ("DOUBLE PRECISION", ())
+        assert d.format_data_type(DecimalType()) == ("DECIMAL", ())
+        assert d.format_data_type(DecimalType(precision=10)) == ("DECIMAL(10)", ())
+        assert d.format_data_type(DecimalType(precision=10, scale=2)) == (
             "DECIMAL(10, 2)", ())
-        assert dialect.format_data_type(JsonType()) == ("JSON", ())
+        assert d.format_data_type(BooleanType()) == ("BOOLEAN", ())
+        assert d.format_data_type(CharType()) == ("CHAR", ())
+        assert d.format_data_type(CharType(length=10)) == ("CHAR(10)", ())
+        assert d.format_data_type(VarCharType(length=50)) == ("VARCHAR(50)", ())
+        assert d.format_data_type(TextType()) == ("TEXT", ())
+        assert d.format_data_type(BlobType()) == ("BLOB", ())
+        assert d.format_data_type(DateType()) == ("DATE", ())
+        assert d.format_data_type(TimeType()) == ("TIME", ())
+        assert d.format_data_type(TimeType(precision=3)) == ("TIME(3)", ())
+        assert d.format_data_type(DateTimeType()) == ("TIMESTAMP", ())
+        assert d.format_data_type(DateTimeType(precision=3)) == ("TIMESTAMP(3)", ())
+        assert d.format_data_type(TimestampType()) == ("TIMESTAMP", ())
+        assert d.format_data_type(JsonType()) == ("JSON", ())
+
+    def test_supports_data_types_enumerates_base_defaults(self):
+        """supports_data_types() lists the portable generic types on a bare
+        dialect (auto-generated from the base default formatters)."""
+        from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
+
+        class _BareDialect(DDLTypeMixin):
+            pass
+
+        supported = dict(_BareDialect().supports_data_types())
+        assert supported[IntegerType] == "INTEGER"
+        assert supported[VarCharType] == "VARCHAR"
+        assert supported[JsonType] == "JSON"
+        assert supported[BooleanType] == "BOOLEAN"
+        assert BigIntType in supported
 
     def test_custom_type_requires_explicit_registration(self):
         """CustomType has no base default: backends must opt in, otherwise render
