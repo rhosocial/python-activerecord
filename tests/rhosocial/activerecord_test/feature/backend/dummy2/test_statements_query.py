@@ -409,7 +409,34 @@ class TestQueryStatements:
         )
         sql, params = query.to_sql()
         assert 'QUALIFY COUNT("id") > ?' in sql
+        assert sql.count("QUALIFY") == 1
         assert params == (5,)
+
+    def test_query_expression_qualify_before_order_by(self, dummy_dialect: DummyDialect):
+        """QUALIFY must be placed before ORDER BY (and after GROUP BY/HAVING)."""
+        qualify_condition = ComparisonPredicate(
+            dummy_dialect,
+            "<=",
+            FunctionCall(dummy_dialect, "ROW_NUMBER"),
+            Literal(dummy_dialect, 3),
+        )
+        qualify_clause = QualifyClause(dummy_dialect, condition=qualify_condition)
+        order_by = OrderByClause(
+            dummy_dialect, expressions=[(Column(dummy_dialect, "category"), "ASC")]
+        )
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "category"), Column(dummy_dialect, "name")],
+            from_=TableExpression(dummy_dialect, "products"),
+            qualify=qualify_clause,
+            order_by=order_by,
+        )
+        sql, params = query.to_sql()
+        assert sql.count("QUALIFY") == 1
+        assert sql.index("QUALIFY") < sql.index("ORDER BY")
+        assert "QUALIFY ROW_NUMBER() <= ? ORDER BY" in sql
+        assert params == (3,)
 
     def test_comparison_mixin_methods(self, dummy_dialect: DummyDialect):
         """Test ComparisonMixin methods that are not directly tested elsewhere."""

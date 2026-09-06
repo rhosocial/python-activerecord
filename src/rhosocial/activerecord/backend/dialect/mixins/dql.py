@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/dql.py
 from typing import Any, List, Tuple, TYPE_CHECKING
 
-from ..exceptions import UnsupportedFeatureError
 from ...expression.bases import ToSQLProtocol
 
 if TYPE_CHECKING:
@@ -152,9 +151,9 @@ class DQLMixin:
         qualify_sql = ""
         if expr.qualify:
             qualify_expr_sql, qualify_expr_params = expr.qualify.to_sql()
-            qualify_sql = f" QUALIFY {qualify_expr_sql}"
+            qualify_sql = f" {qualify_expr_sql}"
             all_params.extend(qualify_expr_params)
-        sql = f"{select_sql}{from_sql}{where_sql}{group_by_having_sql}{order_by_sql}{qualify_sql}"
+        sql = f"{select_sql}{from_sql}{where_sql}{group_by_having_sql}{qualify_sql}{order_by_sql}"
         if expr.limit_offset:
             limit_offset_sql, limit_offset_params = expr.limit_offset.to_sql()
             if limit_offset_sql:
