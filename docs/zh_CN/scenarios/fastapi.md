@@ -2,788 +2,647 @@
 
 FastAPI 是一个现代、高性能的 Python Web 框架，与 `rhosocial-activerecord` 有着天然的契合度——因为 `ActiveRecord` 模型本质上就是 `Pydantic` 模型，这意味着你可以直接将它们用作 FastAPI 的请求体和响应模型，无需任何额外的序列化层。
 
-本章将带你从零开始，构建一个完整的**博客系统 REST API**，包含用户管理、文章发布、关联查询等功能。我们将展示 **异步** 实现方式，这是 FastAPI 的推荐模式。
+本章将带你从零开始，构建一个完整的**博客系统 REST API**，包含用户管理、文章发布、关联查询等功能。我们将展示 **异步** 实现方式（FastAPI 的推荐模式），并重点讲解**并行请求的连接隔离**、**推导 DDL**、**日志**与 **Prometheus 指标**。
+
+> 完整的可运行示例代码位于 `docs/examples/chapter_14_scenarios/fastapi_blog/`，其中的测试已全部通过。
 
 ## 目录
 
 1. [项目结构](#1-项目结构)
 2. [环境准备](#2-环境准备)
 3. [定义模型](#3-定义模型)
-4. [数据库配置](#4-数据库配置)
+4. [连接池与推导 DDL](#4-连接池与推导-ddl)
 5. [创建 FastAPI 应用](#5-创建-fastapi-应用)
 6. [实现 API 路由](#6-实现-api-路由)
-7. [运行与测试](#7-运行与测试)
-8. [最佳实践](#8-最佳实践)
+7. [日志配置](#7-日志配置)
+8. [集成 Prometheus 指标](#8-集成-prometheus-指标)
+9. [运行与测试](#9-运行与测试)
+10. [并行请求的连接隔离](#10-并行请求的连接隔离)
+11. [常见错误用法](#11-常见错误用法)
+12. [最佳实践](#12-最佳实践)
 
 ## 1. 项目结构
 
-首先，让我们规划项目的目录结构：
-
 ```
-my_blog_api/
+fastapi_blog/
 ├── app/
 │   ├── __init__.py
-│   ├── models.py          # 数据模型定义
-│   ├── database.py        # 数据库配置
-│   ├── schemas.py         # Pydantic 请求/响应模型（可选）
+│   ├── models.py          # AsyncActiveRecord 数据模型
+│   ├── database.py        # 连接池 + 推导 DDL + 依赖注入
+│   ├── logging_conf.py    # 日志配置
+│   ├── routes.py          # API 路由
 │   └── main.py            # FastAPI 应用入口
 ├── tests/
-│   └── test_api.py        # API 测试
-├── requirements.txt
-└── README.md
+│   └── test_api.py        # 集成测试（httpx ASGITransport）
+└── requirements.txt
 ```
 
 ## 2. 环境准备
 
-### 2.1 安装依赖
-
-创建 `requirements.txt`：
-
 ```txt
-fastapi>=0.100.0
-uvicorn[standard]>=0.23.0
-rhosocial-activerecord
-aiosqlite>=0.19.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.30.0
+rhosocial-activerecord[async]>=1.0.0.dev
+prometheus-client>=0.20.0
+prometheus-fastapi-instrumentator>=7.0.0
+pytest>=8.0.0
+httpx>=0.27.0
 ```
 
-安装依赖：
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2.2 创建基础目录
-
-```bash
-mkdir -p app tests
-touch app/__init__.py
-```
+> `rhosocial-activerecord[async]` 会安装 `aiosqlite`——异步 SQLite 后端所必需的驱动。**同步**使用 `SQLiteBackend` 则无需该 extra。
 
 ## 3. 定义模型
 
-我们将定义 `User` 和 `Post` 两个模型，展示一对多关系（一个用户可以有多篇文章）。
+我们定义 `User` 和 `Post` 两个模型，展示一对多关系（一个用户可以有多篇文章）。
 
-> **⚠️ 注意**
-> 
-> 本章使用异步模型 (`AsyncActiveRecord`)，这是 FastAPI 的推荐模式。所有数据库操作都需要使用 `await`。
-
-创建 `app/models.py`：
+> **⚠️ 注意**：本章使用异步模型 (`AsyncActiveRecord`)，这是 FastAPI 的推荐模式。所有数据库操作都需要使用 `await`。
 
 ```python
 # app/models.py
 import uuid
-from datetime import datetime
-from typing import ClassVar, Optional, List
-from pydantic import Field
+from typing import Annotated, ClassVar, Optional
+
+from rhosocial.activerecord.base import FieldProxy, UseColumn, UseSqlType
+from rhosocial.activerecord.backend.expression.types import (
+    BooleanType, DateTimeType, TextType, VarCharType,
+)
+from rhosocial.activerecord.field import DefaultTimestampMixin, UUIDMixin
 from rhosocial.activerecord.model import AsyncActiveRecord
-from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
-from rhosocial.activerecord.relation import AsyncHasMany, AsyncBelongsTo
+from rhosocial.activerecord.relation import AsyncBelongsTo, AsyncHasMany
 
 
-class User(UUIDMixin, TimestampMixin, AsyncActiveRecord):
-    """用户模型。"""
-    
-    username: str = Field(..., max_length=50, description="用户名")
-    email: str = Field(..., max_length=100, description="邮箱地址")
-    bio: Optional[str] = Field(default=None, max_length=500, description="个人简介")
-    is_active: bool = Field(default=True, description="是否激活")
-    
-    # 启用类型安全的查询构建
+class User(UUIDMixin, DefaultTimestampMixin, AsyncActiveRecord):
+    __table_name__ = "users"
+
+    username: Annotated[str, UseSqlType(VarCharType(length=50))]
+    email: Annotated[str, UseSqlType(VarCharType(length=120))]
+    bio: Annotated[Optional[str], UseSqlType(TextType())] = None
+    is_active: Annotated[bool, UseSqlType(BooleanType())] = True
+
     c: ClassVar[FieldProxy] = FieldProxy()
-    
-    # 关联关系：一个用户有多篇文章
-    posts: ClassVar[AsyncHasMany['Post']] = AsyncHasMany(
-        foreign_key='user_id', 
-        inverse_of='author'
+    posts: ClassVar[AsyncHasMany["Post"]] = AsyncHasMany(
+        foreign_key="user_id", inverse_of="author"
     )
-    
-    @classmethod
-    def table_name(cls) -> str:
-        """返回表名。"""
-        return 'users'
-    
-    class Config:
-        # Pydantic V2 配置
-        json_schema_extra = {
-            "example": {
-                "username": "john_doe",
-                "email": "john@example.com",
-                "bio": "Python 开发者",
-                "is_active": True
-            }
-        }
 
 
-class Post(UUIDMixin, TimestampMixin, AsyncActiveRecord):
-    """文章模型。"""
-    
-    title: str = Field(..., max_length=200, description="文章标题")
-    content: str = Field(..., description="文章内容")
-    summary: Optional[str] = Field(default=None, max_length=500, description="摘要")
-    is_published: bool = Field(default=False, description="是否已发布")
-    user_id: uuid.UUID = Field(..., description="作者ID")
-    published_at: Optional[datetime] = Field(default=None, description="发布时间")
-    
-    # 启用类型安全的查询构建
+class Post(UUIDMixin, DefaultTimestampMixin, AsyncActiveRecord):
+    __table_name__ = "posts"
+
+    title: Annotated[str, UseSqlType(VarCharType(length=200))]
+    content: Annotated[str, UseSqlType(TextType())]
+    is_published: Annotated[bool, UseSqlType(BooleanType())] = False
+    user_id: Annotated[uuid.UUID, UseColumn("user_id")]
+    published_at: Annotated[Optional[object], UseSqlType(DateTimeType())] = None
+
     c: ClassVar[FieldProxy] = FieldProxy()
-    
-    # 关联关系：文章属于一个用户
-    author: ClassVar[AsyncBelongsTo['User']] = AsyncBelongsTo(
-        foreign_key='user_id', 
-        inverse_of='posts'
+    author: ClassVar[AsyncBelongsTo["User"]] = AsyncBelongsTo(
+        foreign_key="user_id", inverse_of="posts"
     )
-    
-    @classmethod
-    def table_name(cls) -> str:
-        """返回表名。"""
-        return 'posts'
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "title": "Hello FastAPI",
-                "content": "这是一篇关于 FastAPI 的文章...",
-                "summary": "FastAPI 入门指南",
-                "is_published": True,
-                "user_id": "550e8400-e29b-41d4-a716-446655440000"
-            }
-        }
 ```
 
-## 4. 数据库配置
+要点：
 
-创建 `app/database.py` 来管理数据库连接：
+- **`UseSqlType`**：显式声明 SQL 列类型（`VARCHAR(50)`、`TEXT`、`BOOLEAN`…），推导 DDL 会据此生成建表语句；不声明时框架按 Python 类型自动推断。
+- **`UseColumn`**：控制 Python 属性名与数据库列名的映射。
+- 关系字段必须是 `ClassVar`，避免被 Pydantic 当作普通字段。
+
+## 4. 连接池与推导 DDL
+
+这是本场景的核心部分，参考真实项目（如 webcrawler）的实践：
+
+- 应用启动时创建 **`AsyncBackendPool`**（异步连接池）
+- 所有模型共享同一份后端类与连接配置
+- **`generate_create_table()`** 由模型推导 DDL——不再手写建表 SQL
 
 ```python
 # app/database.py
-import sys
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator, List, Type
+
+from fastapi import Request
+from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
-
-# 从测试模块导入 AsyncSQLiteBackend
-# 注意：这是用于测试的异步后端实现
-sys.path.insert(0, 'tests')
-from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
+from rhosocial.activerecord.connection.pool import AsyncBackendPool, PoolConfig
+from rhosocial.activerecord.interface.model import IAsyncActiveRecord
 
 
-class Database:
-    """数据库连接管理器。"""
-    
-    _config = None
-    
-    @classmethod
-    def get_config(cls):
-        """获取数据库配置（单例模式）。"""
-        if cls._config is None:
-            cls._config = SQLiteConnectionConfig(
-                database='./blog.db',  # 使用文件数据库
-                # database=':memory:'  # 使用内存数据库（测试时）
-            )
-        return cls._config
-    
-    @classmethod
-    async def init_models(cls):
-        """初始化模型（创建表）。"""
-        from app.models import User, Post
-        
-        config = cls.get_config()
-        
-        # 配置模型（需要提供配置和后端类）
-        User.configure(config, AsyncSQLiteBackend)
-        Post.configure(config, AsyncSQLiteBackend)
-        
-        # 连接数据库
-        backend = User.__backend__
-        await backend.connect()
-        
-        # 创建表（如果不存在）
-        # 注意：实际项目中应使用迁移工具
-        await cls._create_tables(backend)
-    
-    @classmethod
-    async def _create_tables(cls, backend):
-        """创建数据库表。"""
-        options = ExecutionOptions(stmt_type=StatementType.DDL)
-        
-        # 创建 users 表
-        await backend.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id TEXT PRIMARY KEY,
-                username TEXT UNIQUE NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                bio TEXT,
-                is_active INTEGER DEFAULT 1,
-                created_at TEXT,
-                updated_at TEXT
-            )
-        """, options=options)
-        
-        # 创建 posts 表
-        await backend.execute("""
-            CREATE TABLE IF NOT EXISTS posts (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                content TEXT NOT NULL,
-                summary TEXT,
-                is_published INTEGER DEFAULT 0,
-                user_id TEXT NOT NULL,
-                published_at TEXT,
-                created_at TEXT,
-                updated_at TEXT,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-        """, options=options)
-    
-    @classmethod
-    async def close(cls):
-        """关闭数据库连接。"""
-        from app.models import User
-        backend = User.__backend__
-        if backend:
-            await backend.disconnect()
+def make_connection_config(database: str = "blog.db") -> SQLiteConnectionConfig:
+    return SQLiteConnectionConfig(database=database)
 
 
-@asynccontextmanager
-async def get_db():
-    """提供数据库会话的异步上下文管理器（用于依赖注入）。"""
-    from app.models import User
-    backend = User.__backend__
-    try:
-        yield backend
-    except Exception:
-        # 可以在这里添加回滚逻辑
-        raise
+def configure_models(models: List[Type[IAsyncActiveRecord]], config: SQLiteConnectionConfig) -> None:
+    """为所有模型配置后端类与连接配置。
+
+    模型不持有固定后端实例；在 ``pool.connection()`` 上下文中，
+    ``Model.backend()`` 会优先解析到当前请求借出的连接。
+    """
+    for model in models:
+        model.__backend_class__ = AsyncSQLiteBackend
+        model.__connection_config__ = config
+
+
+async def create_schema(models: List[Type[IAsyncActiveRecord]]) -> None:
+    """推导 DDL：由模型定义自动生成并执行 CREATE TABLE。"""
+    options = ExecutionOptions(stmt_type=StatementType.DDL)
+    for model in models:
+        expr = model.generate_create_table(if_not_exists=True)
+        sql, params = expr.to_sql()
+        await model.backend().execute(sql, params, options=options)
+
+
+async def create_pool(config: SQLiteConnectionConfig) -> AsyncBackendPool:
+    pool_config = PoolConfig(
+        min_size=2,
+        max_size=10,
+        connection_mode="auto",
+        backend_factory=lambda: AsyncSQLiteBackend(connection_config=config),
+    )
+    return await AsyncBackendPool.create(pool_config)
+
+
+async def get_db_context(request: Request) -> AsyncGenerator[None, None]:
+    """FastAPI 依赖：为当前请求借出一个独立连接。
+
+    这是一个原生 async generator 依赖（FastAPI 的 yield 依赖约定）。
+    在 ``async with pool.connection():`` 内部，contextvars 会设置当前
+    异步连接后端，使 ``User.query()`` 等调用自动使用该请求专属的连接。
+    """
+    pool: AsyncBackendPool = request.app.state.pool
+    async with pool.connection():
+        yield
 ```
+
+> **重要**：`get_db_context` 必须写成**原生 async generator**（`async def ... yield`），不要用 `@asynccontextmanager` 装饰。FastAPI 依赖注入通过 `inspect.isasyncgenfunction` 识别 yield 依赖；用装饰器包装后返回的是 context manager 对象而非 async generator，会导致 `TypeError`。
 
 ## 5. 创建 FastAPI 应用
 
-创建 `app/main.py` 作为应用入口：
-
 ```python
 # app/main.py
-from fastapi import FastAPI, Depends, HTTPException, Query, status
-from fastapi.responses import JSONResponse
-from typing import List, Optional
+import logging
 from contextlib import asynccontextmanager
 
-from app.database import Database
-from app.models import User, Post
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
+
+from .database import (
+    configure_models, create_pool, create_schema, make_connection_config,
+)
+from .logging_conf import setup_logging
+from .models import Post, User
+from .routes import router
+
+logger = logging.getLogger("blog")
+ALL_MODELS = [User, Post]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理。"""
-    # 启动时初始化数据库
-    await Database.init_models()
-    print("数据库初始化完成")
+    # 1. 日志
+    setup_logging()
+    logger.info("日志已初始化")
+
+    # 2. 连接池
+    config = make_connection_config(database="blog.db")
+    configure_models(ALL_MODELS, config)
+    pool = await create_pool(config)
+    app.state.pool = pool
+
+    # 3. 推导 DDL 建表 + 种子数据
+    async with pool.connection():
+        await create_schema(ALL_MODELS)
+        if await User.query().count() == 0:
+            alice = User(username="alice", email="alice@example.com")
+            await alice.save()
+            await Post(user_id=alice.id, title="Hello FastAPI", content="First post").save()
+
     yield
-    # 关闭时的清理逻辑
-    await Database.close()
-    print("应用关闭")
+    await pool.close()  # 优雅关闭
 
 
 app = FastAPI(
     title="博客系统 API",
-    description="使用 rhosocial-activerecord + FastAPI 构建的博客系统",
+    description="rhosocial-activerecord + FastAPI 博客示例",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
-
-@app.get("/")
-async def root():
-    """API 根路径。"""
-    return {
-        "message": "欢迎使用博客系统 API",
-        "docs": "/docs",
-        "version": "1.0.0"
-    }
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
+                   allow_methods=["*"], allow_headers=["*"])
+app.include_router(router)
 ```
+
+> 使用 **`lifespan`**（`@asynccontextmanager`）而非已弃用的 `@app.on_event("startup")`。
 
 ## 6. 实现 API 路由
 
-### 6.1 用户管理路由
+路由统一挂载 `get_db_context` 依赖，因此每个请求都自动获得独立连接：
 
 ```python
-# app/main.py（追加到文件末尾）
+# app/routes.py
+import uuid
+from datetime import datetime, timezone
+from typing import Optional
 
-@app.post("/users/", response_model=User, status_code=status.HTTP_201_CREATED)
-async def create_user(user: User):
-    """
-    创建新用户。
-    
-    - **username**: 用户名（必填，最大50字符）
-    - **email**: 邮箱地址（必填，最大100字符）
-    - **bio**: 个人简介（可选，最大500字符）
-    - **is_active**: 是否激活（可选，默认为 true）
-    """
-    # 检查用户名是否已存在
-    existing = await User.query().where(User.c.username == user.username).one()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"用户名 '{user.username}' 已存在"
-        )
-    
-    # 检查邮箱是否已存在
-    existing = await User.query().where(User.c.email == user.email).one()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"邮箱 '{user.email}' 已被注册"
-        )
-    
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from .database import get_db_context
+from .models import Post, User
+
+router = APIRouter(prefix="/api", dependencies=[Depends(get_db_context)])
+
+
+@router.post("/users/", status_code=status.HTTP_201_CREATED)
+async def create_user(username: str, email: str, bio: Optional[str] = None):
+    if await User.query().where(User.c.username == username).one():
+        raise HTTPException(status_code=409, detail="用户名已存在")
+    user = User(username=username, email=email, bio=bio)
     await user.save()
     return user
 
 
-@app.get("/users/", response_model=List[User])
-async def list_users(
-    skip: int = Query(0, ge=0, description="跳过的记录数"),
-    limit: int = Query(10, ge=1, le=100, description="返回的记录数"),
-    is_active: Optional[bool] = Query(None, description="按激活状态筛选")
-):
-    """获取用户列表（支持分页和筛选）。"""
+@router.get("/users/")
+async def list_users(skip: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100),
+                     is_active: Optional[bool] = Query(None)):
     query = User.query()
-    
     if is_active is not None:
         query = query.where(User.c.is_active == is_active)
-    
-    # 对于 SQLite，我们需要确保正确使用 LIMIT 和 OFFSET
-    # 按创建时间降序排序（最新的在前）
-    users = await query.order_by((User.c.created_at, "DESC")).limit(limit).offset(skip).all()
-    return users
+    return await query.order_by((User.c.created_at, "DESC")).limit(limit).offset(skip).all()
 
 
-@app.get("/users/{user_id}", response_model=User)
-async def get_user(user_id: str):
-    """根据 ID 获取用户详情。"""
+@router.get("/users/{user_id}")
+async def get_user(user_id: uuid.UUID):
     user = await User.find_one(user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"用户 ID '{user_id}' 不存在"
-        )
+        raise HTTPException(status_code=404, detail="用户不存在")
     return user
 
 
-@app.put("/users/{user_id}", response_model=User)
-async def update_user(user_id: str, user_update: User):
-    """更新用户信息。"""
-    user = await User.find_one(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"用户 ID '{user_id}' 不存在"
-        )
-    
-    # 更新字段（排除主键和关系字段）
-    update_data = user_update.model_dump(exclude={'id', 'posts'}, exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(user, field, value)
-    
-    await user.save()
-    return user
-
-
-@app.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(user_id: str):
-    """删除用户（及其所有文章）。"""
-    user = await User.find_one(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"用户 ID '{user_id}' 不存在"
-        )
-    
-    # 删除用户（关联的文章会被外键约束处理，或手动删除）
-    await user.delete()
-    return None
-```
-
-### 6.2 文章管理路由
-
-```python
-# app/main.py（追加）
-
-@app.post("/posts/", response_model=Post, status_code=status.HTTP_201_CREATED)
-async def create_post(post: Post):
-    """
-    创建新文章。
-    
-    - **title**: 标题（必填，最大200字符）
-    - **content**: 内容（必填）
-    - **summary**: 摘要（可选）
-    - **is_published**: 是否发布（可选，默认为 false）
-    - **user_id**: 作者ID（必填）
-    """
-    # 验证作者是否存在
-    author = await User.find_one(str(post.user_id))
-    if not author:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"作者 ID '{post.user_id}' 不存在"
-        )
-    
+@router.post("/posts/", status_code=status.HTTP_201_CREATED)
+async def create_post(title: str, content: str, user_id: uuid.UUID):
+    if not await User.find_one(user_id):
+        raise HTTPException(status_code=404, detail="作者不存在")
+    post = Post(title=title, content=content, user_id=user_id)
     await post.save()
     return post
 
 
-@app.get("/posts/", response_model=List[Post])
-async def list_posts(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
-    is_published: Optional[bool] = Query(None),
-    user_id: Optional[str] = Query(None, description="按作者筛选")
-):
-    """获取文章列表（支持分页和筛选）。"""
-    query = Post.query()
-    
-    if is_published is not None:
-        query = query.where(Post.c.is_published == is_published)
-    
-    if user_id:
-        query = query.where(Post.c.user_id == user_id)
-    
-    # 对于 SQLite，我们需要确保正确使用 LIMIT 和 OFFSET
-    # 按创建时间降序排序（最新的在前）
-    posts = await query.order_by((Post.c.created_at, "DESC")).limit(limit).offset(skip).all()
-    return posts
-
-
-@app.get("/posts/{post_id}", response_model=Post)
-async def get_post(post_id: str):
-    """根据 ID 获取文章详情。"""
+@router.post("/posts/{post_id}/publish")
+async def publish_post(post_id: uuid.UUID):
     post = await Post.find_one(post_id)
     if not post:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"文章 ID '{post_id}' 不存在"
-        )
-    return post
-
-
-@app.put("/posts/{post_id}", response_model=Post)
-async def update_post(post_id: str, post_update: Post):
-    """更新文章信息。"""
-    post = await Post.find_one(post_id)
-    if not post:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"文章 ID '{post_id}' 不存在"
-        )
-    
-    update_data = post_update.model_dump(exclude={'id', 'author'}, exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(post, field, value)
-    
+        raise HTTPException(status_code=404, detail="文章不存在")
+    post.is_published = True
+    post.published_at = datetime.now(timezone.utc)
     await post.save()
     return post
 
 
-@app.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_post(post_id: str):
-    """删除文章。"""
-    post = await Post.find_one(post_id)
-    if not post:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"文章 ID '{post_id}' 不存在"
-        )
-    
-    await post.delete()
-    return None
+@router.get("/users/{user_id}/posts")
+async def get_user_posts(user_id: uuid.UUID, skip: int = Query(0, ge=0),
+                         limit: int = Query(10, ge=1, le=100)):
+    user = await User.find_one(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return await user.posts_query().limit(limit).offset(skip).all()
 ```
 
-### 6.3 关联查询路由
+要点：
+
+- **`User.c.username`**：`FieldProxy` 提供类型安全的查询构建。
+- **`user.posts_query()`**：关系查询方法，返回可继续链式调用的 `ActiveQuery`。
+- 查询统一使用 `order_by(...).limit(...).offset(...)`。
+
+## 7. 日志配置
+
+框架提供 `ActiveRecordFormatter`，可为 ORM 内部日志（模块:行号）与应用日志提供统一格式。参考真实项目实践：**文件轮转 + 控制台双输出**，并让 uvicorn 访问日志共享同一格式。
+
+```python
+# app/logging_conf.py
+import logging
+import sys
+from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
+
+from rhosocial.activerecord.logging import ActiveRecordFormatter
+
+
+def setup_logging(log_dir: str = "logs", log_filename: str = "blog",
+                  level: str = "INFO", when: str = "d", backup_count: int = 7) -> None:
+    log_path = Path(log_dir)
+    log_path.mkdir(parents=True, exist_ok=True)
+
+    formatter = ActiveRecordFormatter()
+
+    file_handler = TimedRotatingFileHandler(
+        filename=str(log_path / f"{log_filename}.log"),
+        when=when, backupCount=backup_count, encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, level.upper(), logging.INFO))
+    root.handlers.clear()
+    root.addHandler(file_handler)
+    root.addHandler(console_handler)
+
+    # uvicorn 访问日志转发到 root，与 ORM 日志格式统一
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        uv = logging.getLogger(name)
+        uv.handlers.clear()
+        uv.propagate = True
+```
+
+`ActiveRecordFormatter` 的默认格式为：
+
+```
+2024-01-15 10:30:45,123 - DEBUG - [rhosocial.activerecord.backend.base:42] - Executing query: SELECT * FROM users
+```
+
+> 框架的 ORM 内部日志默认 `propagate=False`，且使用自己的 `LoggingConfig`。如需在应用日志中看到 ORM 的 SQL 追踪，可在 `logging_conf` 中显式调整对应 logger 的 `propagate`。
+
+## 8. 集成 Prometheus 指标
+
+使用 `prometheus-fastapi-instrumentator` 自动采集 HTTP 指标并暴露 `/metrics` 端点：
 
 ```python
 # app/main.py（追加）
 
-@app.get("/users/{user_id}/posts", response_model=List[Post])
-async def get_user_posts(
-    user_id: str,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100)
-):
-    """获取指定用户的所有文章。"""
-    user = await User.find_one(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"用户 ID '{user_id}' 不存在"
-        )
-    
-    # 使用关系查询
-    posts = await user.posts_query().limit(limit).offset(skip).all()
-    return posts
+# Prometheus 指标收集与暴露
+_instrumentator = Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    excluded_handlers=["/metrics", "/health"],
+)
+_instrumentator.instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
-@app.get("/posts/{post_id}/author", response_model=User)
-async def get_post_author(post_id: str):
-    """获取文章的作者信息。"""
-    post = await Post.find_one(post_id)
-    if not post:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"文章 ID '{post_id}' 不存在"
-        )
-    
-    author = await post.author_query().one()
-    if not author:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="作者信息不存在"
-        )
-    
-    return author
+@app.get("/health")
+async def health():
+    """存活探针。"""
+    return {"status": "healthy", "version": "1.0.0"}
 ```
 
-> **🔍 提示词举例**
-> 
-> **场景**：你想让文章在发布时自动设置发布时间。
-> 
-> 可以添加一个自定义方法到 Post 模型：
-> 
-> ```python
-> class Post(UUIDMixin, TimestampMixin, AsyncActiveRecord):
->     # ... 字段定义 ...
->     
->     async def publish(self) -> None:
->         """发布文章。"""
->         from datetime import datetime
->         self.is_published = True
->         self.published_at = datetime.now()
->         await self.save()
-> 
-> # 然后在 API 路由中使用
-> @app.post("/posts/{post_id}/publish")
-> async def publish_post(post_id: str):
->     post = await Post.find_one(post_id)
->     if not post:
->         raise HTTPException(status_code=404, detail="文章不存在")
->     await post.publish()
->     return {"message": "文章已发布", "published_at": post.published_at}
+启动后访问 `http://localhost:8000/metrics` 可看到：
+
+```
+# HELP http_requests_total Total number of requests by method, status and handler.
+# TYPE http_requests_total counter
+http_requests_total{handler="/api/users/",method="GET",status="200"} 3.0
+
+# HELP http_request_duration_seconds Latency with only few buckets by handler.
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{handler="/api/users/",le="0.05"} 1.0
+...
+```
+
+**Prometheus 抓取配置**（`prometheus.yml`）：
+
+```yaml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "blog-api"
+    static_configs:
+      - targets: ["localhost:8000"]
+    metrics_path: /metrics
+```
+
+**业务指标**：除 HTTP 指标外，你还可以用 `prometheus_client` 定义自定义 Counter/Histogram/Gauge（如 `blog_posts_published_total`、`blog_query_duration_seconds`），并在路由或服务层 `inc()` / `observe()`。真实项目中可借鉴的做法：
+
+- 用装饰器统一记录「服务调用次数 + 耗时」直方图（成功/失败打标签）
+- 用后台定时任务把数据库统计（如活跃用户数）刷新到 Gauge
+- 用 `app.middleware("http")` 捕获未处理异常并计数
+
+**Grafana 可视化**：可将 Prometheus 接入 Grafana 面板；生产环境可参考 webcrawler 项目的 `docker-compose.monitoring.yml`（Prometheus + Grafana）。
+
+## 9. 运行与测试
+
+### 启动应用
+
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+访问 `http://localhost:8000/docs`（Swagger UI）、`http://localhost:8000/metrics`（Prometheus 指标）。
+
+### 集成测试
+
+示例附带 `tests/test_api.py`，使用 `httpx.ASGITransport` 在进程内驱动应用，无需真实端口。核心测试用例：
+
+```python
+async def test_parallel_requests_use_isolated_connections(client):
+    """并发请求各自使用独立连接（AsyncBackendPool + contextvar 隔离）。"""
+    async def hit():
+        resp = await client.get("/api/users/")
+        assert resp.status_code == 200
+        return resp.json()
+
+    results = await asyncio.gather(*[hit() for _ in range(20)])
+    assert len(results) == 20
+```
+
+```bash
+PYTHONPATH=docs/examples/chapter_14_scenarios/fastapi_blog \
+    pytest -o asyncio_mode=auto docs/examples/chapter_14_scenarios/fastapi_blog/tests/
+```
+
+> 测试将整个生命周期（建池 → 推导 DDL → 种子 → 请求 → 关池）放在**同一个** `asyncio.run()` 事件循环中，避免跨事件循环使用连接池。
+
+## 10. 并行请求的连接隔离
+
+这是 FastAPI 异步并发场景最关键的一点，也是本场景采用连接池的核心动机。
+
+### 问题：共享单个连接的危险
+
+如果所有模型共享**同一个后端实例**（即同一 SQLite 连接），那么：
+
+- 并发请求会**交叉读写**同一个连接，产生不可预测的结果
+- 一个请求的事务可能被另一个请求干扰
+- SQLite 在跨线程使用时还受 `check_same_thread` 限制
+
+```python
+# ❌ 反例：所有模型共享同一连接（仅适合单线程 CLI 场景）
+backend = AsyncSQLiteBackend(connection_config=config)
+User.__backend__ = backend
+Post.__backend__ = backend  # 并发请求将共享此连接
+```
+
+### 方案：AsyncBackendPool + contextvar 隔离
+
+`rhosocial-activerecord` 提供 `AsyncBackendPool`，配合 **contextvars** 实现请求级连接隔离：
+
+1. **lifespan 创建连接池**：池中维护 `min_size`~`max_size` 个独立连接（SQLite 文件数据库，每个连接共享同一份数据）。
+2. **每个请求借出独立连接**：`get_db_context` 依赖调用 `pool.connection()`，借出**该请求专属**的连接，并通过 `contextvars` 绑定到当前请求的 async 上下文。
+3. **模型感知当前连接**：`Model.backend()` 优先返回 contextvar 中的连接（而非类级后端），因此 `await User.query()` 等调用自动落到当前请求的连接上。
+4. **请求结束归还**：依赖的 `yield` teardown 阶段自动 `pool.release()`。
+
+由于每个请求运行在独立的 asyncio task 中，其 contextvar 互不可见——**并发的请求各自使用独立连接，互不干扰**，同时事件循环单线程上 `check_same_thread=True` 也永不违反。
+
+```python
+async with pool.connection():          # 请求依赖中
+    users = await User.query().all()   # 使用当前请求的连接
+```
+
+### 与「单例后端」的取舍
+
+| 方式 | 并发安全 | 适用场景 |
+|------|----------|----------|
+| 单例后端（共享连接） | ❌ | 单线程 CLI、脚本、测试 |
+| `AsyncBackendPool` + 依赖注入 | ✅ | FastAPI 等异步 Web 服务 |
+
+> 对 `:memory:` 数据库的提醒：连接池中**每个连接都有独立的 `:memory:` 数据库**，彼此看不到对方的数据。因此连接池场景必须使用**文件数据库**（或共享缓存模式），让所有连接指向同一份数据。
+
+## 11. 常见错误用法
+
+本节展示在 FastAPI 异步并发场景中最容易踩的坑，并附上真实实验结果。
+
+### 错误用法 A：多个模型直接共享同一个后端实例
+
+```python
+# ❌ 反例：所有模型共享同一个后端实例（同一连接）
+backend = AsyncSQLiteBackend(connection_config=config)   # 或 AsyncMySQLBackend
+User.__backend__ = backend
+Post.__backend__ = backend      # Post 直接复用 User 的连接
+```
+
+这会让并发请求**同时读写同一连接**。在 SQLite 下问题可能不明显——`aiosqlite` 把所有操作排队到**单个后台线程**，意外地串行化了并发，看起来「碰巧能跑」：
+
+```python
+# 实测：SQLite + 共享单连接 + 20 并发写入
+# 结果：20/20 "成功" —— 但这是因为 aiosqlite 内部串行化，掩盖了真实风险
+```
+
+但在 MySQL / PostgreSQL 等**每个连接可被并发使用**的数据库中，问题立刻暴露。本机 MySQL 8.0.46 实测（`docs/examples/chapter_14_scenarios/fastapi_blog/tests/manual_mysql_pool_compare.py`）：
+
+```
+[反例] 多个模型共享同一后端实例（不隔离连接）
+  30 路并发写入: 成功 1 / 失败 29
+  错误类型: {'DatabaseError': 29}
+  示例: DatabaseError: read() called while another coroutine is
+        already waiting for incoming data
+
+[正确] AsyncBackendPool + 每请求独立连接
+  30 路并发写入: 成功 30 / 失败 0
+```
+
+`read() called while another coroutine is already waiting for incoming data` 是 mysql-connector 异步连接**被多协程同时使用**的典型错误：一个请求的读取尚未完成，另一个请求又尝试在**同一连接**上读写。
+
+> 复现：`python-activerecord-mysql` 仓库有测试连接可用时，运行
+> ```bash
+> MYSQL_HOST=... MYSQL_PORT=... MYSQL_USER=root MYSQL_PASSWORD=... \
+>     python docs/examples/chapter_14_scenarios/fastapi_blog/tests/manual_mysql_pool_compare.py
 > ```
 
-## 常见问题与解决方案
-
-### 问题1："OFFSET 子句需要 LIMIT 子句"
-
-**问题**：SQLite 使用 OFFSET 时需要配合 LIMIT。
-
-**解决方案**：始终先使用 LIMIT 再使用 OFFSET：
-```python
-# 错误
-users = await query.offset(skip).limit(limit).all()
-
-# 正确
-users = await query.limit(limit).offset(skip).all()
-```
-
-### 问题2：关系查询方法
-
-**问题**：使用 `model.relation().query()` 导致 AttributeError。
-
-**解决方案**：使用 `model.relation_query()`：
-```python
-# 错误
-posts = await user.posts().query().limit(limit).offset(skip).all()
-
-# 正确
-posts = await user.posts_query().limit(limit).offset(skip).all()
-```
-
-### 问题3：查询方法名称
-
-**问题**：使用 `query().first()` 导致 AttributeError。
-
-**解决方案**：使用 `query().one()`：
-```python
-# 错误
-existing = await User.query().where(User.c.username == user.username).first()
-
-# 正确
-existing = await User.query().where(User.c.username == user.username).one()
-```
-
-### 问题4：排序
-
-**说明**：API现在通过查询参数支持灵活的排序选项。
-
-**使用示例**：
-```python
-# 升序排序（默认）：
-users = await query.order_by(User.c.created_at).limit(limit).offset(skip).all()
-
-# 降序排序：
-users = await query.order_by((User.c.created_at, "DESC")).limit(limit).offset(skip).all()
-
-# 按不同字段排序：
-users = await query.order_by(User.c.username).limit(limit).offset(skip).all()
-
-# 混合排序：
-users = await query.order_by((User.c.created_at, "DESC"), User.c.username).limit(limit).offset(skip).all()
-```
-
-实现的API端点接受`sort_by`和`sort_order`查询参数：
-- `sort_by`：排序字段（例如"user.created_at"、"username"）
-- `sort_order`：排序方向（"asc"或"desc"）
-
-## 7. 运行与测试
-
-### 7.1 启动应用
-
-```bash
-# 使用 uvicorn 启动（推荐用于开发）
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 或使用 python 直接运行
-python -m uvicorn app.main:app --reload
-```
-
-### 7.2 访问文档
-
-启动后，访问自动生成的 API 文档：
-
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-### 7.3 测试 API
-
-使用 curl 或 httpie 测试：
-
-```bash
-# 1. 创建用户
-curl -X POST "http://localhost:8000/users/" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "john_doe",
-    "email": "john@example.com",
-    "bio": "Python 开发者"
-  }'
-
-# 2. 获取用户列表
-curl "http://localhost:8000/users/"
-
-# 3. 创建文章（假设用户ID是返回的UUID）
-curl -X POST "http://localhost:8000/posts/" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "我的第一篇文章",
-    "content": "这是文章内容...",
-    "user_id": "替换为实际的用户ID"
-  }'
-
-# 4. 获取用户的所有文章
-curl "http://localhost:8000/users/用户ID/posts"
-```
-
-## 8. 最佳实践
-
-### 8.1 请求/响应模型分离
-
-虽然 `ActiveRecord` 模型可以直接用作请求体，但在复杂场景下，建议创建专门的 Pydantic 模型：
+### 错误用法 B：绕过 `configure()`，直接手工设置 `__backend__`
 
 ```python
-# app/schemas.py
+# ❌ 反例：不调用 configure()，直接赋值后端实例
+backend = AsyncSQLiteBackend(connection_config=config)
+User.__backend__ = backend
+# 结果：缺少 introspect_and_adapt()（方言适配），首次操作即抛错
+# DatabaseError: 'SQLite' dialect has not been adapted.
+#   Call backend.introspect_and_adapt() or use backend.context() ...
+```
+
+`configure()` 会执行方言适配（`introspect_and_adapt`）等必要初始化。手工赋值绕过了它，导致模型无法正确生成/执行 SQL。**初始化一律走 `Model.configure(config, BackendClass)`**。
+
+### 错误用法 C：依赖注入不是原生 async generator
+
+```python
+# ❌ 反例：用 @asynccontextmanager 装饰依赖
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def get_db_context(request: Request):
+    async with pool.connection():
+        yield
+
+# 结果：FastAPI 抛 TypeError
+# '_AsyncGeneratorContextManager' object is not an async iterator
+```
+
+FastAPI 通过 `inspect.isasyncgenfunction` 识别 yield 依赖。`@asynccontextmanager` 会把函数变成返回 context manager 的普通函数，FastAPI 便不再把它当作 yield 依赖。**必须写成原生 async generator**：
+
+```python
+# ✅ 正确
+async def get_db_context(request: Request):
+    async with pool.connection():
+        yield
+```
+
+### 错误用法 D：每个模型各自 `configure()` 出独立连接
+
+```python
+# ❌ 反例：每个模型单独 configure，得到不同的后端实例/连接
+await User.configure(config, AsyncSQLiteBackend)
+await Post.configure(config, AsyncSQLiteBackend)
+# User.__backend__ 与 Post.__backend__ 是不同的连接
+```
+
+这破坏了「模型共享同一份数据/事务」的语义：`await User.query()` 和 `await Post.save()` 落在**不同连接**上，无法参与同一事务，跨模型关联操作也会失效。正确做法是所有模型共享**同一份连接配置**，通过连接池为每个请求统一借出连接（见[第 4 节](#4-连接池与推导-ddl)的 `configure_models`）。
+
+### 小结
+
+| 场景 | 做法 | 结果 |
+|------|------|------|
+| 单线程 CLI / 脚本 | `configure()` 单例后端 | ✅ |
+| FastAPI 并发请求 | 共享后端实例 | ❌ MySQL 下 1/30 成功 |
+| FastAPI 并发请求 | `AsyncBackendPool` + `get_db_context` 依赖 | ✅ 30/30 |
+
+核心原则：**FastAPI 中永远不要共享后端实例**。通过 `AsyncBackendPool` 让每个请求借出独立连接，并用 `get_db_context` 依赖建立 contextvar 隔离。
+
+## 12. 最佳实践
+
+### 请求/响应模型分离
+
+虽然 `ActiveRecord` 模型可直接用作请求体，复杂场景建议创建专门的 Pydantic 模型：
+
+```python
 from pydantic import BaseModel
-from typing import Optional
 
 
 class UserCreate(BaseModel):
-    """创建用户的请求模型。"""
     username: str
     email: str
-    bio: Optional[str] = None
+    bio: str | None = None
 
 
-class UserResponse(BaseModel):
-    """用户响应模型。"""
-    id: str
-    username: str
-    email: str
-    bio: Optional[str]
-    is_active: bool
-    
-    class Config:
-        from_attributes = True
-
-
-# 在路由中使用
-@app.post("/users/", response_model=UserResponse)
+@app.post("/users/", response_model=UserCreate)
 async def create_user(user_data: UserCreate):
     user = User(**user_data.model_dump())
     await user.save()
     return user
 ```
 
-### 8.2 错误处理
+### 事务管理
 
-创建全局异常处理器：
-
-```python
-# app/main.py（追加）
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
-    """处理请求验证错误。"""
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "detail": "请求数据验证失败",
-            "errors": exc.errors()
-        }
-    )
-```
-
-### 8.3 依赖注入最佳实践
-
-对于需要事务管理的场景：
+需要事务时，在 `get_db_context` 基础上使用后端事务上下文：
 
 ```python
-from fastapi import Depends
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def get_transaction():
-    """提供事务上下文。"""
-    backend = await Database.get_backend()
-    try:
-        await backend.transaction_manager.begin()
-        yield backend
-        await backend.transaction_manager.commit()
-    except Exception:
-        await backend.transaction_manager.rollback()
-        raise
-
-@app.post("/users/batch")
-async def create_users_batch(users: List[User], tx=Depends(get_transaction)):
-    """批量创建用户（事务保证）。"""
-    for user in users:
-        await user.save()
-    return {"created": len(users)}
+@router.post("/posts/batch", dependencies=[Depends(get_db_context)])
+async def create_posts_batch(posts: list[Post]):
+    async with Post.backend().transaction():
+        for post in posts:
+            await post.save()
+    return {"created": len(posts)}
 ```
 
-### 8.4 生产环境配置
+### 生产环境配置
 
 ```python
 import os
 
-# 生产环境建议使用更健壮的配置
 app = FastAPI(
-    title="博客系统 API",
-    description="...",
-    version="1.0.0",
-    docs_url="/docs" if os.getenv("DEBUG") else None,  # 生产环境关闭文档
+    docs_url="/docs" if os.getenv("DEBUG") else None,   # 生产关闭文档
     redoc_url="/redoc" if os.getenv("DEBUG") else None,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 ```
 
@@ -791,34 +650,6 @@ app = FastAPI(
 
 ## 下一步
 
-你已经完成了 FastAPI 与 rhosocial-activerecord 的集成！接下来可以探索：
-
 - **[GraphQL 集成](graphql.md)**：构建更灵活的 API 接口
-- **[高级查询技巧](../query_advanced/)**：使用窗口函数、CTE 等高级特性
-- **[性能优化](../performance/)**：为你的 API 添加缓存和优化策略
-
-> **💡 提示词举例**
-> 
-> **场景**：你希望为 API 添加认证和权限控制。
-> 
-> 可以使用 FastAPI 的依赖注入结合 `rhosocial-activerecord` 的查询能力：
-> 
-> ```python
-> from fastapi.security import HTTPBearer
-> 
-> security = HTTPBearer()
-> 
-> async def get_current_user(token: str = Depends(security)) -> User:
->     """根据 Token 获取当前用户。"""
->     # 验证 token 并获取用户ID
->     user_id = verify_token(token.credentials)
->     user = await User.find_one(user_id)
->     if not user:
->         raise HTTPException(status_code=401, detail="无效的用户")
->     return user
-> 
-> @app.get("/users/me", response_model=User)
-> async def get_me(current_user: User = Depends(get_current_user)):
->     """获取当前登录用户信息。"""
->     return current_user
-> ```
+- **[连接管理](../connection/README.md)**：连接池、连接组的完整说明
+- **[日志系统](../logging/README.md)**：`LoggingConfig`、数据摘要与格式定制

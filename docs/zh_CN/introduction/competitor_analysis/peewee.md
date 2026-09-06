@@ -311,7 +311,9 @@ class MyCustomBackend(StorageBackend):
 | 现代异步项目 | ✅ 优势 | ⚠️ 需扩展 |
 | 完整 SQL 表达 | ✅ 完整覆盖 | ⚠️ 有限 |
 | 极简依赖 | ⚠️ 需要 Pydantic | ✅ 自包含 |
-| 成熟稳定 | ⚠️ 发展中 | ✅ 成熟 |
+| 成熟稳定 | ✅ 功能完整 | ✅ 成熟 |
+
+> **现状（2026）**：Peewee 当前为 4.x（支持 Python 3.8+），以极简自包含著称。rhosocial-activerecord 已提供 `bulk_create`/`bulk_update`/`bulk_delete`、CTEQuery、SetOperationQuery 等完整 SQL 表达与多后端支持（MySQL、PostgreSQL、Oracle 等）。选择 Peewee 的主因是极简依赖；选择 rhosocial 的主因是类型安全、原生异步对等与完整 SQL 覆盖。
 
 ---
 

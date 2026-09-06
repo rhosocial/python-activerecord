@@ -435,4 +435,4 @@ assert_all_configured()
 
 - [多个独立连接](best_practices.md#8-多个独立连接-multiple-independent-connections) — 共享字段但使用不同数据库的两种模式
 - [环境隔离配置](configuration_management.md) — dev / test / prod 配置管理
-- [并发与乐观锁](../performance/concurrency.md) — 使用 `OptimisticLockMixin` 处理并发写入
+- [并发与乐观锁](../performance/concurrency.md) — 使用 `DefaultOptimisticLockMixin` 处理并发写入

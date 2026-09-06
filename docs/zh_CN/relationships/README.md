@@ -1,4 +1,4 @@
-# 4. 关联关系 (Relationships)
+# 关联关系 (Relationships)
 
 关联关系是将孤立的数据表连接成有意义的信息网络的桥梁。本库采用显式的、类型安全的描述符来定义关系。
 
@@ -15,6 +15,7 @@
 *   **[基础关系 (1:1, 1:N)](definitions.md)**: 定义 `HasOne`, `BelongsTo`, `HasMany`。
 *   **[多对多关系 (Many-to-Many)](many_to_many.md)**: 通过中间模型实现复杂的 N:N 关系。
 *   **[加载策略 (Loading Strategies)](loading.md)**: 解决 N+1 问题，掌握预加载与延迟加载。
+*   **[预加载详解 (Eager Loading Deep Dive)](eager_loading.md)**: `with_()` 完整规则，包括嵌套、修饰器与加载机制。
 
 ## 示例代码
 

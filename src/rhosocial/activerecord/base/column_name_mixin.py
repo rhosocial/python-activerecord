@@ -204,9 +204,9 @@ class ColumnNameMixin:
            This ensures that user-defined mappings are prioritized.
         2. It then processes all remaining fields, only adding them if their
            implicit column name hasn't already been claimed by an explicit mapping.
-           This allows a model to define a field like `creation_date: ... UseColumn("created_at")`
-           which takes precedence over the `created_at` field inherited from `TimestampMixin`,
-           resolving the "duplicate column name" error.
+This allows a model to define a field like `creation_date: ... UseColumn("created_at")`
+            which takes precedence over the `created_at` field inherited from `DefaultTimestampMixin`,
+            resolving the "duplicate column name" error.
 
         Raises:
             ValueError: If duplicate explicit column names are detected.

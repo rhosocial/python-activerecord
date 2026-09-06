@@ -247,9 +247,9 @@ Type-safe relationship descriptors with eager loading support:
 
 Reusable mixins for common model behaviors:
 
-* **[OptimisticLockMixin](src/rhosocial/activerecord/field/version.py)** — Version-based concurrency control
-* **[SoftDeleteMixin](src/rhosocial/activerecord/field/soft_delete.py)** — Logical deletion with `deleted_at` timestamp
-* **[TimestampMixin](src/rhosocial/activerecord/field/timestamp.py)** — Auto-managed `created_at` and `updated_at`
+* **[DefaultOptimisticLockMixin](src/rhosocial/activerecord/field/version.py)** — Version-based concurrency control
+* **[DefaultSoftDeleteMixin](src/rhosocial/activerecord/field/soft_delete.py)** — Logical deletion with `deleted_at` timestamp
+* **[DefaultTimestampMixin](src/rhosocial/activerecord/field/timestamp.py)** — Auto-managed `created_at` and `updated_at`
 * **[UUIDMixin](src/rhosocial/activerecord/field/uuid.py)** — UUID primary keys
 
 ### Model Events

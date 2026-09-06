@@ -4,6 +4,8 @@
 
 SQLAlchemy 是 Python 生态中最成熟的 ORM 框架，采用 Data Mapper 模式，功能强大但学习曲线陡峭。rhosocial-activerecord 采用 ActiveRecord 模式，提供更直观的 API 和更简洁的心智模型。
 
+> **现状（2026）**：SQLAlchemy 当前主线为 2.0.x（2022 年发布的 2.0 已全面成熟，支持 ORM 声明式映射与类型标注），2.1 正处于 RC 阶段。rhosocial-activerecord 为 1.0.0.dev30（开发版），以简洁 API 和现代 Python 集成为差异化定位。
+
 ---
 
 ## 核心优势
@@ -279,10 +281,12 @@ print(sql)  # SELECT * FROM "users" WHERE "users"."age" >= ?
 | 快速原型开发 | ✅ 优势 | ⚠️ 配置繁琐 |
 | 小型项目 | ✅ 优势 | ⚠️ 过于重量 |
 | 异步优先项目 | ✅ 原生对等 | ⚠️ greenlet 包装 |
-| 企业级复杂应用 | ⚠️ 发展中 | ✅ 成熟稳定 |
-| 大规模数据迁移 | ⚠️ 发展中 | ✅ Bulk Operations |
+| 企业级复杂应用 | ✅ 功能完整 | ✅ 成熟稳定 |
+| 大规模数据迁移 | ✅ Bulk Operations | ✅ Bulk Operations |
 | 已有 SQLAlchemy 项目迁移 | ⚠️ 需重写 | N/A |
-| 需要复杂 Schema 迁移 | ⚠️ 暂无工具 | ✅ Alembic |
+| 需要 Schema 迁移 | ✅ devtools migration | ✅ Alembic |
+
+> rhosocial-activerecord 已提供 `bulk_create`/`bulk_update`/`bulk_delete` 批量操作，以及 `python-activerecord-devtools` 中的迁移管理工具（`init`/`create`/`up`/`down`/`status`/`history`）。SQLAlchemy 生态的成熟度（如 Alembic 的多年打磨、社区规模）仍是其长期优势，但 rhosocial 的核心能力已非「空白」。
 
 ---
 

@@ -41,6 +41,94 @@ except OperationalError as e:
 2. 提供有意义的错误信息
 3. 考虑连接状态对版本检测的影响
 
+## 连接配置类
+
+除了方言和后端 I/O 实现，后端还通常需要一个**连接配置类**（`*ConnectionConfig`），用于描述建立数据库连接所需的参数。配置类与 `ConnectionConfig`（后端）配合使用：模型通过 `.configure(config, backend)` 将两者绑定。
+
+### 配置类架构
+
+连接配置遵循与表达式系统相同的「通用 / 特定后端」分层：
+
+1. **通用基类 `ConnectionConfig`**（`backend/config.py`）：只包含真正通用的最小参数集（`host`、`port`、`database`、`username`/`password`、`options`）。它是所有后端配置的基类。
+2. **通用能力 Mixin**：核心包提供可复用的能力混入，后端按需组合：
+   - `BasicConnectionMixin` — 基础连接参数
+   - `ConnectionPoolMixin` — 连接池选项（`pool_size`、`pool_timeout`、`pool_pre_ping` 等）
+   - `SSLMixin` — SSL/TLS 选项
+   - `CharsetMixin` — 字符集与排序规则
+   - `TimezoneMixin` — 时区处理
+   - `VersionMixin` — 版本信息
+   - `LoggingMixin` — 日志选项
+3. **后端特定配置类**：后端继承 `ConnectionConfig` 并混入所需 Mixin，再叠加数据库私有参数。
+
+```python
+class MySQLConnectionConfig(
+    ConnectionConfig,
+    ConnectionPoolMixin, SSLMixin, CharsetMixin,
+    TimezoneMixin, VersionMixin, LoggingMixin,
+):
+    auth_plugin: Optional[str] = None   # MySQL 特定参数
+    autocommit: bool = True
+    ...
+```
+
+### 配置类协议
+
+与方言协议类似，配置能力也通过协议声明，便于能力检测与类型检查：
+
+| 协议 | 对应 Mixin | 描述 |
+|------|-----------|------|
+| `BasicConnectionProtocol` | `BasicConnectionMixin` | 基础连接参数 |
+| `ConnectionPoolProtocol` | `ConnectionPoolMixin` | 连接池选项 |
+| `SSLProtocol` | `SSLMixin` | SSL/TLS 选项 |
+| `CharsetProtocol` | `CharsetMixin` | 字符集与编码 |
+| `TimezoneProtocol` | `TimezoneMixin` | 时区选项 |
+| `VersionProtocol` | `VersionMixin` | 版本信息 |
+| `LoggingProtocol` | `LoggingMixin` | 日志选项 |
+
+### 配置类的通用接口
+
+所有配置类（通过 `ConfigProtocol` / `BaseConfig`）提供三个核心方法：
+
+```python
+config = MySQLConnectionConfig(host="db.example.com", database="shop")
+
+# 1. 转字典（排除 None，可用于传参或调试；注意：包含明文密码）
+params = config.to_dict()
+
+# 2. 克隆并修改（返回新实例，原实例不变）
+dev_config = config.clone(database="shop_dev")
+
+# 3. 从环境变量创建（前缀 + 大写字段名，如 MYSQL_HOST）
+config = MySQLConnectionConfig.from_env(prefix="MYSQL_")
+```
+
+### 后端特定配置类示例
+
+| 后端 | 配置类 | 特有参数 |
+|------|--------|----------|
+| SQLite | `SQLiteConnectionConfig` | `database`（默认内存库）、PRAGMA 参数、`uri`、`cached_statements`、`autocommit` |
+| MySQL | `MySQLConnectionConfig` | `auth_plugin`、`init_command`、`use_pure`、`get_warnings` |
+| PostgreSQL | `PostgresConnectionConfig` | 连接参数、类型适配器选项 |
+
+SQLite 还提供便捷子类：`SQLiteInMemoryConfig`（内存数据库）与 `SQLiteTempFileConfig`（临时文件数据库）。
+
+### 使用示例
+
+```python
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.model import ActiveRecord
+
+# 构建配置并绑定到模型
+config = SQLiteConnectionConfig(database="app.db")
+ActiveRecord.configure(config, SQLiteBackend)
+
+# 后端特定子类
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteInMemoryConfig
+ActiveRecord.configure(SQLiteInMemoryConfig(), SQLiteBackend)
+```
+
+> **注意**：`to_dict()` 返回的字典包含 `password` 字段的明文值，**不应**记录日志或序列化到不安全的目的地。
+
 ## 参考实现
 
 我们推荐参考 `src/rhosocial/activerecord/backend/impl/` 下现有的实现：

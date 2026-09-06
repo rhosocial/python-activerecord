@@ -1,4 +1,4 @@
-# 7. Worker Pool Module
+# Worker Pool Module
 
 `WorkerPool` is a standalone module that provides a resident worker process pool for parallel task execution. It uses `spawn` mode multiprocessing to ensure cross-platform consistency.
 

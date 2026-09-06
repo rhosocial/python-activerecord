@@ -16,6 +16,11 @@ This chapter details how to define powerful data models.
   - How to define model fields
   - Using `FieldProxy` for type-safe queries
   - Mapping legacy database columns (`UseColumn`)
+  - Specifying SQL column types (`UseSqlType`)
+- **[Derived Fields](derived_fields.md)**
+  - Read-only computed fields: discounts, name concatenation, JSON extraction
+  - Building expressions with `FieldProxy`
+  - Loading on demand at query time (`derived`)
 - **[DDL Statements](ddl.md)**
   - Type-safe CREATE TABLE, DROP TABLE, ALTER TABLE
   - Index creation and management
@@ -25,11 +30,14 @@ This chapter details how to define powerful data models.
   - View with column aliases and OR REPLACE
   - Introspection for views
 - **[Mixins](mixins.md)**
-  - Using built-in Mixins (`UUIDMixin`, `TimestampMixin`)
+  - Using built-in Mixins (`UUIDMixin`, `DefaultTimestampMixin`)
   - Creating custom Mixins for reusable logic
 - **[Validation & Hooks](validation.md)**
   - Pydantic validators
   - Lifecycle hooks (`before_save`, `after_create`, etc.)
+- **[Model Serialization](serialization.md)**
+  - Converting models to/from JSON and dicts (`model_dump` / `model_validate`)
+  - Field filtering and related-data serialization
 - **[Best Practices](best_practices.md)**
   - Naming conventions
   - Field design principles

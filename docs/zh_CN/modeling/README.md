@@ -16,6 +16,11 @@
   - 如何定义模型字段
   - 使用 `FieldProxy` 进行类型安全查询
   - 映射遗留数据库列 (`UseColumn`)
+  - 指定 SQL 列类型 (`UseSqlType`)
+- **[推导字段 (Derived Fields)](derived_fields.md)**
+  - 只读计算字段：折扣价、全名拼接、JSON 提取
+  - 使用 `FieldProxy` 构建表达式
+  - 查询时按需加载 (`derived`)
 - **[DDL 语句 (DDL Statements)](ddl.md)**
   - 类型安全的 CREATE TABLE、DROP TABLE、ALTER TABLE
   - 索引创建与管理
@@ -25,11 +30,14 @@
   - 带列别名的视图和 OR REPLACE
   - 视图内省
 - **[Mixin 与复用 (Mixins)](mixins.md)**
-  - 使用内置 Mixin (`UUIDMixin`, `TimestampMixin`)
+  - 使用内置 Mixin (`UUIDMixin`, `DefaultTimestampMixin`)
   - 创建自定义 Mixin 复用逻辑
 - **[验证与钩子 (Validation & Hooks)](validation.md)**
   - Pydantic 验证器
   - 生命周期钩子 (`before_save`, `after_create` 等)
+- **[模型序列化 (Model Serialization)](serialization.md)**
+  - 模型与 JSON/Dict 的转换 (`model_dump` / `model_validate`)
+  - 字段过滤与关联数据序列化
 - **[模型最佳实践](best_practices.md)**
   - 命名规范
   - 字段设计原则

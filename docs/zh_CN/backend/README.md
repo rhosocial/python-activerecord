@@ -1,4 +1,4 @@
-# 12. 后端系统 (Backend System)
+# 后端系统 (Backend System)
 
 这是高级主题，面向希望深入了解 ORM 内部工作原理或需要支持新数据库的用户。
 

@@ -11,7 +11,7 @@ import uuid
 from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasOne, BelongsTo, HasMany
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 # --- Models ---
 
 
-class User(UUIDMixin, TimestampMixin, ActiveRecord):
+class User(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     username: str
 
     @classmethod
@@ -32,7 +32,7 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
     posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="user_id", inverse_of="author")
 
 
-class Profile(UUIDMixin, TimestampMixin, ActiveRecord):
+class Profile(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     user_id: uuid.UUID
     bio: str
 
@@ -44,7 +44,7 @@ class Profile(UUIDMixin, TimestampMixin, ActiveRecord):
     user: ClassVar[BelongsTo["User"]] = BelongsTo(foreign_key="user_id", inverse_of="profile")
 
 
-class Post(UUIDMixin, TimestampMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     user_id: uuid.UUID
     title: str
     content: str
@@ -63,7 +63,7 @@ class Post(UUIDMixin, TimestampMixin, ActiveRecord):
     post_tags: ClassVar[HasMany["PostTag"]] = HasMany(foreign_key="post_id", inverse_of="post")
 
 
-class Comment(UUIDMixin, TimestampMixin, ActiveRecord):
+class Comment(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     post_id: uuid.UUID
     user_id: uuid.UUID
     body: str
@@ -72,7 +72,7 @@ class Comment(UUIDMixin, TimestampMixin, ActiveRecord):
     author: ClassVar[BelongsTo["User"]] = BelongsTo(foreign_key="user_id")  # No inverse defined on User for simplicity
 
 
-class Tag(UUIDMixin, TimestampMixin, ActiveRecord):
+class Tag(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     name: str
 
     @classmethod
@@ -82,7 +82,7 @@ class Tag(UUIDMixin, TimestampMixin, ActiveRecord):
     post_tags: ClassVar[HasMany["PostTag"]] = HasMany(foreign_key="tag_id", inverse_of="tag")
 
 
-class PostTag(UUIDMixin, TimestampMixin, ActiveRecord):
+class PostTag(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     post_id: uuid.UUID
     tag_id: uuid.UUID
 

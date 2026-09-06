@@ -305,3 +305,98 @@ sql, params = match_clause.to_sql()
 # sql: 'MATCH (n IS "Person")-[e IS "KNOWS"]->(m IS "Person")'
 # params: ()
 ```
+
+### GRAPH_TABLE Expression
+
+`GraphTableExpression` uses graph matching results as a table expression.
+
+```python
+from rhosocial.activerecord.backend.expression.graph import (
+    GraphTableExpression, MatchClause, GraphColumn, ColumnsClause
+)
+
+# Define graph table expression
+graph_table = GraphTableExpression(
+    dialect,
+    match_clause=match,
+    columns=ColumnsClause(dialect, columns=[
+        GraphColumn(dialect, name="person_name", type="VARCHAR"),
+        GraphColumn(dialect, name="product_name", type="VARCHAR"),
+    ])
+)
+```
+
+### Property Graph DDL
+
+Create, modify, and drop property graphs.
+
+#### CREATE PROPERTY GRAPH
+
+```python
+from rhosocial.activerecord.backend.expression.graph import (
+    CreatePropertyGraphExpression, VertexTable, EdgeTable
+)
+
+# Define vertex and edge tables
+vertex = VertexTable(dialect, table_name="persons", graph_label="Person")
+edge = EdgeTable(dialect, table_name="knows",
+                 source_vertex="Person", dest_vertex="Person")
+
+# Create property graph
+create_graph = CreatePropertyGraphExpression(
+    dialect,
+    graph_name="social_graph",
+    vertices=[vertex],
+    edges=[edge]
+)
+# sql: 'CREATE PROPERTY GRAPH "social_graph" ...'
+```
+
+#### DROP PROPERTY GRAPH
+
+```python
+from rhosocial.activerecord.backend.expression.graph import DropPropertyGraphExpression
+
+drop_graph = DropPropertyGraphExpression(
+    dialect,
+    graph_name="social_graph",
+    if_exists=True
+)
+```
+
+#### ALTER PROPERTY GRAPH
+
+```python
+from rhosocial.activerecord.backend.expression.graph import AlterPropertyGraphExpression
+
+alter_graph = AlterPropertyGraphExpression(
+    dialect,
+    graph_name="social_graph",
+    action="ADD",  # or "DROP"
+    element_type="VERTEX TABLE",
+    element_name="new_table"
+)
+```
+
+### Dialect Support
+
+| Feature | Mixin | Methods |
+|---------|-------|---------|
+| MATCH formatting | `GraphMixin` | `format_graph_vertex()`, `format_graph_edge()`, `format_match_clause()` |
+| GRAPH_TABLE formatting | `GraphTableMixin` | `format_graph_table_expression()`, `format_table_properties_clause()` |
+| PGQ DDL | `GraphTableMixin` | `format_create/drop/alter_property_graph_statement()` |
+
+Dialects expose capability queries to check support:
+
+```python
+if dialect.supports_graph_match():
+    # Supports MATCH clause
+
+if dialect.supports_graph_table():
+    # Supports GRAPH_TABLE expression
+
+if dialect.supports_property_graph_ddl():
+    # Supports property graph DDL
+```
+
+> **Note**: Property Graph Queries are a new feature of the SQL 2023 standard, currently supported only by a subset of databases (e.g., Oracle, PostgreSQL extensions). Confirm target database compatibility before use. This capability belongs to the **backend expression layer** — it is not part of the `ActiveRecord` model query interface (`ActiveQuery` and friends); graph queries are exposed only as expression/dialect capabilities.

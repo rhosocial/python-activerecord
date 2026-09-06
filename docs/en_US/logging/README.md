@@ -85,6 +85,62 @@ logger = get_logger("rhosocial.activerecord.worker")
 | `LogDataMode.SUMMARY` | Mask sensitive fields and truncate large values |
 | `LogDataMode.FULL` | Show full payload; only use in controlled debugging |
 
+## Logging in Web Applications
+
+In web apps like FastAPI, beyond the framework's `LoggingConfig`, you typically want unified application log output. Following real-world practice (e.g. the webcrawler project), combine:
+
+1. **`ActiveRecordFormatter`**: the framework's formatter providing a unified format (`module:line`) across ORM internal logs and application logs:
+
+```python
+from rhosocial.activerecord.logging import ActiveRecordFormatter
+
+formatter = ActiveRecordFormatter()
+# default format: %(asctime)s - %(levelname)s - [%(subpackage_module)s] - %(message)s
+# example: 2024-01-15 10:30:45,123 - DEBUG - [rhosocial.activerecord.backend.base:42] - Executing query: ...
+```
+
+2. **File rotation + console dual output**: `TimedRotatingFileHandler` rotates by time (hour/day), plus a `StreamHandler` to stderr:
+
+```python
+import logging
+import sys
+from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
+
+from rhosocial.activerecord.logging import ActiveRecordFormatter
+
+def setup_logging(log_dir="logs", log_filename="app", level="INFO", when="d", backup_count=7):
+    Path(log_dir).mkdir(parents=True, exist_ok=True)
+    formatter = ActiveRecordFormatter()
+
+    file_handler = TimedRotatingFileHandler(
+        filename=str(Path(log_dir) / f"{log_filename}.log"),
+        when=when, backupCount=backup_count, encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, level.upper(), logging.INFO))
+    root.handlers.clear()
+    root.addHandler(file_handler)
+    root.addHandler(console_handler)
+
+    # route uvicorn access/error logs to root for unified formatting
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        uv = logging.getLogger(name)
+        uv.handlers.clear()
+        uv.propagate = True
+```
+
+3. **Wire into the FastAPI lifespan**: call once at startup; afterwards ORM internal logs (SQL execution, model ops), application logs, and uvicorn access logs share one format.
+
+> **Relationship with framework `LoggingConfig`**: the framework's model/backend loggers are managed by their own `LoggingConfig`, defaulting to `propagate=False` (no root pollution). The setup above is the **application layer** attaching handlers to the root and explicitly routing uvicorn — the two do not conflict: framework logs are controlled by `LoggingConfig` (format + sensitive-data masking), application logs by the root logger.
+
+A complete runnable example is in the [FastAPI Integration scenario](../scenarios/fastapi.md#7-logging-configuration) (`docs/examples/chapter_14_scenarios/fastapi_blog/app/logging_conf.py`).
+
 ## Example Code
 
 Complete examples are in `docs/examples/chapter_09_logging/`:

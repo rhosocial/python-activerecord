@@ -11,7 +11,7 @@ import uuid
 from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.field import OptimisticLockMixin, UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import DefaultOptimisticLockMixin, UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -21,7 +21,7 @@ from rhosocial.activerecord.backend.errors import StaleObjectError
 # --- Models ---
 
 
-class User(UUIDMixin, TimestampMixin, ActiveRecord):
+class User(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     username: str
 
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -33,7 +33,7 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
     posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="user_id")
 
 
-class Post(OptimisticLockMixin, UUIDMixin, TimestampMixin, ActiveRecord):
+class Post(DefaultOptimisticLockMixin, UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     user_id: uuid.UUID
     title: str
     content: str

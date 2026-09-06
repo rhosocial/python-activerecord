@@ -97,18 +97,23 @@ User.configure(postgres_config, PostgresBackend)  # PostgreSQL
 from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
-# 直接创建表达式
-col = Column("users", "age")
-expr = col > Literal(18)
+backend = SQLiteBackend(database=":memory:")
+dialect = backend.dialect
 
-# 通过方言生成 SQL
-sql, params = expr.to_sql(backend.dialect)
+# 直接创建表达式（方言在构造时绑定为第一个参数）
+col = Column(dialect, "age", table="users")
+expr = col > Literal(dialect, 18)
+
+# 通过方言生成 SQL（to_sql() 无参数，方言在构造时已绑定）
+sql, params = expr.to_sql()
 # SQL: "users"."age" > ?
 # params: (18,)
 
 # 直接通过后端执行（不需要 ActiveRecord）
 backend.execute(sql, params)
 ```
+
+> **注意**：表达式对象在**构造时**绑定方言（`Column(dialect, ...)` 的第一个参数），`to_sql()` 本身不接受任何参数——方言已作为表达式构造的一部分被存储。这与查询时动态注入方言的 `DataType`（见[数据类型](../backend/expression/types.md)）形成对比：后者允许延后绑定，前者始终携带方言。
 
 **d) 框架灵活性——构建你自己的 ORM**
 表达式-方言-后端堆栈是完全独立的。你可以：
@@ -119,14 +124,18 @@ backend.execute(sql, params)
 
 ```python
 # 示例：构建自定义 Repository 模式
+from rhosocial.activerecord.backend.expression import Column, Literal
+
 class UserRepository:
     def __init__(self, backend):
         self.backend = backend
+        self.dialect = backend.dialect
     
     def find_active(self, min_age: int):
-        # 直接使用表达式系统
-        expr = (User.c.active == True) & (User.c.age >= min_age)
-        sql, params = expr.to_sql(self.backend.dialect)
+        # 直接使用表达式系统（方言在构造时绑定）
+        expr = (Column(self.dialect, "is_active") == Literal(self.dialect, True)) & \
+               (Column(self.dialect, "age") >= Literal(self.dialect, min_age))
+        sql, params = expr.to_sql()
         return self.backend.execute(sql, params)
 ```
 
@@ -196,9 +205,18 @@ class UserRepository:
 
 **我们的使命：** 让 ActiveRecord 成为 Python 数据持久化的首选模式，无论用户选择什么框架都能使用。
 
+### 6. Python 版本支持策略
+
+我们对 Python 3 的支持**从 3.8 开始**。尽管 3.8~3.10 已陆续退出官方支持周期（EOL），但考虑到其在生产环境中的**广泛占有量**，我们仍然尽力支持这些版本，让存量项目无需强制升级即可使用本框架。
+
+- **核心库**（`python-activerecord`）：支持 `>=3.8`
+- **后端包**：具体支持范围**以各后端为准**，可能因驱动依赖而不同。例如 SQL Server 后端要求 `>=3.9`，ClickHouse 后端要求 `>=3.10`——请以所用后端包的 `pyproject.toml` 声明为准。
+
+> **说明**：核心库尽力维护 3.8 兼容性，但各后端对 Python 版本的支持取决于其数据库驱动自身的支持范围，可能存在差异。部署前请确认所用后端包的实际版本要求。
+
 ---
 
-我们的核心设计哲学主要体现在以下六个方面：
+我们的核心设计哲学主要体现在以下七个方面：
 
 ## 1. 显式控制优于隐式魔法
 
@@ -227,7 +245,25 @@ class UserRepository:
 
 > **注意**: 不同的数据库后端对功能的支持程度可能不同（例如，MySQL 从 8.0 版本开始才支持窗口函数）。请以具体后端的发行注记和文档为准。
 
-## 3. 同步异步对等：跨范式功能等价性
+**后端以完整 SQL 语义覆盖为目标，而非仅满足 ActiveRecord 的使用需求。** Backend 层的职责是尽可能完整、忠实地表达目标数据库的 SQL 语义——包括 ActiveRecord 层可能永远不会用到的能力。ActiveRecord 只是 Backend 众多使用方式中的一种，它用不到某些能力，绝不意味着 Backend 可以省略这些能力。后端实现不会因为"当前没有用户用到"而偷懒简化；完整、忠实的 SQL 语义覆盖是后端实现的基本契约，也是所有后端保持一致开发体验的前提。
+
+在"表达式-方言"系统中有一条金科玉律：**表达式绝不自行拼接 SQL 字符串**。表达式只负责描述结构与收集参数，所有 SQL 生成一律委托给方言的 `format_*` 方法，所有值一律通过参数占位符（`?`）绑定。这既是**安全由构造保证**的体现——遵循 DB-API 2.0（PEP 249）"SQL 与参数分离"的要求，从构造上杜绝 SQL 注入；也是**SQL 透明性**的保障——SQL 只有一个生成出口，任何查询都可以随时调用 `.to_sql()` 检视结果。对违反这一约定的输入（如无占位符的字符串条件），框架会显式警告（`UserWarning`）而非静默放行。
+
+此外，表达式是**无状态且纯**的：它们只描述"你想要什么"，没有隐藏行为或自动操作；从表达式到 SQL 仅两步（构造 → `.to_sql()`），没有多层编译，也没有隐藏缓存。这种**以简单换取性能**的设计让执行行为与性能开销变得可预测。
+
+## 3. 后端即插即用：平等、可扩展的后端生态
+
+核心库为后端提供了完整的契约框架：**基类**（如 `StorageBackendBase`、`StorageBackend`）、**协议族**（`backend/protocols.py`、`dialect/protocols.py` 中的能力检测协议）以及**一定程度的实现**（Mixin 组合、类型适配器、事务管理等）。任何数据库后端——包括我们内置的 SQLite——都只是这套契约的一个具体实现。
+
+*   **SQLite 是范例，而非特权**。SQLite 是随核心库内置的唯一后端，但它在架构上与其他后端完全平级，仅作为其他后端的**参照实现**。`backend/impl/README.md` 明确指出：创建自定义后端时，应以 `sqlite` 的实现为参考。
+*   **无短名特权，一律使用完全限定名**。在框架代码、文档和示例中，无论内置的 SQLite 还是独立的 MySQL、PostgreSQL 后端，都通过完全限定路径引用（`rhosocial.activerecord.backend.impl.sqlite.SQLiteBackend`、`rhosocial.activerecord.backend.impl.mysql.MySQLBackend` 等）。框架不提供"短名 → 后端类"的映射注册表，也不为自家后端准备魔法字符串别名。
+*   **自研与第三方完全平等**。我们自研的 MySQL、PostgreSQL 后端以独立包形式分发（`python-activerecord-mysql`、`python-activerecord-postgres`），安装后同样挂载在 `rhosocial.activerecord.backend.impl` 命名空间下。第三方开发者可以遵循相同的约定，以相同的完全限定路径接入自己的后端，与官方后端享受完全相同的待遇——没有隐藏的优先级、默认值或特殊处理。
+*   **可随时扩充**。添加新后端仅需：实现 `Dialect` 与 `Backend` 子类（可复用协议族与 Mixin），放置到 `backend/impl/<name>/` 目录，无需改动核心库的任何代码。
+*   **协议驱动与能力协商**。能力通过 `Protocol` 声明而非继承层次强制——`backend/protocols.py`、`dialect/protocols.py` 定义了细粒度的能力协议（如 `WindowFunctionSupport`、`JSONSupport`），`supports_*` 方法按服务器真实版本门控；后端在连接真实服务器后还会通过 `introspect_and_adapt()` 重建方言与类型适配器。后端能力因此是"与服务器版本协商的契约"，而非静态声明，用户可以在运行期检测能力并优雅降级。
+*   **组合优于继承**。无论是模型还是后端，功能都以可插拔的 Mixin 组合而成——`StorageBackend` 由十余个 Mixin 组装，`ActiveRecord`/`AsyncActiveRecord` 由同一组 Mixin 平行组合。Mixin 组合避免了深继承层次的脆弱性，也让自定义后端只需按需挑选、覆写所需能力。
+*   **生态级动态发现与解耦**。这一平等原则同样延伸到测试与工具链：标准化测试套件通过 `ProviderRegistry`（经环境变量动态加载）发现后端 provider，测试代码不假设任何具体后端，能力不满足的测试被**跳过而非失败**；devtools 的 inspect 与 MCP Server 则通过扫描 `rhosocial.activerecord.backend.impl` 命名空间自动发现已安装的后端。没有任何地方硬编码"哪些后端存在"。
+
+## 4. 同步异步对等：跨范式功能等价性
 
 `rhosocial-activerecord` 的一个基本设计原则是**同步异步对等**，这意味着同步和异步实现提供等效的功能和一致的 API。
 
@@ -238,7 +274,7 @@ class UserRepository:
 
 这种对等性使开发人员能够在同步和异步上下文之间无缝过渡，而无需学习不同的 API 或牺牲功能。
 
-## 4. 严格的模型-后端对应关系与同步/异步隔离
+## 5. 严格的模型-后端对应关系与同步/异步隔离
 
 我们坚持 **"One Model - One Backend - One Table"** 的设计原则：
 
@@ -247,7 +283,7 @@ class UserRepository:
     *   **不同模型**: 同步模型（继承自 `ActiveRecord`）和异步模型（继承自 `AsyncActiveRecord`）被视为完全不同的模型实体。
     *   **不可混用**: 你不能在同步模型中定义指向异步模型的关联关系，反之亦然。同步的 `ActiveQuery`、`CTEQuery` 只能用于同步模型；异步查询构建器只能用于异步模型。这种隔离确保了运行时行为的可预测性，避免了 async/await 上下文切换带来的复杂性和潜在死锁风险。
 
-## 5. 类型安全与数据校验
+## 6. 类型安全与数据校验
 
 我们深知良好范式对于系统稳定性和开发效率的关键性影响。因此，在数据模型层的设计上，我们做出了一个关键决定：
 
@@ -260,7 +296,7 @@ class UserRepository:
 
 通过这一继承关系，每一个 ActiveRecord 模型本质上都是一个 Pydantic 模型，拥有强大的运行时类型检查和数据校验能力，确保入库数据的绝对纯净。
 
-## 6. 强大的查询系统
+## 7. 强大的查询系统
 
 ActiveRecord 不仅仅是数据模型，它还搭配了一套强大的查询体系，主要包括：
 
@@ -271,3 +307,5 @@ ActiveRecord 不仅仅是数据模型，它还搭配了一套强大的查询体�
 **ActiveQuery 的核心使命是实例化 ActiveRecord 实例（列表）**。当你执行 `User.query().where(...)` 时，默认返回的是经过完整校验的 `User` 对象列表。
 
 同时，为了满足性能敏感场景的需求，`ActiveQuery` 与 `CTEQuery`、`SetOperationQuery` 一致，都提供了 **`aggregate()`** 功能。这允许你在需要时跳过模型实例化，直接获取聚合数据或原始字典结果，从而在灵活性和性能之间取得完美平衡。
+
+这体现了一种**渐进式披露（Progressive Disclosure）**的设计哲学：默认提供安全、完整、经过校验的模型实例（严格模式），当性能敏感时，用户可以显式选择 `aggregate()` 或原始模式直接获取字典结果，绕过 Pydantic 校验以获得数量级的性能提升。用户无需为了性能放弃 ORM 的安全保障，也无需为默认的严格性付出不必要的开销——选择权始终掌握在用户手中。

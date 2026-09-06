@@ -11,7 +11,7 @@ from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.relation import BelongsTo, HasMany
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 # --- Models ---
 
 
-class User(UUIDMixin, TimestampMixin, ActiveRecord):
+class User(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     username: str
     age: int
     is_active: bool = True
@@ -34,7 +34,7 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
         return "users"
 
 
-class Post(UUIDMixin, TimestampMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     user_id: uuid.UUID
     title: str
     views: int = 0

@@ -103,7 +103,7 @@ A class that provides methods and fields to other classes through inheritance. I
 
 **Example:**
 ```python
-class Post(TimestampMixin, UUIDMixin, ActiveRecord):
+class Post(DefaultTimestampMixin, UUIDMixin, ActiveRecord):
     # Automatically gets created_at, updated_at, and UUID id
     title: str
 ```

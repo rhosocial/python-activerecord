@@ -27,7 +27,7 @@ from pydantic import (
 )
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import UseAdapter
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -41,7 +41,7 @@ from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 
 # Method 1: Define directly as ActiveRecord subclass
 # Use UUIDMixin for automatic ID generation
-class User(UUIDMixin, TimestampMixin, ActiveRecord):
+class User(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     username: str
     email: str
     age: Optional[int] = None
@@ -450,7 +450,7 @@ def main():
     config = SQLiteConnectionConfig(database=":memory:")
 
     # Define a model that can store list as JSON
-    class DemoModel(UUIDMixin, TimestampMixin, ActiveRecord):
+    class DemoModel(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
         title: str
         data_list: Annotated[List[str], UseAdapter(JsonListAdapter(), str)] = []
         is_active: bool = True

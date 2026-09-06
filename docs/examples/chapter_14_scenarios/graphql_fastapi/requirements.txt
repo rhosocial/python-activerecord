@@ -1,5 +1,8 @@
-fastapi>=0.100.0
-uvicorn>=0.20.0
-graphene>=3.0
-aiodataloader
-rhosocial-activerecord
+fastapi>=0.110.0
+uvicorn[standard]>=0.30.0
+graphene>=3.3.0
+aiodataloader>=0.4.0
+rhosocial-activerecord[async]>=1.0.0.dev
+# 测试
+pytest>=8.0.0
+httpx>=0.27.0

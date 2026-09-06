@@ -17,16 +17,16 @@ The intermediate model is the core of many-to-many relationships. It not only co
 from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import BelongsTo
-from rhosocial.activerecord.field import TimestampMixin
+from rhosocial.activerecord.field import DefaultTimestampMixin
 
 # PostTag class represents the association relationship between posts and tags
-# Inheriting TimestampMixin automatically adds creation time field
-class PostTag(TimestampMixin, ActiveRecord):
+# Inheriting DefaultTimestampMixin automatically adds creation time field
+class PostTag(DefaultTimestampMixin, ActiveRecord):
     # Foreign key column linking to Post table's id column
     post_id: str
     # Foreign key column linking to Tag table's id column
     tag_id: str
-    # Extra information: tagging time (inherited from TimestampMixin)
+    # Extra information: tagging time (inherited from DefaultTimestampMixin)
     # created_at: datetime  # Automatically added timestamp field
     
     # Define subordinate relationship to Post

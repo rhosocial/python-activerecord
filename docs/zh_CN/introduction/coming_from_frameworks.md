@@ -11,8 +11,8 @@
 | `objects.get()` | `.find_one()` | 获取单条记录 |
 | `ForeignKey` | `BelongsTo` | 多对一关系 |
 | `ManyToManyField` | 使用中间模型 + `HasMany` | 通过中间表实现多对多 |
-| `auto_now_add`, `auto_now` | `TimestampMixin` | 自动时间戳 |
-| `SoftDelete` (django-softdelete) | `SoftDeleteMixin` | 逻辑删除 |
+| `auto_now_add`, `auto_now` | `DefaultTimestampMixin` | 自动时间戳 |
+| `SoftDelete` (django-softdelete) | `DefaultSoftDeleteMixin` | 逻辑删除 |
 | `F()` 表达式 | `FieldProxy`（如 `User.c.age`） | 类型安全的字段引用 |
 | `QuerySet` | `ActiveQuery` | 查询构建类 |
 | `select_related` | `.with_()` | 预加载 |
@@ -158,8 +158,8 @@ class User(ActiveRecord):
 | 查询构建 | `.query().where().order_by().all()` |
 | 类型安全字段访问 | `User.c.field_name` (FieldProxy) |
 | 关系 | `BelongsTo`, `HasOne`, `HasMany` |
-| 时间戳 | `TimestampMixin` |
-| 软删除 | `SoftDeleteMixin` |
+| 时间戳 | `DefaultTimestampMixin` |
+| 软删除 | `DefaultSoftDeleteMixin` |
 | 数据库后端 | 使用 `Backend` 类配置 |
 | 原始 SQL | 仅在必要时使用；优先使用表达式 |
 

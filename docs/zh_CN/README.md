@@ -33,6 +33,7 @@
     *   **[字段定义 (Fields & Proxies)](modeling/fields.md)**: 深入理解 `FieldProxy` 与类型安全，以及如何映射遗留数据库列。 💡 *AI 提示词："什么是 FieldProxy？它是如何实现类型安全的查询构建的？"*
     *   **[Mixin 与复用 (Mixins)](modeling/mixins.md)**: 使用 Mixin 消除重复代码，包括 UUID、时间戳和软删除。
     *   **[验证与生命周期 (Validation & Hooks)](modeling/validation.md)**: 在保存前后自动执行逻辑，确保数据一致性。
+    *   **[模型序列化 (Model Serialization)](modeling/serialization.md)**: 模型与 JSON/Dict 之间的转换、字段过滤、关联数据处理。
     *   **[自定义类型 (Custom Types)](modeling/custom_types.md)**: 处理 JSON、数组等复杂数据类型。
     *   **[模型最佳实践](modeling/best_practices.md)**: 命名规范、字段设计、项目组织、版本控制、索引优化。
 
@@ -68,20 +69,17 @@
 10. **[事件系统 (Events)](events/README.md)**
     *   **[生命周期事件 (Lifecycle Events)](events/lifecycle.md)**: 业务逻辑解耦 (before_save, after_create 等)。
 
-11. **[序列化 (Serialization)](serialization/README.md)**
-    *   **[JSON 序列化 (JSON Serialization)](serialization/json.md)**: 模型转换为 JSON/Dict，字段过滤。
-
-12. **[后端系统 (Backend System)](backend/README.md)**
+11. **[后端系统 (Backend System)](backend/README.md)**
     *   **[数据库内省 (Introspection)](backend/introspection.md)**: 查询数据库结构元数据。
     *   **[查询解释接口 (Query Explain)](backend/explain.md)**: 执行 EXPLAIN 语句，分析查询计划和索引使用情况。
     *   **[表达式系统 (Expression System)](backend/expression/README.md)**: Python 对象如何安全地转换为 SQL 字符串。 💡 *AI 提示词："解释 ToSQLProtocol 协议，以及 Expression-Dialect 分离如何防止 SQL 注入攻击。"*
     *   **[自定义后端 (Custom Backend)](backend/custom_backend.md)**: 实现一个新的数据库驱动。
     *   **[SQLite 后端](backend/sqlite/README.md)**: SQLite 特定功能和特性。
 
-13. **[测试指南 (Testing)](testing/README.md)**
+12. **[测试指南 (Testing)](testing/README.md)**
     *   **[测试策略 (Strategies)](testing/strategies.md)**: 零 IO 测试 vs 集成测试。
     *   **[Dummy Backend](testing/dummy.md)**: 使用内置的 Dummy Backend 进行单元测试。
 
-14. **[场景实战 (Scenarios)](scenarios/README.md)**
+13. **[场景实战 (Scenarios)](scenarios/README.md)**
     *   **[FastAPI 集成](scenarios/fastapi.md)**: 异步、依赖注入与 Pydantic 模型复用。
     *   **[GraphQL 集成](scenarios/graphql.md)**: 解决 N+1 问题，构建高效 API。
