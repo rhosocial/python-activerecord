@@ -278,18 +278,22 @@ def _build_neutral_suggestions() -> dict:
     import datetime as _dt
     import decimal as _dec
     import enum as _enum
+    import ipaddress as _ip
     import uuid as _uuid
 
     from ...expression.types import (
         BlobType,
         BooleanType,
+        CidrType,
         DateType,
         DateTimeType,
         DecimalType,
         DoubleType,
+        InetType,
         IntegerType,
         TextType,
         TimeType,
+        UUIDType,
         VarCharType,
     )
 
@@ -303,10 +307,19 @@ def _build_neutral_suggestions() -> dict:
         _dt.date: DateType(),
         _dt.time: TimeType(),
         _dec.Decimal: DecimalType(),
-        _uuid.UUID: VarCharType(length=36),
+        _uuid.UUID: UUIDType(),
         dict: TextType(),
         list: TextType(),
+        set: TextType(),
+        frozenset: TextType(),
+        tuple: TextType(),
         _enum.Enum: VarCharType(length=64),
+        _ip.IPv4Address: InetType(),
+        _ip.IPv6Address: InetType(),
+        _ip.IPv4Network: CidrType(),
+        _ip.IPv6Network: CidrType(),
+        # MAC addresses have no stdlib Python type; use MacAddrType via
+        # UseSqlType for str fields carrying physical addresses.
     }
 
 

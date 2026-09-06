@@ -56,7 +56,13 @@ def _python_type_of(field: Any) -> Optional[Type]:
 
 
 def _unwrap_annotation(annotation: Any) -> Optional[Type]:
-    """Recursively unwrap ``Optional[T]`` / ``Union`` to a concrete type."""
+    """Recursively unwrap ``Optional[T]`` / ``Union`` to a concrete type.
+
+    ``Enum`` subclasses are normalised to the ``enum.Enum`` base so backend
+    ``suggest_column_type`` mappings keyed on ``enum.Enum`` (and the neutral
+    map) match real enum types instead of silently degrading to ``INTEGER``.
+    """
+    import enum
     import typing
 
     origin = typing.get_origin(annotation)
@@ -66,6 +72,8 @@ def _unwrap_annotation(annotation: Any) -> Optional[Type]:
             return _unwrap_annotation(args[0])
         return None
     if isinstance(annotation, type):
+        if issubclass(annotation, enum.Enum):
+            return enum.Enum
         return annotation
     return None
 

@@ -12,6 +12,7 @@ Covers:
 
 import datetime
 import decimal
+import ipaddress
 import uuid
 import sys
 if sys.version_info >= (3, 9):
@@ -36,12 +37,14 @@ from rhosocial.activerecord.backend.expression.types import (
     BlobType,
     BooleanType,
     CharType,
+    CidrType,
     CustomType,
     DateType,
     DateTimeType,
     DecimalType,
     DoubleType,
     FloatType,
+    InetType,
     IntType,
     IntegerType,
     IntervalType,
@@ -54,6 +57,7 @@ from rhosocial.activerecord.backend.expression.types import (
     TimeTzType,
     TimestampType,
     TimestampTzType,
+    UUIDType,
     VarCharType,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -411,9 +415,16 @@ class TestColumnTypeSuggestion:
         (datetime.datetime, DateTimeType),
         (datetime.date, DateType),
         (decimal.Decimal, DecimalType),
-        (uuid.UUID, VarCharType),
+        (uuid.UUID, UUIDType),
         (dict, TextType),
         (list, TextType),
+        (set, TextType),
+        (frozenset, TextType),
+        (tuple, TextType),
+        (ipaddress.IPv4Address, InetType),
+        (ipaddress.IPv6Address, InetType),
+        (ipaddress.IPv4Network, CidrType),
+        (ipaddress.IPv6Network, CidrType),
     ])
     def test_neutral_suggestions(self, py_type, expected_type):
         d = DummyDialect()

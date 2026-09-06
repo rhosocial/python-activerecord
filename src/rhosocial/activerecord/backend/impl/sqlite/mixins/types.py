@@ -4,14 +4,17 @@
 from __future__ import annotations
 
 import re
+from typing import Tuple
 
 from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
 from rhosocial.activerecord.backend.dialect.protocols import DDLTypeSupport
 from rhosocial.activerecord.backend.expression.types import (
     BigIntType,
+    BinaryType,
     BooleanType,
     BlobType as CoreBlobType,
     CharType,
+    CidrType,
     CustomType,
     DataType,
     DateType,
@@ -19,15 +22,19 @@ from rhosocial.activerecord.backend.expression.types import (
     DecimalType,
     DoubleType,
     FloatType,
+    InetType,
     IntType,
     IntegerType,
     JsonType,
+    MacAddrType,
     RealType,
     SmallIntType,
     TextType as CoreTextType,
     TimeType,
     TimestampType,
     TinyIntType,
+    UUIDType,
+    VarBinaryType,
     VarCharType,
 )
 
@@ -138,6 +145,14 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     def format_data_type_core_blob(self, data_type: CoreBlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
+    @DDLTypeMixin.handles(BinaryType)
+    def format_data_type_core_binary(self, data_type: BinaryType) -> Tuple[str, tuple]:
+        return "BLOB", ()
+
+    @DDLTypeMixin.handles(VarBinaryType)
+    def format_data_type_core_varbinary(self, data_type: VarBinaryType) -> Tuple[str, tuple]:
+        return "BLOB", ()
+
     # --- Additional core type formatters ---
 
     @DDLTypeMixin.handles(TinyIntType)
@@ -154,6 +169,22 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
 
     @DDLTypeMixin.handles(JsonType)
     def format_data_type_core_json(self, data_type: JsonType) -> Tuple[str, tuple]:
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(UUIDType)
+    def format_data_type_core_uuid(self, data_type: UUIDType) -> Tuple[str, tuple]:
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(InetType)
+    def format_data_type_core_inet(self, data_type: InetType) -> Tuple[str, tuple]:
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(CidrType)
+    def format_data_type_core_cidr(self, data_type: CidrType) -> Tuple[str, tuple]:
+        return "TEXT", ()
+
+    @DDLTypeMixin.handles(MacAddrType)
+    def format_data_type_core_macaddr(self, data_type: MacAddrType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
     @DDLTypeMixin.handles(CustomType)

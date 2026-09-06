@@ -51,7 +51,7 @@ from .integer import TinyIntType, SmallIntType, IntType, IntegerType, BigIntType
 from .numeric import FloatType, RealType, DoubleType, DecimalType
 from .string import CharType, VarCharType, TextType
 from .boolean import BooleanType
-from .binary import BlobType
+from .binary import BinaryType, BlobType, VarBinaryType
 from .datetime_ import (
     DateType,
     TimeType,
@@ -62,11 +62,17 @@ from .datetime_ import (
     IntervalType,
 )
 from .json_ import JsonType, JsonBType
+from .network import CidrType, InetType, MacAddrType
+from .uuid_ import UUIDType
 
 __all__ = [
     "DataType",
     "ArrayType",
     "CustomType",
+    "UUIDType",
+    "InetType",
+    "CidrType",
+    "MacAddrType",
     # integer
     "TinyIntType",
     "SmallIntType",
@@ -86,6 +92,8 @@ __all__ = [
     # boolean
     "BooleanType",
     # binary
+    "BinaryType",
+    "VarBinaryType",
     "BlobType",
     # datetime
     "DateType",
