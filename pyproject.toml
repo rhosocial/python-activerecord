@@ -72,6 +72,9 @@ dependencies = [
     "backports.zoneinfo>=0.2.1; python_version < '3.9'",
 ]
 
+[project.scripts]
+rhosocial-activerecord-sqlite = "rhosocial.activerecord.backend.impl.sqlite.__main__:main"
+
 [project.optional-dependencies]
 # Async support for SQLite backend
 # These are required only when using AsyncSQLiteBackend
