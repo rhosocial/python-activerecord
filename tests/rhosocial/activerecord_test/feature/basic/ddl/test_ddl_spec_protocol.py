@@ -12,7 +12,14 @@ Covers the generic Spec translations on the core (SQLite / Dummy) dialects:
   ``CreateIndexExpression`` (the diff/migration link).
 """
 
+import sys
+
 import pytest
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:
+    from typing_extensions import Annotated
 
 from rhosocial.activerecord.base import (
     CheckSpec,
@@ -323,8 +330,6 @@ class TestFieldLevelLazyPredicates:
     """Field annotations may carry lazy ``(dialect) -> SQLPredicate`` factories."""
 
     def test_field_check_lazy(self, dialect):
-        from typing import Annotated
-
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
             ColumnConstraintType as CCT,
         )
@@ -347,8 +352,6 @@ class TestFieldLevelLazyPredicates:
         assert params == (18,)
 
     def test_field_index_partial_lazy(self, dialect):
-        from typing import Annotated
-
         from rhosocial.activerecord.model import ActiveRecord
 
         class T(ActiveRecord):
