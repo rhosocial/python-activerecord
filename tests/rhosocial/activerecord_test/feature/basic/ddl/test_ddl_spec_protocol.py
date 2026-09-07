@@ -368,6 +368,143 @@ class TestFieldLevelLazyPredicates:
         assert expr.indexes[0].partial_condition is not None
 
 
+class TestSpecProductRouting:
+    """Spec products are routed by kind, regardless of declaration slot.
+
+    Regression: an ``IndexSpec`` / ``PartialIndexSpec`` (or a pre-built
+    ``IndexDefinition``) declared in ``__table_constraints__`` used to land in
+    ``table_constraints`` and break rendering ("IndexDefinition has no
+    attribute constraint_type"). Index products must always go to
+    ``expr.indexes``; constraint products to ``expr.table_constraints``.
+    """
+
+    def test_partial_index_spec_in_constraints_slot_routes_to_indexes(self, dialect):
+        from rhosocial.activerecord.model import ActiveRecord
+
+        class T(ActiveRecord):
+            __table_name__ = "t"
+            __table_constraints__ = [
+                PartialIndexSpec(
+                    columns=["email"],
+                    condition=lambda d: Column(d, "is_active") == 1,
+                    name="ix_active_email",
+                ),
+            ]
+            email: str
+            is_active: int
+
+        expr = T.generate_create_table(dialect)
+        assert [i.name for i in expr.indexes] == ["ix_active_email"]
+        # The constraint list carries no index products.
+        assert not any(
+            isinstance(c, IndexDefinition) for c in expr.table_constraints
+        )
+
+    def test_index_spec_in_constraints_slot_routes_to_indexes(self, dialect):
+        from rhosocial.activerecord.model import ActiveRecord
+
+        class T(ActiveRecord):
+            __table_name__ = "t"
+            __table_constraints__ = [
+                IndexSpec(columns=["email"], name="ix_email"),
+            ]
+            email: str
+
+        expr = T.generate_create_table(dialect)
+        assert [i.name for i in expr.indexes] == ["ix_email"]
+        assert not any(
+            isinstance(c, IndexDefinition) for c in expr.table_constraints
+        )
+
+    def test_prebuilt_index_definition_in_constraints_slot_routes_to_indexes(
+        self, dialect
+    ):
+        from rhosocial.activerecord.model import ActiveRecord
+
+        class T(ActiveRecord):
+            __table_name__ = "t"
+            __table_constraints__ = [
+                IndexDefinition(name="ix_email", columns=["email"]),
+            ]
+            email: str
+
+        expr = T.generate_create_table(dialect)
+        assert [i.name for i in expr.indexes] == ["ix_email"]
+
+    def test_check_spec_in_indexes_slot_routes_to_constraints(self, dialect):
+        from rhosocial.activerecord.model import ActiveRecord
+
+        class T(ActiveRecord):
+            __table_name__ = "t"
+            __table_indexes__ = [
+                CheckSpec(lambda d: Column(d, "x") >= 0, name="ck_x"),
+            ]
+            x: int
+
+        expr = T.generate_create_table(dialect)
+        names = [c.name for c in expr.table_constraints]
+        assert "ck_x" in names
+        assert expr.indexes == []
+
+    def test_regular_slotting_unchanged(self, dialect):
+        from rhosocial.activerecord.model import ActiveRecord
+
+        class T(ActiveRecord):
+            __table_name__ = "t"
+            __table_constraints__ = [
+                UniqueSpec(["a", "b"], name="uq_ab"),
+            ]
+            __table_indexes__ = [
+                IndexSpec(columns=["a"], name="ix_a"),
+            ]
+            a: int
+            b: int
+
+        expr = T.generate_create_table(dialect)
+        assert [i.name for i in expr.indexes] == ["ix_a"]
+        assert any(getattr(c, "name", None) == "uq_ab" for c in expr.table_constraints)
+        # Routing must not duplicate products across slots.
+        assert len(expr.indexes) == 1
+
+
+class TestIndexToCreateIndexExpression:
+    """``IndexDefinition.to_create_index_expression`` converts derived index
+    definitions into executable statements (regression: IndexDefinition has
+    no ``to_sql`` — rendering requires ``CreateIndexExpression``)."""
+
+    def test_conversion_field_mapping(self, dialect):
+        from rhosocial.activerecord.backend.expression.statements import (
+            CreateIndexExpression,
+        )
+
+        idx = dialect.build_spec(
+            IndexSpec(
+                columns=["email"],
+                name="ix_email",
+                unique=True,
+                type="BTREE",
+                partial_condition=lambda d: Column(d, "is_active") == 1,
+            )
+        )
+        expr = idx.to_create_index_expression(dialect, "users")
+        assert isinstance(expr, CreateIndexExpression)
+        assert expr.index == "ix_email"
+        assert expr.table == "users"
+        assert expr.unique is True
+        assert expr.index_type == "BTREE"
+        assert expr.where is not None
+        sql, params = expr.to_sql()
+        assert "CREATE UNIQUE INDEX" in sql
+        assert "WHERE" in sql
+
+    def test_accepts_table_expression(self, dialect):
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
+        idx = dialect.build_spec(IndexSpec(columns=["a"], name="ix_a"))
+        expr = idx.to_create_index_expression(dialect, TableExpression(dialect, "t"))
+        assert expr.table == "t"
+
+
 class TestCapabilitySpecs:
     """Core capability Specs (partial index / JSON / generated column)."""
 

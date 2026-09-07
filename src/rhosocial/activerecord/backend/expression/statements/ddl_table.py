@@ -11,6 +11,7 @@ from ..types import DataType
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+    from .ddl_index import CreateIndexExpression
     from .dql import QueryExpression
 
 
@@ -154,6 +155,35 @@ class IndexDefinition:
     partial_condition: Optional["SQLPredicate"] = None  # For partial indexes (PostgreSQL)
     include_columns: Optional[List[str]] = None  # Included columns (non-key columns in index, SQL Server/PostgreSQL)
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+
+    def to_create_index_expression(
+        self, dialect: "SQLDialectBase", table: Union[str, Any], *, if_not_exists: bool = False
+    ) -> "CreateIndexExpression":
+        """Convert this definition to an executable ``CreateIndexExpression``.
+
+        ``CreateTableExpression.indexes`` carries plain definitions — the
+        CREATE TABLE statement itself does not embed CREATE INDEX — so callers
+        execute derived indexes via this conversion. ``table`` is the target
+        table name (a ``str``, or the enclosing ``CreateTableExpression.table``
+        whose ``.name`` is used when a ``TableExpression`` is passed).
+        """
+        from .ddl_index import CreateIndexExpression
+
+        table_name = getattr(table, "name", table)
+        return CreateIndexExpression(
+            dialect,
+            index=self.name,
+            table=table_name,
+            columns=list(self.columns),
+            unique=self.unique,
+            if_not_exists=if_not_exists,
+            index_type=self.type,
+            where=self.partial_condition,
+            include=(
+                list(self.include_columns) if self.include_columns else None
+            ),
+            dialect_options=self.dialect_options,
+        )
 
 
 @dataclass

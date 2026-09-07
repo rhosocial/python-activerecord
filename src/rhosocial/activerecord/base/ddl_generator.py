@@ -121,8 +121,20 @@ class ModelSchemaGenerator:
         # constraint/index lists so they apply onto the built columns.
         patches = cls._resolve_spec_patches(constraints_specs, dialect)
         columns = cls._build_columns(model_class, dialect, patches=patches)
-        indexes = cls._resolve_spec_list(indexes_specs, dialect)
-        constraints = cls._resolve_spec_list(constraints_specs, dialect)
+        # Spec products are routed by kind, making the two declaration slots
+        # interchangeable: index products (IndexDefinition, e.g. from
+        # IndexSpec / PartialIndexSpec declared in either slot) always land in
+        # ``indexes``; every other product lands in ``table_constraints``.
+        index_slot = cls._resolve_spec_list(indexes_specs, dialect)
+        constraint_slot = cls._resolve_spec_list(constraints_specs, dialect)
+        indexes = (
+            [e for e in index_slot if isinstance(e, IndexDefinition)]
+            + [e for e in constraint_slot if isinstance(e, IndexDefinition)]
+        )
+        constraints = (
+            [e for e in constraint_slot if not isinstance(e, IndexDefinition)]
+            + [e for e in index_slot if not isinstance(e, IndexDefinition)]
+        )
         partition = cls._build_partition(model_class, dialect)
         table_options = getattr(model_class, "__ddl_table_options__", None)
 
