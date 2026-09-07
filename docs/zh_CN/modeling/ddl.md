@@ -1,33 +1,134 @@
-# DDL 语句
+# 推导 DDL
 
-`rhosocial-activerecord` 提供了类型安全的、基于表达式的 DDL（Data Definition Language，数据定义语言）API。你可以使用 Python 对象构建表、索引、视图和模式，而无需编写原生 SQL 字符串。
+`rhosocial-activerecord` 支持从模型声明**自动推导** DDL：模型即 schema 的事实来源，
+调用 `Model.generate_create_table(dialect)` 得到 `CreateTableExpression`，可直接执行、
+检视，或参与表达式级 diff 生成迁移。本文专讲这条"模型 → DDL"推导链路——声明层
+（Spec）、方言认领协议（`build_spec`）、默认推导规则，以及后端能力差异。
 
-## 为什么要使用 DDL 表达式？
+> 本文所有示例以 SQLite（核心内置后端）演示，并附**真实生成结果**。
+> 表达式层（`CreateTableExpression` / `ColumnDefinition` 等）本身的用法见
+> [后端表达式文档](../backend/expression/statements.md)；各后端特定 Spec 见
+> [后端 DDL 特征支持](#后端-ddl-特征支持与文档索引)。
 
-- **类型安全**：所有列名、数据类型和约束都在运行时经过验证。
-- **后端可移植性**：相同的代码可在 SQLite、MySQL、PostgreSQL 上运行（由 dialect 处理差异）。
-- **SQL 检查**：在任何表达式上调用 `.to_sql()` 即可在执行前检查生成的 SQL。
-- **避免字符串拼接**：消除 SQL 注入风险和语法错误。
+## 为什么要从模型推导
 
-## 从模型声明推导 DDL（Spec）
+传统模式下同一张表有两套独立描述：模型字段（驱动读写）+ 手写建表 DDL（驱动建表）。
+两处会漂移：加字段要改两处，漏改任一处即产生"模型能读写、表里没有该列"的隐性不一致。
 
-除了手工构造 DDL 表达式，你还可以**在模型上声明 DDL 特征（Spec）**，由框架调用
-`Model.generate_create_table(dialect)` 自动推导出 `CreateTableExpression`。
+推导 DDL 让模型成为**唯一事实来源**：
 
-### 方言认领机制
+- 新增/修改字段只改模型一处；
+- schema 与读写路径天然一致（同一份声明）；
+- 推导产物与手工构造的表达式同型——diff/渲染/执行链路完全复用。
 
-Spec 是纯声明对象——定义时**不需要**任何方言/后端。生成 DDL 时，当前方言对每个
-Spec 调用 `build_spec(spec)`：接受则返回构造好的表达式实例；不接受返回 `None`
-（该 Spec 被静默忽略）。是否支持某个特征由后端自行决定。
+## 快速开始：零声明推导
+
+**最简化定义是默认路径**——不写任何 DDL 声明，模型即可建表：
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+class Account(ActiveRecord):
+    __table_name__ = "accounts"
+
+    code: str
+    type: str
+    amount: float
+    is_active: bool = True   # 有默认值 → 可空列
+
+expr = Account.generate_create_table(SQLiteDialect())
+sql, params = expr.to_sql()
+# sql: 'CREATE TABLE "accounts" ("code" TEXT NOT NULL, "type" TEXT NOT NULL,
+#        "amount" REAL NOT NULL, "is_active" NUMERIC)'
+# params: ()
+```
+
+默认推导规则：
+
+| 规则 | 说明 |
+|------|------|
+| 列名 = 字段名 | 可用 `UseColumn("col_name")` 覆盖 |
+| 列类型 = 方言建议 | Python 类型经 `dialect.suggest_column_type()` 映射（SQLite：`str`→TEXT、`int`→INTEGER、`float`→REAL；MySQL/PG 各有原生映射） |
+| 必填字段自动 `NOT NULL` | `Optional[T]` 或有默认值的字段保持可空 |
+| 主键 | 按 `primary_key_columns()` 规则；整型自增主键渲染 `AUTOINCREMENT`（SQLite）/ `IDENTITY` 等 |
+| 复合主键 | 多列 PK 渲染为表级 `PRIMARY KEY (col1, col2)` |
+
+## DDL 特征声明（Spec）
+
+需要偏离默认行为时，通过 **Spec** 声明特征。Spec 是纯声明对象：
+**定义时不需要任何方言/后端**——模型体 import 时即可构造。
+
+### 方言认领机制（build_spec）
+
+生成 DDL 时，方言对每个 Spec 调用 `build_spec(spec)`：
+
+- **接受** → 返回构造好的表达式层实例（`TableConstraint` / `IndexDefinition` /
+  `ColumnConstraint` / `PartitionClause` …）；
+- **不接受** → 返回 `None`，该 Spec 被**静默忽略**。
+
+三条关键原则：
+
+1. **是否支持由后端自决**。通用 Spec 只是"语义标准 + 核心默认翻译"的起点，
+   后端可覆写翻译、也可拒绝；后端不支持的 Spec，测试断言"不支持"即可。
+2. **未认领不报错**。声明列表是平权的：各后端只认领自己的。后端若认为忽略会
+   静默丢约束，可在 `build_spec` 内自行抛错。用户不设 `required`/`suggested` 标记。
+3. **零字符串键控**。后端亲和性 = 真实类身份（`isinstance`），无 `dialect.name`
+   字符串匹配——自定义/第三方后端与内置后端平权。
+
+### 两级声明入口
+
+按"声明内容的归属"分两级：字段内容就近在字段上写，表级/复合内容集中到表级槽位。
+两条路径底层统一——字段注解被折算为列级 Spec，与表级 Spec 一起交给方言
+`build_spec` 认领，方言不需要区分来源。
+
+**字段级注解**（列类型、单列约束、单列索引）：
+
+```python
+from typing import Annotated
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.base import (
+    UseSqlType, UseConstraint, UseIndex, ColumnConstraintType,
+)
+from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+class User(ActiveRecord):
+    __table_name__ = "users"
+
+    email: Annotated[str, UseSqlType(VarCharType(length=255))]
+    age: Annotated[int, UseConstraint(
+        ColumnConstraintType.CHECK,
+        check_condition=lambda d: Column(d, "age") >= 18,   # 惰性谓词工厂
+    )]
+    is_active: Annotated[bool, UseIndex(
+        "ix_users_active",
+        partial_condition=lambda d: Column(d, "is_active") == 1,
+    )] = True
+
+expr = User.generate_create_table(SQLiteDialect())
+sql, params = expr.to_sql()
+# sql: 'CREATE TABLE "users" ("email" TEXT NOT NULL, "age" INTEGER
+#        CHECK ("age" >= ?) NOT NULL, "is_active" NUMERIC)'
+# params: (18,)
+```
+
+单列索引以独立语句执行（见[执行推导产物](#执行推导产物)）：
+
+```python
+expr.indexes[0].to_create_index_expression(SQLiteDialect(), expr.table).to_sql()
+# ('CREATE INDEX "ix_users_active" ON "users" ("is_active") WHERE "is_active" = ?', (1,))
+```
+
+**表级声明列表**（复合约束、跨列 CHECK、分区）：
+
+```python
+from rhosocial.activerecord.base import UniqueSpec, CheckSpec
 
 class Order(ActiveRecord):
     __table_name__ = "orders"
 
-    # 表级声明：复合约束 / 跨列 CHECK / 分区
     __table_constraints__ = [
         UniqueSpec(columns=["account_id", "period"], name="uq_acc_period"),
         CheckSpec(
@@ -36,386 +137,210 @@ class Order(ActiveRecord):
         ),
     ]
 
-    # 后端自定分区：每个后端认领自己的，SQLite 上自动忽略（建普通表）
-    __table_partition__ = [
-        PostgresRangePartition(column="created_at"),
-        MySQLRangePartition(column="created_at", partitions=[...]),
-    ]
-
     account_id: int
     period: str
     debit_total: float
     credit_total: float
 
-expr = Order.generate_create_table(dialect)  # CreateTableExpression
-sql, params = expr.to_sql()
+sql, _ = Order.generate_create_table(SQLiteDialect()).to_sql()
+# sql: 'CREATE TABLE "orders" (..., CONSTRAINT "uq_acc_period" UNIQUE ("account_id", "period"),
+#        CONSTRAINT "ck_balance" CHECK ("debit_total" = "credit_total"))'
 ```
 
 ### 通用 Spec 一览
 
 | Spec | 说明 | 默认翻译 |
 |------|------|----------|
-| `CheckSpec(condition, name=?)` | CHECK 约束；`condition` 可为就绪谓词或惰性工厂 `(dialect) -> SQLPredicate` | `TableConstraint(CHECK)` |
-| `UniqueSpec(columns, name=?)` | UNIQUE 约束 | `TableConstraint(UNIQUE)` |
+| `CheckSpec(condition, name=?)` | CHECK；`condition` 可为就绪谓词或惰性工厂 `(dialect) -> SQLPredicate` | `TableConstraint(CHECK)` |
+| `UniqueSpec(columns, name=?)` | UNIQUE | `TableConstraint(UNIQUE)` |
 | `NotNullSpec(column, name=?)` | NOT NULL | `ColumnConstraint(NOT_NULL)` |
 | `PrimaryKeySpec(columns, name=?)` | 主键（单列→列级，复合→表级） | PK 约束 |
-| `DefaultSpec(column, value)` | 字面量默认值（惰性值 `(dialect) -> Any` 可用）；表达式默认用后端特定 Spec | `ColumnConstraint(DEFAULT)` |
-| `ForeignKeySpec(local_columns, ref_table, ref_columns, ...)` | 外键（含 on_delete / on_update） | `ForeignKeyConstraint` |
-| `IndexSpec(columns, name=?, unique=?, partial_condition=?)` | 索引（部分索引受 `supports_partial_index` 门控） | `IndexDefinition` |
+| `DefaultSpec(column, value)` | 字面量默认值（惰性值 `(dialect) -> Any` 可用）；表达式默认（如 `nextval`）归后端特定 Spec | `ColumnConstraint(DEFAULT)` |
+| `ForeignKeySpec(local_columns, ref_table, ref_columns, on_delete=?, on_update=?)` | 外键 | `ForeignKeyConstraint` |
+| `IndexSpec(columns, name=?, unique=?, partial_condition=?)` | 索引；部分索引受 `supports_partial_index` 门控 | `IndexDefinition` |
 | `PartialIndexSpec(columns, condition, ...)` | 部分索引便捷形态 | `IndexDefinition` |
-| `JsonColumnSpec(column)` | JSON 列（便携 `JsonType`，各后端原生或 TEXT 渲染） | 列类型补丁 |
+| `JsonColumnSpec(column)` | JSON 列（便携 `JsonType`：MySQL→JSON、PG→JSON、SQLite→TEXT） | 列类型补丁 |
 | `GeneratedColumnSpec(column, expression, stored=?)` | 生成列（受 `supports_generated_columns` 门控） | `ColumnDefinition.generated_*` |
 
-### 两级入口
+### 惰性谓词工厂
 
-- **字段级注解**（字段自身内容）：`UseSqlType` / `UseConstraint` / `UseIndex`，
-  其 `check_condition` / `partial_condition` 同样支持惰性谓词工厂；
-- **表级声明列表**（复合/跨列/表级内容）：`__table_constraints__` /
-  `__table_indexes__` / `__table_partition__`，条目可为 Spec 或预构建表达式对象
-  （`TableConstraint` / `IndexDefinition`），两者混用均可。
-
-### 最简化定义是默认路径
-
-不写任何 Spec 也能建表：字段名即列名、Python 类型经
-`dialect.suggest_column_type()` 映射为列类型、必填字段自动 `NOT NULL`、主键按
-`primary_key_columns()` 规则。Spec 只在需要偏离默认时书写。
-
-### 后端特定 Spec
-
-分区、序列默认、原生类型列等由各后端包定义（如 `MySQLRangePartition`、
-`PostgresSequenceDefault`、`OracleIntervalPartition.monthly(...)`、
-`SQLServerRangePartition`），仅归属后端认领。详见各后端文档。
-
-## 核心组件
-
-### ColumnDefinition
-
-定义列及其数据类型和可选约束。
+CHECK / 部分索引的条件可以是 `(dialect) -> SQLPredicate` 工厂——**定义时无方言，
+生成时由框架注入当前方言**，这是声明与构造解耦的关键：
 
 ```python
-from rhosocial.activerecord.backend.expression import ColumnDefinition
-from rhosocial.activerecord.backend.expression.statements import ColumnConstraint, ColumnConstraintType
+CheckSpec(condition=lambda d: Column(d, "type").in_(["asset", "liability"]))
+#                    ^^^ d 由 generate_create_table(dialect) 注入
+```
 
-# 基本列
-ColumnDefinition("name", "VARCHAR(100)")
+字段注解同样支持：`UseConstraint(..., check_condition=lambda d: ...)`、
+`UseIndex(..., partial_condition=lambda d: ...)`。
 
-# 带约束的列
-ColumnDefinition(
-    "email",
-    "VARCHAR(255)",
-    constraints=[
-        ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ColumnConstraint(ColumnConstraintType.UNIQUE)
+### 声明槽位可互换
+
+`__table_constraints__` 与 `__table_indexes__` 对 Spec 是平权槽位——生成器按
+**产物类型**路由（索引产物进 `indexes`，约束产物进 `table_constraints`），声明位置
+只影响可读性。建议仍按语义选择槽位：索引写 `__table_indexes__`，约束写
+`__table_constraints__`。
+
+## SQLite 实例：推导全流程
+
+综合运用字段注解、表级 Spec、能力 Spec 的完整示例：
+
+```python
+from typing import Annotated
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.base import (
+    UseSqlType, UseConstraint, UseIndex, ColumnConstraintType,
+    UniqueSpec, CheckSpec, PartialIndexSpec, JsonColumnSpec,
+)
+from rhosocial.activerecord.backend.expression.types import VarCharType
+from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+class Article(ActiveRecord):
+    __table_name__ = "articles"
+
+    # 字段级：类型与单列约束
+    slug: Annotated[str, UseSqlType(VarCharType(length=160))]
+    status: Annotated[str, UseConstraint(
+        ColumnConstraintType.CHECK,
+        check_condition=lambda d: Column(d, "status").in_(["draft", "published"]),
+    )]
+    is_active: Annotated[int, UseIndex(
+        "ix_articles_active",
+        partial_condition=lambda d: Column(d, "is_active") == 1,
+    )] = 1
+
+    author_id: int
+    title: str
+    views: int = 0
+    likes: int = 0
+    meta: object = None
+    published_at: str = ""
+
+    # 表级：复合约束、跨列 CHECK、能力 Spec
+    __table_constraints__ = [
+        UniqueSpec(columns=["author_id", "slug"], name="uq_author_slug"),
+        CheckSpec(
+            condition=lambda d: Column(d, "views") >= Column(d, "likes"),
+            name="ck_views_likes",
+        ),
+        JsonColumnSpec("meta"),     # SQLite 无原生 JSON → TEXT
+        PartialIndexSpec(           # 部分索引（SQLite 3.8+）
+            columns=["published_at"],
+            condition=lambda d: Column(d, "status") == "published",
+            name="ix_articles_published",
+        ),
     ]
-)
 
-# 带默认值的列
-ColumnDefinition(
-    "status",
-    "VARCHAR(20)",
-    default="active"
-)
+d = SQLiteDialect()
+expr = Article.generate_create_table(d)
+sql, params = expr.to_sql()
+# sql: 'CREATE TABLE "articles" ("slug" TEXT NOT NULL, "status" TEXT
+#        CHECK ("status" IN (?, ?)) NOT NULL, "is_active" INTEGER,
+#        "author_id" INTEGER NOT NULL, "title" TEXT NOT NULL, "views" INTEGER,
+#        "likes" INTEGER, "meta" TEXT, "published_at" TEXT,
+#        CONSTRAINT "uq_author_slug" UNIQUE ("author_id", "slug"),
+#        CONSTRAINT "ck_views_likes" CHECK ("views" >= "likes"))'
+# params: ('draft', 'published')
 ```
 
-### ColumnConstraint
-
-| 类型 | 说明 |
-|------|------|
-| `NOT_NULL` | 列不能为 NULL |
-| `NULL` | 列允许 NULL（默认） |
-| `PRIMARY_KEY` | 主键列 |
-| `UNIQUE` | 列值必须唯一 |
-| `AUTO_INCREMENT` | 自增（取决于数据库） |
-
-### TableConstraint
-
-定义表级约束，如主键、唯一约束和外键。
+索引产物在 `expr.indexes`，逐条转 `CreateIndexExpression` 执行：
 
 ```python
-from rhosocial.activerecord.backend.expression.statements import (
-    TableConstraint,
-    TableConstraintType,
-    ForeignKeyConstraint,
-    ReferentialAction
-)
-
-# 复合主键
-TableConstraint(
-    TableConstraintType.PRIMARY_KEY,
-    columns=["user_id", "role_id"]
-)
-
-# 带引用操作的外键
-ForeignKeyConstraint(
-    columns=["author_id"],
-    reference_table="authors",
-    reference_columns=["id"],
-    on_delete=ReferentialAction.CASCADE,
-    on_update=ReferentialAction.RESTRICT
-)
+for ix in expr.indexes:
+    ix.to_create_index_expression(d, expr.table).to_sql()
+# ('CREATE INDEX "ix_articles_active" ON "articles" ("is_active") WHERE "is_active" = ?', (1,))
+# ('CREATE INDEX "ix_articles_published" ON "articles" ("published_at") WHERE "status" = ?', ('published',))
 ```
 
-## 基本操作
+观察 SQLite 方言的认领行为：
 
-### 创建表
+- `CheckSpec` 惰性工厂在生成时求值，谓词参数化（`IN (?, ?)`，值进 params）；
+- `JsonColumnSpec` → `TEXT`（SQLite 无原生 JSON 存储类型，JSON1 函数可用）；
+- 两个部分索引正常认领（`supports_partial_index` 版本门控 3.8+）；
+- 若声明了任何分区 Spec，SQLite 一律忽略，建普通表。
 
-```python
-from rhosocial.activerecord.backend.expression import CreateTableExpression
+## 分区声明
 
-columns = [
-    ColumnDefinition(
-        "id",
-        "INTEGER",
-        constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
-    ),
-    ColumnDefinition(
-        "username",
-        "VARCHAR(50)",
-        constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-    ),
-    ColumnDefinition(
-        "email",
-        "VARCHAR(100)",
-        constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-            ColumnConstraint(ColumnConstraintType.UNIQUE)
-        ]
-    ),
-    ColumnDefinition("created_at", "TIMESTAMP")
-]
-
-create = CreateTableExpression(
-    dialect=dialect,
-    table_name="users",
-    columns=columns
-)
-
-sql, params = create.to_sql()
-# sql: 'CREATE TABLE "users" ("id" INTEGER PRIMARY KEY, "username" VARCHAR(50) NOT NULL,
-#      "email" VARCHAR(100) NOT NULL UNIQUE, "created_at" TIMESTAMP)'
-# params: ()
-```
-
-### 创建表（带 IF NOT EXISTS）
-
-```python
-create = CreateTableExpression(
-    dialect=dialect,
-    table_name="users",
-    columns=columns,
-    if_not_exists=True
-)
-sql, params = create.to_sql()
-# sql: 'CREATE TABLE IF NOT EXISTS "users" (...)'
-```
-
-### 创建临时表
-
-```python
-create = CreateTableExpression(
-    dialect=dialect,
-    table_name="temp_sessions",
-    columns=columns,
-    temporary=True
-)
-sql, params = create.to_sql()
-# sql: 'CREATE TEMPORARY TABLE "temp_sessions" (...)'
-```
-
-### 删除表
-
-```python
-from rhosocial.activerecord.backend.expression import DropTableExpression
-
-drop = DropTableExpression(
-    dialect,
-    table_name="old_users",
-    if_exists=True,
-    cascade=True
-)
-sql, params = drop.to_sql()
-# sql: 'DROP TABLE IF EXISTS "old_users" CASCADE'
-```
-
-### 修改表
-
-```python
-from rhosocial.activerecord.backend.expression import (
-    AlterTableExpression,
-    AddColumn,
-    DropColumn,
-    AlterColumn
-)
-
-# 添加新列
-alter = AlterTableExpression(
-    dialect,
-    table_name="users",
-    actions=[
-        AddColumn(
-            ColumnDefinition(
-                "phone",
-                "VARCHAR(20)"
-            )
-        )
-    ]
-)
-sql, params = alter.to_sql()
-# sql: 'ALTER TABLE "users" ADD COLUMN "phone" VARCHAR(20)'
-
-# 删除列
-alter = AlterTableExpression(
-    dialect,
-    table_name="users",
-    actions=[
-        DropColumn("old_field")
-    ]
-)
-sql, params = alter.to_sql()
-# sql: 'ALTER TABLE "users" DROP COLUMN "old_field"'
-```
-
-## 索引操作
-
-### 创建索引
-
-```python
-from rhosocial.activerecord.backend.expression.statement import CreateIndexExpression
-
-# 基本索引
-create_idx = CreateIndexExpression(
-    dialect,
-    index_name="idx_users_email",
-    table_name="users",
-    columns=["email"]
-)
-sql, params = create_idx.to_sql()
-# sql: 'CREATE INDEX "idx_users_email" ON "users" ("email")'
-
-# 唯一索引
-create_idx = CreateIndexExpression(
-    dialect,
-    index_name="idx_users_username",
-    table_name="users",
-    columns=["username"],
-    unique=True
-)
-
-# 局部索引（带 WHERE 子句）
-from rhosocial.activerecord.backend.expression import Column, Literal
-
-create_idx = CreateIndexExpression(
-    dialect,
-    index_name="idx_active_users",
-    table_name="users",
-    columns=["email"],
-    where=Column(dialect, "status") == Literal(dialect, "active")
-)
-sql, params = create_idx.to_sql()
-# sql: 'CREATE INDEX "idx_active_users" ON "users" ("email") WHERE "status" = ?'
-```
-
-### 删除索引
-
-```python
-from rhosocial.activerecord.backend.expression.statement import DropIndexExpression
-
-drop_idx = DropIndexExpression(
-    dialect,
-    index_name="idx_users_email",
-    if_exists=True
-)
-sql, params = drop_idx.to_sql()
-# sql: 'DROP INDEX IF EXISTS "idx_users_email"'
-```
-
-## 模式操作
-
-### 创建模式
-
-```python
-from rhosocial.activerecord.backend.expression.statement import CreateSchemaExpression
-
-create_schema = CreateSchemaExpression(
-    dialect,
-    schema_name="app_schema",
-    if_not_exists=True
-)
-sql, params = create_schema.to_sql()
-# sql: 'CREATE SCHEMA IF NOT EXISTS "app_schema"'
-```
-
-### 删除模式
-
-```python
-from rhosocial.activerecord.backend.expression.statement import DropSchemaExpression
-
-drop_schema = DropSchemaExpression(
-    dialect,
-    schema_name="old_schema",
-    cascade=True
-)
-sql, params = drop_schema.to_sql()
-# sql: 'DROP SCHEMA "old_schema" CASCADE'
-```
-
-## 执行 DDL 语句
-
-DDL 表达式可以直接在后端上执行：
+分区由各后端定义 `PartitionSpec` 子类，声明在模型级 `__table_partition__` 列表。
+**同一模型跨后端，各取所需**：
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.impl.postgres.ddl_spec import PostgresRangePartition
+from rhosocial.activerecord.backend.impl.mysql.ddl_spec import (
+    MySQLRangePartition, MySQLPartitionDefinitionSpec, MySQLPartitionBound,
+)
 
-# 创建表
-create = CreateTableExpression(dialect, "users", columns)
-User.__backend__.execute(create)
-
-# 或者先构建 SQL 并检查
-sql, params = create.to_sql()
-print(f"SQL: {sql}")
-print(f"Params: {params}")
+class Events(ActiveRecord):
+    __table_name__ = "events"
+    __table_partition__ = [
+        PostgresRangePartition(column="created_at"),
+        MySQLRangePartition("created_at", [
+            MySQLPartitionDefinitionSpec("p2026", less_than=[MySQLPartitionBound(2027)]),
+        ]),
+    ]
+    created_at: str
 ```
 
-> **注意**：`rhosocial-activerecord` 中的 DDL 语句不需要 `ExecutionOptions(stmt_type=StatementType.DDL)` — 表达式对象自带语句类型信息。
+| 后端 | 结果 |
+|------|------|
+| PostgreSQL | 认领 `PostgresRangePartition` → `PARTITION BY RANGE ("created_at")` |
+| MySQL | 认领 `MySQLRangePartition` → `PARTITION BY RANGE (...) (PARTITION ...)` |
+| SQLite / 其他 | 两者均不认领 → 建普通表 |
 
-## 内省用于架构验证
+## 执行推导产物
 
-在创建、修改或删除表之后，你可以使用后端的**内省 API** 来验证架构变化：
+推导产物与手工构造的表达式同型，执行方式一致：
 
 ```python
-from rhosocial.activerecord.backend.introspection import TableType
+# 方式一：整表 + 索引一起执行
+backend.execute(expr)
+for ix in expr.indexes:
+    backend.execute(ix.to_create_index_expression(dialect, expr.table))
 
-# 列出所有表
-tables = backend.introspector.list_tables()
-for t in tables:
-    print(f"Table: {t.name}, Type: {t.table_type}")
-
-# 获取详细的表信息（列、索引、外键）
-table_info = backend.introspector.get_table_info("users")
-if table_info:
-    for col in table_info.columns:
-        print(f"Column: {col.name}, Type: {col.data_type}, PK: {col.is_primary_key}")
+# 方式二：取 SQL 自行执行
+sql, params = expr.to_sql()
 ```
 
-### 后端差异
+### 与迁移的衔接
 
-> ⚠️ **重要提示**：本文档以 SQLite 作为示例后端。不同的数据库后端存在显著差异：
+两个推导产物可直接 diff，生成 ALTER 集合或 rebuild 计划：
 
-| 特性 | SQLite | MySQL | PostgreSQL |
-|------|--------|-------|------------|
-| **内省 API** | `list_tables()`、`get_table_info()`、`pragma.*` | 不同的方法名 | 不同的方法名 |
-| **DDL 支持** | 有限的 ALTER TABLE（仅支持 ADD/DROP column） | 完整的 ALTER TABLE | 完整的 ALTER TABLE |
-| **索引类型** | 不支持 USING 子句 | BTREE、HASH 等 | BTREE、HASH、GIN 等 |
-| **局部索引** | 支持（WHERE 子句） | 不支持 | 支持 |
-| **生成列** | 3.31.0+ | 5.7.31+ | 支持 |
+```python
+plan = dialect.diff_create_table(old_expr, new_expr)
+# plan.alters: list[AlterTableExpression]  或  plan.rebuild: RebuildPlan
+```
 
-请始终参考你所用后端的文档以获取准确的 API 用法。
+等价规则与降级策略（如 SQLite 改列类型走 rebuild）由各后端覆写；分区结构变更
+一律判 rebuild（无后端可 ALTER 分区键）。收敛不变量
+`apply(create_v1) + alters... ≡ generate_create_table()` 可作为 CI 校验。
 
-## 示例代码
+## 后端 DDL 特征支持与文档索引
 
-本章的完整示例代码可以在以下位置找到：
-[docs/examples/chapter_03_modeling/ddl_basic.py](../../../examples/chapter_03_modeling/ddl_basic.py)
+各后端为推导 DDL 实现自己的 `build_spec`——认领通用 Spec、提供特定 Spec
+（分区、序列默认、原生类型列）。**具体后端支持哪些 Spec、如何处理，以该后端
+文档为准**：
 
-更多示例：
-- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../../examples/chapter_03_modeling/ddl_relationships.py) — 创建带外键关系的表
-- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../../examples/chapter_03_modeling/ddl_indexes.py) — 索引创建模式
+| 后端 | 特定 Spec 亮点 | 后端文档 |
+|------|----------------|----------|
+| SQLite（内置） | 部分/函数索引、生成列、JSON→TEXT、不支持分区（忽略） | `backend/sqlite/ddl/` |
+| MySQL | RANGE/LIST/HASH 分区、VECTOR、空间列、SET | python-activerecord-mysql `backend_specific_features/` |
+| PostgreSQL | 声明式分区、`PostgresSequenceDefault`、JSONB/HSTORE/数组/网络/TSVECTOR 列 | python-activerecord-postgres `backend_specific_features/` |
+| Oracle | RANGE/LIST/HASH/INTERVAL 分区、`OracleSequenceDefault`（`seq.NEXTVAL`） | python-activerecord-oracle `backend_specific_features/` |
+| SQL Server | RANGE 分区（分区方案 + LEFT/RIGHT 边界） | python-activerecord-sqlserver `backend_specific_features/` |
+| Snowflake | 外部表分区、VARIANT/ARRAY/OBJECT 列 | python-activerecord-snowflake |
+| MariaDB / Firebird / ClickHouse | 通用 Spec 全量可用（分区现状见各后端文档） | 各后端仓库 |
+
+## 设计要点回顾
+
+1. **声明时无方言**：Spec 是普通对象，模型 import 时即可构造；
+2. **构造时方言注入**：惰性工厂 `(dialect) -> ...` 在 `generate_create_table`
+   时求值，谓词参数化安全；
+3. **后端自决接受范围**：`build_spec` 一个方法同时承担"认领"与"翻译"，
+   未认领返回 `None` 静默忽略；
+4. **产物同型**：`build_spec` 只产出既有表达式对象——渲染、执行、diff 链路
+   全部复用；
+5. **不出现 Raw SQL**：框架 Spec 层绝不构造 `RawSQLExpression`；表达式缺口
+   （PG `nextval`、Oracle INTERVAL 函数）通过补充专用表达式类与 formatter 解决。

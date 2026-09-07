@@ -47,7 +47,7 @@
 * [批量处理（后端层）](modeling/batch_processing.md)
 * [并发](modeling/concurrency.md)
 * [配置管理](modeling/configuration_management.md)
-* [DDL](modeling/ddl.md)
+* [推导 DDL](modeling/ddl.md)
 * [DDL 视图](modeling/ddl_views.md)
 
 ## 关联关系

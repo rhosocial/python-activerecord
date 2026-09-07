@@ -1,36 +1,150 @@
-# DDL Statements
+# Deriving DDL
 
-`rhosocial-activerecord` provides a type-safe, expression-based API for building DDL (Data Definition Language) statements. Instead of writing raw SQL strings, you can construct tables, indexes, views, and schemas using Python objects.
+`rhosocial-activerecord` can **derive** DDL from model declarations: the model is
+the single source of truth for the schema, and
+`Model.generate_create_table(dialect)` produces a `CreateTableExpression` that
+can be executed, inspected, or fed into expression-level diff for migrations.
+This chapter covers the derivation pipeline — the declaration layer (Specs),
+the dialect-claiming protocol (`build_spec`), default derivation rules, and
+backend capability differences.
 
-## Why Use DDL Expressions?
+> All examples below use SQLite (the core built-in backend) and show **real
+> generated output**. For the expression layer itself
+> (`CreateTableExpression` / `ColumnDefinition` etc.), see the
+> [backend expression docs](../backend/expression/statements.md). For
+> backend-specific Specs, see [Backend DDL feature support](#backend-ddl-feature-support-and-doc-index).
 
-- **Type Safety**: All column names, types, and constraints are validated at runtime.
-- **Backend Portability**: The same code works across SQLite, MySQL, PostgreSQL (dialect handles differences).
-- **SQL Inspection**: Call `.to_sql()` on any expression to inspect the generated SQL before execution.
-- **No String Concatenation**: Eliminates SQL injection risks and syntax errors.
+## Why derive DDL from the model
 
-## Deriving DDL from Model Declarations (Specs)
+Traditionally a table has two independent descriptions: model fields (driving
+reads/writes) and a hand-written CREATE TABLE (driving DDL). They drift: adding
+a field means editing both, and missing either silently produces a model that
+reads/writes a column the table does not have.
 
-Beyond hand-building DDL expressions, you can **declare DDL features (Specs) on
-your model** and let `Model.generate_create_table(dialect)` derive the
-`CreateTableExpression` automatically.
+Deriving DDL makes the model the **single source of truth**:
 
-### Dialect Claiming
+- Adding or changing a field is a single edit;
+- The schema and the read/write path stay consistent by construction;
+- Derived products are the same expression types as hand-built ones — render,
+  execute, and diff pipelines are fully reused.
 
-A Spec is a pure declaration object — **no dialect/backend is needed** at
-definition time. When DDL is generated, the current dialect calls
-`build_spec(spec)` for each Spec: it returns a built expression instance when
-it accepts the Spec, or `None` when it does not (the Spec is silently
-ignored). Whether a feature is supported is each backend's own decision.
+## Quick start: zero-declaration derivation
+
+**The simplest definition is the default path** — a model needs no DDL
+declaration at all:
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+class Account(ActiveRecord):
+    __table_name__ = "accounts"
+
+    code: str
+    type: str
+    amount: float
+    is_active: bool = True   # has a default -> nullable column
+
+expr = Account.generate_create_table(SQLiteDialect())
+sql, params = expr.to_sql()
+# sql: 'CREATE TABLE "accounts" ("code" TEXT NOT NULL, "type" TEXT NOT NULL,
+#        "amount" REAL NOT NULL, "is_active" NUMERIC)'
+# params: ()
+```
+
+Default derivation rules:
+
+| Rule | Description |
+|------|-------------|
+| Column name = field name | Override with `UseColumn("col_name")` |
+| Column type = dialect suggestion | Python type mapped via `dialect.suggest_column_type()` (SQLite: `str`→TEXT, `int`→INTEGER, `float`→REAL; MySQL/PG have their own native maps) |
+| Required fields get `NOT NULL` | `Optional[T]` or defaulted fields stay nullable |
+| Primary key | Per `primary_key_columns()`; integer auto PK renders `AUTOINCREMENT` (SQLite) / `IDENTITY` etc. |
+| Composite primary key | Multi-column PK renders as table-level `PRIMARY KEY (col1, col2)` |
+
+## Declaring DDL features (Specs)
+
+When you need to deviate from the defaults, declare features as **Specs**.
+A Spec is a pure declaration object: **no dialect/backend is needed** at
+definition time — it is constructed when the model body executes.
+
+### Dialect claiming (build_spec)
+
+At generation time the dialect calls `build_spec(spec)` for each Spec:
+
+- **Accepted** → returns a built expression-layer instance (`TableConstraint` /
+  `IndexDefinition` / `ColumnConstraint` / `PartitionClause` …);
+- **Not accepted** → returns `None`, and the Spec is **silently ignored**.
+
+Three key principles:
+
+1. **Support is the backend's decision.** A generic Spec is only a "standard
+   semantics + core default translation" starting point; backends may override
+   the translation or reject it. For unsupported Specs, tests simply assert
+   "not supported".
+2. **Unclaimed never raises.** Declaration lists are flat and equal: each
+   backend claims its own. A backend that considers ignoring unsafe may raise
+   inside `build_spec`. Users do not set `required`/`suggested` flags.
+3. **Zero string keying.** Backend affinity = real class identity
+   (`isinstance`); no `dialect.name` string matching — custom/third-party
+   backends are first-class.
+
+### Two-level entry points
+
+Declarations split by ownership: field-owned content is written on the field,
+table-level/composite content goes to table-level slots. Both paths unify
+underneath — field annotations are folded into column-level Specs and claimed
+by the same `build_spec` call; the dialect never distinguishes the source.
+
+**Field-level annotations** (column type, single-column constraint/index):
+
+```python
+from typing import Annotated
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.base import (
+    UseSqlType, UseConstraint, UseIndex, ColumnConstraintType,
+)
+from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+class User(ActiveRecord):
+    __table_name__ = "users"
+
+    email: Annotated[str, UseSqlType(VarCharType(length=255))]
+    age: Annotated[int, UseConstraint(
+        ColumnConstraintType.CHECK,
+        check_condition=lambda d: Column(d, "age") >= 18,   # lazy predicate factory
+    )]
+    is_active: Annotated[bool, UseIndex(
+        "ix_users_active",
+        partial_condition=lambda d: Column(d, "is_active") == 1,
+    )] = True
+
+expr = User.generate_create_table(SQLiteDialect())
+sql, params = expr.to_sql()
+# sql: 'CREATE TABLE "users" ("email" TEXT NOT NULL, "age" INTEGER
+#        CHECK ("age" >= ?) NOT NULL, "is_active" NUMERIC)'
+# params: (18,)
+```
+
+Single-column indexes execute as separate statements (see
+[Executing derived products](#executing-derived-products)):
+
+```python
+expr.indexes[0].to_create_index_expression(SQLiteDialect(), expr.table).to_sql()
+# ('CREATE INDEX "ix_users_active" ON "users" ("is_active") WHERE "is_active" = ?', (1,))
+```
+
+**Table-level declaration lists** (composite constraints, cross-column CHECK,
+partitions):
+
+```python
+from rhosocial.activerecord.base import UniqueSpec, CheckSpec
 
 class Order(ActiveRecord):
     __table_name__ = "orders"
 
-    # Table-level declarations: composite constraints / cross-column CHECK / partitions
     __table_constraints__ = [
         UniqueSpec(columns=["account_id", "period"], name="uq_acc_period"),
         CheckSpec(
@@ -39,391 +153,223 @@ class Order(ActiveRecord):
         ),
     ]
 
-    # Backend-defined partitions: each backend claims its own; on SQLite
-    # they are silently ignored (a plain table is created)
-    __table_partition__ = [
-        PostgresRangePartition(column="created_at"),
-        MySQLRangePartition(column="created_at", partitions=[...]),
-    ]
-
     account_id: int
     period: str
     debit_total: float
     credit_total: float
 
-expr = Order.generate_create_table(dialect)  # CreateTableExpression
-sql, params = expr.to_sql()
+sql, _ = Order.generate_create_table(SQLiteDialect()).to_sql()
+# sql: 'CREATE TABLE "orders" (..., CONSTRAINT "uq_acc_period" UNIQUE ("account_id", "period"),
+#        CONSTRAINT "ck_balance" CHECK ("debit_total" = "credit_total"))'
 ```
 
 ### Generic Specs
 
 | Spec | Purpose | Default translation |
 |------|---------|---------------------|
-| `CheckSpec(condition, name=?)` | CHECK constraint; `condition` may be a ready predicate or a lazy `(dialect) -> SQLPredicate` factory | `TableConstraint(CHECK)` |
-| `UniqueSpec(columns, name=?)` | UNIQUE constraint | `TableConstraint(UNIQUE)` |
+| `CheckSpec(condition, name=?)` | CHECK; `condition` may be a ready predicate or a lazy `(dialect) -> SQLPredicate` factory | `TableConstraint(CHECK)` |
+| `UniqueSpec(columns, name=?)` | UNIQUE | `TableConstraint(UNIQUE)` |
 | `NotNullSpec(column, name=?)` | NOT NULL | `ColumnConstraint(NOT_NULL)` |
 | `PrimaryKeySpec(columns, name=?)` | Primary key (single → column-level, composite → table-level) | PK constraint |
-| `DefaultSpec(column, value)` | Literal default (lazy `(dialect) -> Any` accepted); expression defaults belong to backend-specific Specs | `ColumnConstraint(DEFAULT)` |
-| `ForeignKeySpec(local_columns, ref_table, ref_columns, ...)` | Foreign key (with on_delete / on_update) | `ForeignKeyConstraint` |
-| `IndexSpec(columns, name=?, unique=?, partial_condition=?)` | Index (partial gated by `supports_partial_index`) | `IndexDefinition` |
+| `DefaultSpec(column, value)` | Literal default (lazy `(dialect) -> Any` accepted); expression defaults (e.g. `nextval`) belong to backend-specific Specs | `ColumnConstraint(DEFAULT)` |
+| `ForeignKeySpec(local_columns, ref_table, ref_columns, on_delete=?, on_update=?)` | Foreign key | `ForeignKeyConstraint` |
+| `IndexSpec(columns, name=?, unique=?, partial_condition=?)` | Index; partial gated by `supports_partial_index` | `IndexDefinition` |
 | `PartialIndexSpec(columns, condition, ...)` | Partial-index shorthand | `IndexDefinition` |
-| `JsonColumnSpec(column)` | JSON column (portable `JsonType`; rendered natively or as TEXT) | column type patch |
+| `JsonColumnSpec(column)` | JSON column (portable `JsonType`: MySQL→JSON, PG→JSON, SQLite→TEXT) | column type patch |
 | `GeneratedColumnSpec(column, expression, stored=?)` | Generated column (gated by `supports_generated_columns`) | `ColumnDefinition.generated_*` |
 
-### Two-level entry points
+### Lazy predicate factories
 
-- **Field-level annotations** (field-owned content): `UseSqlType` /
-  `UseConstraint` / `UseIndex`; their `check_condition` / `partial_condition`
-  accept lazy predicate factories as well;
-- **Table-level declaration lists** (composite / cross-column / table-level
-  content): `__table_constraints__` / `__table_indexes__` /
-  `__table_partition__`; entries may be Specs or pre-built expression objects
-  (`TableConstraint` / `IndexDefinition`), freely mixed.
-
-### The simplest definition is the default path
-
-A model without any Spec still builds a table: field names become column
-names, Python types map through `dialect.suggest_column_type()`, required
-fields get `NOT NULL`, and primary keys follow `primary_key_columns()`. Write
-Specs only when you need to deviate from the defaults.
-
-### Backend-specific Specs
-
-Partitions, sequence defaults, and native-type columns are defined by each
-backend package (e.g. `MySQLRangePartition`, `PostgresSequenceDefault`,
-`OracleIntervalPartition.monthly(...)`, `SQLServerRangePartition`); only the
-owning backend claims them. See each backend's documentation for details.
-
-## Core Components
-
-### ColumnDefinition
-
-Defines a column with its data type and optional constraints.
+CHECK / partial-index conditions may be `(dialect) -> SQLPredicate` factories —
+**no dialect at definition time; the framework injects the current dialect at
+generation time**. This is the decoupling point between declaration and
+construction:
 
 ```python
-from rhosocial.activerecord.backend.expression import ColumnDefinition
-from rhosocial.activerecord.backend.expression.statements import ColumnConstraint, ColumnConstraintType
+CheckSpec(condition=lambda d: Column(d, "type").in_(["asset", "liability"]))
+#                    ^^^ d is injected by generate_create_table(dialect)
+```
 
-# Basic column
-ColumnDefinition("name", "VARCHAR(100)")
+Field annotations support factories too: `UseConstraint(..., check_condition=lambda d: ...)`,
+`UseIndex(..., partial_condition=lambda d: ...)`.
 
-# Column with constraints
-ColumnDefinition(
-    "email",
-    "VARCHAR(255)",
-    constraints=[
-        ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ColumnConstraint(ColumnConstraintType.UNIQUE)
+### Declaration slots are interchangeable
+
+`__table_constraints__` and `__table_indexes__` are equal slots for Specs —
+the generator routes **by product kind** (index products go to `indexes`,
+constraint products to `table_constraints`); declaration position only affects
+readability. Still, choose semantically: indexes in `__table_indexes__`,
+constraints in `__table_constraints__`.
+
+## A full SQLite derivation
+
+A complete example combining field annotations, table-level Specs, and
+capability Specs:
+
+```python
+from typing import Annotated
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.base import (
+    UseSqlType, UseConstraint, UseIndex, ColumnConstraintType,
+    UniqueSpec, CheckSpec, PartialIndexSpec, JsonColumnSpec,
+)
+from rhosocial.activerecord.backend.expression.types import VarCharType
+from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+class Article(ActiveRecord):
+    __table_name__ = "articles"
+
+    # Field-level: type and single-column constraint
+    slug: Annotated[str, UseSqlType(VarCharType(length=160))]
+    status: Annotated[str, UseConstraint(
+        ColumnConstraintType.CHECK,
+        check_condition=lambda d: Column(d, "status").in_(["draft", "published"]),
+    )]
+    is_active: Annotated[int, UseIndex(
+        "ix_articles_active",
+        partial_condition=lambda d: Column(d, "is_active") == 1,
+    )] = 1
+
+    author_id: int
+    title: str
+    views: int = 0
+    likes: int = 0
+    meta: object = None
+    published_at: str = ""
+
+    # Table-level: composite constraint, cross-column CHECK, capability Specs
+    __table_constraints__ = [
+        UniqueSpec(columns=["author_id", "slug"], name="uq_author_slug"),
+        CheckSpec(
+            condition=lambda d: Column(d, "views") >= Column(d, "likes"),
+            name="ck_views_likes",
+        ),
+        JsonColumnSpec("meta"),     # SQLite has no native JSON -> TEXT
+        PartialIndexSpec(           # partial index (SQLite 3.8+)
+            columns=["published_at"],
+            condition=lambda d: Column(d, "status") == "published",
+            name="ix_articles_published",
+        ),
     ]
-)
 
-# Column with default value
-ColumnDefinition(
-    "status",
-    "VARCHAR(20)",
-    default="active"
-)
+d = SQLiteDialect()
+expr = Article.generate_create_table(d)
+sql, params = expr.to_sql()
+# sql: 'CREATE TABLE "articles" ("slug" TEXT NOT NULL, "status" TEXT
+#        CHECK ("status" IN (?, ?)) NOT NULL, "is_active" INTEGER,
+#        "author_id" INTEGER NOT NULL, "title" TEXT NOT NULL, "views" INTEGER,
+#        "likes" INTEGER, "meta" TEXT, "published_at" TEXT,
+#        CONSTRAINT "uq_author_slug" UNIQUE ("author_id", "slug"),
+#        CONSTRAINT "ck_views_likes" CHECK ("views" >= "likes"))'
+# params: ('draft', 'published')
 ```
 
-### ColumnConstraint
-
-| Type | Description |
-|------|-------------|
-| `NOT_NULL` | Column cannot be NULL |
-| `NULL` | Column allows NULL (default) |
-| `PRIMARY_KEY` | Primary key column |
-| `UNIQUE` | Column values must be unique |
-| `AUTO_INCREMENT` | Auto-incrementing (database-dependent) |
-
-### TableConstraint
-
-Defines table-level constraints like primary keys, unique constraints, and foreign keys.
+Index products live in `expr.indexes`, converted per-item to
+`CreateIndexExpression` for execution:
 
 ```python
-from rhosocial.activerecord.backend.expression.statements import (
-    TableConstraint,
-    TableConstraintType,
-    ForeignKeyConstraint,
-    ReferentialAction
-)
-
-# Composite primary key
-TableConstraint(
-    TableConstraintType.PRIMARY_KEY,
-    columns=["user_id", "role_id"]
-)
-
-# Foreign key with referential actions
-ForeignKeyConstraint(
-    columns=["author_id"],
-    reference_table="authors",
-    reference_columns=["id"],
-    on_delete=ReferentialAction.CASCADE,
-    on_update=ReferentialAction.RESTRICT
-)
+for ix in expr.indexes:
+    ix.to_create_index_expression(d, expr.table).to_sql()
+# ('CREATE INDEX "ix_articles_active" ON "articles" ("is_active") WHERE "is_active" = ?', (1,))
+# ('CREATE INDEX "ix_articles_published" ON "articles" ("published_at") WHERE "status" = ?', ('published',))
 ```
 
-## Basic Operations
+Observed SQLite dialect behavior:
 
-### Create Table
+- `CheckSpec` lazy factories evaluate at generation time; predicates are
+  parameterized (`IN (?, ?)`, values in params);
+- `JsonColumnSpec` → `TEXT` (SQLite has no native JSON storage type; JSON1
+  functions are available);
+- Both partial indexes are claimed (`supports_partial_index`, version-gated 3.8+);
+- Any partition Spec would be ignored — SQLite builds a plain table.
 
-```python
-from rhosocial.activerecord.backend.expression import CreateTableExpression
+## Declaring partitions
 
-columns = [
-    ColumnDefinition(
-        "id",
-        "INTEGER",
-        constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
-    ),
-    ColumnDefinition(
-        "username",
-        "VARCHAR(50)",
-        constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-    ),
-    ColumnDefinition(
-        "email",
-        "VARCHAR(100)",
-        constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-            ColumnConstraint(ColumnConstraintType.UNIQUE)
-        ]
-    ),
-    ColumnDefinition("created_at", "TIMESTAMP")
-]
-
-create = CreateTableExpression(
-    dialect=dialect,
-    table_name="users",
-    columns=columns
-)
-
-sql, params = create.to_sql()
-# sql: 'CREATE TABLE "users" ("id" INTEGER PRIMARY KEY, "username" VARCHAR(50) NOT NULL,
-#      "email" VARCHAR(100) NOT NULL UNIQUE, "created_at" TIMESTAMP)'
-# params: ()
-```
-
-### Create Table with IF NOT EXISTS
-
-```python
-create = CreateTableExpression(
-    dialect=dialect,
-    table_name="users",
-    columns=columns,
-    if_not_exists=True
-)
-sql, params = create.to_sql()
-# sql: 'CREATE TABLE IF NOT EXISTS "users" (...)'
-```
-
-### Create Temporary Table
-
-```python
-create = CreateTableExpression(
-    dialect=dialect,
-    table_name="temp_sessions",
-    columns=columns,
-    temporary=True
-)
-sql, params = create.to_sql()
-# sql: 'CREATE TEMPORARY TABLE "temp_sessions" (...)'
-```
-
-### Drop Table
-
-```python
-from rhosocial.activerecord.backend.expression import DropTableExpression
-
-drop = DropTableExpression(
-    dialect,
-    table_name="old_users",
-    if_exists=True,
-    cascade=True
-)
-sql, params = drop.to_sql()
-# sql: 'DROP TABLE IF EXISTS "old_users" CASCADE'
-```
-
-### Alter Table
-
-```python
-from rhosocial.activerecord.backend.expression import (
-    AlterTableExpression,
-    AddColumn,
-    DropColumn,
-    AlterColumn
-)
-
-# Add a new column
-alter = AlterTableExpression(
-    dialect,
-    table_name="users",
-    actions=[
-        AddColumn(
-            ColumnDefinition(
-                "phone",
-                "VARCHAR(20)"
-            )
-        )
-    ]
-)
-sql, params = alter.to_sql()
-# sql: 'ALTER TABLE "users" ADD COLUMN "phone" VARCHAR(20)'
-
-# Drop a column
-alter = AlterTableExpression(
-    dialect,
-    table_name="users",
-    actions=[
-        DropColumn("old_field")
-    ]
-)
-sql, params = alter.to_sql()
-# sql: 'ALTER TABLE "users" DROP COLUMN "old_field"'
-```
-
-## Index Operations
-
-### Create Index
-
-```python
-from rhosocial.activerecord.backend.expression.statement import CreateIndexExpression
-
-# Basic index
-create_idx = CreateIndexExpression(
-    dialect,
-    index_name="idx_users_email",
-    table_name="users",
-    columns=["email"]
-)
-sql, params = create_idx.to_sql()
-# sql: 'CREATE INDEX "idx_users_email" ON "users" ("email")'
-
-# Unique index
-create_idx = CreateIndexExpression(
-    dialect,
-    index_name="idx_users_username",
-    table_name="users",
-    columns=["username"],
-    unique=True
-)
-
-# Partial index (with WHERE clause)
-from rhosocial.activerecord.backend.expression import Column, Literal
-
-create_idx = CreateIndexExpression(
-    dialect,
-    index_name="idx_active_users",
-    table_name="users",
-    columns=["email"],
-    where=Column(dialect, "status") == Literal(dialect, "active")
-)
-sql, params = create_idx.to_sql()
-# sql: 'CREATE INDEX "idx_active_users" ON "users" ("email") WHERE "status" = ?'
-```
-
-### Drop Index
-
-```python
-from rhosocial.activerecord.backend.expression.statement import DropIndexExpression
-
-drop_idx = DropIndexExpression(
-    dialect,
-    index_name="idx_users_email",
-    if_exists=True
-)
-sql, params = drop_idx.to_sql()
-# sql: 'DROP INDEX IF EXISTS "idx_users_email"'
-```
-
-## Schema Operations
-
-### Create Schema
-
-```python
-from rhosocial.activerecord.backend.expression.statement import CreateSchemaExpression
-
-create_schema = CreateSchemaExpression(
-    dialect,
-    schema_name="app_schema",
-    if_not_exists=True
-)
-sql, params = create_schema.to_sql()
-# sql: 'CREATE SCHEMA IF NOT EXISTS "app_schema"'
-```
-
-### Drop Schema
-
-```python
-from rhosocial.activerecord.backend.expression.statement import DropSchemaExpression
-
-drop_schema = DropSchemaExpression(
-    dialect,
-    schema_name="old_schema",
-    cascade=True
-)
-sql, params = drop_schema.to_sql()
-# sql: 'DROP SCHEMA "old_schema" CASCADE'
-```
-
-## Executing DDL Statements
-
-DDL expressions can be executed directly on the backend:
+Partitions are declared through backend-defined `PartitionSpec` subclasses in
+the model-level `__table_partition__` list. **The same model across backends,
+each taking what it understands**:
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.impl.postgres.ddl_spec import PostgresRangePartition
+from rhosocial.activerecord.backend.impl.mysql.ddl_spec import (
+    MySQLRangePartition, MySQLPartitionDefinitionSpec, MySQLPartitionBound,
+)
 
-# Create table
-create = CreateTableExpression(dialect, "users", columns)
-User.__backend__.execute(create)
-
-# Or build SQL first and inspect
-sql, params = create.to_sql()
-print(f"SQL: {sql}")
-print(f"Params: {params}")
+class Events(ActiveRecord):
+    __table_name__ = "events"
+    __table_partition__ = [
+        PostgresRangePartition(column="created_at"),
+        MySQLRangePartition("created_at", [
+            MySQLPartitionDefinitionSpec("p2026", less_than=[MySQLPartitionBound(2027)]),
+        ]),
+    ]
+    created_at: str
 ```
 
-> **Note**: DDL statements in `rhosocial-activerecord` don't require `ExecutionOptions(stmt_type=StatementType.DDL)` — the expression objects carry their own statement type information.
+| Backend | Result |
+|---------|--------|
+| PostgreSQL | claims `PostgresRangePartition` → `PARTITION BY RANGE ("created_at")` |
+| MySQL | claims `MySQLRangePartition` → `PARTITION BY RANGE (...) (PARTITION ...)` |
+| SQLite / others | claims neither → plain table |
 
-## Introspection for Schema Verification
+## Executing derived products
 
-After creating, modifying, or deleting tables, you can use the backend's **introspection API** to verify schema changes:
+Derived products are the same expression types as hand-built ones:
 
 ```python
-from rhosocial.activerecord.backend.introspection import TableType
+# Option A: execute the table, then each index
+backend.execute(expr)
+for ix in expr.indexes:
+    backend.execute(ix.to_create_index_expression(dialect, expr.table))
 
-# List all tables
-tables = backend.introspector.list_tables()
-for t in tables:
-    print(f"Table: {t.name}, Type: {t.table_type}")
-
-# Get detailed table info (columns, indexes, foreign keys)
-table_info = backend.introspector.get_table_info("users")
-if table_info:
-    for col in table_info.columns:
-        print(f"Column: {col.name}, Type: {col.data_type}, PK: {col.is_primary_key}")
+# Option B: take the SQL and execute it yourself
+sql, params = expr.to_sql()
 ```
 
-### Backend-Specific Differences
+### Connection to migrations
 
-> ⚠️ **Important**: This documentation uses SQLite as the example backend. Different database backends have significant differences:
+Two derived products can be diffed directly to produce an ALTER set or a
+rebuild plan:
 
-| Feature | SQLite | MySQL | PostgreSQL |
-|---------|--------|-------|------------|
-| **Introspection API** | `list_tables()`, `get_table_info()`, `pragma.*` | Different method names | Different method names |
-| **DDL Support** | Limited ALTER TABLE (ADD/DROP column only) | Full ALTER TABLE | Full ALTER TABLE |
-| **Index Types** | No USING clause | BTREE, HASH, etc. | BTREE, HASH, GIN, etc. |
-| **Partial Indexes** | Supported (WHERE clause) | Not supported | Supported |
-| **Generated Columns** | 3.31.0+ | 5.7.31+ | Supported |
+```python
+plan = dialect.diff_create_table(old_expr, new_expr)
+# plan.alters: list[AlterTableExpression]  or  plan.rebuild: RebuildPlan
+```
 
-Always refer to your specific backend's documentation for accurate API usage.
+Equivalence rules and downgrade strategies (e.g. SQLite column-type change →
+rebuild) are per-backend overrides; partition structure changes always rebuild
+(no backend can ALTER a partition key). The convergence invariant
+`apply(create_v1) + alters... ≡ generate_create_table()` works as a CI check.
 
-## Example Code
+## Backend DDL feature support and doc index
 
-Full example code for this chapter can be found at:
-[docs/examples/chapter_03_modeling/ddl_basic.py](../../../examples/chapter_03_modeling/ddl_basic.py)
+Each backend implements its own `build_spec` — claiming generic Specs and
+providing backend-specific ones (partitions, sequence defaults, native-type
+columns). **Which Specs a backend supports, and how it handles them, is
+documented by that backend**:
 
-More examples:
-- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../../examples/chapter_03_modeling/ddl_relationships.py) — Creating tables with foreign key relationships
-- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../../examples/chapter_03_modeling/ddl_indexes.py) — Index creation patterns
+| Backend | Backend-specific Spec highlights | Backend docs |
+|---------|----------------------------------|--------------|
+| SQLite (built-in) | partial/functional indexes, generated columns, JSON→TEXT, partitions unsupported (ignored) | `backend/sqlite/ddl/` |
+| MySQL | RANGE/LIST/HASH partitions, VECTOR, spatial columns, SET | python-activerecord-mysql `backend_specific_features/` |
+| PostgreSQL | declarative partitions, `PostgresSequenceDefault`, JSONB/HSTORE/array/network/TSVECTOR columns | python-activerecord-postgres `backend_specific_features/` |
+| Oracle | RANGE/LIST/HASH/INTERVAL partitions, `OracleSequenceDefault` (`seq.NEXTVAL`) | python-activerecord-oracle `backend_specific_features/` |
+| SQL Server | RANGE partitions (scheme + LEFT/RIGHT boundaries) | python-activerecord-sqlserver `backend_specific_features/` |
+| Snowflake | external-table partitions, VARIANT/ARRAY/OBJECT columns | python-activerecord-snowflake |
+| MariaDB / Firebird / ClickHouse | full generic Spec support (partition status per backend docs) | per-backend repo |
+
+## Design recap
+
+1. **No dialect at declaration time**: Specs are plain objects, constructible
+   when the model body executes;
+2. **Dialect injection at construction time**: lazy `(dialect) -> ...` factories
+   evaluate inside `generate_create_table`, keeping predicates parameterized;
+3. **Backends own their acceptance scope**: `build_spec` does both "claim" and
+   "translate"; unclaimed returns `None` and is silently ignored;
+4. **Products are same-typed**: `build_spec` only produces existing expression
+   objects — render, execute, and diff pipelines are fully reused;
+5. **No raw SQL**: the framework Spec layer never constructs
+   `RawSQLExpression`; expression gaps (PG `nextval`, Oracle INTERVAL
+   functions) are closed with dedicated expression classes and formatters.

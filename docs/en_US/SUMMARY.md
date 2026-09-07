@@ -47,7 +47,7 @@
 * [Batch Processing (Backend Layer)](modeling/batch_processing.md)
 * [Concurrency](modeling/concurrency.md)
 * [Configuration Management](modeling/configuration_management.md)
-* [DDL](modeling/ddl.md)
+* [Deriving DDL](modeling/ddl.md)
 * [DDL Views](modeling/ddl_views.md)
 
 ## Relationships
