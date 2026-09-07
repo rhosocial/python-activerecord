@@ -9,6 +9,83 @@
 - **SQL 检查**：在任何表达式上调用 `.to_sql()` 即可在执行前检查生成的 SQL。
 - **避免字符串拼接**：消除 SQL 注入风险和语法错误。
 
+## 从模型声明推导 DDL（Spec）
+
+除了手工构造 DDL 表达式，你还可以**在模型上声明 DDL 特征（Spec）**，由框架调用
+`Model.generate_create_table(dialect)` 自动推导出 `CreateTableExpression`。
+
+### 方言认领机制
+
+Spec 是纯声明对象——定义时**不需要**任何方言/后端。生成 DDL 时，当前方言对每个
+Spec 调用 `build_spec(spec)`：接受则返回构造好的表达式实例；不接受返回 `None`
+（该 Spec 被静默忽略）。是否支持某个特征由后端自行决定。
+
+```python
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.expression.core import Column
+
+class Order(ActiveRecord):
+    __table_name__ = "orders"
+
+    # 表级声明：复合约束 / 跨列 CHECK / 分区
+    __table_constraints__ = [
+        UniqueSpec(columns=["account_id", "period"], name="uq_acc_period"),
+        CheckSpec(
+            condition=lambda d: Column(d, "debit_total") == Column(d, "credit_total"),
+            name="ck_balance",
+        ),
+    ]
+
+    # 后端自定分区：每个后端认领自己的，SQLite 上自动忽略（建普通表）
+    __table_partition__ = [
+        PostgresRangePartition(column="created_at"),
+        MySQLRangePartition(column="created_at", partitions=[...]),
+    ]
+
+    account_id: int
+    period: str
+    debit_total: float
+    credit_total: float
+
+expr = Order.generate_create_table(dialect)  # CreateTableExpression
+sql, params = expr.to_sql()
+```
+
+### 通用 Spec 一览
+
+| Spec | 说明 | 默认翻译 |
+|------|------|----------|
+| `CheckSpec(condition, name=?)` | CHECK 约束；`condition` 可为就绪谓词或惰性工厂 `(dialect) -> SQLPredicate` | `TableConstraint(CHECK)` |
+| `UniqueSpec(columns, name=?)` | UNIQUE 约束 | `TableConstraint(UNIQUE)` |
+| `NotNullSpec(column, name=?)` | NOT NULL | `ColumnConstraint(NOT_NULL)` |
+| `PrimaryKeySpec(columns, name=?)` | 主键（单列→列级，复合→表级） | PK 约束 |
+| `DefaultSpec(column, value)` | 字面量默认值（惰性值 `(dialect) -> Any` 可用）；表达式默认用后端特定 Spec | `ColumnConstraint(DEFAULT)` |
+| `ForeignKeySpec(local_columns, ref_table, ref_columns, ...)` | 外键（含 on_delete / on_update） | `ForeignKeyConstraint` |
+| `IndexSpec(columns, name=?, unique=?, partial_condition=?)` | 索引（部分索引受 `supports_partial_index` 门控） | `IndexDefinition` |
+| `PartialIndexSpec(columns, condition, ...)` | 部分索引便捷形态 | `IndexDefinition` |
+| `JsonColumnSpec(column)` | JSON 列（便携 `JsonType`，各后端原生或 TEXT 渲染） | 列类型补丁 |
+| `GeneratedColumnSpec(column, expression, stored=?)` | 生成列（受 `supports_generated_columns` 门控） | `ColumnDefinition.generated_*` |
+
+### 两级入口
+
+- **字段级注解**（字段自身内容）：`UseSqlType` / `UseConstraint` / `UseIndex`，
+  其 `check_condition` / `partial_condition` 同样支持惰性谓词工厂；
+- **表级声明列表**（复合/跨列/表级内容）：`__table_constraints__` /
+  `__table_indexes__` / `__table_partition__`，条目可为 Spec 或预构建表达式对象
+  （`TableConstraint` / `IndexDefinition`），两者混用均可。
+
+### 最简化定义是默认路径
+
+不写任何 Spec 也能建表：字段名即列名、Python 类型经
+`dialect.suggest_column_type()` 映射为列类型、必填字段自动 `NOT NULL`、主键按
+`primary_key_columns()` 规则。Spec 只在需要偏离默认时书写。
+
+### 后端特定 Spec
+
+分区、序列默认、原生类型列等由各后端包定义（如 `MySQLRangePartition`、
+`PostgresSequenceDefault`、`OracleIntervalPartition.monthly(...)`、
+`SQLServerRangePartition`），仅归属后端认领。详见各后端文档。
+
 ## 核心组件
 
 ### ColumnDefinition

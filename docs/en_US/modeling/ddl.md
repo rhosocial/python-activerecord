@@ -9,6 +9,91 @@
 - **SQL Inspection**: Call `.to_sql()` on any expression to inspect the generated SQL before execution.
 - **No String Concatenation**: Eliminates SQL injection risks and syntax errors.
 
+## Deriving DDL from Model Declarations (Specs)
+
+Beyond hand-building DDL expressions, you can **declare DDL features (Specs) on
+your model** and let `Model.generate_create_table(dialect)` derive the
+`CreateTableExpression` automatically.
+
+### Dialect Claiming
+
+A Spec is a pure declaration object — **no dialect/backend is needed** at
+definition time. When DDL is generated, the current dialect calls
+`build_spec(spec)` for each Spec: it returns a built expression instance when
+it accepts the Spec, or `None` when it does not (the Spec is silently
+ignored). Whether a feature is supported is each backend's own decision.
+
+```python
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.expression.core import Column
+
+class Order(ActiveRecord):
+    __table_name__ = "orders"
+
+    # Table-level declarations: composite constraints / cross-column CHECK / partitions
+    __table_constraints__ = [
+        UniqueSpec(columns=["account_id", "period"], name="uq_acc_period"),
+        CheckSpec(
+            condition=lambda d: Column(d, "debit_total") == Column(d, "credit_total"),
+            name="ck_balance",
+        ),
+    ]
+
+    # Backend-defined partitions: each backend claims its own; on SQLite
+    # they are silently ignored (a plain table is created)
+    __table_partition__ = [
+        PostgresRangePartition(column="created_at"),
+        MySQLRangePartition(column="created_at", partitions=[...]),
+    ]
+
+    account_id: int
+    period: str
+    debit_total: float
+    credit_total: float
+
+expr = Order.generate_create_table(dialect)  # CreateTableExpression
+sql, params = expr.to_sql()
+```
+
+### Generic Specs
+
+| Spec | Purpose | Default translation |
+|------|---------|---------------------|
+| `CheckSpec(condition, name=?)` | CHECK constraint; `condition` may be a ready predicate or a lazy `(dialect) -> SQLPredicate` factory | `TableConstraint(CHECK)` |
+| `UniqueSpec(columns, name=?)` | UNIQUE constraint | `TableConstraint(UNIQUE)` |
+| `NotNullSpec(column, name=?)` | NOT NULL | `ColumnConstraint(NOT_NULL)` |
+| `PrimaryKeySpec(columns, name=?)` | Primary key (single → column-level, composite → table-level) | PK constraint |
+| `DefaultSpec(column, value)` | Literal default (lazy `(dialect) -> Any` accepted); expression defaults belong to backend-specific Specs | `ColumnConstraint(DEFAULT)` |
+| `ForeignKeySpec(local_columns, ref_table, ref_columns, ...)` | Foreign key (with on_delete / on_update) | `ForeignKeyConstraint` |
+| `IndexSpec(columns, name=?, unique=?, partial_condition=?)` | Index (partial gated by `supports_partial_index`) | `IndexDefinition` |
+| `PartialIndexSpec(columns, condition, ...)` | Partial-index shorthand | `IndexDefinition` |
+| `JsonColumnSpec(column)` | JSON column (portable `JsonType`; rendered natively or as TEXT) | column type patch |
+| `GeneratedColumnSpec(column, expression, stored=?)` | Generated column (gated by `supports_generated_columns`) | `ColumnDefinition.generated_*` |
+
+### Two-level entry points
+
+- **Field-level annotations** (field-owned content): `UseSqlType` /
+  `UseConstraint` / `UseIndex`; their `check_condition` / `partial_condition`
+  accept lazy predicate factories as well;
+- **Table-level declaration lists** (composite / cross-column / table-level
+  content): `__table_constraints__` / `__table_indexes__` /
+  `__table_partition__`; entries may be Specs or pre-built expression objects
+  (`TableConstraint` / `IndexDefinition`), freely mixed.
+
+### The simplest definition is the default path
+
+A model without any Spec still builds a table: field names become column
+names, Python types map through `dialect.suggest_column_type()`, required
+fields get `NOT NULL`, and primary keys follow `primary_key_columns()`. Write
+Specs only when you need to deviate from the defaults.
+
+### Backend-specific Specs
+
+Partitions, sequence defaults, and native-type columns are defined by each
+backend package (e.g. `MySQLRangePartition`, `PostgresSequenceDefault`,
+`OracleIntervalPartition.monthly(...)`, `SQLServerRangePartition`); only the
+owning backend claims them. See each backend's documentation for details.
+
 ## Core Components
 
 ### ColumnDefinition
