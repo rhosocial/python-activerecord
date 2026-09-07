@@ -61,7 +61,14 @@ MySQL supports subpartitioning (partitioning a partition), which PostgreSQL does
 
 ## Creating a Partitioned Table
 
-> **Partition DDL is not part of the model declaration layer.** Unlike table creation, indexes, and constraints — which you declare on the model class — partitioning requires using backend-specific expression classes directly. `ModelSchemaGenerator` does not generate partition clauses. You must construct the DDL manually.
+> **Two ways to declare partitions.** The declarative way declares a
+> backend-defined `PartitionSpec` subclass on the model
+> (`__table_partition__ = [PostgresRangePartition(column="created_at")]`); the
+> owning backend claims it at `generate_create_table(dialect)` time and other
+> backends silently ignore it (e.g. SQLite builds a plain table). The
+> escape-hatch way constructs backend-specific expression classes directly and
+> passes them to `CreateTableExpression(partition=...)`. The expression-level
+> path below remains fully supported.
 
 ### PostgreSQL Example
 
