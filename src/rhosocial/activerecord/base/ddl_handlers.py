@@ -15,12 +15,12 @@ Registered via ``DDLMixin`` in ``base/ddl_mixin.py``.
     Reads model-level ``__table_options__``, ``__table_indexes__``, ``__table_constraints__``
     and attaches final, validated collections:
 
-    - ``__ddl_indexes__``         ``List[IndexDefinition]``
-    - ``__ddl_table_options__``   ``Optional[TableOptions]``
-    - ``__ddl_constraints__``     ``List[TableConstraint]``
+    - ``__table_resolved_indexes__``         ``List[IndexDefinition]``
+    - ``__table_resolved_options__``   ``Optional[TableOptions]``
+    - ``__table_resolved_constraints__``     ``List[TableConstraint]``
 
     Field-level ``UseIndex`` entries (from ``__table_field_indexes__``) are
-    automatically merged into ``__ddl_indexes__``.
+    automatically merged into ``__table_resolved_indexes__``.
 
 Both handlers raise ``TypeError`` when re-invoked on an already-processed class.
 """
@@ -117,7 +117,7 @@ class DDLModelAnnotationHandler:
     class variables and write the final, merged collections to the class.
 
     Merges field-level ``UseIndex`` entries (``__table_field_indexes__``) into
-    ``__ddl_indexes__`` with duplicate-name detection.
+    ``__table_resolved_indexes__`` with duplicate-name detection.
 
     ``__table_constraints__`` / ``__table_indexes__`` accept either pre-built
     expression objects (``TableConstraint`` / ``IndexDefinition``) or declarative
@@ -129,10 +129,10 @@ class DDLModelAnnotationHandler:
     @staticmethod
     def handle(new_class: type) -> None:
         for attr in (
-            "__ddl_indexes__",
-            "__ddl_table_options__",
-            "__ddl_constraints__",
-            "__ddl_partition__",
+            "__table_resolved_indexes__",
+            "__table_resolved_options__",
+            "__table_resolved_constraints__",
+            "__table_resolved_partition__",
         ):
             if attr in new_class.__dict__:
                 raise TypeError(
@@ -140,12 +140,12 @@ class DDLModelAnnotationHandler:
                     "DDL model handler may only be run once per class (directly defined, not inherited)."
                 )
 
-        new_class.__ddl_table_options__ = getattr(new_class, "__table_options__", None)
+        new_class.__table_resolved_options__ = getattr(new_class, "__table_options__", None)
 
         constraint_list: List[Any] = list(
             getattr(new_class, "__table_constraints__", None) or []
         )
-        new_class.__ddl_constraints__ = constraint_list
+        new_class.__table_resolved_constraints__ = constraint_list
 
         raw_indexes: Optional[List[Any]] = (
             getattr(new_class, "__table_indexes__", None) or []
@@ -178,7 +178,7 @@ class DDLModelAnnotationHandler:
                 seen_names.add(idx.name)
                 model_indexes.append(idx)
 
-        new_class.__ddl_indexes__ = model_indexes
+        new_class.__table_resolved_indexes__ = model_indexes
 
         raw_partitions: List[Any] = (
             getattr(new_class, "__table_partition__", None) or []
@@ -189,7 +189,7 @@ class DDLModelAnnotationHandler:
                     f"__table_partition__ entries must be PartitionSpec "
                     f"instances, got {type(entry).__name__}: {entry!r}"
                 )
-        new_class.__ddl_partition__ = list(raw_partitions)
+        new_class.__table_resolved_partition__ = list(raw_partitions)
 
     @staticmethod
     def _validate_index(entry: Any) -> Optional[IndexDefinition]:

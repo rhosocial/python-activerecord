@@ -115,8 +115,8 @@ class ModelSchemaGenerator:
     ) -> CreateTableExpression:
         """Build a ``CreateTableExpression`` for *model_class* under *dialect*."""
         table_name = getattr(model_class, "__table_name__", None) or model_class.__name__
-        constraints_specs = list(getattr(model_class, "__ddl_constraints__", []) or [])
-        indexes_specs = list(getattr(model_class, "__ddl_indexes__", []) or [])
+        constraints_specs = list(getattr(model_class, "__table_resolved_constraints__", []) or [])
+        indexes_specs = list(getattr(model_class, "__table_resolved_indexes__", []) or [])
         # Column patches (capability Specs) are extracted before resolving the
         # constraint/index lists so they apply onto the built columns.
         patches = cls._resolve_spec_patches(constraints_specs, dialect)
@@ -136,7 +136,7 @@ class ModelSchemaGenerator:
             + [e for e in index_slot if not isinstance(e, IndexDefinition)]
         )
         partition = cls._build_partition(model_class, dialect)
-        table_options = getattr(model_class, "__ddl_table_options__", None)
+        table_options = getattr(model_class, "__table_resolved_options__", None)
 
         pk = cls._build_primary_key_constraint(model_class)
         if pk is not None:
@@ -204,16 +204,16 @@ class ModelSchemaGenerator:
 
     @classmethod
     def _build_partition(cls, model_class: type, dialect: Any) -> Optional[Any]:
-        """Resolve ``__ddl_partition__`` Specs to a single partition clause.
+        """Resolve ``__table_resolved_partition__`` Specs to a single partition clause.
 
         The first backend-claimed partition Spec wins; unclaimed ones are
         ignored. When nothing is claimed the table is unpartitioned.
         """
-        partitions = getattr(model_class, "__ddl_partition__", []) or []
+        partitions = getattr(model_class, "__table_resolved_partition__", []) or []
         for entry in partitions:
             if not isinstance(entry, DDLSpec):
                 raise TypeError(
-                    f"__ddl_partition__ entries must be DDLSpec instances, "
+                    f"__table_resolved_partition__ entries must be DDLSpec instances, "
                     f"got {type(entry).__name__}"
                 )
             built = dialect.build_spec(entry)
@@ -294,7 +294,7 @@ class ModelSchemaGenerator:
                 col_constraints.append(
                     ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)
                 )
-            # Single-column PK (not auto-managed via __ddl_constraints__)
+            # Single-column PK (not auto-managed via __table_resolved_constraints__)
             if (
                 not model_class.is_composite_pk()
                 and column_name in pk_columns

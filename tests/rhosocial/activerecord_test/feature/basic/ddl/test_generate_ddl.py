@@ -110,7 +110,7 @@ class _Article(ActiveRecord):
 class TestTableLevelDeclarations:
 
     def test_table_options_stored(self):
-        opts = _Article.__ddl_table_options__
+        opts = _Article.__table_resolved_options__
         assert opts.charset == "utf8mb4"
         assert opts.collation == "utf8mb4_unicode_ci"
         assert opts.engine == "InnoDB"
@@ -120,11 +120,11 @@ class TestTableLevelDeclarations:
         assert not TableOptions().has_options()
 
     def test_composite_indexes_collected(self):
-        names = {i.name for i in _Article.__ddl_indexes__}
+        names = {i.name for i in _Article.__table_resolved_indexes__}
         assert {"idx_title_status", "uq_slug", "idx_slug"} == names
 
     def test_composite_constraints_collected(self):
-        cs = _Article.__ddl_constraints__
+        cs = _Article.__table_resolved_constraints__
         assert len(cs) == 1
         assert cs[0].constraint_type == TableConstraintType.UNIQUE
         assert cs[0].columns == ["title", "author"]

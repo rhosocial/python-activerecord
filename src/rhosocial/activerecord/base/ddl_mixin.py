@@ -88,10 +88,10 @@ class DDLMixin:
         * ``__table_field_sql_types__``   dataclass attribute set by the metaclass
         * ``__table_field_indexes__``     dataclass attribute set by the metaclass
         * ``__table_field_constraints__`` dataclass attribute set by the metaclass
-        * ``__ddl_indexes__``           dataclass attribute set by the metaclass
-        * ``__ddl_table_options__``     dataclass attribute set by the metaclass
-        * ``__ddl_constraints__``       dataclass attribute set by the metaclass
-        * ``__ddl_partition__``         dataclass attribute set by the metaclass
+        * ``__table_resolved_indexes__``           dataclass attribute set by the metaclass
+        * ``__table_resolved_options__``     dataclass attribute set by the metaclass
+        * ``__table_resolved_constraints__``       dataclass attribute set by the metaclass
+        * ``__table_resolved_partition__``         dataclass attribute set by the metaclass
     """
 
     _feature_handlers = [
