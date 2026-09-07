@@ -49,7 +49,7 @@ sql, params = expr.to_sql()
 | 规则 | 说明 |
 |------|------|
 | 列名 = 字段名 | 可用 `UseColumn("col_name")` 覆盖 |
-| 列类型 = 方言建议 | Python 类型经 `dialect.suggest_column_type()` 映射（SQLite：`str`→TEXT、`int`→INTEGER、`float`→REAL；MySQL/PG 各有原生映射） |
+| 列类型 = 方言建议 | Python 类型经 `dialect.suggest_column_type()` 映射（SQLite：`str`→TEXT、`int`→INTEGER、`float`→REAL） |
 | 必填字段自动 `NOT NULL` | `Optional[T]` 或有默认值的字段保持可空 |
 | 主键 | 按 `primary_key_columns()` 规则；整型自增主键渲染 `AUTOINCREMENT`（SQLite）/ `IDENTITY` 等 |
 | 复合主键 | 多列 PK 渲染为表级 `PRIMARY KEY (col1, col2)` |
@@ -171,7 +171,7 @@ sql, _ = Order.generate_create_table(SQLiteDialect()).to_sql()
 | `ForeignKeySpec(local_columns, ref_table, ref_columns, on_delete=?, on_update=?)` | 外键 | `ForeignKeyConstraint` |
 | `IndexSpec(columns, name=?, unique=?, partial_condition=?)` | 索引；部分索引受 `supports_partial_index` 门控 | `IndexDefinition` |
 | `PartialIndexSpec(columns, condition, ...)` | 部分索引便捷形态 | `IndexDefinition` |
-| `JsonColumnSpec(column)` | JSON 列（便携 `JsonType`：MySQL→JSON、PG→JSON、SQLite→TEXT） | 列类型补丁 |
+| `JsonColumnSpec(column)` | JSON 列（便携 `JsonType`，SQLite 渲染为 TEXT） | 列类型补丁 |
 | `GeneratedColumnSpec(column, expression, stored=?)` | 生成列（受 `supports_generated_columns` 门控） | `ColumnDefinition.generated_*` |
 
 ### 惰性谓词工厂
@@ -275,32 +275,29 @@ for ix in expr.indexes:
 
 ## 分区声明
 
-分区由各后端定义 `PartitionSpec` 子类，声明在模型级 `__table_partition__` 列表。
-**同一模型跨后端，各取所需**：
+分区由具体后端定义 `PartitionSpec` 子类，声明在模型级 `__table_partition__` 列表。
+分区属于方言能力：**SQLite 不支持分区，任何分区 Spec 都会被忽略，建普通表**；
+支持分区的后端（及其分区 Spec 类与声明方式）见对应后端文档。
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.postgres.ddl_spec import PostgresRangePartition
-from rhosocial.activerecord.backend.impl.mysql.ddl_spec import (
-    MySQLRangePartition, MySQLPartitionDefinitionSpec, MySQLPartitionBound,
-)
 
 class Events(ActiveRecord):
     __table_name__ = "events"
     __table_partition__ = [
-        PostgresRangePartition(column="created_at"),
-        MySQLRangePartition("created_at", [
-            MySQLPartitionDefinitionSpec("p2026", less_than=[MySQLPartitionBound(2027)]),
-        ]),
+        # 各后端的分区 Spec（如 PostgresRangePartition / MySQLRangePartition）
+        # 声明在这里；SQLite 全部忽略
     ]
     created_at: str
+
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+sql, _ = Events.generate_create_table(SQLiteDialect()).to_sql()
+# sql: 'CREATE TABLE "events" ("created_at" TEXT NOT NULL)'   <- 无分区子句
 ```
 
-| 后端 | 结果 |
-|------|------|
-| PostgreSQL | 认领 `PostgresRangePartition` → `PARTITION BY RANGE ("created_at")` |
-| MySQL | 认领 `MySQLRangePartition` → `PARTITION BY RANGE (...) (PARTITION ...)` |
-| SQLite / 其他 | 两者均不认领 → 建普通表 |
+该声明形式对 SQLite 恒安全：推导不报错、行为可预期，同一模型可直接复用于
+支持分区的后端。
 
 ## 执行推导产物
 
@@ -329,31 +326,6 @@ plan = dialect.diff_create_table(old_expr, new_expr)
 一律判 rebuild（无后端可 ALTER 分区键）。收敛不变量
 `apply(create_v1) + alters... ≡ generate_create_table()` 可作为 CI 校验。
 
-## 后端 DDL 特征支持与文档索引
-
 各后端为推导 DDL 实现自己的 `build_spec`——认领通用 Spec、提供特定 Spec
-（分区、序列默认、原生类型列）。**具体后端支持哪些 Spec、如何处理，以该后端
-文档为准**：
-
-| 后端 | 特定 Spec 亮点 | 后端文档 |
-|------|----------------|----------|
-| SQLite（内置） | 部分/函数索引、生成列、JSON→TEXT、不支持分区（忽略） | `backend/sqlite/ddl/` |
-| MySQL | RANGE/LIST/HASH 分区、VECTOR、空间列、SET | python-activerecord-mysql `backend_specific_features/` |
-| PostgreSQL | 声明式分区、`PostgresSequenceDefault`、JSONB/HSTORE/数组/网络/TSVECTOR 列 | python-activerecord-postgres `backend_specific_features/` |
-| Oracle | RANGE/LIST/HASH/INTERVAL 分区、`OracleSequenceDefault`（`seq.NEXTVAL`） | python-activerecord-oracle `backend_specific_features/` |
-| SQL Server | RANGE 分区（分区方案 + LEFT/RIGHT 边界） | python-activerecord-sqlserver `backend_specific_features/` |
-| Snowflake | 外部表分区、VARIANT/ARRAY/OBJECT 列 | python-activerecord-snowflake |
-| MariaDB / Firebird / ClickHouse | 通用 Spec 全量可用（分区现状见各后端文档） | 各后端仓库 |
-
-## 设计要点回顾
-
-1. **声明即全部**：声明常量与字段注解是唯一事实源，无暂存副本；
-2. **声明时无方言**：Spec 是普通对象，模型 import 时即可构造；
-3. **构造时方言注入**：惰性工厂 `(dialect) -> ...` 在 `generate_create_table`
-   时求值，谓词参数化安全；
-4. **后端自决接受范围**：`build_spec` 一个方法同时承担"认领"与"翻译"，
-   未认领返回 `None` 静默忽略；
-5. **产物同型**：`build_spec` 只产出既有表达式对象——渲染、执行、diff 链路
-   全部复用；
-6. **不出现 Raw SQL**：框架 Spec 层绝不构造 `RawSQLExpression`；表达式缺口
-   （PG `nextval`、Oracle INTERVAL 函数）通过补充专用表达式类与 formatter 解决。
+（分区、序列默认、原生类型列）。**具体后端支持哪些 Spec、如何处理，参见
+该后端的文档。**

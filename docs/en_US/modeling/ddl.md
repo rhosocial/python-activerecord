@@ -57,7 +57,7 @@ Default derivation rules:
 | Rule | Description |
 |------|-------------|
 | Column name = field name | Override with `UseColumn("col_name")` |
-| Column type = dialect suggestion | Python type mapped via `dialect.suggest_column_type()` (SQLite: `str`→TEXT, `int`→INTEGER, `float`→REAL; MySQL/PG have their own native maps) |
+| Column type = dialect suggestion | Python type mapped via `dialect.suggest_column_type()` (SQLite: `str`→TEXT, `int`→INTEGER, `float`→REAL) |
 | Required fields get `NOT NULL` | `Optional[T]` or defaulted fields stay nullable |
 | Primary key | Per `primary_key_columns()`; integer auto PK renders `AUTOINCREMENT` (SQLite) / `IDENTITY` etc. |
 | Composite primary key | Multi-column PK renders as table-level `PRIMARY KEY (col1, col2)` |
@@ -192,7 +192,7 @@ sql, _ = Order.generate_create_table(SQLiteDialect()).to_sql()
 | `ForeignKeySpec(local_columns, ref_table, ref_columns, on_delete=?, on_update=?)` | Foreign key | `ForeignKeyConstraint` |
 | `IndexSpec(columns, name=?, unique=?, partial_condition=?)` | Index; partial gated by `supports_partial_index` | `IndexDefinition` |
 | `PartialIndexSpec(columns, condition, ...)` | Partial-index shorthand | `IndexDefinition` |
-| `JsonColumnSpec(column)` | JSON column (portable `JsonType`: MySQL→JSON, PG→JSON, SQLite→TEXT) | column type patch |
+| `JsonColumnSpec(column)` | JSON column (portable `JsonType`, rendered as TEXT on SQLite) | column type patch |
 | `GeneratedColumnSpec(column, expression, stored=?)` | Generated column (gated by `supports_generated_columns`) | `ColumnDefinition.generated_*` |
 
 ### Lazy predicate factories
@@ -303,33 +303,32 @@ Observed SQLite dialect behavior:
 
 ## Declaring partitions
 
-Partitions are declared through backend-defined `PartitionSpec` subclasses in
-the model-level `__table_partition__` list. **The same model across backends,
-each taking what it understands**:
+Partitions are declared through `PartitionSpec` subclasses defined by specific
+backends, in the model-level `__table_partition__` list. Partitioning is a
+dialect capability: **SQLite does not support partitions — any partition Spec
+is ignored and a plain table is built**; partition-capable backends (and their
+Spec classes / declaration forms) are documented by those backends.
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.postgres.ddl_spec import PostgresRangePartition
-from rhosocial.activerecord.backend.impl.mysql.ddl_spec import (
-    MySQLRangePartition, MySQLPartitionDefinitionSpec, MySQLPartitionBound,
-)
 
 class Events(ActiveRecord):
     __table_name__ = "events"
     __table_partition__ = [
-        PostgresRangePartition(column="created_at"),
-        MySQLRangePartition("created_at", [
-            MySQLPartitionDefinitionSpec("p2026", less_than=[MySQLPartitionBound(2027)]),
-        ]),
+        # Backend partition Specs (e.g. PostgresRangePartition /
+        # MySQLRangePartition) are declared here; SQLite ignores them all
     ]
     created_at: str
+
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+sql, _ = Events.generate_create_table(SQLiteDialect()).to_sql()
+# sql: 'CREATE TABLE "events" ("created_at" TEXT NOT NULL)'   <- no partition clause
 ```
 
-| Backend | Result |
-|---------|--------|
-| PostgreSQL | claims `PostgresRangePartition` → `PARTITION BY RANGE ("created_at")` |
-| MySQL | claims `MySQLRangePartition` → `PARTITION BY RANGE (...) (PARTITION ...)` |
-| SQLite / others | claims neither → plain table |
+The declaration form is always safe for SQLite: derivation neither fails nor
+behaves unpredictably, and the same model can be reused directly on
+partition-capable backends.
 
 ## Executing derived products
 
@@ -360,35 +359,7 @@ rebuild) are per-backend overrides; partition structure changes always rebuild
 (no backend can ALTER a partition key). The convergence invariant
 `apply(create_v1) + alters... ≡ generate_create_table()` works as a CI check.
 
-## Backend DDL feature support and doc index
-
 Each backend implements its own `build_spec` — claiming generic Specs and
 providing backend-specific ones (partitions, sequence defaults, native-type
 columns). **Which Specs a backend supports, and how it handles them, is
-documented by that backend**:
-
-| Backend | Backend-specific Spec highlights | Backend docs |
-|---------|----------------------------------|--------------|
-| SQLite (built-in) | partial/functional indexes, generated columns, JSON→TEXT, partitions unsupported (ignored) | `backend/sqlite/ddl/` |
-| MySQL | RANGE/LIST/HASH partitions, VECTOR, spatial columns, SET | python-activerecord-mysql `backend_specific_features/` |
-| PostgreSQL | declarative partitions, `PostgresSequenceDefault`, JSONB/HSTORE/array/network/TSVECTOR columns | python-activerecord-postgres `backend_specific_features/` |
-| Oracle | RANGE/LIST/HASH/INTERVAL partitions, `OracleSequenceDefault` (`seq.NEXTVAL`) | python-activerecord-oracle `backend_specific_features/` |
-| SQL Server | RANGE partitions (scheme + LEFT/RIGHT boundaries) | python-activerecord-sqlserver `backend_specific_features/` |
-| Snowflake | external-table partitions, VARIANT/ARRAY/OBJECT columns | python-activerecord-snowflake |
-| MariaDB / Firebird / ClickHouse | full generic Spec support (partition status per backend docs) | per-backend repo |
-
-## Design recap
-
-1. **Declarations are everything**: declared constants and field annotations
-   are the single source of truth — no stashed copies;
-2. **No dialect at declaration time**: Specs are plain objects, constructible
-   when the model body executes;
-3. **Dialect injection at construction time**: lazy `(dialect) -> ...` factories
-   evaluate inside `generate_create_table`, keeping predicates parameterized;
-4. **Backends own their acceptance scope**: `build_spec` does both "claim" and
-   "translate"; unclaimed returns `None` and is silently ignored;
-5. **Products are same-typed**: `build_spec` only produces existing expression
-   objects — render, execute, and diff pipelines are fully reused;
-6. **No raw SQL**: the framework Spec layer never constructs
-   `RawSQLExpression`; expression gaps (PG `nextval`, Oracle INTERVAL
-   functions) are closed with dedicated expression classes and formatters.
+documented by that backend.**
