@@ -3,7 +3,7 @@
 This module provides classes and functions related to field definitions and annotations.
 """
 
-from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Type, Union, TYPE_CHECKING
 
 from ..backend.expression.statements.ddl_table import (
     ColumnConstraint,
@@ -188,7 +188,7 @@ class UseIndex:
         *,
         unique: bool = False,
         type: Optional[str] = None,
-        partial_condition: Optional["SQLPredicate"] = None,
+        partial_condition: Optional[Union["SQLPredicate", "Callable"]] = None,
         include_columns: Optional[List[str]] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
@@ -197,6 +197,8 @@ class UseIndex:
         self.name = name
         self.unique = unique
         self.type = type
+        # May be a ready SQLPredicate or a lazy ``(dialect) -> SQLPredicate``
+        # factory, resolved by the generator at DDL-build time.
         self.partial_condition = partial_condition
         self.include_columns = include_columns
         self.dialect_options = dialect_options
@@ -245,7 +247,7 @@ class UseConstraint:
         constraint_type: "ColumnConstraintType",
         *,
         name: Optional[str] = None,
-        check_condition: Optional["SQLPredicate"] = None,
+        check_condition: Optional[Union["SQLPredicate", "Callable"]] = None,
         foreign_key_reference: Optional[tuple] = None,
         default_value: Any = None,
         is_auto_increment: bool = False,
@@ -257,6 +259,8 @@ class UseConstraint:
         character_set: Optional[str] = None,
         collation: Optional[str] = None,
     ):
+        # check_condition may be a ready SQLPredicate or a lazy
+        # ``(dialect) -> SQLPredicate`` factory; the generator resolves it.
         self.constraint = ColumnConstraint(
             constraint_type=constraint_type,
             name=name,

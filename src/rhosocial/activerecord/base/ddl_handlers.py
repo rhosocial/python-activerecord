@@ -35,8 +35,9 @@ from typing import (
     get_type_hints,
 )
 
-from .ddl import IndexDefinition, TableConstraint
+from .ddl import IndexDefinition
 from .fields import UseConstraint, UseIndex, UseSqlType
+from ..backend.expression.statements.ddl_spec import DDLSpec, PartitionSpec
 
 
 def _skip_classvar(field_type: Any) -> bool:
@@ -117,6 +118,12 @@ class DDLModelAnnotationHandler:
 
     Merges field-level ``UseIndex`` entries (``__table_field_indexes__``) into
     ``__ddl_indexes__`` with duplicate-name detection.
+
+    ``__table_constraints__`` / ``__table_indexes__`` accept either pre-built
+    expression objects (``TableConstraint`` / ``IndexDefinition``) or declarative
+    ``DDLSpec`` instances (``CheckSpec`` / ``UniqueSpec`` / ``IndexSpec`` / ...);
+    Specs are resolved to expression objects by the dialect at generation time.
+    ``__table_partition__`` collects backend-defined ``PartitionSpec`` subclasses.
     """
 
     @staticmethod
@@ -125,6 +132,7 @@ class DDLModelAnnotationHandler:
             "__ddl_indexes__",
             "__ddl_table_options__",
             "__ddl_constraints__",
+            "__ddl_partition__",
         ):
             if attr in new_class.__dict__:
                 raise TypeError(
@@ -134,7 +142,7 @@ class DDLModelAnnotationHandler:
 
         new_class.__ddl_table_options__ = getattr(new_class, "__table_options__", None)
 
-        constraint_list: List[TableConstraint] = list(
+        constraint_list: List[Any] = list(
             getattr(new_class, "__table_constraints__", None) or []
         )
         new_class.__ddl_constraints__ = constraint_list
@@ -142,7 +150,7 @@ class DDLModelAnnotationHandler:
         raw_indexes: Optional[List[Any]] = (
             getattr(new_class, "__table_indexes__", None) or []
         )
-        model_indexes: List[IndexDefinition] = []
+        model_indexes: List[Any] = []
         seen_names: set = set()
         _check = DDLModelAnnotationHandler._validate_index
         for entry in raw_indexes:
@@ -156,7 +164,7 @@ class DDLModelAnnotationHandler:
                 seen_names.add(idx.name)
                 model_indexes.append(idx)
 
-        field_dict: Dict[str, List[IndexDefinition]] = getattr(
+        field_dict: Dict[str, List[Any]] = getattr(
             new_class, "__table_field_indexes__", {}
         )
         for field_name, defs in field_dict.items():
@@ -172,9 +180,20 @@ class DDLModelAnnotationHandler:
 
         new_class.__ddl_indexes__ = model_indexes
 
+        raw_partitions: List[Any] = (
+            getattr(new_class, "__table_partition__", None) or []
+        )
+        for entry in raw_partitions:
+            if not isinstance(entry, PartitionSpec):
+                raise TypeError(
+                    f"__table_partition__ entries must be PartitionSpec "
+                    f"instances, got {type(entry).__name__}: {entry!r}"
+                )
+        new_class.__ddl_partition__ = list(raw_partitions)
+
     @staticmethod
     def _validate_index(entry: Any) -> Optional[IndexDefinition]:
-        if isinstance(entry, IndexDefinition):
+        if isinstance(entry, (IndexDefinition, DDLSpec)):
             return entry
         if isinstance(entry, dict):
             try:
@@ -184,6 +203,6 @@ class DDLModelAnnotationHandler:
                     f"Invalid IndexDefinition dict in '__table_indexes__': {exc}"
                 ) from exc
         raise TypeError(
-            f"__table_indexes__ entries must be IndexDefinition or dict, "
+            f"__table_indexes__ entries must be IndexDefinition, DDLSpec or dict, "
             f"got {type(entry).__name__}: {entry!r}"
         )

@@ -29,6 +29,7 @@ raise ``UnsupportedFeatureError``; the caller decides how to degrade.
 from typing import Any, Dict, List, Optional, Type
 
 from ..backend.dialect.mixins.ddl_type import _NEUTRAL_TYPE_SUGGESTIONS
+from ..backend.expression.statements.ddl_spec import ColumnPatchSpec, DDLSpec
 from ..backend.expression.types import IntegerType
 from ..backend.expression.statements.ddl_table import (
     ColumnConstraint,
@@ -36,6 +37,7 @@ from ..backend.expression.statements.ddl_table import (
     ColumnDefinition,
     CreateTableExpression,
     DropTableExpression,
+    IndexDefinition,
     TableConstraint,
     TableConstraintType,
     TableOptions,
@@ -113,9 +115,15 @@ class ModelSchemaGenerator:
     ) -> CreateTableExpression:
         """Build a ``CreateTableExpression`` for *model_class* under *dialect*."""
         table_name = getattr(model_class, "__table_name__", None) or model_class.__name__
-        columns = cls._build_columns(model_class, dialect)
-        indexes = list(getattr(model_class, "__ddl_indexes__", []) or [])
-        constraints = list(getattr(model_class, "__ddl_constraints__", []) or [])
+        constraints_specs = list(getattr(model_class, "__ddl_constraints__", []) or [])
+        indexes_specs = list(getattr(model_class, "__ddl_indexes__", []) or [])
+        # Column patches (capability Specs) are extracted before resolving the
+        # constraint/index lists so they apply onto the built columns.
+        patches = cls._resolve_spec_patches(constraints_specs, dialect)
+        columns = cls._build_columns(model_class, dialect, patches=patches)
+        indexes = cls._resolve_spec_list(indexes_specs, dialect)
+        constraints = cls._resolve_spec_list(constraints_specs, dialect)
+        partition = cls._build_partition(model_class, dialect)
         table_options = getattr(model_class, "__ddl_table_options__", None)
 
         pk = cls._build_primary_key_constraint(model_class)
@@ -134,10 +142,72 @@ class ModelSchemaGenerator:
             columns=columns,
             indexes=indexes,
             table_constraints=constraints,
+            partition=partition,
             table_options=table_options,
             temporary=temporary,
             if_not_exists=if_not_exists,
         )
+
+    @classmethod
+    def _resolve_spec_list(cls, entries: List[Any], dialect: Any) -> List[Any]:
+        """Resolve ``DDLSpec`` entries through ``dialect.build_spec``.
+
+        Pre-built expression objects pass through unchanged; Specs the dialect
+        does not claim (``build_spec`` returns ``None``) are silently ignored.
+        A pre-built ``IndexDefinition`` carrying a lazy ``partial_condition``
+        factory is resolved in place.
+        """
+        resolvers = cls._dialect_resolvers(dialect)
+        resolved: List[Any] = []
+        for entry in entries:
+            if isinstance(entry, DDLSpec):
+                built = dialect.build_spec(entry)
+                if isinstance(built, ColumnPatchSpec):
+                    # Column patches are applied onto ColumnDefinition by the
+                    # generator (see _build_columns); not appended to lists.
+                    continue
+                if built is not None:
+                    resolved.append(built)
+            elif isinstance(entry, IndexDefinition):
+                if entry.partial_condition is not None:
+                    entry.partial_condition = resolvers["predicate"](
+                        entry.partial_condition
+                    )
+                resolved.append(entry)
+            else:
+                resolved.append(entry)
+        return resolved
+
+    @classmethod
+    def _resolve_spec_patches(cls, entries: List[Any], dialect: Any) -> Dict[str, ColumnPatchSpec]:
+        """Resolve capability Specs (JSON / generated columns) to column patches."""
+        patches: Dict[str, ColumnPatchSpec] = {}
+        for entry in entries:
+            if not isinstance(entry, DDLSpec):
+                continue
+            built = dialect.build_spec(entry)
+            if isinstance(built, ColumnPatchSpec):
+                patches[built.column] = built
+        return patches
+
+    @classmethod
+    def _build_partition(cls, model_class: type, dialect: Any) -> Optional[Any]:
+        """Resolve ``__ddl_partition__`` Specs to a single partition clause.
+
+        The first backend-claimed partition Spec wins; unclaimed ones are
+        ignored. When nothing is claimed the table is unpartitioned.
+        """
+        partitions = getattr(model_class, "__ddl_partition__", []) or []
+        for entry in partitions:
+            if not isinstance(entry, DDLSpec):
+                raise TypeError(
+                    f"__ddl_partition__ entries must be DDLSpec instances, "
+                    f"got {type(entry).__name__}"
+                )
+            built = dialect.build_spec(entry)
+            if built is not None:
+                return built
+        return None
 
     @classmethod
     def generate_drop_table(
@@ -167,7 +237,12 @@ class ModelSchemaGenerator:
     # Columns
     # ------------------------------------------------------------------
     @classmethod
-    def _build_columns(cls, model_class: type, dialect: Any) -> List[ColumnDefinition]:
+    def _build_columns(
+        cls,
+        model_class: type,
+        dialect: Any,
+        patches: Optional[Dict[str, ColumnPatchSpec]] = None,
+    ) -> List[ColumnDefinition]:
         from pydantic.fields import FieldInfo
 
         model_fields: Dict[str, FieldInfo] = dict(model_class.model_fields)
@@ -194,6 +269,9 @@ class ModelSchemaGenerator:
             col_constraints: List[ColumnConstraint] = list(
                 field_constraints.get(field_name, [])
             )
+            col_constraints = [
+                cls._resolve_field_constraint(c, dialect) for c in col_constraints
+            ]
             # NOT NULL for required (non-nullable) fields — an ``Optional[T]``
             # field or a field with a default stays nullable.
             if (
@@ -213,15 +291,47 @@ class ModelSchemaGenerator:
                     cls._primary_key_column_constraint(model_class, field_name)
                 )
 
-            columns.append(
-                ColumnDefinition(
-                    name=column_name,
-                    data_type=data_type,
-                    constraints=col_constraints,
-                )
-            )
+            # Apply capability patches (JSON type / generated column) if any.
+            col_def_kwargs: Dict[str, Any] = {
+                "name": column_name,
+                "data_type": data_type,
+                "constraints": col_constraints,
+            }
+            patch = (patches or {}).get(column_name)
+            if patch is not None:
+                if patch.patched_data_type is not None:
+                    col_def_kwargs["data_type"] = patch.patched_data_type
+                if patch.generated_expression is not None:
+                    col_def_kwargs["generated_expression"] = patch.generated_expression
+                    col_def_kwargs["generated_type"] = patch.generated_type
+
+            columns.append(ColumnDefinition(**col_def_kwargs))
 
         return columns
+
+    @classmethod
+    def _resolve_field_constraint(cls, constraint: ColumnConstraint, dialect: Any) -> ColumnConstraint:
+        """Resolve a lazy ``(dialect) -> SQLPredicate`` in a field constraint's
+        ``check_condition`` (and ``default_value``) at generation time.
+
+        Field-level annotations are declared without a dialect; the predicate
+        factory is evaluated here, where the dialect is known.
+        """
+        resolvers = cls._dialect_resolvers(dialect)
+        constraint.check_condition = resolvers["predicate"](constraint.check_condition)
+        if constraint.default_value is not None and callable(constraint.default_value) \
+                and not hasattr(constraint.default_value, "to_sql"):
+            constraint.default_value = resolvers["value"](constraint.default_value)
+        return constraint
+
+    @classmethod
+    def _dialect_resolvers(cls, dialect: Any) -> Dict[str, Any]:
+        """Return the dialect's predicate / value factory resolvers when present,
+        else pass-through identity functions."""
+        return {
+            "predicate": getattr(dialect, "_resolve_predicate", lambda x: x),
+            "value": getattr(dialect, "_resolve_value", lambda x: x),
+        }
 
     @classmethod
     def _resolve_data_type(

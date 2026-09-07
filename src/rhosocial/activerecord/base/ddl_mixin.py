@@ -50,12 +50,30 @@ class DDLMixin:
                 ),
             ]
 
-            # Table-level constraints
+            # Table-level constraints (pre-built expression objects or Specs)
             __table_constraints__ = [
                 TableConstraint(
                     constraint_type=TableConstraintType.CHECK,
                     check_condition=...,  # SQLPredicate
                 ),
+                # Declarative Specs are resolved by the backend dialect via
+                # ``build_spec``; unclaimed Specs are silently ignored.
+                UniqueSpec(columns=["account_id", "period"]),
+                CheckSpec(
+                    condition=lambda d: Column(d, "debit_total")
+                    == Column(d, "credit_total"),
+                ),
+            ]
+
+            # Table-level indexes (pre-built objects or IndexSpec)
+            __table_indexes__ = [
+                IndexSpec(columns=["created_at"], name="ix_created"),
+            ]
+
+            # Backend-defined partition Specs; each backend claims its own,
+            # others are ignored (e.g. SQLite builds an unpartitioned table).
+            __table_partition__ = [
+                PostgresRangePartition(column="created_at"),
             ]
 
             # Field-level DDL markers
@@ -73,6 +91,7 @@ class DDLMixin:
         * ``__ddl_indexes__``           dataclass attribute set by the metaclass
         * ``__ddl_table_options__``     dataclass attribute set by the metaclass
         * ``__ddl_constraints__``       dataclass attribute set by the metaclass
+        * ``__ddl_partition__``         dataclass attribute set by the metaclass
     """
 
     _feature_handlers = [

@@ -17,6 +17,22 @@ from ..backend.expression.statements.ddl_table import (
     TableConstraintType,
     TableOptions,
 )
+from ..backend.expression.statements.ddl_spec import (
+    CheckSpec,
+    ColumnPatchSpec,
+    ColumnTypeSpec,
+    DDLSpec,
+    DefaultSpec,
+    ForeignKeySpec,
+    GeneratedColumnSpec,
+    IndexSpec,
+    JsonColumnSpec,
+    NotNullSpec,
+    PartialIndexSpec,
+    PartitionSpec,
+    PrimaryKeySpec,
+    UniqueSpec,
+)
 
 
 __all__ = [
@@ -26,4 +42,18 @@ __all__ = [
     "TableConstraint",
     "IndexDefinition",
     "TableOptions",
+    "DDLSpec",
+    "CheckSpec",
+    "UniqueSpec",
+    "NotNullSpec",
+    "PrimaryKeySpec",
+    "DefaultSpec",
+    "ForeignKeySpec",
+    "IndexSpec",
+    "PartialIndexSpec",
+    "ColumnTypeSpec",
+    "JsonColumnSpec",
+    "GeneratedColumnSpec",
+    "ColumnPatchSpec",
+    "PartitionSpec",
 ]

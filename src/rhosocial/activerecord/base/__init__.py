@@ -15,6 +15,12 @@ from .fields import (
     IndexDefinition,
 )
 from .ddl import TableConstraint, TableConstraintType, TableOptions
+from .ddl import (
+    CheckSpec, DDLSpec, DefaultSpec, ForeignKeySpec,
+    IndexSpec, NotNullSpec, PartitionSpec, PrimaryKeySpec, UniqueSpec,
+    ColumnPatchSpec, ColumnTypeSpec, GeneratedColumnSpec,
+    JsonColumnSpec, PartialIndexSpec,
+)
 from .ddl_generator import ModelSchemaGenerator
 from .metaclass import MetaclassMixin, ActiveRecordMetaclass
 from .ddl_mixin import DDLMixin
@@ -43,6 +49,20 @@ __all__ = [
     "TableConstraint",
     "IndexDefinition",
     "TableOptions",
+    "DDLSpec",
+    "CheckSpec",
+    "UniqueSpec",
+    "NotNullSpec",
+    "PrimaryKeySpec",
+    "DefaultSpec",
+    "ForeignKeySpec",
+    "IndexSpec",
+    "PartialIndexSpec",
+    "ColumnTypeSpec",
+    "JsonColumnSpec",
+    "GeneratedColumnSpec",
+    "ColumnPatchSpec",
+    "PartitionSpec",
     "ModelSchemaGenerator",
     "MetaclassMixin",
     "ActiveRecordMetaclass",

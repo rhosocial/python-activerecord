@@ -118,6 +118,24 @@ from .ddl_function import CreateFunctionExpression, DropFunctionExpression
 # Partition DDL
 from .ddl_partition import PartitionClause, PartitionStrategy
 
+# Declarative DDL feature specs
+from .ddl_spec import (
+    CheckSpec,
+    ColumnPatchSpec,
+    ColumnTypeSpec,
+    DDLSpec,
+    DefaultSpec,
+    ForeignKeySpec,
+    GeneratedColumnSpec,
+    IndexSpec,
+    JsonColumnSpec,
+    NotNullSpec,
+    PartialIndexSpec,
+    PartitionSpec,
+    PrimaryKeySpec,
+    UniqueSpec,
+)
+
 # CREATE TABLE diff plans
 from .ddl_diff import DiffPlan, RebuildPlan
 
@@ -215,6 +233,21 @@ __all__ = [
     # Partition DDL
     "PartitionClause",
     "PartitionStrategy",
+    # Declarative DDL feature specs
+    "DDLSpec",
+    "CheckSpec",
+    "UniqueSpec",
+    "NotNullSpec",
+    "PrimaryKeySpec",
+    "DefaultSpec",
+    "ForeignKeySpec",
+    "IndexSpec",
+    "PartialIndexSpec",
+    "ColumnTypeSpec",
+    "JsonColumnSpec",
+    "GeneratedColumnSpec",
+    "ColumnPatchSpec",
+    "PartitionSpec",
     # CREATE TABLE diff plans
     "DiffPlan",
     "RebuildPlan",
