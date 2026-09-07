@@ -292,8 +292,11 @@ class CreateTableExpression(BaseExpression):
         return self.dialect.diff_create_table(self, other)
 
     def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the CREATE TABLE statement to the configured dialect."""
-        return self.dialect.format_create_table_statement(self)
+        """Delegates SQL generation for the CREATE TABLE statement to the
+        configured dialect. Inline-literal rendering is enabled while the DDL
+        renders (CHECK / DEFAULT clauses accept no bind parameters)."""
+        with self.dialect.ddl_inline():
+            return self.dialect.format_create_table_statement(self)
 
 
 class DropTableExpression(BaseExpression):

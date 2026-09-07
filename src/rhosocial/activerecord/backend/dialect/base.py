@@ -6,8 +6,10 @@ This module defines the minimal base that all SQL dialects must implement.
 All SQL formatting logic lives in Mixin classes in mixins.py.
 """
 
+import contextlib
 import re
-from typing import Optional, Tuple, TYPE_CHECKING
+from contextvars import ContextVar
+from typing import Any, Optional, Tuple, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
 from .mixins.ddl_diff import CreateTableExpressionDiffMixin
@@ -15,6 +17,12 @@ from .mixins.ddl_spec import DDLSpecBuildingMixin
 
 if TYPE_CHECKING:
     from ..schema.differ import SchemaDiffer
+
+
+# True while a DDL statement is being rendered: inside DDL, literal values
+# must be inlined (CHECK/DEFAULT clauses accept no bind parameters). Escaping
+# stays centralized in the dialect via ``inline_sql_literal``.
+_ddl_inline_flag: "ContextVar[bool]" = ContextVar("ddl_inline", default=False)
 
 
 class SQLDialectBase(CreateTableExpressionDiffMixin, DDLSpecBuildingMixin):
@@ -60,6 +68,56 @@ class SQLDialectBase(CreateTableExpressionDiffMixin, DDLSpecBuildingMixin):
     @property
     def name(self) -> str:
         return self.__class__.__name__.replace("Dialect", "")
+
+    # ------------------------------------------------------------------
+    # DDL inline-literal context
+    # ------------------------------------------------------------------
+    @staticmethod
+    def is_ddl_inline() -> bool:
+        """Whether a DDL statement is currently being rendered."""
+        return _ddl_inline_flag.get()
+
+    @staticmethod
+    @contextlib.contextmanager
+    def ddl_inline():
+        """Context manager enabling inline literal rendering for DDL."""
+        token = _ddl_inline_flag.set(True)
+        try:
+            yield
+        finally:
+            _ddl_inline_flag.reset(token)
+
+    def inline_sql_literal(self, value: Any) -> str:
+        """Render a Python scalar as a safe, inline SQL literal.
+
+        Used for DDL clauses that accept no bind parameters (CHECK /
+        DEFAULT / partition boundaries). Only scalar types with portable
+        inline forms are handled here; backends override for type-specific
+        forms (e.g. bytes, native date literals).
+        """
+        import datetime as _dt
+
+        if value is None:
+            return "NULL"
+        if isinstance(value, bool):
+            return "1" if value else "0"
+        if isinstance(value, (int, float)):
+            if isinstance(value, float) and value != value:  # NaN
+                raise ValueError("NaN cannot be inlined into DDL")
+            return repr(value) if isinstance(value, float) else str(value)
+        if isinstance(value, _dt.datetime):
+            escaped = self._escape_sql_string(value.isoformat(sep=" "))
+            return f"'{escaped}'"
+        if isinstance(value, _dt.date):
+            escaped = self._escape_sql_string(value.isoformat())
+            return f"'{escaped}'"
+        if isinstance(value, str):
+            escaped = self._escape_sql_string(value)
+            return f"'{escaped}'"
+        raise TypeError(
+            f"{self.name}: value {value!r} of type {type(value).__name__} "
+            f"has no inline DDL literal form; use a backend-specific literal."
+        )
 
     def get_parameter_placeholder(self, position: int = 0) -> str:
         return "?"

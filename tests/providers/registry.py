@@ -28,6 +28,7 @@ can check protocol implementation before execution.
 from rhosocial.activerecord.testsuite.core.registry import ProviderRegistry
 from . import pooling  # noqa: F401  (registers the pool reset handler on import)
 from .basic import BasicSyncProvider, BasicAsyncProvider
+from .ddl import DDLSyncProvider, DDLAsyncProvider
 from .events import EventsSyncProvider, EventsAsyncProvider
 from .mixins import MixinsSyncProvider, MixinsAsyncProvider
 from .query import QuerySyncProvider, QueryAsyncProvider
@@ -50,6 +51,8 @@ provider_registry = ProviderRegistry()
 # and will receive `BasicSyncProvider` or `BasicAsyncProvider` respectively.
 provider_registry.register("feature.basic.IBasicProvider", BasicSyncProvider)
 provider_registry.register("feature.basic.IBasicSyncProvider", BasicSyncProvider)
+provider_registry.register("feature.ddl.IDDLSyncProvider", DDLSyncProvider)
+provider_registry.register("feature.ddl.IDDLAsyncProvider", DDLAsyncProvider)
 provider_registry.register("feature.basic.IBasicAsyncProvider", BasicAsyncProvider)
 
 # Register the concrete `EventsSyncProvider` and `EventsAsyncProvider` as the

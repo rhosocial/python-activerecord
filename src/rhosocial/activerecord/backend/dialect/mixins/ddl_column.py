@@ -62,6 +62,12 @@ class DDLColumnMixin:
             raise ValueError("DEFAULT constraint must have a default value specified.")
         if isinstance(constraint.default_value, BaseExpression):
             default_sql, default_params = constraint.default_value.to_sql()
+            if default_params and self.is_ddl_inline():
+                # A parameterized literal inside DDL: re-render inline
+                # (DEFAULT clauses accept no bind parameters).
+                if isinstance(constraint.default_value, Literal):
+                    default_sql = self.inline_sql_literal(constraint.default_value.value)
+                    default_params = ()
             return f" DEFAULT {default_sql}", tuple(default_params)
         if isinstance(constraint.default_value, str):
             escaped = SQLDialectBase._escape_sql_string(constraint.default_value)

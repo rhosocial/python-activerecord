@@ -127,6 +127,10 @@ class ModelSchemaGenerator:
         indexes_specs += cls._collect_field_indexes(model_class)
         # Column-level Specs are consumed while building each column.
         columns = cls._build_columns(model_class, dialect, table_specs=constraints_specs)
+        # Record generated columns on the model so INSERT/UPDATE skip them.
+        model_class.__table_generated_columns__ = tuple(
+            col.name for col in columns if col.generated_expression is not None
+        )
         # Spec products are routed by kind, making the two declaration slots
         # interchangeable: index products (IndexDefinition, e.g. from
         # IndexSpec / PartialIndexSpec declared in either slot) always land in

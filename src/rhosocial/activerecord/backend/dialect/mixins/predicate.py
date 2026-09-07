@@ -45,6 +45,11 @@ class PredicateMixin:
         if not literal_values:
             values_sql = "()"
             values_params: tuple = ()
+        elif self.is_ddl_inline():
+            # DDL clauses accept no bind parameters: inline each value with
+            # dialect-controlled escaping.
+            values_sql = f"({', '.join(self.inline_sql_literal(v) for v in literal_values)})"
+            values_params = ()
         else:
             placeholders = ", ".join([self.get_parameter_placeholder()] * len(literal_values))
             values_sql = f"({placeholders})"

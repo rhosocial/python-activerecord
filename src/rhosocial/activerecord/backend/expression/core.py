@@ -34,6 +34,11 @@ class Literal(
         self.alias = alias
 
     def to_sql(self) -> "SQLQueryAndParams":
+        # Inside DDL rendering, literals are inlined (CHECK / DEFAULT clauses
+        # accept no bind parameters); escaping stays in the dialect.
+        if self.dialect.is_ddl_inline():
+            return self.dialect.inline_sql_literal(self.value), ()
+
         sql = self.dialect.get_parameter_placeholder()
         params = (self.value,)
 

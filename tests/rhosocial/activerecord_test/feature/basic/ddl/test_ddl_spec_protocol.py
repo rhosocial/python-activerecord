@@ -148,7 +148,8 @@ class TestGenericSpecTranslation:
             x: int = 0
 
         sql, params = T.generate_create_table(dialect).to_sql()
-        assert params == (42,)
+        assert "DEFAULT 42" in sql
+        assert params == ()
 
     def test_foreign_key_spec(self, dialect):
         result = dialect.build_spec(
@@ -366,8 +367,9 @@ class TestFieldLevelLazyPredicates:
 
         expr = T.generate_create_table(dialect)
         sql, params = expr.to_sql()
-        assert "CHECK" in sql
-        assert params == (18,)
+        # DDL renders literals inline (no bind parameters in CHECK clauses)
+        assert "CHECK (\"age\" >= 18)" in sql
+        assert params == ()
 
     def test_field_index_partial_lazy(self, dialect):
         from rhosocial.activerecord.model import ActiveRecord

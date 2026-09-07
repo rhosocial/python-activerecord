@@ -92,7 +92,8 @@ class CreateIndexExpression(BaseExpression):
         self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_create_index_statement(self)
+        with self.dialect.ddl_inline():
+            return self.dialect.format_create_index_statement(self)
 
 
 class DropIndexExpression(BaseExpression):
