@@ -5,11 +5,10 @@ Mixin that enables DDL-aware model declarations.
 Registering ``DDLMixin`` in an ``ActiveRecord`` subclass's MRO activates the
 two metaclass feature handlers defined in ``ddl_handlers``:
 
-- ``DDLFieldAnnotationHandler``  — processes per-field ``Annotated`` DDL markers
-- ``DDLModelAnnotationHandler``  — processes model-level class variables
+- ``DDLModelAnnotationHandler``  — validates model-level class variables
 """
 
-from .ddl_handlers import DDLFieldAnnotationHandler, DDLModelAnnotationHandler
+from .ddl_handlers import DDLModelAnnotationHandler
 
 
 class DDLMixin:
@@ -84,18 +83,15 @@ class DDLMixin:
                 collation="utf8mb4_unicode_ci",
             )]
 
-    Attributes:
-        * ``__table_field_sql_types__``   dataclass attribute set by the metaclass
-        * ``__table_field_indexes__``     dataclass attribute set by the metaclass
-        * ``__table_field_constraints__`` dataclass attribute set by the metaclass
-        * ``__table_resolved_indexes__``           dataclass attribute set by the metaclass
-        * ``__table_resolved_options__``     dataclass attribute set by the metaclass
-        * ``__table_resolved_constraints__``       dataclass attribute set by the metaclass
-        * ``__table_resolved_partition__``         dataclass attribute set by the metaclass
+    The declared constants are the single source of truth: the handler only
+    validates them at class-creation time and writes nothing. Field-level
+    Annotated markers are read from ``model_fields[name].metadata`` and
+    table-level constants are read directly by ``ModelSchemaGenerator`` at
+    ``generate_create_table(dialect)`` time — declarations are assembled into
+    DDL on the fly, with no intermediate storage.
     """
 
     _feature_handlers = [
-        DDLFieldAnnotationHandler,
         DDLModelAnnotationHandler,
     ]
 

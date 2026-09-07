@@ -6,6 +6,7 @@ repositories; this file pins the SQLite rendering. Types are core **generic**
 types, so each backend renders its native form without per-dialect mappings.
 """
 
+from rhosocial.activerecord.base import UseSqlType
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.examples.ddl_types import TypedUser
 
@@ -34,6 +35,13 @@ def test_sqlite_typed_user_ddl_columns():
 
 def test_sqlite_typed_user_no_per_dialect_string_keys():
     """UseSqlType carries single DataType instances — no dict mappings remain."""
-    for _field_name, marker in TypedUser.__table_field_sql_types__.items():
+    markers = [
+        m
+        for f in TypedUser.model_fields.values()
+        for m in f.metadata
+        if isinstance(m, UseSqlType)
+    ]
+    assert markers  # the typed model declares UseSqlType somewhere
+    for marker in markers:
         assert not hasattr(marker, "dialect_types")
         assert marker.data_type is not None

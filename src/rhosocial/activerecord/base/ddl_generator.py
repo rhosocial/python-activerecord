@@ -42,7 +42,7 @@ from ..backend.expression.statements.ddl_table import (
     TableConstraintType,
     TableOptions,
 )
-from .fields import UseSqlType
+from .fields import UseConstraint, UseIndex, UseSqlType
 
 
 def _python_type_of(field: Any) -> Optional[Type]:
@@ -115,8 +115,10 @@ class ModelSchemaGenerator:
     ) -> CreateTableExpression:
         """Build a ``CreateTableExpression`` for *model_class* under *dialect*."""
         table_name = getattr(model_class, "__table_name__", None) or model_class.__name__
-        constraints_specs = list(getattr(model_class, "__table_resolved_constraints__", []) or [])
-        indexes_specs = list(getattr(model_class, "__table_resolved_indexes__", []) or [])
+        constraints_specs = list(getattr(model_class, "__table_constraints__", []) or [])
+        indexes_specs = list(getattr(model_class, "__table_indexes__", []) or [])
+        # Field-level UseIndex markers join the table-level declarations.
+        indexes_specs += cls._collect_field_indexes(model_class)
         # Column patches (capability Specs) are extracted before resolving the
         # constraint/index lists so they apply onto the built columns.
         patches = cls._resolve_spec_patches(constraints_specs, dialect)
@@ -136,7 +138,7 @@ class ModelSchemaGenerator:
             + [e for e in index_slot if not isinstance(e, IndexDefinition)]
         )
         partition = cls._build_partition(model_class, dialect)
-        table_options = getattr(model_class, "__table_resolved_options__", None)
+        table_options = getattr(model_class, "__table_options__", None)
 
         pk = cls._build_primary_key_constraint(model_class)
         if pk is not None:
@@ -159,6 +161,22 @@ class ModelSchemaGenerator:
             temporary=temporary,
             if_not_exists=if_not_exists,
         )
+
+    @classmethod
+    def _collect_field_indexes(cls, model_class: type) -> List[Any]:
+        """Collect single-column indexes declared via field-level
+        ``UseIndex`` markers (read from Pydantic's preserved metadata)."""
+
+        collected: List[Any] = []
+        get_column_name = getattr(model_class, "get_column_name", None)
+        for field_name, field in model_class.model_fields.items():
+            column_name = (
+                get_column_name(field_name) if get_column_name else field_name
+            )
+            for marker in field.metadata:
+                if isinstance(marker, UseIndex):
+                    collected.append(marker.to_index_definition(column_name))
+        return collected
 
     @classmethod
     def _resolve_spec_list(cls, entries: List[Any], dialect: Any) -> List[Any]:
@@ -204,16 +222,16 @@ class ModelSchemaGenerator:
 
     @classmethod
     def _build_partition(cls, model_class: type, dialect: Any) -> Optional[Any]:
-        """Resolve ``__table_resolved_partition__`` Specs to a single partition clause.
+        """Resolve ``__table_partition__`` Specs to a single partition clause.
 
         The first backend-claimed partition Spec wins; unclaimed ones are
         ignored. When nothing is claimed the table is unpartitioned.
         """
-        partitions = getattr(model_class, "__table_resolved_partition__", []) or []
+        partitions = getattr(model_class, "__table_partition__", []) or []
         for entry in partitions:
             if not isinstance(entry, DDLSpec):
                 raise TypeError(
-                    f"__table_resolved_partition__ entries must be DDLSpec instances, "
+                    f"__table_partition__ entries must be DDLSpec instances, "
                     f"got {type(entry).__name__}"
                 )
             built = dialect.build_spec(entry)
@@ -258,12 +276,6 @@ class ModelSchemaGenerator:
         from pydantic.fields import FieldInfo
 
         model_fields: Dict[str, FieldInfo] = dict(model_class.model_fields)
-        field_sql_types: Dict[str, UseSqlType] = getattr(
-            model_class, "__table_field_sql_types__", {}
-        )
-        field_constraints: Dict[str, List[ColumnConstraint]] = getattr(
-            model_class, "__table_field_constraints__", {}
-        )
 
         get_column_name = getattr(model_class, "get_column_name", None)
         pk_columns = set(model_class.primary_key_columns())
@@ -274,13 +286,26 @@ class ModelSchemaGenerator:
                 get_column_name(field_name) if get_column_name else field_name
             )
 
-            data_type = cls._resolve_data_type(
-                field, field_sql_types.get(field_name), dialect
-            )
+            # Field-level Annotated markers are read straight from Pydantic's
+            # preserved metadata — no intermediate collection pass. Multiple
+            # UseSqlType markers are rejected (combine types into one marker).
+            sql_type_markers = [
+                m for m in field.metadata if isinstance(m, UseSqlType)
+            ]
+            if len(sql_type_markers) > 1:
+                raise TypeError(
+                    f"Field {field_name!r} declares multiple UseSqlType "
+                    f"markers. Combine the types into a single "
+                    f"UseSqlType(type_a, type_b, ...) instead."
+                )
+            sql_type = sql_type_markers[0] if sql_type_markers else None
+            data_type = cls._resolve_data_type(field, sql_type, dialect)
 
-            col_constraints: List[ColumnConstraint] = list(
-                field_constraints.get(field_name, [])
-            )
+            col_constraints: List[ColumnConstraint] = [
+                m.constraint
+                for m in field.metadata
+                if isinstance(m, UseConstraint)
+            ]
             col_constraints = [
                 cls._resolve_field_constraint(c, dialect) for c in col_constraints
             ]
@@ -294,7 +319,7 @@ class ModelSchemaGenerator:
                 col_constraints.append(
                     ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)
                 )
-            # Single-column PK (not auto-managed via __table_resolved_constraints__)
+            # Single-column PK (not auto-managed via __table_constraints__)
             if (
                 not model_class.is_composite_pk()
                 and column_name in pk_columns

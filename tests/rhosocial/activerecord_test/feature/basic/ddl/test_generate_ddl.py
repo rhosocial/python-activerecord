@@ -61,6 +61,7 @@ from rhosocial.activerecord.backend.expression.types import (
     VarCharType,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.backend.sync import SQLiteBackend
 from rhosocial.activerecord.base import (
     ColumnConstraintType as CCT,
@@ -110,7 +111,7 @@ class _Article(ActiveRecord):
 class TestTableLevelDeclarations:
 
     def test_table_options_stored(self):
-        opts = _Article.__table_resolved_options__
+        opts = _Article.__table_options__
         assert opts.charset == "utf8mb4"
         assert opts.collation == "utf8mb4_unicode_ci"
         assert opts.engine == "InnoDB"
@@ -120,11 +121,13 @@ class TestTableLevelDeclarations:
         assert not TableOptions().has_options()
 
     def test_composite_indexes_collected(self):
-        names = {i.name for i in _Article.__table_resolved_indexes__}
+        """Table-level + field-level indexes merge at generation time."""
+        expr = ModelSchemaGenerator.generate_create_table(_Article, SQLiteDialect())
+        names = {i.name for i in expr.indexes}
         assert {"idx_title_status", "uq_slug", "idx_slug"} == names
 
     def test_composite_constraints_collected(self):
-        cs = _Article.__table_resolved_constraints__
+        cs = _Article.__table_constraints__
         assert len(cs) == 1
         assert cs[0].constraint_type == TableConstraintType.UNIQUE
         assert cs[0].columns == ["title", "author"]
@@ -137,8 +140,12 @@ class TestTableLevelDeclarations:
 class TestFieldLevelDeclarations:
 
     def test_use_sql_type_single(self):
-        u = _Article.__table_field_sql_types__["title"]
-        assert u.data_type == VarCharType(length=255)
+        from pydantic.fields import FieldInfo
+
+        field: FieldInfo = _Article.model_fields["title"]
+        markers = [m for m in field.metadata if isinstance(m, UseSqlType)]
+        assert len(markers) == 1
+        assert markers[0].data_type == VarCharType(length=255)
 
     def test_use_sql_type_dict_form_rejected(self):
         """Per-dialect string-keyed mappings are no longer supported."""
@@ -159,13 +166,16 @@ class TestFieldLevelDeclarations:
         assert type(u.data_type).__name__ == "JsonType"
 
     def test_use_index_to_index_definition(self):
-        idxs = _Article.__table_field_indexes__["slug"]
-        assert len(idxs) == 1
-        assert idxs[0].name == "idx_slug"
-        assert idxs[0].columns == ["slug"]
+        field = _Article.model_fields["slug"]
+        markers = [m for m in field.metadata if isinstance(m, UseIndex)]
+        assert len(markers) == 1
+        idx = markers[0].to_index_definition("slug")
+        assert idx.name == "idx_slug"
+        assert idx.columns == ["slug"]
 
     def test_use_constraint_collate(self):
-        cs = _Article.__table_field_constraints__["status"]
+        field = _Article.model_fields["status"]
+        cs = [m.constraint for m in field.metadata if isinstance(m, UseConstraint)]
         assert len(cs) == 1
         assert cs[0].constraint_type == CCT.COLLATE
         assert cs[0].collation == "utf8mb4_bin"
@@ -621,9 +631,12 @@ class TestMultiTypeSelection:
             self._generate(_M, _BareDialect())
 
     def test_multiple_use_sql_type_markers_rejected(self):
-        """Two Annotated UseSqlType markers on one field is ambiguous -> error."""
+        """Two Annotated UseSqlType markers on one field is ambiguous -> error
+        (rejected at generation time, when field metadata is read)."""
+        class _M(ActiveRecord):
+            payload: Annotated[
+                dict, UseSqlType(JsonType()), UseSqlType(TextType()),
+            ]
+
         with pytest.raises(TypeError, match="multiple UseSqlType markers"):
-            class _M(ActiveRecord):
-                payload: Annotated[
-                    dict, UseSqlType(JsonType()), UseSqlType(TextType()),
-                ]
+            self._generate(_M, DummyDialect())

@@ -89,6 +89,23 @@ Three key principles:
    (`isinstance`); no `dialect.name` string matching — custom/third-party
    backends are first-class.
 
+### Declarations are everything; assembly happens at build time
+
+The declared constants on the model (`__table_constraints__` /
+`__table_indexes__` / `__table_partition__` / `__table_options__` plus field
+annotations) are the **single source of truth**:
+
+- Class creation only **validates** them (duplicate index names, partition
+  Spec types) and derives no stored state;
+- Field annotations are read directly from Pydantic's preserved
+  `model_fields[name].metadata`;
+- `generate_create_table(dialect)` **assembles** the declarations into
+  expressions on the fly — there is no second collected copy, hence no
+  possibility of "stash drifts from declaration".
+
+Removing an intermediate representation buys a single source of truth and a
+smaller namespace.
+
 ### Two-level entry points
 
 Declarations split by ownership: field-owned content is written on the field,
@@ -362,14 +379,16 @@ documented by that backend**:
 
 ## Design recap
 
-1. **No dialect at declaration time**: Specs are plain objects, constructible
+1. **Declarations are everything**: declared constants and field annotations
+   are the single source of truth — no stashed copies;
+2. **No dialect at declaration time**: Specs are plain objects, constructible
    when the model body executes;
-2. **Dialect injection at construction time**: lazy `(dialect) -> ...` factories
+3. **Dialect injection at construction time**: lazy `(dialect) -> ...` factories
    evaluate inside `generate_create_table`, keeping predicates parameterized;
-3. **Backends own their acceptance scope**: `build_spec` does both "claim" and
+4. **Backends own their acceptance scope**: `build_spec` does both "claim" and
    "translate"; unclaimed returns `None` and is silently ignored;
-4. **Products are same-typed**: `build_spec` only produces existing expression
+5. **Products are same-typed**: `build_spec` only produces existing expression
    objects — render, execute, and diff pipelines are fully reused;
-5. **No raw SQL**: the framework Spec layer never constructs
+6. **No raw SQL**: the framework Spec layer never constructs
    `RawSQLExpression`; expression gaps (PG `nextval`, Oracle INTERVAL
    functions) are closed with dedicated expression classes and formatters.

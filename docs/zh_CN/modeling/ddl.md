@@ -76,6 +76,18 @@ sql, params = expr.to_sql()
 3. **零字符串键控**。后端亲和性 = 真实类身份（`isinstance`），无 `dialect.name`
    字符串匹配——自定义/第三方后端与内置后端平权。
 
+### 声明即全部，构建时拼接
+
+模型上的声明常量（`__table_constraints__` / `__table_indexes__` /
+`__table_partition__` / `__table_options__` 与字段注解）是**唯一事实源**：
+
+- 类创建时只做**校验**（索引重名、分区 Spec 类型），不派生任何暂存属性；
+- 字段注解直接从 Pydantic 保留的 `model_fields[name].metadata` 读取；
+- `generate_create_table(dialect)` 时把声明**现拼**成表达式——没有第二份
+  收集结果，也就不存在"暂存与声明漂移"。
+
+删除一份中间表示，换来的是单一事实源与更少的命名空间。
+
 ### 两级声明入口
 
 按"声明内容的归属"分两级：字段内容就近在字段上写，表级/复合内容集中到表级槽位。
@@ -335,12 +347,13 @@ plan = dialect.diff_create_table(old_expr, new_expr)
 
 ## 设计要点回顾
 
-1. **声明时无方言**：Spec 是普通对象，模型 import 时即可构造；
-2. **构造时方言注入**：惰性工厂 `(dialect) -> ...` 在 `generate_create_table`
+1. **声明即全部**：声明常量与字段注解是唯一事实源，无暂存副本；
+2. **声明时无方言**：Spec 是普通对象，模型 import 时即可构造；
+3. **构造时方言注入**：惰性工厂 `(dialect) -> ...` 在 `generate_create_table`
    时求值，谓词参数化安全；
-3. **后端自决接受范围**：`build_spec` 一个方法同时承担"认领"与"翻译"，
+4. **后端自决接受范围**：`build_spec` 一个方法同时承担"认领"与"翻译"，
    未认领返回 `None` 静默忽略；
-4. **产物同型**：`build_spec` 只产出既有表达式对象——渲染、执行、diff 链路
+5. **产物同型**：`build_spec` 只产出既有表达式对象——渲染、执行、diff 链路
    全部复用；
-5. **不出现 Raw SQL**：框架 Spec 层绝不构造 `RawSQLExpression`；表达式缺口
+6. **不出现 Raw SQL**：框架 Spec 层绝不构造 `RawSQLExpression`；表达式缺口
    （PG `nextval`、Oracle INTERVAL 函数）通过补充专用表达式类与 formatter 解决。
