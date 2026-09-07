@@ -19,8 +19,6 @@ from ..backend.expression.statements.ddl_table import (
 )
 from ..backend.expression.statements.ddl_spec import (
     CheckSpec,
-    ColumnPatchSpec,
-    ColumnTypeSpec,
     DDLSpec,
     DefaultSpec,
     ForeignKeySpec,
@@ -51,9 +49,7 @@ __all__ = [
     "ForeignKeySpec",
     "IndexSpec",
     "PartialIndexSpec",
-    "ColumnTypeSpec",
     "JsonColumnSpec",
     "GeneratedColumnSpec",
-    "ColumnPatchSpec",
     "PartitionSpec",
 ]

@@ -29,7 +29,9 @@ raise ``UnsupportedFeatureError``; the caller decides how to degrade.
 from typing import Any, Dict, List, Optional, Type
 
 from ..backend.dialect.mixins.ddl_type import _NEUTRAL_TYPE_SUGGESTIONS
-from ..backend.expression.statements.ddl_spec import ColumnPatchSpec, DDLSpec
+from ..backend.expression.statements.ddl_spec import (
+    DDLSpec, DefaultSpec, GeneratedColumnSpec, JsonColumnSpec, NotNullSpec,
+)
 from ..backend.expression.types import IntegerType
 from ..backend.expression.statements.ddl_table import (
     ColumnConstraint,
@@ -117,12 +119,14 @@ class ModelSchemaGenerator:
         table_name = getattr(model_class, "__table_name__", None) or model_class.__name__
         constraints_specs = list(getattr(model_class, "__table_constraints__", []) or [])
         indexes_specs = list(getattr(model_class, "__table_indexes__", []) or [])
+        # __primary_key__ metadata takes precedence: a PrimaryKeySpec agreeing
+        # with it is an explicit no-op; a conflicting one is a declaration
+        # error (fail fast rather than silently choosing).
+        cls._validate_pk_spec(model_class, constraints_specs)
         # Field-level UseIndex markers join the table-level declarations.
         indexes_specs += cls._collect_field_indexes(model_class)
-        # Column patches (capability Specs) are extracted before resolving the
-        # constraint/index lists so they apply onto the built columns.
-        patches = cls._resolve_spec_patches(constraints_specs, dialect)
-        columns = cls._build_columns(model_class, dialect, patches=patches)
+        # Column-level Specs are consumed while building each column.
+        columns = cls._build_columns(model_class, dialect, table_specs=constraints_specs)
         # Spec products are routed by kind, making the two declaration slots
         # interchangeable: index products (IndexDefinition, e.g. from
         # IndexSpec / PartialIndexSpec declared in either slot) always land in
@@ -179,6 +183,29 @@ class ModelSchemaGenerator:
         return collected
 
     @classmethod
+    def _validate_pk_spec(cls, model_class: type, constraints_specs: List[Any]) -> None:
+        """Check ``PrimaryKeySpec`` declarations against ``__primary_key__``.
+
+        The model's PK metadata always wins: a ``PrimaryKeySpec`` naming the
+        same column(s) is a redundant explicit restatement (allowed); one
+        naming different columns conflicts with the metadata and raises.
+        """
+        from ..backend.expression.statements.ddl_spec import PrimaryKeySpec
+
+        declared = set(model_class.primary_key_columns())
+        for entry in constraints_specs:
+            if not isinstance(entry, PrimaryKeySpec):
+                continue
+            spec_cols = set(entry.columns)
+            if spec_cols != declared:
+                raise ValueError(
+                    f"PrimaryKeySpec {sorted(spec_cols)} conflicts with the "
+                    f"model's __primary_key__ {sorted(declared)} on "
+                    f"'{model_class.__name__}'. __primary_key__ takes "
+                    f"precedence; align the Spec or remove it."
+                )
+
+    @classmethod
     def _resolve_spec_list(cls, entries: List[Any], dialect: Any) -> List[Any]:
         """Resolve ``DDLSpec`` entries through ``dialect.build_spec``.
 
@@ -192,10 +219,6 @@ class ModelSchemaGenerator:
         for entry in entries:
             if isinstance(entry, DDLSpec):
                 built = dialect.build_spec(entry)
-                if isinstance(built, ColumnPatchSpec):
-                    # Column patches are applied onto ColumnDefinition by the
-                    # generator (see _build_columns); not appended to lists.
-                    continue
                 if built is not None:
                     resolved.append(built)
             elif isinstance(entry, IndexDefinition):
@@ -208,17 +231,6 @@ class ModelSchemaGenerator:
                 resolved.append(entry)
         return resolved
 
-    @classmethod
-    def _resolve_spec_patches(cls, entries: List[Any], dialect: Any) -> Dict[str, ColumnPatchSpec]:
-        """Resolve capability Specs (JSON / generated columns) to column patches."""
-        patches: Dict[str, ColumnPatchSpec] = {}
-        for entry in entries:
-            if not isinstance(entry, DDLSpec):
-                continue
-            built = dialect.build_spec(entry)
-            if isinstance(built, ColumnPatchSpec):
-                patches[built.column] = built
-        return patches
 
     @classmethod
     def _build_partition(cls, model_class: type, dialect: Any) -> Optional[Any]:
@@ -271,11 +283,12 @@ class ModelSchemaGenerator:
         cls,
         model_class: type,
         dialect: Any,
-        patches: Optional[Dict[str, ColumnPatchSpec]] = None,
+        table_specs: Optional[List[Any]] = None,
     ) -> List[ColumnDefinition]:
         from pydantic.fields import FieldInfo
 
         model_fields: Dict[str, FieldInfo] = dict(model_class.model_fields)
+        column_specs = cls._collect_column_specs(model_class, table_specs or [])
 
         get_column_name = getattr(model_class, "get_column_name", None)
         pk_columns = set(model_class.primary_key_columns())
@@ -309,12 +322,50 @@ class ModelSchemaGenerator:
             col_constraints = [
                 cls._resolve_field_constraint(c, dialect) for c in col_constraints
             ]
+            gen_type = None
+            gen_expression = None
+            # Column-level Specs for this column (NotNull/Default/Json/Generated)
+            for spec in column_specs.get(column_name, []):
+                if isinstance(spec, NotNullSpec):
+                    col_constraints.append(
+                        ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)
+                    )
+                elif isinstance(spec, DefaultSpec):
+                    from ..backend.expression.core import Literal
+
+                    col_constraints.append(
+                        ColumnConstraint(
+                            constraint_type=ColumnConstraintType.DEFAULT,
+                            default_value=Literal(
+                                dialect, cls._resolve_spec_value(dialect, spec.value)
+                            ),
+                        )
+                    )
+                elif isinstance(spec, JsonColumnSpec):
+                    from ..backend.expression.types import JsonType
+
+                    data_type = JsonType(dialect)
+                elif isinstance(spec, GeneratedColumnSpec):
+                    if cls._supports(dialect, "supports_generated_columns"):
+                        from ..backend.expression.statements import GeneratedColumnType
+
+                        gen_expression = cls._resolve_spec_value(dialect, spec.expression)
+                        gen_type = (
+                            GeneratedColumnType.STORED if spec.stored
+                            else GeneratedColumnType.VIRTUAL
+                        )
             # NOT NULL for required (non-nullable) fields — an ``Optional[T]``
-            # field or a field with a default stays nullable.
+            # field or a field with a default stays nullable. Skip when the
+            # field already declares NOT NULL via UseConstraint/NotNullSpec
+            # (avoids rendering a duplicated "NOT NULL NOT NULL").
             if (
                 field.is_required()
                 and not _is_optional_annotation(getattr(field, "annotation", None))
                 and column_name not in pk_columns
+                and not any(
+                    c.constraint_type == ColumnConstraintType.NOT_NULL
+                    for c in col_constraints
+                )
             ):
                 col_constraints.append(
                     ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)
@@ -334,17 +385,51 @@ class ModelSchemaGenerator:
                 "data_type": data_type,
                 "constraints": col_constraints,
             }
-            patch = (patches or {}).get(column_name)
-            if patch is not None:
-                if patch.patched_data_type is not None:
-                    col_def_kwargs["data_type"] = patch.patched_data_type
-                if patch.generated_expression is not None:
-                    col_def_kwargs["generated_expression"] = patch.generated_expression
-                    col_def_kwargs["generated_type"] = patch.generated_type
+            if gen_type is not None:
+                col_def_kwargs["generated_expression"] = gen_expression
+                col_def_kwargs["generated_type"] = gen_type
 
             columns.append(ColumnDefinition(**col_def_kwargs))
 
         return columns
+
+    @staticmethod
+    def _supports(dialect: Any, capability: str) -> bool:
+        """Check a ``supports_*()`` capability, tolerating unadapted dialects
+        (assume available: DDL generation produces expressions; the render
+        step and the real database validate actual availability)."""
+        method = getattr(dialect, capability, None)
+        if method is None:
+            return False
+        try:
+            return bool(method())
+        except Exception:
+            return True
+
+    @classmethod
+    def _collect_column_specs(cls, model_class: type, table_specs: List[Any]) -> Dict[str, List[Any]]:
+        """Collect column-level Specs by column name.
+
+        Sources: ``NotNullSpec`` / ``DefaultSpec`` / ``JsonColumnSpec`` /
+        ``GeneratedColumnSpec`` declared in ``__table_constraints__``.
+        """
+        collected: Dict[str, List[Any]] = {}
+        column_level = (
+            NotNullSpec, DefaultSpec, JsonColumnSpec, GeneratedColumnSpec,
+        )
+        for entry in table_specs:
+            if not isinstance(entry, column_level):
+                continue
+            column = entry.column
+            collected.setdefault(column, []).append(entry)
+        return collected
+
+    @classmethod
+    def _resolve_spec_value(cls, dialect: Any, value: Any) -> Any:
+        """Evaluate a lazy ``(dialect) -> Any`` value factory, or pass through."""
+        if callable(value) and not hasattr(value, "to_sql"):
+            return value(dialect)
+        return value
 
     @classmethod
     def _resolve_field_constraint(cls, constraint: ColumnConstraint, dialect: Any) -> ColumnConstraint:

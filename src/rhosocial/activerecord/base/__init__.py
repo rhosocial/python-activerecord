@@ -18,8 +18,7 @@ from .ddl import TableConstraint, TableConstraintType, TableOptions
 from .ddl import (
     CheckSpec, DDLSpec, DefaultSpec, ForeignKeySpec,
     IndexSpec, NotNullSpec, PartitionSpec, PrimaryKeySpec, UniqueSpec,
-    ColumnPatchSpec, ColumnTypeSpec, GeneratedColumnSpec,
-    JsonColumnSpec, PartialIndexSpec,
+    GeneratedColumnSpec, JsonColumnSpec, PartialIndexSpec,
 )
 from .ddl_generator import ModelSchemaGenerator
 from .metaclass import MetaclassMixin, ActiveRecordMetaclass
@@ -58,10 +57,8 @@ __all__ = [
     "ForeignKeySpec",
     "IndexSpec",
     "PartialIndexSpec",
-    "ColumnTypeSpec",
     "JsonColumnSpec",
     "GeneratedColumnSpec",
-    "ColumnPatchSpec",
     "PartitionSpec",
     "ModelSchemaGenerator",
     "MetaclassMixin",

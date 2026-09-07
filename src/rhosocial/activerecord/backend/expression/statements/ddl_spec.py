@@ -90,7 +90,8 @@ class UniqueSpec(DDLSpec):
 
 
 class NotNullSpec(DDLSpec):
-    """A NOT NULL constraint on a single column."""
+    """A NOT NULL constraint on a single column (column-level;
+    consumed by the generator while building the column)."""
 
     __slots__ = ("column", "name")
 
@@ -123,7 +124,8 @@ class PrimaryKeySpec(DDLSpec):
 
 
 class DefaultSpec(DDLSpec):
-    """A literal DEFAULT value for a single column.
+    """A literal DEFAULT value for a single column (column-level;
+    consumed by the generator while building the column).
 
     ``value`` may be a plain value or a lazy factory ``(dialect) -> Any``.
     Literal defaults are the portable common denominator; expression-based
@@ -269,34 +271,25 @@ class PartialIndexSpec(IndexSpec):
         )
 
 
-class ColumnTypeSpec(DDLSpec):
-    """A column-type capability spec (e.g. JSON column).
+class JsonColumnSpec(DDLSpec):
+    """Declare a column that should be a JSON column (column-level).
 
-    Marks that a column should use a backend-native type when the backend
-    supports it; backends that do not may degrade to a fallback type or
-    reject the Spec (return ``None``).
+    Consumed by the generator while building the column (not via
+    ``build_spec``): a portable ``JsonType`` is applied, which each backend
+    renders natively or as a text fallback.
     """
 
     __slots__ = ("column",)
 
     def __init__(self, column: str):
         if not column:
-            raise ValueError(f"{type(self).__name__} requires a column name")
+            raise ValueError("JsonColumnSpec requires a column name")
         self.column = column
 
 
-class JsonColumnSpec(ColumnTypeSpec):
-    """Declare a column that should be a JSON column.
-
-    Backends with native JSON support claim it and render the native JSON
-    type; others may degrade to a text fallback or reject it.
-    """
-
-    __slots__ = ()
-
-
 class GeneratedColumnSpec(DDLSpec):
-    """A generated (computed) column.
+    """A generated (computed) column (column-level;
+    consumed by the generator while building the column).
 
     ``expression`` is a ``(dialect) -> BaseExpression`` factory (or a ready
     expression); ``stored`` selects STORED vs VIRTUAL where the backend
@@ -319,29 +312,3 @@ class GeneratedColumnSpec(DDLSpec):
         self.column = column
         self.expression = expression
         self.stored = stored
-
-
-class ColumnPatchSpec(DDLSpec):
-    """Internal marker for backend-built column patches.
-
-    A backend's ``build_spec`` returns a ``ColumnPatchSpec`` instance to
-    signal the generator that the Spec must be applied onto an existing
-    ``ColumnDefinition`` (by name) rather than appended to a constraint or
-    index list. The backend sets ``patched_data_type`` / ``generated`` and the
-    generator merges them onto the matching column.
-    """
-
-    __slots__ = ("column", "patched_data_type", "generated_expression", "generated_type")
-
-    def __init__(
-        self,
-        column: str,
-        *,
-        patched_data_type: "Any" = None,
-        generated_expression: "Any" = None,
-        generated_type: "Any" = None,
-    ):
-        self.column = column
-        self.patched_data_type = patched_data_type
-        self.generated_expression = generated_expression
-        self.generated_type = generated_type

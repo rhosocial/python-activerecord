@@ -25,21 +25,12 @@ from typing import Any, Optional
 
 from ...expression.statements.ddl_spec import (
     CheckSpec,
-    ColumnPatchSpec,
-    ColumnTypeSpec,
     DDLSpec,
-    DefaultSpec,
     ForeignKeySpec,
-    GeneratedColumnSpec,
     IndexSpec,
-    JsonColumnSpec,
-    NotNullSpec,
-    PrimaryKeySpec,
     UniqueSpec,
 )
 from ...expression.statements.ddl_table import (
-    ColumnConstraint,
-    ColumnConstraintType,
     ForeignKeyConstraint,
     IndexDefinition,
     TableConstraint,
@@ -66,22 +57,10 @@ class DDLSpecBuildingMixin:
             return self._build_check_spec(spec)
         if isinstance(spec, UniqueSpec):
             return self._build_unique_spec(spec)
-        if isinstance(spec, NotNullSpec):
-            return self._build_not_null_spec(spec)
-        if isinstance(spec, PrimaryKeySpec):
-            return self._build_primary_key_spec(spec)
-        if isinstance(spec, DefaultSpec):
-            return self._build_default_spec(spec)
         if isinstance(spec, ForeignKeySpec):
             return self._build_foreign_key_spec(spec)
         if isinstance(spec, IndexSpec):
             return self._build_index_spec(spec)
-        if isinstance(spec, GeneratedColumnSpec):
-            return self._build_generated_column_spec(spec)
-        if isinstance(spec, JsonColumnSpec):
-            return self._build_json_column_spec(spec)
-        if isinstance(spec, ColumnTypeSpec):
-            return self._build_column_type_spec(spec)
         return None
 
     # ------------------------------------------------------------------
@@ -126,46 +105,6 @@ class DDLSpecBuildingMixin:
             constraint_type=TableConstraintType.UNIQUE,
             name=spec.name,
             columns=list(spec.columns),
-        )
-
-    def _build_not_null_spec(self, spec: "NotNullSpec") -> Optional[Any]:
-        """Translate a ``NotNullSpec`` to a column-level NOT NULL constraint."""
-        return ColumnConstraint(
-            constraint_type=ColumnConstraintType.NOT_NULL,
-            name=spec.name,
-        )
-
-    def _build_primary_key_spec(self, spec: "PrimaryKeySpec") -> Optional[Any]:
-        """Translate a ``PrimaryKeySpec``.
-
-        A single column becomes a column-level PK; multiple columns become a
-        table-level composite PK constraint.
-        """
-        if len(spec.columns) == 1:
-            return ColumnConstraint(
-                constraint_type=ColumnConstraintType.PRIMARY_KEY,
-                name=spec.name,
-            )
-        return TableConstraint(
-            constraint_type=TableConstraintType.PRIMARY_KEY,
-            name=spec.name,
-            columns=list(spec.columns),
-        )
-
-    def _build_default_spec(self, spec: "DefaultSpec") -> Optional[Any]:
-        """Translate a ``DefaultSpec`` to a column-level DEFAULT constraint.
-
-        Plain values are wrapped in a ``Literal`` (parameterized). Expression
-        defaults (e.g. ``nextval``) are backend-specific and belong in backend
-        Spec classes — the generic layer never embeds raw SQL.
-        """
-        from ...expression.core import Literal
-
-        default_value = Literal(self, self._resolve_value(spec.value))
-        return ColumnConstraint(
-            constraint_type=ColumnConstraintType.DEFAULT,
-            name=spec.name,
-            default_value=default_value,
         )
 
     def _build_foreign_key_spec(self, spec: "ForeignKeySpec") -> Optional[Any]:
@@ -226,46 +165,4 @@ class DDLSpecBuildingMixin:
     # ------------------------------------------------------------------
     # Capability Spec translations
     # ------------------------------------------------------------------
-    def _supports_capability(self, capability: str) -> bool:
-        """Check a ``supports_*()`` capability, tolerating unadapted dialects."""
-        method = getattr(self, capability, None)
-        if method is None:
-            return False
-        try:
-            return bool(method())
-        except Exception:
-            # Optimistic on unadapted dialects (version-dependent capability).
-            return True
-
-    def _build_generated_column_spec(self, spec: "GeneratedColumnSpec") -> Optional[Any]:
-        """Translate a ``GeneratedColumnSpec`` to a column patch.
-
-        Requires generated-column support; otherwise returns ``None``
-        (silently ignored).
-        """
-        if not self._supports_capability("supports_generated_columns"):
-            return None
-        from ...expression.statements import GeneratedColumnType
-
-        expression = self._resolve_predicate(spec.expression)
-        generated_type = (
-            GeneratedColumnType.STORED if spec.stored else GeneratedColumnType.VIRTUAL
-        )
-        return ColumnPatchSpec(
-            column=spec.column,
-            generated_expression=expression,
-            generated_type=generated_type,
-        )
-
-    def _build_json_column_spec(self, spec: "JsonColumnSpec") -> Optional[Any]:
-        """Translate a ``JsonColumnSpec`` to a column patch using the portable
-        ``JsonType``, which each backend renders natively (MySQL ``JSON``,
-        PostgreSQL ``JSON``) or as a text fallback (SQLite ``TEXT``)."""
-        from ...expression.types import JsonType
-
-        return ColumnPatchSpec(column=spec.column, patched_data_type=JsonType(self))
-
-    def _build_column_type_spec(self, spec: "ColumnTypeSpec") -> Optional[Any]:
-        """Default translation for other column-type Specs is ``None`` (unclaimed);
-        backends override to provide a native type."""
         return None

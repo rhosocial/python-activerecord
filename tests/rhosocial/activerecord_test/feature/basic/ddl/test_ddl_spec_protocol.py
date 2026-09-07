@@ -93,28 +93,44 @@ class TestGenericSpecTranslation:
         assert result.columns == ["a", "b"]
         assert result.name == "uq_ab"
 
-    def test_not_null_spec_to_column_constraint(self, dialect):
-        result = dialect.build_spec(NotNullSpec(column="a"))
-        assert isinstance(result, ColumnConstraint)
-        assert result.constraint_type == ColumnConstraintType.NOT_NULL
+    def test_not_null_spec_is_column_level(self, dialect):
+        """NotNullSpec is column-level: the generator consumes it while
+        building the column; build_spec does not claim it."""
+        assert dialect.build_spec(NotNullSpec(column="a")) is None
 
-    def test_primary_key_single_to_column_constraint(self, dialect):
-        result = dialect.build_spec(PrimaryKeySpec(columns=["id"]))
-        assert isinstance(result, ColumnConstraint)
-        assert result.constraint_type == ColumnConstraintType.PRIMARY_KEY
+    def test_primary_key_spec_precedence(self):
+        """__primary_key__ takes precedence: a PrimarySpec agreeing is a
+        no-op; a conflicting one raises at generation time."""
+        from rhosocial.activerecord.model import ActiveRecord
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
-    def test_primary_key_composite_to_table_constraint(self, dialect):
-        result = dialect.build_spec(PrimaryKeySpec(columns=["a", "b"]))
-        assert isinstance(result, TableConstraint)
-        assert result.constraint_type == TableConstraintType.PRIMARY_KEY
-        assert result.columns == ["a", "b"]
+        class Agree(ActiveRecord):
+            __table_name__ = "agree"
+            __table_constraints__ = [PrimaryKeySpec(columns=["id"])]
+            id: int
 
-    def test_default_spec_literal(self, dialect):
-        result = dialect.build_spec(DefaultSpec(column="status", value="active"))
-        assert isinstance(result, ColumnConstraint)
-        assert result.constraint_type == ColumnConstraintType.DEFAULT
-        sql, params = result.default_value.to_sql()
-        assert params == ("active",)
+        expr = Agree.generate_create_table(SQLiteDialect())  # no error
+
+        class Conflict(ActiveRecord):
+            __table_name__ = "conflict"
+            __table_constraints__ = [PrimaryKeySpec(columns=["other"])]
+            id: int
+            other: int
+
+        with pytest.raises(ValueError, match="conflicts with"):
+            Conflict.generate_create_table(SQLiteDialect())
+
+    def test_default_spec_renders_on_column(self, dialect):
+        """DefaultSpec is column-level: DEFAULT lands on the declared column."""
+        from rhosocial.activerecord.model import ActiveRecord
+
+        class T(ActiveRecord):
+            __table_name__ = "t"
+            __table_constraints__ = [DefaultSpec(column="status", value="active")]
+            status: str = "active"
+
+        sql, _ = T.generate_create_table(dialect).to_sql()
+        assert "DEFAULT" in sql
 
     def test_default_spec_rejects_raw_flag(self, dialect):
         # Raw SQL defaults are not a portable common denominator; expression
@@ -124,10 +140,14 @@ class TestGenericSpecTranslation:
             DefaultSpec(column="id", value="nextval('seq')", raw=True)
 
     def test_default_spec_lazy_value(self, dialect):
-        result = dialect.build_spec(
-            DefaultSpec(column="x", value=lambda d: 42)
-        )
-        sql, params = result.default_value.to_sql()
+        from rhosocial.activerecord.model import ActiveRecord
+
+        class T(ActiveRecord):
+            __table_name__ = "t"
+            __table_constraints__ = [DefaultSpec(column="x", value=lambda d: 42)]
+            x: int = 0
+
+        sql, params = T.generate_create_table(dialect).to_sql()
         assert params == (42,)
 
     def test_foreign_key_spec(self, dialect):
@@ -180,22 +200,21 @@ class TestBuildSpecOutputConsumedByExpressions:
         )
         from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 
-        pk = dialect.build_spec(PrimaryKeySpec(["id"]))
         uq = dialect.build_spec(UniqueSpec(["email"], name="uq_email"))
         ck = dialect.build_spec(
             CheckSpec(lambda d: Column(d, "age") >= 18, name="ck_age")
         )
-        df = dialect.build_spec(DefaultSpec("status", "active"))
         fk = dialect.build_spec(
             ForeignKeySpec(["user_id"], "users", ["id"], on_delete="CASCADE")
         )
         idx = dialect.build_spec(IndexSpec(["email"], name="ix_email"))
 
         cols = [
-            ColumnDefinition("id", IntegerType(), constraints=[pk]),
+            ColumnDefinition("id", IntegerType(),
+                             constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
             ColumnDefinition("email", VarCharType(length=255)),
             ColumnDefinition("age", IntegerType()),
-            ColumnDefinition("status", VarCharType(length=20), constraints=[df]),
+            ColumnDefinition("status", VarCharType(length=20)),
             ColumnDefinition("user_id", IntegerType()),
         ]
         expr = CreateTableExpression(
@@ -209,7 +228,6 @@ class TestBuildSpecOutputConsumedByExpressions:
         assert "PRIMARY KEY" in sql
         assert "UNIQUE" in sql
         assert "CHECK" in sql
-        assert "DEFAULT" in sql
         assert "REFERENCES" in sql
         assert "ON DELETE CASCADE" in sql
 

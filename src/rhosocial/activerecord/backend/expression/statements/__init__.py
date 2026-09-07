@@ -121,8 +121,6 @@ from .ddl_partition import PartitionClause, PartitionStrategy
 # Declarative DDL feature specs
 from .ddl_spec import (
     CheckSpec,
-    ColumnPatchSpec,
-    ColumnTypeSpec,
     DDLSpec,
     DefaultSpec,
     ForeignKeySpec,
@@ -243,10 +241,8 @@ __all__ = [
     "ForeignKeySpec",
     "IndexSpec",
     "PartialIndexSpec",
-    "ColumnTypeSpec",
     "JsonColumnSpec",
     "GeneratedColumnSpec",
-    "ColumnPatchSpec",
     "PartitionSpec",
     # CREATE TABLE diff plans
     "DiffPlan",
