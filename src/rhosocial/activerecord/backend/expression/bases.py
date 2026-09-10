@@ -12,7 +12,7 @@ import inspect
 import sys
 import warnings
 from enum import Enum
-from typing import Dict, Any, Optional, Tuple, Protocol, TYPE_CHECKING, Union
+from typing import Dict, Any, List, Optional, Tuple, Protocol, TYPE_CHECKING, Union
 from typing import runtime_checkable
 
 if sys.version_info >= (3, 10):
