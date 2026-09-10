@@ -25,44 +25,40 @@ class TestColumnSchemaName:
 
 
 class TestLiteralCastTypes:
-    """Cover core.py:39-40 — Literal.to_sql() _cast_types loop."""
+    """Literal cast goes through the CastExpression AST node."""
 
     def test_literal_with_single_cast(self, dummy_dialect):
         lit = Literal(dummy_dialect, 42)
-        lit.cast("INTEGER")
-        sql, params = lit.to_sql()
+        expr = lit.cast("INTEGER")
+        sql, params = expr.to_sql()
         assert "CAST" in sql or "INTEGER" in sql
 
     def test_literal_with_chained_casts(self, dummy_dialect):
         lit = Literal(dummy_dialect, "100")
-        lit.cast("money").cast("numeric")
-        sql, params = lit.to_sql()
+        expr = lit.cast("money").cast("numeric")
+        sql, params = expr.to_sql()
         assert sql  # Verify it doesn't crash
 
 
 class TestSubqueryCastTypes:
-    """Cover core.py:177 — Subquery.to_sql() _cast_types loop.
-
-    Subquery inherits _cast_types from SQLValueExpression but not TypeCastingMixin,
-    so we set _cast_types directly to cover the loop.
-    """
+    """Subquery cast goes through the CastExpression AST node."""
 
     def test_subquery_with_cast(self, dummy_dialect):
         subquery = Subquery(dummy_dialect, "SELECT id FROM users")
-        subquery._cast_types.append("TEXT")
-        sql, params = subquery.to_sql()
+        expr = subquery.cast("TEXT")
+        sql, params = expr.to_sql()
         assert "CAST" in sql or "TEXT" in sql
 
 
 class TestBinaryArithmeticCastTypes:
-    """Cover operators.py:153 — BinaryArithmeticExpression _cast_types loop."""
+    """Arithmetic cast goes through the CastExpression AST node."""
 
     def test_arithmetic_with_cast(self, dummy_dialect):
         left = Column(dummy_dialect, "price")
         right = Literal(dummy_dialect, 10)
         expr = BinaryArithmeticExpression(dummy_dialect, "+", left, right)
-        expr.cast("DECIMAL")
-        sql, params = expr.to_sql()
+        casted = expr.cast("DECIMAL")
+        sql, params = casted.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
 
 

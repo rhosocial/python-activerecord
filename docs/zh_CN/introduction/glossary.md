@@ -120,7 +120,14 @@ class Post(TimestampMixin, UUIDMixin, ActiveRecord):
 **可用的后端：**
 - SQLite（内置）
 - MySQL（单独包）
+- MariaDB（单独包）
 - PostgreSQL（单独包）
+- SQL Server（单独包）
+- Oracle（单独包）
+- Firebird（单独包）
+- BigQuery（单独包）
+- ClickHouse（单独包）
+- Snowflake（单独包）
 
 > 💡 **AI 提示词：** "Backend 在这个架构中的作用是什么？它如何实现数据库无关性？"
 

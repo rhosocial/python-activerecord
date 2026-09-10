@@ -102,10 +102,10 @@ class TestGeoDocumentScenario:
             *CreateTableExpression(
                 dialect, table="doc_meta",
                 columns=[
-                    ColumnDefinition("doc_id", SQLiteIntegerType(), constraints=[
-                        ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
+                    ColumnDefinition(dialect, "doc_id", SQLiteIntegerType(dialect), constraints=[
+                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("extra", SQLiteTextType()),
+                    ColumnDefinition(dialect, "extra", SQLiteTextType(dialect=dialect)),
                 ]
             ).to_sql(),
             options=ddl
@@ -427,12 +427,12 @@ class TestSpatialCatalogScenario:
             *CreateTableExpression(
                 dialect, table="features",
                 columns=[
-                    ColumnDefinition("id", SQLiteIntegerType(), constraints=[
-                        ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
+                    ColumnDefinition(dialect, "id", SQLiteIntegerType(dialect), constraints=[
+                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("name", SQLiteTextType()),
-                    ColumnDefinition("description", SQLiteTextType()),
-                    ColumnDefinition("props", SQLiteTextType()),
+                    ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
+                    ColumnDefinition(dialect, "description", SQLiteTextType(dialect=dialect)),
+                    ColumnDefinition(dialect, "props", SQLiteTextType(dialect=dialect)),
                 ]
             ).to_sql(),
             options=ddl
@@ -517,10 +517,10 @@ class TestSpatialCatalogScenario:
             *CreateTableExpression(
                 dialect, table="feature_props",
                 columns=[
-                    ColumnDefinition("feature_id", SQLiteIntegerType(), constraints=[
-                        ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
+                    ColumnDefinition(dialect, "feature_id", SQLiteIntegerType(dialect), constraints=[
+                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("props", SQLiteTextType()),
+                    ColumnDefinition(dialect, "props", SQLiteTextType(dialect=dialect)),
                 ]
             ).to_sql(),
             options=ddl

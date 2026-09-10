@@ -90,7 +90,7 @@ If you're familiar with other ORMs or frameworks, this guide will help you map y
 | Prisma | rhosocial-activerecord | Notes |
 |--------|------------------------|-------|
 | `schema.prisma` | Python type hints | Schema definition |
-| `prisma.user.findMany()` | `User.query().all()` | Query methods |
+| `prisma.user.findMany()` (TS) / `db.user.find_many()` (Python) | `User.query().all()` | Query methods |
 | `include` | `.with_()` | Relation loading |
 | Generated client | Direct class usage | No code generation needed |
 | Type-safe queries | `FieldProxy` | Both provide type safety |

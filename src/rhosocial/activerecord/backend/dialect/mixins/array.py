@@ -44,12 +44,6 @@ class ArrayMixin:
             # Default case for unsupported operations
             sql = "ARRAY[]"
 
-        # Apply type casts if any (before alias)
-        if expr.cast_types:
-            for target_type in expr.cast_types:
-                sql, all_params = self.format_cast_expression(sql, target_type, all_params, None)
-
-        # Apply alias if any (after type casts)
         if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
 

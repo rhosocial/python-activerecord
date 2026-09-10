@@ -1,12 +1,15 @@
 # src/rhosocial/activerecord/backend/expression/predicates.py
 """
 Concrete implementations of SQL predicate expressions (e.g., WHERE clause conditions).
+
+Every class is a pure tree node: it declares its dialect formatting method
+and holds construction parameters. Rendering is centralized in
+``BaseExpression.to_sql()``.
 """
 
 from typing import TYPE_CHECKING
 
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams
-from .core import Literal
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression
@@ -16,32 +19,39 @@ if TYPE_CHECKING:  # pragma: no cover
 class ComparisonPredicate(SQLPredicate):
     """Represents a comparison predicate (e.g., expr1 = expr2, expr1 > expr2)."""
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_comparison_predicate"
+
     def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"):
         super().__init__(dialect)
         self.op = op
         self.left = left
         self.right = right
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_comparison_predicate method with the whole expression
-        return self.dialect.format_comparison_predicate(self.op, self.left, self.right)
-
 
 class LogicalPredicate(SQLPredicate):
     """Represents a logical predicate (e.g., pred1 AND pred2, NOT pred)."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_logical_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", op: str, *predicates: "SQLPredicate"):
         super().__init__(dialect)
         self.op = op
         self.predicates = list(predicates)
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_logical_predicate method with the whole expression
-        return self.dialect.format_logical_predicate(self.op, *self.predicates)
-
 
 class LikePredicate(SQLPredicate):
     """Represents a LIKE or ILIKE predicate."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_like_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValueExpression", pattern: "SQLValueExpression"):
         super().__init__(dialect)
@@ -49,31 +59,28 @@ class LikePredicate(SQLPredicate):
         self.expr = expr
         self.pattern = pattern
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_like_predicate method with the whole expression
-        return self.dialect.format_like_predicate(self.op, self.expr, self.pattern)
-
 
 class InPredicate(SQLPredicate):
     """Represents an IN predicate (e.g., expr IN (val1, val2) or expr IN (subquery))."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_in_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", expr: "SQLValueExpression", values: "BaseExpression"):
         super().__init__(dialect)
         self.expr = expr
         self.values = values
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Check if values is a Literal containing a collection and delegate to dialect
-        if isinstance(self.values, Literal) and isinstance(self.values.value, (list, tuple, set)):
-            # Delegate to dialect's format_in_predicate_with_literal_values with the whole expression
-            return self.dialect.format_in_predicate_with_literal_values(self.expr, self.values.value)
-        else:
-            # Delegate to dialect's format_in_predicate with the whole expression
-            return self.dialect.format_in_predicate(self.expr, self.values)
-
 
 class BetweenPredicate(SQLPredicate):
     """Represents a BETWEEN predicate (e.g., expr BETWEEN low AND high)."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_between_predicate"
 
     def __init__(
         self,
@@ -86,10 +93,6 @@ class BetweenPredicate(SQLPredicate):
         self.expr = expr
         self.low = low
         self.high = high
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_between_predicate method with the whole expression
-        return self.dialect.format_between_predicate(self.expr, self.low, self.high)
 
 
 class IsNullPredicate(SQLPredicate):
@@ -117,14 +120,15 @@ class IsNullPredicate(SQLPredicate):
         ('"email" IS NOT NULL', ())
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_is_null_predicate"
+
     def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", is_not: bool = False):
         super().__init__(dialect)
         self.expr = expr
         self.is_not = is_not
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_is_null_predicate method with the whole expression
-        return self.dialect.format_is_null_predicate(self.expr, self.is_not)
 
 
 class IsBooleanPredicate(SQLPredicate):
@@ -146,9 +150,9 @@ class IsBooleanPredicate(SQLPredicate):
        identity comparison (checking if two variables reference the same object).
     2. ``is`` is a keyword in Python, not a method name, so it cannot be
        used as a method name on expression objects.
-    3. SQL's ``IS TRUE/FALSE`` has different semantics from Python's ``is True/False`` -
-       SQL uses three-valued logic (TRUE, FALSE, NULL), while Python's ``is``
-       checks object identity.
+    3. SQL's ``IS TRUE/FALSE`` has different semantics from Python's ``is
+       True/False`` - SQL uses three-valued logic (TRUE, FALSE, NULL), while
+       Python's ``is`` checks object identity.
 
     Example:
         >>> col = Column(dialect, "is_active")
@@ -157,6 +161,11 @@ class IsBooleanPredicate(SQLPredicate):
         >>> col.is_not_true().to_sql()
         ('"is_active" IS NOT TRUE', ())
     """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_is_boolean_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", value: bool, is_not: bool = False):
         """
@@ -172,7 +181,3 @@ class IsBooleanPredicate(SQLPredicate):
         self.expr = expr
         self.value = value
         self.is_not = is_not
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_is_boolean_predicate method
-        return self.dialect.format_is_boolean_predicate(self.expr, self.value, self.is_not)

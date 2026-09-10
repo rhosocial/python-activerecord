@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Tuple
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression.bases import BaseExpression, ToSQLProtocol
+from ...expression.core import Literal
 
 
 class DDLColumnMixin:
@@ -19,7 +20,7 @@ class DDLColumnMixin:
 
     def format_column_definition(self, col_def) -> Tuple[str, tuple]:
         all_params: List[Any] = []
-        type_sql, _ = col_def.data_type.to_sql(self)
+        type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
         for constraint in col_def.constraints:
             suffix, params = self.format_column_constraint(constraint)
@@ -60,13 +61,21 @@ class DDLColumnMixin:
         from ...dialect.base import SQLDialectBase
         if constraint.default_value is None:
             raise ValueError("DEFAULT constraint must have a default value specified.")
+        # DDL accepts no bind parameters: the DEFAULT value renders inline
+        # with dialect-controlled escaping.
         if isinstance(constraint.default_value, BaseExpression):
             default_sql, default_params = constraint.default_value.to_sql()
+            if default_params:
+                # A parameterized value (e.g. a Literal) inside DDL:
+                # re-render its raw value inline.
+                if isinstance(constraint.default_value, Literal):
+                    default_sql = self.inline_sql_literal(constraint.default_value.value)
+                    default_params = ()
             return f" DEFAULT {default_sql}", tuple(default_params)
         if isinstance(constraint.default_value, str):
             escaped = SQLDialectBase._escape_sql_string(constraint.default_value)
             return f" DEFAULT '{escaped}'", ()
-        return f" DEFAULT {constraint.default_value}", ()
+        return f" DEFAULT {self.inline_sql_literal(constraint.default_value)}", ()
 
     def format_column_fk_constraint(self, constraint) -> Tuple[str, tuple]:
         from ...expression.statements import ReferentialAction
@@ -181,15 +190,20 @@ class DDLColumnMixin:
                     raise ValueError(f"Invalid data type specification: '{action.new_value}'")
                 column_part += f" {action.new_value}"
             elif isinstance(action.new_value, str):
-                column_part += f" {self.get_parameter_placeholder()}"
-                all_params.append(action.new_value)
+                # DDL accepts no bind parameters: inline with escaping.
+                from ...dialect.base import SQLDialectBase
+                column_part += f" '{SQLDialectBase._escape_sql_string(action.new_value)}'"
             elif isinstance(action.new_value, ToSQLProtocol):
                 value_sql, value_params = action.new_value.to_sql()
+                if value_params:
+                    # Parameterized literal inside DDL → render inline.
+                    if isinstance(action.new_value, Literal):
+                        value_sql = self.inline_sql_literal(action.new_value.value)
+                        value_params = ()
                 column_part += f" {value_sql}"
                 all_params.extend(value_params)
             else:
-                column_part += f" {self.get_parameter_placeholder()}"
-                all_params.append(action.new_value)
+                column_part += f" {self.inline_sql_literal(action.new_value)}"
         if hasattr(action, "cascade") and action.cascade:
             column_part += " CASCADE"
         return column_part, tuple(all_params)
@@ -270,6 +284,17 @@ class DDLColumnMixin:
         if hasattr(action, "cascade") and action.cascade:
             result += " CASCADE"
         return result, ()
+
+    def format_index_definition(self, expr) -> Tuple[str, tuple]:
+        """Format an :class:`~...expression.statements.IndexDefinition` clause."""
+        cols_str = ", ".join(self.format_identifier(col) for col in expr.columns)
+        unique_str = "UNIQUE " if expr.unique else ""
+        type_str = f" USING {expr.type}" if expr.type else ""
+        return f"{unique_str}{self.format_identifier(expr.name)}{type_str} ({cols_str})", ()
+
+    def format_table_constraint(self, expr) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.statements.TableConstraint` clause."""
+        return self.format_table_constraint_sql(expr)
 
     def format_add_index_action(self, action) -> Tuple[str, tuple]:
         columns = ", ".join(

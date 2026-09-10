@@ -523,10 +523,10 @@ class TestMigrationRunner:
         from rhosocial.activerecord.backend.expression.core import Column as ColExpr
 
         def unsupported_expr(dialect):
-            col_def = ColumnDefinition(
+            col_def = ColumnDefinition(dialect, 
                 "id",
-                SQLiteIntegerType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+                SQLiteIntegerType(dialect),
+                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
             )
             col_expr = ColExpr(dialect, "id")
             return CreateTableExpression(
@@ -602,13 +602,13 @@ class TestMigrationRunnerIntegration:
             dialect,
             table="users",
             columns=[
-                ColumnDefinition(
+                ColumnDefinition(dialect, 
                     "id",
-                    SQLiteIntegerType(),
-                    constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+                    SQLiteIntegerType(dialect),
+                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
                 ),
-                ColumnDefinition("name", SQLiteTextType()),
-                ColumnDefinition("email", SQLiteTextType()),
+                ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
+                ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
             ],
         )
 
@@ -818,12 +818,12 @@ class TestMigrationRunnerIntegration:
                     sqlite_backend.dialect,
                     table="posts",
                     columns=[
-                        ColumnDefinition(
+                        ColumnDefinition(sqlite_backend.dialect, 
                             "id",
-                            SQLiteIntegerType(),
-                            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+                            SQLiteIntegerType(sqlite_backend.dialect),
+                            constraints=[ColumnConstraint(sqlite_backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
                         ),
-                        ColumnDefinition("title", SQLiteTextType()),
+                        ColumnDefinition(sqlite_backend.dialect, "title", SQLiteTextType(dialect=sqlite_backend.dialect)),
                     ],
                 )
                 sqlite_backend.execute(*expr.to_sql())
@@ -912,12 +912,12 @@ class TestUserParams:
                     ctx.dialect,
                     table=self.table_name,
                     columns=[
-                        ColumnDefinition(
+                        ColumnDefinition(sqlite_backend.dialect, 
                             "id",
-                            SQLiteIntegerType(),
-                            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+                            SQLiteIntegerType(sqlite_backend.dialect),
+                            constraints=[ColumnConstraint(sqlite_backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
                         ),
-                        ColumnDefinition("value", SQLiteTextType()),
+                        ColumnDefinition(sqlite_backend.dialect, "value", SQLiteTextType(dialect=sqlite_backend.dialect)),
                     ],
                 )
                 sqlite_backend.execute(*expr.to_sql())
@@ -1137,12 +1137,12 @@ class TestAsyncMigrationRunnerIntegration:
                         ctx.dialect,
                         table=self.table_name,
                         columns=[
-                            ColumnDefinition(
+                            ColumnDefinition(ctx.dialect, 
                                 "id",
-                                SQLiteIntegerType(),
-                                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+                                SQLiteIntegerType(ctx.dialect),
+                                constraints=[ColumnConstraint(ctx.dialect, ColumnConstraintType.PRIMARY_KEY)],
                             ),
-                            ColumnDefinition("value", SQLiteTextType()),
+                            ColumnDefinition(ctx.dialect, "value", SQLiteTextType(dialect=ctx.dialect)),
                         ],
                     )
                     await backend.execute(*expr.to_sql())
@@ -1182,13 +1182,13 @@ def _make_create_users_expr_static(dialect):
         dialect,
         table="users",
         columns=[
-            ColumnDefinition(
+            ColumnDefinition(dialect, 
                 "id",
-                SQLiteIntegerType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+                SQLiteIntegerType(dialect),
+                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition("name", SQLiteTextType()),
-            ColumnDefinition("email", SQLiteTextType()),
+            ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
+            ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
         ],
     )
 
@@ -1447,12 +1447,12 @@ def _run_create_users(backend, ctx):
         backend.dialect,
         table="users",
         columns=[
-            ColumnDefinition(
+            ColumnDefinition(backend.dialect, 
                 "id",
-                SQLiteIntegerType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+                SQLiteIntegerType(backend.dialect),
+                constraints=[ColumnConstraint(backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition("name", SQLiteTextType()),
+            ColumnDefinition(backend.dialect, "name", SQLiteTextType(dialect=backend.dialect)),
         ],
     )
     backend.execute(*expr.to_sql())
@@ -1479,12 +1479,12 @@ def _run_create_posts(backend, ctx):
         backend.dialect,
         table="posts",
         columns=[
-            ColumnDefinition(
+            ColumnDefinition(backend.dialect, 
                 "id",
-                SQLiteIntegerType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+                SQLiteIntegerType(backend.dialect),
+                constraints=[ColumnConstraint(backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition("title", SQLiteTextType()),
+            ColumnDefinition(backend.dialect, "title", SQLiteTextType(dialect=backend.dialect)),
         ],
     )
     backend.execute(*expr.to_sql())

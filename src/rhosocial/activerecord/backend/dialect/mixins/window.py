@@ -61,13 +61,6 @@ class WindowFunctionMixin:
 
             sql = f"{func_sql} OVER {window_part}"
 
-        # Apply type casts if any (before alias)
-        if call.cast_types:
-            for target_type in call.cast_types:
-                sql, all_params_tuple = self.format_cast_expression(sql, target_type, tuple(all_params), None)
-                all_params = list(all_params_tuple)
-
-        # Apply alias if any (after type casts)
         if call.alias:
             sql = f"{sql} AS {self.format_identifier(call.alias)}"
 

@@ -40,13 +40,6 @@ class OrderedSetAggregationMixin:
 
         all_params = func_args_params + list(order_by_params)
 
-        # Apply type casts if any (before alias)
-        if aggregation.cast_types:
-            for target_type in aggregation.cast_types:
-                sql, all_params_tuple = self.format_cast_expression(sql, target_type, tuple(all_params), None)
-                all_params = list(all_params_tuple)
-
-        # Apply alias if any (after type casts)
         if aggregation.alias:
             sql = f"{sql} AS {self.format_identifier(aggregation.alias)}"
 

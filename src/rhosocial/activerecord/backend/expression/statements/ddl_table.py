@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_table.py
 """Table DDL statement expressions and related types."""
 
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
@@ -26,23 +25,46 @@ class ColumnConstraintType(Enum):
     DEFAULT = "DEFAULT"
 
 
-@dataclass
-class ColumnConstraint:
-    """Represents a column constraint (PRIMARY KEY, NOT NULL, UNIQUE, etc.)"""
+class ColumnConstraint(BaseExpression):
+    """Represents a column constraint clause (PRIMARY KEY, NOT NULL, UNIQUE, …).
 
-    constraint_type: ColumnConstraintType
-    name: Optional[str] = None  # Optional constraint name
-    check_condition: Optional["SQLPredicate"] = None  # For CHECK constraints
-    foreign_key_reference: Optional[Tuple[str, List[str]]] = None  # (referenced_table, referenced_columns)
-    default_value: Any = None  # For DEFAULT constraints
-    is_auto_increment: bool = False  # For AUTO_INCREMENT/IDENTITY columns
-    # FK referential actions for column-level foreign key constraints
-    on_delete: Optional["ReferentialAction"] = None  # ON DELETE action
-    on_update: Optional["ReferentialAction"] = None  # ON UPDATE action
-    # SQL standard constraint deferral (PostgreSQL)
-    deferrable: Optional[bool] = None  # DEFERRABLE / NOT DEFERRABLE (None = omit)
-    initially_deferred: Optional[bool] = None  # INITIALLY DEFERRED / INITIALLY IMMEDIATE (None = omit)
-    dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+    A DDL clause node: it participates in rendering through the dialect's
+    ``format_column_constraint`` and holds the expressions its grammar
+    contains (CHECK condition, DEFAULT value).
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_constraint"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        constraint_type: ColumnConstraintType,
+        name: Optional[str] = None,
+        check_condition: Optional["SQLPredicate"] = None,
+        foreign_key_reference: Optional[Tuple[str, List[str]]] = None,
+        default_value: Any = None,
+        is_auto_increment: bool = False,
+        on_delete: Optional["ReferentialAction"] = None,
+        on_update: Optional["ReferentialAction"] = None,
+        deferrable: Optional[bool] = None,
+        initially_deferred: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(dialect)
+        self.constraint_type = constraint_type
+        self.name = name
+        self.check_condition = check_condition
+        self.foreign_key_reference = foreign_key_reference
+        self.default_value = default_value
+        self.is_auto_increment = is_auto_increment
+        self.on_delete = on_delete
+        self.on_update = on_update
+        self.deferrable = deferrable
+        self.initially_deferred = initially_deferred
+        self.dialect_options = dialect_options or {}
 
 
 class GeneratedColumnType(Enum):
@@ -52,25 +74,43 @@ class GeneratedColumnType(Enum):
     VIRTUAL = "VIRTUAL"  # Computed on read, not stored
 
 
-@dataclass
-class ColumnDefinition:
-    """Represents a column's definition within a CREATE/ALTER TABLE statement."""
+class ColumnDefinition(BaseExpression):
+    """Represents a column definition clause within CREATE/ALTER TABLE.
 
-    name: str
-    data_type: "DataType"  # Column type expression (e.g. VarCharType(255), IntegerType(), DecimalType(10,2))
-    constraints: List[ColumnConstraint] = field(default_factory=list)  # Column constraints
-    comment: Optional[str] = None  # Column comment
-    dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
-    # Generated column support (SQLite 3.31.0+, PostgreSQL, MySQL)
-    generated_expression: Optional["BaseExpression"] = None  # Expression for generated column
-    generated_type: Optional[GeneratedColumnType] = None  # STORED or VIRTUAL
+    A DDL clause node rendered through the dialect's
+    ``format_column_definition``; its children (data type, constraints,
+    generated-column expression) are proper expression nodes, so dialect
+    propagation reaches the whole clause subtree.
+    """
 
-    def __post_init__(self):
-        """Validate that data_type is a DataType instance."""
-        if not isinstance(self.data_type, DataType):
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_definition"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        name: str,
+        data_type: "DataType",
+        constraints: Optional[List[ColumnConstraint]] = None,
+        comment: Optional[str] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+        generated_expression: Optional["BaseExpression"] = None,
+        generated_type: Optional[GeneratedColumnType] = None,
+    ):
+        super().__init__(dialect)
+        if not isinstance(data_type, DataType):
             raise TypeError(
-                f"data_type must be a DataType instance, got {type(self.data_type).__name__}"
+                f"data_type must be a DataType instance, got {type(data_type).__name__}"
             )
+        self.name = name
+        self.data_type = data_type
+        self.constraints = list(constraints or [])
+        self.comment = comment
+        self.dialect_options = dialect_options or {}
+        self.generated_expression = generated_expression
+        self.generated_type = generated_type
 
 
 class TableConstraintType(Enum):
@@ -111,46 +151,112 @@ class ConstraintValidation(Enum):
     NOVALIDATE = "NOT VALID"
 
 
-@dataclass
-class TableConstraint:
-    """Represents a table-level constraint."""
+class TableConstraint(BaseExpression):
+    """Represents a table-level constraint clause in CREATE/ALTER TABLE."""
 
-    constraint_type: TableConstraintType
-    name: Optional[str] = None  # Optional constraint name
-    columns: Optional[List[str]] = None  # For PK, UK constraints
-    check_condition: Optional["SQLPredicate"] = None  # For CHECK constraints
-    foreign_key_table: Optional[str] = None  # For FK constraints
-    foreign_key_columns: Optional[List[str]] = None  # For FK constraints
-    # SQL standard constraint deferral (PostgreSQL)
-    deferrable: Optional[bool] = None  # DEFERRABLE / NOT DEFERRABLE (None = omit)
-    initially_deferred: Optional[bool] = None  # INITIALLY DEFERRED / INITIALLY IMMEDIATE (None = omit)
-    dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_constraint"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        constraint_type: TableConstraintType,
+        name: Optional[str] = None,
+        columns: Optional[List[str]] = None,
+        check_condition: Optional["SQLPredicate"] = None,
+        foreign_key_table: Optional[str] = None,
+        foreign_key_columns: Optional[List[str]] = None,
+        deferrable: Optional[bool] = None,
+        initially_deferred: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(dialect)
+        self.constraint_type = constraint_type
+        self.name = name
+        self.columns = columns
+        self.check_condition = check_condition
+        self.foreign_key_table = foreign_key_table
+        self.foreign_key_columns = foreign_key_columns
+        self.deferrable = deferrable
+        self.initially_deferred = initially_deferred
+        self.dialect_options = dialect_options or {}
 
 
-@dataclass
 class ForeignKeyConstraint(TableConstraint):
     """Specialized table constraint for foreign keys with additional options."""
 
-    constraint_type: TableConstraintType = TableConstraintType.FOREIGN_KEY
-    on_delete: ReferentialAction = ReferentialAction.NO_ACTION
-    on_update: ReferentialAction = ReferentialAction.NO_ACTION
-    match_type: Optional[str] = None  # "SIMPLE", "PARTIAL", "FULL" for foreign key matching
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_constraint"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        columns: Optional[List[str]] = None,
+        foreign_key_table: Optional[str] = None,
+        foreign_key_columns: Optional[List[str]] = None,
+        on_delete: "ReferentialAction" = ReferentialAction.NO_ACTION,
+        on_update: "ReferentialAction" = ReferentialAction.NO_ACTION,
+        match_type: Optional[str] = None,
+        name: Optional[str] = None,
+        deferrable: Optional[bool] = None,
+        initially_deferred: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            dialect,
+            TableConstraintType.FOREIGN_KEY,
+            name=name,
+            columns=columns,
+            foreign_key_table=foreign_key_table,
+            foreign_key_columns=foreign_key_columns,
+            deferrable=deferrable,
+            initially_deferred=initially_deferred,
+            dialect_options=dialect_options,
+        )
+        self.on_delete = on_delete
+        self.on_update = on_update
+        self.match_type = match_type
 
 
-@dataclass
-class IndexDefinition:
-    """Represents an index definition for a table."""
+class IndexDefinition(BaseExpression):
+    """Represents an index definition clause for CREATE TABLE / ADD INDEX."""
 
-    name: str
-    columns: List[str]  # List of column names to index
-    unique: bool = False  # Whether the index enforces uniqueness
-    type: Optional[str] = None  # Index type: BTREE, HASH, GIN, etc.
-    partial_condition: Optional["SQLPredicate"] = None  # For partial indexes (PostgreSQL)
-    include_columns: Optional[List[str]] = None  # Included columns (non-key columns in index, SQL Server/PostgreSQL)
-    dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_index_definition"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        name: str,
+        columns: List[str],
+        unique: bool = False,
+        type: Optional[str] = None,
+        partial_condition: Optional["SQLPredicate"] = None,
+        include_columns: Optional[List[str]] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(dialect)
+        self.name = name
+        self.columns = list(columns)
+        self.unique = unique
+        self.type = type
+        self.partial_condition = partial_condition
+        self.include_columns = include_columns
+        self.dialect_options = dialect_options or {}
 
 
 class CreateTableExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_table_statement"
     """Represents a comprehensive CREATE TABLE statement supporting full SQL standard features."""
 
     def __init__(
@@ -199,12 +305,18 @@ class CreateTableExpression(BaseExpression):
         """Get the table name (for backward compatibility)."""
         return self.table.name
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the CREATE TABLE statement to the configured dialect."""
-        return self.dialect.format_create_table_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_table_statement"
 
 
 class DropTableExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_table_statement"
     """Represents a DROP TABLE statement conforming to SQL standard.
 
     SQL Standard Syntax:
@@ -287,6 +399,7 @@ class DropTableExpression(BaseExpression):
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the DROP TABLE statement to the configured dialect."""
-        return self.dialect.format_drop_table_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_table_statement"

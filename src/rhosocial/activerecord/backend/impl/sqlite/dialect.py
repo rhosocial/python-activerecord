@@ -520,12 +520,7 @@ class SQLiteDialect(
             type(self)._lateral_support = result
         return self._lateral_support
 
-    def format_values_expression(
-        self,
-        values: List[Tuple[Any, ...]],
-        alias: Optional[str],
-        column_names: Optional[List[str]],
-    ) -> Tuple[str, Tuple]:
+    def format_values_expression(self, expr) -> Tuple[str, Tuple]:
         """SQLite override: VALUES does not support ``AS alias(col, ...)`` syntax.
 
         The base ``ExpressionMixin`` implementation appends a parenthesised
@@ -535,6 +530,7 @@ class SQLiteDialect(
         Column names must instead be assigned through an outer CTE or by
         referencing the implicit ``column1``/``column2`` names.
         """
+        values, alias, column_names = expr.values, expr.alias, expr.column_names
         all_params: List[Any] = []
         rows_sql: List[str] = []
         for row in values:
@@ -782,10 +778,9 @@ class SQLiteDialect(
         # SQLite doesn't support FOR UPDATE in set operations
         return False
 
-    def format_grouping_expression(
-        self, operation: str, _expressions: List["bases.BaseExpression"]
-    ) -> Tuple[str, tuple]:
+    def format_grouping_expression(self, expr) -> Tuple[str, tuple]:
         """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
+        operation = expr.operation
         # Check feature support based on operation type
         if operation.upper() == "ROLLUP":
             if not self.supports_rollup():
@@ -807,22 +802,8 @@ class SQLiteDialect(
         # SQLite does not support native array types
         raise UnsupportedFeatureError(self.name, "Array operations", _SUGGESTION_ARRAY_TYPES)
 
-    def format_json_table_expression(
-        self, _json_col_sql: str, _path: str, _columns: List[Dict[str, Any]], _alias: Optional[str], _params: tuple
-    ) -> Tuple[str, Tuple]:
-        """
-        Format JSON_TABLE expression.
-
-        Args:
-            json_col_sql: SQL for the JSON column/expression.
-            path: The JSON path expression.
-            columns: A list of dictionaries, each defining a column.
-            alias: The alias for the resulting table.
-            params: Parameters for the JSON column expression.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted expression.
-        """
+    def format_json_table_expression(self, _expr: "JSONTableExpression") -> Tuple[str, Tuple]:
+        """Format JSON_TABLE expression — unsupported in SQLite."""
         # SQLite does not support JSON_TABLE function directly
         raise UnsupportedFeatureError(self.name, "JSON_TABLE function", _SUGGESTION_JSON_TABLE)
 

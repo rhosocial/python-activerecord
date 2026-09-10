@@ -20,19 +20,18 @@ class AdvancedGroupingMixin:
         """Whether GROUPING SETS are supported."""
         return False
 
-    def format_grouping_expression(
-        self, operation: str, expressions: List["bases.BaseExpression"]
-    ) -> Tuple[str, tuple]:
+    def format_grouping_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """
         Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
 
         Args:
-            operation: The grouping operation ('ROLLUP', 'CUBE', or 'GROUPING SETS').
-            expressions: List of expressions to group by.
+            expr: The GroupingExpression node (operation + grouped expressions).
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
+        operation = expr.operation
+        expressions = expr.expressions
         # Check feature support based on operation type
         if operation.upper() == "ROLLUP":
             if not self.supports_rollup():

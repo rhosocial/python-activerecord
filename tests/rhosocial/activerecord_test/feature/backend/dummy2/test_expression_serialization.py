@@ -768,7 +768,7 @@ class TestDDLRoundtrip:
             ColumnConstraintType,
         )
 
-        col_def = ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)])
+        col_def = ColumnDefinition(dummy_dialect, "id", IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)])
         expr = CreateTableExpression(dummy_dialect, table="users", columns=[col_def])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
@@ -966,7 +966,9 @@ class TestCastChainDeserializationError:
                 "__cast__": ["INTEGER"],
             },
         }
-        with pytest.raises(ExpressionDeserializationError, match="does not support cast"):
+        # The __cast__ special key was removed: casts are CastExpression AST
+        # nodes now, so an unknown __cast__ init parameter fails reconstruction.
+        with pytest.raises(ExpressionDeserializationError):
             ExpressionSerializer().deserialize(spec, dummy_dialect)
 
 

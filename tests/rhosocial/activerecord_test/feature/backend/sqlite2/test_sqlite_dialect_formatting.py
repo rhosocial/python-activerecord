@@ -86,8 +86,10 @@ class TestSQLiteDialectFormatting:
         dialect = SQLiteDialect()
         mock_expressions = []
 
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingExpression
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_grouping_expression("ROLLUP", mock_expressions)
+            dialect.format_grouping_expression(GroupingExpression(dialect, "ROLLUP", mock_expressions))
 
         assert "ROLLUP" in str(exc_info.value)
         assert "SQLite" in str(exc_info.value)
@@ -97,8 +99,10 @@ class TestSQLiteDialectFormatting:
         dialect = SQLiteDialect()
         mock_expressions = []
 
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingExpression
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_grouping_expression("CUBE", mock_expressions)
+            dialect.format_grouping_expression(GroupingExpression(dialect, "CUBE", mock_expressions))
 
         assert "CUBE" in str(exc_info.value)
         assert "SQLite" in str(exc_info.value)
@@ -108,8 +112,10 @@ class TestSQLiteDialectFormatting:
         dialect = SQLiteDialect()
         mock_expressions = []
 
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingExpression
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_grouping_expression("GROUPING SETS", mock_expressions)
+            dialect.format_grouping_expression(GroupingExpression(dialect, "GROUPING SETS", mock_expressions))
 
         assert "GROUPING SETS" in str(exc_info.value)
         assert "SQLite" in str(exc_info.value)
@@ -126,8 +132,10 @@ class TestSQLiteDialectFormatting:
         """Parametrized test for unsupported grouping formatting methods"""
         dialect = SQLiteDialect()
 
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingExpression
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_grouping_expression(operation, [])
+            dialect.format_grouping_expression(GroupingExpression(dialect, operation, []))
 
         assert expected_error_part in str(exc_info.value)
 
@@ -157,8 +165,11 @@ class TestSQLiteDialectFormatting:
         """Test JSON_TABLE expression formatting error"""
         dialect = SQLiteDialect()
 
+        from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+
+        json_table = JSONTableExpression(dialect, json_column="json_col", path="$.path", columns=[], alias="alias")
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_json_table_expression("json_col", "$.path", [], "alias", ())
+            dialect.format_json_table_expression(json_table)
 
         assert "JSON_TABLE function" in str(exc_info.value)
         assert "SQLite does not support JSON_TABLE" in str(exc_info.value)
@@ -229,7 +240,8 @@ class TestSQLiteDialectFormatting:
                 mock_expr.cast_types = []
                 method(mock_expr)
             elif method_name == "format_json_table_expression":
-                method("json_col", "$.path", [], "alias", ())
+                from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+                method(JSONTableExpression(dialect, json_column="json_col", path="$.path", columns=[], alias="alias"))
             elif method_name == "format_ordered_set_aggregation":
                 from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
                 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause

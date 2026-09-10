@@ -11,6 +11,8 @@ from ._base import DataType
 class CharType(DataType):
     """CHAR[(n)] / CHARACTER[(n)] — fixed-length string."""
 
+    name = "char"
+
     length: Optional[int] = None
 
     def __init__(self, length: Optional[int] = None, dialect=None):
@@ -29,6 +31,8 @@ class CharType(DataType):
 class VarCharType(DataType):
     """VARCHAR(n) — variable-length string."""
 
+    name = "varchar"
+
     length: Optional[int] = None
 
     def __init__(self, length: Optional[int] = None, dialect=None):
@@ -46,3 +50,5 @@ class VarCharType(DataType):
 
 class TextType(DataType):
     """TEXT / CLOB / LONGVARCHAR — unbounded string."""
+
+    name = "text"

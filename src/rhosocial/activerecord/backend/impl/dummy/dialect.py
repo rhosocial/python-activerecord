@@ -295,71 +295,105 @@ class DummyDialect(
     # DataType formatters (core types — for to_sql() testing)
     # ------------------------------------------------------------------
 
-    @DDLTypeMixin.handles(TinyIntType)
+    def supports_data_type_tinyint(self) -> bool:
+        return True
+
     def format_data_type_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
         return "TINYINT", ()
 
-    @DDLTypeMixin.handles(SmallIntType)
+    def supports_data_type_smallint(self) -> bool:
+        return True
+
     def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
         return "SMALLINT", ()
 
-    @DDLTypeMixin.handles(IntType)
+    def supports_data_type_int(self) -> bool:
+        return True
+
     def format_data_type_int(self, data_type: IntType) -> Tuple[str, tuple]:
         return "INT", ()
 
-    @DDLTypeMixin.handles(IntegerType)
+    def supports_data_type_integer(self) -> bool:
+        return True
+
     def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
         return "INTEGER", ()
 
-    @DDLTypeMixin.handles(BigIntType)
+    def supports_data_type_bigint(self) -> bool:
+        return True
+
     def format_data_type_bigint(self, data_type: BigIntType) -> Tuple[str, tuple]:
         return "BIGINT", ()
 
-    @DDLTypeMixin.handles(RealType)
+    def supports_data_type_real(self) -> bool:
+        return True
+
     def format_data_type_real(self, data_type: RealType) -> Tuple[str, tuple]:
         return "REAL", ()
 
-    @DDLTypeMixin.handles(DoubleType)
+    def supports_data_type_double(self) -> bool:
+        return True
+
     def format_data_type_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
         return "DOUBLE PRECISION", ()
 
-    @DDLTypeMixin.handles(TextType)
+    def supports_data_type_text(self) -> bool:
+        return True
+
     def format_data_type_text(self, data_type: TextType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    @DDLTypeMixin.handles(BooleanType)
+    def supports_data_type_boolean(self) -> bool:
+        return True
+
     def format_data_type_boolean(self, data_type: BooleanType) -> Tuple[str, tuple]:
         return "BOOLEAN", ()
 
-    @DDLTypeMixin.handles(BlobType)
+    def supports_data_type_blob(self) -> bool:
+        return True
+
     def format_data_type_blob(self, data_type: BlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
-    @DDLTypeMixin.handles(DateType)
+    def supports_data_type_date(self) -> bool:
+        return True
+
     def format_data_type_date(self, data_type: DateType) -> Tuple[str, tuple]:
         return "DATE", ()
 
-    @DDLTypeMixin.handles(JsonType)
+    def supports_data_type_json(self) -> bool:
+        return True
+
     def format_data_type_json(self, data_type: JsonType) -> Tuple[str, tuple]:
         return "JSON", ()
 
-    @DDLTypeMixin.handles(JsonBType)
+    def supports_data_type_jsonb(self) -> bool:
+        return True
+
     def format_data_type_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
         return "JSONB", ()
 
-    @DDLTypeMixin.handles(CharType)
+    def supports_data_type_char(self) -> bool:
+        return True
+
     def format_data_type_char(self, data_type: CharType) -> Tuple[str, tuple]:
         return (f"CHAR({data_type.length})" if data_type.length is not None else "CHAR"), ()
 
-    @DDLTypeMixin.handles(VarCharType)
+    def supports_data_type_varchar(self) -> bool:
+        return True
+
     def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
         return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
 
-    @DDLTypeMixin.handles(FloatType)
+    def supports_data_type_float(self) -> bool:
+        return True
+
     def format_data_type_float(self, data_type: FloatType) -> Tuple[str, tuple]:
         return (f"FLOAT({data_type.precision})" if data_type.precision is not None else "FLOAT"), ()
 
-    @DDLTypeMixin.handles(DecimalType)
+    def supports_data_type_decimal(self) -> bool:
+        return True
+
     def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
         if data_type.precision is not None and data_type.scale is not None:
             return f"DECIMAL({data_type.precision},{data_type.scale})", ()
@@ -367,37 +401,50 @@ class DummyDialect(
             return f"DECIMAL({data_type.precision})", ()
         return "DECIMAL", ()
 
-    @DDLTypeMixin.handles(TimeType)
+    def supports_data_type_time(self) -> bool:
+        return True
+
     def format_data_type_time(self, data_type: TimeType) -> Tuple[str, tuple]:
         return (f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"), ()
 
-    @DDLTypeMixin.handles(TimeTzType)
+    def supports_data_type_timetz(self) -> bool:
+        return True
+
     def format_data_type_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
         base = f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"
         return f"{base} WITH TIME ZONE", ()
 
-    @DDLTypeMixin.handles(DateTimeType)
     def format_data_type_datetime(self, data_type: DateTimeType) -> Tuple[str, tuple]:
         return (f"DATETIME({data_type.precision})" if data_type.precision is not None else "DATETIME"), ()
 
-    @DDLTypeMixin.handles(TimestampType)
+    def supports_data_type_timestamp(self) -> bool:
+        return True
+
     def format_data_type_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
         return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
 
-    @DDLTypeMixin.handles(TimestampTzType)
+    def supports_data_type_timestamptz(self) -> bool:
+        return True
+
     def format_data_type_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
         base = f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"
         return f"{base} WITH TIME ZONE", ()
 
-    @DDLTypeMixin.handles(IntervalType)
+    def supports_data_type_interval(self) -> bool:
+        return True
+
     def format_data_type_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
         return (f"INTERVAL {data_type.fields}" if data_type.fields else "INTERVAL"), ()
 
-    @DDLTypeMixin.handles(CustomType)
+    def supports_data_type_custom(self) -> bool:
+        return True
+
     def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
         return data_type.raw, ()
 
-    @DDLTypeMixin.handles(ArrayType)
+    def supports_data_type_array(self) -> bool:
+        return True
+
     def format_data_type_array(self, data_type: ArrayType) -> Tuple[str, tuple]:
         element_sql, _ = self.format_data_type(data_type.element_type)
         return element_sql + "[]" * data_type.dimensions, ()
@@ -1075,7 +1122,7 @@ class DummyDialect(
 
         all_params = []
 
-        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type.to_sql(self)[0]}"
+        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type.to_sql()[0]}"
 
         for constraint in col_def.constraints:
             if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
@@ -1091,11 +1138,15 @@ class DummyDialect(
                     raise ValueError("DEFAULT constraint must have a default value specified.")
                 if isinstance(constraint.default_value, bases.BaseExpression):
                     default_sql, default_params = constraint.default_value.to_sql()
+                    if default_params and isinstance(constraint.default_value, Literal):
+                        # DDL accepts no bind parameters: inline the literal.
+                        default_sql = self.inline_sql_literal(constraint.default_value.value)
+                        default_params = ()
                     col_sql += f" DEFAULT {default_sql}"
                     all_params.extend(default_params)
                 else:
-                    col_sql += f" DEFAULT {self.get_parameter_placeholder()}"
-                    all_params.append(constraint.default_value)
+                    # DDL clauses accept no bind parameters: render inline.
+                    col_sql += f" DEFAULT {self.format_literal(constraint.default_value)}"
             elif constraint.constraint_type == ColumnConstraintType.CHECK:
                 if constraint.check_condition is None:
                     raise ValueError("CHECK constraint must have a check condition specified.")

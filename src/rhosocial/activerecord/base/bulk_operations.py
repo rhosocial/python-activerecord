@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/base/bulk_operations.py
 """Bulk operations mixin for ActiveRecord models."""
 
-from typing import List, Optional, TYPE_CHECKING, Any
+from typing import List, Optional, TYPE_CHECKING
 
 from ..backend.errors import DatabaseError, BulkStateError, BulkValidationError
 from ..backend.expression import Column, Literal
@@ -202,7 +202,7 @@ class BulkOperationsMixin:
 
             field_values = {}
             for field_name in fields:
-                col_name = cls._get_column_name(field_name)
+                col_name = cls.get_column_name(field_name)
                 field_values[col_name] = [getattr(r, field_name) for r in records]
 
             total_affected = 0
@@ -529,7 +529,7 @@ class AsyncBulkOperationsMixin:
 
             field_values = {}
             for field_name in fields:
-                col_name = cls._get_column_name(field_name)
+                col_name = cls.get_column_name(field_name)
                 field_values[col_name] = [getattr(r, field_name) for r in records]
 
             total_affected = 0

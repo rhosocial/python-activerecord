@@ -419,8 +419,8 @@ class CTESupport(Protocol):
 class WildcardSupport(Protocol):
     """Protocol for wildcard expression support (SELECT *)."""
 
-    def format_wildcard(self, table: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
-        """Format wildcard expression (* or table.* or schema.table.*)."""
+    def format_wildcard(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a WildcardExpression node (* or table.* or schema.table.*)."""
         ...  # pragma: no cover
 
 
@@ -441,14 +441,13 @@ class AdvancedGroupingSupport(Protocol):
         ...  # pragma: no cover
 
     def format_grouping_expression(
-        self, operation: str, expressions: List["bases.BaseExpression"]
+        self, expr: "bases.BaseExpression"
     ) -> Tuple[str, tuple]:
         """
         Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
 
         Args:
-            operation: The grouping operation ('ROLLUP', 'CUBE', or 'GROUPING SETS').
-            expressions: List of expressions to group by.
+            expr: The GroupingExpression node (operation + grouped expressions).
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -551,18 +550,13 @@ class LateralJoinSupport(Protocol):
         ...  # pragma: no cover
 
     def format_lateral_expression(
-        self, expr_sql: str, expr_params: Tuple[Any, ...], alias: Optional[str], join_type: str
+        self, expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
-        """Format LATERAL expression."""
+        """Format a LateralExpression node."""
         ...  # pragma: no cover
 
     def format_table_function_expression(
-        self,
-        func_name: str,
-        args_sql: List[str],
-        args_params: Tuple[Any, ...],
-        alias: Optional[str],
-        column_names: Optional[List[str]],
+        self, expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
         """Format table-valued function expression."""
         ...  # pragma: no cover
@@ -713,11 +707,7 @@ class JSONSupport(Protocol):
 
     def format_json_table_expression(
         self,
-        json_col_sql: str,
-        path: str,
-        columns: List[Dict[str, Any]],
-        alias: Optional[str],
-        params: tuple,
+        expr: "bases.BaseExpression",
         dialect_options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, Tuple]:
         """
@@ -1102,17 +1092,9 @@ class SetOperationSupport(Protocol):
         ...  # pragma: no cover
 
     def format_set_operation_expression(
-        self,
-        left: "bases.BaseExpression",
-        right: "bases.BaseExpression",
-        operation: str,
-        alias: Optional[str],
-        all_: bool,
-        order_by_clause: Optional["OrderByClause"] = None,
-        limit_offset_clause: Optional["LimitOffsetClause"] = None,
-        for_update_clause: Optional["ForUpdateClause"] = None,
+        self, expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
-        """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
+        """Format a SetOperationExpression node (UNION, INTERSECT, EXCEPT)."""
         ...  # pragma: no cover
 
 

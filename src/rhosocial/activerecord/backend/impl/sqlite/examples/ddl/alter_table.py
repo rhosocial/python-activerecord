@@ -7,6 +7,8 @@ Each action must be executed separately.
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from rhosocial.activerecord.backend.expression.types import TextType
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -31,19 +33,19 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table_name="users",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
     ],
@@ -69,8 +71,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ColumnDefinition,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
-from rhosocial.activerecord.backend.expression.types import TextType
     AddColumn,
     RenameColumn,
 )
@@ -78,7 +78,7 @@ from rhosocial.activerecord.backend.expression.types import TextType
 # Add a new column (separate statement for SQLite)
 add_col_action = AddColumn(
     dialect=dialect,
-    column=ColumnDefinition(
+    column=ColumnDefinition(dialect, 
         name="email",
         data_type=TextType(),
     ),

@@ -11,6 +11,8 @@ from ._base import DataType
 class FloatType(DataType):
     """FLOAT[(p)] — approximate numeric, variable precision."""
 
+    name = "float"
+
     precision: Optional[int] = None
 
     def __init__(self, precision: Optional[int] = None, dialect=None):
@@ -29,13 +31,19 @@ class FloatType(DataType):
 class RealType(DataType):
     """REAL — single-precision (4 bytes / 24-bit mantissa)."""
 
+    name = "real"
+
 
 class DoubleType(DataType):
     """DOUBLE PRECISION — double-precision (8 bytes / 53-bit mantissa)."""
 
+    name = "double"
+
 
 class DecimalType(DataType):
     """DECIMAL[(p[,s])] / NUMERIC[(p[,s])] — exact fixed-point."""
+
+    name = "decimal"
 
     precision: Optional[int] = None
     scale: Optional[int] = None

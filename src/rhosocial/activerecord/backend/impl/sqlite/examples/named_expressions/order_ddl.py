@@ -22,11 +22,11 @@ from rhosocial.activerecord.backend.expression.types import IntegerType, RealTyp
 
 def _pk_column(name: str):
     """Integer PRIMARY KEY column definition."""
-    return ColumnDefinition(
+    return ColumnDefinition(dialect, 
         name=name,
         data_type=IntegerType(),
         constraints=[
-            ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY),
         ],
     )
 
@@ -35,24 +35,24 @@ def _integer_column(name: str, default: int = None, not_null: bool = False):
     """Integer column definition with optional DEFAULT / NOT NULL."""
     constraints = []
     if not_null:
-        constraints.append(ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL))
+        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL))
     if default is not None:
         constraints.append(
-            ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
+            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
         )
-    return ColumnDefinition(name=name, data_type=IntegerType(), constraints=constraints)
+    return ColumnDefinition(dialect, name=name, data_type=IntegerType(), constraints=constraints)
 
 
 def _text_column(name: str, default: str = None, not_null: bool = False):
     """Text column definition with optional DEFAULT / NOT NULL."""
     constraints = []
     if not_null:
-        constraints.append(ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL))
+        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL))
     if default is not None:
         constraints.append(
-            ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
+            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
         )
-    return ColumnDefinition(name=name, data_type=TextType(), constraints=constraints)
+    return ColumnDefinition(dialect, name=name, data_type=TextType(), constraints=constraints)
 
 
 def _real_column(name: str, default: float = None):
@@ -60,9 +60,9 @@ def _real_column(name: str, default: float = None):
     constraints = []
     if default is not None:
         constraints.append(
-            ColumnConstraint(constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
+            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
         )
-    return ColumnDefinition(name=name, data_type=RealType(), constraints=constraints)
+    return ColumnDefinition(dialect, name=name, data_type=RealType(), constraints=constraints)
 
 
 def create_orders_table(dialect):

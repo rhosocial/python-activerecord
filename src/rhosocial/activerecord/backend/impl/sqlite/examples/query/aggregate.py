@@ -30,17 +30,17 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table_name="orders",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition("user_id", IntegerType()),
-        ColumnDefinition("amount", FloatType()),
-        ColumnDefinition("status", TextType()),
+        ColumnDefinition(dialect, "user_id", IntegerType()),
+        ColumnDefinition(dialect, "amount", FloatType()),
+        ColumnDefinition(dialect, "status", TextType()),
     ],
     if_not_exists=True,
 )

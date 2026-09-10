@@ -15,6 +15,7 @@ This document summarizes the comparison analysis between rhosocial-activerecord 
 | **SQLModel** | Hybrid | Pydantic + SQLAlchemy | FastAPI + SQLAlchemy users |
 | **Peewee** | ActiveRecord | Lightweight, self-contained | Small projects |
 | **Tortoise ORM** | ActiveRecord | Async-first, Django-style | Pure async projects |
+| **Prisma Client Python** | Schema-first | Type-safe client generated from schema DDL | Schema-driven projects |
 | **rhosocial-activerecord** | ActiveRecord | Native Pydantic, sync-async parity | Modern Python projects |
 
 ---
@@ -204,6 +205,12 @@ The backend extension design is clean and straightforward, allowing users to lev
 - Migrating from Django ORM
 - Prefer Django-style API
 
+### Choose Prisma Client Python if you:
+
+- Prefer a schema-first workflow (define models in a DSL)
+- Need code generation from a single schema source of truth
+- Want type-safe multi-language clients generated from schema
+
 ---
 
 ## Detailed Comparison Documents
@@ -213,6 +220,7 @@ The backend extension design is clean and straightforward, allowing users to lev
 - [SQLModel Comparison](./sqlmodel.md)
 - [Peewee Comparison](./peewee.md)
 - [Tortoise ORM Comparison](./tortoise_orm.md)
+- [Prisma Client Python Comparison](./prisma.md)
 
 ---
 

@@ -23,10 +23,10 @@ dialect = backend.dialect
 
 expr = CreateTableExpression(
     dialect=dialect, table="products", columns=[
-        ColumnDefinition("id", IntegerType(),
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("name", TextType()),
-        ColumnDefinition("price", FloatType()),
+        ColumnDefinition(dialect, "id", IntegerType(),
+            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition(dialect, "name", TextType()),
+        ColumnDefinition(dialect, "price", FloatType()),
     ]
 )
 sql, params = expr.to_sql()

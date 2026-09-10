@@ -8,3 +8,5 @@ from ._base import DataType
 
 class BlobType(DataType):
     """BLOB / BYTEA / VARBINARY — binary large object."""
+
+    name = "blob"

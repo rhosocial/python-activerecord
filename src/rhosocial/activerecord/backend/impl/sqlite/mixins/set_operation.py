@@ -21,18 +21,16 @@ _SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in se
 class SQLiteSetOperationMixin:
     """SQLite-specific set operation (UNION, INTERSECT, EXCEPT) formatting."""
 
-    def format_set_operation_expression(
-        self,
-        left,
-        right,
-        operation: str,
-        alias: Optional[str],
-        all_: bool,
-        order_by_clause: Optional["OrderByClause"] = None,
-        limit_offset_clause: Optional["LimitOffsetClause"] = None,
-        for_update_clause: Optional["ForUpdateClause"] = None,
-    ) -> Tuple[str, Tuple]:
+    def format_set_operation_expression(self, expr) -> Tuple[str, Tuple]:
         """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
+        left = expr.left
+        right = expr.right
+        operation = expr.operation
+        alias = expr.alias
+        all_ = expr.all_
+        order_by_clause = expr.order_by_clause
+        limit_offset_clause = expr.limit_offset_clause
+        for_update_clause = expr.for_update_clause
         left_sql, left_params = left.to_sql()
         right_sql, right_params = right.to_sql()
         all_str = " ALL" if all_ else ""

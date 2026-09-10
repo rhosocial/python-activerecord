@@ -9,6 +9,10 @@ from ._base import DataType
 class JsonType(DataType):
     """JSON — standard JSON (SQL:2016)."""
 
+    name = "json"
+
 
 class JsonBType(DataType):
     """JSONB — binary JSON (PostgreSQL)."""
+
+    name = "jsonb"

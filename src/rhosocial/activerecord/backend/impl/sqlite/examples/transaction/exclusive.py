@@ -82,17 +82,17 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table="accounts",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
-            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "name",
             TextType(),
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
+            constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
         ),
-        ColumnDefinition("balance", FloatType()),
+        ColumnDefinition(dialect, "balance", FloatType()),
     ],
     if_not_exists=True,
 )

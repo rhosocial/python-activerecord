@@ -32,19 +32,19 @@ departments_table = CreateTableExpression(
     dialect=dialect,
     table_name="departments",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
     ],
@@ -57,26 +57,26 @@ employees_table = CreateTableExpression(
     dialect=dialect,
     table_name="employees",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("department_id", IntegerType()),
-        ColumnDefinition("salary", FloatType()),
+        ColumnDefinition(dialect, "department_id", IntegerType()),
+        ColumnDefinition(dialect, "salary", FloatType()),
     ],
     table_constraints=[
-        TableConstraint(
+        TableConstraint(dialect, 
             constraint_type=TableConstraintType.FOREIGN_KEY,
             columns=["department_id"],
             foreign_key_table="departments",

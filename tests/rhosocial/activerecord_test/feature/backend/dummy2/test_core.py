@@ -22,7 +22,8 @@ class TestLiteral:
     def test_literal_repr(self, dummy_dialect: DummyDialect):
         """Test Literal repr method."""
         literal = Literal(dummy_dialect, "test_value")
-        assert repr(literal) == "Literal('test_value')"
+        assert repr(literal) == "Literal('test_value', inline_literals=False)"
+        assert repr(Literal(dummy_dialect, "test_value", inline_literals=True)) == "Literal('test_value', inline_literals=True)"
 
     def test_literal_numeric_values(self, dummy_dialect: DummyDialect):
         """Test Literal with numeric values."""

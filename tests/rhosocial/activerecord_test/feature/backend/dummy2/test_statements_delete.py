@@ -695,17 +695,14 @@ class TestDeleteStatements:
         assert params == ("inactive",)
 
     def test_format_case_expression_with_empty_conditions_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that format_case_expression raises ValueError when called with empty conditions_results."""
+        """Tests that format_case_expression raises ValueError for a CASE node without WHEN/THEN pairs."""
+        from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+
+        case_expr = CaseExpression(dummy_dialect, cases=[])
         with pytest.raises(
             ValueError, match=r"CASE expression must have at least one WHEN/THEN condition-result pair."
         ):
-            dummy_dialect.format_case_expression(
-                value_sql=None,
-                value_params=None,
-                conditions_results=[],  # Empty list should raise error
-                else_result_sql=None,
-                else_result_params=None,
-            )
+            case_expr.to_sql()
 
     def test_format_window_specification_with_no_components_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_window_specification raises ValueError when called with no components."""
@@ -738,11 +735,11 @@ class TestDeleteStatements:
         )
 
         # Create a ColumnDefinition with DEFAULT constraint but no value
-        col_def = ColumnDefinition(
+        col_def = ColumnDefinition(dummy_dialect, 
             name="test_col",
-            data_type=VarCharType(255),
+            data_type=VarCharType(255, dummy_dialect),
             constraints=[
-                ColumnConstraint(
+                ColumnConstraint(dummy_dialect, 
                     constraint_type=ColumnConstraintType.DEFAULT,
                     default_value=None,  # No default value provided but constraint type is DEFAULT
                 )

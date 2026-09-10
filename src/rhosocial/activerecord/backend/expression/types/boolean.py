@@ -8,3 +8,5 @@ from ._base import DataType
 
 class BooleanType(DataType):
     """BOOLEAN / BOOL — truth value."""
+
+    name = "boolean"

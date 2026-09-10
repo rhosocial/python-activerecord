@@ -20,8 +20,8 @@ class TestCreateTableExpressionTypeValidation:
     def test_create_table_with_string_table_name(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression accepts string table_name."""
         columns = [
-            ColumnDefinition(
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+            ColumnDefinition(dummy_dialect, 
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -36,8 +36,8 @@ class TestCreateTableExpressionTypeValidation:
     def test_create_table_with_table_expression(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression accepts TableExpression object."""
         columns = [
-            ColumnDefinition(
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+            ColumnDefinition(dummy_dialect, 
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -49,8 +49,8 @@ class TestCreateTableExpressionTypeValidation:
     def test_create_table_with_schema_qualified_table_expression(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression accepts TableExpression with schema_name."""
         columns = [
-            ColumnDefinition(
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+            ColumnDefinition(dummy_dialect, 
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -66,8 +66,8 @@ class TestCreateTableExpressionTypeValidation:
     def test_create_table_with_invalid_type_raises_error(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression raises TypeError for invalid table_name type."""
         columns = [
-            ColumnDefinition(
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+            ColumnDefinition(dummy_dialect, 
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -79,8 +79,8 @@ class TestCreateTableExpressionTypeValidation:
     def test_create_table_with_none_raises_error(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression raises TypeError for None table_name."""
         columns = [
-            ColumnDefinition(
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+            ColumnDefinition(dummy_dialect, 
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -91,8 +91,8 @@ class TestCreateTableExpressionTypeValidation:
     def test_create_table_with_list_raises_error(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression raises TypeError for list table_name."""
         columns = [
-            ColumnDefinition(
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+            ColumnDefinition(dummy_dialect, 
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -103,8 +103,8 @@ class TestCreateTableExpressionTypeValidation:
     def test_create_table_with_dict_raises_error(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression raises TypeError for dict table_name."""
         columns = [
-            ColumnDefinition(
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+            ColumnDefinition(dummy_dialect, 
+                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 

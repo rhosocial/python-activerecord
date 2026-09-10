@@ -49,11 +49,13 @@ def test_format_grouping_expression_rollup_raises_error():
         def to_sql(self):
             return "col1", ()
 
-    mock_expr = [MockExpr()]
+    from rhosocial.activerecord.backend.expression.query_parts import GroupingExpression
+
+    grouping = GroupingExpression(dialect, "ROLLUP", [MockExpr()])
 
     # This should raise an error
     with pytest.raises(UnsupportedFeatureError):
-        dialect.format_grouping_expression("ROLLUP", mock_expr)
+        dialect.format_grouping_expression(grouping)
 
 
 def test_format_grouping_expression_cube_raises_error():
@@ -67,9 +69,13 @@ def test_format_grouping_expression_cube_raises_error():
 
     mock_expr = [MockExpr()]
 
+    from rhosocial.activerecord.backend.expression.query_parts import GroupingExpression
+
+    grouping = GroupingExpression(dialect, "CUBE", [MockExpr()])
+
     # This should raise an error
     with pytest.raises(UnsupportedFeatureError):
-        dialect.format_grouping_expression("CUBE", mock_expr)
+        dialect.format_grouping_expression(grouping)
 
 
 def test_format_grouping_expression_grouping_sets_raises_error():
@@ -83,6 +89,10 @@ def test_format_grouping_expression_grouping_sets_raises_error():
 
     mock_expr = [[MockExpr()]]
 
+    from rhosocial.activerecord.backend.expression.query_parts import GroupingExpression
+
+    grouping = GroupingExpression(dialect, "GROUPING SETS", [MockExpr()])
+
     # This should raise an error
     with pytest.raises(UnsupportedFeatureError):
-        dialect.format_grouping_expression("GROUPING SETS", mock_expr)
+        dialect.format_grouping_expression(grouping)

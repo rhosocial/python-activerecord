@@ -54,6 +54,11 @@ class ViewOptions:
 
 
 class CreateViewExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_view_statement"
     """
     Represents a CREATE VIEW statement supporting full SQL standard features and extensions.
 
@@ -116,12 +121,18 @@ class CreateViewExpression(BaseExpression):
         self.temporary = temporary  # Whether to create a temporary view
         self.options = options or ViewOptions()
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the CREATE VIEW statement to the configured dialect."""
-        return self.dialect.format_create_view_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_view_statement"
 
 
 class DropViewExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_view_statement"
     """
     Represents a DROP VIEW statement supporting standard and extended features.
 
@@ -158,12 +169,18 @@ class DropViewExpression(BaseExpression):
         self.if_exists = if_exists
         self.cascade = cascade
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the DROP VIEW statement to the configured dialect."""
-        return self.dialect.format_drop_view_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_view_statement"
 
 
 class CreateMaterializedViewExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_materialized_view_statement"
     """
     Represents a CREATE MATERIALIZED VIEW statement.
 
@@ -229,12 +246,18 @@ class CreateMaterializedViewExpression(BaseExpression):
         self.storage_options = storage_options or {}
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for CREATE MATERIALIZED VIEW to the dialect."""
-        return self.dialect.format_create_materialized_view_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_materialized_view_statement"
 
 
 class DropMaterializedViewExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_materialized_view_statement"
     """
     Represents a DROP MATERIALIZED VIEW statement.
 
@@ -275,12 +298,18 @@ class DropMaterializedViewExpression(BaseExpression):
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for DROP MATERIALIZED VIEW to the dialect."""
-        return self.dialect.format_drop_materialized_view_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_materialized_view_statement"
 
 
 class RefreshMaterializedViewExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_refresh_materialized_view_statement"
     """
     Represents a REFRESH MATERIALIZED VIEW statement.
 
@@ -324,6 +353,7 @@ class RefreshMaterializedViewExpression(BaseExpression):
         self.with_data = with_data
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for REFRESH MATERIALIZED VIEW to the dialect."""
-        return self.dialect.format_refresh_materialized_view_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_refresh_materialized_view_statement"

@@ -192,14 +192,14 @@ class TestClauseExpressions:
         )
 
         when_matched_update = MergeAction(
-            action_type=MergeActionType.UPDATE,
+            dummy_dialect, action_type=MergeActionType.UPDATE,
             assignments={
                 "name": Column(dummy_dialect, "name", "new_prods"),
                 "price": Column(dummy_dialect, "price", "new_prods"),
             },
         )
         when_not_matched_insert = MergeAction(
-            action_type=MergeActionType.INSERT,
+            dummy_dialect, action_type=MergeActionType.INSERT,
             assignments={  # DummyDialect expects assignments to carry column names for INSERT
                 "id": Column(dummy_dialect, "id", "new_prods"),
                 "name": Column(dummy_dialect, "name", "new_prods"),

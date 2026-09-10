@@ -1,6 +1,11 @@
 # src/rhosocial/activerecord/backend/expression/operators.py
 """
 SQL operations like binary, unary, and arithmetic expressions.
+
+Every class here is a pure tree node: it declares its dialect formatting
+method and holds construction parameters. Rendering is centralized in
+``BaseExpression.to_sql()``, which re-instantiates the node, propagates the
+dialect through the subtree, and hands it to the declared formatter.
 """
 
 from typing import Any, Optional, Tuple, List, TYPE_CHECKING
@@ -20,26 +25,24 @@ if TYPE_CHECKING:  # pragma: no cover
 class SQLOperation(BaseExpression):
     """Represents a generic SQL operation."""
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_sql_operation"
+
     def __init__(self, dialect: "SQLDialectBase", op: str, *operands: "BaseExpression"):
         super().__init__(dialect)
         self.op = op
         self.operands = list(operands)
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        formatted_operands_sql = []
-        params: List[Any] = []
-        for operand in self.operands:
-            operand_sql, operand_params = operand.to_sql()
-            formatted_operands_sql.append(operand_sql)
-            params.extend(operand_params)
-        if self.operands:
-            return f"{self.op}({', '.join(formatted_operands_sql)})", tuple(params)
-        else:
-            return f"{self.op}()", tuple(params)
-
 
 class BinaryExpression(BaseExpression):
     """Represents a binary SQL operation."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_binary_operator"
 
     def __init__(self, dialect: "SQLDialectBase", op: str, left: "BaseExpression", right: "BaseExpression"):
         super().__init__(dialect)
@@ -47,24 +50,20 @@ class BinaryExpression(BaseExpression):
         self.left = left
         self.right = right
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        left_sql, left_params = self.left.to_sql()
-        right_sql, right_params = self.right.to_sql()
-        return self.dialect.format_binary_operator(self.op, left_sql, right_sql, left_params, right_params)
-
 
 class UnaryExpression(BaseExpression):
     """Represents a unary SQL operation."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_unary_operator"
 
     def __init__(self, dialect: "SQLDialectBase", op: str, operand: "BaseExpression", pos: str = "before"):
         super().__init__(dialect)
         self.op = op
         self.operand = operand
         self.pos = pos
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        operand_sql, operand_params = self.operand.to_sql()
-        return self.dialect.format_unary_operator(self.op, operand_sql, self.pos, operand_params)
 
 
 class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringMixin, SQLValueExpression):
@@ -82,13 +81,15 @@ class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringMixin, SQLValueEx
       (e.g., condition in WHERE clause)
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_raw_sql"
+
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
         self.params = tuple(params) if params else ()
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.expression, self.params
 
 
 class RawSQLPredicate(SQLPredicate):
@@ -106,19 +107,26 @@ class RawSQLPredicate(SQLPredicate):
       (e.g., condition in WHERE clause)
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_raw_sql"
+
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
         self.params = tuple(params) if params else ()
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.expression, self.params
 
 
 class BinaryArithmeticExpression(
     AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValueExpression
 ):
     """Represents a binary arithmetic operation."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_binary_arithmetic_expression"
 
     def __init__(
         self,
@@ -135,48 +143,9 @@ class BinaryArithmeticExpression(
         self.right = right
         self.alias = alias
 
-    def to_sql(self) -> Tuple[str, tuple]:
-        left_sql, left_params = self.left.to_sql()
-        right_sql, right_params = self.right.to_sql()
-
-        # Get the precedence of the current operator
-        current_precedence = self.OPERATOR_PRECEDENCE.get(self.op, 0)
-
-        # Check if left operand needs parentheses based on precedence
-        left_needs_parens = self._needs_parens(self.left, current_precedence)
-        if left_needs_parens:
-            left_sql = f"({left_sql})"
-
-        # Check if right operand needs parentheses based on precedence
-        right_needs_parens = self._needs_parens(self.right, current_precedence)
-        if right_needs_parens:
-            right_sql = f"({right_sql})"
-
-        sql, params = self.dialect.format_binary_arithmetic_expression(
-            self.op, left_sql, right_sql, left_params, right_params
-        )
-
-        # Apply type casts if any
-        for target_type in self._cast_types:
-            sql, params = self.dialect.format_cast_expression(sql, target_type, params, None)
-
-        if getattr(self, "alias", None):
-            sql = f"{sql} AS {self.dialect.format_identifier(self.alias)}"
-
-        return sql, params
-
-    def _needs_parens(self, operand, current_precedence):
-        """Check if an operand needs parentheses based on precedence."""
-        # If operand is another BinaryArithmeticExpression, check its precedence
-        if isinstance(operand, BinaryArithmeticExpression):
-            operand_precedence = self.OPERATOR_PRECEDENCE.get(operand.op, 0)
-            # If operand has lower precedence, it needs parentheses when used in higher precedence context
-            return operand_precedence < current_precedence
-        # For other expressions (like FunctionCall, Column, Literal),
-        # they have the highest precedence and don't need parentheses
-        return False
-
-    # Define operator precedence levels for arithmetic operations (lower number means lower precedence)
+    # Operator precedence levels for arithmetic operations (lower number
+    # means lower precedence). The formatting function reads this map from
+    # the expression class to decide parenthesization.
     OPERATOR_PRECEDENCE = {
         "+": 9,
         "-": 9,  # Addition and subtraction

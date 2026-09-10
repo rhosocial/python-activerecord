@@ -32,23 +32,23 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table_name="employees",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("manager_id", IntegerType()),
-        ColumnDefinition("department", TextType()),
+        ColumnDefinition(dialect, "manager_id", IntegerType()),
+        ColumnDefinition(dialect, "department", TextType()),
     ],
     if_not_exists=True,
 )

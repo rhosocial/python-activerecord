@@ -10,6 +10,7 @@
 - [vs SQLModel](./sqlmodel.md) — 与 Pydantic+SQLAlchemy 混合方案对比
 - [vs Peewee](./peewee.md) — 与轻量级 ActiveRecord 对比
 - [vs Tortoise ORM](./tortoise_orm.md) — 与异步优先 ORM 对比
+- [vs Prisma Client Python](./prisma.md) — 与 schema-first ORM 对比
 
 ## 快速对比
 
@@ -20,4 +21,5 @@
 | **SQLModel** | 混合 | Pydantic + SQLAlchemy | FastAPI + SQLAlchemy 用户 |
 | **Peewee** | ActiveRecord | 轻量、自包含 | 小型项目 |
 | **Tortoise ORM** | ActiveRecord | 异步优先、Django 风格 | 纯异步项目 |
+| **Prisma Client Python** | Schema-first | 从 schema DDL 生成类型安全客户端 | Schema 驱动项目 |
 | **rhosocial-activerecord** | ActiveRecord | Pydantic 原生、同步异步对等 | 现代 Python 项目 |

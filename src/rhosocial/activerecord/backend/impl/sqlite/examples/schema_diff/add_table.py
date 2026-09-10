@@ -40,12 +40,12 @@ snapshot_before = builder.build(schema="main")
 # Create a new table
 expr = CreateTableExpression(
     dialect=dialect, table="users", columns=[
-        ColumnDefinition("id", IntegerType(),
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("name", TextType(),
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("email", TextType(),
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE)]),
+        ColumnDefinition(dialect, "id", IntegerType(),
+            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition(dialect, "name", TextType(),
+            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition(dialect, "email", TextType(),
+            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.UNIQUE)]),
     ]
 )
 sql, params = expr.to_sql()

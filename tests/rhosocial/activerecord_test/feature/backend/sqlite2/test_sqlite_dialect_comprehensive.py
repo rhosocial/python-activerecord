@@ -108,9 +108,12 @@ class TestSQLiteDialectComprehensive:
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
 
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingExpression
+        from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             if method_name == "format_grouping_expression":
-                method(operation, [])
+                method(GroupingExpression(dialect, operation, []))
             elif method_name == "format_array_expression":
                 mock_expr = MagicMock(spec=ArrayExpression)
                 mock_expr.operation = "CONSTRUCTOR"
@@ -121,7 +124,7 @@ class TestSQLiteDialectComprehensive:
                 mock_expr.cast_types = []
                 method(mock_expr)
             elif method_name == "format_json_table_expression":
-                method("json_col", "$.path", [], "alias", ())
+                method(JSONTableExpression(dialect, json_column="json_col", path="$.path", columns=[], alias="alias"))
             elif method_name == "format_ordered_set_aggregation":
                 from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
                 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause

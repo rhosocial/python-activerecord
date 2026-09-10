@@ -90,7 +90,7 @@
 | Prisma | rhosocial-activerecord | 说明 |
 |--------|------------------------|------|
 | `schema.prisma` | Python 类型提示 | 模式定义 |
-| `prisma.user.findMany()` | `User.query().all()` | 查询方法 |
+| `prisma.user.findMany()`（TS）/ `db.user.find_many()`（Python） | `User.query().all()` | 查询方法 |
 | `include` | `.with_()` | 关系加载 |
 | 生成的客户端 | 直接使用类 | 无需代码生成 |
 | 类型安全查询 | `FieldProxy` | 两者都提供类型安全 |

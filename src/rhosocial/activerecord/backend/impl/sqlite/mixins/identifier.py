@@ -5,7 +5,7 @@ SQLite-specific Identifier implementation.
 This module provides the SQLiteIdentifierMixin class.
 """
 
-from typing import Optional, Tuple
+from typing import Tuple
 
 
 class SQLiteIdentifierMixin:
@@ -20,31 +20,29 @@ class SQLiteIdentifierMixin:
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
-    def format_column(
-        self, name: str, table: Optional[str] = None, alias: Optional[str] = None, schema_name: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
+    def format_column(self, expr) -> Tuple[str, Tuple]:
         """Format column reference for SQLite.
 
         SQLite does not support schema-qualified column references in
         the three-segment form (schema.table.column), so schema_name
         is silently ignored.
         """
-        if table:
-            col_sql = f"{self.format_identifier(table)}.{self.format_identifier(name)}"
+        if expr.table:
+            col_sql = f"{self.format_identifier(expr.table)}.{self.format_identifier(expr.name)}"
         else:
-            col_sql = self.format_identifier(name)
+            col_sql = self.format_identifier(expr.name)
 
-        if alias:
-            col_sql = f"{col_sql} AS {self.format_identifier(alias)}"
+        if expr.alias:
+            col_sql = f"{col_sql} AS {self.format_identifier(expr.alias)}"
 
         return col_sql, ()
 
-    def format_wildcard(self, table: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+    def format_wildcard(self, expr) -> Tuple[str, Tuple]:
         """Format wildcard expression (* or table.* or schema.table.*)."""
-        if schema_name and table:
-            wildcard_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table)}.*"
-        elif table:
-            wildcard_sql = f"{self.format_identifier(table)}.*"
+        if expr.schema_name and expr.table:
+            wildcard_sql = f"{self.format_identifier(expr.schema_name)}.{self.format_identifier(expr.table)}.*"
+        elif expr.table:
+            wildcard_sql = f"{self.format_identifier(expr.table)}.*"
         else:
             wildcard_sql = "*"
         return wildcard_sql, ()

@@ -184,7 +184,7 @@ class SQLiteDDLColumnMixin:
         }
 
         all_params = []
-        type_sql, _ = col_def.data_type.to_sql(self)
+        type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
         for constraint in col_def.constraints:

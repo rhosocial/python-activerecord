@@ -40,12 +40,12 @@ def backend_with_users(sqlite_backend: SQLiteBackend) -> SQLiteBackend:
         dialect=sqlite_backend.dialect,
         table="users",
         columns=[
-            ColumnDefinition(
+            ColumnDefinition(sqlite_backend.dialect, 
                 "id",
-                SQLiteIntegerType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+                SQLiteIntegerType(sqlite_backend.dialect),
+                constraints=[ColumnConstraint(sqlite_backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition("name", SQLiteTextType()),
+            ColumnDefinition(sqlite_backend.dialect, "name", SQLiteTextType(dialect=sqlite_backend.dialect)),
         ],
     )
     sqlite_backend.execute(*create_expr.to_sql())
@@ -65,7 +65,7 @@ class TestAlterTableAddColumn:
         """ADD COLUMN should be reflected by the introspector."""
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition("email", SQLiteTextType()),
+            column=ColumnDefinition(backend_with_users.dialect, "email", SQLiteTextType(dialect=backend_with_users.dialect)),
         )
         alter_expr = AlterTableExpression(
             backend_with_users.dialect,
@@ -82,10 +82,10 @@ class TestAlterTableAddColumn:
         """ADD COLUMN with NOT NULL constraint should be introspectable."""
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition(
+            column=ColumnDefinition(backend_with_users.dialect, 
                 "status",
-                SQLiteTextType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
+                SQLiteTextType(dialect=backend_with_users.dialect),
+                constraints=[ColumnConstraint(backend_with_users.dialect, ColumnConstraintType.NOT_NULL)],
             ),
         )
         alter_expr = AlterTableExpression(
@@ -115,7 +115,7 @@ class TestAlterTableDropColumn:
         # First add a column to drop
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition("temp_field", SQLiteTextType()),
+            column=ColumnDefinition(backend_with_users.dialect, "temp_field", SQLiteTextType(dialect=backend_with_users.dialect)),
         )
         alter_add = AlterTableExpression(
             backend_with_users.dialect,
@@ -189,7 +189,7 @@ class TestAlterTableAddConstraint:
         # Add an email column
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition("email", SQLiteTextType()),
+            column=ColumnDefinition(backend_with_users.dialect, "email", SQLiteTextType(dialect=backend_with_users.dialect)),
         )
         alter_add = AlterTableExpression(
             backend_with_users.dialect,
@@ -207,7 +207,7 @@ class TestAlterTableAddConstraint:
         # Add CHECK constraint: email IS NOT NULL
         add_constraint = AddTableConstraint(
             backend_with_users.dialect,
-            constraint=TableConstraint(
+            constraint=TableConstraint(dialect, 
                 constraint_type=TableConstraintType.CHECK,
                 check_condition=Column(
                     backend_with_users.dialect, "email"
@@ -242,7 +242,7 @@ class TestSQLiteIfExistsGuard:
         """ADD COLUMN IF NOT EXISTS must raise on SQLite."""
         action = AddColumn(
             sqlite_backend.dialect,
-            column=ColumnDefinition("email", SQLiteTextType()),
+            column=ColumnDefinition(sqlite_backend.dialect, "email", SQLiteTextType(dialect=sqlite_backend.dialect)),
             if_not_exists=True,
         )
         with pytest.raises(UnsupportedFeatureError):
@@ -262,7 +262,7 @@ class TestSQLiteIfExistsGuard:
         """Bare ADD/DROP COLUMN (no qualifier) must still work on SQLite."""
         add_action = AddColumn(
             sqlite_backend.dialect,
-            column=ColumnDefinition("email", SQLiteTextType()),
+            column=ColumnDefinition(sqlite_backend.dialect, "email", SQLiteTextType(dialect=sqlite_backend.dialect)),
         )
         add_sql, _ = add_action.to_sql()
         assert "IF NOT EXISTS" not in add_sql
@@ -279,7 +279,7 @@ class TestActionDialectBinding:
         """Action should have its dialect accessible after construction."""
         action = AddColumn(
             sqlite_backend.dialect,
-            column=ColumnDefinition("x", SQLiteIntegerType()),
+            column=ColumnDefinition(sqlite_backend.dialect, "x", SQLiteIntegerType(sqlite_backend.dialect)),
         )
         assert action.dialect is sqlite_backend.dialect
 
@@ -287,7 +287,7 @@ class TestActionDialectBinding:
         """Action.to_sql() should work without wrapping in AlterTableExpression."""
         action = AddColumn(
             sqlite_backend.dialect,
-            column=ColumnDefinition("x", SQLiteIntegerType()),
+            column=ColumnDefinition(sqlite_backend.dialect, "x", SQLiteIntegerType(sqlite_backend.dialect)),
         )
         sql, params = action.to_sql()
         assert "ADD COLUMN" in sql
@@ -299,6 +299,6 @@ class TestActionDialectBinding:
 
         action = AddColumn(
             sqlite_backend.dialect,
-            column=ColumnDefinition("x", SQLiteIntegerType()),
+            column=ColumnDefinition(sqlite_backend.dialect, "x", SQLiteIntegerType(sqlite_backend.dialect)),
         )
         assert isinstance(action, ToSQLProtocol)

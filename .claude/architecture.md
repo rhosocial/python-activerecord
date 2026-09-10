@@ -44,6 +44,26 @@ The backend system is responsible for database connection management and actual 
 - `SQLDialectBase`: Base class for SQL dialects
 - Concrete implementations: `sqlite`, `dummy`, etc.
 
+#### Generic vs Concrete Expression Placement (Design Philosophy)
+
+Backend expressions are split between a **generic (core) layer** and **per-backend
+implementations**, decided by the *breadth* of the feature's base:
+
+1. **Broad base → generic layer.** A feature that exists with standard semantics across many
+   databases (SQL-standard or widely-supported constructs) is lifted to the core: a `XxxSupport`
+   protocol, a `XxxMixin` generic implementation, and `supports_xxx()` capability detection.
+   Backends compose the pair and inherit the behaviour; the goal is for the generic layer to
+   implement **as much as possible**, minimising backend work.
+2. **No broad base → per-backend, backend-named.** A feature without broad base (e.g. table
+   partitioning, vendor-proprietary syntax) is implemented by each backend **and prefixed with the
+   backend name** (`MySQLRangePartition`, `PostgresRangePartition`, `OracleListPartition`, …).
+   The core provides at most an empty marker base; each backend claims its own classes.
+3. **Generic implementation doesn't fit a backend → that backend overrides.** If a generic-layer
+   expression is supported but its generic implementation does not satisfy a concrete backend's
+   needs, the backend simply overrides the affected methods (see `dev-expression-dialect` →
+   "Override Discipline (Generic-First)"). Overriding is the correctness escape hatch; it is not a
+   reason to avoid lifting broadly-shared features to the core.
+
 ### 3. Model Layer
 
 The model layer provides the implementation of the Active Record pattern.
@@ -125,6 +145,191 @@ class SQLDialectBase(ABC):
 # formatted_column = self.model_class.backend().dialect.format_identifier(column_name)
 # formatted_string = self.model_class.backend().dialect.format_string_literal(string_value)
 ```
+
+### 6. ActiveRecord Adapts to the Backend (Backend Never Serves ActiveRecord)
+
+**The backend is a consumer contract, not a servant of ActiveRecord.** ActiveRecord is a *user*
+of the backend. The backend — its `StorageBackend`, dialect, expression layer, protocols — knows
+**nothing** about ActiveRecord and must never be written to accommodate it. Backends describe
+**generic SQL and the concrete capabilities of a specific database** (and their SQL-standard /
+vendor-proprietary expression surface), never the features of the ActiveRecord layer above them.
+
+**Correct direction of adaptation:**
+- ActiveRecord adapts to the backend: it uses whatever the backend provides — and nothing more.
+- If a feature ActiveRecord wants requires backend cooperation, the only correct path is to
+  **negotiate a protocol / interface contract** on the backend's own generic terms (see the
+  `XxxSupport`/`XxxMixin` protocol system), then have ActiveRecord consume that contract.
+
+**Forbidden — the reverse direction:** changing the backend's design principles to satisfy an
+ActiveRecord feature requirement is **absolutely wrong**, because the backend would then be
+modelled after ActiveRecord instead of after SQL/database reality.
+
+Typical wrong practices (all forbidden):
+- Requiring the backend/dialect to add ActiveRecord-serving helpers such as `ddl_inline`,
+  `inline_params`, or any parameter-inlining / SQL-rewriting machinery whose only purpose is to
+  make an ActiveRecord DDL feature work.
+- Requiring the backend/dialect to infer intent from **string characteristics** of SQL/text —
+  matching a regex, checking a prefix/suffix, statement-type sniffing from the leading keyword,
+  etc. The backend must never interpret SQL text to guess what ActiveRecord meant.
+
+**Why this rule exists:** the backend is the negotiated, cross-cutting foundation every database
+backend shares. It describes SQL reality, not the transient needs of one caller. Keeping
+ActiveRecord on the consuming side is what lets one model run identically on every backend and
+lets new backends be added without touching core. 
+
+**What happens if you break it (harm):** the backend accretes ActiveRecord-specific hacks
+(`ddl_inline`, `inline_params`, string-sniffing) that only one caller uses; every other backend
+and every future backend must then replicate those hacks or diverge; behaviour forks per caller;
+the "generic backend" claim dies and the system degrades into a per-feature patchwork that is
+impossible to reason about or extend.
+
+### 7. `to_sql()` Is Terminal and Parameterless — Iron Rule
+
+The expression layer exposes exactly **two** kinds of semantic entry points, and nothing else:
+
+1. **`to_sql()`** — the single method on every expression/predicate/statement object. It returns
+   `(sql, params)`.
+2. **`dialect.format_*()`** — the single family of formatting functions on the dialect.
+
+**IRON RULE — `to_sql()` accepts NO parameters. Absolutely never.** `to_sql()` is a *terminal*
+method: every value it needs was already collected when the expression was **instantiated**. The
+signature is fixed by `ToSQLProtocol` as `to_sql(self) -> SQLQueryAndParams` and **never takes
+arguments of any kind** — no `to_sql(inline_literals=...)`, no keyword arguments, no rendering
+options. Violating this is a protocol violation and is unacceptable.
+
+**IRON RULE — `format_*()` formatting functions accept expression-class instances only, never
+additional formatting parameters.** A formatting function receives the expression/predicate it
+must render (and the dialect), and nothing else. There is no `format_*(..., inline_literals=...)`,
+no rendering flags, no per-call formatting options on the formatting function either.
+
+**Consequence — every formatting choice is a construction-time (factory) choice.** If an output
+format must differ (e.g. a `Literal` inside a DDL clause that accepts no bind parameters must be
+rendered as inline SQL text rather than a placeholder), that choice is **captured when the
+expression is instantiated** — the expression class collects it as a constructor parameter and
+carries it, so both `to_sql()` and `format_*()` are pure reads of already-collected state.
+
+**No other semantic methods are permitted.** In particular, **`render*()` methods,
+`to_sql_inline()` / `to_sql_inline_literals()` and any other "variant rendering" entry points are
+absolutely forbidden** — there is exactly one `to_sql()` and exactly one `format_*` per concern.
+
+If a render-time choice appears necessary, the expression was constructed wrong: the choice
+belongs at **construction** time, never in `to_sql()` and never as a formatting-function parameter.
+
+**Why this rule exists:** `to_sql()` and `format_*()` are the *only* two negotiated seams of the
+whole expression/dialect system — the entire ecosystem (every backend dialect, every expression,
+every call site) is built on them being stable and compositional. `to_sql()` is the fixed,
+terminal contract every expression satisfies; `format_*()` is the fixed set of dialect hooks every
+backend overrides. Making them parameterized or adding render-time switches breaks that
+composition at every layer at once.
+
+**What happens if you break it (harm):** adding a parameter to `to_sql()` (e.g.
+`to_sql(inline_literals=...)`) or a render-time option to `format_*()` ripples through every
+expression class, every dialect, and every call site simultaneously — a single protocol change
+that breaks all backends at once, exactly the failure the "broad research before protocol change"
+rule (rule 9) exists to prevent. Render-time switches also make output depend on *how* something
+is called rather than *what it is*, so the same expression renders differently in different
+places — the system stops being deterministic and auditable.
+
+### 8. No Private Functions in Backend Protocol / Implementation — Everything Is Transparent
+
+The backend protocol and its implementations need **no private helper functions**. All backend
+functionality is **transparent**: every behavior is reachable through the documented public surface
+(`to_sql()` on expressions; `format_*()` / `supports_*()` on the dialect; the expression/statement
+classes; the type adapters), and each of those is self-contained.
+
+**IRON RULE — if you feel the urge to add a private function (a method or module-level helper
+prefixed with `_`, or any "internal" formatting/render/recurse helper), you are doing something
+wrong. Stop.** A private function means one of two things, both unacceptable:
+
+1. **You are re-implementing or pre-empting public protocol behaviour** (e.g. a private
+   `_render_ddl_expression` that walks predicates and inlines literals) — but the public
+   `format_*()` functions already exist precisely for that, and they are pure readers. A private
+   duplicate is a protocol leak: it bypasses the negotiated interface, cannot be overridden by
+   backends, and silently forks behaviour per caller.
+2. **You are hiding a design gap** behind an unexposed helper instead of fixing the public
+   surface / construction contract. The fix belongs in the public protocol (or in how expressions
+   are **constructed**), not in an internal shortcut.
+
+Everything a backend can do must be expressed through public, composable, backend-overridable
+functions. If a behaviour cannot be expressed that way, the protocol is incomplete — extend the
+protocol deliberately (with broad cross-backend research and design), do **not** paper over it with
+a private function.
+
+**Why this rule exists:** the backend's power comes from a *known, negotiated* public surface.
+Backends override public `format_*()`/`supports_*()`; expressions and callers consume public
+`to_sql()`. A private helper is invisible to that contract: it can't be overridden by a backend
+that needs different behaviour, it isn't covered by protocol tests, and it hides *where* behaviour
+actually lives. Transparency is what makes the ecosystem composable and testable.
+
+**What happens if you break it (harm):** a private render helper (e.g. `_render_ddl_expression`)
+silently forks behaviour — core renders one way, a backend that doesn't know about the helper
+renders another, and no protocol test catches the divergence. The helper becomes a hidden second
+protocol that only its author's call path uses; later work either duplicates it (drift) or
+"fixes" it per-backend (fragmentation). The urge to add a private function is a reliable signal
+that the public protocol is missing a deliberate, negotiated capability — hiding it only
+guarantees the gap festers.
+
+### 9. Backend Protocol Changes Require Extreme Restraint, Deep Deliberation, and Broad Research
+
+The backend protocol is **not owned by any single backend or by the core in isolation** — it is a
+shared contract **implicated across every backend** (core + all extension backends: mysql,
+postgres, mariadb, sqlserver, oracle, firebird, clickhouse, snowflake, bigquery, …). Changing any
+part of it is a **large, cross-cutting project** that must be treated with **extreme restraint and
+deep deliberation**, preceded by **broad research**.
+
+**Process — before touching backend protocol:**
+1. **Broad research first.** Survey every backend's implementation and tests for the feature in
+   question (and every caller of the affected surface), and validate against real database servers
+   where available. Do not design from the core's needs alone.
+2. **Deliberate.** Establish that the change is the *minimal* possible expression of the need,
+   that it is generic (not serving one caller), and that it composes with every existing
+   `format_*()` / `supports_*()` / expression contract.
+3. **Negotiate, then implement.** Decide the protocol change deliberately; implement it in the
+   generic layer and across every backend together; update all tests; keep behaviour identical
+   everywhere.
+
+**Why this rule exists:** the protocol is the system's nervous system — every backend dials into
+the same seams (`to_sql()`, `format_*()`, `supports_*()`, expression/statement classes). A
+protocol change made hastily for one purpose ripples through all backends at once. Because the
+backend protocol is enormously complex and interconnected, restraint is not caution for its own
+sake — it is the only way the shared contract stays coherent.
+
+**What happens if you break it (harm):** a hasty protocol change (e.g. inventing a new
+`format_ddl_predicate` render helper, or parameterizing `to_sql()`/`format_*()`) commits every
+backend to behaviour that was never designed or surveyed; backends drift as each "fixes" it
+differently; the generic layer accretes special cases; and the negotiated contract fractures,
+forcing costly retrofits across the whole ecosystem. This is exactly what happened repeatedly in
+the abandoned DDL-derivation work (`ddl_inline`, `inline_params`, string-sniffing, invented
+render helpers) — each was a protocol shortcut that poisoned the shared contract.
+
+### 10. Formatting Is Pure Concatenation — Never Touch or Scan the SQL String
+
+Backend expressions and formatting functions build SQL by **simple concatenation** of fragments:
+identifiers (via `format_identifier`), literal atoms (via `format_literal`), placeholders, and
+pre-rendered sub-fragment SQL. They **must never inspect, parse, scan, or rewrite the SQL string
+itself** — no `startswith`/`endswith`/`in` checks on generated SQL, no regex matching, no
+character-by-character scanning, no quote-state machines, no post-hoc placeholder substitution.
+
+**Why this rule exists:** generated SQL is the *output* of formatting, not its input. Any logic
+that reads the generated string is by definition guessing at structure that the formatter already
+knew when it concatenated — a second, unreliable parse of information that was available as typed
+data at construction time. String scanning of SQL is also a classic injection surface: any
+mismatch between the scanner's assumptions (quote states, escape rules, placeholder characters)
+and the real dialect syntax silently corrupts the statement.
+
+**The single exception — inline-literal resolution.** When a statement
+(`requires_inline_literals() == True`, trusted developer-declared DDL) renders its literal
+values inline, the dialect's `format_literal` produces **escaped, quoted atoms**; these are
+concatenated directly during formatting and never require re-scanning the assembled SQL.
+Because this exception deals with splicing raw values into SQL text, it is a **SQL-injection
+hazard by nature**: developers must be highly alert that inline content is trusted-only and
+never reachable by end users. `Literal.requires_inline_literals` / the statement-level switch
+must default to `False` (bind parameters) for exactly this reason.
+
+**What happens if you break it (harm):** a scanner (e.g. walking the assembled SQL to replace
+`?` placeholders) mis-fires on placeholders that appear *inside* string literals, breaks the
+moment a dialect's quoting or placeholder syntax differs, and duplicates knowledge the
+formatter already had — all to solve a problem that pure concatenation never creates.
 
 ## Package Architecture
 

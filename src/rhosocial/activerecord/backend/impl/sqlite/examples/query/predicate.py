@@ -4,6 +4,7 @@ Complex predicates: LIKE, IN, BETWEEN, IS NULL.
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -30,24 +31,24 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table_name="products",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("price", FloatType()),
-        ColumnDefinition("category", TextType()),
-        ColumnDefinition("description", TextType()),
+        ColumnDefinition(dialect, "price", FloatType()),
+        ColumnDefinition(dialect, "category", TextType()),
+        ColumnDefinition(dialect, "description", TextType()),
     ],
     if_not_exists=True,
 )
@@ -82,7 +83,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
     LikePredicate,
     InPredicate,
     BetweenPredicate,

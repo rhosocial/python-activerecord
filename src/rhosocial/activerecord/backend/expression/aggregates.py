@@ -31,6 +31,11 @@ class AggregateFunctionCall(
     This class supports attaching a FILTER clause.
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_function_call"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -45,22 +50,15 @@ class AggregateFunctionCall(
         self.args = list(args)
         self.is_distinct = is_distinct
         self.alias = alias
-        self._filter_predicate: Optional["SQLPredicate"] = filter_predicate
+        self.filter_predicate: Optional["SQLPredicate"] = filter_predicate
 
     def filter(self, predicate: "SQLPredicate") -> "AggregateFunctionCall":
         """
         Applies a FILTER (WHERE ...) clause to the aggregate expression.
         If a filter already exists, it will be combined with the new one using AND.
         """
-        if self._filter_predicate:
-            self._filter_predicate = self._filter_predicate & predicate
+        if self.filter_predicate:
+            self.filter_predicate = self.filter_predicate & predicate
         else:
-            self._filter_predicate = predicate
+            self.filter_predicate = predicate
         return self
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        """
-        Generates the SQL string and parameters for this aggregate function call,
-        including any attached FILTER clause.
-        """
-        return self.dialect.format_function_call(self, self._filter_predicate)

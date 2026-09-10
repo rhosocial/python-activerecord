@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import inspect
+import re
 from abc import ABC
 from typing import TYPE_CHECKING, Optional, Set, Tuple
 
@@ -16,29 +18,65 @@ class DataType(BaseExpression, ABC):
     """Base for all SQL data type expressions.
 
     ``DataType`` instances are *value objects* — two instances with the
-    same logical parameters compare equal and have the same hash,
-    regardless of whether they carry a dialect reference or not.
+    same logical parameters compare equal and have the same hash.
 
-    Generic (core) types such as ``IntegerType`` serve as base classes
-    for backend-specific subtypes.  They may be instantiated, but calling
-    ``to_sql()`` without a bound dialect raises ``ValueError``.
+    Every concrete type declares its :attr:`name` — the **generic type
+    name** used for protocol dispatch (``supports_data_type_<name>`` /
+    ``format_data_type_<name>``) and as the key of the dialect's supported
+    types mapping.
+
+    Like every expression, a DataType carries an optional dialect
+    (conventional first argument, may be deferred and set through the
+    ``dialect`` property). Rendering goes through the unified
+    ``BaseExpression.to_sql()``: each type renders via the dialect's
+    ``format_data_type`` formatting function.
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_data_type"
+
+    name: Optional[str] = None
+    """Generic type name — the protocol dispatch key
+    (``supports_data_type_<name>`` / ``format_data_type_<name>``).
+    ``None`` on the abstract base; **mandatory and validated on every
+    concrete subclass** (see ``__init_subclass__``)."""
+
+    _NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
     def __init_subclass__(cls, **kwargs):
-        kwargs.pop("backend", None)  # silently consume legacy keyword
         super().__init_subclass__(**kwargs)
+        # The dispatch key is a protocol contract, not decoration: a
+        # concrete type without a valid `name` is undiscoverable by the
+        # naming-convention dispatch (format_data_type_<name>) and cannot
+        # appear in the dialect's supported-types mapping. Reject at class
+        # definition time instead of failing at render time.
+        if inspect.isabstract(cls):
+            return
+        # Names are namespaced: core-defined types own **pure** names
+        # (``integer``, ``varchar``, ``timestamp``); backend-specific types
+        # carry their backend name as a prefix (``sqlite_real``,
+        # ``mysql_int``, ``postgres_uuid``). The prefix makes the origin of
+        # a type visible at a glance and keeps the dispatch keys of
+        # different backends isolated — which is exactly what ActiveRecord
+        # field definitions need to stay portable across backends.
+        name = cls.__dict__.get("name")
+        if name is None:
+            raise TypeError(
+                f"{cls.__module__}.{cls.__name__} must declare a generic "
+                f"type name: set `name = \"<identifier>\"` on the class. "
+                f"The name is the dispatch key for format_data_type_<name>."
+            )
+        if not cls._NAME_RE.match(name):
+            raise TypeError(
+                f"{cls.__module__}.{cls.__name__} declares an invalid "
+                f"generic type name {name!r}: it must match "
+                f"\"[a-z][a-z0-9_]*\" (a valid identifier suffix)."
+            )
 
     def __init__(self, dialect: Optional["SQLDialectBase"] = None):
         super().__init__(dialect)
-
-    def to_sql(self, dialect: Optional["SQLDialectBase"] = None) -> SQLQueryAndParams:
-        effective = dialect or self.dialect
-        if effective is None:
-            raise ValueError(
-                f"Cannot render {type(self).__name__} without a dialect. "
-                f"Pass a dialect to to_sql() or bind one via bind()."
-            )
-        return effective.format_data_type(self)
 
     # ----- value-object semantics (ignore dialect for equality) -----
 

@@ -29,17 +29,18 @@ class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMix
 
     name = "test"
 
+    def format_data_type_integer(self, data_type):
+        return "INTEGER", ()
+
     def supports_table_partitioning(self) -> bool:
         return True
 
     def supports_partitioned_table_creation(self) -> bool:
         return True
 
-    @DDLTypeMixin.handles(IntegerType)
     def format_data_type_int(self, data_type) -> Tuple[str, tuple]:
         return "INTEGER", ()
 
-    @DDLTypeMixin.handles(VarCharType)
     def format_data_type_varchar(self, data_type) -> Tuple[str, tuple]:
         if data_type.length is not None:
             return f"VARCHAR({data_type.length})", ()
@@ -95,9 +96,9 @@ def test_validate_data_type_invalid(dialect):
 
 def test_format_column_definition_data_type_validation(dialect):
     """Test that column definition validates data_type."""
-    col_def = ColumnDefinition(
+    col_def = ColumnDefinition(dialect, 
         name="test_col",
-        data_type=VarCharType(255),
+        data_type=VarCharType(255, dialect),
     )
 
     sql, params = dialect.format_column_definition(col_def)
@@ -107,7 +108,7 @@ def test_format_column_definition_data_type_validation(dialect):
 def test_column_definition_rejects_string_data_type(dialect):
     """Test that ColumnDefinition rejects a string for data_type."""
     with pytest.raises(TypeError, match="data_type must be a DataType"):
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             name="test_col",
             data_type="VARCHAR(255); DROP TABLE users--",
         )
@@ -115,14 +116,20 @@ def test_column_definition_rejects_string_data_type(dialect):
 
 def test_format_cast_expression_valid(dialect):
     """Test that CAST expression validates target_type."""
-    sql, params = dialect.format_cast_expression("column", "INTEGER", (), None)
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+
+    expr = CastExpression(dialect, Column(dialect, "column"), "INTEGER")
+    sql, params = dialect.format_cast_expression(expr)
     assert "INTEGER" in sql
 
 
 def test_format_cast_expression_rejects_injection(dialect):
     """Test that malicious target_type is rejected."""
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+
+    expr = CastExpression(dialect, Column(dialect, "column"), "INTEGER; DROP TABLE users--")
     with pytest.raises(ValueError, match="Invalid target type"):
-        dialect.format_cast_expression("column", "INTEGER; DROP TABLE users--", (), None)
+        dialect.format_cast_expression(expr)
 
 
 def test_trim_direction_validation(dialect):
@@ -153,7 +160,7 @@ def test_trim_direction_rejects_invalid(dialect):
 
 def test_format_default_constraint_string_escaping(dialect):
     """Test DEFAULT constraint string is escaped."""
-    constraint = ColumnConstraint(
+    constraint = ColumnConstraint(dialect, 
         constraint_type=ColumnConstraintType.DEFAULT,
         default_value="test's value",
     )
@@ -233,7 +240,7 @@ def test_format_partition_method_validation(dialect):
         PartitionClause,
     )
 
-    col_def = ColumnDefinition(name="id", data_type=IntegerType())
+    col_def = ColumnDefinition(dialect, name="id", data_type=IntegerType(dialect))
     expr = CreateTableExpression(
         dialect=dialect,
         table="test_table",

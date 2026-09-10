@@ -27,18 +27,22 @@ from rhosocial.activerecord.backend.expression.types import (
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
+_dialect = SQLiteDialect()
+dialect = _dialect
+
+
 def _make_table(ctype, *, named=None):
     return CreateTableExpression(
         dialect=SQLiteDialect(),
         table="demo",
         columns=[
-            ColumnDefinition("id", IntegerType()),
-            ColumnDefinition("code", TextType(),
-                             constraints=[ColumnConstraint(
+            ColumnDefinition(dialect, "id", IntegerType()),
+            ColumnDefinition(dialect, "code", TextType(),
+                             constraints=[ColumnConstraint(dialect, 
                                  ColumnConstraintType.NOT_NULL)]),
         ],
         table_constraints=[
-            TableConstraint(constraint_type=ctype, columns=["code"],
+            TableConstraint(dialect, constraint_type=ctype, columns=["code"],
                             name=named)
         ],
     )
@@ -80,7 +84,7 @@ class TestLevelSeparation:
 
     def test_column_level_handler_reachable_under_new_name(self):
         dialect = SQLiteDialect()
-        constraint = ColumnConstraint(
+        constraint = ColumnConstraint(dialect, 
             constraint_type=ColumnConstraintType.UNIQUE)
         sql, params = dialect.format_column_unique_constraint(constraint)
         assert sql == " UNIQUE"

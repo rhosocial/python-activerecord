@@ -9,8 +9,8 @@ from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
 from rhosocial.activerecord.backend.dialect.protocols import DDLTypeSupport
 from rhosocial.activerecord.backend.expression.types import (
     BigIntType,
-    BooleanType,
     BlobType as CoreBlobType,
+    BooleanType,
     CharType,
     CustomType,
     DataType,
@@ -20,13 +20,10 @@ from rhosocial.activerecord.backend.expression.types import (
     DoubleType,
     FloatType,
     IntType,
-    IntegerType,
     IntervalType,
     JsonBType,
     JsonType,
-    RealType,
     SmallIntType,
-    TextType as CoreTextType,
     TimeType,
     TimeTzType,
     TimestampType,
@@ -60,123 +57,93 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     # DDLTypeSupport — formatting
     # ------------------------------------------------------------------
 
-    @DDLTypeMixin.handles(SQLiteIntegerType)
-    def format_data_type_integer(self, data_type: SQLiteIntegerType) -> Tuple[str, tuple]:
+    def format_data_type_sqlite_integer(self, data_type: SQLiteIntegerType) -> Tuple[str, tuple]:
         return "INTEGER", ()
 
-    @DDLTypeMixin.handles(SQLiteTextType)
-    def format_data_type_text(self, data_type: SQLiteTextType) -> Tuple[str, tuple]:
-        return (f"TEXT({data_type.length})" if data_type.length is not None else "TEXT"), ()
+    def format_data_type_sqlite_text(self, data_type: SQLiteTextType) -> Tuple[str, tuple]:
+        length = getattr(data_type, "length", None)
+        return (f"TEXT({length})" if length is not None else "TEXT"), ()
 
-    @DDLTypeMixin.handles(SQLiteRealType)
-    def format_data_type_real(self, data_type: SQLiteRealType) -> Tuple[str, tuple]:
+    def format_data_type_sqlite_real(self, data_type: SQLiteRealType) -> Tuple[str, tuple]:
         return "REAL", ()
 
-    @DDLTypeMixin.handles(SQLiteNumericType)
-    def format_data_type_numeric(self, data_type: SQLiteNumericType) -> Tuple[str, tuple]:
+    def format_data_type_sqlite_numeric(self, data_type: SQLiteNumericType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    @DDLTypeMixin.handles(SQLiteBlobType)
-    def format_data_type_blob(self, data_type: SQLiteBlobType) -> Tuple[str, tuple]:
+    def format_data_type_sqlite_blob(self, data_type: SQLiteBlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
-    # --- Core type handlers (SQLite affinity mappings) ---
+    # --- Core types (pure names) rendered per SQLite affinity ---
 
-    @DDLTypeMixin.handles(IntegerType)
-    def format_data_type_core_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
+    def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
         return "INTEGER", ()
 
-    @DDLTypeMixin.handles(BigIntType)
-    def format_data_type_core_bigint(self, data_type: BigIntType) -> Tuple[str, tuple]:
-        return "INTEGER", ()
-
-    @DDLTypeMixin.handles(SmallIntType)
-    def format_data_type_core_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
-        return "INTEGER", ()
-
-    @DDLTypeMixin.handles(CoreTextType)
-    def format_data_type_core_text(self, data_type: CoreTextType) -> Tuple[str, tuple]:
+    def format_data_type_text(self, data_type: TextType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    @DDLTypeMixin.handles(VarCharType)
-    def format_data_type_core_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
-        return "TEXT", ()
-
-    @DDLTypeMixin.handles(CharType)
-    def format_data_type_core_char(self, data_type: CharType) -> Tuple[str, tuple]:
-        return "TEXT", ()
-
-    @DDLTypeMixin.handles(FloatType)
-    def format_data_type_core_float(self, data_type: FloatType) -> Tuple[str, tuple]:
+    def format_data_type_real(self, data_type: RealType) -> Tuple[str, tuple]:
         return "REAL", ()
 
-    @DDLTypeMixin.handles(RealType)
-    def format_data_type_core_real(self, data_type: RealType) -> Tuple[str, tuple]:
-        return "REAL", ()
-
-    @DDLTypeMixin.handles(DecimalType)
-    def format_data_type_core_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
-        return "NUMERIC", ()
-
-    @DDLTypeMixin.handles(BooleanType)
-    def format_data_type_core_boolean(self, data_type: BooleanType) -> Tuple[str, tuple]:
-        return "NUMERIC", ()
-
-    @DDLTypeMixin.handles(DateType)
-    def format_data_type_core_date(self, data_type: DateType) -> Tuple[str, tuple]:
-        return "NUMERIC", ()
-
-    @DDLTypeMixin.handles(DateTimeType)
-    def format_data_type_core_datetime(self, data_type: DateTimeType) -> Tuple[str, tuple]:
-        return "NUMERIC", ()
-
-    @DDLTypeMixin.handles(TimestampType)
-    def format_data_type_core_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
-        return "NUMERIC", ()
-
-    @DDLTypeMixin.handles(TimeType)
-    def format_data_type_core_time(self, data_type: TimeType) -> Tuple[str, tuple]:
-        return "NUMERIC", ()
-
-    @DDLTypeMixin.handles(CoreBlobType)
-    def format_data_type_core_blob(self, data_type: CoreBlobType) -> Tuple[str, tuple]:
+    def format_data_type_blob(self, data_type: CoreBlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
-    # --- Missing core type formatters ---
-
-    @DDLTypeMixin.handles(TinyIntType)
-    def format_data_type_core_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
+    def format_data_type_bigint(self, data_type: BigIntType) -> Tuple[str, tuple]:
         return "INTEGER", ()
 
-    @DDLTypeMixin.handles(IntType)
-    def format_data_type_core_int(self, data_type: IntType) -> Tuple[str, tuple]:
+    def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
         return "INTEGER", ()
 
-    @DDLTypeMixin.handles(DoubleType)
-    def format_data_type_core_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
+    def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
+        return "TEXT", ()
+
+    def format_data_type_char(self, data_type: CharType) -> Tuple[str, tuple]:
+        return "TEXT", ()
+
+    def format_data_type_float(self, data_type: FloatType) -> Tuple[str, tuple]:
         return "REAL", ()
 
-    @DDLTypeMixin.handles(TimeTzType)
-    def format_data_type_core_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
+    def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    @DDLTypeMixin.handles(TimestampTzType)
-    def format_data_type_core_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
+    def format_data_type_boolean(self, data_type: BooleanType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    @DDLTypeMixin.handles(IntervalType)
-    def format_data_type_core_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
+    def format_data_type_date(self, data_type: DateType) -> Tuple[str, tuple]:
         return "NUMERIC", ()
 
-    @DDLTypeMixin.handles(JsonType)
-    def format_data_type_core_json(self, data_type: JsonType) -> Tuple[str, tuple]:
+    def format_data_type_datetime(self, data_type: DateTimeType) -> Tuple[str, tuple]:
+        return "NUMERIC", ()
+
+    def format_data_type_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
+        return "NUMERIC", ()
+
+    def format_data_type_time(self, data_type: TimeType) -> Tuple[str, tuple]:
+        return "NUMERIC", ()
+
+    def format_data_type_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
+        return "INTEGER", ()
+
+    def format_data_type_int(self, data_type: IntType) -> Tuple[str, tuple]:
+        return "INTEGER", ()
+
+    def format_data_type_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
+        return "REAL", ()
+
+    def format_data_type_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
+        return "NUMERIC", ()
+
+    def format_data_type_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
+        return "NUMERIC", ()
+
+    def format_data_type_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
+        return "NUMERIC", ()
+
+    def format_data_type_json(self, data_type: JsonType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    @DDLTypeMixin.handles(JsonBType)
-    def format_data_type_core_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
+    def format_data_type_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    @DDLTypeMixin.handles(CustomType)
     def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
         return data_type.raw, ()
 
@@ -235,7 +202,7 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
 
         # INTEGER affinity
         if self._INTEGER_TYPES.match(upper):
-            return SQLiteIntegerType()
+            return SQLiteIntegerType(self)
 
         # TEXT affinity — try to extract length parameter
         if self._TEXT_TYPES.match(upper):
@@ -243,7 +210,7 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
             m = re.search(r"\((\d+)\)", stripped)
             if m:
                 length = int(m.group(1))
-            return SQLiteTextType(length)
+            return SQLiteTextType(length, self)
 
         # REAL affinity
         if self._REAL_TYPES.match(upper):
@@ -251,19 +218,19 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
             m = re.search(r"\((\d+)\)", stripped)
             if m:
                 precision = int(m.group(1))
-            return SQLiteRealType(precision)
+            return SQLiteRealType(precision, self)
 
         # NUMERIC affinity — try to extract precision/scale
         if self._NUMERIC_TYPES.match(upper):
             nums = re.findall(r"\d+", stripped)
             if len(nums) >= 2:
-                return SQLiteNumericType(int(nums[0]), int(nums[1]))
+                return SQLiteNumericType(int(nums[0]), int(nums[1]), self)
             if len(nums) == 1:
-                return SQLiteNumericType(int(nums[0]))
-            return SQLiteNumericType()
+                return SQLiteNumericType(int(nums[0]), self)
+            return SQLiteNumericType(self)
 
         # BLOB affinity
         if self._BLOB_TYPES.match(upper):
-            return SQLiteBlobType()
+            return SQLiteBlobType(self)
 
         return CustomType(stripped)

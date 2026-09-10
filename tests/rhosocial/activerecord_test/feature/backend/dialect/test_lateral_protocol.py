@@ -38,8 +38,12 @@ def test_format_lateral_expression_reports_no_support():
     dialect = NoLateralDialect()
 
     assert not dialect.supports_lateral_join()
+    from rhosocial.activerecord.backend.expression.query_sources import LateralExpression
+    from rhosocial.activerecord.backend.expression.core import Subquery
+
+    lateral = LateralExpression(dialect, Subquery(dialect, "(SELECT 1)"), alias="lateral_data", join_type="CROSS")
     with pytest.raises(UnsupportedFeatureError) as excinfo:
-        dialect.format_lateral_expression("(SELECT 1)", (), "lateral_data", "CROSS")
+        dialect.format_lateral_expression(lateral)
     assert "LATERAL join" in str(excinfo.value)
 
 

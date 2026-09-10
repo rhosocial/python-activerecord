@@ -2,7 +2,6 @@
 """DML (Data Manipulation Language) statement expressions."""
 
 import abc
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
@@ -27,17 +26,29 @@ class MergeActionType(Enum):
     DELETE = "DELETE"
 
 
-@dataclass
-class MergeAction:
+class MergeAction(BaseExpression):
     """
-    Represents an action (UPDATE, INSERT, or DELETE) to be performed
-    within a MERGE statement's WHEN clause.
+    Represents a WHEN [NOT] MATCHED action clause within a MERGE statement.
+
+    A DML clause node rendered through the dialect's ``format_merge_action``.
     """
 
-    action_type: MergeActionType
-    assignments: Optional[Dict[str, "BaseExpression"]] = field(default_factory=dict)  # For UPDATE SET clause
-    values: Optional[List["BaseExpression"]] = field(default_factory=list)  # For INSERT VALUES clause
-    condition: Optional["SQLPredicate"] = None  # Optional additional condition for the WHEN clause
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_merge_action"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        action_type: MergeActionType,
+        assignments: Optional[Dict[str, "BaseExpression"]] = None,
+        condition: Optional["SQLPredicate"] = None,
+    ):
+        super().__init__(dialect)
+        self.action_type = action_type
+        self.assignments = dict(assignments or {})
+        self.condition = condition
 
 
 class MergeExpression(BaseExpression):
@@ -64,7 +75,7 @@ class MergeExpression(BaseExpression):
             on_condition=Column(dialect, "id", "tgt") == Column(dialect, "id", "src"),
             when_matched=[
                 MergeAction(
-                    action_type=MergeActionType.UPDATE,
+                    dialect, action_type=MergeActionType.UPDATE,
                     assignments={
                         "name": Column(dialect, "name", "src"),
                         "price": Column(dialect, "price", "src")
@@ -73,7 +84,7 @@ class MergeExpression(BaseExpression):
             ],
             when_not_matched=[
                 MergeAction(
-                    action_type=MergeActionType.INSERT,
+                    dialect, action_type=MergeActionType.INSERT,
                     assignments={
                         "id": Column(dialect, "id", "src"),
                         "name": Column(dialect, "name", "src"),
@@ -106,9 +117,10 @@ class MergeExpression(BaseExpression):
         self.when_not_matched = when_not_matched or []
         self.when_not_matched_by_source = when_not_matched_by_source or []
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the MERGE statement to the configured dialect."""
-        return self.dialect.format_merge_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_merge_statement"
 
     @property
     def statement_type(self) -> StatementType:
@@ -168,9 +180,10 @@ class ReturningClause(BaseExpression):
         self.alias = alias  # Optional alias for the returning clause
         self.dialect_options = dialect_options or {}  # Dialect-specific options
 
-    def to_sql(self) -> Tuple[str, tuple]:
-        """Delegates to dialect for RETURNING clause SQL generation."""
-        return self.dialect.format_returning_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_returning_clause"
 
 
 # region Delete Statement
@@ -296,9 +309,10 @@ class DeleteExpression(BaseExpression):
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the DELETE statement to the configured dialect."""
-        return self.dialect.format_delete_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_delete_statement"
 
     @property
     def statement_type(self) -> StatementType:
@@ -425,9 +439,10 @@ class UpdateExpression(BaseExpression):
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the UPDATE statement to the configured dialect."""
-        return self.dialect.format_update_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_update_statement"
 
     @property
     def statement_type(self) -> StatementType:
@@ -528,9 +543,10 @@ class OnConflictClause(BaseExpression):
         self.update_assignments = update_assignments
         self.update_where = update_where
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates formatting of the ON CONFLICT clause to the configured dialect."""
-        return self.dialect.format_on_conflict_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_on_conflict_clause"
 
 
 class InsertExpression(BaseExpression):
@@ -628,9 +644,10 @@ class InsertExpression(BaseExpression):
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the INSERT statement to the configured dialect."""
-        return self.dialect.format_insert_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_insert_statement"
 
     @property
     def statement_type(self) -> StatementType:

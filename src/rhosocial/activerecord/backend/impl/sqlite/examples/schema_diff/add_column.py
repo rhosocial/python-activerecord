@@ -23,10 +23,10 @@ dialect = backend.dialect
 
 expr = CreateTableExpression(
     dialect=dialect, table="users", columns=[
-        ColumnDefinition("id", IntegerType(),
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("name", TextType(),
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition(dialect, "id", IntegerType(),
+            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition(dialect, "name", TextType(),
+            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL)]),
     ]
 )
 sql, params = expr.to_sql()
@@ -47,7 +47,7 @@ snapshot_before = builder.build(schema="main")
 
 # Add a new column
 expr = AlterTableExpression(dialect, "users", [
-    AddColumn(dialect, ColumnDefinition("email", TextType()))
+    AddColumn(dialect, ColumnDefinition(dialect, "email", TextType()))
 ])
 sql, params = expr.to_sql()
 backend.execute(sql, params)

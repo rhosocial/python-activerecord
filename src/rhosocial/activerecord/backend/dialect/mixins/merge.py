@@ -14,6 +14,43 @@ class MergeMixin:
         """Whether MERGE statement is supported."""
         return False
 
+    def format_merge_action(self, expr: "MergeAction", matched: str) -> Tuple[str, tuple]:
+        """Format a single WHEN [NOT] MATCHED action clause.
+
+        *matched* is the caller's context ("MATCHED", "NOT MATCHED" or
+        "NOT MATCHED BY SOURCE"); the action itself contributes THEN ….
+        """
+        from ...expression.statements import MergeActionType
+
+        all_params: List[Any] = []
+        parts = [matched]
+        if expr.condition is not None:
+            cond_sql, cond_params = expr.condition.to_sql()
+            parts.append(f"AND {cond_sql}")
+            all_params.extend(cond_params)
+
+        if expr.action_type == MergeActionType.UPDATE:
+            assignments = []
+            for col, as_expr in expr.assignments.items():
+                as_sql, as_params = as_expr.to_sql()
+                assignments.append(f"{self.format_identifier(col)} = {as_sql}")
+                all_params.extend(as_params)
+            parts.append(f"THEN UPDATE SET {', '.join(assignments)}")
+        elif expr.action_type == MergeActionType.DELETE:
+            parts.append("THEN DELETE")
+        elif expr.action_type == MergeActionType.INSERT:
+            insert_cols, insert_vals = [], []
+            for col, val_expr in expr.assignments.items():
+                insert_cols.append(self.format_identifier(col))
+                val_sql, val_params = val_expr.to_sql()
+                insert_vals.append(val_sql)
+                all_params.extend(val_params)
+            if insert_cols:
+                parts.append(f"THEN INSERT ({', '.join(insert_cols)}) VALUES ({', '.join(insert_vals)})")
+            else:
+                parts.append("THEN INSERT DEFAULT VALUES")
+        return " ".join(parts), tuple(all_params)
+
     def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
         """Format MERGE statement."""
         all_params: List[Any] = []
@@ -26,70 +63,19 @@ class MergeMixin:
 
         merge_sql_parts = [f"MERGE INTO {target_sql}", f"USING {source_sql}", f"ON {on_sql}"]
 
-        # Import here to avoid circular imports
-        from ...expression.statements import MergeActionType
-
         for action in expr.when_matched:
-            action_sql_parts = []
-            if action.condition:
-                cond_sql, cond_params = action.condition.to_sql()
-                action_sql_parts.append(f"WHEN MATCHED AND {cond_sql}")
-                all_params.extend(cond_params)
-            else:
-                action_sql_parts.append("WHEN MATCHED")
-
-            if action.action_type == MergeActionType.UPDATE:
-                assignments = []
-                for col, as_expr in action.assignments.items():
-                    as_sql, as_params = as_expr.to_sql()
-                    assignments.append(f"{self.format_identifier(col)} = {as_sql}")
-                    all_params.extend(as_params)
-                action_sql_parts.append(f"THEN UPDATE SET {', '.join(assignments)}")
-            elif action.action_type == MergeActionType.DELETE:
-                action_sql_parts.append("THEN DELETE")
-            merge_sql_parts.append(" ".join(action_sql_parts))
+            action_sql, action_params = self.format_merge_action(action, "WHEN MATCHED")
+            merge_sql_parts.append(action_sql)
+            all_params.extend(action_params)
 
         for action in expr.when_not_matched:
-            action_sql_parts = []
-            if action.condition:
-                cond_sql, cond_params = action.condition.to_sql()
-                action_sql_parts.append(f"WHEN NOT MATCHED AND {cond_sql}")
-                all_params.extend(cond_params)
-            else:
-                action_sql_parts.append("WHEN NOT MATCHED")
+            action_sql, action_params = self.format_merge_action(action, "WHEN NOT MATCHED")
+            merge_sql_parts.append(action_sql)
+            all_params.extend(action_params)
 
-            if action.action_type == MergeActionType.INSERT:
-                insert_cols, insert_vals = [], []
-                for col, val_expr in action.assignments.items():
-                    insert_cols.append(self.format_identifier(col))
-                    val_sql, val_params = val_expr.to_sql()
-                    insert_vals.append(val_sql)
-                    all_params.extend(val_params)
-                if insert_cols:
-                    action_sql_parts.append(f"THEN INSERT ({', '.join(insert_cols)}) VALUES ({', '.join(insert_vals)})")
-                else:
-                    action_sql_parts.append("THEN INSERT DEFAULT VALUES")
-            merge_sql_parts.append(" ".join(action_sql_parts))
-
-        # Handle WHEN NOT MATCHED BY SOURCE clauses
         for action in expr.when_not_matched_by_source:
-            action_sql_parts = []
-            if action.condition:
-                cond_sql, cond_params = action.condition.to_sql()
-                action_sql_parts.append(f"WHEN NOT MATCHED BY SOURCE AND {cond_sql}")
-                all_params.extend(cond_params)
-            else:
-                action_sql_parts.append("WHEN NOT MATCHED BY SOURCE")
-
-            if action.action_type == MergeActionType.UPDATE:
-                assignments = []
-                for col, as_expr in action.assignments.items():
-                    as_sql, as_params = as_expr.to_sql()
-                    assignments.append(f"{self.format_identifier(col)} = {as_sql}")
-                    all_params.extend(as_params)
-                action_sql_parts.append(f"THEN UPDATE SET {', '.join(assignments)}")
-            elif action.action_type == MergeActionType.DELETE:
-                action_sql_parts.append("THEN DELETE")
-            merge_sql_parts.append(" ".join(action_sql_parts))
+            action_sql, action_params = self.format_merge_action(action, "WHEN NOT MATCHED BY SOURCE")
+            merge_sql_parts.append(action_sql)
+            all_params.extend(action_params)
 
         return " ".join(merge_sql_parts), tuple(all_params)

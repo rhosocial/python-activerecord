@@ -243,6 +243,27 @@ Day 5:  1.2.0.dev3 - Integration fixes
 Day 8:  1.2.0.dev4 - Ready for alpha phase
 ```
 
+**Backend-protocol freeze gate (before advancing to alpha / rc / final):**
+
+While in `dev`, the **backend protocol** (the negotiated seams: `to_sql()` on expressions;
+`format_*()` / `supports_*()` on the dialect; expression/statement classes; type adapters — a
+shared contract implicated across every backend) may still evolve, with **no
+backward-compatibility guarantee** yet. Protocol changes are nonetheless large, cross-cutting
+projects requiring extreme restraint, deep deliberation, and broad research (see
+`architecture.md` → rule 9).
+
+**A defining milestone for entering candidate/stable (`rc`/final):** the backend protocol **no
+longer changes**, and it has been **stable for several consecutive development releases**
+(`X.Y.0.devN` … zero protocol changes across multiple dev builds). Until that holds, the project
+is not ready to be marked `rc`/final. A protocol change after `rc` is a breaking change requiring
+a new `X.Y` cycle.
+
+**Why:** the backend protocol is the nervous system every backend dials into. Once candidate/stable
+is advertised, consumers and downstream backends build against the protocol; a post-stable change
+forces a breaking MAJOR bump and a coordinated retrofit across the whole ecosystem. Freezing the
+protocol across several dev releases first proves it is settled before any stability promise is
+made.
+
 #### Phase 2: Alpha (alpha/a)
 
 **Version Format**: `X.Y.0aN` (e.g., `1.2.0a1`, `1.2.0a2`, `1.2.0a3`)

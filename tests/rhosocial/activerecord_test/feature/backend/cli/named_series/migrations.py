@@ -34,12 +34,12 @@ def create_users_table(dialect):
         dialect,
         table="users",
         columns=[
-            ColumnDefinition(
-                "id", SQLiteIntegerType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+            ColumnDefinition(dialect, 
+                "id", SQLiteIntegerType(dialect),
+                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition("name", SQLiteTextType()),
-            ColumnDefinition("email", SQLiteTextType()),
+            ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
+            ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
         ],
     )
 
@@ -55,12 +55,12 @@ def create_posts_table(dialect):
         dialect,
         table="posts",
         columns=[
-            ColumnDefinition(
-                "id", SQLiteIntegerType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],
+            ColumnDefinition(dialect, 
+                "id", SQLiteIntegerType(dialect),
+                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition("title", SQLiteTextType()),
-            ColumnDefinition("user_id", SQLiteIntegerType()),
+            ColumnDefinition(dialect, "title", SQLiteTextType(dialect=dialect)),
+            ColumnDefinition(dialect, "user_id", SQLiteIntegerType(dialect)),
         ],
     )
 

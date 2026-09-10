@@ -77,14 +77,8 @@ class PartitionClause(BaseExpression):
         self.keys = list(keys)
         self.dialect_options = dict(dialect_options or {})
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Generate the PARTITION BY clause SQL via the dialect."""
-        if not hasattr(self.dialect, "format_partition_clause"):
-            from rhosocial.activerecord.backend.dialect import ProtocolNotImplementedError
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_partition_clause"
 
-            raise ProtocolNotImplementedError(
-                dialect_name=self.dialect.name,
-                protocol_name="PartitionSupport",
-                required_by="PartitionClause",
-            )
-        return self.dialect.format_partition_clause(self)

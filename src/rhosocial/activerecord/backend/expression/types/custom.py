@@ -15,6 +15,8 @@ class CustomType(DataType):
     lossless even when the framework does not know the type.
     """
 
+    name = "custom"
+
     raw: str
 
     def __init__(self, raw: str, dialect=None):

@@ -60,33 +60,33 @@ class TestFormatValuesExpression:
     """Tests for the SQLite VALUES derived-table formatting override."""
 
     def test_with_alias_omits_column_name_list(self, dialect: SQLiteDialect):
-        sql, params = dialect.format_values_expression([(1, "a"), (2, "b")], "v", ["id", "n"])
+        sql, params = dialect.format_values_expression(ValuesExpression(dialect, [(1, "a"), (2, "b")], "v", ["id", "n"]))
         assert sql == '(VALUES (?, ?), (?, ?)) AS "v"'
         assert params == (1, "a", 2, "b")
 
     def test_with_alias_without_column_names(self, dialect: SQLiteDialect):
-        sql, params = dialect.format_values_expression([(1, "a")], "v", None)
+        sql, params = dialect.format_values_expression(ValuesExpression(dialect, [(1, "a")], "v"))
         assert sql == '(VALUES (?, ?)) AS "v"'
         assert params == (1, "a")
 
     def test_without_alias(self, dialect: SQLiteDialect):
-        sql, params = dialect.format_values_expression([(1,), (2,)], None, None)
+        sql, params = dialect.format_values_expression(ValuesExpression(dialect, [(1,), (2,)]))
         assert sql == "VALUES (?), (?)"
         assert params == (1, 2)
 
     def test_column_names_ignored_when_no_alias(self, dialect: SQLiteDialect):
         # The base implementation would emit invalid ``VALUES (?)(...)`` here;
         # the SQLite override must not.
-        sql, _params = dialect.format_values_expression([(1, "a")], None, ["id", "n"])
+        sql, _params = dialect.format_values_expression(ValuesExpression(dialect, [(1, "a")], None, ["id", "n"]))
         assert sql == "VALUES (?, ?)"
 
     def test_generated_sql_executes(self, dialect: SQLiteDialect, conn):
-        sql, params = dialect.format_values_expression([(1, "a"), (2, "b")], "v", ["id", "n"])
+        sql, params = dialect.format_values_expression(ValuesExpression(dialect, [(1, "a"), (2, "b")], "v", ["id", "n"]))
         rows = conn.execute(f"SELECT * FROM {sql}", list(params)).fetchall()
         assert sorted(rows) == [(1, "a"), (2, "b")]
 
     def test_columns_get_implicit_names(self, dialect: SQLiteDialect, conn):
-        sql, params = dialect.format_values_expression([(1, "a")], "v", ["id", "n"])
+        sql, params = dialect.format_values_expression(ValuesExpression(dialect, [(1, "a")], "v", ["id", "n"]))
         cur = conn.execute(f"SELECT * FROM {sql}", list(params))
         assert [d[0] for d in cur.description] == ["column1", "column2"]
 
@@ -128,8 +128,9 @@ class TestLateralJoinUnsupported:
     """Tests that lateral expressions are rejected with a clear error."""
 
     def test_format_lateral_expression_raises(self, dialect: SQLiteDialect):
+        lateral = LateralExpression(dialect, Subquery(dialect, "(SELECT 1)"), alias="lat", join_type="CROSS")
         with pytest.raises(UnsupportedFeatureError) as excinfo:
-            dialect.format_lateral_expression("(SELECT 1)", (), "lat", "CROSS")
+            dialect.format_lateral_expression(lateral)
         assert "LATERAL join" in str(excinfo.value)
         assert dialect.name in str(excinfo.value)
 

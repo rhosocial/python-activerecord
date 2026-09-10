@@ -37,6 +37,12 @@ class SQLiteDateTimeMixin:
         "second": "%Y-%m-%d %H:%M:%S",
     }
 
+    def apply_alias(self, sql: str, params: tuple, expr) -> Tuple[str, tuple]:
+        """Append ``AS alias`` when the expression carries an alias."""
+        if getattr(expr, "alias", None):
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, params
+
     def format_extract_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime field extraction for SQLite."""
         source_sql, source_params = expr.source.to_sql()
@@ -45,7 +51,7 @@ class SQLiteDateTimeMixin:
         if fmt is None:
             raise UnsupportedFeatureError(self.name, f"EXTRACT({field})")
         sql = f"CAST(strftime('{fmt}', {source_sql}) AS INTEGER)"
-        return self._apply_value_expression_modifiers(sql, source_params, expr)
+        return self.apply_alias(sql, source_params, expr)
 
     def format_date_part_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format date_part using SQLite strftime."""
@@ -62,7 +68,7 @@ class SQLiteDateTimeMixin:
             sql = f"strftime('{fmt}', {source_sql})"
         else:
             raise UnsupportedFeatureError(self.name, f"DATE_TRUNC({field})")
-        return self._apply_value_expression_modifiers(sql, source_params, expr)
+        return self.apply_alias(sql, source_params, expr)
 
     def format_interval_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """SQLite has no standalone interval literal."""
@@ -83,14 +89,14 @@ class SQLiteDateTimeMixin:
         source_sql, source_params = expr.source.to_sql()
         modifier = self._format_sqlite_interval_modifier(expr.interval, "+")
         sql = f"datetime({source_sql}, ?)"
-        return self._apply_value_expression_modifiers(sql, source_params + (modifier,), expr)
+        return self.apply_alias(sql, source_params + (modifier,), expr)
 
     def format_datetime_subtract_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime interval subtraction using SQLite modifiers."""
         source_sql, source_params = expr.source.to_sql()
         modifier = self._format_sqlite_interval_modifier(expr.interval, "-")
         sql = f"datetime({source_sql}, ?)"
-        return self._apply_value_expression_modifiers(sql, source_params + (modifier,), expr)
+        return self.apply_alias(sql, source_params + (modifier,), expr)
 
     def format_datetime_diff_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime difference using SQLite julianday."""
@@ -108,7 +114,7 @@ class SQLiteDateTimeMixin:
             raise UnsupportedFeatureError(self.name, f"date_diff({field})")
         base_sql = f"(julianday({end_sql}) - julianday({start_sql}))"
         sql = base_sql if multiplier == "1" else f"({base_sql} * {multiplier})"
-        return self._apply_value_expression_modifiers(sql, start_params + end_params, expr)
+        return self.apply_alias(sql, start_params + end_params, expr)
 
     def supports_collate_expression(self) -> bool:
         """SQLite supports expression-level COLLATE."""

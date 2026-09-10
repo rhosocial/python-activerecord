@@ -324,7 +324,7 @@ class ActiveQuery(
             if isinstance(key, Column):
                 col_name = key.name
             elif isinstance(key, str):
-                col_name = self.model_class._get_column_name(key)
+                col_name = self.model_class.get_column_name(key)
             else:
                 col_name = str(key)
             data[col_name] = value
@@ -677,7 +677,7 @@ class AsyncActiveQuery(
             if isinstance(key, Column):
                 col_name = key.name
             elif isinstance(key, str):
-                col_name = self.model_class._get_column_name(key)
+                col_name = self.model_class.get_column_name(key)
             else:
                 col_name = str(key)
             data[col_name] = value

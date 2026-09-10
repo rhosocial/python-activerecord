@@ -10,6 +10,7 @@ This section provides detailed comparisons between rhosocial-activerecord and ma
 - [vs SQLModel](./sqlmodel.md) — Comparison with Pydantic+SQLAlchemy hybrid solution
 - [vs Peewee](./peewee.md) — Comparison with lightweight ActiveRecord
 - [vs Tortoise ORM](./tortoise_orm.md) — Comparison with async-first ORM
+- [vs Prisma Client Python](./prisma.md) — Comparison with schema-first ORM
 
 ## Quick Comparison
 
@@ -20,4 +21,5 @@ This section provides detailed comparisons between rhosocial-activerecord and ma
 | **SQLModel** | Hybrid | Pydantic + SQLAlchemy | FastAPI + SQLAlchemy users |
 | **Peewee** | ActiveRecord | Lightweight, self-contained | Small projects |
 | **Tortoise ORM** | ActiveRecord | Async-first, Django-style | Pure async projects |
+| **Prisma Client Python** | Schema-first | Type-safe client generated from schema DDL | Schema-driven projects |
 | **rhosocial-activerecord** | ActiveRecord | Native Pydantic, sync-async parity | Modern Python projects |

@@ -67,15 +67,17 @@ class TestCreateDropIndexStatements:
 
     def test_create_index_with_where_clause(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX with WHERE clause (partial index)."""
-        where_condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        where_condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active", inline_literals=True)
         create_index = CreateIndexExpression(
             dummy_dialect, index_name="idx_active_users", table_name="users", columns=["email"], where=where_condition
         )
         sql, params = create_index.to_sql()
 
         assert 'CREATE INDEX "idx_active_users"' in sql
-        assert 'WHERE "status" = ?' in sql
-        assert params == ("active",)
+        # DDL clauses accept no bind parameters: WHERE literals are inline
+        # (the CreateIndexExpression inlines its WHERE at construction).
+        assert 'WHERE "status" = \'active\'' in sql
+        assert params == ()
 
     def test_create_index_with_include(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX with INCLUDE clause."""
@@ -178,7 +180,7 @@ class TestCreateDropIndexStatements:
 
     def test_create_index_all_options(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX with all options."""
-        where_condition = Column(dummy_dialect, "active") == Literal(dummy_dialect, True)
+        where_condition = Column(dummy_dialect, "active") == Literal(dummy_dialect, True, inline_literals=True)
         create_index = CreateIndexExpression(
             dummy_dialect,
             index_name="idx_complex",
@@ -198,6 +200,8 @@ class TestCreateDropIndexStatements:
         assert '"email"' in sql
         assert '"username"' in sql
         assert "INCLUDE" in sql
-        assert 'WHERE "active" = ?' in sql
+        # DDL clauses accept no bind parameters: WHERE literals are inline.
+        assert 'WHERE "active" = TRUE' in sql
         assert "TABLESPACE" in sql
-        assert params == (True,)
+        # DDL clauses accept no bind parameters: WHERE literals are inline.
+        assert params == ()

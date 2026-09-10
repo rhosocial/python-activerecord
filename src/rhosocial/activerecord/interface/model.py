@@ -174,6 +174,16 @@ class ActiveRecordBase(BaseModel, ABC):
         return pk if isinstance(pk, tuple) else (pk,)
 
     @classmethod
+    def get_generated_columns(cls) -> Tuple[str, ...]:
+        """Column names backed by generated (computed) expressions.
+
+        Generated columns are computed by the database and must be excluded
+        from INSERT/UPDATE column lists. Populated by the DDL derivation
+        (``GeneratedColumnSpec``) via ``__table_generated_columns__``.
+        """
+        return tuple(getattr(cls, "__table_generated_columns__", ()) or ())
+
+    @classmethod
     def backend(cls) -> Union[StorageBackend, AsyncStorageBackend]:
         """Get storage backend instance.
 
@@ -276,6 +286,10 @@ class ActiveRecordBase(BaseModel, ABC):
         else:
             # Include all fields for new records
             data = self.model_dump()
+        # Generated columns are database-computed: never insert/update them.
+        generated = set(self.__class__.get_generated_columns())
+        if generated:
+            data = {k: v for k, v in data.items() if k not in generated}
         return data
 
     def _after_save(self, is_new: bool) -> None:

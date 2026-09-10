@@ -11,8 +11,9 @@ https://www.sqlite.org/datatype3.html:
 * ``SQLiteNumericType``  — NUMERIC affinity (DECIMAL, BOOLEAN, DATE, …)
 * ``SQLiteBlobType``     — BLOB affinity (BLOB, BYTEA, …)
 
-Each class carries ``backend="sqlite"`` so the ``DataType.__init__`` guard
-does not reject them.
+Each class carries a ``sqlite_``-prefixed generic ``name`` (the protocol
+dispatch key), so the backend's concrete type family is distinguishable
+from the core type family by name alone.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from rhosocial.activerecord.backend.expression.types import (
 )
 
 
-class SQLiteIntegerType(IntegerType, backend="sqlite"):
+class SQLiteIntegerType(IntegerType):
     """SQLite INTEGER — rowid alias when used as PRIMARY KEY.
 
     In SQLite ``INTEGER PRIMARY KEY`` makes the column an alias for the
@@ -35,12 +36,14 @@ class SQLiteIntegerType(IntegerType, backend="sqlite"):
     reuse.
     """
 
+    name = "sqlite_integer"
+
     @classmethod
     def synonyms(cls) -> Set[str]:
         return {'IntegerType', 'IntType'}
 
 
-class SQLiteTextType(TextType, backend="sqlite"):
+class SQLiteTextType(TextType):
     """SQLite TEXT — the only string affinity.
 
     SQLite does not distinguish CHAR/VARCHAR/TEXT at the storage level;
@@ -48,6 +51,8 @@ class SQLiteTextType(TextType, backend="sqlite"):
     dialect can map ``VARCHAR`` / ``CHAR`` etc. to a canonical type during
     introspection round-trips.
     """
+
+    name = "sqlite_text"
 
     length: int | None = None
 
@@ -60,12 +65,14 @@ class SQLiteTextType(TextType, backend="sqlite"):
         return {'TextType', 'VarCharType', 'CharType'}
 
 
-class SQLiteRealType(DataType, backend="sqlite"):
+class SQLiteRealType(DataType):
     """SQLite REAL — affinity for floating-point types.
 
     Matches REAL, FLOAT, DOUBLE, and DOUBLE PRECISION in SQLite's
     type affinity mapping.
     """
+
+    name = "sqlite_real"
 
     precision: int | None = None
 
@@ -86,12 +93,14 @@ class SQLiteRealType(DataType, backend="sqlite"):
         return {'RealType', 'FloatType', 'DoubleType'}
 
 
-class SQLiteNumericType(DataType, backend="sqlite"):
+class SQLiteNumericType(DataType):
     """SQLite NUMERIC — affinity for DECIMAL / BOOLEAN / DATE / etc.
 
     SQLite maps ``DECIMAL``, ``NUMERIC``, ``BOOLEAN``, ``DATE``,
     ``DATETIME``, ``TIMESTAMP`` and ``TIME`` to this affinity.
     """
+
+    name = "sqlite_numeric"
 
     precision: int | None = None
     scale: int | None = None
@@ -117,12 +126,14 @@ class SQLiteNumericType(DataType, backend="sqlite"):
                 'TimestampTzType', 'TimeType', 'TimeTzType'}
 
 
-class SQLiteBlobType(BlobType, backend="sqlite"):
+class SQLiteBlobType(BlobType):
     """SQLite BLOB — affinity for binary data.
 
     SQLite maps ``BLOB``, ``BYTEA``, ``BINARY`` and ``VARBINARY`` to
     this affinity.
     """
+
+    name = "sqlite_blob"
 
     @classmethod
     def synonyms(cls) -> Set[str]:

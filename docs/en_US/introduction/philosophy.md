@@ -191,7 +191,7 @@ We're not just building an ORM; we're building a **complete ActiveRecord ecosyst
 - ✅ **Relationships** — BelongsTo, HasOne, HasMany with eager loading
 - ✅ **Enterprise features** — Optimistic locking, soft delete, timestamps, UUIDs
 - ✅ **Async support** — True sync-async parity, not wrappers
-- ✅ **Multiple backends** — SQLite (built-in), MySQL, PostgreSQL (planned)
+- ✅ **Multiple backends** — SQLite (built-in) plus separable packages for MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, Firebird, BigQuery, ClickHouse, and Snowflake
 - ✅ **AI-native design** — Built-in support for AI code agents
 
 **Our mission:** Make ActiveRecord the go-to pattern for Python data persistence, accessible to everyone regardless of their framework choices.
@@ -217,13 +217,17 @@ Traditional ORMs often tightly couple database connection management with model 
 
 This separation means that the **Backend can work completely independently**. You can use the Backend directly to execute raw SQL, manage transactions, or build custom data access layers without defining any Models. ActiveRecord is simply a high-level abstraction built upon this solid foundation.
 
-Furthermore, **the Backend itself provides a powerful "Expression-Dialect" system**. This design allows us to easily extend support for mainstream relational databases. Currently, we provide the latest support for **SQLite3**, and plan to or already provide extensions for the following, committed to offering users a consistent development experience across different databases:
+Furthermore, **the Backend itself provides a powerful "Expression-Dialect" system**. This design allows us to easily extend support for mainstream relational databases. Currently, we provide the latest support for **SQLite3**, and we provide backend extensions for the following databases (each distributed as a separate package), committed to offering users a consistent development experience across different databases:
 
 *   **MySQL**
+*   **MariaDB**
 *   **PostgreSQL**
-*   **Oracle** (Planned)
-*   **SQL Server** (Planned)
-*   **MariaDB** (Planned)
+*   **SQL Server**
+*   **Oracle**
+*   **Firebird**
+*   **BigQuery**
+*   **ClickHouse**
+*   **Snowflake**
 
 > **Note**: Different database backends may have varying levels of feature support (e.g., MySQL only supports window functions starting from version 8.0). Please refer to the specific backend's release notes and documentation.
 

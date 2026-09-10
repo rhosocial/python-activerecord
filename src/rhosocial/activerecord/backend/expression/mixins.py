@@ -70,11 +70,6 @@ class AliasableMixin:
         """
         new = copy.copy(self)
         new.alias = alias
-        # Shallow copy shares mutable per-instance collections (e.g.
-        # ``_cast_types``); give the copy its own list so later mutation
-        # (such as ``cast()``) never contaminates the original.
-        if hasattr(new, "_cast_types"):
-            new._cast_types = list(new._cast_types)
         return new
 
 
@@ -124,8 +119,8 @@ class ComparisonMixin:
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return ComparisonPredicate(self.dialect, "=", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return ComparisonPredicate(self._dialect, "=", self, other_expr)
 
     def __ne__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
         """
@@ -141,8 +136,8 @@ class ComparisonMixin:
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return ComparisonPredicate(self.dialect, "!=", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return ComparisonPredicate(self._dialect, "!=", self, other_expr)
 
     def __gt__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
         """
@@ -158,8 +153,8 @@ class ComparisonMixin:
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return ComparisonPredicate(self.dialect, ">", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return ComparisonPredicate(self._dialect, ">", self, other_expr)
 
     def __ge__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
         """
@@ -175,8 +170,8 @@ class ComparisonMixin:
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return ComparisonPredicate(self.dialect, ">=", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return ComparisonPredicate(self._dialect, ">=", self, other_expr)
 
     def __lt__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
         """
@@ -192,8 +187,8 @@ class ComparisonMixin:
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return ComparisonPredicate(self.dialect, "<", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return ComparisonPredicate(self._dialect, "<", self, other_expr)
 
     def __le__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
         """
@@ -209,8 +204,8 @@ class ComparisonMixin:
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return ComparisonPredicate(self.dialect, "<=", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return ComparisonPredicate(self._dialect, "<=", self, other_expr)
 
     def is_null(self: "SQLValueExpression") -> "SQLPredicate":
         """
@@ -225,7 +220,7 @@ class ComparisonMixin:
         """
         from .predicates import IsNullPredicate
 
-        return IsNullPredicate(self.dialect, self)
+        return IsNullPredicate(self._dialect, self)
 
     def is_not_null(self: "SQLValueExpression") -> "SQLPredicate":
         """
@@ -240,7 +235,7 @@ class ComparisonMixin:
         """
         from .predicates import IsNullPredicate
 
-        return IsNullPredicate(self.dialect, self, is_not=True)
+        return IsNullPredicate(self._dialect, self, is_not=True)
 
     def is_true(self: "SQLValueExpression") -> "SQLPredicate":
         """
@@ -259,7 +254,7 @@ class ComparisonMixin:
         """
         from .predicates import IsBooleanPredicate
 
-        return IsBooleanPredicate(self.dialect, self, value=True, is_not=False)
+        return IsBooleanPredicate(self._dialect, self, value=True, is_not=False)
 
     def is_not_true(self: "SQLValueExpression") -> "SQLPredicate":
         """
@@ -278,7 +273,7 @@ class ComparisonMixin:
         """
         from .predicates import IsBooleanPredicate
 
-        return IsBooleanPredicate(self.dialect, self, value=True, is_not=True)
+        return IsBooleanPredicate(self._dialect, self, value=True, is_not=True)
 
     def is_false(self: "SQLValueExpression") -> "SQLPredicate":
         """
@@ -297,7 +292,7 @@ class ComparisonMixin:
         """
         from .predicates import IsBooleanPredicate
 
-        return IsBooleanPredicate(self.dialect, self, value=False, is_not=False)
+        return IsBooleanPredicate(self._dialect, self, value=False, is_not=False)
 
     def is_not_false(self: "SQLValueExpression") -> "SQLPredicate":
         """
@@ -316,7 +311,7 @@ class ComparisonMixin:
         """
         from .predicates import IsBooleanPredicate
 
-        return IsBooleanPredicate(self.dialect, self, value=False, is_not=True)
+        return IsBooleanPredicate(self._dialect, self, value=False, is_not=True)
 
     def in_(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
         """
@@ -340,12 +335,12 @@ class ComparisonMixin:
             # An ActiveQuery-like object: render as an IN subquery.
             from .core import Subquery
 
-            return InPredicate(self.dialect, self, Subquery(self.dialect, to_query_expression()))
+            return InPredicate(self._dialect, self, Subquery(None, to_query_expression()))
         if hasattr(values, "to_sql"):
             # Already an expression (e.g. Subquery): pass through.
-            return InPredicate(self.dialect, self, values)
+            return InPredicate(self._dialect, self, values)
 
-        return InPredicate(self.dialect, self, Literal(self.dialect, tuple(values)))
+        return InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
 
     def not_in(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
         """
@@ -361,7 +356,7 @@ class ComparisonMixin:
         from .predicates import InPredicate, LogicalPredicate
 
         return LogicalPredicate(
-            self.dialect, "NOT", InPredicate(self.dialect, self, Literal(self.dialect, tuple(values)))
+            self._dialect, "NOT", InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
         )
 
     def between(self: "SQLValueExpression", low: Any, high: Any) -> "SQLPredicate":
@@ -382,7 +377,7 @@ class ComparisonMixin:
         from .core import Literal
         from .predicates import BetweenPredicate
 
-        return BetweenPredicate(self.dialect, self, Literal(self.dialect, low), Literal(self.dialect, high))
+        return BetweenPredicate(self._dialect, self, Literal(self._dialect, low), Literal(self._dialect, high))
 
 
 class ArithmeticMixin:
@@ -430,8 +425,8 @@ class ArithmeticMixin:
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return BinaryArithmeticExpression(self.dialect, "+", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return BinaryArithmeticExpression(self._dialect, "+", self, other_expr)
 
     def __sub__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
         """
@@ -447,8 +442,8 @@ class ArithmeticMixin:
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return BinaryArithmeticExpression(self.dialect, "-", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return BinaryArithmeticExpression(self._dialect, "-", self, other_expr)
 
     def __mul__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
         """
@@ -464,8 +459,8 @@ class ArithmeticMixin:
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return BinaryArithmeticExpression(self.dialect, "*", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return BinaryArithmeticExpression(self._dialect, "*", self, other_expr)
 
     def __truediv__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
         """
@@ -481,8 +476,8 @@ class ArithmeticMixin:
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return BinaryArithmeticExpression(self.dialect, "/", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return BinaryArithmeticExpression(self._dialect, "/", self, other_expr)
 
     def __mod__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
         """
@@ -498,8 +493,8 @@ class ArithmeticMixin:
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
-        return BinaryArithmeticExpression(self.dialect, "%", self, other_expr)
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return BinaryArithmeticExpression(self._dialect, "%", self, other_expr)
 
 
 class LogicalMixin:
@@ -545,7 +540,7 @@ class LogicalMixin:
         """
         from .predicates import LogicalPredicate
 
-        return LogicalPredicate(self.dialect, "AND", self, other)
+        return LogicalPredicate(self._dialect, "AND", self, other)
 
     def __or__(self: "SQLPredicate", other: "SQLPredicate") -> "SQLPredicate":
         """
@@ -559,7 +554,7 @@ class LogicalMixin:
         """
         from .predicates import LogicalPredicate
 
-        return LogicalPredicate(self.dialect, "OR", self, other)
+        return LogicalPredicate(self._dialect, "OR", self, other)
 
     def __invert__(self: "SQLPredicate") -> "SQLPredicate":
         """
@@ -577,7 +572,7 @@ class LogicalMixin:
         """
         from .predicates import LogicalPredicate
 
-        return LogicalPredicate(self.dialect, "NOT", self)
+        return LogicalPredicate(self._dialect, "NOT", self)
 
 
 class StringMixin:
@@ -616,7 +611,7 @@ class StringMixin:
         from .core import Literal
         from .predicates import LikePredicate
 
-        return LikePredicate(self.dialect, "LIKE", self, Literal(self.dialect, pattern))
+        return LikePredicate(self._dialect, "LIKE", self, Literal(self._dialect, pattern))
 
     def ilike(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
         """
@@ -639,18 +634,19 @@ class StringMixin:
         from .core import Literal
         from .predicates import LikePredicate
 
-        return LikePredicate(self.dialect, "ILIKE", self, Literal(self.dialect, pattern))
+        return LikePredicate(self._dialect, "ILIKE", self, Literal(self._dialect, pattern))
 
 
 class TypeCastingMixin:
     """Provides type casting capability to SQL value expressions.
 
-    This mixin enables expressions to be cast to different SQL types using
-    method chaining. Each call to cast() appends a target type to the
-    _cast_types list, which is processed during to_sql() generation.
+    A type cast is a proper AST node (:class:`CastExpression`) whose single
+    child is the wrapped expression — never decoration state stored on the
+    casted expression. ``cast()`` therefore **wraps** ``self`` in a new node,
+    exactly like every other operator-overload in this package builds a new
+    parent node over its operands.
 
-    The type conversions are applied in order, with the last conversion
-    being the outermost CAST. This follows SQL standard nested type casting.
+    Chained calls nest like any other expression:
 
     Example:
     >>> col = Column(dialect, "price")
@@ -658,24 +654,14 @@ class TypeCastingMixin:
     >>> # Generates: CAST("price" AS INTEGER)
     >>> # PostgreSQL generates: "price"::INTEGER
     >>>
-    >>> # Chained conversions (each cast is nested)
-    >>> col3 = Column(dialect, "amount")
-    >>> expr3 = col3.cast("money").cast("numeric").cast("float8")
-    >>> # Generates: CAST(CAST(CAST("amount" AS money) AS numeric) AS float8)
-    >>> # PostgreSQL generates: "amount"::money::numeric::float8
+    >>> # Chained conversions (each cast nests the previous node)
+    >>> expr3 = col.cast("money").cast("numeric").cast("float8")
+    >>> # Generates: CAST(CAST(CAST("price" AS money) AS numeric) AS float8)
+    >>> # PostgreSQL generates: "price"::money::numeric::float8
     """
 
-    @property
-    def cast_types(self: "SQLValueExpression") -> List[str]:
-        """Get the list of target types for casting."""
-        return self._cast_types
-
-    def cast(self: "SQLValueExpression", target_type: str) -> "SQLValueExpression":
-        """Append a type cast to this expression.
-
-        Appends the target type to the _cast_types list. Multiple calls
-        result in nested type conversions. The actual CAST SQL is generated
-        during to_sql() by the dialect's format_cast_expression method.
+    def cast(self: "SQLValueExpression", target_type: str) -> "CastExpression":
+        """Wrap this expression in a CAST node targeting *target_type*.
 
         Args:
             target_type: Target SQL type name (e.g., 'INTEGER', 'VARCHAR(100)',
@@ -683,22 +669,24 @@ class TypeCastingMixin:
             type string.
 
         Returns:
-            Self with the type cast appended, enabling method chaining.
-
-        Example:
-        >>> col = Column(dialect, "name")
-        >>> expr = col.cast("VARCHAR(100)")
-        >>> # Generates: CAST("name" AS VARCHAR(100))
-        >>>
-        >>> # Chained conversions
-        >>> col2 = Column(dialect, "value")
-        >>> expr2 = col2.cast("money").cast("numeric")
-        >>> # Generates: CAST(CAST("value" AS money) AS numeric)
+            A new :class:`CastExpression` node wrapping this expression,
+            inheriting this expression's dialect binding state.
 
         Note:
-        The actual SQL syntax is determined by the dialect's
-        format_cast_expression method. PostgreSQL uses expr::type syntax,
-        while other databases use CAST(expr AS type) syntax.
+            The actual SQL syntax is determined by the dialect's
+            format_cast_expression method. PostgreSQL uses expr::type syntax,
+            while other databases use CAST(expr AS type) syntax.
         """
-        self._cast_types.append(target_type)
-        return self
+        from .core import CastExpression
+
+        # Alias decorates the outermost rendered form: wrapping an aliased
+        # expression in a CAST moves the alias onto the CAST node, so
+        # `col.cast("INTEGER").as_("v")` and `col.as_("v").cast("INTEGER")`
+        # both render `CAST(col AS INTEGER) AS v`. The original expression
+        # is only mutated when it is itself a temporary copy (the as_()
+        # convention returns copies), so shared nodes stay untouched.
+        alias = getattr(self, "alias", None)
+        node = CastExpression(self._dialect, self, target_type, alias=alias)
+        if alias is not None and hasattr(self, "alias"):
+            self.alias = None
+        return node

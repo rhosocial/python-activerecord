@@ -150,8 +150,10 @@ class ExtractExpression(_TemporalValueExpression):
         self.source = source
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_extract_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_extract_expression"
 
 
 class DatePartExpression(_TemporalValueExpression):
@@ -169,8 +171,10 @@ class DatePartExpression(_TemporalValueExpression):
         self.source = source
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_date_part_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_date_part_expression"
 
 
 class DateTruncExpression(_TemporalValueExpression):
@@ -188,8 +192,10 @@ class DateTruncExpression(_TemporalValueExpression):
         self.source = source
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_date_trunc_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_date_trunc_expression"
 
 
 class IntervalExpression(_TemporalValueExpression):
@@ -207,8 +213,10 @@ class IntervalExpression(_TemporalValueExpression):
         self.unit = normalize_interval_unit(unit)
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_interval_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_interval_expression"
 
 
 class DateTimeAddExpression(_TemporalValueExpression):
@@ -226,8 +234,10 @@ class DateTimeAddExpression(_TemporalValueExpression):
         self.interval = interval
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_datetime_add_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_datetime_add_expression"
 
 
 class DateTimeSubtractExpression(_TemporalValueExpression):
@@ -245,8 +255,10 @@ class DateTimeSubtractExpression(_TemporalValueExpression):
         self.interval = interval
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_datetime_subtract_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_datetime_subtract_expression"
 
 
 class DateTimeDiffExpression(_TemporalValueExpression):
@@ -266,5 +278,7 @@ class DateTimeDiffExpression(_TemporalValueExpression):
         self.end = end
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_datetime_diff_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_datetime_diff_expression"

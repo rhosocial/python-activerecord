@@ -304,20 +304,10 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         """Return the statement type for this query expression."""
         return StatementType.DQL
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """
-        Generate the SQL string and parameters for this query expression.
-
-        This method delegates the SQL generation to the configured dialect, allowing for
-        database-specific variations in syntax and feature support. The generated SQL
-        follows the structure: SELECT ... FROM ... WHERE ... GROUP BY ... HAVING ... etc.
-
-        Returns:
-            A tuple containing:
-            - str: The complete SQL query string
-            - tuple: The parameter values for prepared statement execution
-        """
-        return self.dialect.format_query_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_query_statement"
 
 
 # endregion Query Statement

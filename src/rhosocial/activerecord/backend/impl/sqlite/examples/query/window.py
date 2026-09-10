@@ -4,6 +4,7 @@ Window functions: ROW_NUMBER, LAG, LEAD.
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -30,24 +31,24 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table_name="sales",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "salesperson",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("region", TextType()),
-        ColumnDefinition("amount", FloatType()),
-        ColumnDefinition("sale_date", TextType()),
+        ColumnDefinition(dialect, "region", TextType()),
+        ColumnDefinition(dialect, "amount", FloatType()),
+        ColumnDefinition(dialect, "sale_date", TextType()),
     ],
     if_not_exists=True,
 )
@@ -81,7 +82,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     OrderByClause,
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
     WindowFunctionCall,
     WindowSpecification,
 )

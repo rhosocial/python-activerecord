@@ -15,6 +15,7 @@
 | **SQLModel** | 混合 | Pydantic + SQLAlchemy | FastAPI + SQLAlchemy 用户 |
 | **Peewee** | ActiveRecord | 轻量、自包含 | 小型项目 |
 | **Tortoise ORM** | ActiveRecord | 异步优先、Django 风格 | 纯异步项目 |
+| **Prisma Client Python** | Schema-first | 从 schema DDL 生成类型安全客户端 | Schema 驱动项目 |
 | **rhosocial-activerecord** | ActiveRecord | Pydantic 原生、同步异步对等 | 现代 Python 项目 |
 
 ---
@@ -204,6 +205,12 @@ class MyCustomBackend(StorageBackend):
 - 从 Django ORM 迁移
 - 偏好 Django 风格的 API
 
+### 选择 Prisma Client Python 如果你：
+
+- 偏好 schema-first 工作流（在 DSL 中定义模型）
+- 需要从单一 schema 源生成代码
+- 想要从 schema 生成类型安全的多语言客户端
+
 ---
 
 ## 详细对比文档
@@ -213,6 +220,7 @@ class MyCustomBackend(StorageBackend):
 - [SQLModel 对比分析](./sqlmodel.md)
 - [Peewee 对比分析](./peewee.md)
 - [Tortoise ORM 对比分析](./tortoise_orm.md)
+- [Prisma Client Python 对比分析](./prisma.md)
 
 ---
 

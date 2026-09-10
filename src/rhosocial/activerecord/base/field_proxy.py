@@ -187,7 +187,7 @@ class FieldProxy:
                 # Use ColumnNameMixin's method to get the correct column name
                 # This properly handles UseColumn annotations, returning custom column name
                 # if UseColumn is used, otherwise field name
-                column_name = self._model_class._get_column_name(field_name)
+                column_name = self._model_class.get_column_name(field_name)
 
                 # Use table alias (if set) as table name
                 table_name = self._table_alias if self._table_alias else self._model_class.table_name()

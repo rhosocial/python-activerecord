@@ -41,9 +41,9 @@ def test_sqlite_validate_data_type(dialect):
 
 def test_sqlite_format_column_definition_data_type_validation(dialect):
     """Test column definition validates data_type."""
-    col_def = ColumnDefinition(
+    col_def = ColumnDefinition(dialect, 
         name="test_col",
-        data_type=SQLiteTextType(),
+        data_type=SQLiteTextType(dialect=dialect),
     )
 
     sql, params = dialect.format_column_definition(col_def)
@@ -53,7 +53,7 @@ def test_sqlite_format_column_definition_data_type_validation(dialect):
 def test_sqlite_format_column_definition_data_type_rejects_injection(dialect):
     """Test that malicious data_type is rejected."""
     with pytest.raises(TypeError, match="data_type must be a DataType"):
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             name="test_col",
             data_type="TEXT; DROP TABLE users--",
         )
@@ -61,7 +61,7 @@ def test_sqlite_format_column_definition_data_type_rejects_injection(dialect):
 
 def test_sqlite_format_default_constraint_string_escaping(dialect):
     """Test DEFAULT constraint string is escaped."""
-    constraint = ColumnConstraint(
+    constraint = ColumnConstraint(dialect, 
         constraint_type=ColumnConstraintType.DEFAULT,
         default_value="test's value",
     )
@@ -81,14 +81,20 @@ def test_sqlite_format_storage_options_string_escaping(dialect):
 
 def test_sqlite_format_cast_expression_valid(dialect):
     """Test that CAST expression validates target_type."""
-    sql, params = dialect.format_cast_expression("column", "TEXT", (), None)
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+
+    expr = CastExpression(dialect, Column(dialect, "column"), "TEXT")
+    sql, params = dialect.format_cast_expression(expr)
     assert "TEXT" in sql
 
 
 def test_sqlite_format_cast_expression_rejects_injection(dialect):
     """Test that malicious target_type is rejected."""
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+
     with pytest.raises(ValueError, match="Invalid target type"):
-        dialect.format_cast_expression("column", "TEXT; DROP TABLE users--", (), None)
+        bad = CastExpression(dialect, Column(dialect, "column"), "TEXT; DROP TABLE users--")
+        dialect.format_cast_expression(bad)
 
 
 # ============================================================

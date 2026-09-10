@@ -29,21 +29,23 @@ def dialect():
 
 
 def _pk():
-    return [ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
+    # _pk() 在测试函数内调用，那里 dialect 是 fixture。
+    from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+    return [ColumnConstraint(SQLiteDialect(), ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
 
 
 def _build_table(dialect):
     return CreateTableExpression(
         dialect=dialect, table="test_tbl",
         columns=[
-            ColumnDefinition("id", IntegerType(), constraints=_pk()),
-            ColumnDefinition("name", TextType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition("flag", BooleanType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                             ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=True)]),
-            ColumnDefinition("code", VarCharType(16)),
-            ColumnDefinition("created_at", TimestampType()),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
+            ColumnDefinition(dialect, "name", TextType(dialect),
+                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "flag", BooleanType(dialect),
+                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                             ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=True)]),
+            ColumnDefinition(dialect, "code", VarCharType(16, dialect)),
+            ColumnDefinition(dialect, "created_at", TimestampType(dialect=dialect)),
         ],
     )
 
@@ -63,10 +65,10 @@ class TestAutoIncrementDDL:
         expr = CreateTableExpression(
             dialect=dialect, table="bool_test",
             columns=[
-                ColumnDefinition("id", IntegerType(), constraints=_pk()),
-                ColumnDefinition("flag", BooleanType(),
-                    constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                                 ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=True)]),
+                ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
+                ColumnDefinition(dialect, "flag", BooleanType(dialect),
+                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                                 ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=True)]),
             ],
         )
         sql, _ = dialect.format_create_table_statement(expr)
@@ -76,8 +78,8 @@ class TestAutoIncrementDDL:
         expr = CreateTableExpression(
             dialect=dialect, table="ts_test",
             columns=[
-                ColumnDefinition("id", IntegerType(), constraints=_pk()),
-                ColumnDefinition("created_at", TimestampType()),
+                ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
+                ColumnDefinition(dialect, "created_at", TimestampType(dialect=dialect)),
             ],
         )
         sql, _ = dialect.format_create_table_statement(expr)

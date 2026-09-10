@@ -99,8 +99,8 @@ class TestCoreExpressionBranches:
 
     def test_binary_arithmetic_with_cast(self, dialect):
         expr = BinaryArithmeticExpression(dialect, "+", Column(dialect, "price"), Literal(dialect, 10))
-        expr.cast("DECIMAL")
-        aliased = expr.as_("total")
+        casted = expr.cast("DECIMAL")
+        aliased = casted.as_("total")
         sql, params = aliased.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
         assert "total" in sql
@@ -214,9 +214,20 @@ class TestPartitionClauseValidation:
             clause.to_sql()
         assert "partition" in str(exc_info.value).lower()
 
-    def test_to_sql_protocol_not_implemented(self):
+    def test_to_sql_protocol_not_implemented(self, dialect):
+        # The dialect property validates the binding: a minimal non-dialect
+        # object is rejected at construction time (TypeError).
         class MinimalDialect:
             name = "minimal"
+
+        with pytest.raises(TypeError, match="SQLDialectBase instance"):
+            PartitionClause(MinimalDialect(), PartitionStrategy.HASH, [Column(dialect, "id")])
+
+    def test_to_sql_protocol_partition_unsupported(self, dialect):
+        # A SQLDialectBase subclass that lacks format_partition_clause raises
+        # ProtocolNotImplementedError at render time.
+        class MinimalDialect(DummyDialect):
+            pass
 
         clause = PartitionClause(MinimalDialect(), PartitionStrategy.HASH, [Column(dialect, "id")])
         with pytest.raises(Exception) as exc_info:
@@ -442,13 +453,13 @@ class TestColumnDefinitionValidation:
         from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnDefinition
 
         with pytest.raises(TypeError):
-            ColumnDefinition(name="x", data_type="BAD")
+            ColumnDefinition(dialect, name="x", data_type="BAD")
 
     def test_valid_data_type(self, dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnDefinition
         from rhosocial.activerecord.backend.expression.types import IntegerType
 
-        col = ColumnDefinition(name="id", data_type=IntegerType())
+        col = ColumnDefinition(dialect, name="id", data_type=IntegerType())
         assert col.name == "id"
         assert isinstance(col.data_type, IntegerType)
 

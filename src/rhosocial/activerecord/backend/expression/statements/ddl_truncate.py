@@ -65,16 +65,7 @@ class TruncateExpression(BaseExpression):
         self.cascade = cascade  # For PostgreSQL-style CASCADE
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """
-        Generate the SQL string and parameters for this TRUNCATE expression.
-
-        This method delegates the SQL generation to the configured dialect, allowing for
-        database-specific variations in TRUNCATE syntax.
-
-        Returns:
-            A tuple containing:
-            - str: The complete TRUNCATE SQL string
-            - tuple: The parameter values for prepared statement execution (usually empty)
-        """
-        return self.dialect.format_truncate_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_truncate_statement"

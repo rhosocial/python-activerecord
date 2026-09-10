@@ -32,19 +32,19 @@ users_table = CreateTableExpression(
     dialect=dialect,
     table_name="users",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
     ],
@@ -57,19 +57,19 @@ orders_table = CreateTableExpression(
     dialect=dialect,
     table_name="orders",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition("user_id", IntegerType()),
-        ColumnDefinition("amount", FloatType()),
+        ColumnDefinition(dialect, "user_id", IntegerType()),
+        ColumnDefinition(dialect, "amount", FloatType()),
     ],
     table_constraints=[
-        TableConstraint(
+        TableConstraint(dialect, 
             constraint_type=TableConstraintType.FOREIGN_KEY,
             columns=["user_id"],
             foreign_key_table="users",

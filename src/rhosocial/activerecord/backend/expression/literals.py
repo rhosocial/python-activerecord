@@ -21,8 +21,10 @@ class Identifier(ComparisonMixin, SQLValueExpression):
         super().__init__(dialect)
         self.name = name
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_identifier(self.name), ()
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_identifier_expression"
 
     def __repr__(self) -> str:
         return f"Identifier({self.name!r})"

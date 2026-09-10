@@ -77,9 +77,10 @@ class WhereClause(BaseExpression):
         self.condition = self.condition & predicate
         return self
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the WHERE clause to the configured dialect."""
-        return self.dialect.format_where_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_where_clause"
 
 
 class GroupByHavingClause(BaseExpression):
@@ -130,9 +131,10 @@ class GroupByHavingClause(BaseExpression):
         if having is not None and not self.group_by:
             raise ValueError("HAVING clause requires GROUP BY clause")
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the GROUP BY/HAVING clause combination to the configured dialect."""
-        return self.dialect.format_group_by_having_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_group_by_having_clause"
 
 
 class OrderByClause(BaseExpression):
@@ -179,9 +181,10 @@ class OrderByClause(BaseExpression):
         super().__init__(dialect)
         self.expressions = expressions  # List of ordering specifications
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the ORDER BY clause to the configured dialect."""
-        return self.dialect.format_order_by_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_order_by_clause"
 
 
 class LimitOffsetClause(BaseExpression):
@@ -221,9 +224,10 @@ class LimitOffsetClause(BaseExpression):
         self.limit = limit  # Maximum number of rows to return (optional)
         self.offset = offset  # Number of rows to skip (optional, requires LIMIT in most dialects)
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the LIMIT/OFFSET clauses to the configured dialect."""
-        return self.dialect.format_limit_offset_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_limit_offset_clause"
 
 
 class QualifyClause(BaseExpression):
@@ -256,9 +260,10 @@ class QualifyClause(BaseExpression):
         super().__init__(dialect)
         self.condition = condition  # The window function filter condition (predicate)
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the QUALIFY clause to the configured dialect."""
-        return self.dialect.format_qualify_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_qualify_clause"
 
 
 class ForUpdateClause(BaseExpression):
@@ -299,22 +304,10 @@ class ForUpdateClause(BaseExpression):
         self.skip_locked = skip_locked  # If True, skip locked rows instead of waiting
         self.dialect_options = dialect_options or {}  # Additional dialect-specific options
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """
-        Generate the SQL representation of the FOR UPDATE clause.
-
-        This method delegates the actual SQL generation to the configured dialect,
-        allowing for database-specific variations in the FOR UPDATE syntax.
-
-        Args:
-            None - All data is contained within the object instance
-
-        Returns:
-            Tuple containing:
-            - SQL string fragment for the FOR UPDATE clause
-            - Tuple of parameter values for prepared statements
-        """
-        return self.dialect.format_for_update_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_for_update_clause"
 
 
 class GroupingExpression(BaseExpression):
@@ -325,9 +318,10 @@ class GroupingExpression(BaseExpression):
         self.operation = operation
         self.expressions = expressions
 
-    def to_sql(self) -> Tuple[str, tuple]:
-        # Delegate to the dialect's format_grouping_expression method
-        return self.dialect.format_grouping_expression(self.operation, self.expressions)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_grouping_expression"
 
 
 class JoinExpression(AliasableMixin, BaseExpression):
@@ -427,9 +421,10 @@ class JoinExpression(AliasableMixin, BaseExpression):
         self.alias = alias  # Alias for the join result
         self.dialect_options = dialect_options or {}  # Dialect-specific options
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegates SQL generation for the JOIN expression to the configured dialect."""
-        return self.dialect.format_join_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_join_expression"
 
     def join(
         self,

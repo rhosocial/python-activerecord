@@ -39,7 +39,7 @@ Usage::
     >>> from rhosocial.activerecord.backend.expression.types import (
     ...     IntegerType, VarCharType, DecimalType, BooleanType
     ... )
-    >>> col_def = ColumnDefinition("id", IntegerType())
+    >>> col_def = ColumnDefinition(dialect, "id", IntegerType())
     >>> col_def.data_type.to_sql(dialect)
     ('INTEGER', ())
 """
@@ -61,6 +61,7 @@ from .datetime_ import (
     TimestampTzType,
     IntervalType,
 )
+from .uuid_ import UUIDType
 from .json_ import JsonType, JsonBType
 
 __all__ = [

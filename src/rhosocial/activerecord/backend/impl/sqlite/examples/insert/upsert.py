@@ -8,6 +8,7 @@ This example demonstrates:
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -28,7 +29,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
 )
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -38,30 +38,30 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table="users",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "username",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(ColumnConstraintType.UNIQUE),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.UNIQUE),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "email",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("login_count", IntegerType()),
+        ColumnDefinition(dialect, "login_count", IntegerType()),
     ],
     if_not_exists=True,
 )

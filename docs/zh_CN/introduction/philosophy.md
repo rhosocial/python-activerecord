@@ -191,7 +191,7 @@ class UserRepository:
 - ✅ **关系** —— BelongsTo、HasOne、HasMany，支持预加载
 - ✅ **企业级功能** —— 乐观锁、软删除、时间戳、UUID
 - ✅ **异步支持** —— 真正的同步异步对等，不是包装器
-- ✅ **多后端** —— SQLite（内置）、MySQL、PostgreSQL（计划中）
+- ✅ **多后端** —— SQLite（内置）以及 MySQL、MariaDB、PostgreSQL、SQL Server、Oracle、Firebird、BigQuery、ClickHouse、Snowflake 等可分离的独立包
 - ✅ **AI 原生设计** —— 内置对 AI 代码智能体的支持
 
 **我们的使命：** 让 ActiveRecord 成为 Python 数据持久化的首选模式，无论用户选择什么框架都能使用。
@@ -217,13 +217,17 @@ class UserRepository:
 
 这种分离意味着 **Backend 完全可以独立工作**。你可以在不定义任何 Model 的情况下，直接使用 Backend 执行原生 SQL，管理事务，或者构建自定义的数据访问层。ActiveRecord 只是构建在这一坚实基础之上的高级抽象。
 
-此外，**Backend 自身还提供了一套强大的“表达式-方言”系统**。这一设计使得我们可以轻松扩展对主流关系型数据库的支持。目前，我们已经提供了对 **SQLite3** 的最新支持，并计划或已提供以下扩展，致力于让用户在不同数据库间获得一致的开发体验：
+此外，**Backend 自身还提供了一套强大的“表达式-方言”系统**。这一设计使得我们可以轻松扩展对主流关系型数据库的支持。目前，我们已经提供了对 **SQLite3** 的最新支持，并为以下数据库提供后端扩展（每个数据库以独立包分发），致力于让用户在不同数据库间获得一致的开发体验：
 
 *   **MySQL**
+*   **MariaDB**
 *   **PostgreSQL**
-*   **Oracle** (计划中)
-*   **SQL Server** (计划中)
-*   **MariaDB** (计划中)
+*   **SQL Server**
+*   **Oracle**
+*   **Firebird**
+*   **BigQuery**
+*   **ClickHouse**
+*   **Snowflake**
 
 > **注意**: 不同的数据库后端对功能的支持程度可能不同（例如，MySQL 从 8.0 版本开始才支持窗口函数）。请以具体后端的发行注记和文档为准。
 

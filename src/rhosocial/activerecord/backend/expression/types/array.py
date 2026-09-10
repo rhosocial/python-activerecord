@@ -35,6 +35,8 @@ class ArrayType(DataType):
            col_type = ArrayType(IntegerType())
     """
 
+    name = "array"
+
     def __init__(self, element_type: DataType, dimensions: int = 1,
                  dialect: Optional["SQLDialectBase"] = None):
         super().__init__(dialect)

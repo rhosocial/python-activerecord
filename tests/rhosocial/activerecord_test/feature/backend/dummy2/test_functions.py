@@ -644,12 +644,13 @@ class TestTypeConversionFunctionFactories:
 
     def test_cast_function(self, dummy_dialect: DummyDialect):
         """Test CAST function."""
-        from rhosocial.activerecord.backend.expression.core import Column
+        from rhosocial.activerecord.backend.expression.core import CastExpression, Column
 
         func = cast(dummy_dialect, "value", "INTEGER")
-        # cast() now returns a Column with cast_types set
-        assert isinstance(func, Column)
-        assert "INTEGER" in func.cast_types
+        # cast() wraps the (string-as-column) expression in a CastExpression node
+        assert isinstance(func, CastExpression)
+        assert func.target_type == "INTEGER"
+        assert isinstance(func.expression, Column)
         sql, params = func.to_sql()
         assert "CAST(" in sql
 

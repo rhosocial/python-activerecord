@@ -4,6 +4,7 @@ from typing import Any, List, Optional, Tuple, TYPE_CHECKING
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ...expression import bases
     from ...expression.query_parts import JoinExpression
 
 
@@ -14,10 +15,8 @@ class LateralJoinMixin:
         """Whether LATERAL joins are supported."""
         return False
 
-    def format_lateral_expression(
-        self, expr_sql: str, expr_params: Tuple[Any, ...], alias: Optional[str], join_type: str
-    ) -> Tuple[str, Tuple]:
-        """Format LATERAL expression.
+    def format_lateral_expression(self, expr) -> Tuple[str, Tuple]:
+        """Format a :class:`~...expression.query_sources.LateralExpression` node.
 
         Raises UnsupportedFeatureError when the dialect reports no LATERAL
         support.  Backends only override this method to translate LATERAL
@@ -29,21 +28,24 @@ class LateralJoinMixin:
                 "LATERAL join",
                 "Restructure the query with a plain subquery or a CTE instead.",
             )
-        if alias is not None:
-            sql = f"{join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(alias)}"
+        expr_sql, expr_params = expr.expression.to_sql()
+        if expr.alias is not None:
+            sql = f"{expr.join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(expr.alias)}"
         else:
-            sql = f"{join_type.upper()} JOIN LATERAL {expr_sql}"
+            sql = f"{expr.join_type.upper()} JOIN LATERAL {expr_sql}"
         return sql, expr_params
 
-    def format_table_function_expression(
-        self,
-        func_name: str,
-        args_sql: List[str],
-        args_params: Tuple[Any, ...],
-        alias: Optional[str],
-        column_names: Optional[List[str]],
-    ) -> Tuple[str, Tuple]:
-        """Format table-valued function expression."""
+    def format_table_function_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a :class:`~...expression.query_sources.TableFunctionExpression` node."""
+        args_sql = []
+        all_params: list = []
+        for arg in expr.args:
+            arg_sql, arg_params = arg.to_sql()
+            args_sql.append(arg_sql)
+            all_params.extend(arg_params)
+        func_name = expr.func_name
+        alias = expr.alias
+        column_names = expr.column_names
         args_str = ", ".join(args_sql)
 
         cols_sql = ""
@@ -54,7 +56,7 @@ class LateralJoinMixin:
             sql = f"{func_name.upper()}({args_str}) AS {self.format_identifier(alias)}{cols_sql}"
         else:
             sql = f"{func_name.upper()}({args_str}){cols_sql}"
-        return sql, args_params
+        return sql, tuple(all_params)
 
 
 class JoinMixin:

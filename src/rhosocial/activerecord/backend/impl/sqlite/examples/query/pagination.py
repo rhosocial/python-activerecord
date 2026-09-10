@@ -36,16 +36,16 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table="articles",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition("title", TextType()),
-        ColumnDefinition("author", TextType()),
+        ColumnDefinition(dialect, "title", TextType()),
+        ColumnDefinition(dialect, "author", TextType()),
     ],
     if_not_exists=True,
 )

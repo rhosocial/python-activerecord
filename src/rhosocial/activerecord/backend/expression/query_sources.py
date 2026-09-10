@@ -151,18 +151,10 @@ class SetOperationExpression(BaseExpression):
         self.limit_offset_clause = limit_offset_clause
         self.for_update_clause = for_update_clause
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Generate the SQL representation of the set operation with optional clauses."""
-        return self.dialect.format_set_operation_expression(
-            self.left,
-            self.right,
-            self.operation,
-            self.alias,
-            self.all_,
-            self.order_by_clause,
-            self.limit_offset_clause,
-            self.for_update_clause,
-        )
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_set_operation_expression"
 
 
 class CTEExpression(BaseExpression):
@@ -264,46 +256,10 @@ class CTEExpression(BaseExpression):
         self.materialized = materialized
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> Tuple[str, tuple]:
-        """
-        Generate SQL for this CTE expression.
-
-        Returns:
-            A tuple containing:
-            - str: The formatted SQL string
-            - tuple: The parameter values for prepared statement execution
-
-        Note:
-            When the query parameter was initialized with a list of parameters,
-            it will be automatically converted to a tuple to conform to the
-            SQLQueryAndParams protocol. However, for best practice, users should
-            provide parameters as tuples directly.
-        """
-        # Handle different query types that may be stored in self.query:
-        if isinstance(self.query, BaseExpression):
-            # When query is a BaseExpression (e.g., Subquery, QueryExpression),
-            # call its to_sql() method to get SQL and parameters
-            query_sql, query_params = self.query.to_sql()
-        elif isinstance(self.query, tuple) and len(self.query) == 2:
-            # When query is a tuple of format (sql_string, params_list_or_tuple) matching SQLQueryAndParams,
-            # extract SQL and parameters directly from the tuple and ensure params is a tuple
-            query_sql = self.query[0]
-            params_input = self.query[1]
-            # Ensure the parameters are in tuple format
-            query_params = tuple(params_input) if isinstance(params_input, list) else params_input
-        else:
-            # When query is a raw string or other type that can be converted to string,
-            # convert to string and no parameters are associated
-            query_sql, query_params = str(self.query), ()
-
-        sql = self.dialect.format_cte(
-            name=self.name,
-            query_sql=query_sql,
-            columns=self.columns,
-            materialized=self.materialized,
-            dialect_options=self.dialect_options,
-        )
-        return sql, query_params
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_cte_expression"
 
 
 class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
@@ -376,23 +332,10 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         self.recursive = recursive
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        all_params: List[Any] = []
-        cte_sql_parts = []
-        for cte in self.ctes:
-            cte_sql, cte_params = cte.to_sql()
-            cte_sql_parts.append(cte_sql)
-            all_params.extend(cte_params)
-        main_sql, main_params = self.main_query.to_sql()
-        all_params.extend(main_params)
-
-        sql = self.dialect.format_with_query(
-            cte_sql_parts=cte_sql_parts,
-            main_query_sql=main_sql,
-            dialect_options=self.dialect_options,
-            has_recursive=self.recursive,  # Pass recursive information to dialect
-        )
-        return sql, tuple(all_params)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_with_query_expression"
 
 
 class ValuesExpression(BaseExpression):
@@ -451,8 +394,10 @@ class ValuesExpression(BaseExpression):
         super().__init__(dialect)
         self.values, self.alias, self.column_names = values, alias, column_names
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_values_expression(self.values, self.alias, self.column_names)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_values_expression"
 
 
 class TableFunctionExpression(BaseExpression):
@@ -488,12 +433,10 @@ class TableFunctionExpression(BaseExpression):
         super().__init__(dialect)
         self.func_name, self.args, self.alias, self.column_names = func_name, list(args), alias, column_names
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        formatted_args_sql = [arg.to_sql()[0] for arg in self.args]
-        all_params = [p for arg in self.args for p in arg.to_sql()[1]]
-        return self.dialect.format_table_function_expression(
-            self.func_name, formatted_args_sql, tuple(all_params), self.alias, self.column_names
-        )
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_function_expression"
 
 
 class LateralExpression(BaseExpression):
@@ -524,16 +467,30 @@ class LateralExpression(BaseExpression):
         super().__init__(dialect)
         self.expression, self.alias, self.join_type = expression, alias, join_type
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        expr_sql, expr_params = self.expression.to_sql()
-        return self.dialect.format_lateral_expression(expr_sql, expr_params, self.alias, self.join_type)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_lateral_expression"
 
 
 @dataclass
 class JSONTableColumn:
+    """A single column of a JSON_TABLE COLUMNS clause (option value object).
+
+    ``data_type`` is a ``DataType`` expression (a SQL clause of its own); the
+    option object itself does not render, but declares the expressions it
+    holds so dialect propagation reaches them.
+    """
+
     name: str
-    data_type: str
+    data_type: "DataType"
     path: str
+
+    def expression_children(self):
+        """Option-object contract: expressions held by this value object."""
+        if isinstance(self.data_type, BaseExpression):
+            return [self.data_type]
+        return []
 
 
 class JSONTableExpression(TableExpression):
@@ -569,15 +526,21 @@ class JSONTableExpression(TableExpression):
         super().__init__(dialect, name="JSON_TABLE", alias=alias)
         self.json_column, self.path, self.columns = json_column, path, columns
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        if isinstance(self.json_column, BaseExpression):
-            json_col_sql, json_col_params = self.json_column.to_sql()
-        else:
-            json_col_sql, json_col_params = self.dialect.format_identifier(str(self.json_column)), ()
-        prepared_columns = [
-            {"name": self.dialect.format_identifier(col.name), "type": col.data_type, "path": col.path}
-            for col in self.columns
-        ]
-        return self.dialect.format_json_table_expression(
-            json_col_sql, self.path, prepared_columns, self.alias, json_col_params
-        )
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_json_table_expression"
+
+    @property
+    def expression_children(self):
+        """Child expressions: the JSON column (if an expression) and each
+        column's DataType. JSONTableColumn is an option value object, so its
+        held DataType is surfaced here."""
+        children = []
+        json_column = getattr(self, "json_column", None)
+        if isinstance(json_column, BaseExpression):
+            children.append(json_column)
+        for col in getattr(self, "columns", None) or []:
+            if isinstance(col.data_type, BaseExpression):
+                children.append(col.data_type)
+        return children

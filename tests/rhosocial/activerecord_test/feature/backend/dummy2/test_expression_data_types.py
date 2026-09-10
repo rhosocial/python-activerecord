@@ -91,7 +91,7 @@ class TestDataTypeValueSemantics:
             IntegerType().to_sql()
 
     def test_data_type_to_sql_with_dialect_arg(self, dialect):
-        assert IntType().to_sql(dialect) == ("INT", ())
+        assert IntType(dialect=dialect).to_sql() == ("INT", ())
 
     def test_cross_type_inequality(self):
         assert IntegerType() != CharType(10)

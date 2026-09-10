@@ -61,31 +61,19 @@ class CaseExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         self.else_result = else_result
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        value_sql, value_params = self.value.to_sql() if self.value else (None, ())
-        conditions_results = []
-        all_params = list(value_params) if value_params else []
-
-        # Validate that there is at least one condition-result pair for a valid CASE expression
-        if not self.cases:
-            raise ValueError("CASE expression must have at least one WHEN/THEN condition-result pair.")
-
-        for condition, result in self.cases:
-            condition_sql, condition_params = condition.to_sql()
-            result_sql, result_params = result.to_sql()
-            conditions_results.append((condition_sql, result_sql, condition_params, result_params))
-            all_params.extend(condition_params)
-            all_params.extend(result_params)
-        else_sql, else_params = self.else_result.to_sql() if self.else_result else (None, ())
-        if else_params:
-            all_params.extend(else_params)
-        return self.dialect.format_case_expression(
-            value_sql, value_params, conditions_results, else_sql, else_params, self.alias
-        )
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_case_expression"
 
 
 class ExistsExpression(SQLPredicate):
     """Represents an EXISTS predicate (e.g., EXISTS(subquery))."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_exists_expression"
 
     def __init__(self, dialect: "SQLDialectBase", subquery: Union["Subquery", "BaseExpression"], is_not: bool = False):
         super().__init__(dialect)
@@ -99,37 +87,35 @@ class ExistsExpression(SQLPredicate):
             raise TypeError(f"subquery must be Subquery or BaseExpression, got {type(subquery)}")
         self.is_not = is_not
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_exists_expression method
-        return self.dialect.format_exists_expression(self.subquery, self.is_not)
-
 
 class AnyExpression(SQLPredicate):
     """Represents an ANY predicate (e.g., expr = ANY(array_expr) or expr > ANY(subquery))."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_any_expression"
 
     def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"):
         super().__init__(dialect)
         self.expr = expr
         self.op = op
         self.array_expr = array_expr
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_any_expression method
-        return self.dialect.format_any_expression(self.expr, self.op, self.array_expr)
 
 
 class AllExpression(SQLPredicate):
     """Represents an ALL predicate (e.g., expr > ALL(array_expr) or expr = ALL(subquery))."""
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_all_expression"
+
     def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"):
         super().__init__(dialect)
         self.expr = expr
         self.op = op
         self.array_expr = array_expr
-
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_all_expression method
-        return self.dialect.format_all_expression(self.expr, self.op, self.array_expr)
 
 
 class WindowFrameSpecification(BaseExpression):
@@ -149,9 +135,10 @@ class WindowFrameSpecification(BaseExpression):
         self.end_frame = end_frame
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegate to dialect for window frame formatting"""
-        return self.dialect.format_window_frame_specification(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_window_frame_specification"
 
 
 class WindowSpecification(BaseExpression):
@@ -182,9 +169,10 @@ class WindowSpecification(BaseExpression):
         self.frame = frame
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegate to dialect for window specification formatting"""
-        return self.dialect.format_window_specification(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_window_specification"
 
 
 class WindowDefinition(BaseExpression):
@@ -202,9 +190,10 @@ class WindowDefinition(BaseExpression):
         self.specification = specification
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegate to dialect for named window definition formatting"""
-        return self.dialect.format_window_definition(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_window_definition"
 
 
 class WindowClause(BaseExpression):
@@ -220,9 +209,10 @@ class WindowClause(BaseExpression):
         self.definitions = definitions
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegate to dialect for WINDOW clause formatting"""
-        return self.dialect.format_window_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_window_clause"
 
 
 class WindowFunctionCall(
@@ -252,9 +242,10 @@ class WindowFunctionCall(
         self.alias = alias
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegate to dialect for window function call formatting"""
-        return self.dialect.format_window_function_call(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_window_function_call"
 
 
 class JSONExpression(
@@ -291,9 +282,10 @@ class JSONExpression(
         self.alias = alias
         self.mode = JSONPathMode.from_value(mode)
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_json_expression method
-        return self.dialect.format_json_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_json_expression"
 
 
 class ArrayExpression(
@@ -321,9 +313,10 @@ class ArrayExpression(
         self.elements = elements
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        # Delegate to the dialect's format_array_expression method
-        return self.dialect.format_array_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_array_expression"
 
 
 class OrderedSetAggregation(
@@ -357,5 +350,7 @@ class OrderedSetAggregation(
 
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_ordered_set_aggregation(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_ordered_set_aggregation"

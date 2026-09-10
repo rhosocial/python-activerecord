@@ -22,13 +22,13 @@ class TestCompositePKDDL:
             dialect=dialect,
             table="order_items",
             columns=[
-                ColumnDefinition("order_id", IntegerType(),
-                    constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition("product_id", IntegerType(),
-                    constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+                ColumnDefinition(dialect, "order_id", IntegerType(),
+                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                ColumnDefinition(dialect, "product_id", IntegerType(),
+                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[
-                TableConstraint(
+                TableConstraint(dialect, 
                     constraint_type=TableConstraintType.PRIMARY_KEY,
                     columns=["order_id", "product_id"],
                 ),
@@ -42,15 +42,15 @@ class TestCompositePKDDL:
             dialect=dialect,
             table="store_inventory",
             columns=[
-                ColumnDefinition("store_id", IntegerType(),
-                    constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition("product_id", IntegerType(),
-                    constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition("batch_id", VarCharType(64),
-                    constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+                ColumnDefinition(dialect, "store_id", IntegerType(),
+                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                ColumnDefinition(dialect, "product_id", IntegerType(),
+                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                ColumnDefinition(dialect, "batch_id", VarCharType(64),
+                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[
-                TableConstraint(
+                TableConstraint(dialect, 
                     constraint_type=TableConstraintType.PRIMARY_KEY,
                     columns=["store_id", "product_id", "batch_id"],
                 ),
@@ -67,13 +67,13 @@ class TestCompositePKDDL:
             dialect=dialect,
             table="t",
             columns=[
-                ColumnDefinition("a", IntegerType(),
-                    constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition("b", IntegerType(),
-                    constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+                ColumnDefinition(dialect, "a", IntegerType(),
+                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                ColumnDefinition(dialect, "b", IntegerType(),
+                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[
-                TableConstraint(
+                TableConstraint(dialect, 
                     constraint_type=TableConstraintType.PRIMARY_KEY,
                     columns=["a", "b"],
                 ),

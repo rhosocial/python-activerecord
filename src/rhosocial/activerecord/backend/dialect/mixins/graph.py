@@ -211,7 +211,13 @@ class GraphTableMixin:
 
     def format_graph_columns_clause(self, columns: "ColumnsClause") -> Tuple[str, tuple]:
         """Formats a COLUMNS clause for GRAPH_TABLE."""
-        return columns.to_sql()
+        parts = []
+        for col in columns.columns:
+            col_str = f"{self.format_identifier(col.variable)}.{self.format_identifier(col.property_name)}"
+            if col.alias:
+                col_str += f" AS {self.format_identifier(col.alias)}"
+            parts.append(col_str)
+        return f"COLUMNS ({', '.join(parts)})", ()
 
     def format_table_properties_clause(self, clause: "TablePropertiesClause") -> Tuple[str, tuple]:
         """Formats a PROPERTIES clause for vertex/edge table definitions."""
