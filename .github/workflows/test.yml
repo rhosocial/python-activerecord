@@ -360,10 +360,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.15.0-rc.1"
+          - python-version: "3.15.0-rc.2"
             redis-version: "8.8"
             freethreaded: false
-          - python-version: "3.15.0-rc.1"
+          - python-version: "3.15.0-rc.2"
             redis-version: "8.8"
             freethreaded: true
 
