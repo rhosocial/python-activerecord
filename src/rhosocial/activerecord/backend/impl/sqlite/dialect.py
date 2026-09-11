@@ -319,6 +319,34 @@ class SQLiteDialect(
 
         return SQLiteSchemaDiffer()
 
+    def suggested_data_types(self) -> Dict[str, type]:
+        """Cross-backend type-consistency suggestions for SQLite.
+
+        Values are the suggested replacement DataType **classes** (same
+        value type as :meth:`supports_data_types`). Suggestions reflect
+        SQLite's real storage model:
+
+        - ``uuid`` / ``enum``: no native types — both degrade to TEXT
+          affinity, so the suggested replacement is ``SQLiteTextType``.
+        - ``binary`` / ``varbinary``: no fixed/variable-length byte-string
+          types — everything is BLOB affinity (the same mapping
+          ``parse_type`` applies to ``BINARY`` / ``VARBINARY`` type
+          strings), so the suggested replacement is ``SQLiteBlobType``.
+
+        Types the type mixin does render (``json``, ``jsonb``, ``varchar``,
+        ``date``, …) are deliberately absent: they already have a rendering
+        path here, so there is nothing to suggest (suggested keys and
+        supported keys are disjoint by contract).
+        """
+        from .expression.types import SQLiteBlobType, SQLiteTextType
+
+        return {
+            "uuid": SQLiteTextType,
+            "enum": SQLiteTextType,
+            "binary": SQLiteBlobType,
+            "varbinary": SQLiteBlobType,
+        }
+
     # region Protocol Support Checks based on version
     def supports_basic_cte(self) -> bool:
         """Basic CTEs are supported since SQLite 3.8.3."""

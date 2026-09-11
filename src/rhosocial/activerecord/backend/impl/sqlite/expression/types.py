@@ -56,8 +56,9 @@ class SQLiteTextType(TextType):
 
     length: int | None = None
 
-    def __init__(self, length: int | None = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, length: int | None = None,
+                 dialect_options: Dict[str, Any] | None = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.length = length
 
     @classmethod
@@ -76,17 +77,13 @@ class SQLiteRealType(DataType):
 
     precision: int | None = None
 
-    def __init__(self, precision: int | None = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, precision: int | None = None,
+                 dialect_options: Dict[str, Any] | None = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.precision = precision
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.precision == other.precision
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.precision))
+    def _type_params(self) -> tuple:
+        return (self.precision,)
 
     @classmethod
     def synonyms(cls) -> Set[str]:
@@ -105,19 +102,15 @@ class SQLiteNumericType(DataType):
     precision: int | None = None
     scale: int | None = None
 
-    def __init__(self, precision: int | None = None, scale: int | None = None,
-                 dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, precision: int | None = None,
+                 scale: int | None = None,
+                 dialect_options: Dict[str, Any] | None = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.precision = precision
         self.scale = scale
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.precision == other.precision and self.scale == other.scale
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.precision, self.scale))
+    def _type_params(self) -> tuple:
+        return (self.precision, self.scale)
 
     @classmethod
     def synonyms(cls) -> Set[str]:

@@ -22,9 +22,9 @@ class TestCompositePKDDL:
             dialect=dialect,
             table="order_items",
             columns=[
-                ColumnDefinition(dialect, "order_id", IntegerType(),
+                ColumnDefinition(dialect, "order_id", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition(dialect, "product_id", IntegerType(),
+                ColumnDefinition(dialect, "product_id", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[
@@ -42,11 +42,11 @@ class TestCompositePKDDL:
             dialect=dialect,
             table="store_inventory",
             columns=[
-                ColumnDefinition(dialect, "store_id", IntegerType(),
+                ColumnDefinition(dialect, "store_id", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition(dialect, "product_id", IntegerType(),
+                ColumnDefinition(dialect, "product_id", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition(dialect, "batch_id", VarCharType(64),
+                ColumnDefinition(dialect, "batch_id", VarCharType(dialect, 64),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[
@@ -67,9 +67,9 @@ class TestCompositePKDDL:
             dialect=dialect,
             table="t",
             columns=[
-                ColumnDefinition(dialect, "a", IntegerType(),
+                ColumnDefinition(dialect, "a", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-                ColumnDefinition(dialect, "b", IntegerType(),
+                ColumnDefinition(dialect, "b", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
             ],
             table_constraints=[

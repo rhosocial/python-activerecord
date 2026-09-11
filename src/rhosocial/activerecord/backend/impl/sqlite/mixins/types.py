@@ -148,6 +148,103 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
         return data_type.raw, ()
 
     # ------------------------------------------------------------------
+    # DDLTypeSupport — per-type support declarations
+    #
+    # SQLite stores everything through type affinity: any type this mixin
+    # renders is genuinely storable, so support is declared for exactly the
+    # format_data_type_* family above (1:1 correspondence contract), and
+    # honestly absent for everything else (e.g. enum, uuid, binary — those
+    # are covered by suggested_data_types() instead).
+    # ------------------------------------------------------------------
+
+    def supports_data_type_sqlite_integer(self) -> bool:
+        return True
+
+    def supports_data_type_sqlite_text(self) -> bool:
+        return True
+
+    def supports_data_type_sqlite_real(self) -> bool:
+        return True
+
+    def supports_data_type_sqlite_numeric(self) -> bool:
+        return True
+
+    def supports_data_type_sqlite_blob(self) -> bool:
+        return True
+
+    def supports_data_type_integer(self) -> bool:
+        return True
+
+    def supports_data_type_text(self) -> bool:
+        return True
+
+    def supports_data_type_real(self) -> bool:
+        return True
+
+    def supports_data_type_blob(self) -> bool:
+        return True
+
+    def supports_data_type_bigint(self) -> bool:
+        return True
+
+    def supports_data_type_smallint(self) -> bool:
+        return True
+
+    def supports_data_type_varchar(self) -> bool:
+        return True
+
+    def supports_data_type_char(self) -> bool:
+        return True
+
+    def supports_data_type_float(self) -> bool:
+        return True
+
+    def supports_data_type_decimal(self) -> bool:
+        return True
+
+    def supports_data_type_boolean(self) -> bool:
+        return True
+
+    def supports_data_type_date(self) -> bool:
+        return True
+
+    def supports_data_type_datetime(self) -> bool:
+        return True
+
+    def supports_data_type_timestamp(self) -> bool:
+        return True
+
+    def supports_data_type_time(self) -> bool:
+        return True
+
+    def supports_data_type_tinyint(self) -> bool:
+        return True
+
+    def supports_data_type_int(self) -> bool:
+        return True
+
+    def supports_data_type_double(self) -> bool:
+        return True
+
+    def supports_data_type_timetz(self) -> bool:
+        return True
+
+    def supports_data_type_timestamptz(self) -> bool:
+        return True
+
+    def supports_data_type_interval(self) -> bool:
+        return True
+
+    def supports_data_type_json(self) -> bool:
+        return True
+
+    def supports_data_type_jsonb(self) -> bool:
+        return True
+
+    def supports_data_type_custom(self) -> bool:
+        return True
+
+    # ------------------------------------------------------------------
     # DDLTypeSupport — parsing
     # ------------------------------------------------------------------
 
@@ -210,7 +307,7 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
             m = re.search(r"\((\d+)\)", stripped)
             if m:
                 length = int(m.group(1))
-            return SQLiteTextType(length, self)
+            return SQLiteTextType(self, length)
 
         # REAL affinity
         if self._REAL_TYPES.match(upper):
@@ -218,19 +315,19 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
             m = re.search(r"\((\d+)\)", stripped)
             if m:
                 precision = int(m.group(1))
-            return SQLiteRealType(precision, self)
+            return SQLiteRealType(self, precision)
 
         # NUMERIC affinity — try to extract precision/scale
         if self._NUMERIC_TYPES.match(upper):
             nums = re.findall(r"\d+", stripped)
             if len(nums) >= 2:
-                return SQLiteNumericType(int(nums[0]), int(nums[1]), self)
+                return SQLiteNumericType(self, int(nums[0]), int(nums[1]))
             if len(nums) == 1:
-                return SQLiteNumericType(int(nums[0]), self)
+                return SQLiteNumericType(self, int(nums[0]))
             return SQLiteNumericType(self)
 
         # BLOB affinity
         if self._BLOB_TYPES.match(upper):
             return SQLiteBlobType(self)
 
-        return CustomType(stripped)
+        return CustomType(self, stripped)

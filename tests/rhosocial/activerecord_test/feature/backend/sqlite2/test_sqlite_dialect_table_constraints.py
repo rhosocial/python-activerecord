@@ -36,8 +36,8 @@ def _make_table(ctype, *, named=None):
         dialect=SQLiteDialect(),
         table="demo",
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType()),
-            ColumnDefinition(dialect, "code", TextType(),
+            ColumnDefinition(dialect, "id", IntegerType(dialect)),
+            ColumnDefinition(dialect, "code", TextType(dialect),
                              constraints=[ColumnConstraint(dialect, 
                                  ColumnConstraintType.NOT_NULL)]),
         ],

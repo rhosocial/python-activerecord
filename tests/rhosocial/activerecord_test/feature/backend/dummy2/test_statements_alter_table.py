@@ -38,7 +38,7 @@ class TestAlterTableStatements:
 
     def test_add_column_action(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD COLUMN action."""
-        column_def = ColumnDefinition(dummy_dialect, "email", VarCharType(100), comment="User's email address")
+        column_def = ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100), comment="User's email address")
         add_action = AddColumn(dummy_dialect, column=column_def)
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="users", actions=[add_action])
@@ -138,7 +138,7 @@ class TestAlterTableStatements:
 
     def test_multiple_actions(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with multiple actions in a single statement."""
-        column_def = ColumnDefinition(dummy_dialect, name="age", data_type=IntegerType())
+        column_def = ColumnDefinition(dummy_dialect, name="age", data_type=IntegerType(dummy_dialect))
         add_action = AddColumn(dummy_dialect, column=column_def)
         drop_action = DropColumn(dummy_dialect, column_name="old_field")
 
@@ -153,7 +153,7 @@ class TestAlterTableStatements:
 
     def test_alter_table_with_dialect_options(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with dialect-specific options."""
-        column_def = ColumnDefinition(dummy_dialect, name="new_field", data_type=VarCharType(50))
+        column_def = ColumnDefinition(dummy_dialect, name="new_field", data_type=VarCharType(dummy_dialect, 50))
         add_action = AddColumn(dummy_dialect, column=column_def)
 
         alter_expr = AlterTableExpression(
@@ -214,7 +214,7 @@ class TestAlterTableStatements:
     def test_alter_table_complex_scenario(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with complex scenario involving multiple action types."""
         # Add new column
-        new_col_def = ColumnDefinition(dummy_dialect, name="created_by", data_type=IntegerType())
+        new_col_def = ColumnDefinition(dummy_dialect, name="created_by", data_type=IntegerType(dummy_dialect))
         add_action = AddColumn(dummy_dialect, column=new_col_def)
 
         # Set default value for existing column
@@ -245,7 +245,7 @@ class TestAlterTableStatements:
 
     def test_alter_table_simple_types(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with simple data types."""
-        column_def = ColumnDefinition(dummy_dialect, name="timestamp", data_type=TimestampType())
+        column_def = ColumnDefinition(dummy_dialect, name="timestamp", data_type=TimestampType(dummy_dialect))
         add_action = AddColumn(dummy_dialect, column=column_def)
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="events", actions=[add_action])
@@ -257,7 +257,7 @@ class TestAlterTableStatements:
 
     def test_alter_table_numeric_types(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with numeric data types."""
-        column_def = ColumnDefinition(dummy_dialect, name="amount", data_type=DecimalType(precision=10, scale=2))
+        column_def = ColumnDefinition(dummy_dialect, name="amount", data_type=DecimalType(dummy_dialect, precision=10, scale=2))
         add_action = AddColumn(dummy_dialect, column=column_def)
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="transactions", actions=[add_action])
@@ -286,7 +286,7 @@ class TestAlterTableStatements:
 
     def test_add_column_action_direct(self, dummy_dialect: DummyDialect):
         """Tests direct ADD COLUMN action creation and formatting."""
-        column_def = ColumnDefinition(dummy_dialect, "phone", VarCharType(20), comment="User's phone number")
+        column_def = ColumnDefinition(dummy_dialect, "phone", VarCharType(dummy_dialect, 20), comment="User's phone number")
         add_action = AddColumn(dummy_dialect, column=column_def)
         # Action now has dialect bound at construction time
         sql, params = add_action.to_sql()
@@ -389,7 +389,7 @@ class TestAlterTableStatements:
                 self.column = column
                 self.action_type = "UNKNOWN_ACTION_TYPE"  # Use an unknown action type
 
-        column_def = ColumnDefinition(dummy_dialect, "test_col", VarCharType(50))
+        column_def = ColumnDefinition(dummy_dialect, "test_col", VarCharType(dummy_dialect, 50))
         unknown_action = UnknownAction(dummy_dialect, column_def)
 
         with pytest.raises(NotImplementedError):
@@ -397,13 +397,13 @@ class TestAlterTableStatements:
 
     def test_action_isinstance_tosql_protocol(self, dummy_dialect: DummyDialect):
         """Tests that AlterTableAction subclasses are instances of ToSQLProtocol."""
-        add_action = AddColumn(dummy_dialect, column=ColumnDefinition(dummy_dialect, "test", TextType()))
+        add_action = AddColumn(dummy_dialect, column=ColumnDefinition(dummy_dialect, "test", TextType(dummy_dialect)))
         assert isinstance(add_action, ToSQLProtocol)
 
     def test_action_requires_dialect(self):
         """Tests that action construction requires a dialect parameter."""
         with pytest.raises(TypeError):
-            AddColumn(column=ColumnDefinition(None, "test", TextType()))
+            AddColumn(column=ColumnDefinition(None, "test", TextType(None)))
 
     def test_alter_table_expression_rejects_non_action(self, dummy_dialect: DummyDialect):
         """Tests that AlterTableExpression rejects non-AlterTableAction instances."""
@@ -520,7 +520,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="username",
-            data_type=VarCharType(50),
+            data_type=VarCharType(dummy_dialect, 50),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)],  # Use constraint instead of nullable flag
             comment="Username (cannot be null)",
         )
@@ -548,7 +548,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="description",
-            data_type=TextType(),
+            data_type=TextType(dummy_dialect),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NULL)],  # Explicitly allow NULL
             comment="Description field",
         )
@@ -576,7 +576,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="status",
-            data_type=VarCharType(20),
+            data_type=VarCharType(dummy_dialect, 20),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value="active")],  # Default value
             comment="Status field with default value",
         )
@@ -609,7 +609,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="created_at",
-            data_type=TimestampType(),
+            data_type=TimestampType(dummy_dialect),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value=now_func)],  # Default function
             comment="Timestamp with default function",
         )
@@ -644,7 +644,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="age",
-            data_type=IntegerType(),
+            data_type=IntegerType(dummy_dialect),
             constraints=[
                 ColumnConstraint(dummy_dialect, ColumnConstraintType.CHECK, check_condition=check_condition)
             ],  # Check constraint
@@ -675,7 +675,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="id",
-            data_type=IntegerType(),
+            data_type=IntegerType(dummy_dialect),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)],  # Primary key constraint
             comment="Primary key column",
         )
@@ -703,7 +703,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="email",
-            data_type=VarCharType(100),
+            data_type=VarCharType(dummy_dialect, 100),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.UNIQUE)],  # Unique constraint
             comment="Unique email address",
         )
@@ -731,7 +731,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="user_id",
-            data_type=IntegerType(),
+            data_type=IntegerType(dummy_dialect),
             constraints=[
                 ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))
             ],  # Foreign key constraint
@@ -763,7 +763,7 @@ class TestAlterTableStatements:
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="user_id",
-            data_type=IntegerType(),
+            data_type=IntegerType(dummy_dialect),
             constraints=[
                 ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY)
             ],  # Foreign key constraint without reference

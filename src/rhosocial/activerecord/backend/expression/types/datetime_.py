@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from ._base import DataType
 
@@ -21,17 +21,13 @@ class TimeType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, precision: Optional[int] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.precision = precision
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.precision == other.precision
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.precision))
+    def _type_params(self) -> tuple:
+        return (self.precision,)
 
 
 class TimeTzType(DataType):
@@ -41,17 +37,13 @@ class TimeTzType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, precision: Optional[int] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.precision = precision
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.precision == other.precision
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.precision))
+    def _type_params(self) -> tuple:
+        return (self.precision,)
 
 
 class DateTimeType(DataType):
@@ -61,17 +53,13 @@ class DateTimeType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, precision: Optional[int] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.precision = precision
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.precision == other.precision
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.precision))
+    def _type_params(self) -> tuple:
+        return (self.precision,)
 
 
 class TimestampType(DataType):
@@ -81,17 +69,13 @@ class TimestampType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, precision: Optional[int] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.precision = precision
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.precision == other.precision
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.precision))
+    def _type_params(self) -> tuple:
+        return (self.precision,)
 
 
 class TimestampTzType(DataType):
@@ -101,17 +85,13 @@ class TimestampTzType(DataType):
 
     precision: Optional[int] = None
 
-    def __init__(self, precision: Optional[int] = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, precision: Optional[int] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.precision = precision
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.precision == other.precision
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.precision))
+    def _type_params(self) -> tuple:
+        return (self.precision,)
 
 
 class IntervalType(DataType):
@@ -121,14 +101,10 @@ class IntervalType(DataType):
 
     fields: Optional[str] = None  # e.g. 'YEAR', 'MONTH', 'DAY TO SECOND'
 
-    def __init__(self, fields: Optional[str] = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, fields: Optional[str] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.fields = fields
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.fields == other.fields
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.fields))
+    def _type_params(self) -> tuple:
+        return (self.fields,)

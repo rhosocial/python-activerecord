@@ -24,7 +24,7 @@ types it supports. The base mixin here provides only the dispatch of
 from __future__ import annotations
 
 import re
-from typing import Tuple, TYPE_CHECKING
+from typing import Dict, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...expression.types._base import DataType
@@ -75,7 +75,7 @@ class DDLTypeMixin:
         # ③ the per-type formatter validates its own parameters
         return formatter(data_type)
 
-    def supports_data_types(self) -> dict:
+    def supports_data_types(self) -> Dict[str, type]:
         """Mapping ``{<name>: concrete type class}`` of every generic type
         this dialect supports — discovered from the dialect's own
         ``format_data_type_<name>`` / ``supports_data_type_<name>`` methods.
@@ -113,3 +113,14 @@ class DDLTypeMixin:
             if getattr(klass, "name", None) == name:
                 return klass
         return None
+
+    def suggested_data_types(self) -> Dict[str, type]:
+        """Cross-backend type-consistency suggestion map (empty by default).
+
+        Backends override this to suggest, for generic types they do not
+        natively support, a replacement ``DataType`` **class** (same value
+        type as :meth:`supports_data_types`). Honesty principle: return an
+        empty
+        dict when there is nothing to suggest — never fake a suggestion.
+        """
+        return {}

@@ -45,45 +45,45 @@ class TestDataTypeValueSemantics:
     """Generic data types behave as value objects."""
 
     def test_datetime_types_equality(self):
-        assert DateTimeType(6) == DateTimeType(6)
-        assert DateTimeType(6) != DateTimeType(0)
-        assert DateTimeType(6) != TimeType(6)
+        assert DateTimeType(None, 6) == DateTimeType(None, 6)
+        assert DateTimeType(None, 6) != DateTimeType(None, 0)
+        assert DateTimeType(None, 6) != TimeType(None, 6)
 
     def test_datetime_types_hash(self):
-        assert hash(DateTimeType(6)) == hash(DateTimeType(6))
-        assert hash(TimeType(6)) == hash(TimeType(6))
-        assert hash(TimestampType(3)) == hash(TimestampType(3))
-        assert hash(TimestampTzType(0)) == hash(TimestampTzType(0))
-        assert hash(TimeTzType(2)) == hash(TimeTzType(2))
+        assert hash(DateTimeType(None, 6)) == hash(DateTimeType(None, 6))
+        assert hash(TimeType(None, 6)) == hash(TimeType(None, 6))
+        assert hash(TimestampType(None, 3)) == hash(TimestampType(None, 3))
+        assert hash(TimestampTzType(None, 0)) == hash(TimestampTzType(None, 0))
+        assert hash(TimeTzType(None, 2)) == hash(TimeTzType(None, 2))
 
     def test_time_equality(self):
-        assert TimeType(3) == TimeType(3)
-        assert TimeType(3) != TimeType(6)
+        assert TimeType(None, 3) == TimeType(None, 3)
+        assert TimeType(None, 3) != TimeType(None, 6)
 
     def test_interval_type_equality_hash(self):
-        assert IntervalType("DAY TO SECOND") == IntervalType("DAY TO SECOND")
-        assert IntervalType("YEAR") != IntervalType("DAY TO SECOND")
-        assert hash(IntervalType("YEAR")) == hash(IntervalType("YEAR"))
+        assert IntervalType(None, "DAY TO SECOND") == IntervalType(None, "DAY TO SECOND")
+        assert IntervalType(None, "YEAR") != IntervalType(None, "DAY TO SECOND")
+        assert hash(IntervalType(None, "YEAR")) == hash(IntervalType(None, "YEAR"))
 
     def test_string_types_equality_hash(self):
-        assert CharType(10) == CharType(10)
-        assert CharType(10) != CharType(20)
-        assert hash(VarCharType(255)) == hash(VarCharType(255))
-        assert VarCharType(255) == VarCharType(255)
+        assert CharType(None, 10) == CharType(None, 10)
+        assert CharType(None, 10) != CharType(None, 20)
+        assert hash(VarCharType(None, 255)) == hash(VarCharType(None, 255))
+        assert VarCharType(None, 255) == VarCharType(None, 255)
 
     def test_numeric_types_equality_hash(self):
-        assert DecimalType(10, 2) == DecimalType(10, 2)
-        assert DecimalType(10, 2) != DecimalType(10, 3)
-        assert hash(FloatType(53)) == hash(FloatType(53))
-        assert FloatType(24) == FloatType(24)
+        assert DecimalType(None, 10, 2) == DecimalType(None, 10, 2)
+        assert DecimalType(None, 10, 2) != DecimalType(None, 10, 3)
+        assert hash(FloatType(None, 53)) == hash(FloatType(None, 53))
+        assert FloatType(None, 24) == FloatType(None, 24)
 
     def test_custom_type_equality_hash(self):
-        assert CustomType("geometry") == CustomType("geometry")
-        assert CustomType("geometry") != CustomType("geography")
-        assert hash(CustomType("geometry")) == hash(CustomType("geometry"))
+        assert CustomType(None, "geometry") == CustomType(None, "geometry")
+        assert CustomType(None, "geometry") != CustomType(None, "geography")
+        assert hash(CustomType(None, "geometry")) == hash(CustomType(None, "geometry"))
 
     def test_custom_type_roundtrip_sql(self, dialect):
-        t = CustomType("GEOMETRY", dialect=dialect)
+        t = CustomType(dialect, "GEOMETRY")
         assert t.to_sql() == ("GEOMETRY", ())
 
     def test_data_type_without_dialect_raises(self):
@@ -94,35 +94,35 @@ class TestDataTypeValueSemantics:
         assert IntType(dialect=dialect).to_sql() == ("INT", ())
 
     def test_cross_type_inequality(self):
-        assert IntegerType() != CharType(10)
+        assert IntegerType() != CharType(None, 10)
 
 
 class TestArrayType:
     """Array container type semantics."""
 
     def test_array_equality(self):
-        assert ArrayType(IntegerType()) == ArrayType(IntegerType())
-        assert ArrayType(IntegerType(), dimensions=2) != ArrayType(IntegerType())
+        assert ArrayType(None, IntegerType()) == ArrayType(None, IntegerType())
+        assert ArrayType(None, IntegerType(), dimensions=2) != ArrayType(None, IntegerType())
 
     def test_array_hash(self):
-        assert hash(ArrayType(IntegerType())) == hash(ArrayType(IntegerType()))
+        assert hash(ArrayType(None, IntegerType())) == hash(ArrayType(None, IntegerType()))
 
     def test_array_is_equivalent(self):
-        assert ArrayType(IntegerType()).is_equivalent(ArrayType(IntegerType()))
-        assert not ArrayType(IntegerType(), dimensions=2).is_equivalent(ArrayType(IntegerType()))
+        assert ArrayType(None, IntegerType()).is_equivalent(ArrayType(None, IntegerType()))
+        assert not ArrayType(None, IntegerType(), dimensions=2).is_equivalent(ArrayType(None, IntegerType()))
 
     def test_array_is_element_type_equivalent_with_array(self):
-        assert ArrayType(IntegerType()).is_element_type_equivalent(ArrayType(IntegerType(), dimensions=2))
+        assert ArrayType(None, IntegerType()).is_element_type_equivalent(ArrayType(None, IntegerType(), dimensions=2))
 
     def test_array_is_element_type_equivalent_with_plain_type(self):
-        assert ArrayType(IntegerType()).is_element_type_equivalent(IntegerType())
-        assert not ArrayType(IntegerType()).is_element_type_equivalent(CharType(10))
+        assert ArrayType(None, IntegerType()).is_element_type_equivalent(IntegerType())
+        assert not ArrayType(None, IntegerType()).is_element_type_equivalent(CharType(None, 10))
 
     def test_array_type_params(self):
-        assert ArrayType(IntegerType(), dimensions=2)._type_params() == (IntegerType(), 2)
+        assert ArrayType(None, IntegerType(), dimensions=2)._type_params() == (IntegerType(), 2)
 
     def test_array_repr(self):
-        assert "ArrayType" in repr(ArrayType(IntegerType()))
+        assert "ArrayType" in repr(ArrayType(None, IntegerType()))
 
     def test_array_expression_constructor(self, dialect):
         expr = ArrayExpression(

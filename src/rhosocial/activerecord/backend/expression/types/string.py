@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from ._base import DataType
 
@@ -15,17 +15,13 @@ class CharType(DataType):
 
     length: Optional[int] = None
 
-    def __init__(self, length: Optional[int] = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, length: Optional[int] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.length = length
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.length == other.length
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.length))
+    def _type_params(self) -> tuple:
+        return (self.length,)
 
 
 class VarCharType(DataType):
@@ -35,17 +31,13 @@ class VarCharType(DataType):
 
     length: Optional[int] = None
 
-    def __init__(self, length: Optional[int] = None, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, length: Optional[int] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.length = length
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.length == other.length
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.length))
+    def _type_params(self) -> tuple:
+        return (self.length,)
 
 
 class TextType(DataType):

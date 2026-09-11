@@ -114,20 +114,19 @@ class BaseExpression:
     base is the shared implementation of its members):
 
     - :attr:`dialect` property — validated binding (constructor-optional,
-      late binding via the setter);
+      late binding via the setter; **per-node only, no propagation**);
     - :attr:`inline_literals` property — inline-literal switch (defaults to
       ``False`` for injection safety).
 
-    Rendering is **centralised**: :meth:`to_sql` is implemented once, here,
-    and is the only rendering entry point. A concrete expression class
-    participates by declaring exactly one thing — its dialect formatting
-    method name, through the read-only :attr:`format_method` property.
-    ``to_sql()`` looks that name up on the bound dialect (raising if the
-    dialect does not provide it), re-instantiates the expression from its own
-    construction parameters so that every :class:`BaseExpression` inside
-    those parameters is re-bound to this expression's dialect (uniform
-    dialect propagation across the whole tree), and hands the re-instantiated
-    expression to the formatting function.
+    Rendering is **centralised** and **stateless**: :meth:`to_sql` is
+    implemented once, here, and is the only rendering entry point. A concrete
+    expression class participates by declaring exactly one thing — its
+    dialect formatting method name, through the read-only :attr:`format_method`
+    property. ``to_sql()`` resolves that name on the node's own bound dialect
+    (raising if unbound or if the dialect does not provide it) and hands
+    **this** expression to the formatting function. The rendered tree is
+    responsible for its own per-node dialect binding; no reconstruction or
+    propagation happens at render time.
     """
 
     def __init__(self, dialect: Optional["SQLDialectBase"] = None):
@@ -166,10 +165,13 @@ class BaseExpression:
         The dialect must be a :class:`SQLDialectBase` instance (``None`` is
         allowed to defer binding).
 
-        Before a (sub)expression's ``to_sql()`` runs, the **caller injects its
-        own dialect into the expression** — and since every expression does
-        the same for the sub-expressions it directly involves (the next AST
-        level), the whole subtree ends up sharing one dialect.
+        The setter affects **only this node** — it does not propagate into
+        child expressions. Binding is the constructor's/caller's per-node
+        responsibility: pass the dialect to each node at construction time,
+        or walk the tree and bind nodes individually (ActiveRecord's DDL
+        derivation does exactly that at build time). Rendering
+        (:meth:`to_sql`) requires the dialect of the node being rendered and
+        raises ``ValueError`` if none is bound.
         """
         if dialect is not None:
             from ..dialect import SQLDialectBase
@@ -180,42 +182,6 @@ class BaseExpression:
                     f"{type(dialect).__name__}."
                 )
         self._dialect = dialect
-        # Inject into the direct children of the AST; their own setters
-        # propagate further down, so one assignment binds the whole subtree.
-        for child in self.expression_children:
-            child.dialect = dialect  # child's own setter recurses further
-
-    @property
-    def expression_children(self) -> List["BaseExpression"]:
-        """The direct expression children of this node.
-
-        The single, uniform channel through which a node exposes the
-        expressions it directly holds — the dialect setter walks exactly
-        this list (recursing through each child's own setter), and nothing
-        else is ever inspected.
-
-        The default implementation derives the children from the node's
-        **instance attributes** (``vars(self)``): every ``BaseExpression``
-        found among them (directly, or inside lists/tuples/dicts) is a
-        child. This covers the common tree shape with zero boilerplate —
-        a node's children are exactly the expressions it stored at
-        construction time.
-
-        Override **only** when a node holds expressions outside its
-        construction parameters — e.g. inside option value objects (plain
-        dataclasses that constrain rendering values without rendering SQL
-        themselves): the override returns exactly those held expressions,
-        keeping the walk uniform instead of type-sniffing foreign objects.
-        """
-        children: List["BaseExpression"] = []
-        pending = list(vars(self).values())
-        while pending:
-            node = pending.pop()
-            if isinstance(node, BaseExpression):
-                children.append(node)
-            elif isinstance(node, (list, tuple, dict)):
-                pending.extend(node.values() if isinstance(node, dict) else node)
-        return children
 
     @property
     def format_method(self) -> str:
@@ -244,19 +210,17 @@ class BaseExpression:
 
         Implemented **once, here** — expression subclasses never override it.
 
+        Rendering is **stateless and allocation-free**: the tree being
+        rendered is responsible for its own dialect binding (every node is
+        bound at construction time, or individually re-bound by the caller /
+        ActiveRecord's DDL derivation before rendering). No reconstruction,
+        no propagation, no copies.
+
         1. Resolve this class's declared formatting method name
            (:attr:`format_method`; undeclared → ``NotImplementedError``) and
-           look it up on the bound dialect (missing → ``AttributeError``).
-        2. Re-instantiate ``type(self)`` from its own construction parameters
-           (:meth:`get_params`), passing the bound dialect as the first
-           argument — the dialect of an expression is decided by the caller,
-           never inherited from parameters.
-        3. Re-trigger the :attr:`dialect` setter on the re-instantiated
-           instance: the setter ran during ``__init__`` before subclass
-           attributes existed, so propagation into the parameter tree (every
-           nested :class:`BaseExpression` is re-bound to this expression's
-           dialect) happens now, after the subtree is in place.
-        4. Call the formatting function with the re-instantiated expression —
+           look it up on the bound dialect (missing → ``AttributeError``;
+           unbound dialect → ``ValueError`` from :attr:`dialect`).
+        2. Call the formatting function with **this** expression —
            formatting functions receive expression instances only.
 
         Returns:
@@ -271,15 +235,7 @@ class BaseExpression:
                 f"{type(self.dialect).__name__} has no formatting method "
                 f"'{formatter_name}' (required by {type(self).__name__})."
             )
-        from .serialization import _reconstruct
-
-        # Re-instantiate from the expression's own construction state. The
-        # dialect is always the first parameter of an expression's __init__.
-        rebuilt = _reconstruct(type(self), self.dialect, self.get_params())
-        # Propagate the dialect through the re-instantiated subtree (see
-        # step 3 above — construction-time propagation runs too early).
-        rebuilt.dialect = self.dialect
-        return formatter(rebuilt)
+        return formatter(self)
 
     def validate(self, strict: bool = True) -> None:
         """Validate expression parameters according to SQL standard.

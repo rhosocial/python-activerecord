@@ -21,7 +21,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression accepts string table_name."""
         columns = [
             ColumnDefinition(dummy_dialect, 
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -37,7 +37,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression accepts TableExpression object."""
         columns = [
             ColumnDefinition(dummy_dialect, 
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -50,7 +50,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression accepts TableExpression with schema_name."""
         columns = [
             ColumnDefinition(dummy_dialect, 
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -67,7 +67,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for invalid table_name type."""
         columns = [
             ColumnDefinition(dummy_dialect, 
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -80,7 +80,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for None table_name."""
         columns = [
             ColumnDefinition(dummy_dialect, 
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -92,7 +92,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for list table_name."""
         columns = [
             ColumnDefinition(dummy_dialect, 
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 
@@ -104,7 +104,7 @@ class TestCreateTableExpressionTypeValidation:
         """Tests CreateTableExpression raises TypeError for dict table_name."""
         columns = [
             ColumnDefinition(dummy_dialect, 
-                name="id", data_type=IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
+                name="id", data_type=IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]
             ),
         ]
 

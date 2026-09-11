@@ -19,9 +19,9 @@ def create_employees_table(dialect, table_name: str = "employees") -> CreateTabl
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "username", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "department_id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "username", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "department_id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
         ],
         table_constraints=[ForeignKeyConstraint(dialect, columns=["department_id"], foreign_key_table="departments", foreign_key_columns=["id"])],
     )
@@ -31,9 +31,9 @@ def create_departments_table(dialect, table_name: str = "departments") -> Create
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "name", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "description", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value="")]),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "name", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "description", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value="")]),
         ],
     )
 
@@ -42,8 +42,8 @@ def create_authors_table(dialect, table_name: str = "authors") -> CreateTableExp
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "name", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "name", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
         ],
     )
 
@@ -52,9 +52,9 @@ def create_books_table(dialect, table_name: str = "books") -> CreateTableExpress
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "title", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "author_id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "title", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "author_id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
         ],
         table_constraints=[ForeignKeyConstraint(dialect, columns=["author_id"], foreign_key_table="authors", foreign_key_columns=["id"])],
     )
@@ -64,9 +64,9 @@ def create_chapters_table(dialect, table_name: str = "chapters") -> CreateTableE
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "title", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "book_id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "title", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "book_id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
         ],
         table_constraints=[ForeignKeyConstraint(dialect, columns=["book_id"], foreign_key_table="books", foreign_key_columns=["id"])],
     )
@@ -76,9 +76,9 @@ def create_profiles_table(dialect, table_name: str = "profiles") -> CreateTableE
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "bio", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "author_id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "bio", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "author_id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
         ],
         table_constraints=[ForeignKeyConstraint(dialect, columns=["author_id"], foreign_key_table="authors", foreign_key_columns=["id"])],
     )
@@ -88,10 +88,10 @@ def create_rl_users_table(dialect, table_name: str = "users") -> CreateTableExpr
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "name", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "email", TextType()),
-            ColumnDefinition(dialect, "settings", TextType()),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "name", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "email", TextType(dialect)),
+            ColumnDefinition(dialect, "settings", TextType(dialect)),
         ],
     )
 
@@ -100,12 +100,12 @@ def create_rl_posts_table(dialect, table_name: str = "posts") -> CreateTableExpr
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "title", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "body", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "user_id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "view_count", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL), ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=0)]),
-            ColumnDefinition(dialect, "metadata", TextType()),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "title", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "body", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "user_id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "view_count", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL), ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=0)]),
+            ColumnDefinition(dialect, "metadata", TextType(dialect)),
         ],
         table_constraints=[ForeignKeyConstraint(dialect, columns=["user_id"], foreign_key_table="users", foreign_key_columns=["id"])],
     )
@@ -115,10 +115,10 @@ def create_rl_comments_table(dialect, table_name: str = "comments") -> CreateTab
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "body", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "post_id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "meta", TextType()),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "body", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "post_id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "meta", TextType(dialect)),
         ],
         table_constraints=[ForeignKeyConstraint(dialect, columns=["post_id"], foreign_key_table="posts", foreign_key_columns=["id"])],
     )
@@ -128,8 +128,8 @@ def create_relation_boundary_owners_table(dialect, table_name: str = "relation_b
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "name", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "name", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
         ],
     )
 
@@ -138,9 +138,9 @@ def create_relation_boundary_profiles_table(dialect, table_name: str = "relation
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "bio", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "owner_id", IntegerType()),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "bio", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "owner_id", IntegerType(dialect)),
         ],
     )
 
@@ -149,9 +149,9 @@ def create_relation_boundary_posts_table(dialect, table_name: str = "relation_bo
     return CreateTableExpression(
         dialect=dialect, table=table_name, if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "title", TextType(), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "owner_id", IntegerType()),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+            ColumnDefinition(dialect, "title", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "owner_id", IntegerType(dialect)),
         ],
     )
 

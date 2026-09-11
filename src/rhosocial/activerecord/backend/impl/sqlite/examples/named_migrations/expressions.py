@@ -27,11 +27,11 @@ def create_users_table(dialect):
         columns=[
             ColumnDefinition(dialect, 
                 "id",
-                SQLiteIntegerType(),
+                SQLiteIntegerType(dialect),
                 constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition(dialect, "name", SQLiteTextType()),
-            ColumnDefinition(dialect, "email", SQLiteTextType()),
+            ColumnDefinition(dialect, "name", SQLiteTextType(dialect)),
+            ColumnDefinition(dialect, "email", SQLiteTextType(dialect)),
         ],
     )
 
@@ -49,11 +49,11 @@ def create_posts_table(dialect):
         columns=[
             ColumnDefinition(dialect, 
                 "id",
-                SQLiteIntegerType(),
+                SQLiteIntegerType(dialect),
                 constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition(dialect, "title", SQLiteTextType()),
-            ColumnDefinition(dialect, "user_id", SQLiteIntegerType()),
+            ColumnDefinition(dialect, "title", SQLiteTextType(dialect)),
+            ColumnDefinition(dialect, "user_id", SQLiteIntegerType(dialect)),
         ],
     )
 
@@ -75,10 +75,10 @@ def create_custom_table(dialect, table_name: str = "custom_table"):
         columns=[
             ColumnDefinition(dialect, 
                 "id",
-                SQLiteIntegerType(),
+                SQLiteIntegerType(dialect),
                 constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
             ),
-            ColumnDefinition(dialect, "value", SQLiteTextType()),
+            ColumnDefinition(dialect, "value", SQLiteTextType(dialect)),
         ],
     )
 

@@ -49,11 +49,11 @@ from typing import Dict, List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.expression.types import (
-    ArrayType, BigIntType, BlobType, BooleanType, CharType, CustomType,
-    DateType, DateTimeType, DecimalType, DoubleType, FloatType,
+    ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
+    DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
     IntType, IntegerType, IntervalType, JsonBType, JsonType,
     RealType, SmallIntType, TextType, TimeType, TimeTzType,
-    TimestampType, TimestampTzType, TinyIntType, VarCharType,
+    TimestampType, TimestampTzType, TinyIntType, VarBinaryType, VarCharType,
 )
 from rhosocial.activerecord.backend.dialect.protocols import (
     DDLTypeSupport,
@@ -385,6 +385,25 @@ class DummyDialect(
     def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
         return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
 
+    def supports_data_type_binary(self) -> bool:
+        return True
+
+    def format_data_type_binary(self, data_type: BinaryType) -> Tuple[str, tuple]:
+        return (f"BINARY({data_type.length})" if data_type.length is not None else "BINARY"), ()
+
+    def supports_data_type_varbinary(self) -> bool:
+        return True
+
+    def format_data_type_varbinary(self, data_type: VarBinaryType) -> Tuple[str, tuple]:
+        return (f"VARBINARY({data_type.length})" if data_type.length is not None else "VARBINARY"), ()
+
+    def supports_data_type_enum(self) -> bool:
+        return True
+
+    def format_data_type_enum(self, data_type: EnumType) -> Tuple[str, tuple]:
+        values = ",".join(f"'{value}'" for value in data_type.values)
+        return f"ENUM({values}), "[: -2] + "" if False else f"ENUM({values})", ()
+
     def supports_data_type_float(self) -> bool:
         return True
 
@@ -413,6 +432,9 @@ class DummyDialect(
     def format_data_type_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
         base = f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"
         return f"{base} WITH TIME ZONE", ()
+
+    def supports_data_type_datetime(self) -> bool:
+        return True
 
     def format_data_type_datetime(self, data_type: DateTimeType) -> Tuple[str, tuple]:
         return (f"DATETIME({data_type.precision})" if data_type.precision is not None else "DATETIME"), ()

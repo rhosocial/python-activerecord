@@ -372,38 +372,38 @@ class TestCrossTypeDataTypes:
     """Cross-type inequality branches (type(self) is not type(other))."""
 
     def test_datetime_types_inequality(self):
-        assert TimeType(6) != DateTimeType(6)
-        assert TimeTzType(2) != TimeType(2)
-        assert DateTimeType(6) != TimestampType(6)
-        assert TimestampType(6) != TimestampTzType(6)
-        assert TimestampTzType(0) != DateTimeType(0)
-        assert IntervalType("YEAR") != TimeType(1)
+        assert TimeType(None, 6) != DateTimeType(None, 6)
+        assert TimeTzType(None, 2) != TimeType(None, 2)
+        assert DateTimeType(None, 6) != TimestampType(None, 6)
+        assert TimestampType(None, 6) != TimestampTzType(None, 6)
+        assert TimestampTzType(None, 0) != DateTimeType(None, 0)
+        assert IntervalType(None, "YEAR") != TimeType(None, 1)
 
     def test_string_types_inequality(self):
-        assert CharType(10) != VarCharType(10)
-        assert VarCharType(10) != CharType(10)
-        assert CharType(10) != CustomType("CHAR(10)")
+        assert CharType(None, 10) != VarCharType(None, 10)
+        assert VarCharType(None, 10) != CharType(None, 10)
+        assert CharType(None, 10) != CustomType(None, "CHAR(10)")
 
     def test_numeric_types_inequality(self):
-        assert FloatType(24) != DecimalType(10, 2)
-        assert DecimalType(10, 2) != FloatType(24)
-        assert FloatType(24) != IntegerType()
+        assert FloatType(None, 24) != DecimalType(None, 10, 2)
+        assert DecimalType(None, 10, 2) != FloatType(None, 24)
+        assert FloatType(None, 24) != IntegerType()
 
     def test_array_and_custom_inequality(self):
-        assert ArrayType(IntegerType()) != ArrayType(CharType(10))
-        assert ArrayType(IntegerType()) != CharType(10)
-        assert ArrayType(IntegerType()).is_equivalent(CharType(10)) is False
-        assert CustomType("geometry") != IntegerType()
+        assert ArrayType(None, IntegerType()) != ArrayType(None, CharType(None, 10))
+        assert ArrayType(None, IntegerType()) != CharType(None, 10)
+        assert ArrayType(None, IntegerType()).is_equivalent(CharType(None, 10)) is False
+        assert CustomType(None, "geometry") != IntegerType()
 
     def test_hash_branches(self):
-        assert hash(CharType(10)) == hash(CharType(10))
-        assert hash(DecimalType(10, 2)) == hash(DecimalType(10, 2))
+        assert hash(CharType(None, 10)) == hash(CharType(None, 10))
+        assert hash(DecimalType(None, 10, 2)) == hash(DecimalType(None, 10, 2))
 
     def test_timetz_timestamptz_equality(self):
-        assert TimeTzType(2) == TimeTzType(2)
-        assert TimeTzType(2) != TimeTzType(3)
-        assert TimestampTzType(0) == TimestampTzType(0)
-        assert TimestampTzType(0) != TimestampTzType(1)
+        assert TimeTzType(None, 2) == TimeTzType(None, 2)
+        assert TimeTzType(None, 2) != TimeTzType(None, 3)
+        assert TimestampTzType(None, 0) == TimestampTzType(None, 0)
+        assert TimestampTzType(None, 0) != TimestampTzType(None, 1)
 
     def test_trigger_info_trigger_name_setter(self, dialect):
         from rhosocial.activerecord.backend.expression.introspection import TriggerInfoExpression
@@ -459,7 +459,7 @@ class TestColumnDefinitionValidation:
         from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnDefinition
         from rhosocial.activerecord.backend.expression.types import IntegerType
 
-        col = ColumnDefinition(dialect, name="id", data_type=IntegerType())
+        col = ColumnDefinition(dialect, name="id", data_type=IntegerType(dialect))
         assert col.name == "id"
         assert isinstance(col.data_type, IntegerType)
 

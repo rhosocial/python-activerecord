@@ -226,7 +226,7 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(dialect, 
             name="email",
-            data_type=SQLiteTextType(255, dialect=dialect),
+            data_type=SQLiteTextType(dialect, 255),
             constraints=[
                 ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(dialect, constraint_type=ColumnConstraintType.UNIQUE),
@@ -243,7 +243,7 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(dialect, 
             name="status",
-            data_type=SQLiteTextType(50, dialect=dialect),
+            data_type=SQLiteTextType(dialect, 50),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value="active")],
         )
 
@@ -295,7 +295,7 @@ class TestFormatColumnDefinition:
 
         col_def = ColumnDefinition(dialect, 
             name="full_name",
-            data_type=SQLiteTextType(255, dialect=dialect),
+            data_type=SQLiteTextType(dialect, 255),
             generated_expression=mock_expr,
             generated_type=GeneratedColumnType.VIRTUAL,
         )
@@ -313,7 +313,7 @@ class TestFormatColumnDefinition:
 
         col_def = ColumnDefinition(dialect, 
             name="price",
-            data_type=SQLiteNumericType(10, 2, dialect),
+            data_type=SQLiteNumericType(dialect, 10, 2),
             constraints=[
                 ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL),
                 ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=0.0),
@@ -331,7 +331,7 @@ class TestFormatColumnDefinition:
         dialect = SQLiteDialect()
         col_def = ColumnDefinition(dialect, 
             name="optional_field",
-            data_type=SQLiteTextType(100, dialect=dialect),
+            data_type=SQLiteTextType(dialect, 100),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NULL)],
         )
 

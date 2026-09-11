@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from ._base import DataType
 
@@ -37,20 +37,12 @@ class ArrayType(DataType):
 
     name = "array"
 
-    def __init__(self, element_type: DataType, dimensions: int = 1,
-                 dialect: Optional["SQLDialectBase"] = None):
-        super().__init__(dialect)
+    def __init__(self, dialect: Optional["SQLDialectBase"] = None,
+                 element_type: Optional[DataType] = None, dimensions: int = 1,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.element_type = element_type
         self.dimensions = dimensions
-
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return (self.element_type == other.element_type
-                and self.dimensions == other.dimensions)
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.element_type, self.dimensions))
 
     def _type_params(self) -> tuple:
         return (self.element_type, self.dimensions)

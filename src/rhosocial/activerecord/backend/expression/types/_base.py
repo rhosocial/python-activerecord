@@ -6,7 +6,7 @@ from __future__ import annotations
 import inspect
 import re
 from abc import ABC
-from typing import TYPE_CHECKING, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
 
 from ..bases import BaseExpression, SQLQueryAndParams
 
@@ -30,6 +30,14 @@ class DataType(BaseExpression, ABC):
     ``dialect`` property). Rendering goes through the unified
     ``BaseExpression.to_sql()``: each type renders via the dialect's
     ``format_data_type`` formatting function.
+
+    Additionally, every type carries an optional ``dialect_options`` mapping
+    (conventional keyword argument): backend-specific configuration that
+    travels with the type instance (e.g. ``{'unsigned': True}``). Options
+    participate in **equality** but **not** in ``__hash__`` — the hash covers
+    type identity and type params only (options are configuration, rarely
+    hashed; this asymmetry is deliberate so mutable option mappings do not
+    break hashing).
     """
 
     @property
@@ -44,6 +52,10 @@ class DataType(BaseExpression, ABC):
     concrete subclass** (see ``__init_subclass__``)."""
 
     _NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+    # Module path of a backend-defined type: ``...impl.<backend>...``.
+    # The captured group is the backend slug used as the name prefix.
+    _BACKEND_MODULE_RE = re.compile(r"\.impl\.([a-z0-9_]+)(?:\.|$)")
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -74,26 +86,60 @@ class DataType(BaseExpression, ABC):
                 f"generic type name {name!r}: it must match "
                 f"\"[a-z][a-z0-9_]*\" (a valid identifier suffix)."
             )
+        # Enforce the namespace prefix rule: core-defined types (module
+        # under ``rhosocial.activerecord.backend.expression.types``) own
+        # **pure** names; every other (backend-defined) type must prefix
+        # its name with its backend slug derived from the module path.
+        # The prefix keeps the dispatch keys of different backends isolated
+        # (``format_data_type_<name>`` families never collide) and makes
+        # support-list merges unambiguous when a backend dialect folds its
+        # own types into the inherited supported-types mapping.
+        if not cls.__module__.startswith(
+                "rhosocial.activerecord.backend.expression.types"):
+            match = cls._BACKEND_MODULE_RE.search(cls.__module__)
+            if match is None:
+                raise TypeError(
+                    f"{cls.__module__}.{cls.__name__} is defined outside "
+                    f"the core types package but its module path does not "
+                    f"contain \".impl.<backend>\"; backend-defined types "
+                    f"must live under \"...impl.<backend>...\" so their "
+                    f"namespace prefix can be derived."
+                )
+            backend = match.group(1)
+            prefix = backend + "_"
+            if not name.startswith(prefix):
+                raise TypeError(
+                    f"{cls.__module__}.{cls.__name__} is a backend-defined "
+                    f"type: its generic type name {name!r} must be "
+                    f"namespaced with the backend slug and start with "
+                    f"{prefix!r} (e.g. \"{prefix}<name>\"). The prefix "
+                    f"keeps dispatch keys "
+                    f"(format_data_type_<name>) isolated per backend and "
+                    f"makes support-list merges unambiguous."
+                )
 
-    def __init__(self, dialect: Optional["SQLDialectBase"] = None):
+    def __init__(self, dialect: Optional["SQLDialectBase"] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
+        self.dialect_options: Dict[str, Any] = dict(dialect_options) if dialect_options else {}
 
     # ----- value-object semantics (ignore dialect for equality) -----
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
             return False
-        return True
+        return (self._type_params() == other._type_params()
+                and self.dialect_options == other.dialect_options)
 
     def __hash__(self) -> int:
-        return hash(type(self))
+        return hash((type(self), self._type_params()))
 
     def _type_params(self) -> tuple:
         """Return a tuple of the fields that define the logical type.
 
-        Subclasses with extra parameters may override this, but **must**
-        also override ``__eq__`` and ``__hash__`` directly to avoid
-        fragility from positional tuple semantics.
+        Subclasses with extra parameters override this so the unified
+        base ``__eq__``/``__hash__`` compare their logical content;
+        they should **not** hand-write ``__eq__``/``__hash__``.
         """
         return ()
 
@@ -133,7 +179,7 @@ class DataType(BaseExpression, ABC):
         if isinstance(dialect, DDLTypeSupport):
             return dialect.parse_type(raw)
         from .custom import CustomType
-        return CustomType(raw)
+        return CustomType(dialect, raw)
 
     def __repr__(self) -> str:
         params = self._type_params()

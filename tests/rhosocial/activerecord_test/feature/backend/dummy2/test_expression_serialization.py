@@ -768,7 +768,7 @@ class TestDDLRoundtrip:
             ColumnConstraintType,
         )
 
-        col_def = ColumnDefinition(dummy_dialect, "id", IntegerType(), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)])
+        col_def = ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)])
         expr = CreateTableExpression(dummy_dialect, table="users", columns=[col_def])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
