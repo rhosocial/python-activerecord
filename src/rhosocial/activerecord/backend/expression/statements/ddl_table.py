@@ -277,6 +277,8 @@ class CreateTableExpression(BaseExpression):
         *,  # Force keyword arguments
         partition: Optional["PartitionClause"] = None,  # Table partitioning specification
         dialect_options: Optional[Dict[str, Any]] = None,
+        on_commit_delete: Optional[bool] = None,  # Firebird: ON COMMIT DELETE ROWS (True) or PRESERVE ROWS (False)
+        external_file: Optional[str] = None,  # Firebird: EXTERNAL FILE clause
     ):  # Dialect-specific options
         super().__init__(dialect)
         if isinstance(table, str):
@@ -299,6 +301,8 @@ class CreateTableExpression(BaseExpression):
         self.partition = partition
         self.as_query = as_query  # Query to base table on (for CREATE TABLE AS)
         self.dialect_options = dialect_options or {}  # Dialect-specific options
+        self.on_commit_delete = on_commit_delete  # Firebird: ON COMMIT DELETE/PRESERVE ROWS
+        self.external_file = external_file  # Firebird: EXTERNAL FILE clause
 
     @property
     def table_name(self) -> str:
