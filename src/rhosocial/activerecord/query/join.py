@@ -25,7 +25,7 @@ class JoinQueryMixin:
 
     def _resolve_right_table(
         self, right: Union[str, Type["IActiveRecord"], TableExpression], alias: Optional[str]
-    ) -> Union[TableExpression, JoinExpression]:
+    ) -> Union[TableExpression, JoinExpression, "AsExpression"]:
         """Helper method to resolve the right-hand side of a join into a TableExpression."""
         dialect = self.backend().dialect
         if isinstance(right, str):

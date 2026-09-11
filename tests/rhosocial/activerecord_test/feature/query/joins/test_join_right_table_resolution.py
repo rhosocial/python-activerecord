@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from rhosocial.activerecord.backend.expression import TableExpression
+from rhosocial.activerecord.backend.expression.core import AsExpression
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.query.join import JoinQueryMixin
@@ -68,7 +69,7 @@ class TestSyncResolveRightTable:
         resolved = query._resolve_right_table(table, alias="o")
 
         assert resolved is not table
-        assert isinstance(resolved, TableExpression)
+        assert isinstance(resolved, AsExpression)
         assert resolved.alias == "o"
         assert table.alias is None
         assert resolved.to_sql()[0] == '"orders" AS "o"'
@@ -102,7 +103,7 @@ class TestSyncResolveRightTable:
         resolved = query._resolve_right_table(join_expr, alias="jx")
 
         assert resolved is not join_expr
-        assert isinstance(resolved, JoinClause)
+        assert isinstance(resolved, AsExpression)
         assert resolved.alias == "jx"
         assert join_expr.alias is None
         assert resolved.to_sql()[0].endswith('AS "jx"')
@@ -132,7 +133,7 @@ class TestAsyncResolveRightTable:
         resolved = query._resolve_right_table(table, alias="o")
 
         assert resolved is not table
-        assert isinstance(resolved, TableExpression)
+        assert isinstance(resolved, AsExpression)
         assert resolved.alias == "o"
         assert table.alias is None
         assert resolved.to_sql()[0] == '"orders" AS "o"'
@@ -157,7 +158,7 @@ class TestAsyncResolveRightTable:
         resolved = query._resolve_right_table(join_expr, alias="jx")
 
         assert resolved is not join_expr
-        assert isinstance(resolved, JoinClause)
+        assert isinstance(resolved, AsExpression)
         assert resolved.alias == "jx"
         assert join_expr.alias is None
 
