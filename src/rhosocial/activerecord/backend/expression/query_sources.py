@@ -94,7 +94,7 @@ class SetOperationExpression(BaseExpression):
             ],
             from_=[
                 TableExpression(dialect, "nodes", alias="n"),
-                JoinExpression(
+                JoinClause(
                     dialect,
                     left_table=TableExpression(dialect, "recursive_result", alias="r"),
                     right_table=TableExpression(dialect, "nodes", alias="n"),

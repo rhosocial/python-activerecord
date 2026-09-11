@@ -5,7 +5,7 @@ from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression import bases
-    from ...expression.query_parts import JoinExpression
+    from ...expression.query_parts import JoinClause
 
 
 class LateralJoinMixin:
@@ -90,12 +90,12 @@ class JoinMixin:
         """Whether MySQL STRAIGHT_JOIN is supported. Defaults to False."""
         return False
 
-    def format_join_expression(self, join_expr: "JoinExpression") -> Tuple[str, Tuple]:
+    def format_join_clause(self, join_expr: "JoinClause") -> Tuple[str, Tuple]:
         """
         Generic implementation for formatting a JOIN expression.
         This method validates support for the given join type using protocol methods.
         """
-        from ...expression import QueryExpression, JoinExpression
+        from ...expression import QueryExpression, JoinClause
 
         join_type_upper = join_expr.join_type.upper()
 
@@ -121,12 +121,12 @@ class JoinMixin:
 
         # Format left and right sides of the join
         left_sql, left_params = join_expr.left_table.to_sql()
-        if isinstance(join_expr.left_table, (QueryExpression, JoinExpression)):
+        if isinstance(join_expr.left_table, (QueryExpression, JoinClause)):
             left_sql = f"({left_sql})"
         all_params.extend(left_params)
 
         right_sql, right_params = join_expr.right_table.to_sql()
-        if isinstance(join_expr.right_table, (QueryExpression, JoinExpression)):
+        if isinstance(join_expr.right_table, (QueryExpression, JoinClause)):
             right_sql = f"({right_sql})"
         all_params.extend(right_params)
 

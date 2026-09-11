@@ -143,11 +143,11 @@ base_query = QueryExpression(
 
 # Recursive case: employees whose manager is already in org_chart
 # Use a JOIN between the CTE result and employees table
-from rhosocial.activerecord.backend.expression import JoinExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import JoinClause  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
-join_expr = JoinExpression(
+join_expr = JoinClause(
     dialect=dialect,
     left_table=TableExpression(dialect, "org_chart", alias="oc"),
     right_table=TableExpression(dialect, "employees", alias="e"),

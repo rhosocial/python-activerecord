@@ -14,7 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
     from .dql import QueryExpression
     from ..query_sources import ValuesExpression, TableFunctionExpression, LateralExpression, SetOperationExpression
-    from ..query_parts import JoinExpression
+    from ..query_parts import JoinClause
 
 
 # region Merge Statement
@@ -208,13 +208,13 @@ class DeleteExpression(BaseExpression):
                 "TableExpression",
                 "Subquery",
                 "SetOperationExpression",
-                "JoinExpression",
+                "JoinClause",
                 List[
                     Union[
                         "TableExpression",
                         "Subquery",
                         "SetOperationExpression",
-                        "JoinExpression",
+                        "JoinClause",
                         "ValuesExpression",
                         "TableFunctionExpression",
                         "LateralExpression",
@@ -290,7 +290,7 @@ class DeleteExpression(BaseExpression):
                 using_type_name = type(self.using).__name__
                 valid_type_names = [
                     "SetOperationExpression",
-                    "JoinExpression",
+                    "JoinClause",
                     "ValuesExpression",
                     "TableFunctionExpression",
                     "LateralExpression",
@@ -299,7 +299,7 @@ class DeleteExpression(BaseExpression):
                 if using_type_name not in valid_type_names:
                     raise TypeError(
                         f"using must be one of: str, TableExpression, Subquery, SetOperationExpression, "
-                        f"JoinExpression, list, ValuesExpression, TableFunctionExpression, "
+                        f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, QueryExpression, got {type(self.using)}"
                     )
 
@@ -350,13 +350,13 @@ class UpdateExpression(BaseExpression):
                 "TableExpression",
                 "Subquery",
                 "SetOperationExpression",
-                "JoinExpression",
+                "JoinClause",
                 List[
                     Union[
                         "TableExpression",
                         "Subquery",
                         "SetOperationExpression",
-                        "JoinExpression",
+                        "JoinClause",
                         "ValuesExpression",
                         "TableFunctionExpression",
                         "LateralExpression",
@@ -421,7 +421,7 @@ class UpdateExpression(BaseExpression):
                 from_type_name = type(self.from_).__name__
                 valid_type_names = [
                     "SetOperationExpression",
-                    "JoinExpression",
+                    "JoinClause",
                     "ValuesExpression",
                     "TableFunctionExpression",
                     "LateralExpression",
@@ -429,7 +429,7 @@ class UpdateExpression(BaseExpression):
                 if from_type_name not in valid_type_names:
                     raise TypeError(
                         f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, "
-                        f"JoinExpression, list, ValuesExpression, TableFunctionExpression, "
+                        f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, got {type(self.from_)}"
                     )
 

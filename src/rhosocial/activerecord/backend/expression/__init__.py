@@ -109,8 +109,8 @@ from .advanced_functions import (
     OrderedSetAggregation,
 )
 from .query_parts import (
-    GroupingExpression,
-    JoinExpression,
+    GroupingClause,
+    JoinClause,
     JoinType,
     WhereClause,
     GroupByHavingClause,
@@ -456,8 +456,8 @@ __all__ = [
     "ArrayExpression",
     "OrderedSetAggregation",
     # Query parts
-    "GroupingExpression",
-    "JoinExpression",
+    "GroupingClause",
+    "JoinClause",
     "JoinType",
     "WhereClause",
     "GroupByHavingClause",
@@ -674,3 +674,7 @@ __all__ = [
     "xmlserialize",
     "xmltable",
 ]
+
+# Backward compatibility aliases (deprecated, use new names)
+JoinExpression = JoinClause
+GroupingExpression = GroupingClause

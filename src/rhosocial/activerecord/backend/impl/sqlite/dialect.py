@@ -778,7 +778,7 @@ class SQLiteDialect(
         # SQLite doesn't support FOR UPDATE in set operations
         return False
 
-    def format_grouping_expression(self, expr) -> Tuple[str, tuple]:
+    def format_grouping_clause(self, expr) -> Tuple[str, tuple]:
         """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
         operation = expr.operation
         # Check feature support based on operation type

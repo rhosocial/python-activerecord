@@ -114,12 +114,12 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     QueryExpression,
     TableExpression,
     Column,
-    JoinExpression,
+    JoinClause,
 )
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
 from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 
-join_expr = JoinExpression(
+join_expr = JoinClause(
     dialect=dialect,
     left_table=TableExpression(dialect, "users", alias="u"),
     right_table=TableExpression(dialect, "orders", alias="o"),

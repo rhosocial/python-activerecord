@@ -310,7 +310,7 @@ class ForUpdateClause(BaseExpression):
         return "format_for_update_clause"
 
 
-class GroupingExpression(BaseExpression):
+class GroupingClause(BaseExpression):
     """Represents grouping operations like ROLLUP, CUBE, and GROUPING SETS."""
 
     def __init__(self, dialect: "SQLDialectBase", operation: str, expressions: List["BaseExpression"]):
@@ -321,10 +321,10 @@ class GroupingExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_grouping_expression"
+        return "format_grouping_clause"
 
 
-class JoinExpression(AliasableMixin, BaseExpression):
+class JoinClause(AliasableMixin, BaseExpression):
     """
     Represents a JOIN expression (e.g., table1 JOIN table2 ON condition).
 
@@ -338,7 +338,7 @@ class JoinExpression(AliasableMixin, BaseExpression):
 
     Example Usage:
         # Basic INNER JOIN with ON condition
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dialect,
             left_table=TableExpression(dialect, "users", alias="u"),
             right_table=TableExpression(dialect, "orders", alias="o"),
@@ -347,7 +347,7 @@ class JoinExpression(AliasableMixin, BaseExpression):
         )
 
         # LEFT JOIN with USING clause
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dialect,
             left_table=TableExpression(dialect, "employees", alias="e"),
             right_table=TableExpression(dialect, "departments", alias="d"),
@@ -356,7 +356,7 @@ class JoinExpression(AliasableMixin, BaseExpression):
         )
 
         # NATURAL JOIN
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dialect,
             left_table=TableExpression(dialect, "table1"),
             right_table=TableExpression(dialect, "table2"),
@@ -381,8 +381,8 @@ class JoinExpression(AliasableMixin, BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        left_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
-        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        left_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinClause"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinClause"],
         join_type: str = "JOIN",
         condition: Optional["SQLPredicate"] = None,  # ON condition (mutually exclusive with 'using')
         using: Optional[List[str]] = None,  # USING clause columns (mutually exclusive with 'condition')
@@ -398,12 +398,12 @@ class JoinExpression(AliasableMixin, BaseExpression):
         # Normalize table inputs
         self.left_table = (
             left_table
-            if isinstance(left_table, (TableExpression, Subquery, JoinExpression, QueryExpression, GraphTableExpression))
+            if isinstance(left_table, (TableExpression, Subquery, JoinClause, QueryExpression, GraphTableExpression))
             else TableExpression(dialect, str(left_table))
         )
         self.right_table = (
             right_table
-            if isinstance(right_table, (TableExpression, Subquery, JoinExpression, QueryExpression, GraphTableExpression))
+            if isinstance(right_table, (TableExpression, Subquery, JoinClause, QueryExpression, GraphTableExpression))
             else TableExpression(dialect, str(right_table))
         )
 
@@ -424,19 +424,19 @@ class JoinExpression(AliasableMixin, BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_join_expression"
+        return "format_join_clause"
 
     def join(
         self,
-        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinClause"],
         join_type: str = "JOIN",
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         natural: bool = False,
         alias: Optional[str] = None,
-    ) -> "JoinExpression":
+    ) -> "JoinClause":
         """
-        Create a new JoinExpression by joining the current expression to another table.
+        Create a new JoinClause by joining the current expression to another table.
 
         This enables chaining of joins like:
         join1.join(table2, "INNER JOIN", condition=...).join(table3, "LEFT JOIN", condition=...)
@@ -450,10 +450,10 @@ class JoinExpression(AliasableMixin, BaseExpression):
             alias: Alias for the resulting join
 
         Returns:
-            A new JoinExpression representing the chained join
+            A new JoinClause representing the chained join
         """
-        # Create a new JoinExpression with this instance as the left table
-        return JoinExpression(
+        # Create a new JoinClause with this instance as the left table
+        return JoinClause(
             dialect=self.dialect,
             left_table=self,  # Use current join expression as left table
             right_table=right_table,
@@ -467,48 +467,48 @@ class JoinExpression(AliasableMixin, BaseExpression):
 
     def inner_join(
         self,
-        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinClause"],
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
-    ) -> "JoinExpression":
+    ) -> "JoinClause":
         """Create an inner join with another table."""
         return self.join(right_table=right_table, join_type="INNER JOIN", condition=condition, using=using, alias=alias)
 
     def left_join(
         self,
-        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinClause"],
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
-    ) -> "JoinExpression":
+    ) -> "JoinClause":
         """Create a left join with another table."""
         return self.join(right_table=right_table, join_type="LEFT JOIN", condition=condition, using=using, alias=alias)
 
     def right_join(
         self,
-        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinClause"],
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
-    ) -> "JoinExpression":
+    ) -> "JoinClause":
         """Create a right join with another table."""
         return self.join(right_table=right_table, join_type="RIGHT JOIN", condition=condition, using=using, alias=alias)
 
     def full_join(
         self,
-        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinClause"],
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
-    ) -> "JoinExpression":
+    ) -> "JoinClause":
         """Create a full join with another table."""
         return self.join(right_table=right_table, join_type="FULL JOIN", condition=condition, using=using, alias=alias)
 
     def cross_join(
         self,
-        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinClause"],
         alias: Optional[str] = None,
-    ) -> "JoinExpression":
+    ) -> "JoinClause":
         """Create a cross join with another table."""
         return self.join(right_table=right_table, join_type="CROSS JOIN", alias=alias)

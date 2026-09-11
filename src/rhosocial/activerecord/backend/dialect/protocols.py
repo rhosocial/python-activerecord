@@ -32,7 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CreatePropertyGraphExpression,
         DropPropertyGraphExpression,
         AlterPropertyGraphExpression,
-        JoinExpression,
+        JoinClause,
         JSONExpression,
         WindowFunctionCall,
         WindowSpecification,
@@ -440,14 +440,14 @@ class AdvancedGroupingSupport(Protocol):
         """Whether GROUPING SETS are supported."""
         ...  # pragma: no cover
 
-    def format_grouping_expression(
+    def format_grouping_clause(
         self, expr: "bases.BaseExpression"
     ) -> Tuple[str, tuple]:
         """
         Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
 
         Args:
-            expr: The GroupingExpression node (operation + grouped expressions).
+            expr: The GroupingClause node (operation + grouped expressions).
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -590,12 +590,12 @@ class JoinSupport(Protocol):
         """Whether NATURAL JOIN is supported."""
         ...  # pragma: no cover
 
-    def format_join_expression(self, join_expr: "JoinExpression") -> Tuple[str, Tuple]:
+    def format_join_clause(self, join_expr: "JoinClause") -> Tuple[str, Tuple]:
         """
         Formats a JOIN expression.
 
         Args:
-            join_expr: JoinExpression object.
+            join_expr: JoinClause object.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
