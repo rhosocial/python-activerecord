@@ -319,13 +319,13 @@ class TestCreateDropViewStatements:
 
     def test_create_view_join_based(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW based on a JOIN query."""
-        from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+        from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 
         # Create a join between users and profiles
         users_table = TableExpression(dummy_dialect, "users", alias="u")
         profiles_table = TableExpression(dummy_dialect, "profiles", alias="p")
         join_condition = Column(dummy_dialect, "user_id", "u") == Column(dummy_dialect, "user_id", "p")
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect,
             left_table=users_table,
             right_table=profiles_table,

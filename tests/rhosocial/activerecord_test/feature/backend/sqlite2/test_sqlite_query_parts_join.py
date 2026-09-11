@@ -2,16 +2,16 @@
 import pytest
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import Column, TableExpression
-from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
-class TestSQLiteJoinExpression:
-    """Tests for JoinExpression formatting in SQLite dialect."""
+class TestSQLiteJoinClause:
+    """Tests for JoinClause formatting in SQLite dialect."""
 
     def test_supported_inner_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that INNER JOIN is supported."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "users", alias="u"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "orders", alias="o"),
@@ -24,7 +24,7 @@ class TestSQLiteJoinExpression:
 
     def test_supported_left_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that LEFT JOIN is supported."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "users", alias="u"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "orders", alias="o"),
@@ -37,7 +37,7 @@ class TestSQLiteJoinExpression:
 
     def test_supported_left_outer_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that LEFT OUTER JOIN is supported."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "users", alias="u"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "orders", alias="o"),
@@ -50,7 +50,7 @@ class TestSQLiteJoinExpression:
 
     def test_supported_cross_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that CROSS JOIN is supported."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "users"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "departments"),
@@ -62,7 +62,7 @@ class TestSQLiteJoinExpression:
 
     def test_supported_natural_inner_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test NATURAL INNER JOIN is supported in SQLite."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "table_a"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "table_b"),
@@ -75,7 +75,7 @@ class TestSQLiteJoinExpression:
 
     def test_supported_natural_left_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test NATURAL LEFT JOIN is supported in SQLite."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "table_a"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "table_b"),
@@ -88,7 +88,7 @@ class TestSQLiteJoinExpression:
 
     def test_unsupported_natural_right_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test NATURAL RIGHT JOIN raises UnsupportedFeatureError in SQLite."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "table_a"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "table_b"),
@@ -100,7 +100,7 @@ class TestSQLiteJoinExpression:
 
     def test_unsupported_natural_full_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test NATURAL FULL JOIN raises UnsupportedFeatureError in SQLite."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "table_a"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "table_b"),
@@ -112,7 +112,7 @@ class TestSQLiteJoinExpression:
 
     def test_unsupported_right_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that RIGHT JOIN raises UnsupportedFeatureError."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "users"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "orders"),
@@ -124,7 +124,7 @@ class TestSQLiteJoinExpression:
 
     def test_unsupported_full_outer_join(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that FULL OUTER JOIN raises UnsupportedFeatureError."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "users"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "orders"),
@@ -136,7 +136,7 @@ class TestSQLiteJoinExpression:
 
     def test_chained_join_with_unsupported_type(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that a chained join with an unsupported type fails."""
-        base_join = JoinExpression(
+        base_join = JoinClause(
             sqlite_dialect_3_8_0,
             left_table=TableExpression(sqlite_dialect_3_8_0, "users", alias="u"),
             right_table=TableExpression(sqlite_dialect_3_8_0, "orders", alias="o"),

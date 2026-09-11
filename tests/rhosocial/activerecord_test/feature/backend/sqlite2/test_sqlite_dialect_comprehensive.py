@@ -90,9 +90,9 @@ class TestSQLiteDialectComprehensive:
     @pytest.mark.parametrize(
         "operation,method_name,expected_error_part",
         [
-            ("ROLLUP", "format_grouping_expression", "ROLLUP"),
-            ("CUBE", "format_grouping_expression", "CUBE"),
-            ("GROUPING SETS", "format_grouping_expression", "GROUPING SETS"),
+            ("ROLLUP", "format_grouping_clause", "ROLLUP"),
+            ("CUBE", "format_grouping_clause", "CUBE"),
+            ("GROUPING SETS", "format_grouping_clause", "GROUPING SETS"),
             ("operation", "format_array_expression", "Array operations"),
             ("operation", "format_json_table_expression", "JSON_TABLE function"),
             ("operation", "format_match_clause", "graph MATCH clause"),
@@ -108,12 +108,12 @@ class TestSQLiteDialectComprehensive:
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
 
-        from rhosocial.activerecord.backend.expression.query_parts import GroupingExpression
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
         from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            if method_name == "format_grouping_expression":
-                method(GroupingExpression(dialect, operation, []))
+            if method_name == "format_grouping_clause":
+                method(GroupingClause(dialect, operation, []))
             elif method_name == "format_array_expression":
                 mock_expr = MagicMock(spec=ArrayExpression)
                 mock_expr.operation = "CONSTRUCTOR"
@@ -139,14 +139,14 @@ class TestSQLiteDialectComprehensive:
         assert expected_error_part in str(exc_info.value)
 
     @pytest.mark.parametrize("join_type", ["RIGHT JOIN", "FULL OUTER JOIN", "FULL JOIN"])
-    def test_format_join_expression_unsupported_joins_comprehensive(self, join_type):
+    def test_format_join_clause_unsupported_joins_comprehensive(self, join_type):
         """Comprehensive test for unsupported JOIN types"""
         dialect = SQLiteDialect()
         mock_join_expr = Mock()
         mock_join_expr.join_type = join_type
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_join_expression(mock_join_expr)
+            dialect.format_join_clause(mock_join_expr)
 
         expected_keyword = join_type.upper().split()[0]
         assert expected_keyword in str(exc_info.value)

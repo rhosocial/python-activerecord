@@ -67,6 +67,19 @@ class AliasableMixin:
         """
         from .core import AsExpression
 
+        # If this is already an AsExpression, wrap it in a new AsExpression
+        # to preserve the original's alias
+        if isinstance(self, AsExpression):
+            # Remove alias from this AsExpression to avoid nested AS
+            inner = self.expression
+            if hasattr(inner, "alias") and inner.alias is not None:
+                inner.alias = None
+            return AsExpression(self.dialect, inner, alias)  # type: ignore
+
+        # Remove alias from the wrapped expression to avoid nested AS
+        if hasattr(self, "alias") and self.alias is not None:
+            self.alias = None
+
         return AsExpression(self.dialect, self, alias)  # type: ignore
 
 

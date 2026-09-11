@@ -8,7 +8,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, TableExpression
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
-from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     JSONExpression,
     ArrayExpression,
@@ -251,7 +251,7 @@ class TestAliasNonContamination:
             lambda d: FunctionCall(d, "UPPER", Column(d, "name")),
             lambda d: Subquery(d, "SELECT 1"),
             lambda d: TableExpression(d, "users"),
-            lambda d: JoinExpression(
+            lambda d: JoinClause(
                 d,
                 left_table=TableExpression(d, "users"),
                 right_table=TableExpression(d, "items"),
@@ -259,7 +259,7 @@ class TestAliasNonContamination:
                 condition=Column(d, "id", "u") == Column(d, "user_id", "i"),
             ),
         ],
-        ids=["Literal", "Column", "FunctionCall", "Subquery", "TableExpression", "JoinExpression"],
+        ids=["Literal", "Column", "FunctionCall", "Subquery", "TableExpression", "JoinClause"],
     )
     def test_as_returns_copy_for_each_expression_type(
         self, dummy_dialect: DummyDialect, factory

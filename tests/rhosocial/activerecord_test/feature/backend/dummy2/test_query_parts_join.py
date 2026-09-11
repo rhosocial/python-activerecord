@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_query_parts_join.py
 """
-Tests for JoinExpression and its chaining capabilities for multiple joins.
+Tests for JoinClause and its chaining capabilities for multiple joins.
 """
 
 from rhosocial.activerecord.backend.expression import (
@@ -11,19 +11,19 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     FunctionCall,
 )
-from rhosocial.activerecord.backend.expression.query_parts import JoinExpression, GroupByHavingClause
+from rhosocial.activerecord.backend.expression.query_parts import JoinClause, GroupByHavingClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
-class TestJoinExpressionChaining:
-    """Tests for JoinExpression chaining and multiple join capabilities."""
+class TestJoinClauseChaining:
+    """Tests for JoinClause chaining and multiple join capabilities."""
 
     def test_basic_join_expression_creation(self, dummy_dialect: DummyDialect):
-        """Test basic JoinExpression creation."""
+        """Test basic JoinClause creation."""
         left_table = TableExpression(dummy_dialect, "users", alias="u")
         right_table = TableExpression(dummy_dialect, "orders", alias="o")
 
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect,
             left_table=left_table,
             right_table=right_table,
@@ -41,7 +41,7 @@ class TestJoinExpressionChaining:
     def test_join_expression_chaining(self, dummy_dialect: DummyDialect):
         """Test chaining multiple joins using the join() method."""
         # Create initial join: users JOIN orders
-        users_orders_join = JoinExpression(
+        users_orders_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "users", alias="u"),
             right_table=TableExpression(dummy_dialect, "orders", alias="o"),
@@ -70,7 +70,7 @@ class TestJoinExpressionChaining:
     def test_multiple_join_chaining(self, dummy_dialect: DummyDialect):
         """Test chaining multiple joins consecutively."""
         # Start with users and orders
-        base_join = JoinExpression(
+        base_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "users", alias="u"),
             right_table=TableExpression(dummy_dialect, "orders", alias="o"),
@@ -109,7 +109,7 @@ class TestJoinExpressionChaining:
     def test_convenience_methods_chaining(self, dummy_dialect: DummyDialect):
         """Test chaining using convenience methods like inner_join, left_join, etc."""
         # Start with a basic join
-        base_join = JoinExpression(
+        base_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "users", alias="u"),
             right_table=TableExpression(dummy_dialect, "orders", alias="o"),
@@ -145,7 +145,7 @@ class TestJoinExpressionChaining:
 
     def test_different_join_types_chaining(self, dummy_dialect: DummyDialect):
         """Test chaining with different join types."""
-        base_join = JoinExpression(
+        base_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "customers", alias="c"),
             right_table=TableExpression(dummy_dialect, "orders", alias="o"),
@@ -191,7 +191,7 @@ class TestJoinExpressionChaining:
 
     def test_full_join_convenience_method(self, dummy_dialect: DummyDialect):
         """Test the full_join convenience method."""
-        base_join = JoinExpression(
+        base_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "employees", alias="e"),
             right_table=TableExpression(dummy_dialect, "departments", alias="d"),
@@ -216,7 +216,7 @@ class TestJoinExpressionChaining:
 
     def test_natural_inner_join_dummy(self, dummy_dialect: DummyDialect):
         """Test NATURAL INNER JOIN in dummy dialect."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "table_a"),
             right_table=TableExpression(dummy_dialect, "table_b"),
@@ -229,7 +229,7 @@ class TestJoinExpressionChaining:
 
     def test_natural_left_join_dummy(self, dummy_dialect: DummyDialect):
         """Test NATURAL LEFT JOIN in dummy dialect."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "table_a"),
             right_table=TableExpression(dummy_dialect, "table_b"),
@@ -242,7 +242,7 @@ class TestJoinExpressionChaining:
 
     def test_left_outer_join_dummy(self, dummy_dialect: DummyDialect):
         """Test LEFT OUTER JOIN in dummy dialect."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "users", alias="u"),
             right_table=TableExpression(dummy_dialect, "posts", alias="p"),
@@ -255,7 +255,7 @@ class TestJoinExpressionChaining:
 
     def test_full_outer_join_dummy(self, dummy_dialect: DummyDialect):
         """Test FULL OUTER JOIN in dummy dialect."""
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "customers", alias="c"),
             right_table=TableExpression(dummy_dialect, "orders", alias="o"),
@@ -268,7 +268,7 @@ class TestJoinExpressionChaining:
 
     def test_join_with_using_clause_chaining(self, dummy_dialect: DummyDialect):
         """Test chaining joins that use USING clause instead of ON."""
-        base_join = JoinExpression(
+        base_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "table_a", alias="a"),
             right_table=TableExpression(dummy_dialect, "table_b", alias="b"),
@@ -291,7 +291,7 @@ class TestJoinExpressionChaining:
 
     def test_join_with_alias_chaining(self, dummy_dialect: DummyDialect):
         """Test chaining joins with aliases."""
-        base_join = JoinExpression(
+        base_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "users", alias="u"),
             right_table=TableExpression(dummy_dialect, "orders", alias="o"),
@@ -319,7 +319,7 @@ class TestJoinExpressionChaining:
 
     def test_complex_conditions_in_chained_joins(self, dummy_dialect: DummyDialect):
         """Test chained joins with complex conditions."""
-        base_join = JoinExpression(
+        base_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "users", alias="u"),
             right_table=TableExpression(dummy_dialect, "orders", alias="o"),
@@ -360,7 +360,7 @@ class TestJoinExpressionChaining:
         assert params == (100, "active")
 
     def test_join_expression_with_query_expression_as_table(self, dummy_dialect: DummyDialect):
-        """Test JoinExpression with QueryExpression as one of the tables."""
+        """Test JoinClause with QueryExpression as one of the tables."""
         # Create a subquery
         subquery = QueryExpression(
             dummy_dialect,
@@ -369,7 +369,7 @@ class TestJoinExpressionChaining:
         )
 
         # Join regular table with subquery
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "orders", alias="o"),
             right_table=subquery,
@@ -401,7 +401,7 @@ class TestJoinExpressionChaining:
         )
 
         # Join users with the subquery
-        base_join = JoinExpression(
+        base_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "users", alias="u"),
             right_table=user_summary,
@@ -426,9 +426,9 @@ class TestJoinExpressionChaining:
         assert params == ()
 
     def test_nested_join_expressions(self, dummy_dialect: DummyDialect):
-        """Test creating a join where one side is already a JoinExpression."""
+        """Test creating a join where one side is already a JoinClause."""
         # Create first join
-        first_join = JoinExpression(
+        first_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "users", alias="u"),
             right_table=TableExpression(dummy_dialect, "user_profiles", alias="up"),
@@ -439,7 +439,7 @@ class TestJoinExpressionChaining:
         )
 
         # Create second join
-        second_join = JoinExpression(
+        second_join = JoinClause(
             dummy_dialect,
             left_table=TableExpression(dummy_dialect, "orders", alias="o"),
             right_table=TableExpression(dummy_dialect, "products", alias="p"),
@@ -450,7 +450,7 @@ class TestJoinExpressionChaining:
         )
 
         # Join the two join expressions together
-        final_join = JoinExpression(
+        final_join = JoinClause(
             dummy_dialect,
             left_table=first_join,
             right_table=second_join,

@@ -36,7 +36,7 @@ from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     FunctionCall,
     InsertExpression,
-    JoinExpression,
+    JoinClause,
     Literal,
     QueryExpression,
     SelectSource,
@@ -188,7 +188,7 @@ class TestGeoDocumentScenario:
                     Column(dialect, "rowid", table="docs_fts"),
                     Column(dialect, "title"),
                 ],
-                from_=[JoinExpression(
+                from_=[JoinClause(
                     dialect,
                     left_table=TableExpression(dialect, "docs_fts"),
                     right_table=Subquery(
@@ -359,7 +359,7 @@ class TestGeofencingScenario:
                     Column(dialect, "name", table="z"),
                     Column(dialect, "category", table="z"),
                 ],
-                from_=[JoinExpression(
+                from_=[JoinClause(
                     dialect,
                     left_table=TableExpression(dialect, "zones", alias="z"),
                     right_table=TableExpression(dialect, "zone_fts", alias="f"),
@@ -544,9 +544,9 @@ class TestSpatialCatalogScenario:
                     Column(dialect, "name"),
                     Column(dialect, "props", table="feature_props"),
                 ],
-                from_=[JoinExpression(
+                from_=[JoinClause(
                     dialect,
-                    left_table=JoinExpression(
+                    left_table=JoinClause(
                         dialect,
                         left_table=TableExpression(dialect, "features_fts"),
                         right_table=Subquery(

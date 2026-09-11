@@ -185,7 +185,9 @@ class ExpressionMixin:
         ``expr AS alias`` wraps an expression and gives it a name/alias.
         """
         expr_sql, params = expr.expression.to_sql()
-        return f"{expr_sql} AS {self.format_identifier(expr.alias)}", params
+        if expr.alias:
+            return f"{expr_sql} AS {self.format_identifier(expr.alias)}", params
+        return expr_sql, params
 
     def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format a :class:`~...expression.query_sources.ValuesExpression` node."""

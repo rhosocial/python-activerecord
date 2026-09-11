@@ -3,7 +3,7 @@
 Unit tests for JoinQueryMixin._resolve_right_table / AsyncJoinQueryMixin._resolve_right_table.
 
 These tests lock in the alias non-contamination contract for join targets:
-passing a TableExpression or JoinExpression with an alias must return a NEW
+passing a TableExpression or JoinClause with an alias must return a NEW
 aliased copy and never mutate the caller's expression (regression tests for
 the ``as_()`` copy semantics and the ``issubclass`` model-class guard).
 """
@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from rhosocial.activerecord.backend.expression import TableExpression
-from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.query.join import JoinQueryMixin
 from rhosocial.activerecord.query.async_join import AsyncJoinQueryMixin
@@ -25,9 +25,9 @@ def dummy_dialect():
     return DummyDialect()
 
 
-def _make_join_expression(dialect: DummyDialect) -> JoinExpression:
-    """Build a minimal valid JoinExpression for alias tests."""
-    return JoinExpression(
+def _make_join_expression(dialect: DummyDialect) -> JoinClause:
+    """Build a minimal valid JoinClause for alias tests."""
+    return JoinClause(
         dialect,
         left_table=TableExpression(dialect, "users"),
         right_table=TableExpression(dialect, "items"),
@@ -102,7 +102,7 @@ class TestSyncResolveRightTable:
         resolved = query._resolve_right_table(join_expr, alias="jx")
 
         assert resolved is not join_expr
-        assert isinstance(resolved, JoinExpression)
+        assert isinstance(resolved, JoinClause)
         assert resolved.alias == "jx"
         assert join_expr.alias is None
         assert resolved.to_sql()[0].endswith('AS "jx"')
@@ -157,7 +157,7 @@ class TestAsyncResolveRightTable:
         resolved = query._resolve_right_table(join_expr, alias="jx")
 
         assert resolved is not join_expr
-        assert isinstance(resolved, JoinExpression)
+        assert isinstance(resolved, JoinClause)
         assert resolved.alias == "jx"
         assert join_expr.alias is None
 

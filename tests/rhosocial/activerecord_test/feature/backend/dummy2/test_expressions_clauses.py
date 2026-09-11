@@ -8,9 +8,9 @@ from rhosocial.activerecord.backend.expression import (
     Subquery,
     TableExpression,
     ComparisonPredicate,
-    JoinExpression,
+    JoinClause,
     CTEExpression,
-    GroupingExpression,
+    GroupingClause,
     ValuesExpression,
     MergeExpression,
     MergeAction,
@@ -23,7 +23,7 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 class TestClauseExpressions:
     """Tests for various SQL clause-related expressions."""
 
-    # --- JoinExpression ---
+    # --- JoinClause ---
     @pytest.mark.parametrize(
         "left_data, right_data, join_type, condition_data, using, expected_sql, expected_params",
         [
@@ -82,7 +82,7 @@ class TestClauseExpressions:
                 Column(dummy_dialect, right_col[0], table=right_col[1]),
             )
 
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect, left_table, right_table, join_type=join_type, condition=condition, using=using
         )
         sql, params = join_expr.to_sql()
@@ -90,7 +90,7 @@ class TestClauseExpressions:
         assert params == expected_params
 
     def test_join_expression_validation_both_condition_and_using(self, dummy_dialect: DummyDialect):
-        """Test that JoinExpression raises ValueError when both condition and using are provided."""
+        """Test that JoinClause raises ValueError when both condition and using are provided."""
         left_table = TableExpression(dummy_dialect, "users")
         right_table = TableExpression(dummy_dialect, "profiles")
         condition = ComparisonPredicate(
@@ -103,7 +103,7 @@ class TestClauseExpressions:
         with pytest.raises(
             ValueError, match="Cannot specify both 'condition' \\(ON\\) and 'using' \\(USING\\) clauses in a JOIN"
         ):
-            JoinExpression(
+            JoinClause(
                 dummy_dialect, left_table, right_table, join_type="INNER", condition=condition, using=["user_id"]
             )
 
@@ -135,7 +135,7 @@ class TestClauseExpressions:
         assert sql == '"cached_data" AS MATERIALIZED ((SELECT * FROM large_data WHERE condition = ?))'
         assert params == (True,)
 
-    # --- GroupingExpression (ROLLUP, CUBE, GROUPING SETS) ---
+    # --- GroupingClause (ROLLUP, CUBE, GROUPING SETS) ---
     @pytest.mark.parametrize(
         "grouping_type, args_data, expected_sql",
         [
@@ -158,7 +158,7 @@ class TestClauseExpressions:
             for arg_data in args_data:
                 processed_args.append(Column(dummy_dialect, *arg_data))
 
-        grouping_expr = GroupingExpression(dummy_dialect, grouping_type, processed_args)
+        grouping_expr = GroupingClause(dummy_dialect, grouping_type, processed_args)
         sql, params = grouping_expr.to_sql()
         assert sql == expected_sql
         assert params == ()

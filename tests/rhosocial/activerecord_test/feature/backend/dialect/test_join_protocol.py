@@ -3,7 +3,7 @@
 Test for JoinSupport protocol implementation.
 
 This test creates a dialect that only supports JOIN operations and verifies that
-the format_join_expression method works correctly while other features remain unsupported.
+the format_join_clause method works correctly while other features remain unsupported.
 """
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, JoinMixin, JoinSupport

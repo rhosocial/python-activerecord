@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     TableExpression,
     DeleteExpression,
-    JoinExpression,
+    JoinClause,
     LogicalPredicate,
     ReturningClause,
     ComparisonPredicate,
@@ -71,8 +71,8 @@ class TestDeleteStatements:
                     self.set_dialect_recursive(expr.from_, dialect)
             self.set_dialect_recursive(expr.where, dialect)
 
-        # Specific for JoinExpression
-        if isinstance(expr, JoinExpression):
+        # Specific for JoinClause
+        if isinstance(expr, JoinClause):
             self.set_dialect_recursive(expr.left_table, dialect)
             self.set_dialect_recursive(expr.right_table, dialect)
             self.set_dialect_recursive(expr.condition, dialect)
@@ -182,7 +182,7 @@ class TestDeleteStatements:
             ),
             pytest.param(
                 "main_table",
-                JoinExpression(
+                JoinClause(
                     None,
                     TableExpression(None, "join_table", alias="jt"),
                     TableExpression(None, "lookup_table", alias="lt"),
@@ -258,7 +258,7 @@ class TestDeleteStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
+            match=r"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
         ):
             delete_expr = DeleteExpression(dummy_dialect, tables="users", using=unsupported_source, where=where)
             delete_expr.to_sql()
@@ -411,7 +411,7 @@ class TestDeleteStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
+            match=r"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
         ):
             delete_expr.validate(strict=True)
 

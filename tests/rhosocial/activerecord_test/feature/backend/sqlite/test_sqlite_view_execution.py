@@ -404,7 +404,7 @@ class TestSQLiteViewJoins:
 
     def test_create_view_with_join(self, sqlite_backend):
         """Test CREATE VIEW with JOIN executes successfully."""
-        from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+        from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 
         dialect = sqlite_backend.dialect
 
@@ -412,7 +412,7 @@ class TestSQLiteViewJoins:
         orders_table = TableExpression(dialect, "orders", alias="o")
 
         join_condition = Column(dialect, "id", "u") == Column(dialect, "user_id", "o")
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dialect, left_table=users_table, right_table=orders_table, condition=join_condition, join_type="INNER JOIN"
         )
 

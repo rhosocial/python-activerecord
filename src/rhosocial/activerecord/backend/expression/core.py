@@ -345,7 +345,14 @@ class WildcardExpression(SQLValueExpression):
         self.schema_name = schema_name  # Optional schema qualifier for SELECT schema.table.*
 
 
-class AsExpression(SQLValueExpression):
+class AsExpression(
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    StringMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
+):
     """Represents the SQL AS keyword for expression aliasing.
 
     ``expr AS alias`` wraps an expression and gives it a name/alias.
