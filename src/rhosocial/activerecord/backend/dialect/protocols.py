@@ -708,23 +708,17 @@ class JSONSupport(Protocol):
     def format_json_table_expression(
         self,
         expr: "bases.BaseExpression",
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, Tuple]:
         """
         Formats a JSON_TABLE expression.
 
         Args:
-            json_col_sql: SQL for the JSON column/expression.
-            path: The JSON path expression.
-            columns: A list of dictionaries, each defining a column.
-            alias: The alias for the resulting table.
-            params: Parameters for the JSON column expression.
-            dialect_options: Optional backend-specific options (e.g., MySQL: {'on_error': 'IGNORE', 'on_empty': 'DEFAULT'})
-                See backend-specific documentation for available options.
+            expr: JSONTableExpression node carrying all formatting state
+                  (json_col, path, columns, alias, dialect_options, etc.).
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
-        """  # noqa: E501
+        """
         ...  # pragma: no cover
 
 

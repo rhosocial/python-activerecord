@@ -44,11 +44,13 @@ class MergeAction(BaseExpression):
         action_type: MergeActionType,
         assignments: Optional[Dict[str, "BaseExpression"]] = None,
         condition: Optional["SQLPredicate"] = None,
+        matched: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.action_type = action_type
         self.assignments = dict(assignments or {})
         self.condition = condition
+        self.matched = matched
 
 
 class MergeExpression(BaseExpression):

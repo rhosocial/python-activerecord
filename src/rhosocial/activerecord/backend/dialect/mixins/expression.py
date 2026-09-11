@@ -25,9 +25,7 @@ class ExpressionMixin:
 
         return sql, params
 
-    def format_function_call(
-        self, expr: "bases.BaseExpression", filter_predicate: Optional["bases.SQLPredicate"] = None
-    ) -> Tuple[str, Tuple]:
+    def format_function_call(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         from ...expression import aggregates, core, operators
         from ..protocols import FilterClauseSupport
         from ..mixins import FilterClauseMixin
@@ -63,8 +61,7 @@ class ExpressionMixin:
         for param_tuple in args_params:
             all_params.extend(param_tuple)
 
-        if filter_predicate is None:
-            filter_predicate = getattr(expr, "filter_predicate", None)
+        filter_predicate = getattr(expr, "filter_predicate", None)
         if filter_predicate:
             if isinstance(self, FilterClauseSupport) and isinstance(self, FilterClauseMixin):
                 if self.supports_filter_clause():

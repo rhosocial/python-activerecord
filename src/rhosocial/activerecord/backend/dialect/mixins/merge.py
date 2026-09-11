@@ -14,16 +14,16 @@ class MergeMixin:
         """Whether MERGE statement is supported."""
         return False
 
-    def format_merge_action(self, expr: "MergeAction", matched: str) -> Tuple[str, tuple]:
+    def format_merge_action(self, expr: "MergeAction") -> Tuple[str, tuple]:
         """Format a single WHEN [NOT] MATCHED action clause.
 
-        *matched* is the caller's context ("MATCHED", "NOT MATCHED" or
-        "NOT MATCHED BY SOURCE"); the action itself contributes THEN ….
+        The ``matched`` context (e.g. ``"WHEN MATCHED"``) is read from
+        ``expr.matched``, set by the caller before dispatching.
         """
         from ...expression.statements import MergeActionType
 
         all_params: List[Any] = []
-        parts = [matched]
+        parts = [expr.matched]
         if expr.condition is not None:
             cond_sql, cond_params = expr.condition.to_sql()
             parts.append(f"AND {cond_sql}")
@@ -64,17 +64,20 @@ class MergeMixin:
         merge_sql_parts = [f"MERGE INTO {target_sql}", f"USING {source_sql}", f"ON {on_sql}"]
 
         for action in expr.when_matched:
-            action_sql, action_params = self.format_merge_action(action, "WHEN MATCHED")
+            action.matched = "WHEN MATCHED"
+            action_sql, action_params = self.format_merge_action(action)
             merge_sql_parts.append(action_sql)
             all_params.extend(action_params)
 
         for action in expr.when_not_matched:
-            action_sql, action_params = self.format_merge_action(action, "WHEN NOT MATCHED")
+            action.matched = "WHEN NOT MATCHED"
+            action_sql, action_params = self.format_merge_action(action)
             merge_sql_parts.append(action_sql)
             all_params.extend(action_params)
 
         for action in expr.when_not_matched_by_source:
-            action_sql, action_params = self.format_merge_action(action, "WHEN NOT MATCHED BY SOURCE")
+            action.matched = "WHEN NOT MATCHED BY SOURCE"
+            action_sql, action_params = self.format_merge_action(action)
             merge_sql_parts.append(action_sql)
             all_params.extend(action_params)
 

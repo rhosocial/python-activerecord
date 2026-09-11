@@ -1017,4 +1017,5 @@ class TestJsonFunctionFactoriesExtended:
         filter_pred = ComparisonPredicate(mock_dialect, ">", Column(mock_dialect, "value"), Literal(mock_dialect, 100))
 
         with pytest.raises(UnsupportedFeatureError, match=r".*FILTER clause in aggregate functions.*"):
-            mock_dialect.format_function_call(func, filter_predicate=filter_pred)
+            func.filter_predicate = filter_pred
+            mock_dialect.format_function_call(func)
