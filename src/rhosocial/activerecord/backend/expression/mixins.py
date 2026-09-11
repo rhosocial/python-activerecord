@@ -53,24 +53,21 @@ class AliasableMixin:
         This method enables the AS clause in SQL generation, allowing expressions
         to be referenced by a different name in the query context.
 
-        NOTE: This returns a NEW (shallow-copied) expression with the alias set;
-        the original instance is left unchanged. This allows a single expression
-        to be safely reused in multiple contexts (e.g. SELECT, ORDER BY, nested
-        arithmetic) without leaking the alias into every occurrence.
+        Returns an AsExpression wrapping this expression with the given alias.
 
         Args:
             alias: The alias name to assign to this expression
 
         Returns:
-            A new expression with the alias applied, enabling method chaining
+            An AsExpression wrapping this expression with the alias applied
 
         Example:
             >>> col = Column(dialect, "first_name").as_("fname")
-            >>> # When used in a query, this will generate: "first_name AS fname"
+            >>> # When used in a query, this will generate: "first_name" AS "fname"
         """
-        new = copy.copy(self)
-        new.alias = alias
-        return new
+        from .core import AsExpression
+
+        return AsExpression(self.dialect, self, alias)  # type: ignore
 
 
 class ComparisonMixin:

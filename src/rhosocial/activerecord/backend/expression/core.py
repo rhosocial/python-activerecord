@@ -343,3 +343,33 @@ class WildcardExpression(SQLValueExpression):
         super().__init__(dialect)
         self.table = table  # Optional table qualifier for SELECT table.*
         self.schema_name = schema_name  # Optional schema qualifier for SELECT schema.table.*
+
+
+class AsExpression(SQLValueExpression):
+    """Represents the SQL AS keyword for expression aliasing.
+
+    ``expr AS alias`` wraps an expression and gives it a name/alias.
+    This is a proper AST node representing the AS keyword.
+
+    Example:
+        >>> AsExpression(dialect, Column(dialect, "name"), "user_name")
+        # Renders: "name" AS "user_name"
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_as_expression"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expression: "BaseExpression",
+        alias: str,
+    ):
+        super().__init__(dialect)
+        self.expression = expression
+        self.alias = alias
+
+    def __repr__(self) -> str:
+        return f"AsExpression({self.expression!r}, alias={self.alias!r})"
