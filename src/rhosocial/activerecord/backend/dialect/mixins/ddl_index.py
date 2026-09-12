@@ -10,6 +10,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DropIndexExpression,
     )
     from ...expression import CreateFulltextIndexExpression, DropFulltextIndexExpression
+    from ...expression.statements.fulltext_match import FulltextMatchExpression
 
 
 class IndexMixin:
@@ -108,24 +109,24 @@ class IndexMixin:
         return self.supports_fulltext_index()
 
     def format_fulltext_match(
-        self, columns: List[str], search_term: str, mode: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
+        self, expr: "FulltextMatchExpression"
+    ) -> Tuple[str, tuple]:
         """Format MATCH ... AGAINST expression."""
         if not self.supports_fulltext_index():
             raise UnsupportedFeatureError(self.name, "FULLTEXT search")
 
-        cols_str = ", ".join(self.format_identifier(c) for c in columns)
+        cols_str = ", ".join(self.format_identifier(c) for c in expr.columns)
 
         ph = self.get_parameter_placeholder()
-        if mode:
-            mode_upper = mode.upper()
+        if expr.mode:
+            mode_upper = expr.mode.upper()
             if mode_upper == "BOOLEAN":
-                return f"MATCH({cols_str}) AGAINST({ph} IN BOOLEAN MODE)", (search_term,)
+                return f"MATCH({cols_str}) AGAINST({ph} IN BOOLEAN MODE)", (expr.search_term,)
             elif mode_upper in ("QUERY EXPANSION", "WITH QUERY EXPANSION"):
-                return f"MATCH({cols_str}) AGAINST({ph} WITH QUERY EXPANSION)", (search_term,)
+                return f"MATCH({cols_str}) AGAINST({ph} WITH QUERY EXPANSION)", (expr.search_term,)
 
         # Default: NATURAL LANGUAGE MODE
-        return f"MATCH({cols_str}) AGAINST({ph} IN NATURAL LANGUAGE MODE)", (search_term,)
+        return f"MATCH({cols_str}) AGAINST({ph} IN NATURAL LANGUAGE MODE)", (expr.search_term,)
 
     def format_create_fulltext_index_statement(self, expr: "CreateFulltextIndexExpression") -> Tuple[str, tuple]:
         """Format CREATE FULLTEXT INDEX statement from expression object."""

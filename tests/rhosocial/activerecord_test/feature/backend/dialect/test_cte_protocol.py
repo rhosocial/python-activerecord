@@ -3,7 +3,7 @@
 Test for CTESupport protocol implementation.
 
 This test creates a dialect that does not support CTEs and verifies that
-the format_cte and format_with_query methods raise appropriate errors.
+the CTE support flag methods properly report lack of CTE support.
 """
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, CTEMixin, CTESupport

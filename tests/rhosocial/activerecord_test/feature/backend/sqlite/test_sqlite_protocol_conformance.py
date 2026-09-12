@@ -295,11 +295,8 @@ class TestProtocolMethodSignatureConformance:
     # Generic Mixins use expr-based signatures instead of named params defined in protocols.
     # These are pre-existing issues that require a broader refactoring to fix.
     _SIGNATURE_MISMATCH_EXCLUSIONS = {
-        # JSONSupport: Mixin uses expr-based signatures instead of named params
-        ("JSONSupport", "format_json_expression"),
+        # JSONSupport: format_json_table_expression uses _expr instead of expr
         ("JSONSupport", "format_json_table_expression"),
-        # ArraySupport: SQLite doesn't support arrays natively
-        ("ArraySupport", "format_array_expression"),
         # AdvancedGroupingSupport: Mixin uses expr instead of named params
         ("AdvancedGroupingSupport", "format_grouping_clause"),
         # GraphSupport: Mixin uses expr instead of clause

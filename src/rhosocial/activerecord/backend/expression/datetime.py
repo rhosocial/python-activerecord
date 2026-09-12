@@ -3,7 +3,7 @@
 
 import math
 from enum import Enum
-from typing import TYPE_CHECKING, Union
+from typing import Any, Dict, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
 from .mixins import AliasableMixin, ArithmeticMixin, ComparisonMixin, StringMixin, TypeCastingMixin
@@ -282,3 +282,15 @@ class DateTimeDiffExpression(_TemporalValueExpression):
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_datetime_diff_expression"
+
+
+class TemporalOptionsExpression(BaseExpression):
+    """FOR SYSTEM_TIME AS OF ... temporal table options."""
+
+    def __init__(self, dialect, options: Dict[str, Any]):
+        super().__init__(dialect)
+        self.options = options
+
+    @property
+    def format_method(self) -> str:
+        return "format_temporal_options"

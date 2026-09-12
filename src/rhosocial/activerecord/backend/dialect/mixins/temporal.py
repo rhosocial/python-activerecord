@@ -1,10 +1,11 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/temporal.py
-from typing import Any, Dict, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.query_parts import QualifyClause
+    from ...expression.datetime import TemporalOptionsExpression
 
 
 class TemporalTableMixin:
@@ -14,16 +15,16 @@ class TemporalTableMixin:
         """Whether temporal tables are supported."""
         return False
 
-    def format_temporal_options(self, options: Dict[str, Any]) -> Tuple[str, tuple]:
+    def format_temporal_options(self, expr: "TemporalOptionsExpression") -> Tuple[str, tuple]:
         """Format temporal table options."""
-        if not options:
+        if not expr.options:
             raise ValueError(
                 "Temporal options cannot be empty. If no temporal options are needed, "
                 "don't call format_temporal_options."
             )
         sql_parts, params = ["FOR SYSTEM_TIME"], []
         # Add temporal options to SQL parts based on the options provided
-        for key, value in options.items():
+        for key, value in expr.options.items():
             sql_parts.append(f"{key.upper()} {self.get_parameter_placeholder()}")
             params.append(value)
         return " ".join(sql_parts), tuple(params)

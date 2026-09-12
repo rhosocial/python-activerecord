@@ -118,6 +118,12 @@ from .ddl_function import CreateFunctionExpression, DropFunctionExpression
 # Partition DDL
 from .ddl_partition import PartitionClause, PartitionStrategy
 
+# Filter clause expression
+from .filter_clause import FilterClauseExpression
+
+# Fulltext match expression
+from .fulltext_match import FulltextMatchExpression
+
 # Re-export shared type alias
 from ._types import FromSourceType
 
@@ -212,6 +218,10 @@ __all__ = [
     # Partition DDL
     "PartitionClause",
     "PartitionStrategy",
+    # Filter clause expression
+    "FilterClauseExpression",
+    # Fulltext match expression
+    "FulltextMatchExpression",
     # Type aliases
     "FromSourceType",
 ]

@@ -117,7 +117,7 @@ class DDLColumnMixin:
         check_sql, check_params = t_const.check_condition.to_sql()
         return f"CHECK ({check_sql})", tuple(check_params)
 
-    def format_foreign_key_constraint(self, t_const) -> str:
+    def format_foreign_key_constraint(self, t_const) -> Tuple[str, tuple]:
         from ...expression.statements import ReferentialAction, ForeignKeyConstraint
         if not t_const.columns:
             raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
@@ -133,7 +133,7 @@ class DDLColumnMixin:
                 result += f" ON DELETE {t_const.on_delete.value}"
             if t_const.on_update is not None and t_const.on_update != ReferentialAction.NO_ACTION:
                 result += f" ON UPDATE {t_const.on_update.value}"
-        return result
+        return result, ()
 
     def format_table_constraint_sql(self, t_const) -> Tuple[str, tuple]:
         from ...expression.statements import TableConstraintType
@@ -150,7 +150,8 @@ class DDLColumnMixin:
             sql, params = self.format_table_check_constraint(t_const)
             const_parts.append(sql)
         elif ctype == TableConstraintType.FOREIGN_KEY:
-            const_parts.append(self.format_foreign_key_constraint(t_const))
+            fk_sql, _ = self.format_foreign_key_constraint(t_const)
+            const_parts.append(fk_sql)
         return " ".join(const_parts) if const_parts else "", tuple(params)
 
     def format_storage_options(self, storage_options: Dict[str, Any]) -> Tuple[str, tuple]:

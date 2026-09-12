@@ -63,7 +63,7 @@ if TYPE_CHECKING:  # pragma: no cover
         XMLTableExpression,
     )
     from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause, WhereClause
-    from ..expression.advanced_functions import OrderedSetAggregation
+    from ..expression.advanced_functions import OrderedSetAggregation, ArrayExpression
     from ..expression.statements import (
         CreateTableExpression,
         DropTableExpression,
@@ -105,6 +105,9 @@ if TYPE_CHECKING:  # pragma: no cover
         TriggerInfoExpression,
     )
     from ..expression.collation import CollateExpression
+    from ..expression.statements.filter_clause import FilterClauseExpression
+    from ..expression.datetime import TemporalOptionsExpression
+    from ..expression.statements.fulltext_match import FulltextMatchExpression
 
 
 @runtime_checkable
@@ -398,22 +401,6 @@ class CTESupport(Protocol):
         """Whether MATERIALIZED hint is supported."""
         ...  # pragma: no cover
 
-    def format_cte(
-        self,
-        name: str,
-        query_sql: str,
-        columns: Optional[List[str]] = None,
-        recursive: bool = False,
-        materialized: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        """Format a single CTE definition."""
-        ...  # pragma: no cover
-
-    def format_with_query(
-        self, cte_sql_parts: List[str], main_query_sql: str, dialect_options: Optional[Dict[str, Any]] = None
-    ) -> str: ...  # pragma: no cover
-
 
 @runtime_checkable
 class WildcardSupport(Protocol):
@@ -621,12 +608,17 @@ class ArraySupport(Protocol):
 
     def format_array_expression(
         self,
-        operation: str,
-        elements: Optional[List["bases.BaseExpression"]],
-        base_expr: Optional["bases.BaseExpression"],
-        index_expr: Optional["bases.BaseExpression"],
+        expr: "ArrayExpression",
     ) -> Tuple[str, Tuple]:
-        """Format array expression."""
+        """Format array expression.
+
+        Args:
+            expr: ArrayExpression node carrying all formatting state
+                  (operation, elements, base_expr, index_expr).
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
         ...  # pragma: no cover
 
 
@@ -664,7 +656,7 @@ class JSONSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_json_expression(self, column: Any, path: str, operation: str) -> Tuple[str, Tuple]:
+    def format_json_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
         """
         Format JSON expression.
 
@@ -676,9 +668,7 @@ class JSONSupport(Protocol):
         - ``JSONPathMode.AUTO``:     use arrow if supported, else function-based
 
         Args:
-            column: Column expression or name
-            path: JSON path
-            operation: JSON operation (e.g., '->', '->>')
+            expr: JSONExpression node carrying column, path, and operation info.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -937,13 +927,12 @@ class FilterClauseSupport(Protocol):
         """Whether FILTER (WHERE ...) clause is supported in aggregate functions."""
         ...  # pragma: no cover
 
-    def format_filter_clause(self, condition_sql: str, condition_params: tuple) -> Tuple[str, Tuple]:
+    def format_filter_clause(self, expr: "FilterClauseExpression") -> Tuple[str, tuple]:
         """
         Format a FILTER (WHERE ...) clause.
 
         Args:
-            condition_sql: SQL string for the WHERE condition.
-            condition_params: Parameters for the WHERE condition.
+            expr: FilterClauseExpression wrapping the condition.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
@@ -1001,9 +990,12 @@ class TemporalTableSupport(Protocol):
         """Whether temporal table queries are supported."""
         ...  # pragma: no cover
 
-    def format_temporal_options(self, options: Dict[str, Any]) -> Tuple[str, tuple]:
+    def format_temporal_options(self, expr: "TemporalOptionsExpression") -> Tuple[str, tuple]:
         """
         Formats a temporal table clause (e.g., FOR SYSTEM_TIME AS OF ...).
+
+        Args:
+            expr: TemporalOptionsExpression carrying the temporal options dict.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
@@ -1364,14 +1356,14 @@ class ConstraintSupport(Protocol):
 
     # FK formatter methods
 
-    def format_foreign_key_constraint(self, t_const: "TableConstraint") -> str:
+    def format_foreign_key_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
         """Format a table-level FOREIGN KEY constraint, including ON DELETE / ON UPDATE.
 
         Args:
             t_const: The table constraint to format (may be a ForeignKeyConstraint).
 
         Returns:
-            SQL string for the FK clause.
+            Tuple of (SQL string, empty params tuple).
         """
         ...  # pragma: no cover
 
@@ -1684,14 +1676,12 @@ class IndexSupport(Protocol):
         ...  # pragma: no cover
 
     def format_fulltext_match(
-        self, columns: List[str], search_term: str, mode: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
+        self, expr: "FulltextMatchExpression"
+    ) -> Tuple[str, tuple]:
         """Format MATCH ... AGAINST expression for full-text search.
 
         Args:
-            columns: Columns to search
-            search_term: Search term or query
-            mode: Search mode ('NATURAL LANGUAGE', 'BOOLEAN', 'QUERY EXPANSION')
+            expr: FulltextMatchExpression node carrying columns, search_term, and mode.
 
         Returns:
             Tuple of (SQL string, parameters tuple)

@@ -58,7 +58,9 @@ class IdentifierMixin:
             table_sql = f"{table_sql} AS {self.format_identifier(expr.alias)}"
         params: tuple = ()
         if expr.temporal_options:
-            result = self.format_temporal_options(expr.temporal_options)
+            from ...expression.datetime import TemporalOptionsExpression
+            temporal_expr = TemporalOptionsExpression(self, expr.temporal_options)
+            result = self.format_temporal_options(temporal_expr)
             if result is not None:
                 temporal_sql, temporal_params = result
                 table_sql = f"{table_sql} {temporal_sql}"

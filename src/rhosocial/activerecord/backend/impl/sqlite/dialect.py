@@ -825,7 +825,7 @@ class SQLiteDialect(
             self.name, f"{operation} grouping operation", f"{operation} is not supported by SQLite."
         )
 
-    def format_array_expression(self, _expr: "ArrayExpression") -> Tuple[str, Tuple]:
+    def format_array_expression(self, expr: "ArrayExpression") -> Tuple[str, Tuple]:
         """Format array expression."""
         # SQLite does not support native array types
         raise UnsupportedFeatureError(self.name, "Array operations", _SUGGESTION_ARRAY_TYPES)

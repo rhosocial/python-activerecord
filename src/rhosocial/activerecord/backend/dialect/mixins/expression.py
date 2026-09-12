@@ -65,8 +65,9 @@ class ExpressionMixin:
         if filter_predicate:
             if isinstance(self, FilterClauseSupport) and isinstance(self, FilterClauseMixin):
                 if self.supports_filter_clause():
-                    filter_sql, filter_params = filter_predicate.to_sql()
-                    filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_sql, filter_params)
+                    from ...expression.statements.filter_clause import FilterClauseExpression
+                    filter_expr = FilterClauseExpression(self, condition=filter_predicate)
+                    filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_expr)
                     func_call_sql += f" {filter_clause_sql}"
                     all_params.extend(filter_clause_params)
                 else:
@@ -178,16 +179,6 @@ class ExpressionMixin:
 
     def format_alias(self, expression_sql: str, alias: str, expression_params: tuple) -> Tuple[str, Tuple]:
         return f"{expression_sql} AS {self.format_identifier(alias)}", expression_params
-
-    def format_as_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
-        """Format a :class:`~...expression.core.AsExpression` node.
-
-        ``expr AS alias`` wraps an expression and gives it a name/alias.
-        """
-        expr_sql, params = expr.expression.to_sql()
-        if expr.alias:
-            return f"{expr_sql} AS {self.format_identifier(expr.alias)}", params
-        return expr_sql, params
 
     def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format a :class:`~...expression.query_sources.ValuesExpression` node."""

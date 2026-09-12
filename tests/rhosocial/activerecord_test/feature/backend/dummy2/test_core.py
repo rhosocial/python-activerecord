@@ -273,10 +273,11 @@ class TestTableExpression:
 
     def test_table_expression_with_temporal_options_that_returns_none(self, dummy_dialect: DummyDialect):
         """Test TableExpression with temporal options when dialect returns None from format_temporal_options."""
+        from rhosocial.activerecord.backend.expression.datetime import TemporalOptionsExpression
         # Mock the dialect's format_temporal_options to return None
         original_method = dummy_dialect.format_temporal_options
 
-        def mock_format_temporal_options(options):
+        def mock_format_temporal_options(expr):
             return None
 
         dummy_dialect.format_temporal_options = mock_format_temporal_options
@@ -339,8 +340,9 @@ class TestTableExpression:
 
     def test_format_temporal_options_with_empty_options_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_temporal_options raises ValueError when called with empty options."""
+        from rhosocial.activerecord.backend.expression.datetime import TemporalOptionsExpression
         with pytest.raises(
             ValueError,
             match=r"Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options.",  # noqa: E501
         ):
-            dummy_dialect.format_temporal_options({})
+            dummy_dialect.format_temporal_options(TemporalOptionsExpression(dummy_dialect, {}))
