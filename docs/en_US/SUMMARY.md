@@ -108,6 +108,7 @@
 ## Backend System
 
 * [Overview](backend/README.md)
+* [Architecture](backend/architecture.md)
 * [Introspection](backend/introspection.md)
 * [Query Explain](backend/explain.md)
 * [Custom Backend](backend/custom_backend.md)

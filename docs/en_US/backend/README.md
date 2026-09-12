@@ -39,6 +39,7 @@ pip install rhosocial-activerecord[all]
 
 ## Contents
 
+* **[Architecture](architecture.md)**: How a backend is composed — the Backend vs. Dialect split, Mixin composition, and the Expression–Dialect–Backend data flow.
 * **[Database Introspection](introspection.md)**: Query database structure metadata.
 * **[Query Explain Interface](explain.md)**: Execute EXPLAIN statements and analyse query plans and index usage.
 * **[Expression System](expression/README.md)**: How Python objects are transformed into SQL strings.

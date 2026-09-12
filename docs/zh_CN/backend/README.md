@@ -39,6 +39,7 @@ pip install rhosocial-activerecord[all]
 
 ## 目录
 
+* **[架构设计](architecture.md)**: 后端如何组装——后端 vs. 方言拆分、Mixin 组合、以及表达式-方言-后端的数据流。
 * **[数据库内省 (Introspection)](introspection.md)**: 查询数据库结构元数据。
 * **[查询解释接口 (Query Explain)](explain.md)**: 执行 EXPLAIN 语句，分析查询计划和索引使用情况。
 * **[表达式系统 (Expression System)](expression/README.md)**: Python 对象如何变成 SQL 字符串。

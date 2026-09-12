@@ -108,6 +108,7 @@
 ## 后端系统
 
 * [概述](backend/README.md)
+* [架构设计](backend/architecture.md)
 * [数据库内省](backend/introspection.md)
 * [查询解释接口](backend/explain.md)
 * [自定义后端](backend/custom_backend.md)
