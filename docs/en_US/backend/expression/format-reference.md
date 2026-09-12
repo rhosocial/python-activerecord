@@ -97,7 +97,7 @@ Tuples use `__tuple__` marker:
 
 1. Validate `type` and `module` exist
 2. Find class via `ExpressionRegistry.lookup()`
-3. Call `_reconstruct(cls, dialect, params)` to rebuild instance
+3. Call `_reconstruct(cls, dialect, params)` to rebuild instance (deserialization path only — the rendering path, `to_sql()`, never reconstructs)
 4. Recursively process nested structures in `params`:
    - `__expr__` → `deserialize(value, dialect)`
    - `__tuple__` → tuple(recursively process elements)

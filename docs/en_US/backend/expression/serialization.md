@@ -12,6 +12,8 @@ Why not serialize `dialect` directly? Here's why:
 
 Therefore, the serialized `ExpressionSpec` does not contain dialect information. At deserialization time, the caller provides the target dialect.
 
+> **Serialization vs. rendering are separate paths**: `_reconstruct()` is used **only** by the deserialization round-trip (spec → object). Rendering never reconstructs anything — `to_sql()` is stateless and allocation-free, reading each node's own bound dialect and rendering the existing tree in place.
+
 ## Core API
 
 ### serialize()

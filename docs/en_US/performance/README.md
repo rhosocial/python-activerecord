@@ -1,4 +1,4 @@
-# 7. Performance & Optimization
+# Performance & Optimization
 
 The core of "Progressive ORM" is the ability to freely switch between development efficiency and runtime efficiency based on your needs.
 

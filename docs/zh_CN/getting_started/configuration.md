@@ -200,11 +200,17 @@ print(connections)
 - 配置文件可以与代码一起进行版本控制
 - 支持动态参数,便于在不同环境间切换
 
-## 异步配置 (预览)
+## 异步配置
 
-虽然核心逻辑已就绪支持异步，但当前的驱动程序是同步的。异步驱动支持 (如 `aiosqlite`) 计划在未来版本中发布。
-
-如果你需要异步支持，可以使用 AsyncDummyBackend 来测试异步查询的 SQL 生成：
+> ⚠️ **重要：同步/异步取决于后端支持。**
+>
+> `ActiveRecord`、`ActiveQuery`、`CTEQuery`、`SetOperationQuery` 等均有对应的异步对等类（`AsyncActiveRecord`、`AsyncActiveQuery`、`AsyncCTEQuery`、`AsyncSetOperationQuery`），API 完全对称。但**实际能使用同步还是异步，取决于所选后端对异步的支持程度**：
+>
+> * **SQLite**：同步开箱即用；异步需额外安装 `aiosqlite`（`pip install rhosocial-activerecord[async]`），随后可用 `AsyncSQLiteBackend`。
+> * **MySQL / PostgreSQL 等后端包**：各后端包提供原生异步驱动实现（如 `AsyncMySQLBackend`、`AsyncPostgresBackend`），安装对应后端包即可使用。
+> * 若后端不提供异步实现，则只能使用同步 API；反之亦然。请查阅所用后端的文档确认其同步/异步支持情况。
+>
+> 你可以使用 `AsyncDummyBackend` 测试异步查询的 SQL 生成（无需真实数据库）：
 
 ```python
 from rhosocial.activerecord.model import AsyncActiveRecord

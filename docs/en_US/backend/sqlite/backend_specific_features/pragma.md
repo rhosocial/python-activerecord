@@ -408,4 +408,4 @@ class PragmaCategory(Enum):
 ## References
 
 - [SQLite PRAGMA Documentation](https://www.sqlite.org/pragma.html)
-- [rhosocial-activerecord Pragma Source](../../../src/rhosocial/activerecord/backend/impl/sqlite/pragma/)
+- [rhosocial-activerecord Pragma Source](../../../../src/rhosocial/activerecord/backend/impl/sqlite/pragma/)

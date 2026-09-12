@@ -55,7 +55,7 @@ class OrderItem(ActiveRecord):
 | 字段名 | snake_case | `first_name`, `created_at` |
 | 外键字段 | `<关联表名>_id` | `user_id`, `order_id` |
 | 布尔字段 | `is_<形容词>` 或 `has_<名词>` | `is_active`, `is_deleted`, `has_paid` |
-| 时间戳 | `created_at`, `updated_at` | 使用 TimestampMixin 自动生成 |
+| 时间戳 | `created_at`, `updated_at` | 使用 DefaultTimestampMixin 自动生成 |
 
 > 💡 **AI 提示词：** "ActiveRecord 模型命名规范有哪些？"
 
@@ -110,21 +110,21 @@ class Post(ActiveRecord):
     created_at: datetime = Field(default_factory=datetime.now)
     
     # ✅ 使用 Mixin 自动处理（推荐）
-    # 继承 TimestampMixin 自动管理 created_at 和 updated_at
+    # 继承 DefaultTimestampMixin 自动管理 created_at 和 updated_at
 ```
 
 **推荐使用 Mixin 处理常见字段：**
 
 ```python
-from rhosocial.activerecord.field import TimestampMixin, UUIDMixin, SoftDeleteMixin
+from rhosocial.activerecord.field import DefaultTimestampMixin, UUIDMixin, DefaultSoftDeleteMixin
 
-class Post(UUIDMixin, TimestampMixin, SoftDeleteMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, DefaultSoftDeleteMixin, ActiveRecord):
     """
     自动获得：
     - id: UUID 主键（来自 UUIDMixin）
-    - created_at: 创建时间（来自 TimestampMixin）
-    - updated_at: 更新时间（来自 TimestampMixin）
-    - deleted_at: 软删除标记（来自 SoftDeleteMixin）
+    - created_at: 创建时间（来自 DefaultTimestampMixin）
+    - updated_at: 更新时间（来自 DefaultTimestampMixin）
+    - deleted_at: 软删除标记（来自 DefaultSoftDeleteMixin）
     """
     title: str
     content: str
@@ -693,7 +693,7 @@ UserMetric.query().all()  # 抛出：DatabaseError: No backend configured
 | **遗漏 `configure()` 的表现** | 静默：继承父类连接，无任何提示 | 显式：立即抛出 `DatabaseError` |
 | **语义关系** | IS-A（`UserMetric` 是一种 `User`） | HAS（`User` 和 `UserMetric` 共享字段） |
 | **字段维护** | 单一位置（父类） | 单一位置（Mixin 类） |
-| **与项目惯例一致** | 否 | 是（`TimestampMixin`、`SoftDeleteMixin` 等） |
+| **与项目惯例一致** | 否 | 是（`DefaultTimestampMixin`、`DefaultSoftDeleteMixin` 等） |
 | **代码量** | 最少——一行空子类 | 稍多——需单独定义 Mixin 类 |
 
 两种方式均完全受支持。根据团队偏好及模型间的语义关系自行选择。

@@ -11,8 +11,8 @@ If you're familiar with other ORMs or frameworks, this guide will help you map y
 | `objects.get()` | `.find_one()` | Get single record |
 | `ForeignKey` | `BelongsTo` | Many-to-one relationship |
 | `ManyToManyField` | Use through model + `HasMany` | Many-to-many via intermediate table |
-| `auto_now_add`, `auto_now` | `TimestampMixin` | Automatic timestamps |
-| `SoftDelete` (django-softdelete) | `SoftDeleteMixin` | Logical deletion |
+| `auto_now_add`, `auto_now` | `DefaultTimestampMixin` | Automatic timestamps |
+| `SoftDelete` (django-softdelete) | `DefaultSoftDeleteMixin` | Logical deletion |
 | `F()` expressions | `FieldProxy` (e.g., `User.c.age`) | Type-safe field references |
 | `QuerySet` | `ActiveQuery` | Query builder class |
 | `select_related` | `.with_()` | Eager loading |
@@ -158,8 +158,8 @@ class User(ActiveRecord):
 | Query building | `.query().where().order_by().all()` |
 | Type-safe field access | `User.c.field_name` (FieldProxy) |
 | Relationships | `BelongsTo`, `HasOne`, `HasMany` |
-| Timestamps | `TimestampMixin` |
-| Soft delete | `SoftDeleteMixin` |
+| Timestamps | `DefaultTimestampMixin` |
+| Soft delete | `DefaultSoftDeleteMixin` |
 | Database backend | Configure with `Backend` class |
 | Raw SQL | Use only when necessary; prefer expressions |
 

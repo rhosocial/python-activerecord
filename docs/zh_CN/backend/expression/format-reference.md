@@ -97,7 +97,7 @@
 
 1. 验证 `type` 和 `module` 存在
 2. 通过 `ExpressionRegistry.lookup()` 查找类
-3. 调用 `_reconstruct(cls, dialect, params)` 重建实例
+3. 调用 `_reconstruct(cls, dialect, params)` 重建实例（仅限反序列化路径——渲染路径 `to_sql()` 从不重建）
 4. 递归处理 `params` 中的嵌套结构：
    - `__expr__` → `deserialize(value, dialect)`
    - `__tuple__` → tuple(递归处理元素)

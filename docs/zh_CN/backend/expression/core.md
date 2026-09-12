@@ -50,20 +50,41 @@ class ToSQLProtocol(Protocol):
 
 ### BaseExpression
 
-`BaseExpression` 是所有表达式组件的根抽象基类。它实现了 `ToSQLProtocol` 并持有 `SQLDialect` 的引用。
+`BaseExpression` 是所有表达式组件的根基类。它以结构方式满足 `ToSQLProtocol`，持有**逐节点**的方言引用，并且**只在基类集中实现一次** `to_sql()`——子类绝不复写它，只通过只读的 `format_method` 属性声明渲染自己的方言格式化方法名。
 
 ```python
-class BaseExpression(abc.ABC, ToSQLProtocol):
-    def __init__(self, dialect: "SQLDialectBase"):
-        self._dialect = dialect
+class BaseExpression:
+    def __init__(self, dialect: Optional["SQLDialectBase"] = None):
+        # 方言是约定俗成的第一个参数，但可选——
+        # 允许推迟绑定（例如模型声明期没有方言；
+        # ActiveRecord 的 DDL 推导会逐节点绑定）。
+        self._inline_literals = False
+        self.dialect = dialect
 
     @property
     def dialect(self) -> "SQLDialectBase":
-        return self._dialect
+        # 读取时会校验是否已绑定方言；渲染必须有方言，
+        # 因此未绑定就访问会抛出 ValueError
+        # ("... has no dialect bound ...")。
+        ...
 
-    @abc.abstractmethod
+    @dialect.setter
+    def dialect(self, dialect: Optional["SQLDialectBase"]) -> None:
+        # 只影响本节点——不会向子表达式传播。
+        # 在构造时逐节点传入方言，或遍历树逐个绑定。
+        ...
+
+    @property
+    def format_method(self) -> str:
+        # 渲染该表达式的方言 format_*() 方法名。
+        # 按契约只读；未声明（或方言未提供该方法）则不可渲染。
+        ...
+
     def to_sql(self) -> Tuple[str, tuple]:
-        raise NotImplementedError
+        # 只在这里实现一次。无状态、零分配：
+        # 在本节点绑定的方言上解析 format_method，
+        # 然后调用 formatter(self)。没有重建、没有传播、没有副本。
+        ...
 ```
 
 ### SQLPredicate

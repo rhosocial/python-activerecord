@@ -580,4 +580,4 @@ class FTS5Extension(SQLiteExtensionBase):
 - [SQLite FTS5 Documentation](https://www.sqlite.org/fts5.html)
 - [FTS5 Tokenizers](https://www.sqlite.org/fts5.html#tokenizers)
 - [BM25 Ranking Algorithm](https://en.wikipedia.org/wiki/Okapi_BM25)
-- [rhosocial-activerecord FTS5 Source](../../../src/rhosocial/activerecord/backend/impl/sqlite/extension/extensions/fts5.py)
+- [rhosocial-activerecord FTS5 Source](../../../../src/rhosocial/activerecord/backend/impl/sqlite/extension/extensions/fts5.py)

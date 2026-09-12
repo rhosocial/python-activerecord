@@ -46,8 +46,10 @@ def format_method(self) -> str:
 
 `BaseExpression.to_sql()` is implemented **once, at the root** and is the
 only rendering entry point. A concrete expression class never overrides it.
-Rendering resolves the declared `format_method` on the bound dialect,
-re-binds the whole subtree to that dialect, and hands the result back as:
+Rendering resolves the declared `format_method` on the node's own bound
+dialect and hands **this** expression to the formatter — no re-instantiation,
+no copies, and the `dialect` setter affects only the node it is set on
+(binding is per-node, done at construction or individually re-bound):
 
 ```python
 SQLQueryAndParams = Tuple[str, tuple]

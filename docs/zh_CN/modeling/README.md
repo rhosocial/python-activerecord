@@ -30,6 +30,9 @@
 - **[验证与钩子 (Validation & Hooks)](validation.md)**
   - Pydantic 验证器
   - 生命周期钩子 (`before_save`, `after_create` 等)
+- **[模型序列化 (Model Serialization)](serialization.md)**
+  - 模型与 JSON / 字典之间的转换 (`model_dump` / `model_validate`)
+  - 字段过滤与关联数据序列化
 - **[模型最佳实践](best_practices.md)**
   - 命名规范
   - 字段设计原则

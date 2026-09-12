@@ -39,6 +39,7 @@
 * [推导字段](modeling/derived_fields.md)
 * [Mixin 与复用](modeling/mixins.md)
 * [验证与生命周期](modeling/validation.md)
+* [模型序列化](modeling/serialization.md)
 * [自定义类型](modeling/custom_types.md)
 * [模型最佳实践](modeling/best_practices.md)
 * [只读模型](modeling/readonly_models.md)
@@ -104,11 +105,6 @@
 * [概述](events/README.md)
 * [生命周期事件](events/lifecycle.md)
 
-## 序列化
-
-* [概述](serialization/README.md)
-* [JSON 序列化](serialization/json.md)
-
 ## 后端系统
 
 * [概述](backend/README.md)
@@ -129,18 +125,19 @@
 * [谓词](backend/expression/predicates.md)
 * [函数](backend/expression/functions.md)
 * [语句](backend/expression/statements.md)
+* [数据类型](backend/expression/types.md)
 * [高级用法](backend/expression/advanced.md)
 * [限制](backend/expression/limitations.md)
-* [序列化](expression/serialization.md)
-* [扩展指南](expression/extending.md)
-* [格式参考](expression/format-reference.md)
+* [序列化](backend/expression/serialization.md)
+* [扩展指南](backend/expression/extending.md)
+* [格式参考](backend/expression/format-reference.md)
 
 ### SQLite 后端
 
 * [概述](backend/sqlite/README.md)
-* [Pragma](backend/sqlite/pragma.md)
-* [FTS5](backend/sqlite/fts5.md)
-* [扩展](backend/sqlite/extension.md)
+* [Pragma](backend/sqlite/backend_specific_features/pragma.md)
+* [FTS5](backend/sqlite/backend_specific_features/fts5.md)
+* [扩展](backend/sqlite/backend_specific_features/extension.md)
 
 ## 测试指南
 

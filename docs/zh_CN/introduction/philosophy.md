@@ -97,18 +97,23 @@ User.configure(postgres_config, PostgresBackend)  # PostgreSQL
 from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
-# 直接创建表达式
-col = Column("users", "age")
-expr = col > Literal(18)
+backend = SQLiteBackend(database=":memory:")
+dialect = backend.dialect
 
-# 通过方言生成 SQL
-sql, params = expr.to_sql(backend.dialect)
+# 直接创建表达式（方言在构造时绑定为第一个参数）
+col = Column(dialect, "age", table="users")
+expr = col > Literal(dialect, 18)
+
+# 通过方言生成 SQL（to_sql() 无参数，方言在构造时已绑定）
+sql, params = expr.to_sql()
 # SQL: "users"."age" > ?
 # params: (18,)
 
 # 直接通过后端执行（不需要 ActiveRecord）
 backend.execute(sql, params)
 ```
+
+> **注意**：表达式对象在**构造时**绑定方言（`Column(dialect, ...)` 的第一个参数），`to_sql()` 本身不接受任何参数——方言已作为表达式构造的一部分被存储。这与查询时动态注入方言的 `DataType`（见[数据类型](../backend/expression/types.md)）形成对比：后者允许延后绑定，前者始终携带方言。
 
 **d) 框架灵活性——构建你自己的 ORM**
 表达式-方言-后端堆栈是完全独立的。你可以：
@@ -119,14 +124,18 @@ backend.execute(sql, params)
 
 ```python
 # 示例：构建自定义 Repository 模式
+from rhosocial.activerecord.backend.expression import Column, Literal
+
 class UserRepository:
     def __init__(self, backend):
         self.backend = backend
+        self.dialect = backend.dialect
     
     def find_active(self, min_age: int):
-        # 直接使用表达式系统
-        expr = (User.c.active == True) & (User.c.age >= min_age)
-        sql, params = expr.to_sql(self.backend.dialect)
+        # 直接使用表达式系统（方言在构造时绑定）
+        expr = (Column(self.dialect, "is_active") == Literal(self.dialect, True)) & \
+               (Column(self.dialect, "age") >= Literal(self.dialect, min_age))
+        sql, params = expr.to_sql()
         return self.backend.execute(sql, params)
 ```
 
@@ -195,6 +204,15 @@ class UserRepository:
 - ✅ **AI 原生设计** —— 内置对 AI 代码智能体的支持
 
 **我们的使命：** 让 ActiveRecord 成为 Python 数据持久化的首选模式，无论用户选择什么框架都能使用。
+
+### 6. Python 版本支持策略
+
+我们对 Python 3 的支持**从 3.8 开始**。尽管 3.8~3.10 已陆续退出官方支持周期（EOL），但考虑到其在生产环境中的**广泛占有量**，我们仍然尽力支持这些版本，让存量项目无需强制升级即可使用本框架。
+
+- **核心库**（`python-activerecord`）：支持 `>=3.8`
+- **后端包**：具体支持范围**以各后端为准**，可能因驱动依赖而不同。例如 SQL Server 后端要求 `>=3.9`，ClickHouse 后端要求 `>=3.10`——请以所用后端包的 `pyproject.toml` 声明为准。
+
+> **说明**：核心库尽力维护 3.8 兼容性，但各后端对 Python 版本的支持取决于其数据库驱动自身的支持范围，可能存在差异。部署前请确认所用后端包的实际版本要求。
 
 ---
 

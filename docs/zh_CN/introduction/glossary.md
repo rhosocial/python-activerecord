@@ -103,7 +103,7 @@ User.query().where(User.c.username == "alice")
 
 **示例：**
 ```python
-class Post(TimestampMixin, UUIDMixin, ActiveRecord):
+class Post(DefaultTimestampMixin, UUIDMixin, ActiveRecord):
     # 自动获得 created_at、updated_at 和 UUID id
     title: str
 ```

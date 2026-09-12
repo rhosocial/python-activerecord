@@ -34,8 +34,9 @@ def format_method(self) -> str:
 ```
 
 `BaseExpression.to_sql()` **只在根部实现一次**，是唯一的渲染入口。具体表达式类
-绝不复写它。渲染过程解析绑定方言上声明的 `format_method`，把整棵子树重新绑定到该
-方言，然后返回：
+绝不复写它。渲染过程在节点自身绑定的方言上解析声明的 `format_method`，并把**当前
+表达式**交给格式化器——没有重新实例化、没有副本；`dialect` setter 只影响被赋值的
+节点本身（绑定是逐节点的，在构造时完成，或之后逐个重新绑定）：
 
 ```python
 SQLQueryAndParams = Tuple[str, tuple]

@@ -39,6 +39,7 @@
 * [Derived Fields](modeling/derived_fields.md)
 * [Mixins](modeling/mixins.md)
 * [Validation & Hooks](modeling/validation.md)
+* [Model Serialization](modeling/serialization.md)
 * [Custom Types](modeling/custom_types.md)
 * [Best Practices](modeling/best_practices.md)
 * [Readonly Models](modeling/readonly_models.md)
@@ -104,11 +105,6 @@
 * [Overview](events/README.md)
 * [Lifecycle Events](events/lifecycle.md)
 
-## Serialization
-
-* [Overview](serialization/README.md)
-* [JSON Serialization](serialization/json.md)
-
 ## Backend System
 
 * [Overview](backend/README.md)
@@ -129,18 +125,19 @@
 * [Predicates](backend/expression/predicates.md)
 * [Functions](backend/expression/functions.md)
 * [Statements](backend/expression/statements.md)
+* [Data Types](backend/expression/types.md)
 * [Advanced](backend/expression/advanced.md)
 * [Limitations](backend/expression/limitations.md)
-* [Serialization](expression/serialization.md)
-* [Extending Guide](expression/extending.md)
-* [Format Reference](expression/format-reference.md)
+* [Serialization](backend/expression/serialization.md)
+* [Extending Guide](backend/expression/extending.md)
+* [Format Reference](backend/expression/format-reference.md)
 
 ### SQLite Backend
 
 * [Overview](backend/sqlite/README.md)
-* [Pragma](backend/sqlite/pragma.md)
-* [FTS5](backend/sqlite/fts5.md)
-* [Extension](backend/sqlite/extension.md)
+* [Pragma](backend/sqlite/backend_specific_features/pragma.md)
+* [FTS5](backend/sqlite/backend_specific_features/fts5.md)
+* [Extension](backend/sqlite/backend_specific_features/extension.md)
 
 ## Testing
 
@@ -148,9 +145,12 @@
 * [Strategies](testing/strategies.md)
 * [Dummy Backend](testing/dummy.md)
 * [Fixtures](testing/fixtures.md)
+* [Backend Testing Guide](testing/backend_testing.md)
+* [Testsuite Provider Guide](testing/provider_guide.md)
 
 ## Scenarios
 
 * [Overview](scenarios/README.md)
 * [FastAPI Integration](scenarios/fastapi.md)
 * [GraphQL Integration](scenarios/graphql.md)
+* [Parallel Worker Patterns](scenarios/parallel_workers.md)

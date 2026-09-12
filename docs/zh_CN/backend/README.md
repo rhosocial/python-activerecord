@@ -1,4 +1,4 @@
-# 12. 后端系统 (Backend System)
+# 后端系统 (Backend System)
 
 这是高级主题，面向希望深入了解 ORM 内部工作原理或需要支持新数据库的用户。
 
@@ -45,9 +45,9 @@ pip install rhosocial-activerecord[all]
 * **[自定义后端 (Custom Backend)](custom_backend.md)**: 实现一个新的数据库驱动。
 * **[命名表达式 (Named Expression)](named_expression.md)**: 基于 CLI 的表达式执行（后端功能，非 ActiveRecord）。
 * **[SQLite 后端](sqlite/README.md)**: SQLite 特定功能和特性。
-  * **[Pragma 系统](sqlite/pragma.md)**: SQLite PRAGMA 配置和查询。
-  * **[扩展框架](sqlite/extension.md)**: 扩展检测和管理。
-  * **[全文搜索 (FTS5)](sqlite/fts5.md)**: FTS5 全文搜索功能。
+  * **[Pragma 系统](sqlite/backend_specific_features/pragma.md)**: SQLite PRAGMA 配置和查询。
+  * **[扩展框架](sqlite/backend_specific_features/extension.md)**: 扩展检测和管理。
+  * **[全文搜索 (FTS5)](sqlite/backend_specific_features/fts5.md)**: FTS5 全文搜索功能。
 
 ## 示例代码
 

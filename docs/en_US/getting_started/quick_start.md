@@ -21,13 +21,13 @@ from typing import ClassVar
 from pydantic import Field
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 
 # User class represents users in the blog system
-# Inheriting UUIDMixin automatically adds UUID primary key, TimestampMixin adds creation and update time fields
+# Inheriting UUIDMixin automatically adds UUID primary key, DefaultTimestampMixin adds creation and update time fields
 # ActiveRecord is the base class for synchronous models
-class User(UUIDMixin, TimestampMixin, ActiveRecord):
+class User(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     # Username field, maximum 50 characters, required
     username: str = Field(..., max_length=50)
     # Email field, no length limit
@@ -49,7 +49,7 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
         return 'users'
 
 # Post class represents posts in the blog system
-class Post(UUIDMixin, TimestampMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     # Post title field
     title: str
     # Post content field
@@ -85,12 +85,12 @@ from typing import ClassVar
 from pydantic import Field
 from rhosocial.activerecord.model import AsyncActiveRecord
 from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.relation import AsyncHasMany, AsyncBelongsTo
 
 # AsyncUser class is the asynchronous version of User
 # Inherits the same Mixins, but base class is AsyncActiveRecord
-class AsyncUser(UUIDMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncUser(UUIDMixin, DefaultTimestampMixin, AsyncActiveRecord):
     # Username field, same as synchronous version
     username: str = Field(..., max_length=50)
     # Email field, same as synchronous version
@@ -109,7 +109,7 @@ class AsyncUser(UUIDMixin, TimestampMixin, AsyncActiveRecord):
         return 'users'
 
 # AsyncPost class is the asynchronous version of Post
-class AsyncPost(UUIDMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncPost(UUIDMixin, DefaultTimestampMixin, AsyncActiveRecord):
     # Post title field, same as synchronous version
     title: str
     # Post content field, same as synchronous version

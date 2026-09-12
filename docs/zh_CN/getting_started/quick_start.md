@@ -21,13 +21,13 @@ from typing import ClassVar
 from pydantic import Field
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 
 # User类代表博客系统的用户
-# 继承UUIDMixin自动添加UUID主键，TimestampMixin自动添加创建和更新时间字段
+# 继承UUIDMixin自动添加UUID主键，DefaultTimestampMixin自动添加创建和更新时间字段
 # ActiveRecord是同步模型的基类
-class User(UUIDMixin, TimestampMixin, ActiveRecord):
+class User(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     # 用户名字段，最大长度50个字符，必需填写
     username: str = Field(..., max_length=50)
     # 邮箱字段，无长度限制
@@ -49,7 +49,7 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
         return 'users'
 
 # Post类代表博客系统的文章
-class Post(UUIDMixin, TimestampMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     # 文章标题字段
     title: str
     # 文章内容字段
@@ -85,12 +85,12 @@ from typing import ClassVar
 from pydantic import Field
 from rhosocial.activerecord.model import AsyncActiveRecord
 from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 from rhosocial.activerecord.relation import AsyncHasMany, AsyncBelongsTo
 
 # AsyncUser类是User的异步版本
 # 继承相同的Mixin，但基类是AsyncActiveRecord
-class AsyncUser(UUIDMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncUser(UUIDMixin, DefaultTimestampMixin, AsyncActiveRecord):
     # 用户名字段，与同步版本相同
     username: str = Field(..., max_length=50)
     # 邮箱字段，与同步版本相同
@@ -109,7 +109,7 @@ class AsyncUser(UUIDMixin, TimestampMixin, AsyncActiveRecord):
         return 'users'
 
 # AsyncPost类是Post的异步版本
-class AsyncPost(UUIDMixin, TimestampMixin, AsyncActiveRecord):
+class AsyncPost(UUIDMixin, DefaultTimestampMixin, AsyncActiveRecord):
     # 文章标题字段，与同步版本相同
     title: str
     # 文章内容字段，与同步版本相同

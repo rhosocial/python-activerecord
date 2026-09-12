@@ -580,4 +580,4 @@ class FTS5Extension(SQLiteExtensionBase):
 - [SQLite FTS5 文档](https://www.sqlite.org/fts5.html)
 - [FTS5 分词器](https://www.sqlite.org/fts5.html#tokenizers)
 - [BM25 排序算法](https://en.wikipedia.org/wiki/Okapi_BM25)
-- [rhosocial-activerecord FTS5 源码](../../../src/rhosocial/activerecord/backend/impl/sqlite/extension/extensions/fts5.py)
+- [rhosocial-activerecord FTS5 源码](../../../../src/rhosocial/activerecord/backend/impl/sqlite/extension/extensions/fts5.py)

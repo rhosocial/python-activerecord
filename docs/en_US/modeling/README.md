@@ -30,6 +30,9 @@ This chapter details how to define powerful data models.
 - **[Validation & Hooks](validation.md)**
   - Pydantic validators
   - Lifecycle hooks (`before_save`, `after_create`, etc.)
+- **[Model Serialization](serialization.md)**
+  - Converting models to/from JSON and dicts (`model_dump` / `model_validate`)
+  - Field filtering and related-data serialization
 - **[Best Practices](best_practices.md)**
   - Naming conventions
   - Field design principles

@@ -1,4 +1,4 @@
-# 12. Backend System
+# Backend System
 
 This is an advanced topic for users who want to understand the internal workings of the ORM or need to support a new database.
 
@@ -45,9 +45,9 @@ pip install rhosocial-activerecord[all]
 * **[Custom Backend](custom_backend.md)**: Implementing a new database driver.
 * **[Named Expression](named_expression.md)**: CLI-based expression execution (backend feature, not ActiveRecord).
 * **[SQLite Backend](sqlite/README.md)**: SQLite-specific features and capabilities.
-  * **[Pragma System](sqlite/pragma.md)**: SQLite PRAGMA configuration and inspection.
-  * **[Extension Framework](sqlite/extension.md)**: Extension detection and management.
-  * **[Full-Text Search (FTS5)](sqlite/fts5.md)**: FTS5 full-text search capabilities.
+  * **[Pragma System](sqlite/backend_specific_features/pragma.md)**: SQLite PRAGMA configuration and inspection.
+  * **[Extension Framework](sqlite/backend_specific_features/extension.md)**: Extension detection and management.
+  * **[Full-Text Search (FTS5)](sqlite/backend_specific_features/fts5.md)**: FTS5 full-text search capabilities.
 
 ## Example Code
 

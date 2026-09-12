@@ -454,4 +454,4 @@ for a self-contained script that demonstrates all four patterns above.
 
 - [Multiple Independent Connections](best_practices.md#8-multiple-independent-connections) — patterns for models sharing field definitions but using different databases
 - [Configuration Management](configuration_management.md) — environment-based config (dev / test / prod)
-- [Concurrency & Optimistic Locking](../performance/concurrency.md) — handling concurrent writes with `OptimisticLockMixin`
+- [Concurrency & Optimistic Locking](../performance/concurrency.md) — handling concurrent writes with `DefaultOptimisticLockMixin`
