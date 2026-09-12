@@ -103,7 +103,45 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.IntrospectionSupport,
     dialect_protocols.TransactionControlSupport,
     dialect_protocols.SQLFunctionSupport,
+    # Generic protocols that SQLite also satisfies (previously omitted).
+    dialect_protocols.AlterTableModifierSupport,
+    dialect_protocols.AutoIncrementSupport,
+    dialect_protocols.CollationSupport,
+    dialect_protocols.DDLTypeSupport,
+    dialect_protocols.PartitionSupport,
 ]
+
+# Generic protocols SQLiteDialect intentionally does NOT implement.
+# Listing them explicitly makes the omission a deliberate, tested contract:
+# if SQLite ever gains one of these by accident, the negative test fails and
+# forces a conscious decision (and update of this list).
+SQLITE_NOT_IMPLEMENTED = [
+    dialect_protocols.FunctionSupport,
+    dialect_protocols.GraphTableSupport,
+    dialect_protocols.ILIKESupport,
+    dialect_protocols.SQLXMLSupport,
+    dialect_protocols.SQLXMLParsingSupport,
+    dialect_protocols.SQLXMLSerializationSupport,
+    dialect_protocols.SQLXMLConstructionSupport,
+    dialect_protocols.SQLXMLAggregationSupport,
+    dialect_protocols.SQLXMLQueryingSupport,
+]
+
+
+def get_all_generic_protocols() -> set:
+    """Discover every generic dialect protocol defined in protocols.py.
+
+    Used to prove that the positive list and the negative list together
+    partition the full protocol space — so a newly added protocol cannot
+    slip through unclassified.
+    """
+    from typing import Protocol
+
+    discovered = {}
+    for name, obj in inspect.getmembers(dialect_protocols, inspect.isclass):
+        if Protocol in getattr(obj, "__mro__", []) and name.endswith("Support"):
+            discovered[name] = obj
+    return discovered
 
 
 class TestSQLiteDialectProtocolConformance:
@@ -121,6 +159,48 @@ class TestSQLiteDialectProtocolConformance:
             f"SQLiteDialect does not implement protocol {protocol.__name__}, "
             f"missing methods: {get_all_protocol_methods(protocol) - set(dir(dialect))}"
         )
+
+    @pytest.mark.parametrize("protocol", SQLITE_NOT_IMPLEMENTED)
+    def test_does_not_implement_protocol(self, dialect, protocol):
+        """SQLiteDialect must NOT implement any protocol in SQLITE_NOT_IMPLEMENTED.
+
+        This is the negative half of the contract. When a generic protocol is
+        intentionally unsupported by SQLite, it is listed here so that an
+        accidental future implementation is caught (isinstance() would flip to
+        True and the test would fail, prompting a conscious decision).
+        """
+        assert not isinstance(dialect, protocol), (
+            f"SQLiteDialect unexpectedly implements {protocol.__name__}. "
+            f"If this is intentional, move it from SQLITE_NOT_IMPLEMENTED to "
+            f"SQLITE_PROTOCOLS (and implement the behaviour fully)."
+        )
+
+    def test_positive_and_negative_lists_partition_all_protocols(self):
+        """Positive and negative lists must together cover every generic protocol.
+
+        This guards against silently-unclassified protocols: any newly added
+        generic protocol must be placed into exactly one of the two lists.
+        """
+        all_protos = get_all_generic_protocols()
+        positive = {p.__name__ for p in SQLITE_PROTOCOLS if p.__module__ == dialect_protocols.__name__}
+        negative = {p.__name__ for p in SQLITE_NOT_IMPLEMENTED}
+
+        overlap = positive & negative
+        assert not overlap, (
+            f"Protocols listed in BOTH positive and negative lists: {sorted(overlap)}"
+        )
+
+        unclassified = set(all_protos) - positive - negative
+        assert not unclassified, (
+            f"Generic protocols not classified for SQLite: {sorted(unclassified)}. "
+            f"Add each to SQLITE_PROTOCOLS or SQLITE_NOT_IMPLEMENTED."
+        )
+
+        stale = (positive | negative) - set(all_protos)
+        assert not stale, (
+            f"Names in lists that are not discovered generic protocols (stale?): {sorted(stale)}"
+        )
+
 
 
 class TestProtocolNonOverlap:
