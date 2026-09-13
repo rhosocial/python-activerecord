@@ -20,7 +20,7 @@ class CTEMixin:
         """Whether MATERIALIZED hint is supported."""
         return False
 
-    def supports_cte_order_by(self) -> bool:
+    def supports_unconditional_cte_order_by(self) -> bool:
         """Whether ORDER BY is allowed inside CTE definitions.
 
         Most backends support this; SQL Server does not (requires TOP/OFFSET).
