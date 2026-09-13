@@ -20,6 +20,13 @@ class CTEMixin:
         """Whether MATERIALIZED hint is supported."""
         return False
 
+    def supports_cte_order_by(self) -> bool:
+        """Whether ORDER BY is allowed inside CTE definitions.
+
+        Most backends support this; SQL Server does not (requires TOP/OFFSET).
+        """
+        return True
+
     def format_cte_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format a single CTE definition (name AS (query))."""
         from ...expression import bases

@@ -401,6 +401,14 @@ class CTESupport(Protocol):
         """Whether MATERIALIZED hint is supported."""
         ...  # pragma: no cover
 
+    def supports_cte_order_by(self) -> bool:
+        """Whether ORDER BY is allowed inside CTE definitions.
+
+        SQL Server prohibits ORDER BY in CTEs unless accompanied by
+        TOP, OFFSET, or FOR XML. Most other backends support it.
+        """
+        ...  # pragma: no cover
+
 
 @runtime_checkable
 class WildcardSupport(Protocol):
