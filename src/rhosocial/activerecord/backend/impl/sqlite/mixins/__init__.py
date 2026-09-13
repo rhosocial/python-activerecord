@@ -12,7 +12,6 @@ from .pragma_mixin import SQLitePragmaMixin
 from .reindex import SQLiteReindexMixin
 from .maintenance import SQLiteMaintenanceMixin
 from .introspection import SQLiteIntrospectionCapabilityMixin
-from .identifier import SQLiteIdentifierMixin
 from .datetime import SQLiteDateTimeMixin
 from .ddl_column import SQLiteDDLColumnMixin
 from .dml import SQLiteDMLMixin
@@ -33,7 +32,6 @@ __all__ = [
     'SQLiteReindexMixin',
     'SQLiteMaintenanceMixin',
     'SQLiteIntrospectionCapabilityMixin',
-    'SQLiteIdentifierMixin',
     'SQLiteDateTimeMixin',
     'SQLiteDDLColumnMixin',
     'SQLiteDMLMixin',

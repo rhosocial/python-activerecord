@@ -283,9 +283,9 @@ class TestIdentifierIdentifierQuoting:
 class TestFormatMethodDirectPropertyAccess:
     """Test that format methods read need_quote properties directly.
 
-    Uses DummyDialect because SQLite's SQLiteIdentifierMixin overrides
-    format_column/format_wildcard to always quote, whereas DummyDialect
-    inherits the generic ExpressionMixin that reads the properties.
+    Uses DummyDialect because SQLite overrides format_column/format_wildcard
+    to always quote, whereas DummyDialect inherits the generic ExpressionMixin
+    that reads the properties.
     """
 
     def test_format_column_unquoted(self):

@@ -119,7 +119,6 @@ from .mixins import (
     SQLiteVirtualTableMixin,
     SQLiteReindexMixin,
     SQLiteMaintenanceMixin,
-    SQLiteIdentifierMixin,
     SQLiteDateTimeMixin,
     SQLiteDDLColumnMixin,
     SQLiteDMLMixin,
@@ -180,7 +179,6 @@ class SQLiteDialect(
     DQLMixin,
     # SQLite-specific mixins (BEFORE generic mixins they override)
     SQLiteTransactionMixin,
-    SQLiteIdentifierMixin,
     SQLiteDateTimeMixin,
     SQLiteDDLColumnMixin,
     SQLiteDMLMixin,
