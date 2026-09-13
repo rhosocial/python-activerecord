@@ -6,11 +6,9 @@ and pattern predicates into ``(sql, params)`` tuples.
 """
 from typing import Any, List, Tuple, TYPE_CHECKING
 
-from ...expression import bases
-from ...expression.bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.core import Literal
+    pass
 
 
 class PredicateMixin:

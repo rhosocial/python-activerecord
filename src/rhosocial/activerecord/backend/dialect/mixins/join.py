@@ -4,7 +4,7 @@
 Declares support for the various JOIN families and formats JOIN, LATERAL
 JOIN, and table-function source expressions into dialect SQL.
 """
-from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 

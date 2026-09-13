@@ -4,7 +4,7 @@
 Provides capability probes and a generic formatter for EXPLAIN expressions,
 with hooks for dialect-specific options such as ANALYZE and FORMAT.
 """
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import ExplainExpression

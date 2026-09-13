@@ -2,7 +2,6 @@
 """Dialect mixin for array type construction and subscript access support."""
 from typing import Tuple, TYPE_CHECKING
 
-from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.advanced_functions import ArrayExpression

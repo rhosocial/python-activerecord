@@ -96,7 +96,6 @@ class DDLTypeMixin:
         this dialect supports — discovered from the dialect's own
         ``format_data_type_<name>`` / ``supports_data_type_<name>`` methods.
         """
-        from ...expression.types._base import DataType
 
         result = {}
         for member_name in dir(type(self)):

@@ -1,6 +1,6 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_index.py
 """Dialect mixin for index DDL and full-text search support."""
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression.bases import ToSQLProtocol

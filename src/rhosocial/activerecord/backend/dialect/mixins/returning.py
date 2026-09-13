@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/returning.py
 """RETURNING clause support for INSERT / UPDATE / DELETE statements."""
 
-from typing import Tuple, TYPE_CHECKING
+from typing import Tuple
 
 from ...expression.statements import ReturningClause
 

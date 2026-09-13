@@ -1,6 +1,6 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/cte.py
 """Dialect mixin for Common Table Expression (``WITH`` clause) support."""
-from typing import TYPE_CHECKING, Any, List, Optional, Dict, Tuple
+from typing import TYPE_CHECKING, Any, List, Tuple
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression import bases

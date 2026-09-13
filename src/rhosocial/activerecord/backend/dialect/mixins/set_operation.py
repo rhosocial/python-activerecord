@@ -4,17 +4,12 @@
 Provides the default capability probes and SQL rendering for compound queries
 that combine two query expressions.
 """
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
-from ..exceptions import UnsupportedFeatureError
 from ...expression import bases
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.query_parts import (
-        OrderByClause,
-        LimitOffsetClause,
-        ForUpdateClause,
-    )
+    pass
 
 
 class SetOperationMixin:

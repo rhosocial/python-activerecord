@@ -6,7 +6,6 @@ dialects that lack a native ILIKE operator.
 """
 from typing import Any, Tuple
 
-from ..exceptions import UnsupportedFeatureError
 from ...expression.bases import ToSQLProtocol
 
 

@@ -4,7 +4,7 @@
 Declares support for and formats ROLLUP, CUBE, and GROUPING SETS operations,
 raising UnsupportedFeatureError for operations the dialect does not support.
 """
-from typing import List, Tuple
+from typing import Tuple
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression import bases

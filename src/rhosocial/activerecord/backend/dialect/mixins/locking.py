@@ -4,7 +4,7 @@
 Formats FOR UPDATE clauses, including optional OF columns and the
 NOWAIT / SKIP LOCKED modifiers.
 """
-from typing import Any, List, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 from ...expression.bases import ToSQLProtocol
 

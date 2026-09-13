@@ -7,7 +7,6 @@ individual clause formatters reused elsewhere.
 """
 from typing import Any, List, Tuple, TYPE_CHECKING
 
-from ..exceptions import UnsupportedFeatureError
 from ...expression.bases import ToSQLProtocol
 
 if TYPE_CHECKING:

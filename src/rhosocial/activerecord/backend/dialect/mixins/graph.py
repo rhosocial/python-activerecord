@@ -13,7 +13,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...expression.graph import (
         GraphEdge,
         GraphVertex,
-        GraphEdgeDirection,
         QuantifiedPath,
         PathPattern,
         MatchClause,

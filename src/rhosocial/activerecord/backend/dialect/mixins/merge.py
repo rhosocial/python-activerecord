@@ -6,7 +6,6 @@ WHEN [NOT] MATCHED action clauses.
 """
 from typing import Any, List, Tuple, TYPE_CHECKING
 
-from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import MergeExpression
