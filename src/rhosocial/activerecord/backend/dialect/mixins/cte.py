@@ -1,4 +1,5 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/cte.py
+"""Dialect mixin for Common Table Expression (``WITH`` clause) support."""
 from typing import TYPE_CHECKING, Any, List, Optional, Dict, Tuple
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -6,29 +7,51 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class CTEMixin:
-    """Mixin for Common Table Expression (CTE) support."""
+    """Mixin adding support for Common Table Expressions.
+
+    Covers basic, recursive, and materialized CTEs as well as rendering of a
+    complete ``WITH`` clause.
+    """
 
     def supports_basic_cte(self) -> bool:
-        """Whether basic CTEs are supported."""
+        """Whether basic CTEs are supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_recursive_cte(self) -> bool:
-        """Whether recursive CTEs are supported."""
+        """Whether recursive CTEs are supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_materialized_cte(self) -> bool:
-        """Whether MATERIALIZED hint is supported."""
+        """Whether MATERIALIZED hint is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_unconditional_cte_order_by(self) -> bool:
         """Whether ORDER BY is allowed inside CTE definitions.
 
         Most backends support this; SQL Server does not (requires TOP/OFFSET).
+        Defaults to True.
         """
         return True
 
     def format_cte_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
-        """Format a single CTE definition (name AS (query))."""
+        """Format a single CTE definition (name AS (query)).
+
+        Args:
+            expr: CTE expression carrying ``name``, optional ``columns``, the
+                ``materialized`` hint, and the ``query``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the CTE definition.
+        """
         from ...expression import bases
 
         query = expr.query
@@ -49,7 +72,15 @@ class CTEMixin:
         return sql, query_params
 
     def format_with_query_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
-        """Format a complete query with WITH clause."""
+        """Format a complete query with a WITH clause.
+
+        Args:
+            expr: Query expression carrying ``ctes``, ``recursive``, and
+                ``main_query``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the full query.
+        """
         all_params: List[Any] = []
         cte_sql_parts: List[str] = []
         for cte in expr.ctes:
@@ -65,7 +96,16 @@ class CTEMixin:
         return f"{with_clause} {main_sql}", tuple(all_params)
 
     def _format_with_clause(self, ctes_sql: List[str], has_recursive: bool = False) -> str:
-        """Helper to format complete WITH clause from list of CTE definitions."""
+        """Helper to format complete WITH clause from list of CTE definitions.
+
+        Args:
+            ctes_sql: Rendered CTE definition strings.
+            has_recursive: Whether to emit the ``RECURSIVE`` keyword.
+
+        Returns:
+            The rendered ``WITH`` clause, or an empty string when there are no
+            CTE definitions.
+        """
         if not ctes_sql:
             return ""
         recursive_str = "RECURSIVE " if has_recursive else ""

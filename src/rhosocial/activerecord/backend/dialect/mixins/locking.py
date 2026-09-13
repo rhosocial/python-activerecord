@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/locking.py
+"""Dialect mixin for row-locking clauses.
+
+Formats FOR UPDATE clauses, including optional OF columns and the
+NOWAIT / SKIP LOCKED modifiers.
+"""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ...expression.bases import ToSQLProtocol
@@ -8,14 +13,27 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class LockingMixin:
-    """Mixin for locking clause support."""
+    """Mixin for locking clause support.
+
+    Dialects advertise SKIP LOCKED support through
+    :meth:`supports_for_update_skip_locked` and override
+    :meth:`format_for_update_clause` when their syntax differs.
+    """
 
     def supports_for_update_skip_locked(self) -> bool:
-        """Whether FOR UPDATE SKIP LOCKED is supported."""
+        """Whether FOR UPDATE SKIP LOCKED is supported. Defaults to False."""
         return False
 
     def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
-        """Default implementation for FOR UPDATE clause."""
+        """Format a FOR UPDATE clause into dialect SQL.
+
+        Args:
+            clause: The ForUpdateClause node containing optional OF columns
+                and the NOWAIT / SKIP LOCKED flags.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the clause.
+        """
         all_params = []
         sql_parts = ["FOR UPDATE"]
 

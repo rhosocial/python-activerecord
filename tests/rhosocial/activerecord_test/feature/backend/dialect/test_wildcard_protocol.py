@@ -7,10 +7,10 @@ the format_wildcard method works correctly while other features remain unsupport
 """
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, WildcardSupport
-from rhosocial.activerecord.backend.dialect.mixins import IdentifierMixin
+from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin
 
 
-class WildcardOnlyDialect(SQLDialectBase, IdentifierMixin, WildcardSupport):
+class WildcardOnlyDialect(SQLDialectBase, ExpressionMixin, WildcardSupport):
     """Dialect that only supports wildcard expressions."""
 
     pass

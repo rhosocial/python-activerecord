@@ -1,4 +1,5 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_table.py
+"""Dialect mixins for table DDL and constraint capability detection."""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -10,30 +11,85 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class TableMixin:
-    """Mixin for table DDL support."""
+    """Mixin adding support for table DDL statements.
+
+    Provides capability probes for the various table features and generic
+    rendering of CREATE TABLE, DROP TABLE, and ALTER TABLE statements.
+    """
+
+    def format_table(self, expr) -> Tuple[str, Tuple]:
+        """Format a :class:`~...expression.core.TableExpression`.
+
+        Reads ``name_need_quote``, ``schema_need_quote``, and
+        ``alias_need_quote`` directly from the expression.
+
+        Args:
+            expr: Table expression carrying the name, optional schema, alias,
+                and optional temporal options.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the table reference.
+        """
+        if expr.schema_name:
+            table_sql = (
+                f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
+                f"{self.format_identifier(expr.name, expr.name_need_quote)}"
+            )
+        else:
+            table_sql = self.format_identifier(expr.name, expr.name_need_quote)
+        if expr.alias:
+            table_sql = f"{table_sql} AS {self.format_identifier(expr.alias, expr.alias_need_quote)}"
+        params: tuple = ()
+        if expr.temporal_options:
+            from ...expression.datetime import TemporalOptionsExpression
+            temporal_expr = TemporalOptionsExpression(self, expr.temporal_options)
+            result = self.format_temporal_options(temporal_expr)
+            if result is not None:
+                temporal_sql, temporal_params = result
+                table_sql = f"{table_sql} {temporal_sql}"
+                params += temporal_params
+        return table_sql, params
 
     def supports_create_table(self) -> bool:
-        """Whether CREATE TABLE is supported."""
+        """Whether CREATE TABLE is supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_drop_table(self) -> bool:
-        """Whether DROP TABLE is supported."""
+        """Whether DROP TABLE is supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_alter_table(self) -> bool:
-        """Whether ALTER TABLE is supported."""
+        """Whether ALTER TABLE is supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_temporary_table(self) -> bool:
-        """Whether TEMPORARY tables are supported."""
+        """Whether TEMPORARY tables are supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_if_not_exists_table(self) -> bool:
-        """Whether CREATE TABLE IF NOT EXISTS is supported."""
+        """Whether CREATE TABLE IF NOT EXISTS is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_if_exists_table(self) -> bool:
-        """Whether DROP TABLE IF EXISTS is supported."""
+        """Whether DROP TABLE IF EXISTS is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_drop_table_cascade(self) -> bool:
@@ -62,36 +118,81 @@ class TableMixin:
         return True
 
     def supports_table_tablespace(self) -> bool:
-        """Whether tablespace specification is supported."""
+        """Whether tablespace specification is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_drop_column(self) -> bool:
-        """Whether DROP COLUMN is supported."""
+        """Whether DROP COLUMN is supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_alter_column_type(self) -> bool:
-        """Whether altering column data type is supported."""
+        """Whether altering column data type is supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_rename_column(self) -> bool:
-        """Whether RENAME COLUMN is supported."""
+        """Whether RENAME COLUMN is supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_rename_table(self) -> bool:
-        """Whether RENAME TABLE is supported."""
+        """Whether RENAME TABLE is supported.
+
+        Defaults to True.
+        """
         return True
 
-    def supports_table_like_syntax(self) -> bool:
-        """Whether CREATE TABLE ... LIKE is supported."""
+    def supports_create_table_like(self) -> bool:
+        """Whether ``CREATE TABLE ... LIKE`` is supported.
+
+        Defaults to ``False``; backends that support the vendor extension
+        override this to return ``True``.
+        """
         return False
 
     def format_create_table_like(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
-        """Format CREATE TABLE ... LIKE statement. Override in dialect."""
+        """Format a ``CREATE TABLE ... LIKE`` statement.
+
+        ``CREATE TABLE ... LIKE`` is a vendor extension with no SQL-standard
+        syntax, so the core provides no generic rendering. Dialects that
+        advertise :meth:`supports_create_table_like` override this method;
+        all others raise :class:`UnsupportedFeatureError`.
+
+        Args:
+            expr: The CREATE TABLE expression carrying the ``like_table``
+                entry in ``dialect_options``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for overriding dialects.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                ``CREATE TABLE ... LIKE``.
+        """
         from ..exceptions import UnsupportedFeatureError
         raise UnsupportedFeatureError(self.name, "CREATE TABLE ... LIKE")
 
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
-        """Format CREATE TABLE statement (generic implementation)."""
+        """Format CREATE TABLE statement (generic implementation).
+
+        Args:
+            expr: CreateTableExpression carrying the table reference, column
+                definitions, constraints, and optional storage, tablespace,
+                inherits, partition, and as-query clauses.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+        """
         all_params: List[Any] = []
         temp_part = "TEMPORARY " if expr.temporary else ""
         not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
@@ -105,7 +206,7 @@ class TableMixin:
             all_params.extend(col_params)
         all_def_parts = [", ".join(column_parts)]
         for t_const in expr.table_constraints:
-            const_sql, const_params = self.format_table_constraint_sql(t_const)
+            const_sql, const_params = self.format_table_constraint(t_const)
             if const_sql:
                 all_def_parts.append(const_sql)
                 all_params.extend(const_params)
@@ -144,6 +245,17 @@ class TableMixin:
         Backend-specific cascade forms that have no cross-vendor commonality
         (e.g. Oracle's CASCADE CONSTRAINTS plus PURGE) are NOT handled here;
         backends override this method to render their own form.
+
+        Args:
+            expr: DropTableExpression carrying the table reference, optional
+                ``if_exists`` flag, and optional ``cascade`` flag.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If CASCADE or RESTRICT is requested but not
+                supported by the dialect.
         """
         from ..exceptions import UnsupportedFeatureError
 
@@ -169,7 +281,15 @@ class TableMixin:
         return " ".join(parts), table_params
 
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
-        """Format ALTER TABLE statement (generic implementation)."""
+        """Format ALTER TABLE statement (generic implementation).
+
+        Args:
+            expr: AlterTableExpression carrying the table name and the list of
+                actions to render.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+        """
         all_params: List[Any] = []
         parts = [f"ALTER TABLE {self.format_identifier(expr.table_name)}"]
         action_parts = []
@@ -193,59 +313,95 @@ class ConstraintMixin:
     # Basic constraint types (SQL-86/SQL-92)
 
     def supports_primary_key_constraint(self) -> bool:
-        """Whether PRIMARY KEY constraints are supported."""
+        """Whether PRIMARY KEY constraints are supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_unique_constraint(self) -> bool:
-        """Whether UNIQUE constraints are supported."""
+        """Whether UNIQUE constraints are supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_not_null_constraint(self) -> bool:
-        """Whether NOT NULL constraints are supported."""
+        """Whether NOT NULL constraints are supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_check_constraint(self) -> bool:
-        """Whether CHECK constraints are supported and enforced."""
+        """Whether CHECK constraints are supported and enforced.
+
+        Defaults to True.
+        """
         return True
 
     def supports_foreign_key_constraint(self) -> bool:
-        """Whether FOREIGN KEY constraints are supported."""
+        """Whether FOREIGN KEY constraints are supported.
+
+        Defaults to True.
+        """
         return True
 
     # FK referential actions (SQL-92)
 
     def supports_fk_on_delete(self) -> bool:
-        """Whether ON DELETE referential actions are supported."""
+        """Whether ON DELETE referential actions are supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_fk_on_update(self) -> bool:
-        """Whether ON UPDATE referential actions are supported."""
+        """Whether ON UPDATE referential actions are supported.
+
+        Defaults to True.
+        """
         return True
 
     # FK match modes (SQL:1999)
 
     def supports_fk_match(self) -> bool:
-        """Whether MATCH {SIMPLE|PARTIAL|FULL} is supported."""
+        """Whether MATCH {SIMPLE|PARTIAL|FULL} is supported.
+
+        Defaults to True.
+        """
         return True
 
     # Constraint deferral (SQL:1999)
 
     def supports_deferrable_constraint(self) -> bool:
-        """Whether DEFERRABLE / INITIALLY DEFERRED/IMMEDIATE is supported."""
+        """Whether DEFERRABLE / INITIALLY DEFERRED/IMMEDIATE is supported.
+
+        Defaults to True.
+        """
         return True
 
     # Constraint enforcement control (SQL:2016)
 
     def supports_constraint_enforced(self) -> bool:
-        """Whether ENFORCED / NOT ENFORCED constraint control is supported."""
+        """Whether ENFORCED / NOT ENFORCED constraint control is supported.
+
+        Defaults to True.
+        """
         return True
 
     # ALTER TABLE constraint operations (SQL-92)
 
     def supports_add_constraint(self) -> bool:
-        """Whether ALTER TABLE ADD CONSTRAINT is supported."""
+        """Whether ALTER TABLE ADD CONSTRAINT is supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_drop_constraint(self) -> bool:
-        """Whether ALTER TABLE DROP CONSTRAINT is supported."""
+        """Whether ALTER TABLE DROP CONSTRAINT is supported.
+
+        Defaults to True.
+        """
         return True

@@ -1,4 +1,5 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_index.py
+"""Dialect mixin for index DDL and full-text search support."""
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -14,54 +15,96 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class IndexMixin:
-    """Mixin for index DDL support."""
+    """Mixin adding support for index DDL statements.
+
+    Also provides full-text index creation and ``MATCH ... AGAINST`` query
+    rendering; the DDL and query capabilities are probed independently via
+    :meth:`supports_fulltext_index` and :meth:`supports_fulltext_search`.
+    """
 
     def supports_create_index(self) -> bool:
-        """Whether CREATE INDEX is supported."""
+        """Whether CREATE INDEX is supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_drop_index(self) -> bool:
-        """Whether DROP INDEX is supported."""
+        """Whether DROP INDEX is supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_unique_index(self) -> bool:
-        """Whether UNIQUE indexes are supported."""
+        """Whether UNIQUE indexes are supported.
+
+        Defaults to True.
+        """
         return True
 
     def supports_index_if_not_exists(self) -> bool:
-        """Whether CREATE INDEX IF NOT EXISTS is supported."""
+        """Whether CREATE INDEX IF NOT EXISTS is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_index_if_exists(self) -> bool:
-        """Whether DROP INDEX IF EXISTS is supported."""
+        """Whether DROP INDEX IF EXISTS is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_index_type(self) -> bool:
-        """Whether index type specification is supported."""
+        """Whether index type specification is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_partial_index(self) -> bool:
-        """Whether partial indexes are supported."""
+        """Whether partial indexes are supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_functional_index(self) -> bool:
-        """Whether functional indexes are supported."""
+        """Whether functional indexes are supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_index_include(self) -> bool:
-        """Whether INCLUDE clause is supported."""
+        """Whether INCLUDE clause is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_index_tablespace(self) -> bool:
-        """Whether tablespace specification is supported."""
+        """Whether tablespace specification is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_concurrent_index(self) -> bool:
-        """Whether CREATE INDEX CONCURRENTLY is supported."""
+        """Whether CREATE INDEX CONCURRENTLY is supported.
+
+        Defaults to False.
+        """
         return False
 
     def get_supported_index_types(self) -> List[str]:
-        """Return list of supported index types."""
+        """Return the list of index types supported by the dialect.
+
+        Returns:
+            List of index type names, e.g. ``["BTREE"]``.
+        """
         return ["BTREE"]
 
     def supports_fulltext_index(self) -> bool:
@@ -78,6 +121,8 @@ class IndexMixin:
         that provide full-text search through a *different* DDL mechanism
         (e.g. PostgreSQL ``GIN`` on ``to_tsvector``, SQLite ``FTS5``
         virtual tables) must override both methods independently.
+
+        Defaults to False.
         """
         return False
 
@@ -97,21 +142,42 @@ class IndexMixin:
         return self.supports_fulltext_index()
 
     def supports_fulltext_parser(self) -> bool:
-        """Whether FULLTEXT parser plugin (``WITH PARSER``) is supported."""
+        """Whether FULLTEXT parser plugin (``WITH PARSER``) is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_fulltext_boolean_mode(self) -> bool:
-        """Whether BOOLEAN MODE is supported."""
+        """Whether BOOLEAN MODE is supported.
+
+        Defaults to the result of :meth:`supports_fulltext_index`.
+        """
         return self.supports_fulltext_index()
 
     def supports_fulltext_query_expansion(self) -> bool:
-        """Whether QUERY EXPANSION is supported."""
+        """Whether QUERY EXPANSION is supported.
+
+        Defaults to the result of :meth:`supports_fulltext_index`.
+        """
         return self.supports_fulltext_index()
 
     def format_fulltext_match(
         self, expr: "FulltextMatchExpression"
     ) -> Tuple[str, tuple]:
-        """Format MATCH ... AGAINST expression."""
+        """Format MATCH ... AGAINST expression.
+
+        Args:
+            expr: FulltextMatchExpression carrying the target ``columns``,
+                ``search_term``, and optional ``mode``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the MATCH expression.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support full-text
+                indexing.
+        """
         if not self.supports_fulltext_index():
             raise UnsupportedFeatureError(self.name, "FULLTEXT search")
 
@@ -129,7 +195,19 @@ class IndexMixin:
         return f"MATCH({cols_str}) AGAINST({ph} IN NATURAL LANGUAGE MODE)", (expr.search_term,)
 
     def format_create_fulltext_index_statement(self, expr: "CreateFulltextIndexExpression") -> Tuple[str, tuple]:
-        """Format CREATE FULLTEXT INDEX statement from expression object."""
+        """Format CREATE FULLTEXT INDEX statement from expression object.
+
+        Args:
+            expr: CreateFulltextIndexExpression carrying the index name, table
+                name, columns, and optional parser.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support full-text
+                indexing.
+        """
         if not self.supports_fulltext_index():
             raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
 
@@ -149,7 +227,19 @@ class IndexMixin:
         return " ".join(parts), ()
 
     def format_drop_fulltext_index_statement(self, expr: "DropFulltextIndexExpression") -> Tuple[str, tuple]:
-        """Format DROP FULLTEXT INDEX statement from expression object."""
+        """Format DROP FULLTEXT INDEX statement from expression object.
+
+        Args:
+            expr: DropFulltextIndexExpression carrying the index name, table
+                name, and optional ``if_exists`` flag.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support full-text
+                indexing.
+        """
         if not self.supports_fulltext_index():
             raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
 
@@ -163,7 +253,16 @@ class IndexMixin:
         return " ".join(parts), ()
 
     def format_create_index_statement(self, expr: "CreateIndexExpression") -> Tuple[str, tuple]:
-        """Format CREATE INDEX statement per SQL standard."""
+        """Format CREATE INDEX statement per SQL standard.
+
+        Args:
+            expr: CreateIndexExpression carrying the index definition,
+                including optional unique, index type, include, where, and
+                tablespace clauses.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+        """
         all_params = []
         parts = ["CREATE"]
 
@@ -204,7 +303,15 @@ class IndexMixin:
         return " ".join(parts), tuple(all_params)
 
     def format_drop_index_statement(self, expr: "DropIndexExpression") -> Tuple[str, tuple]:
-        """Format DROP INDEX statement per SQL standard."""
+        """Format DROP INDEX statement per SQL standard.
+
+        Args:
+            expr: DropIndexExpression carrying the index name, optional
+                ``if_exists`` flag, and optional table name.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+        """
         parts = ["DROP INDEX"]
         if expr.if_exists:
             parts.append("IF EXISTS")

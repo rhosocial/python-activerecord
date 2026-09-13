@@ -11,7 +11,7 @@ import pytest
 from typing import Tuple
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, ExpressionMixin, DDLColumnMixin, IdentifierMixin, TableMixin
+from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, ExpressionMixin, DDLColumnMixin, TableMixin
 from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
 from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.expression.statements import (
@@ -24,7 +24,7 @@ from rhosocial.activerecord.backend.expression.functions.string import trim
 from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 
 
-class TestDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin, DDLTypeMixin):
+class TestDialect(SQLDialectBase, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin, DDLTypeMixin):
     """Test dialect for security tests."""
 
     name = "test"

@@ -150,7 +150,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
-    IdentifierMixin,
     PredicateMixin,
     ExpressionMixin,
     DateTimeMixin,
@@ -221,7 +220,6 @@ class DummyDialect(
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
-    IdentifierMixin,
     PredicateMixin,
     ExpressionMixin,
     DateTimeMixin,

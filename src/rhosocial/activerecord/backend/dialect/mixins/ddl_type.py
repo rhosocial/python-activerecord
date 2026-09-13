@@ -50,6 +50,22 @@ class DDLTypeMixin:
     """
 
     def format_data_type(self, data_type: DataType) -> SQLQueryAndParams:
+        """Render a :class:`~...expression.types.DataType` for this dialect.
+
+        Validates that ``data_type`` is a ``DataType`` instance with a valid
+        generic name, then dispatches to the dialect's
+        ``format_data_type_<name>`` method.
+
+        Args:
+            data_type: The data type instance to render.
+
+        Returns:
+            A ``(sql, params)`` tuple.
+
+        Raises:
+            TypeError: If ``data_type`` is not a ``DataType``, declares no
+                valid generic name, or this dialect has no formatter for it.
+        """
         # ① entry validation: a DataType instance is required
         from ...expression.types._base import DataType
 

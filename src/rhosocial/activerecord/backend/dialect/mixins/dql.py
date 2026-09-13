@@ -1,4 +1,10 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/dql.py
+"""DQL mixin for SELECT (query) statement formatting.
+
+Builds the clause sequence of a query expression - SELECT, FROM, WHERE,
+GROUP BY/HAVING, ORDER BY, QUALIFY, LIMIT/OFFSET and FOR UPDATE - plus the
+individual clause formatters reused elsewhere.
+"""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -9,15 +15,32 @@ if TYPE_CHECKING:
 
 
 class DQLMixin:
-    """Mixin for DQL (SELECT) statement formatting."""
+    """Format SELECT (query) statements and their constituent clauses.
+
+    The whole-statement formatter composes the individual clause formatters,
+    which are also available for direct use. FOR UPDATE is gated by a
+    capability probe.
+    """
 
     def supports_offset_without_limit(self) -> bool:
+        """Whether OFFSET may appear without LIMIT (defaults to False)."""
         return False
 
     def supports_for_update(self) -> bool:
+        """Whether row-level locking with FOR UPDATE is supported (defaults to False)."""
         return False
 
     def format_limit_offset(self, limit=None, offset=None) -> Tuple[str, List]:
+        """Format a LIMIT/OFFSET fragment.
+
+        Args:
+            limit: Optional row limit; rendered as a bind parameter when given.
+            offset: Optional row offset; rendered as a bind parameter when given.
+
+        Returns:
+            A ``(sql, params)`` tuple, or ``(None, [])`` when both arguments
+            are ``None``.
+        """
         parts = []
         params = []
         if limit is not None:
@@ -31,6 +54,15 @@ class DQLMixin:
         return " ".join(parts), params
 
     def format_limit_offset_clause(self, clause) -> Tuple[str, tuple]:
+        """Format a LIMIT/OFFSET clause object.
+
+        Args:
+            clause: Clause exposing ``limit`` and ``offset`` attributes, either
+                raw values or objects implementing ``ToSQLProtocol``.
+
+        Returns:
+            A ``(sql, params)`` tuple; the SQL is empty when both are ``None``.
+        """
         all_params: List[Any] = []
         parts = []
         if clause.limit is not None:
@@ -52,12 +84,32 @@ class DQLMixin:
         return " ".join(parts), tuple(all_params)
 
     def format_where_clause(self, clause) -> Tuple[str, tuple]:
+        """Format a WHERE clause.
+
+        Args:
+            clause: Clause exposing a ``condition`` expression.
+
+        Returns:
+            A ``(sql, params)`` tuple beginning with ``WHERE``.
+        """
         condition_sql, condition_params = clause.condition.to_sql()
         return f"WHERE {condition_sql}", condition_params
 
     _VALID_ORDER_DIRECTIONS = frozenset({"ASC", "DESC"})
 
     def format_order_by_clause(self, clause) -> Tuple[str, tuple]:
+        """Format an ORDER BY clause.
+
+        Args:
+            clause: Clause exposing ``expressions``; each item is either an
+                expression or a ``(expression, direction)`` tuple.
+
+        Returns:
+            A ``(sql, params)`` tuple beginning with ``ORDER BY``.
+
+        Raises:
+            ValueError: If a supplied sort direction is not ``ASC`` or ``DESC``.
+        """
         all_params: List[Any] = []
         expr_parts = []
         for item in clause.expressions:
@@ -76,6 +128,16 @@ class DQLMixin:
         return f"ORDER BY {', '.join(expr_parts)}", tuple(all_params)
 
     def format_group_by_having_clause(self, clause) -> Tuple[str, tuple]:
+        """Format a combined GROUP BY / HAVING clause.
+
+        Args:
+            clause: Clause exposing ``group_by`` (iterable of expressions) and
+                an optional ``having`` expression.
+
+        Returns:
+            A ``(sql, params)`` tuple; empty when there is neither grouping nor
+            a HAVING condition.
+        """
         all_params: List[Any] = []
         group_parts = []
         for expr in clause.group_by:
@@ -92,6 +154,19 @@ class DQLMixin:
         return " ".join(sql_parts), tuple(all_params)
 
     def format_query_statement(self, expr: "QueryExpression") -> Tuple[str, tuple]:
+        """Format a complete SELECT query.
+
+        Args:
+            expr: The QueryExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple of the statement text and its bind
+            parameters.
+
+        Raises:
+            UnsupportedFeatureError: If a FOR UPDATE clause is requested but the
+                dialect does not support it.
+        """
         from ..exceptions import UnsupportedFeatureError
         if self.strict_validation:
             expr.validate(strict=True)

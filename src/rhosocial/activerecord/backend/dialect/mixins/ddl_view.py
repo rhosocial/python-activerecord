@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_view.py
+"""View and TRUNCATE DDL mixins for dialect implementations.
+
+Generates SQL for CREATE/DROP/REFRESH of views and materialized views, plus
+TRUNCATE, with capability probes that backends override.
+"""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -15,54 +20,66 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class ViewMixin:
-    """Mixin for view DDL support."""
+    """Format view and materialized view DDL statements.
+
+    Capability probes default to the values returned by this base mixin and
+    are overridden by dialects that support the corresponding feature.
+    """
 
     def supports_create_view(self) -> bool:
-        """Whether CREATE VIEW is supported."""
+        """Whether CREATE VIEW is supported (defaults to True)."""
         return True
 
     def supports_drop_view(self) -> bool:
-        """Whether DROP VIEW is supported."""
+        """Whether DROP VIEW is supported (defaults to True)."""
         return True
 
     def supports_or_replace_view(self) -> bool:
-        """Whether CREATE OR REPLACE VIEW is supported."""
+        """Whether CREATE OR REPLACE VIEW is supported (defaults to False)."""
         return False
 
     def supports_temporary_view(self) -> bool:
-        """Whether TEMPORARY views are supported."""
+        """Whether TEMPORARY views are supported (defaults to False)."""
         return False
 
     def supports_materialized_view(self) -> bool:
-        """Whether materialized views are supported."""
+        """Whether materialized views are supported (defaults to False)."""
         return False
 
     def supports_refresh_materialized_view(self) -> bool:
-        """Whether REFRESH MATERIALIZED VIEW is supported."""
+        """Whether REFRESH MATERIALIZED VIEW is supported (defaults to False)."""
         return False
 
     def supports_materialized_view_tablespace(self) -> bool:
-        """Whether tablespace specification for materialized views is supported."""
+        """Whether tablespace for materialized views is supported (defaults to False)."""
         return False
 
     def supports_materialized_view_storage_options(self) -> bool:
-        """Whether storage options for materialized views are supported."""
+        """Whether storage options for materialized views are supported (defaults to False)."""
         return False
 
     def supports_if_exists_view(self) -> bool:
-        """Whether DROP VIEW IF EXISTS is supported."""
+        """Whether DROP VIEW IF EXISTS is supported (defaults to False)."""
         return False
 
     def supports_view_check_option(self) -> bool:
-        """Whether WITH CHECK OPTION is supported."""
+        """Whether WITH CHECK OPTION is supported (defaults to False)."""
         return False
 
     def supports_cascade_view(self) -> bool:
-        """Whether DROP VIEW CASCADE is supported."""
+        """Whether DROP VIEW CASCADE is supported (defaults to False)."""
         return False
 
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
-        """Format CREATE VIEW statement (generic implementation)."""
+        """Format a CREATE VIEW statement.
+
+        Args:
+            expr: The CreateViewExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple where ``params`` holds the parameters
+            collected from the view's query.
+        """
         from ...expression.statements import ViewCheckOption
         replace_part = "OR REPLACE " if expr.replace else ""
         temporary_part = "TEMPORARY " if expr.temporary else ""
@@ -81,14 +98,33 @@ class ViewMixin:
         return " ".join(sql_parts), tuple(all_params)
 
     def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
-        """Format DROP VIEW statement (generic implementation)."""
+        """Format a DROP VIEW statement.
+
+        Args:
+            expr: The DropViewExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+        """
         if_exists_part = "IF EXISTS " if expr.if_exists else ""
         cascade_part = " CASCADE" if expr.cascade else ""
         sql = f"DROP VIEW {if_exists_part}{self.format_identifier(expr.view_name)}{cascade_part}"
         return sql.strip(), ()
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
-        """Format CREATE MATERIALIZED VIEW statement."""
+        """Format a CREATE MATERIALIZED VIEW statement.
+
+        Args:
+            expr: The CreateMaterializedViewExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple where ``params`` holds the parameters
+            collected from the view's query.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                materialized views.
+        """
         if not self.supports_materialized_view():
             raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW")
 
@@ -113,7 +149,18 @@ class ViewMixin:
         return " ".join(parts), query_params
 
     def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewExpression") -> Tuple[str, tuple]:
-        """Format DROP MATERIALIZED VIEW statement."""
+        """Format a DROP MATERIALIZED VIEW statement.
+
+        Args:
+            expr: The DropMaterializedViewExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                materialized views.
+        """
         if not self.supports_materialized_view():
             raise UnsupportedFeatureError(self.name, "DROP MATERIALIZED VIEW")
 
@@ -128,7 +175,18 @@ class ViewMixin:
     def format_refresh_materialized_view_statement(
         self, expr: "RefreshMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
-        """Format REFRESH MATERIALIZED VIEW statement."""
+        """Format a REFRESH MATERIALIZED VIEW statement.
+
+        Args:
+            expr: The RefreshMaterializedViewExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support refreshing
+                materialized views.
+        """
         if not self.supports_refresh_materialized_view():
             raise UnsupportedFeatureError(self.name, "REFRESH MATERIALIZED VIEW")
 
@@ -142,26 +200,37 @@ class ViewMixin:
 
 
 class TruncateMixin:
-    """Mixin for TRUNCATE support."""
+    """Format TRUNCATE statements.
+
+    Basic TRUNCATE is supported by default; optional modifiers (RESTART
+    IDENTITY, CASCADE) default to unsupported and are overridden as needed.
+    """
 
     def supports_truncate(self) -> bool:
-        """Whether TRUNCATE is supported."""
+        """Whether TRUNCATE is supported (defaults to True)."""
         return True
 
     def supports_truncate_table_keyword(self) -> bool:
-        """Whether TABLE keyword is supported."""
+        """Whether the TABLE keyword is supported (defaults to True)."""
         return True
 
     def supports_truncate_restart_identity(self) -> bool:
-        """Whether RESTART IDENTITY is supported."""
+        """Whether RESTART IDENTITY is supported (defaults to False)."""
         return False
 
     def supports_truncate_cascade(self) -> bool:
-        """Whether CASCADE option is supported."""
+        """Whether the CASCADE option is supported (defaults to False)."""
         return False
 
     def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
-        """Format TRUNCATE statement (generic implementation)."""
+        """Format a TRUNCATE statement.
+
+        Args:
+            expr: The TruncateExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+        """
         sql = f"TRUNCATE TABLE {self.format_identifier(expr.table_name)}"
         if expr.restart_identity:
             sql += " RESTART IDENTITY"

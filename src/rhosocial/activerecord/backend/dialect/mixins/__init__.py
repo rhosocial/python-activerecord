@@ -39,11 +39,10 @@ from .ddl_index import IndexMixin
 from .ddl_sequence import SequenceMixin
 from .ilike import ILIKEMixin
 from .trigger import TriggerMixin
-from .function import FunctionMixin
+from .function import FunctionMixin, FunctionCallMixin
 from .generated_column import GeneratedColumnMixin
 from .auto_increment import AutoIncrementMixin
 from .introspection import IntrospectionMixin, AsyncIntrospectionMixin
-from .identifier import IdentifierMixin
 from .predicate import PredicateMixin
 from .expression import ExpressionMixin
 from .datetime import DateTimeMixin
@@ -91,11 +90,11 @@ __all__ = [
     "ILIKEMixin",
     "TriggerMixin",
     "FunctionMixin",
+    "FunctionCallMixin",
     "GeneratedColumnMixin",
     "AutoIncrementMixin",
     "IntrospectionMixin",
     "AsyncIntrospectionMixin",
-    "IdentifierMixin",
     "PredicateMixin",
     "ExpressionMixin",
     "DateTimeMixin",

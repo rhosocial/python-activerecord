@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/merge.py
+"""Dialect mixin for MERGE statements.
+
+Declares MERGE support and formats the MERGE statement together with its
+WHEN [NOT] MATCHED action clauses.
+"""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -8,10 +13,15 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class MergeMixin:
-    """Mixin for MERGE statement support."""
+    """Mixin for MERGE statement support.
+
+    Dialects advertise support through :meth:`supports_merge_statement`;
+    :meth:`format_merge_statement` renders the statement and dispatches each
+    WHEN clause to :meth:`format_merge_action`.
+    """
 
     def supports_merge_statement(self) -> bool:
-        """Whether MERGE statement is supported."""
+        """Whether MERGE statement is supported. Defaults to False."""
         return False
 
     def format_merge_action(self, expr: "MergeAction") -> Tuple[str, tuple]:
@@ -19,6 +29,13 @@ class MergeMixin:
 
         The ``matched`` context (e.g. ``"WHEN MATCHED"``) is read from
         ``expr.matched``, set by the caller before dispatching.
+
+        Args:
+            expr: The MergeAction node describing the match context, optional
+                condition, action type, and assignments.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the action clause.
         """
         from ...expression.statements import MergeActionType
 
@@ -52,7 +69,15 @@ class MergeMixin:
         return " ".join(parts), tuple(all_params)
 
     def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
-        """Format MERGE statement."""
+        """Format a MERGE statement into dialect SQL.
+
+        Args:
+            expr: The MergeExpression node with target table, source, ON
+                condition, and the matched/not-matched action lists.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+        """
         all_params: List[Any] = []
         target_sql, target_params = expr.target_table.to_sql()
         all_params.extend(target_params)

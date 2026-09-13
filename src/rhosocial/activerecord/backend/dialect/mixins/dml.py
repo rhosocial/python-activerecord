@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/dml.py
+"""DML mixin for INSERT, UPDATE and DELETE statement formatting.
+
+Renders the corresponding expression trees, honoring capability switches for
+optional clauses such as RETURNING and ON CONFLICT.
+"""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -13,9 +18,26 @@ if TYPE_CHECKING:
 
 
 class DMLMixin:
-    """Mixin for DML (INSERT/UPDATE/DELETE) statement formatting."""
+    """Format INSERT, UPDATE and DELETE (DML) statements.
+
+    Optional clauses are gated by capability probes so subclasses can opt in
+    to the features their dialect supports.
+    """
 
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
+        """Format an INSERT statement.
+
+        Args:
+            expr: The InsertExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple of the statement text and its bind
+            parameters.
+
+        Raises:
+            UnsupportedFeatureError: If a RETURNING clause is requested but the
+                dialect does not support it.
+        """
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import DefaultValuesSource, ValuesSource, SelectSource
         if self.strict_validation:
@@ -70,6 +92,11 @@ class DMLMixin:
         Returns:
             Tuple of (SQL string, parameters tuple). Returns ("", ()) when no
             clauses are present.
+
+        Raises:
+            UnsupportedFeatureError: If ON CONFLICT is not supported by the
+                dialect, or if multiple clauses are given but the dialect
+                allows only one.
         """
         if not expr.on_conflict:
             return "", ()
@@ -96,6 +123,19 @@ class DMLMixin:
         return " ".join(parts), tuple(params)
 
     def format_update_statement(self, expr: "UpdateExpression") -> Tuple[str, tuple]:
+        """Format an UPDATE statement.
+
+        Args:
+            expr: The UpdateExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple of the statement text and its bind
+            parameters.
+
+        Raises:
+            UnsupportedFeatureError: If a RETURNING clause is requested but the
+                dialect does not support it.
+        """
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import QueryExpression
         all_params: List[Any] = []
@@ -113,6 +153,10 @@ class DMLMixin:
             from_params: List[Any] = []
 
             def _fmt_from(source):
+                """Render a single FROM source and return ``(sql, params)``.
+
+                Handles raw table names, subqueries, and general expressions.
+                """
                 if isinstance(source, str):
                     return self.format_identifier(source), []
                 if isinstance(source, QueryExpression):
@@ -151,6 +195,19 @@ class DMLMixin:
         return current_sql, tuple(all_params)
 
     def format_delete_statement(self, expr: "DeleteExpression") -> Tuple[str, tuple]:
+        """Format a DELETE statement.
+
+        Args:
+            expr: The DeleteExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple of the statement text and its bind
+            parameters.
+
+        Raises:
+            UnsupportedFeatureError: If a RETURNING clause is requested but the
+                dialect does not support it.
+        """
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import QueryExpression
         if self.strict_validation:
@@ -167,6 +224,11 @@ class DMLMixin:
             using_params: List[Any] = []
 
             def _fmt_using(source):
+                """Render a single USING source and return ``(sql, params)``.
+
+                Handles raw names, subqueries, general expressions, and other
+                values (stringified as a fallback).
+                """
                 if isinstance(source, str):
                     return self.format_identifier(source), []
                 if isinstance(source, QueryExpression):

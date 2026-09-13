@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/graph.py
+"""Property graph mixins (SQL/PGQ).
+
+Provides :class:`GraphMixin` for graph query MATCH formatting and
+:class:`GraphTableMixin` for GRAPH_TABLE queries and property-graph DDL.
+"""
 import re
 from typing import Tuple, TYPE_CHECKING
 
@@ -24,33 +29,45 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class GraphMixin:
-    """Mixin for graph query (MATCH) support."""
+    """Format property graph query patterns and MATCH clauses.
+
+    Capability probes default to ``False`` and are overridden by dialects that
+    support graph queries.
+    """
 
     def supports_graph_match(self) -> bool:
-        """Whether graph query MATCH clause is supported."""
+        """Whether the graph query MATCH clause is supported (defaults to False)."""
         return False
 
     def supports_quantified_path(self) -> bool:
         """Whether variable-length (quantified) path patterns are supported.
 
-        Quantified paths use ``+``, ``*``, or ``{n,m}`` quantifiers on edges.
+        Defaults to False. Quantified paths use ``+``, ``*``, or ``{n,m}``
+        quantifiers on edges.
         """
         return False
 
     def supports_comma_separated_patterns(self) -> bool:
-        """Whether multiple comma-separated patterns in a single MATCH
-        clause are supported."""
+        """Whether multiple comma-separated patterns in one MATCH are supported.
+
+        Defaults to False.
+        """
         return False
 
     def format_graph_vertex(self, vertex: "GraphVertex") -> Tuple[str, tuple]:
-        """
-        Formats a graph vertex expression.
+        """Format a graph vertex expression.
 
         Args:
-            vertex: GraphVertex object.
+            vertex: GraphVertex object, optionally carrying a variable, table
+                and WHERE condition.
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted expression.
+            A ``(sql, params)`` tuple for the formatted vertex.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support MATCH.
+            ValueError: If the vertex variable name contains invalid
+                characters.
         """
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
@@ -74,14 +91,18 @@ class GraphMixin:
         return sql, ()
 
     def format_graph_edge(self, edge: "GraphEdge") -> Tuple[str, tuple]:
-        """
-        Formats a graph edge expression.
+        """Format a graph edge expression.
 
         Args:
-            edge: GraphEdge object.
+            edge: GraphEdge object carrying a direction and optional variable
+                and table.
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted expression.
+            A ``(sql, params)`` tuple for the formatted edge.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support MATCH.
+            ValueError: If the edge variable name contains invalid characters.
         """
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
@@ -118,10 +139,18 @@ class GraphMixin:
         return sql, ()
 
     def format_quantified_path(self, quantified: "QuantifiedPath") -> Tuple[str, tuple]:
-        """Formats a quantified (variable-length) path pattern.
+        """Format a quantified (variable-length) path pattern.
 
-        Raises :class:`UnsupportedFeatureError` when
-        :meth:`supports_quantified_path` is ``False``.
+        Args:
+            quantified: QuantifiedPath object exposing the edge and the
+                ``min_repeats`` / ``max_repeats`` bounds.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support quantified
+                paths.
         """
         if not self.supports_quantified_path():
             raise UnsupportedFeatureError(self.name, "quantified path pattern")
@@ -142,7 +171,18 @@ class GraphMixin:
         return f"{edge_sql}{quantifier}", ()
 
     def format_path_pattern(self, pattern: "PathPattern") -> Tuple[str, tuple]:
-        """Formats a single path pattern by joining its elements with spaces."""
+        """Format a single path pattern by joining its elements with spaces.
+
+        Args:
+            pattern: PathPattern object exposing a ``path`` iterable of
+                elements.
+
+        Returns:
+            A ``(sql, params)`` tuple for the joined pattern.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support MATCH.
+        """
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
@@ -154,19 +194,22 @@ class GraphMixin:
         return " ".join(parts_sql), tuple(all_params)
 
     def format_match_clause(self, clause: "MatchClause") -> Tuple[str, tuple]:
-        """
-        Formats a MATCH clause with one or more patterns.
+        """Format a MATCH clause with one or more patterns.
 
         When multiple :class:`PathPattern` instances are present they are
-        rendered as comma-separated patterns.  If the dialect does not
-        support comma-separated patterns and multiple patterns are given,
-        an :class:`UnsupportedFeatureError` is raised.
+        rendered as comma-separated patterns. If the dialect does not support
+        comma-separated patterns and multiple patterns are given, an
+        :class:`UnsupportedFeatureError` is raised.
 
         Args:
-            clause: MatchClause object containing the match expression
+            clause: MatchClause object containing the match expression.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support MATCH, or
+                does not support multiple comma-separated patterns.
         """
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
@@ -189,14 +232,30 @@ class GraphMixin:
 
 
 class GraphTableMixin:
-    """Mixin for GRAPH_TABLE query and PGQ DDL support."""
+    """Format GRAPH_TABLE queries and property-graph DDL (SQL/PGQ).
+
+    Capability probes default to ``False`` and are overridden by dialects that
+    support property graphs.
+    """
 
     def supports_graph_table(self) -> bool:
-        """Whether GRAPH_TABLE expression is supported."""
+        """Whether the GRAPH_TABLE expression is supported (defaults to False)."""
         return False
 
     def format_graph_table_expression(self, expr: "GraphTableExpression") -> Tuple[str, tuple]:
-        """Formats a GRAPH_TABLE expression with MATCH and COLUMNS clauses."""
+        """Format a GRAPH_TABLE expression with MATCH and COLUMNS clauses.
+
+        Args:
+            expr: GraphTableExpression exposing ``graph_name``, ``match``,
+                ``columns`` and optional ``alias``.
+
+        Returns:
+            A ``(sql, params)`` tuple for the formatted expression.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                GRAPH_TABLE.
+        """
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "GRAPH_TABLE")
 
@@ -210,7 +269,15 @@ class GraphTableMixin:
         return sql, match_params + columns_params
 
     def format_graph_columns_clause(self, columns: "ColumnsClause") -> Tuple[str, tuple]:
-        """Formats a COLUMNS clause for GRAPH_TABLE."""
+        """Format a COLUMNS clause for GRAPH_TABLE.
+
+        Args:
+            columns: ColumnsClause object exposing a ``columns`` iterable of
+                variable/property pairs with optional aliases.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+        """
         parts = []
         for col in columns.columns:
             col_str = f"{self.format_identifier(col.variable)}.{self.format_identifier(col.property_name)}"
@@ -220,7 +287,19 @@ class GraphTableMixin:
         return f"COLUMNS ({', '.join(parts)})", ()
 
     def format_table_properties_clause(self, clause: "TablePropertiesClause") -> Tuple[str, tuple]:
-        """Formats a PROPERTIES clause for vertex/edge table definitions."""
+        """Format a PROPERTIES clause for vertex/edge table definitions.
+
+        Args:
+            clause: TablePropertiesClause whose ``columns`` is ``None`` for ALL
+                COLUMNS, empty for NONE, or a list of column names.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support property
+                graph tables.
+        """
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "PROPERTIES clause")
 
@@ -232,7 +311,19 @@ class GraphTableMixin:
         return f"PROPERTIES ({cols})", ()
 
     def format_vertex_table(self, vt: "VertexTable") -> Tuple[str, tuple]:
-        """Formats a vertex table definition for CREATE PROPERTY GRAPH."""
+        """Format a vertex table definition for CREATE PROPERTY GRAPH.
+
+        Args:
+            vt: VertexTable object exposing table, optional alias, labels, key
+                columns and properties.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support property
+                graph tables.
+        """
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "vertex table definition")
 
@@ -256,7 +347,20 @@ class GraphTableMixin:
         return sql, ()
 
     def format_edge_table(self, et: "EdgeTable") -> Tuple[str, tuple]:
-        """Formats an edge table definition for CREATE PROPERTY GRAPH."""
+        """Format an edge table definition for CREATE PROPERTY GRAPH.
+
+        Args:
+            et: EdgeTable object exposing table, optional alias, key columns,
+                source/destination keys (with optional references), labels and
+                properties.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support property
+                graph tables.
+        """
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "edge table definition")
 
@@ -298,7 +402,19 @@ class GraphTableMixin:
         return sql, ()
 
     def format_create_property_graph_statement(self, expr: "CreatePropertyGraphExpression") -> Tuple[str, tuple]:
-        """Formats a CREATE PROPERTY GRAPH DDL statement."""
+        """Format a CREATE PROPERTY GRAPH DDL statement.
+
+        Args:
+            expr: CreatePropertyGraphExpression exposing graph name,
+                ``if_not_exists``, vertex tables and edge tables.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support property
+                graph tables.
+        """
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "CREATE PROPERTY GRAPH")
 
@@ -324,7 +440,19 @@ class GraphTableMixin:
         return " ".join(parts), ()
 
     def format_drop_property_graph_statement(self, expr: "DropPropertyGraphExpression") -> Tuple[str, tuple]:
-        """Formats a DROP PROPERTY GRAPH DDL statement."""
+        """Format a DROP PROPERTY GRAPH DDL statement.
+
+        Args:
+            expr: DropPropertyGraphExpression exposing graph name,
+                ``if_exists`` and ``cascade``.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support property
+                graph tables.
+        """
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "DROP PROPERTY GRAPH")
 
@@ -337,7 +465,19 @@ class GraphTableMixin:
         return " ".join(parts), ()
 
     def format_alter_property_graph_statement(self, expr: "AlterPropertyGraphExpression") -> Tuple[str, tuple]:
-        """Formats an ALTER PROPERTY GRAPH DDL statement."""
+        """Format an ALTER PROPERTY GRAPH DDL statement.
+
+        Args:
+            expr: AlterPropertyGraphExpression exposing graph name, action,
+                target, vertex tables and edge tables.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support property
+                graph tables.
+        """
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "ALTER PROPERTY GRAPH")
 

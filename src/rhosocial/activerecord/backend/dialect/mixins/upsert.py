@@ -1,4 +1,8 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/upsert.py
+"""UPSERT (ON CONFLICT / ON DUPLICATE KEY) formatting for the dialect layer.
+
+Provides capability probes and SQL rendering for insert conflict handling.
+"""
 from typing import Tuple, TYPE_CHECKING
 
 from ...expression import bases
@@ -9,10 +13,13 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class UpsertMixin:
-    """Mixin for UPSERT operation support."""
+    """Mixin providing UPSERT conflict handling support."""
 
     def supports_upsert(self) -> bool:
-        """Whether UPSERT is supported."""
+        """Whether UPSERT is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def get_upsert_syntax_type(self) -> str:
@@ -43,7 +50,15 @@ class UpsertMixin:
         return False
 
     def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
-        """Format ON CONFLICT clause."""
+        """Format an ON CONFLICT clause.
+
+        Args:
+            expr: OnConflictClause exposing ``conflict_target``,
+                ``do_nothing``, ``update_assignments``, and ``update_where``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         all_params = []
 
         # Start with ON CONFLICT

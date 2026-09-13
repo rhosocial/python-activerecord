@@ -66,11 +66,17 @@ class Column(
     TypeCastingMixin,
     SQLValueExpression,
 ):
-    """Represents a column in a SQL query."""
+    """Represents a column in a SQL query.
+
+    Per-role quoting properties (all default to ``True``):
+    - ``name_need_quote`` ↔ ``name``
+    - ``table_need_quote`` ↔ ``table``
+    - ``schema_need_quote`` ↔ ``schema_name``
+    - ``alias_need_quote`` ↔ ``alias``
+    """
 
     @property
     def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
         return "format_column"
 
     def __init__(
@@ -80,8 +86,16 @@ class Column(
         table: Optional[str] = None,
         alias: Optional[str] = None,
         schema_name: Optional[str] = None,
+        name_need_quote: bool = True,
+        alias_need_quote: bool = True,
+        schema_need_quote: bool = True,
+        table_need_quote: bool = True,
     ):
         super().__init__(dialect)
+        self.name_need_quote = name_need_quote
+        self.alias_need_quote = alias_need_quote
+        self.schema_need_quote = schema_need_quote
+        self.table_need_quote = table_need_quote
         self.name = name
         self.table = table
         self.alias = alias
@@ -229,37 +243,14 @@ class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixi
 class TableExpression(AliasableMixin, BaseExpression):
     """Represents a table or view in a SQL query, optionally with schema and alias.
 
-    Supports SQL standard schema-qualified table names (schema_name.table_name).
-    All major databases support this syntax.
-
-    Args:
-        dialect: The SQL dialect to use for formatting
-        name: The table or view name
-        schema_name: Optional schema/database name qualifier (SQL standard)
-        alias: Optional table alias
-        temporal_options: Optional temporal table options (e.g., FOR SYSTEM_TIME)
-
-    Examples:
-        # Simple table reference
-        TableExpression(dialect, "users")
-        # -> users
-
-        # Schema-qualified table
-        TableExpression(dialect, "users", schema_name="public")
-        # -> public.users
-
-        # With alias
-        TableExpression(dialect, "users", alias="u")
-        # -> users AS u
-
-        # Schema-qualified with alias
-        TableExpression(dialect, "users", schema_name="public", alias="u")
-        # -> public.users AS u
+    Per-role quoting fields (all default to ``True``):
+    - ``name_need_quote`` ↔ ``name``
+    - ``schema_need_quote`` ↔ ``schema_name``
+    - ``alias_need_quote`` ↔ ``alias``
     """
 
     @property
     def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
         return "format_table"
 
     def __init__(
@@ -269,8 +260,14 @@ class TableExpression(AliasableMixin, BaseExpression):
         schema_name: Optional[str] = None,
         alias: Optional[str] = None,
         temporal_options: Optional[Dict[str, Any]] = None,
+        name_need_quote: bool = True,
+        alias_need_quote: bool = True,
+        schema_need_quote: bool = True,
     ):
         super().__init__(dialect)
+        self.name_need_quote = name_need_quote
+        self.alias_need_quote = alias_need_quote
+        self.schema_need_quote = schema_need_quote
         self.name = name
         self.schema_name = schema_name
         self.alias = alias
@@ -278,30 +275,15 @@ class TableExpression(AliasableMixin, BaseExpression):
 
 
 class QualifiedIdentifierExpression(BaseExpression):
-    """Represents a schema-qualified identifier (e.g., schema.table_name, schema.function_name).
+    """Represents a schema-qualified identifier (e.g., schema.table_name).
 
-    This is a general-purpose expression for any schema.name reference.
-    Rendering delegates to the dialect's ``format_qualified_identifier``,
-    which decides how identifiers are quoted.
-
-    Attributes:
-        schema: Optional schema/namespace qualifier.
-        name: The identifier name.
-
-    Example:
-        >>> from rhosocial.activerecord.backend.impl.dummy import DummyDialect
-        >>> dialect = DummyDialect()
-        >>> qi = QualifiedIdentifierExpression(dialect, schema="partman", name="create_parent")
-        >>> qi.to_sql()
-        ('partman.create_parent', ())
-        >>> qi2 = QualifiedIdentifierExpression(dialect, schema=None, name="create_parent")
-        >>> qi2.to_sql()
-        ('create_parent', ())
+    Per-role quoting fields (all default to ``True``):
+    - ``name_need_quote`` ↔ ``name``
+    - ``schema_need_quote`` ↔ ``schema``
     """
 
     @property
     def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
         return "format_qualified_identifier"
 
     def __init__(
@@ -309,8 +291,12 @@ class QualifiedIdentifierExpression(BaseExpression):
         dialect: "SQLDialectBase",
         schema: Optional[str] = None,
         name: str = "",
+        name_need_quote: bool = True,
+        schema_need_quote: bool = True,
     ):
         super().__init__(dialect)
+        self.name_need_quote = name_need_quote
+        self.schema_need_quote = schema_need_quote
         self.schema = schema
         self.name = name
 
@@ -318,31 +304,28 @@ class QualifiedIdentifierExpression(BaseExpression):
 class WildcardExpression(SQLValueExpression):
     """Represents a wildcard expression (SELECT *) in a SQL query.
 
-    Important: When constructing queries that include wildcards (SELECT *),
-    use WildcardExpression instead of Literal("*") to avoid treating the
-    wildcard as a parameter value. Using Literal("*") will incorrectly
-    include the '*' character in the parameter tuple rather than as part
-    of the SQL query itself.
-
-    Examples:
-        # Correct usage:
-        select=[WildcardExpression(dialect)]
-        # Results in: SELECT * FROM ...
-
-        # Incorrect usage:
-        select=[Literal(dialect, "*")]
-        # Results in: SELECT ? FROM ... with params ('*',)
+    Per-role quoting fields (all default to ``True``):
+    - ``table_need_quote`` ↔ ``table``
+    - ``schema_need_quote`` ↔ ``schema_name``
     """
 
     @property
     def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
         return "format_wildcard"
 
-    def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None, schema_name: Optional[str] = None):
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table: Optional[str] = None,
+        schema_name: Optional[str] = None,
+        table_need_quote: bool = True,
+        schema_need_quote: bool = True,
+    ):
         super().__init__(dialect)
-        self.table = table  # Optional table qualifier for SELECT table.*
-        self.schema_name = schema_name  # Optional schema qualifier for SELECT schema.table.*
+        self.table_need_quote = table_need_quote
+        self.schema_need_quote = schema_need_quote
+        self.table = table
+        self.schema_name = schema_name
 
 
 

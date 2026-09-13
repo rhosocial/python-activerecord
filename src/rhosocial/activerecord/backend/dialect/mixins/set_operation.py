@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/set_operation.py
+"""Set operation (UNION/INTERSECT/EXCEPT) formatting for the dialect layer.
+
+Provides the default capability probes and SQL rendering for compound queries
+that combine two query expressions.
+"""
 from typing import Optional, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -13,38 +18,72 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class SetOperationMixin:
-    """Mixin for set operation (UNION, INTERSECT, EXCEPT) support."""
+    """Mixin providing set operation support and SQL formatting.
+
+    The capability probes default to False; dialects that support compound
+    queries override the ones relevant to their syntax.
+    """
 
     def supports_union(self) -> bool:
-        """Whether UNION operation is supported."""
+        """Whether UNION operation is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_union_all(self) -> bool:
-        """Whether UNION ALL operation is supported."""
+        """Whether UNION ALL operation is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_intersect(self) -> bool:
-        """Whether INTERSECT operation is supported."""
+        """Whether INTERSECT operation is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_except(self) -> bool:
-        """Whether EXCEPT operation is supported."""
+        """Whether EXCEPT operation is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_set_operation_order_by(self) -> bool:
-        """Whether set operations support ORDER BY clauses."""
+        """Whether set operations support ORDER BY clauses.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_set_operation_limit_offset(self) -> bool:
-        """Whether set operations support LIMIT and OFFSET clauses."""
+        """Whether set operations support LIMIT and OFFSET clauses.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_set_operation_for_update(self) -> bool:
-        """Whether set operations support FOR UPDATE clauses."""
+        """Whether set operations support FOR UPDATE clauses.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def format_set_operation_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
-        """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
+        """Format a set operation expression (UNION, INTERSECT, EXCEPT).
+
+        Args:
+            expr: Set operation expression exposing ``left``, ``right``,
+                ``operation``, ``all_``, ``alias``, ``order_by_clause``,
+                ``limit_offset_clause``, and ``for_update_clause``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         left, right = expr.left, expr.right
         operation = expr.operation
         all_ = expr.all_

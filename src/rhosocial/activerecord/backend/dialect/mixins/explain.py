@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/explain.py
+"""EXPLAIN statement mixin.
+
+Provides capability probes and a generic formatter for EXPLAIN expressions,
+with hooks for dialect-specific options such as ANALYZE and FORMAT.
+"""
 from typing import Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -6,26 +11,38 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class ExplainMixin:
-    """Mixin for EXPLAIN statement support."""
+    """Format EXPLAIN statements and advertise EXPLAIN capabilities.
+
+    The generic formatter appends only the options a backend recognizes;
+    dialects may override the probes to enable ANALYZE or specific formats.
+    """
 
     def supports_explain_analyze(self) -> bool:
-        """Whether EXPLAIN ANALYZE is supported."""
+        """Whether EXPLAIN ANALYZE is supported (defaults to False)."""
         return False
 
     def supports_explain_format(self, format_type: str) -> bool:
-        """
-        Check if specific EXPLAIN format is supported.
+        """Whether a specific EXPLAIN format is supported.
 
         Args:
-            format_type: Format type (e.g., 'JSON', 'XML', 'YAML')
+            format_type: Format type (e.g., 'JSON', 'XML', 'YAML').
 
         Returns:
-            True if format is supported
+            True if the format is supported (defaults to False).
         """
         return False
 
     def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
-        """Format EXPLAIN statement."""
+        """Format an EXPLAIN statement.
+
+        Args:
+            expr: The ExplainExpression to render, including the wrapped
+                statement and optional options.
+
+        Returns:
+            A ``(sql, params)`` tuple where ``params`` are the parameters of
+            the explained statement.
+        """
         statement_sql, statement_params = expr.statement.to_sql()
         options = expr.options
         if options is None:

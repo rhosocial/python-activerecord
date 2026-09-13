@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/join.py
+"""Dialect mixins for JOIN clauses.
+
+Declares support for the various JOIN families and formats JOIN, LATERAL
+JOIN, and table-function source expressions into dialect SQL.
+"""
 from typing import Any, List, Optional, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -9,18 +14,31 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class LateralJoinMixin:
-    """Mixin for LATERAL join support."""
+    """Mixin for LATERAL join support.
+
+    Dialects without native LATERAL support may override
+    :meth:`format_lateral_expression` to translate it into an equivalent
+    syntax (for example CROSS APPLY).
+    """
 
     def supports_lateral_join(self) -> bool:
-        """Whether LATERAL joins are supported."""
+        """Whether LATERAL joins are supported. Defaults to False."""
         return False
 
     def format_lateral_expression(self, expr) -> Tuple[str, Tuple]:
         """Format a :class:`~...expression.query_sources.LateralExpression` node.
 
-        Raises UnsupportedFeatureError when the dialect reports no LATERAL
-        support.  Backends only override this method to translate LATERAL
-        into an alternative syntax (e.g. CROSS APPLY).
+        Args:
+            expr: The LateralExpression node containing the joined expression,
+                join type, and optional alias.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the expression.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support LATERAL
+                joins. Backends only override this method to translate LATERAL
+                into an alternative syntax (e.g. CROSS APPLY).
         """
         if not self.supports_lateral_join():
             raise UnsupportedFeatureError(
@@ -36,7 +54,15 @@ class LateralJoinMixin:
         return sql, expr_params
 
     def format_table_function_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
-        """Format a :class:`~...expression.query_sources.TableFunctionExpression` node."""
+        """Format a :class:`~...expression.query_sources.TableFunctionExpression` node.
+
+        Args:
+            expr: The TableFunctionExpression node containing the function
+                name, arguments, optional alias, and optional column names.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the expression.
+        """
         args_sql = []
         all_params: list = []
         for arg in expr.args:
@@ -60,7 +86,12 @@ class LateralJoinMixin:
 
 
 class JoinMixin:
-    """Mixin for JOIN clause support."""
+    """Mixin for JOIN clause support.
+
+    Dialects advertise which JOIN families they implement through the
+    ``supports_*_join`` probes, and :meth:`format_join_clause` renders the
+    clause while validating that support.
+    """
 
     def supports_inner_join(self) -> bool:
         """Whether INNER JOIN is supported. Defaults to True."""
@@ -91,9 +122,22 @@ class JoinMixin:
         return False
 
     def format_join_clause(self, join_expr: "JoinClause") -> Tuple[str, Tuple]:
-        """
-        Generic implementation for formatting a JOIN expression.
-        This method validates support for the given join type using protocol methods.
+        """Format a JOIN expression into dialect SQL.
+
+        Validates support for the given join type using the ``supports_*``
+        protocol methods before rendering the clause.
+
+        Args:
+            join_expr: The JoinClause node to format.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the join clause.
+
+        Raises:
+            UnsupportedFeatureError: If the join type or NATURAL modifier is
+                not supported by this dialect.
+            ValueError: If a non-CROSS join has neither a condition nor a
+                USING clause.
         """
         from ...expression import QueryExpression, JoinClause
 

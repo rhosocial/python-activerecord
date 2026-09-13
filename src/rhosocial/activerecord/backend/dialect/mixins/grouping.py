@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/grouping.py
+"""Dialect mixin for advanced SQL grouping constructs.
+
+Declares support for and formats ROLLUP, CUBE, and GROUPING SETS operations,
+raising UnsupportedFeatureError for operations the dialect does not support.
+"""
 from typing import List, Tuple
 
 from ..exceptions import UnsupportedFeatureError
@@ -6,29 +11,37 @@ from ...expression import bases
 
 
 class AdvancedGroupingMixin:
-    """Mixin for advanced grouping operations (ROLLUP, CUBE, GROUPING SETS)."""
+    """Mixin for advanced grouping operations (ROLLUP, CUBE, GROUPING SETS).
+
+    Dialects override the ``supports_*`` probes to advertise which grouping
+    constructs they implement; the default implementation reports none.
+    """
 
     def supports_rollup(self) -> bool:
-        """Whether ROLLUP is supported."""
+        """Whether ROLLUP grouping is supported. Defaults to False."""
         return False
 
     def supports_cube(self) -> bool:
-        """Whether CUBE is supported."""
+        """Whether CUBE grouping is supported. Defaults to False."""
         return False
 
     def supports_grouping_sets(self) -> bool:
-        """Whether GROUPING SETS are supported."""
+        """Whether GROUPING SETS are supported. Defaults to False."""
         return False
 
     def format_grouping_clause(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
-        """
-        Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
+        """Format a grouping expression (ROLLUP, CUBE, or GROUPING SETS).
 
         Args:
-            expr: The GroupingClause node (operation + grouped expressions).
+            expr: The GroupingClause node containing the operation and the
+                grouped expressions.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support the
+                requested grouping operation.
         """
         operation = expr.operation
         expressions = expr.expressions

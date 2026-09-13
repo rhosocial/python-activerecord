@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/temporal.py
+"""Temporal table and QUALIFY clause formatting for the dialect layer.
+
+Provides capability probes and SQL rendering for system-versioned temporal
+tables and the QUALIFY window-filter clause.
+"""
 from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -9,14 +14,27 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class TemporalTableMixin:
-    """Mixin for temporal table support."""
+    """Mixin for SYSTEM_TIME temporal table support."""
 
     def supports_temporal_tables(self) -> bool:
-        """Whether temporal tables are supported."""
+        """Whether temporal tables are supported.
+
+        Defaults to False; dialects that support them override this.
+        """
         return False
 
     def format_temporal_options(self, expr: "TemporalOptionsExpression") -> Tuple[str, tuple]:
-        """Format temporal table options."""
+        """Format temporal table options.
+
+        Args:
+            expr: Temporal options expression exposing an ``options`` mapping.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            ValueError: If no temporal options were provided.
+        """
         if not expr.options:
             raise ValueError(
                 "Temporal options cannot be empty. If no temporal options are needed, "
@@ -31,14 +49,27 @@ class TemporalTableMixin:
 
 
 class QualifyClauseMixin:
-    """Mixin for QUALIFY clause support."""
+    """Mixin for the QUALIFY clause (window filter) support."""
 
     def supports_qualify_clause(self) -> bool:
-        """Whether QUALIFY clause is supported."""
+        """Whether QUALIFY clause is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def format_qualify_clause(self, clause: "QualifyClause") -> Tuple[str, tuple]:
-        """Format QUALIFY clause."""
+        """Format a QUALIFY clause.
+
+        Args:
+            clause: QualifyClause exposing a ``condition`` expression.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If QUALIFY clauses are unsupported.
+        """
         if not self.supports_qualify_clause():
             raise UnsupportedFeatureError(self.name, "QUALIFY clause")
 

@@ -27,7 +27,7 @@ ensuring consistent SQL generation across the expression tree.
 """
 
 import copy
-from typing import Any, Union, List, TYPE_CHECKING, TypeVar
+from typing import Any, Optional, Union, List, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression, SQLPredicate

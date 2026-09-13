@@ -1190,7 +1190,7 @@ class TableSupport(Protocol):
         """Format ALTER TABLE statement."""
         ...  # pragma: no cover
 
-    def supports_table_like_syntax(self) -> bool:
+    def supports_create_table_like(self) -> bool:
         """Whether CREATE TABLE ... LIKE (or equivalent) is supported."""
         ...  # pragma: no cover
 

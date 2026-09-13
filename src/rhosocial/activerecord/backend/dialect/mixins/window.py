@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/window.py
+"""Window function and WINDOW clause formatting for the dialect layer.
+
+Provides capability probes and SQL rendering for window function calls,
+window specifications, frames, and named window definitions.
+"""
 from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -15,18 +20,35 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class WindowFunctionMixin:
-    """Mixin for window function support."""
+    """Mixin providing window function and WINDOW clause support."""
 
     def supports_window_functions(self) -> bool:
-        """Whether window functions are supported."""
+        """Whether window functions are supported.
+
+        Defaults to False; dialects that support them override this.
+        """
         return False
 
     def supports_window_frame_clause(self) -> bool:
-        """Whether window frame clauses (ROWS/RANGE) are supported."""
+        """Whether window frame clauses (ROWS/RANGE) are supported.
+
+        Defaults to False; dialects that support them override this.
+        """
         return False
 
     def format_window_function_call(self, call: "WindowFunctionCall") -> Tuple[str, tuple]:
-        """Format window function call."""
+        """Format a window function call.
+
+        Args:
+            call: WindowFunctionCall exposing ``args``, ``function_name``,
+                ``window_spec``, and ``alias``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If window functions are unsupported.
+        """
         if not self.supports_window_functions():
             raise UnsupportedFeatureError(self.name, "window functions")
 
@@ -67,7 +89,19 @@ class WindowFunctionMixin:
         return sql, tuple(all_params)
 
     def format_window_specification(self, spec: "WindowSpecification") -> Tuple[str, tuple]:
-        """Format window specification."""
+        """Format a window specification (PARTITION BY / ORDER BY / frame).
+
+        Args:
+            spec: WindowSpecification exposing ``partition_by``,
+                ``order_by``, and ``frame``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If window functions are unsupported.
+            ValueError: If the specification has no components.
+        """
         if not self.supports_window_functions():
             raise UnsupportedFeatureError(self.name, "window functions")
 
@@ -109,7 +143,18 @@ class WindowFunctionMixin:
         return " ".join(parts), tuple(all_params)
 
     def format_window_frame_specification(self, spec: "WindowFrameSpecification") -> Tuple[str, tuple]:
-        """Format window frame specification."""
+        """Format a window frame specification.
+
+        Args:
+            spec: WindowFrameSpecification exposing ``frame_type``,
+                ``start_frame``, and ``end_frame``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If frame clauses are unsupported.
+        """
         if not self.supports_window_frame_clause():
             raise UnsupportedFeatureError(self.name, "window frame specification")
 
@@ -121,7 +166,18 @@ class WindowFunctionMixin:
         return " ".join(parts), ()
 
     def format_window_clause(self, clause: "WindowClause") -> Tuple[str, tuple]:
-        """Format complete WINDOW clause."""
+        """Format a complete WINDOW clause.
+
+        Args:
+            clause: WindowClause exposing ``definitions``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If window functions are unsupported.
+            ValueError: If the clause has no window definitions.
+        """
         if not self.supports_window_functions():
             raise UnsupportedFeatureError(self.name, "WINDOW clause")
 
@@ -139,7 +195,17 @@ class WindowFunctionMixin:
         return f"WINDOW {', '.join(def_parts)}", tuple(all_params)
 
     def format_window_definition(self, spec: "WindowDefinition") -> Tuple[str, tuple]:
-        """Format named window definition."""
+        """Format a named window definition.
+
+        Args:
+            spec: WindowDefinition exposing ``name`` and ``specification``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If window functions are unsupported.
+        """
         if not self.supports_window_functions():
             raise UnsupportedFeatureError(self.name, "window definition")
 

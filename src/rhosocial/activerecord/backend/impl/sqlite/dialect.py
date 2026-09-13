@@ -83,7 +83,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     PredicateMixin,
     ExpressionMixin,
     DQLMixin,
-    IdentifierMixin,
     DateTimeMixin,
     DDLColumnMixin,
     DMLMixin,
@@ -113,6 +112,7 @@ from .protocols import (
     SQLiteJSON1Support,
     SQLiteMaintenanceSupport,
 )
+from .reserved_words import SQLITE_RESERVED_WORDS
 from .mixins import (
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
@@ -202,7 +202,6 @@ class SQLiteDialect(
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
     CollationMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)
-    IdentifierMixin,
     DateTimeMixin,
     DDLColumnMixin,
     DMLMixin,
@@ -283,6 +282,7 @@ class SQLiteDialect(
                 features can be used.
         """
         super().__init__()
+        self._reserved_words = SQLITE_RESERVED_WORDS
         if version is not None:
             self.version = version
         self._runtime_params: Dict[str, Any] = {}

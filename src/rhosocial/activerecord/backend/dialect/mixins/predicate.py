@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/predicate.py
+"""Predicate formatting helpers for the SQL dialect layer.
+
+Renders comparison, logical, membership, null/boolean, existence, quantified,
+and pattern predicates into ``(sql, params)`` tuples.
+"""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ...expression import bases
@@ -9,13 +14,22 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class PredicateMixin:
-    """Mixin for SQL predicate formatting.
+    """Mixin for formatting SQL predicate expressions.
 
     Formatting functions receive the expression instance only; every value
     they need was collected at expression construction time.
     """
 
     def format_comparison_predicate(self, expr) -> Tuple[str, Tuple]:
+        """Format a comparison predicate (``left <op> right``).
+
+        Args:
+            expr: Comparison expression exposing ``left``, ``op``, and
+                ``right``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         from ...expression.statements import QueryExpression
 
         left_sql, left_params = expr.left.to_sql()
@@ -25,6 +39,14 @@ class PredicateMixin:
         return f"{left_sql} {expr.op} {right_sql}", left_params + right_params
 
     def format_logical_predicate(self, expr) -> Tuple[str, Tuple]:
+        """Format a logical predicate (AND/OR/NOT).
+
+        Args:
+            expr: Logical expression exposing ``op`` and ``predicates``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         if expr.op.upper() == "NOT" and len(expr.predicates) == 1:
             sql, params = expr.predicates[0].to_sql()
             return f"NOT ({sql})", params
@@ -37,6 +59,14 @@ class PredicateMixin:
         return f" {expr.op} ".join(parts), tuple(all_params)
 
     def format_in_predicate(self, expr) -> Tuple[str, Tuple]:
+        """Format an ``IN`` predicate.
+
+        Args:
+            expr: Membership expression exposing ``expr`` and ``values``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         from ...expression.core import Literal
 
         expr_sql, expr_params = expr.expr.to_sql()
@@ -59,28 +89,70 @@ class PredicateMixin:
         return f"{expr_sql} IN {values_sql}", expr_params + values_params
 
     def format_between_predicate(self, expr) -> Tuple[str, Tuple]:
+        """Format a ``BETWEEN`` predicate.
+
+        Args:
+            expr: Range expression exposing ``expr``, ``low``, and ``high``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         expr_sql, expr_params = expr.expr.to_sql()
         low_sql, low_params = expr.low.to_sql()
         high_sql, high_params = expr.high.to_sql()
         return f"{expr_sql} BETWEEN {low_sql} AND {high_sql}", expr_params + low_params + high_params
 
     def format_is_null_predicate(self, expr) -> Tuple[str, Tuple]:
+        """Format an ``IS [NOT] NULL`` predicate.
+
+        Args:
+            expr: Null check expression exposing ``expr`` and ``is_not``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         expr_sql, expr_params = expr.expr.to_sql()
         not_str = " NOT" if expr.is_not else ""
         return f"{expr_sql} IS{not_str} NULL", expr_params
 
     def format_is_boolean_predicate(self, expr) -> Tuple[str, Tuple]:
+        """Format an ``IS [NOT] TRUE/FALSE`` predicate.
+
+        Args:
+            expr: Boolean check expression exposing ``expr``, ``is_not``,
+                and ``value``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         expr_sql, expr_params = expr.expr.to_sql()
         not_str = " NOT" if expr.is_not else ""
         bool_str = "TRUE" if expr.value else "FALSE"
         return f"{expr_sql} IS{not_str} {bool_str}", expr_params
 
     def format_exists_expression(self, expr) -> Tuple[str, Tuple]:
+        """Format an ``[NOT] EXISTS`` expression.
+
+        Args:
+            expr: Existence expression exposing ``subquery`` and ``is_not``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         subquery_sql, subquery_params = expr.subquery.to_sql()
         exists_clause = "NOT EXISTS" if expr.is_not else "EXISTS"
         return f"{exists_clause} {subquery_sql}", subquery_params
 
     def format_any_expression(self, expr) -> Tuple[str, Tuple]:
+        """Format a quantified ``ANY`` comparison expression.
+
+        Args:
+            expr: Quantified expression exposing ``expr``, ``array_expr``,
+                and ``op``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr
         if hasattr(array_expr, "value") and isinstance(array_expr.value, (list, tuple)):
@@ -91,6 +163,15 @@ class PredicateMixin:
         return f"({expr_sql} {expr.op} ANY{array_sql})", tuple(list(expr_params) + list(array_params))
 
     def format_all_expression(self, expr) -> Tuple[str, Tuple]:
+        """Format a quantified ``ALL`` comparison expression.
+
+        Args:
+            expr: Quantified expression exposing ``expr``, ``array_expr``,
+                and ``op``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr
         if hasattr(array_expr, "value") and isinstance(array_expr.value, (list, tuple)):
@@ -101,6 +182,15 @@ class PredicateMixin:
         return f"({expr_sql} {expr.op} ALL{array_sql})", tuple(list(expr_params) + list(array_params))
 
     def format_like_predicate(self, expr) -> Tuple[str, Tuple]:
+        """Format a ``LIKE`` predicate.
+
+        Args:
+            expr: Pattern expression exposing ``expr``, ``op``, and
+                ``pattern``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         expr_sql, expr_params = expr.expr.to_sql()
         pattern_sql, pattern_params = expr.pattern.to_sql()
         return f"{expr_sql} {expr.op} {pattern_sql}", expr_params + pattern_params

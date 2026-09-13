@@ -1,4 +1,5 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_sequence.py
+"""Dialect mixin for sequence DDL support (CREATE/DROP/ALTER SEQUENCE)."""
 from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -10,50 +11,89 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class SequenceMixin:
-    """Mixin for sequence DDL support."""
+    """Mixin adding support for sequence DDL statements."""
 
     def supports_sequence(self) -> bool:
-        """Whether sequence objects are supported."""
+        """Whether sequence objects are supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_create_sequence(self) -> bool:
-        """Whether CREATE SEQUENCE is supported."""
+        """Whether CREATE SEQUENCE is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_drop_sequence(self) -> bool:
-        """Whether DROP SEQUENCE is supported."""
+        """Whether DROP SEQUENCE is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_alter_sequence(self) -> bool:
-        """Whether ALTER SEQUENCE is supported."""
+        """Whether ALTER SEQUENCE is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_sequence_if_not_exists(self) -> bool:
-        """Whether CREATE SEQUENCE IF NOT EXISTS is supported."""
+        """Whether CREATE SEQUENCE IF NOT EXISTS is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_sequence_if_exists(self) -> bool:
-        """Whether DROP SEQUENCE IF EXISTS is supported."""
+        """Whether DROP SEQUENCE IF EXISTS is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_sequence_cycle(self) -> bool:
-        """Whether CYCLE option is supported."""
+        """Whether CYCLE option is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_sequence_cache(self) -> bool:
-        """Whether CACHE option is supported."""
+        """Whether CACHE option is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_sequence_order(self) -> bool:
-        """Whether ORDER option is supported."""
+        """Whether ORDER option is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_sequence_owned_by(self) -> bool:
-        """Whether OWNED BY clause is supported."""
+        """Whether OWNED BY clause is supported.
+
+        Defaults to False.
+        """
         return False
 
     def format_create_sequence_statement(self, expr: "CreateSequenceExpression") -> Tuple[str, tuple]:
-        """Format CREATE SEQUENCE statement per SQL standard."""
+        """Format CREATE SEQUENCE statement per SQL standard.
+
+        Args:
+            expr: CreateSequenceExpression carrying the sequence name and
+                optional start, increment, min/max value, cycle, cache, order,
+                and owned-by options.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+        """
         parts = ["CREATE SEQUENCE"]
         if expr.if_not_exists:
             parts.append("IF NOT EXISTS")
@@ -81,7 +121,15 @@ class SequenceMixin:
         return " ".join(parts), ()
 
     def format_drop_sequence_statement(self, expr: "DropSequenceExpression") -> Tuple[str, tuple]:
-        """Format DROP SEQUENCE statement per SQL standard."""
+        """Format DROP SEQUENCE statement per SQL standard.
+
+        Args:
+            expr: DropSequenceExpression carrying the sequence name and
+                optional ``if_exists`` flag.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+        """
         parts = ["DROP SEQUENCE"]
         if expr.if_exists:
             parts.append("IF EXISTS")
@@ -89,7 +137,16 @@ class SequenceMixin:
         return " ".join(parts), ()
 
     def format_alter_sequence_statement(self, expr: "AlterSequenceExpression") -> Tuple[str, tuple]:
-        """Format ALTER SEQUENCE statement per SQL standard."""
+        """Format ALTER SEQUENCE statement per SQL standard.
+
+        Args:
+            expr: AlterSequenceExpression carrying the sequence name and the
+                options to change (restart, start, increment, min/max value,
+                cycle, cache, order, and owned-by).
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+        """
         parts = [f"ALTER SEQUENCE {self.format_identifier(expr.sequence_name)}"]
 
         if expr.restart is not None:
