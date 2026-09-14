@@ -61,6 +61,16 @@ class SQLDialectBase:
     def get_parameter_placeholder(self, position: int = 0) -> str:
         return "?"
 
+    def p(self, position: int = 0) -> str:
+        """Short alias for :meth:`get_parameter_placeholder`.
+
+        The binding placeholder is the single source of truth for the SQL
+        parameter marker. Every formatter must emit ``self.p()`` (never a
+        hard-coded ``?`` or ``%s``) so the marker always matches the
+        parameter style this dialect's backend/driver consumes.
+        """
+        return self.get_parameter_placeholder(position)
+
     def inline_sql_literal(self, value: Any) -> str:
         """Render a Python scalar as a safe, inline SQL literal.
 
