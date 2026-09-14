@@ -228,14 +228,14 @@ class DDLColumnMixin:
             result += " NOT DEFERRABLE"
         return result, ()
 
-    def format_pk_constraint(self, t_const: "TableConstraint") -> str:
+    def format_pk_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
         """Format the body of a ``PRIMARY KEY`` table constraint.
 
         Args:
             t_const: The constraint whose ``columns`` are rendered.
 
         Returns:
-            The ``PRIMARY KEY (...)`` clause text.
+            A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
             ValueError: If no columns are specified.
@@ -243,16 +243,16 @@ class DDLColumnMixin:
         if not t_const.columns:
             raise ValueError("PRIMARY KEY constraint must have at least one column specified.")
         cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-        return f"PRIMARY KEY ({cols_str})"
+        return f"PRIMARY KEY ({cols_str})", ()
 
-    def format_unique_constraint(self, t_const: "TableConstraint") -> str:
+    def format_unique_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
         """Format the body of a ``UNIQUE`` table constraint.
 
         Args:
             t_const: The constraint whose ``columns`` are rendered.
 
         Returns:
-            The ``UNIQUE (...)`` clause text.
+            A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
             ValueError: If no columns are specified.
@@ -260,7 +260,7 @@ class DDLColumnMixin:
         if not t_const.columns:
             raise ValueError("UNIQUE constraint must have at least one column specified.")
         cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-        return f"UNIQUE ({cols_str})"
+        return f"UNIQUE ({cols_str})", ()
 
     def format_table_check_constraint(self, t_const: "TableConstraint") -> Tuple[str, Tuple]:
         """Format a table-level ``CHECK`` constraint body.
@@ -331,9 +331,11 @@ class DDLColumnMixin:
             const_parts.append(f"CONSTRAINT {self.format_identifier(expr.name)}")
         ctype = expr.constraint_type
         if ctype == TableConstraintType.PRIMARY_KEY:
-            const_parts.append(self.format_pk_constraint(expr))
+            pk_sql, _ = self.format_pk_constraint(expr)
+            const_parts.append(pk_sql)
         elif ctype == TableConstraintType.UNIQUE:
-            const_parts.append(self.format_unique_constraint(expr))
+            unique_sql, _ = self.format_unique_constraint(expr)
+            const_parts.append(unique_sql)
         elif ctype == TableConstraintType.CHECK:
             sql, params = self.format_table_check_constraint(expr)
             const_parts.append(sql)
@@ -342,34 +344,26 @@ class DDLColumnMixin:
             const_parts.append(fk_sql)
         return " ".join(const_parts) if const_parts else "", tuple(params)
 
-    def format_storage_options(self, storage_options: Dict[str, Any]) -> Tuple[str, Tuple]:
+    def format_storage_options(self, expr: "StorageOptionsExpression") -> Tuple[str, tuple]:
         """Format a ``WITH (...)`` storage-options clause.
 
-        String values are escaped and inlined; numeric values are inlined
-        verbatim; all other values are emitted as bind-parameter placeholders
-        with their parameters collected.
+        Each option value is rendered as an inline SQL literal via
+        ``inline_sql_literal``.
 
         Args:
-            storage_options: Mapping of option name to option value.
+            expr: A :class:`StorageOptionsExpression` holding the options mapping.
 
         Returns:
             A ``(sql, params)`` tuple; ``sql`` is empty when the mapping is
             empty.
         """
-        from ...dialect.base import SQLDialectBase
         storage_parts = []
-        params: List[Any] = []
-        for key, value in storage_options.items():
+        for key, value in expr.options.items():
             quoted_key = self.format_identifier(key)
-            if isinstance(value, str):
-                storage_parts.append(f"{quoted_key} = '{SQLDialectBase._escape_sql_string(value)}'")
-            elif isinstance(value, (int, float)):
-                storage_parts.append(f"{quoted_key} = {value}")
-            else:
-                storage_parts.append(f"{quoted_key} = {self.get_parameter_placeholder()}")
-                params.append(value)
+            rendered_value = self.inline_sql_literal(value)
+            storage_parts.append(f"{quoted_key} = {rendered_value}")
         if storage_parts:
-            return " WITH (" + ", ".join(storage_parts) + ")", tuple(params)
+            return " WITH (" + ", ".join(storage_parts) + ")", ()
         return "", ()
 
     def format_add_column_action(self, action: "AddColumn") -> Tuple[str, Tuple]:

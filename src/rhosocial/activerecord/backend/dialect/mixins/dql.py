@@ -52,7 +52,7 @@ class DQLMixin:
             return None, []
         return " ".join(parts), params
 
-    def format_limit_offset_clause(self, clause) -> Tuple[str, tuple]:
+    def format_limit_offset_clause(self, clause: "LimitOffsetClause") -> Tuple[str, tuple]:
         """Format a LIMIT/OFFSET clause object.
 
         Args:
@@ -82,7 +82,7 @@ class DQLMixin:
                 all_params.append(clause.offset)
         return " ".join(parts), tuple(all_params)
 
-    def format_where_clause(self, clause) -> Tuple[str, tuple]:
+    def format_where_clause(self, clause: "WhereClause") -> Tuple[str, tuple]:
         """Format a WHERE clause.
 
         Args:
@@ -96,7 +96,7 @@ class DQLMixin:
 
     _VALID_ORDER_DIRECTIONS = frozenset({"ASC", "DESC"})
 
-    def format_order_by_clause(self, clause) -> Tuple[str, tuple]:
+    def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
         """Format an ORDER BY clause.
 
         Args:
@@ -126,7 +126,7 @@ class DQLMixin:
                 all_params.extend(expr_params)
         return f"ORDER BY {', '.join(expr_parts)}", tuple(all_params)
 
-    def format_group_by_having_clause(self, clause) -> Tuple[str, tuple]:
+    def format_group_by_having_clause(self, clause: "GroupByHavingClause") -> Tuple[str, tuple]:
         """Format a combined GROUP BY / HAVING clause.
 
         Args:

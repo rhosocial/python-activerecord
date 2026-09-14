@@ -17,7 +17,7 @@ class TableMixin:
     rendering of CREATE TABLE, DROP TABLE, and ALTER TABLE statements.
     """
 
-    def format_table(self, expr) -> Tuple[str, Tuple]:
+    def format_table(self, expr: "TableExpression") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.TableExpression`.
 
         Reads ``name_need_quote``, ``schema_need_quote``, and
@@ -213,7 +213,9 @@ class TableMixin:
         full_column_def = "(" + ", ".join(all_def_parts) + ")"
         parts = [table_part + full_column_def]
         if expr.storage_options:
-            storage_sql, storage_params = self.format_storage_options(expr.storage_options)
+            from ...expression.statements import StorageOptionsExpression
+            storage_expr = StorageOptionsExpression(self, expr.storage_options)
+            storage_sql, storage_params = self.format_storage_options(storage_expr)
             if storage_sql:
                 parts.append(storage_sql)
                 all_params.extend(storage_params)

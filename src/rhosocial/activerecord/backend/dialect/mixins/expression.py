@@ -8,6 +8,20 @@ Function-call rendering is inherited from :class:`FunctionCallMixin`.
 from typing import Any, List, Tuple
 
 from ...expression import bases
+from ...expression.core import (
+    CastExpression,
+    QualifiedIdentifierExpression,
+    Subquery,
+    WildcardExpression,
+)
+from ...expression.literals import Identifier
+from ...expression.operators import (
+    BinaryArithmeticExpression,
+    BinaryExpression,
+    RawSQLExpression,
+    SQLOperation,
+    UnaryExpression,
+)
 from .function import FunctionCallMixin
 
 
@@ -17,7 +31,7 @@ class ExpressionMixin(FunctionCallMixin):
     Function-call formatting is provided by :class:`FunctionCallMixin`.
     """
 
-    def format_identifier_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_identifier_expression(self, expr: Identifier) -> Tuple[str, tuple]:
         """Format an :class:`~...expression.literals.Identifier` node.
 
         Args:
@@ -29,7 +43,7 @@ class ExpressionMixin(FunctionCallMixin):
         """
         return self.format_identifier(expr.name, expr.name_need_quote), ()
 
-    def format_wildcard(self, expr) -> Tuple[str, Tuple]:
+    def format_wildcard(self, expr: WildcardExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.WildcardExpression`.
 
         Args:
@@ -49,7 +63,7 @@ class ExpressionMixin(FunctionCallMixin):
             wildcard_sql = "*"
         return wildcard_sql, ()
 
-    def format_qualified_identifier(self, expr) -> Tuple[str, Tuple]:
+    def format_qualified_identifier(self, expr: QualifiedIdentifierExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.QualifiedIdentifierExpression`.
 
         Args:
@@ -66,7 +80,7 @@ class ExpressionMixin(FunctionCallMixin):
             )
         return self.format_identifier(expr.name, expr.name_need_quote), ()
 
-    def format_literal_expression(self, expr: "bases.SQLValueExpression") -> Tuple[str, Tuple]:
+    def format_literal_expression(self, expr: "bases.SQLValueExpression") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.Literal`.
 
         Args:
@@ -92,7 +106,7 @@ class ExpressionMixin(FunctionCallMixin):
 
         return sql, params
 
-    def format_cast_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_cast_expression(self, expr: CastExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.CastExpression` node.
 
         Args:
@@ -120,7 +134,7 @@ class ExpressionMixin(FunctionCallMixin):
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, params
 
-    def format_sql_operation(self, expr) -> Tuple[str, Tuple]:
+    def format_sql_operation(self, expr: SQLOperation) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.SQLOperation` (n-ary).
 
         Args:
@@ -140,7 +154,7 @@ class ExpressionMixin(FunctionCallMixin):
             return f"{expr.op}({', '.join(formatted_operands_sql)})", tuple(params)
         return f"{expr.op}()", tuple(params)
 
-    def format_binary_operator(self, expr) -> Tuple[str, Tuple]:
+    def format_binary_operator(self, expr: BinaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.BinaryExpression`.
 
         Args:
@@ -153,7 +167,7 @@ class ExpressionMixin(FunctionCallMixin):
         right_sql, right_params = expr.right.to_sql()
         return f"{left_sql} {expr.op} {right_sql}", left_params + right_params
 
-    def format_unary_operator(self, expr) -> Tuple[str, Tuple]:
+    def format_unary_operator(self, expr: UnaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.UnaryExpression`.
 
         Args:
@@ -168,7 +182,7 @@ class ExpressionMixin(FunctionCallMixin):
             return f"{expr.op} {operand_sql}", operand_params
         return f"{operand_sql} {expr.op}", operand_params
 
-    def format_binary_arithmetic_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_binary_arithmetic_expression(self, expr: BinaryArithmeticExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.BinaryArithmeticExpression`.
 
         Args:
@@ -205,7 +219,7 @@ class ExpressionMixin(FunctionCallMixin):
             return operand.OPERATOR_PRECEDENCE.get(operand.op, 0) < current_precedence
         return False
 
-    def format_raw_sql(self, expr) -> Tuple[str, Tuple]:
+    def format_raw_sql(self, expr: RawSQLExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.RawSQLExpression` / ``RawSQLPredicate``.
 
         Args:
@@ -220,7 +234,7 @@ class ExpressionMixin(FunctionCallMixin):
         """
         return expr.expression, expr.params
 
-    def format_subquery(self, expr) -> Tuple[str, Tuple]:
+    def format_subquery(self, expr: Subquery) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.Subquery` (parenthesized query).
 
         Args:
@@ -235,7 +249,7 @@ class ExpressionMixin(FunctionCallMixin):
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, expr.query_params
 
-    def format_alias(self, expression_sql: str, alias: str, expression_params: tuple) -> Tuple[str, Tuple]:
+    def format_alias(self, expression_sql: str, alias: str, expression_params: tuple) -> Tuple[str, tuple]:
         """Attach an alias to already-formatted SQL.
 
         Args:
@@ -249,7 +263,7 @@ class ExpressionMixin(FunctionCallMixin):
         """
         return f"{expression_sql} AS {self.format_identifier(alias)}", expression_params
 
-    def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+    def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.query_sources.ValuesExpression` node.
 
         Args:
@@ -278,7 +292,7 @@ class ExpressionMixin(FunctionCallMixin):
             sql = f"VALUES {values_sql}{cols_sql}"
         return sql, tuple(all_params)
 
-    def format_case_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+    def format_case_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.advanced_functions.CaseExpression` node.
 
         Args:

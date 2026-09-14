@@ -47,6 +47,7 @@ from .ddl_table import (
     IndexDefinition,
     CreateTableExpression,
     DropTableExpression,
+    StorageOptionsExpression,
 )
 
 # ALTER TABLE DDL
@@ -165,6 +166,7 @@ __all__ = [
     "IndexDefinition",
     "CreateTableExpression",
     "DropTableExpression",
+    "StorageOptionsExpression",
     # ALTER TABLE DDL
     "AlterTableActionType",
     "AlterTableAction",

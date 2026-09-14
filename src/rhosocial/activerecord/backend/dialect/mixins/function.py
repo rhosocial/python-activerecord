@@ -25,7 +25,7 @@ class FunctionCallMixin:
     :class:`~.expression.ExpressionMixin`.
     """
 
-    def format_function_call(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+    def format_function_call(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format a scalar or aggregate function call expression.
 
         Renders ``NAME(args)`` with optional ``DISTINCT`` and a trailing

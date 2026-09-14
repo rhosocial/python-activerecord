@@ -6,6 +6,16 @@ and pattern predicates into ``(sql, params)`` tuples.
 """
 from typing import Any, List, Tuple, TYPE_CHECKING
 
+from ...expression.advanced_functions import AllExpression, AnyExpression, ExistsExpression
+from ...expression.predicates import (
+    BetweenPredicate,
+    ComparisonPredicate,
+    InPredicate,
+    IsBooleanPredicate,
+    IsNullPredicate,
+    LikePredicate,
+    LogicalPredicate,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     pass
@@ -18,7 +28,7 @@ class PredicateMixin:
     they need was collected at expression construction time.
     """
 
-    def format_comparison_predicate(self, expr) -> Tuple[str, Tuple]:
+    def format_comparison_predicate(self, expr: ComparisonPredicate) -> Tuple[str, tuple]:
         """Format a comparison predicate (``left <op> right``).
 
         Args:
@@ -36,7 +46,7 @@ class PredicateMixin:
             right_sql = f"({right_sql})"
         return f"{left_sql} {expr.op} {right_sql}", left_params + right_params
 
-    def format_logical_predicate(self, expr) -> Tuple[str, Tuple]:
+    def format_logical_predicate(self, expr: LogicalPredicate) -> Tuple[str, tuple]:
         """Format a logical predicate (AND/OR/NOT).
 
         Args:
@@ -56,7 +66,7 @@ class PredicateMixin:
             all_params.extend(params)
         return f" {expr.op} ".join(parts), tuple(all_params)
 
-    def format_in_predicate(self, expr) -> Tuple[str, Tuple]:
+    def format_in_predicate(self, expr: InPredicate) -> Tuple[str, tuple]:
         """Format an ``IN`` predicate.
 
         Args:
@@ -86,7 +96,7 @@ class PredicateMixin:
             values_params = tuple(values)
         return f"{expr_sql} IN {values_sql}", expr_params + values_params
 
-    def format_between_predicate(self, expr) -> Tuple[str, Tuple]:
+    def format_between_predicate(self, expr: BetweenPredicate) -> Tuple[str, tuple]:
         """Format a ``BETWEEN`` predicate.
 
         Args:
@@ -100,7 +110,7 @@ class PredicateMixin:
         high_sql, high_params = expr.high.to_sql()
         return f"{expr_sql} BETWEEN {low_sql} AND {high_sql}", expr_params + low_params + high_params
 
-    def format_is_null_predicate(self, expr) -> Tuple[str, Tuple]:
+    def format_is_null_predicate(self, expr: IsNullPredicate) -> Tuple[str, tuple]:
         """Format an ``IS [NOT] NULL`` predicate.
 
         Args:
@@ -113,7 +123,7 @@ class PredicateMixin:
         not_str = " NOT" if expr.is_not else ""
         return f"{expr_sql} IS{not_str} NULL", expr_params
 
-    def format_is_boolean_predicate(self, expr) -> Tuple[str, Tuple]:
+    def format_is_boolean_predicate(self, expr: IsBooleanPredicate) -> Tuple[str, tuple]:
         """Format an ``IS [NOT] TRUE/FALSE`` predicate.
 
         Args:
@@ -128,7 +138,7 @@ class PredicateMixin:
         bool_str = "TRUE" if expr.value else "FALSE"
         return f"{expr_sql} IS{not_str} {bool_str}", expr_params
 
-    def format_exists_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_exists_expression(self, expr: ExistsExpression) -> Tuple[str, tuple]:
         """Format an ``[NOT] EXISTS`` expression.
 
         Args:
@@ -141,7 +151,7 @@ class PredicateMixin:
         exists_clause = "NOT EXISTS" if expr.is_not else "EXISTS"
         return f"{exists_clause} {subquery_sql}", subquery_params
 
-    def format_any_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_any_expression(self, expr: AnyExpression) -> Tuple[str, tuple]:
         """Format a quantified ``ANY`` comparison expression.
 
         Args:
@@ -160,7 +170,7 @@ class PredicateMixin:
             array_sql, array_params = array_expr.to_sql()
         return f"({expr_sql} {expr.op} ANY{array_sql})", tuple(list(expr_params) + list(array_params))
 
-    def format_all_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_all_expression(self, expr: AllExpression) -> Tuple[str, tuple]:
         """Format a quantified ``ALL`` comparison expression.
 
         Args:
@@ -179,7 +189,7 @@ class PredicateMixin:
             array_sql, array_params = array_expr.to_sql()
         return f"({expr_sql} {expr.op} ALL{array_sql})", tuple(list(expr_params) + list(array_params))
 
-    def format_like_predicate(self, expr) -> Tuple[str, Tuple]:
+    def format_like_predicate(self, expr: LikePredicate) -> Tuple[str, tuple]:
         """Format a ``LIKE`` predicate.
 
         Args:

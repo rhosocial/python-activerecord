@@ -407,3 +407,29 @@ class DropTableExpression(BaseExpression):
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_drop_table_statement"
+
+
+class StorageOptionsExpression(BaseExpression):
+    """Represents a ``WITH (...)`` or storage-options clause.
+
+    Holds a mapping of option names to values.  The dialect formatter renders
+    each pair as ``key = <value>`` where the value is inlined via
+    ``inline_sql_literal``.
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        options: Dict[str, Any],
+    ):
+        super().__init__(dialect)
+        self.options = options
+
+    def to_sql(self) -> SQLQueryAndParams:
+        """Delegate to the dialect's ``format_storage_options``."""
+        return self.dialect.format_storage_options(self)
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_storage_options"

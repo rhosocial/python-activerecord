@@ -73,7 +73,8 @@ def test_sqlite_format_default_constraint_string_escaping(dialect):
 
 def test_sqlite_format_storage_options_string_escaping(dialect):
     """Test storage options string values are escaped."""
-    storage_opts = {"key": "value's"}
+    from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
+    storage_opts = StorageOptionsExpression(dialect, {"key": "value's"})
     sql, params = dialect.format_storage_options(storage_opts)
     assert "value''s" in sql
     assert "'; DROP" not in sql
@@ -297,8 +298,9 @@ def test_format_create_trigger_malicious_function_name(dialect):
 
 def test_sqlite_format_storage_options_key_identifier_quoting(dialect):
     """Storage option keys are identifier-quoted in SQLite dialect."""
+    from rhosocial.activerecord.backend.expression.statements import StorageOptionsExpression
     malicious_key = 'key"; DROP TABLE users--'
-    storage_opts = {malicious_key: "value"}
+    storage_opts = StorageOptionsExpression(dialect, {malicious_key: "value"})
     sql, params = dialect.format_storage_options(storage_opts)
     # "DROP TABLE" appears inside the quoted identifier — safe.
     # Verify balanced quotes (no breakout).

@@ -25,7 +25,7 @@ class LateralJoinMixin:
         """Whether LATERAL joins are supported. Defaults to False."""
         return False
 
-    def format_lateral_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_lateral_expression(self, expr: "LateralExpression") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.query_sources.LateralExpression` node.
 
         Args:

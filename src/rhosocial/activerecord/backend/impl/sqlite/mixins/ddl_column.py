@@ -104,9 +104,8 @@ class SQLiteDDLColumnMixin:
 
         NOTE: deliberately named ``..._column_...`` so it cannot shadow the
         TABLE-level ``SQLDialectBase.format_unique_constraint(t_const)``
-        defined in ``backend.dialect.mixins.ddl_column`` — the two share a
-        name but different signatures/return shapes (tuple vs str), and the
-        table dispatcher joins plain strings only.
+        defined in ``backend.dialect.mixins.ddl_column`` — the two handle
+        column-level vs table-level constraints respectively.
         """
         return " UNIQUE", ()
 
