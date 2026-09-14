@@ -98,7 +98,7 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
             else:
                 min_col = f"{table}.{self.format_identifier(f'min{i}')}"
                 max_col = f"{table}.{self.format_identifier(f'max{i}')}"
-            conditions.append(f"{min_col} <= ? AND {max_col} >= ?")
+            conditions.append(f"{min_col} <= {self.p()} AND {max_col} >= {self.p()}")
             params.extend([max_val, min_val])
 
         sql = f"SELECT * FROM {table} WHERE {' AND '.join(conditions)}"

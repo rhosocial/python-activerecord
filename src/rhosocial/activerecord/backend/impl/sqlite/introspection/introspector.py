@@ -349,7 +349,8 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         # Query the DDL for AUTOINCREMENT detection
         ddl = None
         ddl_result = self._executor.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=? AND tbl_name=?",
+            "SELECT sql FROM sqlite_master WHERE type='table' "
+            f"AND name={self.dialect.p()} AND tbl_name={self.dialect.p()}",
             (table_name, table_name),
         )
         if ddl_result and ddl_result[0].get("sql"):
@@ -419,7 +420,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
             filter_condition: Optional[str] = None
             if is_partial:
                 ddl_result = self._executor.execute(
-                    "SELECT sql FROM sqlite_master WHERE type='index' AND name=?",
+                    f"SELECT sql FROM sqlite_master WHERE type='index' AND name={self.dialect.p()}",
                     (idx_name,),
                 )
                 if ddl_result and ddl_result[0].get("sql"):
@@ -525,7 +526,8 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         # Query the DDL for AUTOINCREMENT detection
         ddl = None
         ddl_result = await self._executor.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=? AND tbl_name=?",
+            "SELECT sql FROM sqlite_master WHERE type='table' "
+            f"AND name={self.dialect.p()} AND tbl_name={self.dialect.p()}",
             (table_name, table_name),
         )
         if ddl_result and ddl_result[0].get("sql"):
@@ -595,7 +597,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
             filter_condition: Optional[str] = None
             if is_partial:
                 ddl_result = await self._executor.execute(
-                    "SELECT sql FROM sqlite_master WHERE type='index' AND name=?",
+                    f"SELECT sql FROM sqlite_master WHERE type='index' AND name={self.dialect.p()}",
                     (idx_name,),
                 )
                 if ddl_result and ddl_result[0].get("sql"):

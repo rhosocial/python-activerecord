@@ -88,14 +88,14 @@ class SQLiteDateTimeMixin:
         """Format datetime interval addition using SQLite modifiers."""
         source_sql, source_params = expr.source.to_sql()
         modifier = self._format_sqlite_interval_modifier(expr.interval, "+")
-        sql = f"datetime({source_sql}, ?)"
+        sql = f"datetime({source_sql}, {self.p()})"
         return self.apply_alias(sql, source_params + (modifier,), expr)
 
     def format_datetime_subtract_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format datetime interval subtraction using SQLite modifiers."""
         source_sql, source_params = expr.source.to_sql()
         modifier = self._format_sqlite_interval_modifier(expr.interval, "-")
-        sql = f"datetime({source_sql}, ?)"
+        sql = f"datetime({source_sql}, {self.p()})"
         return self.apply_alias(sql, source_params + (modifier,), expr)
 
     def format_datetime_diff_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:

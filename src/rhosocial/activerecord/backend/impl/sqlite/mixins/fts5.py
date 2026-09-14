@@ -82,7 +82,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         else:
             match_query = expr.query
 
-        sql = f"{self.format_identifier(expr.table)} MATCH ?"
+        sql = f"{self.format_identifier(expr.table)} MATCH {self.p()}"
         return sql, (match_query,)
 
     def format_fts5_create_virtual_table(self, expr: "SQLiteFTS5CreateVirtualTable") -> Tuple[str, tuple]:
@@ -179,7 +179,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         """
         sql = (
             f"highlight({self.format_identifier(expr.table_name)}, "
-            f"{self.format_identifier(expr.column)}, ?, ?)"
+            f"{self.format_identifier(expr.column)}, {self.p()}, {self.p()})"
         )
         return sql, (expr.prefix_marker, expr.suffix_marker)
 
@@ -194,6 +194,6 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         """
         sql = (
             f"snippet({self.format_identifier(expr.table_name)}, "
-            f"{self.format_identifier(expr.column)}, ?, ?, ?, ?)"
+            f"{self.format_identifier(expr.column)}, {self.p()}, {self.p()}, {self.p()}, {self.p()})"
         )
         return sql, (expr.prefix_marker, expr.suffix_marker, expr.ellipsis, expr.context_tokens)

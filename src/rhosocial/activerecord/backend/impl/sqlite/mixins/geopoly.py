@@ -77,7 +77,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
             Tuple of (SQL string, parameters tuple)
         """
         table = self.format_identifier(expr.table_name)
-        sql = f"SELECT * FROM {table} WHERE geopoly_contains_point(_shape, ?, ?)"
+        sql = f"SELECT * FROM {table} WHERE geopoly_contains_point(_shape, {self.p()}, {self.p()})"
         return sql, (expr.longitude, expr.latitude)
 
     def format_geopoly_area_expression(self, expr: "SQLiteGeopolyAreaExpression") -> Tuple[str, tuple]:
