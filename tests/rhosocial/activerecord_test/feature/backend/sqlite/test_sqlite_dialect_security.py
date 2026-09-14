@@ -204,14 +204,18 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
 
 def test_format_drop_virtual_table_normal(dialect):
     """Drop virtual table with normal table name."""
-    sql, params = dialect.format_drop_virtual_table("my_fts_table", if_exists=False)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
+    expr = DropVirtualTableExpression(dialect, table_name="my_fts_table", if_exists=False)
+    sql, params = expr.to_sql()
     assert sql == 'DROP TABLE "my_fts_table"'
     assert params == ()
 
 
 def test_format_drop_virtual_table_if_exists(dialect):
     """Drop virtual table with IF EXISTS."""
-    sql, params = dialect.format_drop_virtual_table("my_fts_table", if_exists=True)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
+    expr = DropVirtualTableExpression(dialect, table_name="my_fts_table", if_exists=True)
+    sql, params = expr.to_sql()
     assert sql == 'DROP TABLE IF EXISTS "my_fts_table"'
     assert params == ()
 
@@ -222,7 +226,9 @@ def test_format_drop_virtual_table_with_malicious_name(dialect):
     Before fix: f'DROP TABLE "{table_name}"' — no escaping of internal ".
     After fix: uses format_identifier which escapes " to "".
     """
-    sql, params = dialect.format_drop_virtual_table('t"; DROP TABLE users--', if_exists=False)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
+    expr = DropVirtualTableExpression(dialect, table_name='t"; DROP TABLE users--', if_exists=False)
+    sql, params = expr.to_sql()
     assert "DROP TABLE" not in sql.split('"')[1::2] if len(sql.split('"')) > 2 else "DROP TABLE users" not in sql
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
 

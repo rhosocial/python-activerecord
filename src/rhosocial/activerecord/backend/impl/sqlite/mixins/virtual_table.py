@@ -5,9 +5,12 @@ SQLite-specific Virtual Table implementation.
 This module provides the SQLiteVirtualTableMixin class.
 """
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Set, Tuple, TYPE_CHECKING
 
 from .extension import SQLiteExtensionMixin
+
+if TYPE_CHECKING:
+    from ..expression.virtual_table import CreateVirtualTableExpression, DropVirtualTableExpression
 
 _KNOWN_VTABLE_MODULES: Set[str] = {
     "rtree", "fts5", "fts4", "fts3", "geopoly",
@@ -104,18 +107,12 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
 
     def format_create_virtual_table(
         self,
-        module: str,
-        table_name: str,
-        columns: List[str],
-        options: Optional[Dict[str, Any]] = None,
+        expr: "CreateVirtualTableExpression",
     ) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement.
 
         Args:
-            module: Virtual table module (rtree, fts5, geopoly, etc.)
-            table_name: Name of the virtual table
-            columns: List of column names
-            options: Optional module-specific options
+            expr: CreateVirtualTableExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -123,29 +120,27 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         Raises:
             ValueError: If module name contains unsafe characters
         """
-        if module not in _KNOWN_VTABLE_MODULES and not module.isidentifier():
-            raise ValueError(f"Unsafe virtual table module name: {module!r}")
-        name = self.format_identifier(table_name)
-        cols = ", ".join(self.format_identifier(c) for c in columns)
-        sql = f"CREATE VIRTUAL TABLE {name} USING {module}({cols})"
+        if expr.module not in _KNOWN_VTABLE_MODULES and not expr.module.isidentifier():
+            raise ValueError(f"Unsafe virtual table module name: {expr.module!r}")
+        name = self.format_identifier(expr.table_name)
+        cols = ", ".join(self.format_identifier(c) for c in expr.columns)
+        sql = f"CREATE VIRTUAL TABLE {name} USING {expr.module}({cols})"
         return sql, ()
 
     def format_drop_virtual_table(
         self,
-        table_name: str,
-        if_exists: bool = False,
+        expr: "DropVirtualTableExpression",
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for a virtual table.
 
         Args:
-            table_name: Name of the virtual table
-            if_exists: Add IF EXISTS clause
+            expr: DropVirtualTableExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        name = self.format_identifier(table_name)
-        if if_exists:
+        name = self.format_identifier(expr.table_name)
+        if expr.if_exists:
             return f"DROP TABLE IF EXISTS {name}", ()
         return f"DROP TABLE {name}", ()
 
@@ -154,6 +149,6 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         expr,
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate (delegates to FTS5Mixin)."""
-        return self.format_fts5_match_expression(expr.table, expr.query, expr.columns, expr.negate)
+        return self.format_fts5_match_expression(expr)
 
 

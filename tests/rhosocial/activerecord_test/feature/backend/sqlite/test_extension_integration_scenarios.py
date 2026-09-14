@@ -22,6 +22,7 @@ from rhosocial.activerecord.backend.impl.sqlite.protocols import (
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5CreateVirtualTable,
     SQLiteMatchPredicate,
+    DropVirtualTableExpression,
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
     SQLiteGeopolyCreateVirtualTable,
@@ -223,10 +224,10 @@ class TestGeoDocumentScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *dialect.format_drop_virtual_table("docs_fts"), options=ddl
+            *DropVirtualTableExpression(dialect, table_name="docs_fts").to_sql(), options=ddl
         )
         backend.execute(
-            *dialect.format_drop_virtual_table("doc_locations"), options=ddl
+            *DropVirtualTableExpression(dialect, table_name="doc_locations").to_sql(), options=ddl
         )
 
 
@@ -390,10 +391,10 @@ class TestGeofencingScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *dialect.format_drop_virtual_table("zones"), options=ddl
+            *DropVirtualTableExpression(dialect, table_name="zones").to_sql(), options=ddl
         )
         backend.execute(
-            *dialect.format_drop_virtual_table("zone_fts"), options=ddl
+            *DropVirtualTableExpression(dialect, table_name="zone_fts").to_sql(), options=ddl
         )
 
 
@@ -582,5 +583,5 @@ class TestSpatialCatalogScenario:
         # --- Cleanup ---
         for tbl in ["features_rtree", "features_fts"]:
             backend.execute(
-                *dialect.format_drop_virtual_table(tbl), options=ddl
+                *DropVirtualTableExpression(dialect, table_name=tbl).to_sql(), options=ddl
             )
