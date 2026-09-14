@@ -273,7 +273,6 @@ class CreateTableExpression(BaseExpression):
         storage_options: Optional[
             Dict[str, Any]
         ] = None,  # Storage parameters (PostgreSQL WITH options, MySQL ENGINE options)
-        as_query: Optional["QueryExpression"] = None,  # Create table AS query result
         *,  # Force keyword arguments
         partition: Optional["PartitionClause"] = None,  # Table partitioning specification
         dialect_options: Optional[Dict[str, Any]] = None,
@@ -299,7 +298,6 @@ class CreateTableExpression(BaseExpression):
         if partition is not None and not isinstance(partition, PartitionClause):
             raise TypeError(f"partition must be a PartitionClause instance, got {type(partition).__name__}")
         self.partition = partition
-        self.as_query = as_query  # Query to base table on (for CREATE TABLE AS)
         self.dialect_options = dialect_options or {}  # Dialect-specific options
         self.on_commit_delete = on_commit_delete  # Firebird: ON COMMIT DELETE/PRESERVE ROWS
         self.external_file = external_file  # Firebird: EXTERNAL FILE clause
@@ -313,6 +311,225 @@ class CreateTableExpression(BaseExpression):
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_create_table_statement"
+
+
+def _normalize_table_reference(
+    dialect: "SQLDialectBase",
+    ref: Union[str, "TableExpression", Tuple[str, str]],
+) -> "TableExpression":
+    """Normalize a table reference into a :class:`TableExpression`.
+
+    Accepts the three forms used across the CREATE TABLE family:
+
+    * ``str`` -- bare table name (``"users"``);
+    * ``TableExpression`` -- already structured (returned unchanged);
+    * ``tuple`` -- ``(schema_name, table_name)`` pair.
+    """
+    if isinstance(ref, TableExpression):
+        return ref
+    if isinstance(ref, str):
+        return TableExpression(dialect, ref)
+    if isinstance(ref, tuple) and len(ref) == 2:
+        return TableExpression(dialect, ref[1], schema_name=ref[0])
+    raise TypeError(
+        f"table reference must be str, TableExpression or (schema, table) tuple, "
+        f"got {type(ref).__name__}"
+    )
+
+
+class CreateTableAsExpression(BaseExpression):
+    """Represents ``CREATE TABLE ... AS <query>`` (CTAS).
+
+    The table's structure is derived from the result of a query.  Unlike the
+    explicit-schema form (:class:`CreateTableExpression`), the body is a query,
+    not a column list.
+
+    Rendering is delegated to the dialect's ``format_create_table_as_statement``.
+    The generic implementation emits ``AS <query>`` **without parentheses**
+    (parenthesising the query is rejected by SQLite and several other engines).
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_table_as_statement"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table: Union[str, "TableExpression"],
+        as_query: "QueryExpression",
+        *,
+        columns: Optional[List[ColumnDefinition]] = None,
+        temporary: bool = False,
+        if_not_exists: bool = False,
+        storage_options: Optional[Dict[str, Any]] = None,
+        with_data: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(dialect)
+        self.table = _normalize_table_reference(dialect, table)
+        if as_query is None:
+            raise ValueError("as_query is required for CreateTableAsExpression")
+        self.as_query = as_query
+        self.columns = list(columns or [])
+        self.temporary = temporary
+        self.if_not_exists = if_not_exists
+        self.storage_options = storage_options or {}
+        self.with_data = with_data
+        self.dialect_options = dialect_options or {}
+
+    @property
+    def table_name(self) -> str:
+        """Get the target table name."""
+        return self.table.name
+
+
+class CreateTableLikeExpression(BaseExpression):
+    """Represents ``CREATE TABLE ... LIKE <source_table>``.
+
+    Creates a new empty table copying the *definition* (column attributes,
+    indexes) of an existing table, without copying data.  This is a vendor
+    extension with no SQL-standard syntax:
+
+    * MySQL / MariaDB: ``CREATE TABLE t LIKE src``
+    * Snowflake:       ``CREATE TABLE t LIKE src [COPY GRANTS]``
+    * BigQuery:        ``CREATE TABLE t LIKE src [OPTIONS (...)]``
+    * PostgreSQL:      clause form ``CREATE TABLE t (LIKE src [INCLUDING ...])``
+    * ClickHouse:      uses ``AS src`` / ``CLONE AS src`` -- model through
+      :class:`CreateTableAsExpression` / :class:`CreateTableCloneExpression`,
+      not this class.
+
+    The generic ``format_create_table_like_statement`` raises
+    :class:`UnsupportedFeatureError`; dialects that support the form override it.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_table_like_statement"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table: Union[str, "TableExpression"],
+        like_table: Union[str, "TableExpression", Tuple[str, str]],
+        *,
+        temporary: bool = False,
+        if_not_exists: bool = False,
+        like_options: Optional[Any] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(dialect)
+        self.table = _normalize_table_reference(dialect, table)
+        self.like_table = _normalize_table_reference(dialect, like_table)
+        self.temporary = temporary
+        self.if_not_exists = if_not_exists
+        # PostgreSQL-specific INCLUDING/EXCLUDING options (dict or list).
+        self.like_options = like_options
+        self.dialect_options = dialect_options or {}
+
+    @property
+    def table_name(self) -> str:
+        """Get the target table name."""
+        return self.table.name
+
+
+class CreateTableCloneMode(Enum):
+    """Mode of a definition/data copy operation."""
+
+    CLONE = "CLONE"
+    COPY = "COPY"
+
+
+class CreateTableCloneExpression(BaseExpression):
+    """Represents ``CREATE TABLE ... CLONE/COPY <source_table>``.
+
+    Zero-copy (or metadata/data copy) creation from an existing table:
+
+    * Snowflake: ``CREATE TABLE t CLONE src [AT|BEFORE (...)] [COPY GRANTS]``
+    * BigQuery:  ``CREATE TABLE t CLONE src`` / ``CREATE TABLE t COPY src``
+    * ClickHouse: ``CREATE TABLE t CLONE AS src``
+
+    ``mode`` selects CLONE vs COPY where a dialect distinguishes them.
+    ``at`` / ``before`` carry time-travel specifications (Snowflake/BigQuery).
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_table_clone_statement"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table: Union[str, "TableExpression"],
+        source_table: Union[str, "TableExpression", Tuple[str, str]],
+        *,
+        mode: CreateTableCloneMode = CreateTableCloneMode.CLONE,
+        temporary: bool = False,
+        if_not_exists: bool = False,
+        at: Optional[Any] = None,
+        before: Optional[Any] = None,
+        copy_grants: bool = False,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(dialect)
+        if not isinstance(mode, CreateTableCloneMode):
+            raise TypeError(f"mode must be a CreateTableCloneMode, got {type(mode).__name__}")
+        self.table = _normalize_table_reference(dialect, table)
+        self.source_table = _normalize_table_reference(dialect, source_table)
+        self.mode = mode
+        self.temporary = temporary
+        self.if_not_exists = if_not_exists
+        self.at = at
+        self.before = before
+        self.copy_grants = copy_grants
+        self.dialect_options = dialect_options or {}
+
+    @property
+    def table_name(self) -> str:
+        """Get the target table name."""
+        return self.table.name
+
+
+class CreateTableFromTemplateExpression(BaseExpression):
+    """Represents Snowflake ``CREATE TABLE ... USING TEMPLATE <query>``.
+
+    Derives the table's column definitions from staged files described by a
+    query (typically ``INFER_SCHEMA``).  Dialects that do not support this form
+    raise :class:`UnsupportedFeatureError` from
+    ``format_create_table_using_template``.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_table_using_template"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table: Union[str, "TableExpression"],
+        template: "QueryExpression",
+        *,
+        temporary: bool = False,
+        if_not_exists: bool = False,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(dialect)
+        self.table = _normalize_table_reference(dialect, table)
+        if template is None:
+            raise ValueError("template is required for CreateTableFromTemplateExpression")
+        self.template = template
+        self.temporary = temporary
+        self.if_not_exists = if_not_exists
+        self.dialect_options = dialect_options or {}
+
+    @property
+    def table_name(self) -> str:
+        """Get the target table name."""
+        return self.table.name
 
 
 class DropTableExpression(BaseExpression):

@@ -11,6 +11,11 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     FunctionCall,
     CreateTableExpression,
+    CreateTableAsExpression,
+    CreateTableLikeExpression,
+    CreateTableCloneExpression,
+    CreateTableFromTemplateExpression,
+    CreateTableCloneMode,
     ColumnDefinition,
     IndexDefinition,
 )
@@ -349,7 +354,7 @@ class TestCreateTableStatements:
         assert params == ()
 
     def test_create_table_as_query_result(self, dummy_dialect: DummyDialect):
-        """Tests CREATE TABLE AS with a query result."""
+        """Tests CREATE TABLE AS with a query result (CTAS)."""
         where_clause = WhereClause(
             dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         )
@@ -360,18 +365,69 @@ class TestCreateTableStatements:
             where=where_clause,
         )
 
-        columns: List[ColumnDefinition] = [  # For CREATE TABLE AS, columns list may be empty since they're defined by the query
-            # Note: In a real CREATE TABLE AS, column definitions come from the query results
-        ]
-
-        create_table_expr = CreateTableExpression(dummy_dialect, table="active_users", columns=columns, as_query=query)
+        create_table_expr = CreateTableAsExpression(dummy_dialect, table="active_users", as_query=query)
         sql, params = create_table_expr.to_sql()
 
-        # Should have AS subquery part
-        assert "AS (" in sql
+        # Query is rendered without parentheses (portable form).
+        assert "AS SELECT" in sql
+        assert "AS (" not in sql
         assert 'SELECT "id", "name" FROM "users"' in sql
         assert 'WHERE "status" = ?' in sql
         assert params == ("active",)
+
+    def test_create_table_as_with_no_data(self, dummy_dialect: DummyDialect):
+        """Tests CREATE TABLE AS ... WITH NO DATA."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Literal(dummy_dialect, 1)],
+        )
+        expr = CreateTableAsExpression(dummy_dialect, table="t", as_query=query, with_data=False)
+        sql, params = expr.to_sql()
+        assert sql.endswith("WITH NO DATA")
+        assert params == (1,)
+
+    def test_create_table_like_unsupported_raises(self, dummy_dialect: DummyDialect):
+        """The generic LIKE renderer fails fast on unsupported dialects."""
+        expr = CreateTableLikeExpression(dummy_dialect, table="copy", like_table="users")
+        with pytest.raises(UnsupportedFeatureError):
+            expr.to_sql()
+
+    def test_create_table_like_normalizes_references(self, dummy_dialect: DummyDialect):
+        """Source may be a str, TableExpression, or (schema, table) tuple."""
+        expr = CreateTableLikeExpression(
+            dummy_dialect, table="copy", like_table=("sales", "users")
+        )
+        assert expr.table_name == "copy"
+        assert expr.like_table.schema_name == "sales"
+        assert expr.like_table.name == "users"
+
+    def test_create_table_clone_unsupported_raises(self, dummy_dialect: DummyDialect):
+        expr = CreateTableCloneExpression(dummy_dialect, table="clone_t", source_table="src")
+        with pytest.raises(UnsupportedFeatureError):
+            expr.to_sql()
+
+    def test_create_table_from_template_unsupported_raises(self, dummy_dialect: DummyDialect):
+        query = QueryExpression(dummy_dialect, select=[Literal(dummy_dialect, 1)])
+        expr = CreateTableFromTemplateExpression(dummy_dialect, table="t", template=query)
+        with pytest.raises(UnsupportedFeatureError):
+            expr.to_sql()
+
+    def test_create_table_clone_mode_requires_type(self, dummy_dialect: DummyDialect):
+        with pytest.raises(TypeError):
+            CreateTableCloneExpression(
+                dummy_dialect, table="t", source_table="src", mode="CLONE"
+            )
+
+    def test_create_table_rejects_legacy_like_option(self, dummy_dialect: DummyDialect):
+        """Legacy dialect_options['like_table'] fails fast instead of silent empty SQL."""
+        expr = CreateTableExpression(
+            dummy_dialect,
+            table="t",
+            columns=[],
+            dialect_options={"like_table": "src"},
+        )
+        with pytest.raises(UnsupportedFeatureError):
+            expr.to_sql()
 
     def test_create_table_with_indexes(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with indexes."""

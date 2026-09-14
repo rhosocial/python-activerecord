@@ -5,6 +5,10 @@ from typing import Any, List, Tuple, TYPE_CHECKING
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
         CreateTableExpression,
+        CreateTableAsExpression,
+        CreateTableLikeExpression,
+        CreateTableCloneExpression,
+        CreateTableFromTemplateExpression,
         DropTableExpression,
         AlterTableExpression,
     )
@@ -160,7 +164,30 @@ class TableMixin:
         """
         return False
 
-    def format_create_table_like(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
+    def supports_create_table_as(self) -> bool:
+        """Whether ``CREATE TABLE ... AS <query>`` (CTAS) is supported.
+
+        Defaults to ``True``: CTAS is broadly portable and the generic
+        renderer emits the portable ``AS <query>`` form (no parentheses).
+        """
+        return True
+
+    def supports_create_table_clone(self) -> bool:
+        """Whether ``CREATE TABLE ... CLONE/COPY`` is supported.
+
+        Defaults to ``False``; backends with zero-copy clone (Snowflake,
+        BigQuery, ClickHouse) override this to return ``True``.
+        """
+        return False
+
+    def supports_create_table_using_template(self) -> bool:
+        """Whether ``CREATE TABLE ... USING TEMPLATE`` is supported.
+
+        Defaults to ``False``; only Snowflake implements it.
+        """
+        return False
+
+    def format_create_table_like_statement(self, expr: "CreateTableLikeExpression") -> Tuple[str, tuple]:
         """Format a ``CREATE TABLE ... LIKE`` statement.
 
         ``CREATE TABLE ... LIKE`` is a vendor extension with no SQL-standard
@@ -169,8 +196,8 @@ class TableMixin:
         all others raise :class:`UnsupportedFeatureError`.
 
         Args:
-            expr: The CREATE TABLE expression carrying the ``like_table``
-                entry in ``dialect_options``.
+            expr: The CREATE TABLE ... LIKE expression carrying the target
+                ``table`` and the source ``like_table``.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for overriding dialects.
@@ -182,17 +209,57 @@ class TableMixin:
         from ..exceptions import UnsupportedFeatureError
         raise UnsupportedFeatureError(self.name, "CREATE TABLE ... LIKE")
 
+    def format_create_table_clone_statement(self, expr: "CreateTableCloneExpression") -> Tuple[str, tuple]:
+        """Format a ``CREATE TABLE ... CLONE/COPY`` statement.
+
+        Zero-copy / metadata-copy creation has no SQL-standard syntax and no
+        cross-vendor commonality. Dialects that advertise
+        :meth:`supports_create_table_clone` override this method; all others
+        raise :class:`UnsupportedFeatureError`.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                ``CREATE TABLE ... CLONE`` / ``COPY``.
+        """
+        from ..exceptions import UnsupportedFeatureError
+        raise UnsupportedFeatureError(self.name, "CREATE TABLE ... CLONE/COPY")
+
+    def format_create_table_using_template(self, expr: "CreateTableFromTemplateExpression") -> Tuple[str, tuple]:
+        """Format a ``CREATE TABLE ... USING TEMPLATE`` statement.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                ``CREATE TABLE ... USING TEMPLATE``.
+        """
+        from ..exceptions import UnsupportedFeatureError
+        raise UnsupportedFeatureError(self.name, "CREATE TABLE ... USING TEMPLATE")
+
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement (generic implementation).
 
         Args:
             expr: CreateTableExpression carrying the table reference, column
                 definitions, constraints, and optional storage, tablespace,
-                inherits, partition, and as-query clauses.
+                inherits, and partition clauses.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If the legacy ``like_table`` option is
+                present. CTAS and LIKE are modelled as dedicated expressions
+                (:class:`CreateTableAsExpression` / :class:`CreateTableLikeExpression`);
+                the explicit-schema form no longer carries them.
         """
+        dialect_options = getattr(expr, "dialect_options", None) or {}
+        if "like_table" in dialect_options:
+            from ..exceptions import UnsupportedFeatureError
+            raise UnsupportedFeatureError(
+                self.name,
+                "CREATE TABLE ... LIKE via CreateTableExpression",
+                "use CreateTableLikeExpression instead",
+            )
+
         all_params: List[Any] = []
         temp_part = "TEMPORARY " if expr.temporary else ""
         not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
@@ -229,11 +296,57 @@ class TableMixin:
             if partition_sql:
                 parts.append(partition_sql)
                 all_params.extend(partition_params)
-        if expr.as_query:
-            query_sql, query_params = expr.as_query.to_sql()
-            parts.append(f" AS ({query_sql})")
-            all_params.extend(query_params)
         return "".join(parts), tuple(all_params)
+
+    def format_create_table_as_statement(self, expr: "CreateTableAsExpression") -> Tuple[str, tuple]:
+        """Format ``CREATE TABLE ... AS <query>`` (generic CTAS implementation).
+
+        Emits the portable form::
+
+            CREATE [TEMPORARY] TABLE [IF NOT EXISTS] <table>
+                [<storage options>] AS <query> [WITH [NO] DATA]
+
+        The query is rendered **without parentheses** -- parenthesising is
+        rejected by SQLite (and several other engines). ``WITH [NO] DATA`` is
+        only appended when :attr:`CreateTableAsExpression.with_data` is set
+        (PostgreSQL semantics).
+
+        Args:
+            expr: CreateTableAsExpression carrying the target table and query.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_create_table_as():
+            raise UnsupportedFeatureError(self.name, "CREATE TABLE ... AS")
+
+        all_params: List[Any] = []
+        temp_part = "TEMPORARY " if expr.temporary else ""
+        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
+        table_sql, table_params = expr.table.to_sql()
+        all_params.extend(table_params)
+        parts = [f"CREATE {temp_part}TABLE {not_exists_part}{table_sql}"]
+
+        if expr.storage_options:
+            from ...expression.statements import StorageOptionsExpression
+            storage_expr = StorageOptionsExpression(self, expr.storage_options)
+            storage_sql, storage_params = self.format_storage_options(storage_expr)
+            if storage_sql:
+                parts.append(storage_sql)
+                all_params.extend(storage_params)
+
+        query_sql, query_params = expr.as_query.to_sql()
+        parts.append(f"AS {query_sql}")
+        all_params.extend(query_params)
+
+        if expr.with_data is True:
+            parts.append(" WITH DATA")
+        elif expr.with_data is False:
+            parts.append(" WITH NO DATA")
+
+        return " ".join(parts), tuple(all_params)
 
     def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
         """Format DROP TABLE statement (generic implementation).

@@ -67,6 +67,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..expression.advanced_functions import OrderedSetAggregation, ArrayExpression
     from ..expression.statements import (
         CreateTableExpression,
+        CreateTableAsExpression,
+        CreateTableLikeExpression,
+        CreateTableCloneExpression,
+        CreateTableFromTemplateExpression,
         DropTableExpression,
         AlterTableExpression,
         CreateViewExpression,
@@ -1195,8 +1199,40 @@ class TableSupport(Protocol):
         """Whether CREATE TABLE ... LIKE (or equivalent) is supported."""
         ...  # pragma: no cover
 
-    def format_create_table_like(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
+    def format_create_table_like_statement(
+        self, expr: "CreateTableLikeExpression"
+    ) -> Tuple[str, tuple]:
         """Format CREATE TABLE ... LIKE statement."""
+        ...  # pragma: no cover
+
+    def supports_create_table_as(self) -> bool:
+        """Whether CREATE TABLE ... AS <query> (CTAS) is supported."""
+        ...  # pragma: no cover
+
+    def format_create_table_as_statement(
+        self, expr: "CreateTableAsExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TABLE ... AS <query> (CTAS) statement."""
+        ...  # pragma: no cover
+
+    def supports_create_table_clone(self) -> bool:
+        """Whether CREATE TABLE ... CLONE/COPY is supported."""
+        ...  # pragma: no cover
+
+    def format_create_table_clone_statement(
+        self, expr: "CreateTableCloneExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TABLE ... CLONE/COPY statement."""
+        ...  # pragma: no cover
+
+    def supports_create_table_using_template(self) -> bool:
+        """Whether CREATE TABLE ... USING TEMPLATE is supported."""
+        ...  # pragma: no cover
+
+    def format_create_table_using_template(
+        self, expr: "CreateTableFromTemplateExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TABLE ... USING TEMPLATE statement."""
         ...  # pragma: no cover
 
 

@@ -46,6 +46,11 @@ from .ddl_table import (
     ForeignKeyConstraint,
     IndexDefinition,
     CreateTableExpression,
+    CreateTableAsExpression,
+    CreateTableLikeExpression,
+    CreateTableCloneExpression,
+    CreateTableFromTemplateExpression,
+    CreateTableCloneMode,
     DropTableExpression,
     StorageOptionsExpression,
 )
@@ -165,6 +170,11 @@ __all__ = [
     "ForeignKeyConstraint",
     "IndexDefinition",
     "CreateTableExpression",
+    "CreateTableAsExpression",
+    "CreateTableLikeExpression",
+    "CreateTableCloneExpression",
+    "CreateTableFromTemplateExpression",
+    "CreateTableCloneMode",
     "DropTableExpression",
     "StorageOptionsExpression",
     # ALTER TABLE DDL
