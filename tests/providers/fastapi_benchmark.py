@@ -27,6 +27,14 @@ from rhosocial.activerecord.testsuite.utils import select_fixture
 
 from .scenarios import get_enabled_scenarios, get_scenario
 
+# SQLite serialises writers: WAL permits a single writer at a time. The
+# ``pool-over-max`` scenario drives more concurrent requests (30) than the pool
+# has connections (20) against one database file, so writers queue on the write
+# lock. The default 5s busy timeout is too tight on slow CI disks because
+# ``synchronous=FULL`` fsyncs every commit, which produced sporadic
+# "database is locked" failures. Give contending writers ample time to drain.
+FASTAPI_SQLITE_BUSY_TIMEOUT = 30.0
+
 AsyncBenchmarkUser310 = None
 AsyncBenchmarkUser311 = None
 AsyncBenchmarkUser312 = None
@@ -165,6 +173,7 @@ class FastAPIBenchmarkProvider:
             database=unique_filename,
             delete_on_close=False and not should_keep_database(scenario),
             pragmas=original_config.pragmas,
+            timeout=FASTAPI_SQLITE_BUSY_TIMEOUT,
         )
 
     async def _initialize_schema_async(self, model_class):
