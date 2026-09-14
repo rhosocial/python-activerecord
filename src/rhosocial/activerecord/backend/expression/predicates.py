@@ -7,7 +7,7 @@ and holds construction parameters. Rendering is centralized in
 ``BaseExpression.to_sql()``.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams
 
@@ -129,6 +129,43 @@ class IsNullPredicate(SQLPredicate):
         super().__init__(dialect)
         self.expr = expr
         self.is_not = is_not
+
+
+class ILIKEExpression(SQLPredicate):
+    """Represents a dialect-dispatched ILIKE (case-insensitive LIKE) predicate.
+
+    Unlike :class:`LikePredicate` (which always renders through the generic
+    ``format_like_predicate``), this node delegates to the dialect's
+    ``format_ilike_expression`` hook so a dialect can emit a native ``ILIKE``
+    operator or a portable ``LOWER(...) LIKE LOWER(...)`` fallback.
+
+    Attributes:
+        column: Column name or expression with ``to_sql()``.
+        pattern: Pattern string; compared case-insensitively.
+        negate: If True, renders ``NOT LIKE`` instead of ``LIKE``.
+
+    Example:
+        >>> expr = ILIKEExpression(dialect, Column(dialect, "name"), "John%")
+        >>> expr.to_sql()
+        ('LOWER("name") LIKE LOWER(?)', ('john%',))
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_ilike_expression"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        column: Any,
+        pattern: str,
+        negate: bool = False,
+    ):
+        super().__init__(dialect)
+        self.column = column
+        self.pattern = pattern
+        self.negate = negate
 
 
 class IsBooleanPredicate(SQLPredicate):

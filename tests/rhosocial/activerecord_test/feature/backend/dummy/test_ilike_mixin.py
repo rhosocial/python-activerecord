@@ -2,7 +2,7 @@
 """Tests for ILIKEMixin format methods."""
 
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression import Column, ILIKEExpression
 
 
 class TestILIKEMixinFormatMethods:
@@ -14,7 +14,8 @@ class TestILIKEMixinFormatMethods:
 
     def test_format_ilike_basic(self, dummy_dialect: DummyDialect):
         """Tests basic ILIKE expression formatting (uses LOWER())."""
-        sql, params = dummy_dialect.format_ilike_expression("name", "John%")
+        expr = ILIKEExpression(dummy_dialect, Column(dummy_dialect, "name"), "John%")
+        sql, params = expr.to_sql()
 
         assert 'LOWER("name")' in sql
         assert "LIKE" in sql
@@ -23,7 +24,8 @@ class TestILIKEMixinFormatMethods:
 
     def test_format_ilike_with_negate(self, dummy_dialect: DummyDialect):
         """Tests ILIKE expression with NOT (negate=True)."""
-        sql, params = dummy_dialect.format_ilike_expression("name", "John%", negate=True)
+        expr = ILIKEExpression(dummy_dialect, Column(dummy_dialect, "name"), "John%", negate=True)
+        sql, params = expr.to_sql()
 
         assert 'LOWER("name")' in sql
         assert "NOT LIKE" in sql
@@ -31,8 +33,8 @@ class TestILIKEMixinFormatMethods:
 
     def test_format_ilike_with_column_expression(self, dummy_dialect: DummyDialect):
         """Tests ILIKE expression with Column expression."""
-        column = Column(dummy_dialect, "email")
-        sql, params = dummy_dialect.format_ilike_expression(column, "%@example.com")
+        expr = ILIKEExpression(dummy_dialect, Column(dummy_dialect, "email"), "%@example.com")
+        sql, params = expr.to_sql()
 
         assert '"email"' in sql
         assert "LIKE" in sql
@@ -40,8 +42,10 @@ class TestILIKEMixinFormatMethods:
 
     def test_format_ilike_with_negate_and_column(self, dummy_dialect: DummyDialect):
         """Tests NOT ILIKE expression with Column expression."""
-        column = Column(dummy_dialect, "status")
-        sql, params = dummy_dialect.format_ilike_expression(column, "active%", negate=True)
+        expr = ILIKEExpression(
+            dummy_dialect, Column(dummy_dialect, "status"), "active%", negate=True
+        )
+        sql, params = expr.to_sql()
 
         assert '"status"' in sql
         assert "NOT LIKE" in sql
@@ -49,14 +53,16 @@ class TestILIKEMixinFormatMethods:
 
     def test_format_ilike_case_insensitive_matching(self, dummy_dialect: DummyDialect):
         """Tests that ILIKE pattern matching converts to lowercase."""
-        sql, params = dummy_dialect.format_ilike_expression("name", "John%")
+        expr = ILIKEExpression(dummy_dialect, Column(dummy_dialect, "name"), "John%")
+        sql, params = expr.to_sql()
 
         assert "LIKE" in sql
         assert params == ("john%",)
 
     def test_format_ilike_string_column(self, dummy_dialect: DummyDialect):
-        """Tests ILIKE with string column name."""
-        sql, params = dummy_dialect.format_ilike_expression("username", "admin%")
+        """Tests ILIKE with a bare string column name held by the expression."""
+        expr = ILIKEExpression(dummy_dialect, "username", "admin%")
+        sql, params = expr.to_sql()
 
         assert '"username"' in sql
         assert "LIKE" in sql

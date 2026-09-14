@@ -34,6 +34,7 @@ if TYPE_CHECKING:  # pragma: no cover
         AlterPropertyGraphExpression,
         JoinClause,
         JSONExpression,
+        ILIKEExpression,
         WindowFunctionCall,
         WindowSpecification,
         WindowFrameSpecification,
@@ -1810,14 +1811,13 @@ class ILIKESupport(Protocol):
         """Whether ILIKE operator is supported."""
         ...  # pragma: no cover
 
-    def format_ilike_expression(self, column: Any, pattern: str, negate: bool = False) -> Tuple[str, Tuple]:
+    def format_ilike_expression(self, expr: "ILIKEExpression") -> Tuple[str, Tuple]:
         """
         Format ILIKE expression (case-insensitive pattern matching).
 
         Args:
-            column: Column expression or name
-            pattern: Pattern to match (with % and _ wildcards)
-            negate: If True, format NOT ILIKE expression
+            expr: The ILIKE expression node carrying column, pattern and
+                negate state.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
