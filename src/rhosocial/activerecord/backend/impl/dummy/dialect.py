@@ -704,6 +704,21 @@ class DummyDialect(
     def supports_if_exists_table(self) -> bool:
         return True
 
+    # The generic TableMixin provides reusable renderings for the CREATE
+    # TABLE family (AS / LIKE / CLONE / USING TEMPLATE); Dummy advertises them
+    # so the generic implementations are exercised end-to-end.
+    def supports_create_table_as(self) -> bool:
+        return True
+
+    def supports_create_table_like(self) -> bool:
+        return True
+
+    def supports_create_table_clone(self) -> bool:
+        return True
+
+    def supports_create_table_using_template(self) -> bool:
+        return True
+
     # Generic partition protocol is exposed through PartitionMixin, but all
     # capabilities stay disabled for dummy because partitioning requires
     # backend-specific storage semantics.

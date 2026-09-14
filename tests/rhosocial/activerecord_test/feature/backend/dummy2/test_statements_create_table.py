@@ -386,9 +386,22 @@ class TestCreateTableStatements:
         assert sql.endswith("WITH NO DATA")
         assert params == (1,)
 
-    def test_create_table_like_unsupported_raises(self, dummy_dialect: DummyDialect):
-        """The generic LIKE renderer fails fast on unsupported dialects."""
+    def test_create_table_like_generic_render(self, dummy_dialect: DummyDialect):
+        """Dummy advertises LIKE, so the generic reusable renderer is exercised."""
         expr = CreateTableLikeExpression(dummy_dialect, table="copy", like_table="users")
+        sql, params = expr.to_sql()
+        assert sql.startswith("CREATE TABLE")
+        assert "LIKE" in sql
+        assert "users" in sql
+        assert params == ()
+
+    def test_create_table_like_unsupported_raises(self):
+        """A dialect with supports_create_table_like False fails fast."""
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        dialect = SQLiteDialect()
+        assert dialect.supports_create_table_like() is False
+        expr = CreateTableLikeExpression(dialect, table="copy", like_table="users")
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
 
@@ -401,14 +414,49 @@ class TestCreateTableStatements:
         assert expr.like_table.schema_name == "sales"
         assert expr.like_table.name == "users"
 
-    def test_create_table_clone_unsupported_raises(self, dummy_dialect: DummyDialect):
-        expr = CreateTableCloneExpression(dummy_dialect, table="clone_t", source_table="src")
+    def test_create_table_clone_generic_render(self, dummy_dialect: DummyDialect):
+        expr = CreateTableCloneExpression(
+            dummy_dialect, table="clone_t", source_table="src", copy_grants=True
+        )
+        sql, params = expr.to_sql()
+        assert "CLONE" in sql
+        assert "COPY GRANTS" in sql
+        assert params == ()
+
+    def test_create_table_clone_unsupported_raises(self):
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        dialect = SQLiteDialect()
+        assert dialect.supports_create_table_clone() is False
+        expr = CreateTableCloneExpression(dialect, table="clone_t", source_table="src")
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
 
-    def test_create_table_from_template_unsupported_raises(self, dummy_dialect: DummyDialect):
+    def test_create_table_clone_mode_selects_copy(self, dummy_dialect: DummyDialect):
+        expr = CreateTableCloneExpression(
+            dummy_dialect,
+            table="copy_t",
+            source_table="src",
+            mode=CreateTableCloneMode.COPY,
+        )
+        sql, _ = expr.to_sql()
+        assert "COPY" in sql
+        assert "CLONE" not in sql
+
+    def test_create_table_from_template_generic_render(self, dummy_dialect: DummyDialect):
         query = QueryExpression(dummy_dialect, select=[Literal(dummy_dialect, 1)])
         expr = CreateTableFromTemplateExpression(dummy_dialect, table="t", template=query)
+        sql, params = expr.to_sql()
+        assert "USING TEMPLATE" in sql
+        assert params == (1,)
+
+    def test_create_table_from_template_unsupported_raises(self):
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        dialect = SQLiteDialect()
+        assert dialect.supports_create_table_using_template() is False
+        query = QueryExpression(dialect, select=[Literal(dialect, 1)])
+        expr = CreateTableFromTemplateExpression(dialect, table="t", template=query)
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
 
@@ -417,17 +465,6 @@ class TestCreateTableStatements:
             CreateTableCloneExpression(
                 dummy_dialect, table="t", source_table="src", mode="CLONE"
             )
-
-    def test_create_table_rejects_legacy_like_option(self, dummy_dialect: DummyDialect):
-        """Legacy dialect_options['like_table'] fails fast instead of silent empty SQL."""
-        expr = CreateTableExpression(
-            dummy_dialect,
-            table="t",
-            columns=[],
-            dialect_options={"like_table": "src"},
-        )
-        with pytest.raises(UnsupportedFeatureError):
-            expr.to_sql()
 
     def test_create_table_with_indexes(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with indexes."""

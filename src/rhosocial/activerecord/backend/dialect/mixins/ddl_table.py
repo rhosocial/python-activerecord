@@ -159,8 +159,10 @@ class TableMixin:
     def supports_create_table_like(self) -> bool:
         """Whether ``CREATE TABLE ... LIKE`` is supported.
 
-        Defaults to ``False``; backends that support the vendor extension
-        override this to return ``True``.
+        Defaults to ``False``. Backends that support the vendor extension
+        override this to return ``True`` and inherit the generic
+        :meth:`format_create_table_like_statement` rendering; backends with a
+        different grammar override the formatter instead.
         """
         return False
 
@@ -188,54 +190,124 @@ class TableMixin:
         return False
 
     def format_create_table_like_statement(self, expr: "CreateTableLikeExpression") -> Tuple[str, tuple]:
-        """Format a ``CREATE TABLE ... LIKE`` statement.
+        """Format ``CREATE TABLE ... LIKE`` (generic reusable implementation).
 
-        ``CREATE TABLE ... LIKE`` is a vendor extension with no SQL-standard
-        syntax, so the core provides no generic rendering. Dialects that
-        advertise :meth:`supports_create_table_like` override this method;
-        all others raise :class:`UnsupportedFeatureError`.
+        Renders the common vendor form::
+
+            CREATE [TEMPORARY] TABLE [IF NOT EXISTS] <table> LIKE <source>
+
+        Dialects that advertise :meth:`supports_create_table_like` inherit
+        this rendering as-is (e.g. MySQL/MariaDB/Snowflake/BigQuery);
+        dialects with a different grammar (PostgreSQL's column-list
+        ``(LIKE ... [INCLUDING ...])`` clause, ClickHouse's ``AS``) override
+        it. Dialects that do not support the form keep
+        :meth:`supports_create_table_like` at ``False``.
+
+        ``expr.like_options`` (PostgreSQL INCLUDING/EXCLUDING) is intentionally
+        ignored here; PostgreSQL overrides this method.
 
         Args:
-            expr: The CREATE TABLE ... LIKE expression carrying the target
-                ``table`` and the source ``like_table``.
+            expr: The LIKE expression carrying the target ``table`` and the
+                source ``like_table``.
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for overriding dialects.
+            Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            UnsupportedFeatureError: If the dialect does not support
-                ``CREATE TABLE ... LIKE``.
+            UnsupportedFeatureError: If :meth:`supports_create_table_like` is
+                False for the dialect.
         """
         from ..exceptions import UnsupportedFeatureError
-        raise UnsupportedFeatureError(self.name, "CREATE TABLE ... LIKE")
+        if not self.supports_create_table_like():
+            raise UnsupportedFeatureError(self.name, "CREATE TABLE ... LIKE")
+        temp_part = "TEMPORARY " if expr.temporary else ""
+        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
+        table_sql, table_params = expr.table.to_sql()
+        source_sql, source_params = expr.like_table.to_sql()
+        parts = [
+            f"CREATE {temp_part}TABLE {not_exists_part}{table_sql}",
+            f"LIKE {source_sql}",
+        ]
+        return " ".join(parts), tuple(table_params) + tuple(source_params)
 
     def format_create_table_clone_statement(self, expr: "CreateTableCloneExpression") -> Tuple[str, tuple]:
-        """Format a ``CREATE TABLE ... CLONE/COPY`` statement.
+        """Format ``CREATE TABLE ... CLONE/COPY`` (generic reusable implementation).
 
-        Zero-copy / metadata-copy creation has no SQL-standard syntax and no
-        cross-vendor commonality. Dialects that advertise
-        :meth:`supports_create_table_clone` override this method; all others
-        raise :class:`UnsupportedFeatureError`.
+        Renders::
+
+            CREATE [TEMPORARY] TABLE [IF NOT EXISTS] <table> {CLONE|COPY} <source>
+                [COPY GRANTS]
+
+        Backends with different grammar (ClickHouse ``CLONE AS``, BigQuery /
+        Snowflake time-travel suffixes) override this method. Dialects that do
+        not support the form keep :meth:`supports_create_table_clone` at
+        ``False``.
+
+        Args:
+            expr: The clone expression carrying the target ``table``, the
+                ``source_table``, the ``mode`` (CLONE/COPY) and ``copy_grants``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            UnsupportedFeatureError: If the dialect does not support
-                ``CREATE TABLE ... CLONE`` / ``COPY``.
+            UnsupportedFeatureError: If :meth:`supports_create_table_clone` is
+                False for the dialect.
         """
         from ..exceptions import UnsupportedFeatureError
-        raise UnsupportedFeatureError(self.name, "CREATE TABLE ... CLONE/COPY")
+        if not self.supports_create_table_clone():
+            raise UnsupportedFeatureError(self.name, "CREATE TABLE ... CLONE/COPY")
+        temp_part = "TEMPORARY " if expr.temporary else ""
+        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
+        table_sql, table_params = expr.table.to_sql()
+        source_sql, source_params = expr.source_table.to_sql()
+        parts = [
+            f"CREATE {temp_part}TABLE {not_exists_part}{table_sql}",
+            f"{expr.mode.value} {source_sql}",
+        ]
+        if expr.copy_grants:
+            parts.append("COPY GRANTS")
+        return " ".join(parts), tuple(table_params) + tuple(source_params)
 
     def format_create_table_using_template(self, expr: "CreateTableFromTemplateExpression") -> Tuple[str, tuple]:
-        """Format a ``CREATE TABLE ... USING TEMPLATE`` statement.
+        """Format ``CREATE TABLE ... USING TEMPLATE`` (generic reusable implementation).
+
+        Renders::
+
+            CREATE [TEMPORARY] TABLE [IF NOT EXISTS] <table>
+                USING TEMPLATE <template>
+
+        Args:
+            expr: The template expression carrying the target ``table`` and the
+                ``template`` query.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            UnsupportedFeatureError: If the dialect does not support
-                ``CREATE TABLE ... USING TEMPLATE``.
+            UnsupportedFeatureError: If
+                :meth:`supports_create_table_using_template` is False for the
+                dialect.
         """
         from ..exceptions import UnsupportedFeatureError
-        raise UnsupportedFeatureError(self.name, "CREATE TABLE ... USING TEMPLATE")
+        if not self.supports_create_table_using_template():
+            raise UnsupportedFeatureError(self.name, "CREATE TABLE ... USING TEMPLATE")
+        temp_part = "TEMPORARY " if expr.temporary else ""
+        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
+        table_sql, table_params = expr.table.to_sql()
+        template_sql, template_params = expr.template.to_sql()
+        parts = [
+            f"CREATE {temp_part}TABLE {not_exists_part}{table_sql}",
+            f"USING TEMPLATE {template_sql}",
+        ]
+        return " ".join(parts), tuple(table_params) + tuple(template_params)
 
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement (generic implementation).
+
+        Handles the explicit-schema form only (columns, constraints, storage,
+        tablespace, inherits, partition). CTAS / LIKE / CLONE have their own
+        expressions and formatters -- this method does not touch them.
 
         Args:
             expr: CreateTableExpression carrying the table reference, column
@@ -244,22 +316,7 @@ class TableMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
-
-        Raises:
-            UnsupportedFeatureError: If the legacy ``like_table`` option is
-                present. CTAS and LIKE are modelled as dedicated expressions
-                (:class:`CreateTableAsExpression` / :class:`CreateTableLikeExpression`);
-                the explicit-schema form no longer carries them.
         """
-        dialect_options = getattr(expr, "dialect_options", None) or {}
-        if "like_table" in dialect_options:
-            from ..exceptions import UnsupportedFeatureError
-            raise UnsupportedFeatureError(
-                self.name,
-                "CREATE TABLE ... LIKE via CreateTableExpression",
-                "use CreateTableLikeExpression instead",
-            )
-
         all_params: List[Any] = []
         temp_part = "TEMPORARY " if expr.temporary else ""
         not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
