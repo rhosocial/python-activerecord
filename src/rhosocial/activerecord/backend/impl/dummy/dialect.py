@@ -99,6 +99,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     FunctionSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -147,6 +148,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     FunctionMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
@@ -217,6 +219,7 @@ class DummyDialect(
     FunctionMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
@@ -272,6 +275,7 @@ class DummyDialect(
     FunctionSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -741,6 +745,12 @@ class DummyDialect(
     def supports_drop_column(self) -> bool:
         return True
 
+    def supports_add_column_if_not_exists(self) -> bool:
+        return True
+
+    def supports_drop_column_if_exists(self) -> bool:
+        return True
+
     def supports_alter_column_type(self) -> bool:
         return True
 
@@ -774,6 +784,12 @@ class DummyDialect(
         return True
 
     def supports_or_replace_view(self) -> bool:
+        return True
+
+    def supports_create_or_replace_view(self) -> bool:
+        return True
+
+    def supports_if_not_exists_view(self) -> bool:
         return True
 
     def supports_temporary_view(self) -> bool:
@@ -947,6 +963,9 @@ class DummyDialect(
     def supports_trigger_if_not_exists(self) -> bool:
         return True
 
+    def supports_trigger_if_exists(self) -> bool:
+        return True
+
     # endregion
 
     # region Function DDL Support
@@ -965,6 +984,12 @@ class DummyDialect(
     def supports_function_parameters(self) -> bool:
         return True
 
+    def supports_drop_function_if_exists(self) -> bool:
+        return True
+
+    def supports_drop_function_cascade(self) -> bool:
+        return True
+
     # endregion
 
     # region Generated Column Support
@@ -975,6 +1000,57 @@ class DummyDialect(
         return True
 
     def supports_virtual_generated_columns(self) -> bool:
+        return True
+
+    # endregion
+
+    # region Database DDL Support
+    def supports_database(self) -> bool:
+        return True
+
+    def supports_create_database(self) -> bool:
+        return True
+
+    def supports_drop_database(self) -> bool:
+        return True
+
+    def supports_alter_database(self) -> bool:
+        return True
+
+    def supports_database_if_not_exists(self) -> bool:
+        return True
+
+    def supports_database_if_exists(self) -> bool:
+        return True
+
+    def supports_database_owner(self) -> bool:
+        return True
+
+    def supports_database_encoding(self) -> bool:
+        return True
+
+    def supports_database_collation(self) -> bool:
+        return True
+
+    def supports_database_comment(self) -> bool:
+        return True
+
+    def supports_database_tablespace(self) -> bool:
+        return True
+
+    def supports_database_template(self) -> bool:
+        return True
+
+    def supports_database_connection_limit(self) -> bool:
+        return True
+
+    def supports_database_force_drop(self) -> bool:
+        return True
+
+    def supports_undrop_database(self) -> bool:
+        return True
+
+    def supports_database_or_replace(self) -> bool:
         return True
 
     # endregion

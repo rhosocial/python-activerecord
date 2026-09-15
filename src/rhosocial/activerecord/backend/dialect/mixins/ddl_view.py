@@ -38,6 +38,14 @@ class ViewMixin:
         """Whether CREATE OR REPLACE VIEW is supported (defaults to False)."""
         return False
 
+    def supports_create_or_replace_view(self) -> bool:
+        """Whether CREATE OR REPLACE VIEW is supported (defaults to False)."""
+        return False
+
+    def supports_if_not_exists_view(self) -> bool:
+        """Whether CREATE VIEW IF NOT EXISTS is supported (defaults to False)."""
+        return False
+
     def supports_temporary_view(self) -> bool:
         """Whether TEMPORARY views are supported (defaults to False)."""
         return False
@@ -81,15 +89,31 @@ class ViewMixin:
             collected from the view's query.
         """
         from ...expression.statements import ViewCheckOption
-        replace_part = "OR REPLACE " if expr.replace else ""
+        from ..exceptions import UnsupportedFeatureError
+        replace_part = ""
+        if expr.replace:
+            if not self.supports_create_or_replace_view():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE OR REPLACE VIEW",
+                    f"{self.name} does not support CREATE OR REPLACE VIEW."
+                )
+            replace_part = "OR REPLACE "
         temporary_part = "TEMPORARY " if expr.temporary else ""
-        sql_parts = [f"CREATE {replace_part}{temporary_part}VIEW {self.format_identifier(expr.view_name)}"]
+        if_not_exists_part = ""
+        if expr.if_not_exists:
+            if not self.supports_if_not_exists_view():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE VIEW IF NOT EXISTS",
+                    f"{self.name} does not support CREATE VIEW IF NOT EXISTS."
+                )
+            if_not_exists_part = "IF NOT EXISTS "
+        sql_parts = [f"CREATE {replace_part}{temporary_part}VIEW {if_not_exists_part}{self.format_identifier(expr.view_name)}"]
         all_params: List[Any] = []
         if expr.column_aliases:
             aliases_str = ", ".join(self.format_identifier(alias) for alias in expr.column_aliases)
             sql_parts.append(f"({aliases_str})")
         query_sql, query_params = expr.query.to_sql()
-        sql_parts.append(f" AS ({query_sql})")
+        sql_parts.append(f" AS {query_sql}")
         all_params.extend(query_params)
         if expr.options.check_option == ViewCheckOption.LOCAL:
             sql_parts.append(" WITH LOCAL CHECK OPTION")
@@ -105,7 +129,22 @@ class ViewMixin:
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                IF EXISTS or CASCADE for DROP VIEW.
         """
+        from ..exceptions import UnsupportedFeatureError
+        if expr.if_exists and not self.supports_if_exists_view():
+            raise UnsupportedFeatureError(
+                self.name, "DROP VIEW IF EXISTS",
+                f"{self.name} does not support DROP VIEW IF EXISTS."
+            )
+        if expr.cascade and not self.supports_cascade_view():
+            raise UnsupportedFeatureError(
+                self.name, "DROP VIEW CASCADE",
+                f"{self.name} does not support DROP VIEW CASCADE."
+            )
         if_exists_part = "IF EXISTS " if expr.if_exists else ""
         cascade_part = " CASCADE" if expr.cascade else ""
         sql = f"DROP VIEW {if_exists_part}{self.format_identifier(expr.view_name)}{cascade_part}"
@@ -135,7 +174,12 @@ class ViewMixin:
             cols = ", ".join(self.format_identifier(c) for c in expr.column_aliases)
             parts.append(f"({cols})")
 
-        if expr.tablespace and self.supports_materialized_view_tablespace():
+        if expr.tablespace:
+            if not self.supports_materialized_view_tablespace():
+                raise UnsupportedFeatureError(
+                    self.name, "MATERIALIZED VIEW TABLESPACE",
+                    f"{self.name} does not support TABLESPACE for materialized views."
+                )
             parts.append(f"TABLESPACE {self.format_identifier(expr.tablespace)}")
 
         query_sql, query_params = expr.query.to_sql()
@@ -230,7 +274,22 @@ class TruncateMixin:
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                RESTART IDENTITY or CASCADE for TRUNCATE.
         """
+        from ..exceptions import UnsupportedFeatureError
+        if expr.restart_identity and not self.supports_truncate_restart_identity():
+            raise UnsupportedFeatureError(
+                self.name, "TRUNCATE RESTART IDENTITY",
+                f"{self.name} does not support TRUNCATE with RESTART IDENTITY."
+            )
+        if expr.cascade and not self.supports_truncate_cascade():
+            raise UnsupportedFeatureError(
+                self.name, "TRUNCATE CASCADE",
+                f"{self.name} does not support TRUNCATE with CASCADE."
+            )
         sql = f"TRUNCATE TABLE {self.format_identifier(expr.table_name)}"
         if expr.restart_identity:
             sql += " RESTART IDENTITY"

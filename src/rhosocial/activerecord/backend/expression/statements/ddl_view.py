@@ -111,6 +111,7 @@ class CreateViewExpression(BaseExpression):
         column_aliases: Optional[List[Union[str, ColumnAlias]]] = None,
         replace: bool = False,  # CREATE OR REPLACE
         temporary: bool = False,  # CREATE TEMPORARY VIEW (some DBs)
+        if_not_exists: bool = False,  # CREATE VIEW IF NOT EXISTS
         options: Optional[ViewOptions] = None,
     ):
         super().__init__(dialect)
@@ -119,6 +120,7 @@ class CreateViewExpression(BaseExpression):
         self.column_aliases = column_aliases or []
         self.replace = replace  # Whether to use CREATE OR REPLACE semantics
         self.temporary = temporary  # Whether to create a temporary view
+        self.if_not_exists = if_not_exists  # Whether to use IF NOT EXISTS
         self.options = options or ViewOptions()
 
     @property

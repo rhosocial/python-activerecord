@@ -135,6 +135,14 @@ class FunctionMixin:
         """Whether function parameter lists are supported (defaults to False)."""
         return False
 
+    def supports_drop_function_if_exists(self) -> bool:
+        """Whether DROP FUNCTION IF EXISTS is supported (defaults to False)."""
+        return False
+
+    def supports_drop_function_cascade(self) -> bool:
+        """Whether DROP FUNCTION CASCADE is supported (defaults to False)."""
+        return False
+
     def supports_functions(self) -> Dict[str, bool]:
         """Return supported SQL functions as function_name -> bool mapping.
 
@@ -167,12 +175,22 @@ class FunctionMixin:
 
         parts = ["CREATE FUNCTION"]
 
-        if expr.or_replace and self.supports_function_or_replace():
+        if expr.or_replace:
+            if not self.supports_function_or_replace():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE OR REPLACE FUNCTION",
+                    f"{self.name} does not support CREATE OR REPLACE FUNCTION."
+                )
             parts.insert(1, "OR REPLACE")
 
         parts.append(self.format_identifier(expr.function_name))
 
-        if expr.parameters and self.supports_function_parameters():
+        if expr.parameters:
+            if not self.supports_function_parameters():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE FUNCTION parameters",
+                    f"{self.name} does not support CREATE FUNCTION parameters."
+                )
             param_strs = []
             for p in expr.parameters:
                 name = p.get("name", "")
@@ -224,6 +242,11 @@ class FunctionMixin:
         parts = ["DROP FUNCTION"]
 
         if expr.if_exists:
+            if not self.supports_drop_function_if_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP FUNCTION IF EXISTS",
+                    f"{self.name} does not support DROP FUNCTION IF EXISTS."
+                )
             parts.append("IF EXISTS")
 
         parts.append(self.format_identifier(expr.function_name))
@@ -233,6 +256,11 @@ class FunctionMixin:
             parts.append(f"({param_types})")
 
         if expr.cascade:
+            if not self.supports_drop_function_cascade():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP FUNCTION CASCADE",
+                    f"{self.name} does not support DROP FUNCTION CASCADE."
+                )
             parts.append("CASCADE")
 
         return " ".join(parts), ()

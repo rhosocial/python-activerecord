@@ -50,6 +50,7 @@ from .dql import DQLMixin
 from .dml import DMLMixin
 from .ddl_column import DDLColumnMixin
 from .ddl_type import DDLTypeMixin
+from .ddl_database import DatabaseMixin
 from .transaction import TransactionControlMixin
 
 __all__ = [
@@ -102,5 +103,6 @@ __all__ = [
     "DMLMixin",
     "DDLColumnMixin",
     "DDLTypeMixin",
+    "DatabaseMixin",
     "TransactionControlMixin",
 ]

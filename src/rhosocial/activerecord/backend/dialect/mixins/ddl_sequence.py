@@ -93,9 +93,19 @@ class SequenceMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                specific sequence options.
         """
+        from ..exceptions import UnsupportedFeatureError
         parts = ["CREATE SEQUENCE"]
         if expr.if_not_exists:
+            if not self.supports_sequence_if_not_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE SEQUENCE IF NOT EXISTS",
+                    f"{self.name} does not support CREATE SEQUENCE IF NOT EXISTS."
+                )
             parts.append("IF NOT EXISTS")
         parts.append(self.format_identifier(expr.sequence_name))
 
@@ -108,14 +118,34 @@ class SequenceMixin:
         if expr.maxvalue is not None:
             parts.append(f"MAXVALUE {expr.maxvalue}")
         if expr.cycle:
+            if not self.supports_sequence_cycle():
+                raise UnsupportedFeatureError(
+                    self.name, "SEQUENCE CYCLE",
+                    f"{self.name} does not support SEQUENCE CYCLE."
+                )
             parts.append("CYCLE")
         else:
             parts.append("NO CYCLE")
         if expr.cache is not None:
+            if not self.supports_sequence_cache():
+                raise UnsupportedFeatureError(
+                    self.name, "SEQUENCE CACHE",
+                    f"{self.name} does not support SEQUENCE CACHE."
+                )
             parts.append(f"CACHE {expr.cache}")
         if expr.order:
+            if not self.supports_sequence_order():
+                raise UnsupportedFeatureError(
+                    self.name, "SEQUENCE ORDER",
+                    f"{self.name} does not support SEQUENCE ORDER."
+                )
             parts.append("ORDER")
         if expr.owned_by:
+            if not self.supports_sequence_owned_by():
+                raise UnsupportedFeatureError(
+                    self.name, "SEQUENCE OWNED BY",
+                    f"{self.name} does not support SEQUENCE OWNED BY."
+                )
             parts.append(f"OWNED BY {expr.owned_by}")
 
         return " ".join(parts), ()
@@ -129,9 +159,19 @@ class SequenceMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                DROP SEQUENCE IF EXISTS.
         """
+        from ..exceptions import UnsupportedFeatureError
         parts = ["DROP SEQUENCE"]
         if expr.if_exists:
+            if not self.supports_sequence_if_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP SEQUENCE IF EXISTS",
+                    f"{self.name} does not support DROP SEQUENCE IF EXISTS."
+                )
             parts.append("IF EXISTS")
         parts.append(self.format_identifier(expr.sequence_name))
         return " ".join(parts), ()

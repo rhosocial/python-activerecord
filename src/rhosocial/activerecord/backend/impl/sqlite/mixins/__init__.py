@@ -16,7 +16,7 @@ from .datetime import SQLiteDateTimeMixin
 from .ddl_column import SQLiteDDLColumnMixin
 from .dml import SQLiteDMLMixin
 from .set_operation import SQLiteSetOperationMixin
-from .view import SQLiteViewMixin
+from .ddl_view import SQLiteViewMixin
 from .trigger import SQLiteTriggerMixin
 from .transaction import SQLiteTransactionMixin
 from .function import SQLiteFunctionMixin

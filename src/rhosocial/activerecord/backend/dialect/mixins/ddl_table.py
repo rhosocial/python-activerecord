@@ -537,7 +537,12 @@ class TableMixin:
         from ..exceptions import UnsupportedFeatureError
 
         parts = ["DROP TABLE"]
-        if expr.if_exists and self.supports_if_exists_table():
+        if expr.if_exists:
+            if not self.supports_if_exists_table():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "DROP TABLE IF EXISTS",
+                )
             parts.append("IF EXISTS")
         table_sql, table_params = expr.table.to_sql()
         parts.append(table_sql)

@@ -79,6 +79,9 @@ if TYPE_CHECKING:  # pragma: no cover
         TruncateExpression,
         CreateSchemaExpression,
         DropSchemaExpression,
+        CreateDatabaseExpression,
+        DropDatabaseExpression,
+        AlterDatabaseExpression,
         CreateIndexExpression,
         DropIndexExpression,
         CreateSequenceExpression,
@@ -1633,6 +1636,92 @@ class SchemaSupport(Protocol):
 
     def format_drop_schema_statement(self, expr: "DropSchemaExpression") -> Tuple[str, tuple]:
         """Format DROP SCHEMA statement."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class DatabaseSupport(Protocol):
+    """Protocol for DATABASE DDL support.
+
+    SQL standard has no CREATE DATABASE, but 8/10 backends support it.
+    This protocol defines capability switches and formatting methods
+    for CREATE/DROP/ALTER DATABASE statements.
+    """
+
+    def supports_database(self) -> bool:
+        """Whether the backend has a DATABASE concept at all."""
+        ...  # pragma: no cover
+
+    def supports_create_database(self) -> bool:
+        """Whether CREATE DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_database(self) -> bool:
+        """Whether DROP DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_database(self) -> bool:
+        """Whether ALTER DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_if_not_exists(self) -> bool:
+        """Whether CREATE DATABASE IF NOT EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_if_exists(self) -> bool:
+        """Whether DROP DATABASE IF EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_owner(self) -> bool:
+        """Whether OWNER/AUTHORIZATION clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_encoding(self) -> bool:
+        """Whether CHARACTER SET/ENCODING clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_collation(self) -> bool:
+        """Whether COLLATION clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_comment(self) -> bool:
+        """Whether COMMENT clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_tablespace(self) -> bool:
+        """Whether TABLESPACE clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_template(self) -> bool:
+        """Whether TEMPLATE clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_connection_limit(self) -> bool:
+        """Whether CONNECTION LIMIT clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_force_drop(self) -> bool:
+        """Whether FORCE / WITH (FORCE) drop is supported."""
+        ...  # pragma: no cover
+
+    def supports_undrop_database(self) -> bool:
+        """Whether UNDROP DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_or_replace(self) -> bool:
+        """Whether CREATE OR REPLACE DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def format_create_database_statement(self, expr: "CreateDatabaseExpression") -> Tuple[str, tuple]:
+        """Format CREATE DATABASE statement."""
+        ...  # pragma: no cover
+
+    def format_drop_database_statement(self, expr: "DropDatabaseExpression") -> Tuple[str, tuple]:
+        """Format DROP DATABASE statement."""
+        ...  # pragma: no cover
+
+    def format_alter_database_statement(self, expr: "AlterDatabaseExpression") -> Tuple[str, tuple]:
+        """Format ALTER DATABASE statement."""
         ...  # pragma: no cover
 
 

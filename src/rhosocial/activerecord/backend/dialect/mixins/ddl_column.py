@@ -33,6 +33,22 @@ if TYPE_CHECKING:  # pragma: no cover
 class DDLColumnMixin:
     """Mixin for DDL column definition and ALTER TABLE action formatting."""
 
+    def supports_foreign_key_on_delete(self) -> bool:
+        """Whether FOREIGN KEY ON DELETE is supported (defaults to True)."""
+        return True
+
+    def supports_foreign_key_on_update(self) -> bool:
+        """Whether FOREIGN KEY ON UPDATE is supported (defaults to True)."""
+        return True
+
+    def supports_fk_match(self) -> bool:
+        """Whether FOREIGN KEY MATCH is supported (defaults to False)."""
+        return False
+
+    def supports_column_comment(self) -> bool:
+        """Whether COLUMN COMMENT is supported (defaults to False)."""
+        return False
+
     def format_column(self, expr: "Column") -> Tuple[str, Tuple]:
         """Format a :class:`~...expression.core.Column`.
 
@@ -122,6 +138,12 @@ class DDLColumnMixin:
             col_sql += suffix
             all_params.extend(params)
         if col_def.comment:
+            if not self.supports_column_comment():
+                from ..exceptions import UnsupportedFeatureError
+                raise UnsupportedFeatureError(
+                    self.name, "COLUMN COMMENT",
+                    f"{self.name} does not support COLUMN COMMENT."
+                )
             from ...dialect.base import SQLDialectBase as _B
             escaped_comment = _B._escape_sql_string(col_def.comment)
             col_sql += f" COMMENT '{escaped_comment}'"
@@ -315,6 +337,7 @@ class DDLColumnMixin:
                 referenced table are missing.
         """
         from ...expression.statements import ReferentialAction, ForeignKeyConstraint
+        from ..exceptions import UnsupportedFeatureError
         if not t_const.columns:
             raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
         if not t_const.foreign_key_columns:
@@ -327,9 +350,26 @@ class DDLColumnMixin:
         result = f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}({ref_cols_str})"
         if isinstance(t_const, ForeignKeyConstraint):
             if t_const.on_delete is not None and t_const.on_delete != ReferentialAction.NO_ACTION:
+                if not self.supports_foreign_key_on_delete():
+                    raise UnsupportedFeatureError(
+                        self.name, "FOREIGN KEY ON DELETE",
+                        f"{self.name} does not support ON DELETE for foreign keys."
+                    )
                 result += f" ON DELETE {t_const.on_delete.value}"
             if t_const.on_update is not None and t_const.on_update != ReferentialAction.NO_ACTION:
+                if not self.supports_foreign_key_on_update():
+                    raise UnsupportedFeatureError(
+                        self.name, "FOREIGN KEY ON UPDATE",
+                        f"{self.name} does not support ON UPDATE for foreign keys."
+                    )
                 result += f" ON UPDATE {t_const.on_update.value}"
+            if t_const.match_type is not None:
+                if not self.supports_fk_match():
+                    raise UnsupportedFeatureError(
+                        self.name, "FOREIGN KEY MATCH",
+                        f"{self.name} does not support MATCH for foreign keys."
+                    )
+                result += f" MATCH {t_const.match_type}"
         return result, ()
 
     def format_table_constraint(self, expr: "TableConstraint") -> Tuple[str, Tuple]:
@@ -395,9 +435,19 @@ class DDLColumnMixin:
 
         Returns:
             A ``(sql, params)`` tuple.
+
+        Raises:
+            UnsupportedFeatureError: If IF NOT EXISTS is requested but not
+                supported by the dialect.
         """
+        from ..exceptions import UnsupportedFeatureError
         column_sql, column_params = self.format_column_definition(action.column)
-        if getattr(action, "if_not_exists", None) and self.supports_add_column_if_not_exists():
+        if getattr(action, "if_not_exists", None):
+            if not self.supports_add_column_if_not_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "ADD COLUMN IF NOT EXISTS",
+                    f"{self.name} does not support ADD COLUMN IF NOT EXISTS."
+                )
             return f"ADD COLUMN IF NOT EXISTS {column_sql}", column_params
         return f"ADD COLUMN {column_sql}", column_params
 
@@ -411,8 +461,18 @@ class DDLColumnMixin:
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
+
+        Raises:
+            UnsupportedFeatureError: If IF EXISTS is requested but not
+                supported by the dialect.
         """
+        from ..exceptions import UnsupportedFeatureError
         if hasattr(action, "if_exists") and action.if_exists:
+            if not self.supports_drop_column_if_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP COLUMN IF EXISTS",
+                    f"{self.name} does not support DROP COLUMN IF EXISTS."
+                )
             return f"DROP COLUMN IF EXISTS {self.format_identifier(action.column_name)}", ()
         return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
 

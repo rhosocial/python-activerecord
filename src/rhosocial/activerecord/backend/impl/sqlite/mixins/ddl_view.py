@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/mixins/view.py
+# src/rhosocial/activerecord/backend/impl/sqlite/mixins/ddl_view.py
 """
 SQLite-specific View implementation.
 
@@ -36,7 +36,15 @@ class SQLiteViewMixin:
         return True
 
     def supports_or_replace_view(self) -> bool:
-        """SQLite supports CREATE VIEW IF NOT EXISTS (similar to OR REPLACE)."""
+        """SQLite supports CREATE OR REPLACE VIEW."""
+        return True
+
+    def supports_create_or_replace_view(self) -> bool:
+        """SQLite supports CREATE OR REPLACE VIEW."""
+        return True
+
+    def supports_if_not_exists_view(self) -> bool:
+        """SQLite supports CREATE VIEW IF NOT EXISTS."""
         return True
 
     def supports_temporary_view(self) -> bool:
@@ -76,7 +84,9 @@ class SQLiteViewMixin:
         parts = ["CREATE"]
         if expr.temporary:
             parts.append("TEMPORARY")
-        if expr.replace:
+        if expr.replace and self.supports_create_or_replace_view():
+            parts.append("VIEW IF NOT EXISTS")
+        elif expr.if_not_exists and self.supports_if_not_exists_view():
             parts.append("VIEW IF NOT EXISTS")
         else:
             parts.append("VIEW")

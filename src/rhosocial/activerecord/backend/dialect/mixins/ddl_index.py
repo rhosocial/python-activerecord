@@ -212,7 +212,12 @@ class IndexMixin:
             raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
 
         parts = ["CREATE FULLTEXT INDEX"]
-        if expr.if_not_exists and self.supports_index_if_not_exists():
+        if expr.if_not_exists:
+            if not self.supports_index_if_not_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX IF NOT EXISTS",
+                    f"{self.name} does not support CREATE INDEX IF NOT EXISTS."
+                )
             parts.append("IF NOT EXISTS")
         parts.append(self.format_identifier(expr.index_name))
         parts.append("ON")
@@ -221,7 +226,12 @@ class IndexMixin:
         cols_str = ", ".join(self.format_identifier(c) for c in expr.columns)
         parts.append(f"({cols_str})")
 
-        if expr.parser and self.supports_fulltext_parser():
+        if expr.parser:
+            if not self.supports_fulltext_parser():
+                raise UnsupportedFeatureError(
+                    self.name, "FULLTEXT INDEX WITH PARSER",
+                    f"{self.name} does not support FULLTEXT INDEX WITH PARSER."
+                )
             parts.append(f"WITH PARSER {self.format_identifier(expr.parser)}")
 
         return " ".join(parts), ()
@@ -244,7 +254,12 @@ class IndexMixin:
             raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
 
         parts = ["DROP INDEX"]
-        if expr.if_exists and self.supports_index_if_exists():
+        if expr.if_exists:
+            if not self.supports_index_if_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP INDEX IF EXISTS",
+                    f"{self.name} does not support DROP INDEX IF EXISTS."
+                )
             parts.append("IF EXISTS")
         parts.append(self.format_identifier(expr.index_name))
         parts.append("ON")
@@ -262,7 +277,12 @@ class IndexMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                specific index options.
         """
+        from ..exceptions import UnsupportedFeatureError
         all_params = []
         parts = ["CREATE"]
 
@@ -270,6 +290,11 @@ class IndexMixin:
             parts.append("UNIQUE")
         parts.append("INDEX")
         if expr.if_not_exists:
+            if not self.supports_index_if_not_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX IF NOT EXISTS",
+                    f"{self.name} does not support CREATE INDEX IF NOT EXISTS."
+                )
             parts.append("IF NOT EXISTS")
         parts.append(self.format_identifier(expr.index_name))
         parts.append("ON")
@@ -289,6 +314,11 @@ class IndexMixin:
         parts.append(f"({', '.join(col_parts)})")
 
         if expr.include:
+            if not self.supports_index_include():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX INCLUDE",
+                    f"{self.name} does not support CREATE INDEX INCLUDE."
+                )
             include_cols = ", ".join(self.format_identifier(c) for c in expr.include)
             parts.append(f"INCLUDE ({include_cols})")
 
@@ -298,6 +328,11 @@ class IndexMixin:
             all_params.extend(where_params)
 
         if expr.tablespace:
+            if not self.supports_index_tablespace():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX TABLESPACE",
+                    f"{self.name} does not support CREATE INDEX TABLESPACE."
+                )
             parts.append(f"TABLESPACE {self.format_identifier(expr.tablespace)}")
 
         return " ".join(parts), tuple(all_params)
@@ -311,9 +346,19 @@ class IndexMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                DROP INDEX IF EXISTS.
         """
+        from ..exceptions import UnsupportedFeatureError
         parts = ["DROP INDEX"]
         if expr.if_exists:
+            if not self.supports_index_if_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP INDEX IF EXISTS",
+                    f"{self.name} does not support DROP INDEX IF EXISTS."
+                )
             parts.append("IF EXISTS")
         parts.append(self.format_identifier(expr.index_name))
         if expr.table_name:

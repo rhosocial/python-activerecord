@@ -75,6 +75,13 @@ class TriggerMixin:
         """
         return False
 
+    def supports_trigger_if_exists(self) -> bool:
+        """Whether ``DROP TRIGGER IF EXISTS`` is supported.
+
+        Defaults to ``False``.
+        """
+        return False
+
     def format_create_trigger_statement(self, expr: "CreateTriggerExpression") -> Tuple[str, tuple]:
         """Format a ``CREATE TRIGGER`` statement per SQL:1999.
 
@@ -99,7 +106,12 @@ class TriggerMixin:
 
         parts = ["CREATE TRIGGER"]
 
-        if expr.if_not_exists and self.supports_trigger_if_not_exists():
+        if expr.if_not_exists:
+            if not self.supports_trigger_if_not_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE TRIGGER IF NOT EXISTS",
+                    f"{self.name} does not support CREATE TRIGGER IF NOT EXISTS."
+                )
             parts.append("IF NOT EXISTS")
 
         parts.append(self.format_identifier(expr.trigger_name))
@@ -116,13 +128,23 @@ class TriggerMixin:
         parts.append("ON")
         parts.append(self.format_identifier(expr.table_name))
 
-        if expr.referencing and self.supports_trigger_referencing():
+        if expr.referencing:
+            if not self.supports_trigger_referencing():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE TRIGGER REFERENCING",
+                    f"{self.name} does not support CREATE TRIGGER REFERENCING."
+                )
             parts.append(expr.referencing)
 
         parts.append(expr.level.value)
 
         all_params = []
-        if expr.condition and self.supports_trigger_when():
+        if expr.condition:
+            if not self.supports_trigger_when():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE TRIGGER WHEN",
+                    f"{self.name} does not support CREATE TRIGGER WHEN."
+                )
             cond_sql, cond_params = expr.condition.to_sql()
             parts.append(f"WHEN ({cond_sql})")
             all_params.extend(cond_params)
@@ -153,6 +175,11 @@ class TriggerMixin:
         parts = ["DROP TRIGGER"]
 
         if expr.if_exists:
+            if not self.supports_trigger_if_exists():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP TRIGGER IF EXISTS",
+                    f"{self.name} does not support DROP TRIGGER IF EXISTS."
+                )
             parts.append("IF EXISTS")
 
         parts.append(self.format_identifier(expr.trigger_name))
