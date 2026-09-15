@@ -51,6 +51,75 @@ Mirror current reference implementations where practical; `expression/` and `fun
 
 Use **absolute imports** for expressions from core/other backends; avoid deep relative imports.
 
+## DDL Mixin Conventions
+
+### File Naming
+
+DDL mixin files **must** use the `ddl_` prefix to distinguish them from other mixins:
+
+| Core Mixin | File Name | Backend Override |
+|------------|-----------|------------------|
+| `ViewMixin` | `ddl_view.py` | `{Backend}ViewMixin` |
+| `DatabaseMixin` | `ddl_database.py` | `{Backend}DatabaseMixin` |
+| `DDLColumnMixin` | `ddl_column.py` | `{Backend}DDLColumnMixin` |
+| `TableMixin` | `ddl_table.py` | `{Backend}TableMixin` |
+| `SchemaMixin` | `ddl_schema.py` | `{Backend}SchemaMixin` |
+| `IndexMixin` | `ddl_index.py` | `{Backend}IndexMixin` |
+| `SequenceMixin` | `ddl_sequence.py` | `{Backend}SequenceMixin` |
+
+> **Exception**: `TriggerMixin` and `FunctionMixin` do not use `ddl_` prefix (historical reasons).
+
+### Backend File Renaming Workflow
+
+When core renames a DDL mixin file, **all backends must同步执行**:
+
+1. Rename the backend mixin file to match core naming
+2. Update `mixins/__init__.py` import statement
+3. Update any other files that import the renamed mixin
+4. Commit with the same message pattern as core
+
+```bash
+# Example: core renames view.py -> ddl_view.py
+# Each backend must:
+mv src/.../mixins/view.py src/.../mixins/ddl_view.py
+# Edit mixins/__init__.py:
+#   from .view import XxxViewMixin  ->  from .ddl_view import XxxViewMixin
+```
+
+### DummyDialect Update Rule
+
+When core adds new `supports_*()` capability methods to any mixin, **DummyDialect must be updated** to return `True` for those methods. This ensures:
+
+- Existing tests continue to pass
+- New capability methods are properly tested via DummyDialect
+
+```python
+# In DummyDialect, add after the mixin's capability methods:
+def supports_new_feature(self) -> bool:
+    return True
+```
+
+### UnsupportedFeatureError Pattern
+
+When a DDL feature is not supported by a backend, **must raise `UnsupportedFeatureError`** instead of silently skipping:
+
+```python
+# WRONG - silent skip (forbidden)
+if expr.if_not_exists and self.supports_if_not_exists():
+    parts.append("IF NOT EXISTS")
+
+# CORRECT - raise error
+if expr.if_not_exists:
+    if not self.supports_if_not_exists():
+        raise UnsupportedFeatureError(
+            self.name, "IF NOT EXISTS",
+            f"{self.name} does not support CREATE TABLE IF NOT EXISTS."
+        )
+    parts.append("IF NOT EXISTS")
+```
+
+This ensures users get clear error messages when attempting unsupported operations, rather than silent behavioral differences.
+
 ## StorageBackend Interface
 
 Implement every abstract method:
