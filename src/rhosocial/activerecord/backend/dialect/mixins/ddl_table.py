@@ -336,10 +336,8 @@ class TableMixin:
                 all_params.extend(const_params)
         full_column_def = "(" + ", ".join(all_def_parts) + ")"
         parts = [table_part + full_column_def]
-        if expr.storage_options:
-            from ...expression.statements import StorageOptionsExpression
-            storage_expr = StorageOptionsExpression(self, expr.storage_options)
-            storage_sql, storage_params = self.format_storage_options(storage_expr)
+        if expr.storage_options is not None:
+            storage_sql, storage_params = expr.storage_options.to_sql()
             if storage_sql:
                 parts.append(storage_sql)
                 all_params.extend(storage_params)
@@ -386,10 +384,8 @@ class TableMixin:
         all_params.extend(table_params)
         parts = [f"CREATE {temp_part}TABLE {not_exists_part}{table_sql}"]
 
-        if expr.storage_options:
-            from ...expression.statements import StorageOptionsExpression
-            storage_expr = StorageOptionsExpression(self, expr.storage_options)
-            storage_sql, storage_params = self.format_storage_options(storage_expr)
+        if expr.storage_options is not None:
+            storage_sql, storage_params = expr.storage_options.to_sql()
             if storage_sql:
                 parts.append(storage_sql)
                 all_params.extend(storage_params)

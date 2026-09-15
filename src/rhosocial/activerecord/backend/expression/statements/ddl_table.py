@@ -270,9 +270,7 @@ class CreateTableExpression(BaseExpression):
         if_not_exists: bool = False,  # IF NOT EXISTS flag
         inherits: Optional[List[str]] = None,  # PostgreSQL INHERITS clause
         tablespace: Optional[str] = None,  # Table tablespace (PostgreSQL/Oracle)
-        storage_options: Optional[
-            Dict[str, Any]
-        ] = None,  # Storage parameters (PostgreSQL WITH options, MySQL ENGINE options)
+        storage_options: Optional["StorageOptionsExpression"] = None,  # Storage options clause
         *,  # Force keyword arguments
         partition: Optional["PartitionClause"] = None,  # Table partitioning specification
         dialect_options: Optional[Dict[str, Any]] = None,
@@ -293,7 +291,7 @@ class CreateTableExpression(BaseExpression):
         self.if_not_exists = if_not_exists  # IF NOT EXISTS flag
         self.inherits = inherits or []  # Tables to inherit from (PostgreSQL-specific)
         self.tablespace = tablespace  # Tablespace specification
-        self.storage_options = storage_options or {}  # Storage-related options
+        self.storage_options = storage_options  # Storage options clause (StorageOptionsExpression)
         # Validate partition parameter type
         if partition is not None and not isinstance(partition, PartitionClause):
             raise TypeError(f"partition must be a PartitionClause instance, got {type(partition).__name__}")
@@ -363,7 +361,7 @@ class CreateTableAsExpression(BaseExpression):
         columns: Optional[List[ColumnDefinition]] = None,
         temporary: bool = False,
         if_not_exists: bool = False,
-        storage_options: Optional[Dict[str, Any]] = None,
+        storage_options: Optional["StorageOptionsExpression"] = None,
         with_data: Optional[bool] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
@@ -375,7 +373,7 @@ class CreateTableAsExpression(BaseExpression):
         self.columns = list(columns or [])
         self.temporary = temporary
         self.if_not_exists = if_not_exists
-        self.storage_options = storage_options or {}
+        self.storage_options = storage_options
         self.with_data = with_data
         self.dialect_options = dialect_options or {}
 
@@ -533,11 +531,6 @@ class CreateTableFromTemplateExpression(BaseExpression):
 
 
 class DropTableExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_table_statement"
     """Represents a DROP TABLE statement conforming to SQL standard.
 
     SQL Standard Syntax:
@@ -600,7 +593,12 @@ class DropTableExpression(BaseExpression):
         DropTableExpression(dialect, TableExpression(dialect, "users", schema_name="public"))
         # -> DROP TABLE public.users
     """
-
+    
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_table_statement"
+    
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -619,11 +617,6 @@ class DropTableExpression(BaseExpression):
         self.if_exists = if_exists
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_table_statement"
 
 
 class StorageOptionsExpression(BaseExpression):

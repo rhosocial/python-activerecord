@@ -29,6 +29,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     PartitionClause,
     PartitionStrategy,
     QueryExpression,
+    StorageOptionsExpression,
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.core import TableExpression
@@ -320,7 +321,9 @@ class TestCreateTableStatements:
             ColumnDefinition(dummy_dialect, "data", TextType(dummy_dialect)),
         ]
 
-        storage_opts = {"engine": "InnoDB", "charset": "utf8mb4", "page_size": 8192}
+        storage_opts = StorageOptionsExpression(
+            dummy_dialect, {"engine": "InnoDB", "charset": "utf8mb4", "page_size": 8192}
+        )
 
         create_table_expr = CreateTableExpression(
             dummy_dialect, table="documents", columns=columns, storage_options=storage_opts
