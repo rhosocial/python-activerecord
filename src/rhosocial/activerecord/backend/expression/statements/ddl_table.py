@@ -254,16 +254,24 @@ class IndexDefinition(BaseExpression):
 class CreateTableOptions(BaseExpression):
     """Typed creation modifiers for ``CREATE TABLE``.
 
-    Captures the cross-dialect header modifiers explicitly instead of via an
+    Captures the cross-dialect creation options explicitly instead of via an
     untyped ``dialect_options`` bag:
+
+    **Header modifiers** (between ``CREATE`` and ``TABLE``):
 
     * ``or_replace`` -- ``CREATE OR REPLACE TABLE`` (Snowflake, BigQuery, MariaDB)
     * ``unlogged``   -- ``CREATE UNLOGGED TABLE`` (PostgreSQL)
     * ``transient``  -- ``CREATE TRANSIENT TABLE`` (Snowflake)
 
-    Rendering is dialect-driven through ``format_create_table_options`` and
-    the statement renderer composes the returned qualifier right after
-    ``CREATE`` (``CREATE <options> TABLE ...``).
+    **Table-level options** (after the column list):
+
+    * ``comment`` -- ``COMMENT 'text'`` (MySQL, MariaDB, ClickHouse)
+
+    Header modifiers are rendered by ``format_create_table_options``; the
+    statement renderer composes the returned qualifier right after
+    ``CREATE``.  Table-level options are rendered by
+    ``format_table_comment`` (or dialect-specific equivalents) and appended
+    after the column list by the statement renderer.
     """
 
     @property
@@ -278,12 +286,14 @@ class CreateTableOptions(BaseExpression):
         or_replace: bool = False,
         unlogged: bool = False,
         transient: bool = False,
+        comment: Optional[str] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.or_replace = or_replace
         self.unlogged = unlogged
         self.transient = transient
+        self.comment = comment
         self.dialect_options = dialect_options or {}
 
 

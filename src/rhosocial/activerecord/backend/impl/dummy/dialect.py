@@ -728,6 +728,9 @@ class DummyDialect(
     def supports_transient_table(self) -> bool:
         return True
 
+    def supports_table_comment(self) -> bool:
+        return True
+
     # Generic partition protocol is exposed through PartitionMixin, but all
     # capabilities stay disabled for dummy because partitioning requires
     # backend-specific storage semantics.

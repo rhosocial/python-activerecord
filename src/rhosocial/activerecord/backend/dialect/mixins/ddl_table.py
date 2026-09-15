@@ -211,6 +211,26 @@ class TableMixin:
         """
         return False
 
+    def supports_table_comment(self) -> bool:
+        """Whether inline ``COMMENT 'text'`` on ``CREATE TABLE`` is supported.
+
+        Defaults to ``False``; MySQL, MariaDB, and ClickHouse override to True.
+        """
+        return False
+
+    def format_table_comment(self, comment: str) -> Tuple[str, tuple]:
+        """Render a table-level ``COMMENT 'text'`` clause.
+
+        Generic reusable implementation: ``COMMENT '<escaped>'``.  Dialects
+        that advertise :meth:`supports_table_comment` inherit this rendering
+        as-is; dialects with a different grammar override the method.
+
+        The statement renderer appends the returned clause after the column
+        list and storage options, before any PARTITION BY clause.
+        """
+        escaped = self._escape_sql_string(comment)
+        return f"COMMENT '{escaped}'", ()
+
     def format_create_table_options(self, expr: "CreateTableOptions") -> Tuple[str, tuple]:
         """Format the ``CREATE`` header modifiers (generic reusable implementation).
 

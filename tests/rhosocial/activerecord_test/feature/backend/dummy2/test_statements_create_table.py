@@ -500,6 +500,21 @@ class TestCreateTableStatements:
         sql, _ = expr.to_sql()
         assert sql.startswith("CREATE TRANSIENT TABLE")
 
+    def test_create_table_options_comment(self, dummy_dialect: DummyDialect):
+        opts = CreateTableOptions(dummy_dialect, comment="my table comment")
+        assert opts.comment == "my table comment"
+        sql, _ = opts.to_sql()
+        assert sql == ""
+
+    def test_format_table_comment(self, dummy_dialect: DummyDialect):
+        sql, params = dummy_dialect.format_table_comment("hello world")
+        assert sql == "COMMENT 'hello world'"
+        assert params == ()
+
+    def test_format_table_comment_escapes_quotes(self, dummy_dialect: DummyDialect):
+        sql, _ = dummy_dialect.format_table_comment("it's a test")
+        assert "''" in sql
+
     def test_create_table_options_gated(self):
         """A dialect without the capability flag fails fast."""
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
