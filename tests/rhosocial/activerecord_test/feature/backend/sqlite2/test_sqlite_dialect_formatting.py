@@ -262,7 +262,6 @@ class TestSQLiteDialectFormatting:
         assert not dialect.supports_returning_insert()
         assert not dialect.supports_returning_update()
         assert not dialect.supports_returning_delete()
-        assert not dialect.supports_returning_clause()
 
         # format_returning_clause is pure formatting, no support check
         mock_expr = Mock()

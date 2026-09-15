@@ -57,7 +57,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     FilterClauseMixin,
     WindowFunctionMixin,
     JSONMixin,
-    ReturningMixin,
     AdvancedGroupingMixin,
     ArrayMixin,
     ExplainMixin,
@@ -150,7 +149,6 @@ class SQLiteDialect(
     FilterClauseMixin,
     WindowFunctionMixin,
     JSONMixin,
-    ReturningMixin,
     # Include mixins for features that SQLite does NOT support but need the methods to exist
     AdvancedGroupingMixin,
     ArrayMixin,

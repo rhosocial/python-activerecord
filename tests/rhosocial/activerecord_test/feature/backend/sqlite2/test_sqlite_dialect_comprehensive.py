@@ -60,7 +60,9 @@ class TestSQLiteDialectComprehensive:
             elif feature == "window_frame_clause":
                 assert dialect.supports_window_frame_clause() == expected_value
             elif feature == "returning_clause":
-                assert dialect.supports_returning_clause() == expected_value
+                assert dialect.supports_returning_insert() == expected_value
+                assert dialect.supports_returning_update() == expected_value
+                assert dialect.supports_returning_delete() == expected_value
             elif feature == "json_type":
                 assert dialect.supports_json_type() == expected_value
 
@@ -166,7 +168,6 @@ class TestSQLiteDialectComprehensive:
         assert dialect.supports_returning_insert()
         assert dialect.supports_returning_update()
         assert dialect.supports_returning_delete()
-        assert dialect.supports_returning_clause()
 
         # format_returning_clause should work for all versions (pure formatting)
         mock_expr = MagicMock()

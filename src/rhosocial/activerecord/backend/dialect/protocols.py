@@ -463,14 +463,6 @@ class AdvancedGroupingSupport(Protocol):
 class ReturningSupport(Protocol):
     """Protocol for RETURNING clause support."""
 
-    def supports_returning_clause(self) -> bool:
-        """Whether RETURNING clause is generally supported.
-        This is the AND of all DML-specific returning support flags
-        (supports_returning_insert, supports_returning_update,
-        supports_returning_delete).
-        """
-        ...  # pragma: no cover
-
     def supports_returning_insert(self) -> bool:
         """Whether RETURNING clause is supported for INSERT statements."""
         ...  # pragma: no cover
@@ -484,8 +476,7 @@ class ReturningSupport(Protocol):
         ...  # pragma: no cover
 
     def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
-        """
-        Format a RETURNING clause.
+        """Format a RETURNING clause.
 
         Args:
             clause: ReturningClause object containing expressions to return

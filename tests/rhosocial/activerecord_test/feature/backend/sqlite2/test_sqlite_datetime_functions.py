@@ -132,7 +132,7 @@ class TestSQLiteDateTimeFunctions:
 
     def test_datetime_with_returning_clause(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test datetime functions with RETURNING clause."""
-        if sqlite_dialect_3_8_0.supports_returning_clause():
+        if sqlite_dialect_3_8_0.supports_returning_insert():
             raw_timestamp = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
 
             update_expr = UpdateExpression(

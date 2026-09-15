@@ -18,7 +18,6 @@ from .collation import CollationMixin
 from .window import WindowFunctionMixin
 from .cte import CTEMixin
 from .grouping import AdvancedGroupingMixin
-from .returning import ReturningMixin
 from .upsert import UpsertMixin
 from .join import LateralJoinMixin, JoinMixin
 from .array import ArrayMixin
@@ -64,7 +63,6 @@ __all__ = [
     "WindowFunctionMixin",
     "CTEMixin",
     "AdvancedGroupingMixin",
-    "ReturningMixin",
     "UpsertMixin",
     "LateralJoinMixin",
     "JoinMixin",

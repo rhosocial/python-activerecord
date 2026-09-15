@@ -67,7 +67,9 @@ class TestDummyProtocolSupport:
     # region Returning Support
     def test_returning_support_methods(self, dialect):
         """Test ReturningSupport protocol methods."""
-        assert dialect.supports_returning_clause() is True
+        assert dialect.supports_returning_insert() is True
+        assert dialect.supports_returning_update() is True
+        assert dialect.supports_returning_delete() is True
 
     # endregion
 

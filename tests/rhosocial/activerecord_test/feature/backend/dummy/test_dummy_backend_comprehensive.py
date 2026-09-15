@@ -121,7 +121,9 @@ class TestDummyDialectComprehensive:
         assert dialect.supports_rollup() is True
         assert dialect.supports_cube() is True
         assert dialect.supports_grouping_sets() is True
-        assert dialect.supports_returning_clause() is True
+        assert dialect.supports_returning_insert() is True
+        assert dialect.supports_returning_update() is True
+        assert dialect.supports_returning_delete() is True
         assert dialect.supports_upsert() is True
         assert dialect.supports_lateral_join() is True
         assert dialect.supports_array_type() is True

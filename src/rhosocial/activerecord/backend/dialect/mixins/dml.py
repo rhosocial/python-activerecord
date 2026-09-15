@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         InsertExpression,
         UpdateExpression,
     )
+    from ...expression.statements import ReturningClause
 
 
 class DMLMixin:
@@ -23,6 +24,41 @@ class DMLMixin:
     Optional clauses are gated by capability probes so subclasses can opt in
     to the features their dialect supports.
     """
+
+    def supports_returning_insert(self) -> bool:
+        """Whether RETURNING clause is supported for INSERT statements."""
+        return False
+
+    def supports_returning_update(self) -> bool:
+        """Whether RETURNING clause is supported for UPDATE statements."""
+        return False
+
+    def supports_returning_delete(self) -> bool:
+        """Whether RETURNING clause is supported for DELETE statements."""
+        return False
+
+    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
+        """Format a RETURNING clause.
+
+        Args:
+            clause: ReturningClause object containing expressions to return
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        all_params = []
+        expr_parts = []
+        for expr in clause.expressions:
+            expr_sql, expr_params = expr.to_sql()
+            expr_parts.append(expr_sql)
+            all_params.extend(expr_params)
+
+        returning_sql = f"RETURNING {', '.join(expr_parts)}"
+
+        if clause.alias:
+            returning_sql += f" AS {self.format_identifier(clause.alias)}"
+
+        return returning_sql, tuple(all_params)
 
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
         """Format an INSERT statement.

@@ -244,7 +244,9 @@ class TestVersionSpecificFeatures:
 
     def test_returning_clause_3_35_0(self, sqlite_dialect_3_35_0: SQLiteDialect):
         """Test that RETURNING clause is supported from version 3.35.0."""
-        assert sqlite_dialect_3_35_0.supports_returning_clause() is True
+        assert sqlite_dialect_3_35_0.supports_returning_insert() is True
+        assert sqlite_dialect_3_35_0.supports_returning_update() is True
+        assert sqlite_dialect_3_35_0.supports_returning_delete() is True
 
     def test_json_support_3_38_0(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test that JSON functions are supported from version 3.38.0."""
