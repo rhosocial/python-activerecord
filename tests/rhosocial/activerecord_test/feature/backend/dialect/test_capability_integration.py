@@ -58,7 +58,9 @@ def test_dialect_supports_boolean_results(sqlite_backend):
         ("supports_window_functions", True),
         ("supports_window_frame_clause", True),
         ("supports_basic_cte", True),
-        ("supports_returning_clause", True),
+        ("supports_returning_insert", True),
+        ("supports_returning_update", True),
+        ("supports_returning_delete", True),
     ]
     for method_name, expected in checks:
         if hasattr(dialect, method_name):

@@ -65,10 +65,18 @@ class {{BackendName}}Dialect(SQLDialectBase):
         return self.format_identifier(column)
     
     # Feature support detection
-    def supports_returning_clause(self) -> bool:
-        """Check if RETURNING clause is supported."""
+    def supports_returning_insert(self) -> bool:
+        """Check if RETURNING is supported for INSERT."""
         return True
-    
+
+    def supports_returning_update(self) -> bool:
+        """Check if RETURNING is supported for UPDATE."""
+        return True
+
+    def supports_returning_delete(self) -> bool:
+        """Check if RETURNING is supported for DELETE."""
+        return True
+
     def supports_window_functions(self) -> bool:
         """Check if window functions are supported."""
         return True

@@ -292,22 +292,38 @@ When saving new records (INSERT), the framework needs to retrieve the database-g
 
 | Priority | Method | Requirement |
 |----------|--------|-------------|
-| 1 | RETURNING clause | Backend implements `supports_returning_clause()` returning `True` |
+| 1 | RETURNING clause | Backend implements `supports_returning_insert()` / `supports_returning_update()` / `supports_returning_delete()` for the relevant statement types |
 | 2 | last_insert_id | Backend provides integer primary key via `cursor.lastrowid` |
 
 ### Backend Implementation Requirements
 
-**If the database supports RETURNING clause** (e.g., PostgreSQL, SQLite 3.35+, MySQL 8.0+):
+**If the database supports RETURNING clause** (e.g., PostgreSQL, SQLite 3.35+, MariaDB 10.5+):
+
+The `ReturningMixin` methods are provided by the generic `DMLMixin`; a backend
+only overrides the `supports_returning_*()` probes for the statement types it
+supports (and, optionally, the generic capability switches below).
 
 ```python
-from rhosocial.activerecord.backend.dialect.mixins import ReturningMixin
+from rhosocial.activerecord.backend.dialect.mixins import DMLMixin
 from rhosocial.activerecord.backend.dialect.protocols import ReturningSupport
 
-class MyDialect(ReturningMixin, ReturningSupport):
-    def supports_returning_clause(self) -> bool:
-        """Determine RETURNING support based on database version"""
+class MyDialect(DMLMixin, ReturningSupport):
+    def supports_returning_insert(self) -> bool:
+        """Determine RETURNING support for INSERT based on database version."""
         return self.version >= (x, y, z)  # Replace with actual version
 ```
+
+Optionally override the generic capability switches to reflect dialect
+limitations (all default optimistically):
+
+| Switch | Default | Meaning |
+|--------|---------|---------|
+| `supports_returning_expressions()` | `True` | Non-column expressions (functions, arithmetic, CASE, ...) allowed |
+| `supports_returning_alias()` | `True` | Clause-level `AS alias` allowed |
+| `supports_returning_wildcard()` | `True` | `RETURNING *` allowed |
+| `supports_returning_single_row()` | `False` | RETURNING is inherently single-row |
+| `supports_returning_old_new()` | `False` | `OLD.<col>` / `NEW.<col>` references allowed |
+| `supports_returning_into()` | `False` | `RETURNING ... INTO` / `OUTPUT ... INTO` allowed |
 
 **If the database doesn't support RETURNING clause**:
 

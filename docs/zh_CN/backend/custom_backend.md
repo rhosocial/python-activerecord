@@ -294,22 +294,36 @@ JSONTableExpression(
 
 | 优先级 | 方式 | 要求 |
 |--------|------|------|
-| 1 | RETURNING 子句 | 后端实现 `supports_returning_clause()` 返回 `True` |
+| 1 | RETURNING 子句 | 后端按语句类型实现 `supports_returning_insert()` / `supports_returning_update()` / `supports_returning_delete()` |
 | 2 | last_insert_id | 后端从 `cursor.lastrowid` 提供整型主键 |
 
 ### 后端实现要求
 
-**如果数据库支持 RETURNING 子句**（如 PostgreSQL、SQLite 3.35+、MySQL 8.0+）：
+**如果数据库支持 RETURNING 子句**（如 PostgreSQL、SQLite 3.35+、MariaDB 10.5+）：
+
+`ReturningMixin` 的方法已并入通用 `DMLMixin`；后端只需为自身支持的语句类型
+覆写 `supports_returning_*()` 探测方法（并可选地覆写下列通用能力开关）。
 
 ```python
-from rhosocial.activerecord.backend.dialect.mixins import ReturningMixin
+from rhosocial.activerecord.backend.dialect.mixins import DMLMixin
 from rhosocial.activerecord.backend.dialect.protocols import ReturningSupport
 
-class MyDialect(ReturningMixin, ReturningSupport):
-    def supports_returning_clause(self) -> bool:
-        """根据数据库版本判断是否支持 RETURNING"""
+class MyDialect(DMLMixin, ReturningSupport):
+    def supports_returning_insert(self) -> bool:
+        """根据数据库版本判断 INSERT 是否支持 RETURNING"""
         return self.version >= (x, y, z)  # 替换为实际版本号
 ```
+
+可选地覆写以下通用能力开关以反映方言限制（默认均为乐观值）：
+
+| 开关 | 默认值 | 含义 |
+|------|--------|------|
+| `supports_returning_expressions()` | `True` | 是否允许非列表达式（函数、算术、CASE 等） |
+| `supports_returning_alias()` | `True` | 是否允许子句级别 `AS alias` |
+| `supports_returning_wildcard()` | `True` | 是否允许 `RETURNING *` |
+| `supports_returning_single_row()` | `False` | RETURNING 是否天然单行 |
+| `supports_returning_old_new()` | `False` | 是否允许 `OLD.<col>` / `NEW.<col>` 引用 |
+| `supports_returning_into()` | `False` | 是否允许 `RETURNING ... INTO` / `OUTPUT ... INTO` |
 
 **如果数据库不支持 RETURNING 子句**：
 

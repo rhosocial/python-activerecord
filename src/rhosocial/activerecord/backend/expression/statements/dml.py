@@ -175,12 +175,14 @@ class ReturningClause(BaseExpression):
         dialect: "SQLDialectBase",
         expressions: List["BaseExpression"],  # List of expressions to return
         alias: Optional[str] = None,  # Optional alias for the returning result
+        output_into: Optional[str] = None,  # Optional OUTPUT/RETURNING INTO target
         dialect_options: Optional[Dict[str, Any]] = None,
     ):  # Dialect-specific options
         super().__init__(dialect)
         self.expressions = expressions or []
         self.alias = alias  # Optional alias for the returning clause
-        self.dialect_options = dialect_options or {}  # Dialect-specific options
+        self.output_into = output_into  # OUTPUT/RETURNING INTO target (SQL Server / Oracle)
+        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
