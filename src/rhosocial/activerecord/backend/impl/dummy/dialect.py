@@ -1217,6 +1217,19 @@ class DummyDialect(
             else:
                 col_sql += " VIRTUAL"
 
+        identity = getattr(col_def, 'identity', None)
+        if identity:
+            col_sql += f" GENERATED {identity.upper()} AS IDENTITY"
+            start = getattr(col_def, 'identity_start', None)
+            increment = getattr(col_def, 'identity_increment', None)
+            if start is not None or increment is not None:
+                id_parts = []
+                if start is not None:
+                    id_parts.append(f"START WITH {start}")
+                if increment is not None:
+                    id_parts.append(f"INCREMENT BY {increment}")
+                col_sql += f" ({' '.join(id_parts)})"
+
         # Add comment if present
         if col_def.comment:
             col_sql += f" COMMENT '{col_def.comment}'"

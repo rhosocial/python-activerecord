@@ -23,6 +23,8 @@ class ColumnConstraintType(Enum):
     CHECK = "CHECK"
     FOREIGN_KEY = "FOREIGN KEY"
     DEFAULT = "DEFAULT"
+    COLLATE = "COLLATE"  # Column-level collation (MySQL/MariaDB/Oracle/Firebird)
+    IDENTITY = "IDENTITY"  # GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY (PG/Firebird/Oracle)
 
 
 class ColumnConstraint(BaseExpression):
@@ -52,6 +54,8 @@ class ColumnConstraint(BaseExpression):
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
+        collation: Optional[str] = None,
+        identity: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.constraint_type = constraint_type
@@ -65,6 +69,8 @@ class ColumnConstraint(BaseExpression):
         self.deferrable = deferrable
         self.initially_deferred = initially_deferred
         self.dialect_options = dialect_options or {}
+        self.collation = collation
+        self.identity = identity
 
 
 class GeneratedColumnType(Enum):
@@ -98,6 +104,9 @@ class ColumnDefinition(BaseExpression):
         dialect_options: Optional[Dict[str, Any]] = None,
         generated_expression: Optional["BaseExpression"] = None,
         generated_type: Optional[GeneratedColumnType] = None,
+        identity: Optional[str] = None,
+        identity_start: Optional[int] = None,
+        identity_increment: Optional[int] = None,
     ):
         super().__init__(dialect)
         if not isinstance(data_type, DataType):
@@ -111,6 +120,9 @@ class ColumnDefinition(BaseExpression):
         self.dialect_options = dialect_options or {}
         self.generated_expression = generated_expression
         self.generated_type = generated_type
+        self.identity = identity
+        self.identity_start = identity_start
+        self.identity_increment = identity_increment
 
 
 class TableConstraintType(Enum):

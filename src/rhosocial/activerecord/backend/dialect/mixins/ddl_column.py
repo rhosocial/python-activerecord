@@ -103,6 +103,20 @@ class DDLColumnMixin:
         all_params: List[Any] = []
         type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
+
+        identity = getattr(col_def, 'identity', None)
+        if identity:
+            col_sql += f" GENERATED {identity.upper()} AS IDENTITY"
+            start = getattr(col_def, 'identity_start', None)
+            increment = getattr(col_def, 'identity_increment', None)
+            if start is not None or increment is not None:
+                id_parts = []
+                if start is not None:
+                    id_parts.append(f"START WITH {start}")
+                if increment is not None:
+                    id_parts.append(f"INCREMENT BY {increment}")
+                col_sql += f" ({' '.join(id_parts)})"
+
         for constraint in col_def.constraints:
             suffix, params = self.format_column_constraint(constraint)
             col_sql += suffix
@@ -143,6 +157,13 @@ class DDLColumnMixin:
             return self.format_column_check_constraint(constraint)
         if ctype == ColumnConstraintType.FOREIGN_KEY:
             return self.format_column_fk_constraint(constraint)
+        if ctype == ColumnConstraintType.COLLATE:
+            if constraint.collation:
+                return f" COLLATE {constraint.collation}", ()
+            return "", ()
+        if ctype == ColumnConstraintType.IDENTITY:
+            identity = constraint.identity or "BY DEFAULT"
+            return f" GENERATED {identity.upper()} AS IDENTITY", ()
         return "", ()
 
     def format_column_check_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
