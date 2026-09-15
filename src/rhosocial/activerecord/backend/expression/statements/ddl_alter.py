@@ -56,19 +56,23 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class AlterTableActionType(Enum):
-    """Type of action for ALTER TABLE statement."""
+    """Type of action for ALTER TABLE statement.
+
+    Each value corresponds to exactly one concrete ``AlterTableAction``
+    subclass; the mapping is maintained manually and verified by tests.
+    """
 
     ADD_COLUMN = "ADD COLUMN"
     DROP_COLUMN = "DROP COLUMN"
     ALTER_COLUMN = "ALTER COLUMN"
-    ADD_CONSTRAINT = "ADD CONSTRAINT"
-    DROP_CONSTRAINT = "DROP CONSTRAINT"
+    ADD_TABLE_CONSTRAINT = "ADD CONSTRAINT"
+    DROP_TABLE_CONSTRAINT = "DROP CONSTRAINT"
     RENAME_COLUMN = "RENAME COLUMN"
     RENAME_TABLE = "RENAME TABLE"
     ADD_INDEX = "ADD INDEX"
     DROP_INDEX = "DROP INDEX"
-    MODIFY_COLUMN = "MODIFY COLUMN"  # MySQL/MariaDB specific
-    CHANGE_COLUMN = "CHANGE COLUMN"  # MySQL/MariaDB specific
+    MODIFY_COLUMN = "MODIFY COLUMN"
+    CHANGE_COLUMN = "CHANGE COLUMN"
 
 
 class AlterTableAction(BaseExpression):
@@ -216,7 +220,7 @@ class AddTableConstraint(AlterTableAction):
         return "format_add_table_constraint_action"
     """SQL standard ADD CONSTRAINT operation"""
 
-    action_type: AlterTableActionType = AlterTableActionType.ADD_CONSTRAINT
+    action_type: AlterTableActionType = AlterTableActionType.ADD_TABLE_CONSTRAINT
     constraint: TableConstraint
     dialect_options: Dict[str, Any]
 
@@ -253,7 +257,7 @@ class DropTableConstraint(AlterTableAction):
         See module docstring for the cross-backend capability matrix.
     """
 
-    action_type: AlterTableActionType = AlterTableActionType.DROP_CONSTRAINT
+    action_type: AlterTableActionType = AlterTableActionType.DROP_TABLE_CONSTRAINT
     constraint_name: str
     if_exists: Optional[bool]
     cascade: bool
@@ -272,32 +276,6 @@ class DropTableConstraint(AlterTableAction):
         self.constraint_name: str = constraint_name
         self.if_exists: Optional[bool] = if_exists
         self.cascade: bool = cascade
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
-
-
-class RenameColumn(AlterTableAction):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting function that renders this action."""
-        return "format_rename_column_action"
-    """SQL standard RENAME COLUMN operation"""
-
-    action_type: AlterTableActionType = AlterTableActionType.RENAME_COLUMN
-    old_name: str
-    new_name: str
-    dialect_options: Dict[str, Any]
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        old_name: str,
-        new_name: str,
-        dialect_options: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        super().__init__(dialect)
-        self.old_name: str = old_name
-        self.new_name: str = new_name
         self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
@@ -325,50 +303,6 @@ class RenameTable(AlterTableAction):
         self.old_name: str = old_name
         self.new_name: str = new_name
         self.dialect_options: Dict[str, Any] = dialect_options or {}
-
-
-class AddConstraint(AlterTableAction):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting function that renders this action."""
-        return "format_add_table_constraint_action"
-    """Represents an 'ADD CONSTRAINT' action."""
-
-    action_type: AlterTableActionType = AlterTableActionType.ADD_CONSTRAINT
-    constraint: TableConstraint
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        constraint: TableConstraint,
-    ) -> None:
-        super().__init__(dialect)
-        self.constraint: TableConstraint = constraint
-
-
-class DropConstraint(AlterTableAction):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting function that renders this action."""
-        return "format_drop_table_constraint_action"
-    """Represents a 'DROP CONSTRAINT' action."""
-
-    action_type: AlterTableActionType = AlterTableActionType.DROP_CONSTRAINT
-    constraint_name: str
-    cascade: bool
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        constraint_name: str,
-        *,
-        cascade: bool = False,
-    ) -> None:
-        super().__init__(dialect)
-        self.constraint_name: str = constraint_name
-        self.cascade: bool = cascade
 
 
 class RenameObject(AlterTableAction):
@@ -550,7 +484,7 @@ class AlterTableExpression(BaseExpression):
             table_name="orders",
             actions=[
                 AddColumn(dialect, column=ColumnDefinition(dialect, "status", "VARCHAR(20)")),
-                RenameColumn(dialect, old_name="id", new_name="order_id")
+                RenameObject(dialect, old_name="id", new_name="order_id")
             ]
         )
 

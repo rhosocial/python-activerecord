@@ -1184,6 +1184,22 @@ class TableSupport(Protocol):
         """Whether RENAME TABLE is supported."""
         ...  # pragma: no cover
 
+    def supports_alter_column_properties(self) -> bool:
+        """Whether ALTER COLUMN SET DEFAULT / DROP DEFAULT etc. is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_table_index_actions(self) -> bool:
+        """Whether ADD/DROP INDEX via ALTER TABLE is supported."""
+        ...  # pragma: no cover
+
+    def supports_multi_action_alter_table(self) -> bool:
+        """Whether ALTER TABLE supports multiple actions in one statement.
+
+        Most databases support comma-separated actions, but SQL Server
+        requires one action per ALTER TABLE statement.
+        """
+        ...  # pragma: no cover
+
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement."""
         ...  # pragma: no cover

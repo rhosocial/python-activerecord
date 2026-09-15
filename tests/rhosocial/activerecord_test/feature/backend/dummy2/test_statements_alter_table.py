@@ -14,16 +14,13 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.statements import (
     AlterColumn,
-    AddConstraint,
-    DropConstraint,
+    AddTableConstraint,
+    DropTableConstraint,
     RenameObject,
     AddIndex,
     DropIndex,
     TableConstraint,
     TableConstraintType,
-    AddTableConstraint,
-    DropTableConstraint,
-    RenameColumn,
     RenameTable,
     ColumnAlterOperation,
     AlterTableAction,
@@ -99,7 +96,7 @@ class TestAlterTableStatements:
         constraint = TableConstraint(dummy_dialect, 
             constraint_type=TableConstraintType.CHECK, check_condition=check_condition, name="chk_positive_age"
         )
-        add_constraint_action = AddConstraint(dummy_dialect, constraint=constraint)
+        add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="employees", actions=[add_constraint_action])
         sql, params = alter_expr.to_sql()
@@ -114,7 +111,7 @@ class TestAlterTableStatements:
 
     def test_drop_constraint_action(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with DROP CONSTRAINT action."""
-        drop_constraint_action = DropConstraint(dummy_dialect, constraint_name="old_constraint", cascade=False)
+        drop_constraint_action = DropTableConstraint(dummy_dialect, constraint_name="old_constraint", cascade=False)
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="orders", actions=[drop_constraint_action])
         sql, params = alter_expr.to_sql()
@@ -200,7 +197,7 @@ class TestAlterTableStatements:
 
     def test_drop_constraint_with_cascade(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with DROP CONSTRAINT CASCADE."""
-        drop_constraint_action = DropConstraint(dummy_dialect, constraint_name="fk_orders_user_id", cascade=True)
+        drop_constraint_action = DropTableConstraint(dummy_dialect, constraint_name="fk_orders_user_id", cascade=True)
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="orders", actions=[drop_constraint_action])
         sql, params = alter_expr.to_sql()
@@ -231,7 +228,7 @@ class TestAlterTableStatements:
             foreign_key_table="users",
             foreign_key_columns=["id"],
         )
-        add_constraint_action = AddConstraint(dummy_dialect, constraint=constraint)
+        add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
 
         alter_expr = AlterTableExpression(
             dummy_dialect, table_name="posts", actions=[add_action, alter_action, add_constraint_action]
@@ -326,7 +323,7 @@ class TestAlterTableStatements:
         constraint = TableConstraint(dummy_dialect, 
             constraint_type=TableConstraintType.CHECK, check_condition=check_condition, name="chk_balance_positive"
         )
-        add_constraint_action = AddConstraint(dummy_dialect, constraint=constraint)
+        add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
         # Action now has dialect bound at construction time
         sql, params = add_constraint_action.to_sql()
 
@@ -337,7 +334,7 @@ class TestAlterTableStatements:
 
     def test_drop_constraint_action_direct(self, dummy_dialect: DummyDialect):
         """Tests direct DROP CONSTRAINT action creation and formatting."""
-        drop_constraint_action = DropConstraint(dummy_dialect, constraint_name="fk_old_constraint", cascade=True)
+        drop_constraint_action = DropTableConstraint(dummy_dialect, constraint_name="fk_old_constraint", cascade=True)
         # Action now has dialect bound at construction time
         sql, params = drop_constraint_action.to_sql()
 
@@ -412,7 +409,7 @@ class TestAlterTableStatements:
 
     def test_rename_column_action_standard(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with RENAME COLUMN action per SQL standard."""
-        rename_action = RenameColumn(dummy_dialect, old_name="user_name", new_name="username")
+        rename_action = RenameObject(dummy_dialect, old_name="user_name", new_name="username")
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="users", actions=[rename_action])
         sql, params = alter_expr.to_sql()

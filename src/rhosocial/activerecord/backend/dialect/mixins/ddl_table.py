@@ -143,6 +143,27 @@ class TableMixin:
         """
         return True
 
+    def supports_alter_column_properties(self) -> bool:
+        """Whether ALTER COLUMN SET DEFAULT / DROP DEFAULT etc. is supported.
+
+        Defaults to False.
+        """
+        return False
+
+    def supports_alter_table_index_actions(self) -> bool:
+        """Whether ADD/DROP INDEX via ALTER TABLE is supported.
+
+        Defaults to False.
+        """
+        return False
+
+    def supports_multi_action_alter_table(self) -> bool:
+        """Whether ALTER TABLE supports multiple comma-separated actions.
+
+        Defaults to True. SQL Server requires one action per statement.
+        """
+        return True
+
     def supports_rename_column(self) -> bool:
         """Whether RENAME COLUMN is supported.
 
@@ -539,6 +560,10 @@ class TableMixin:
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         """Format ALTER TABLE statement (generic implementation).
 
+        When the dialect does not support multiple actions in one ALTER TABLE
+        (e.g. SQL Server), each action produces a separate statement joined
+        by semicolons.
+
         Args:
             expr: AlterTableExpression carrying the table name and the list of
                 actions to render.
@@ -547,15 +572,23 @@ class TableMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
         """
         all_params: List[Any] = []
-        parts = [f"ALTER TABLE {self.format_identifier(expr.table_name)}"]
         action_parts = []
         for action in expr.actions:
             action_part, action_params = action.to_sql()
             action_parts.append(action_part)
             all_params.extend(action_params)
-        if action_parts:
-            parts.append(" " + ", ".join(action_parts))
-        return " ".join(parts), tuple(all_params)
+
+        if not action_parts:
+            return f"ALTER TABLE {self.format_identifier(expr.table_name)}", ()
+
+        if self.supports_multi_action_alter_table():
+            combined = ", ".join(action_parts)
+            return f"ALTER TABLE {self.format_identifier(expr.table_name)} {combined}", tuple(all_params)
+
+        stmts = []
+        for part in action_parts:
+            stmts.append(f"ALTER TABLE {self.format_identifier(expr.table_name)} {part}")
+        return "; ".join(stmts), tuple(all_params)
 
 
 class ConstraintMixin:

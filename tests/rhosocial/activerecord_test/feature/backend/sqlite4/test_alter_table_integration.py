@@ -20,7 +20,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
     AddColumn,
     DropColumn,
-    RenameColumn,
+    RenameObject,
     AddTableConstraint,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
@@ -150,7 +150,7 @@ class TestAlterTableRenameColumn:
 
     def test_rename_column_reflected_in_introspector(self, backend_with_users):
         """RENAME COLUMN should change the column name in introspector results."""
-        rename_action = RenameColumn(
+        rename_action = RenameObject(
             backend_with_users.dialect,
             old_name="name",
             new_name="full_name",

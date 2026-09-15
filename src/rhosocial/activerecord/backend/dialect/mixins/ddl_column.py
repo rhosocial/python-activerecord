@@ -19,7 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DropIndex,
         DropTableConstraint,
         ModifyColumn,
-        RenameColumn,
+        RenameObject,
         RenameTable,
     )
     from ...expression.statements.ddl_table import (
@@ -610,7 +610,7 @@ class DDLColumnMixin:
             return f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}", ()
         return f"DROP INDEX {self.format_identifier(action.index_name)}", ()
 
-    def format_rename_column_action(self, action: "RenameColumn") -> Tuple[str, Tuple]:
+    def format_rename_column_action(self, action: "RenameObject") -> Tuple[str, Tuple]:
         """Format a ``RENAME COLUMN`` ALTER TABLE action.
 
         Args:
