@@ -116,6 +116,7 @@ SQLITE_PROTOCOLS = [
 # if SQLite ever gains one of these by accident, the negative test fails and
 # forces a conscious decision (and update of this list).
 SQLITE_NOT_IMPLEMENTED = [
+    dialect_protocols.DatabaseSupport,
     dialect_protocols.FunctionSupport,
     dialect_protocols.GraphTableSupport,
     dialect_protocols.ILIKESupport,
