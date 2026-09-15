@@ -9,6 +9,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CreateTableLikeExpression,
         CreateTableCloneExpression,
         CreateTableFromTemplateExpression,
+        CreateTableOptions,
         DropTableExpression,
         AlterTableExpression,
     )
@@ -189,6 +190,66 @@ class TableMixin:
         """
         return False
 
+    def supports_create_or_replace_table(self) -> bool:
+        """Whether ``CREATE OR REPLACE TABLE`` is supported.
+
+        Defaults to ``False``; Snowflake/BigQuery/MariaDB override to True.
+        """
+        return False
+
+    def supports_unlogged_table(self) -> bool:
+        """Whether ``CREATE UNLOGGED TABLE`` is supported.
+
+        Defaults to ``False``; PostgreSQL overrides to True.
+        """
+        return False
+
+    def supports_transient_table(self) -> bool:
+        """Whether ``CREATE TRANSIENT TABLE`` is supported.
+
+        Defaults to ``False``; Snowflake overrides to True.
+        """
+        return False
+
+    def format_create_table_options(self, expr: "CreateTableOptions") -> Tuple[str, tuple]:
+        """Format the ``CREATE`` header modifiers (generic reusable implementation).
+
+        Renders the qualifiers between ``CREATE`` and ``TABLE``, in the
+        portable order ``OR REPLACE``, then one of ``UNLOGGED`` / ``TRANSIENT``.
+        Each flag is capability-gated:
+
+        * ``or_replace`` -> :meth:`supports_create_or_replace_table`
+        * ``unlogged``   -> :meth:`supports_unlogged_table`
+        * ``transient``  -> :meth:`supports_transient_table`
+
+        Args:
+            expr: The CreateTableOptions clause carrying the flags.
+
+        Returns:
+            Tuple of (qualifier string, parameters tuple); empty string when no
+            flag is set.
+
+        Raises:
+            UnsupportedFeatureError: If a requested flag is not supported by
+                the dialect.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        parts: List[str] = []
+        if expr.or_replace:
+            if not self.supports_create_or_replace_table():
+                raise UnsupportedFeatureError(self.name, "CREATE OR REPLACE TABLE")
+            parts.append("OR REPLACE")
+        if expr.unlogged:
+            if not self.supports_unlogged_table():
+                raise UnsupportedFeatureError(self.name, "CREATE UNLOGGED TABLE")
+            parts.append("UNLOGGED")
+        if expr.transient:
+            if not self.supports_transient_table():
+                raise UnsupportedFeatureError(self.name, "CREATE TRANSIENT TABLE")
+            parts.append("TRANSIENT")
+        return " ".join(parts), ()
+
     def format_create_table_like_statement(self, expr: "CreateTableLikeExpression") -> Tuple[str, tuple]:
         """Format ``CREATE TABLE ... LIKE`` (generic reusable implementation).
 
@@ -318,11 +379,18 @@ class TableMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
         """
         all_params: List[Any] = []
+        options_part = ""
+        table_options = getattr(expr, "table_options", None)
+        if table_options is not None:
+            options_sql, options_params = table_options.to_sql()
+            if options_sql:
+                options_part = options_sql + " "
+            all_params.extend(options_params)
         temp_part = "TEMPORARY " if expr.temporary else ""
         not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
         table_sql, table_params = expr.table.to_sql()
         all_params.extend(table_params)
-        table_part = f"CREATE {temp_part}TABLE {not_exists_part}{table_sql} "
+        table_part = f"CREATE {options_part}{temp_part}TABLE {not_exists_part}{table_sql} "
         column_parts = []
         for col_def in expr.columns:
             col_sql, col_params = self.format_column_definition(col_def)

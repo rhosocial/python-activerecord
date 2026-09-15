@@ -251,6 +251,42 @@ class IndexDefinition(BaseExpression):
         self.dialect_options = dialect_options or {}
 
 
+class CreateTableOptions(BaseExpression):
+    """Typed creation modifiers for ``CREATE TABLE``.
+
+    Captures the cross-dialect header modifiers explicitly instead of via an
+    untyped ``dialect_options`` bag:
+
+    * ``or_replace`` -- ``CREATE OR REPLACE TABLE`` (Snowflake, BigQuery, MariaDB)
+    * ``unlogged``   -- ``CREATE UNLOGGED TABLE`` (PostgreSQL)
+    * ``transient``  -- ``CREATE TRANSIENT TABLE`` (Snowflake)
+
+    Rendering is dialect-driven through ``format_create_table_options`` and
+    the statement renderer composes the returned qualifier right after
+    ``CREATE`` (``CREATE <options> TABLE ...``).
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_table_options"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        *,
+        or_replace: bool = False,
+        unlogged: bool = False,
+        transient: bool = False,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(dialect)
+        self.or_replace = or_replace
+        self.unlogged = unlogged
+        self.transient = transient
+        self.dialect_options = dialect_options or {}
+
+
 class CreateTableExpression(BaseExpression):
 
     @property
@@ -273,6 +309,7 @@ class CreateTableExpression(BaseExpression):
         storage_options: Optional["StorageOptionsExpression"] = None,  # Storage options clause
         *,  # Force keyword arguments
         partition: Optional["PartitionClause"] = None,  # Table partitioning specification
+        table_options: Optional["CreateTableOptions"] = None,  # CREATE header modifiers
         dialect_options: Optional[Dict[str, Any]] = None,
         on_commit_delete: Optional[bool] = None,  # Firebird: ON COMMIT DELETE ROWS (True) or PRESERVE ROWS (False)
         external_file: Optional[str] = None,  # Firebird: EXTERNAL FILE clause
@@ -296,6 +333,7 @@ class CreateTableExpression(BaseExpression):
         if partition is not None and not isinstance(partition, PartitionClause):
             raise TypeError(f"partition must be a PartitionClause instance, got {type(partition).__name__}")
         self.partition = partition
+        self.table_options = table_options  # CreateTableOptions (header modifiers)
         self.dialect_options = dialect_options or {}  # Dialect-specific options
         self.on_commit_delete = on_commit_delete  # Firebird: ON COMMIT DELETE/PRESERVE ROWS
         self.external_file = external_file  # Firebird: EXTERNAL FILE clause

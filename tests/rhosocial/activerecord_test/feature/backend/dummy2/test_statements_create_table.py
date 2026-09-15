@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.expression import (
     CreateTableCloneExpression,
     CreateTableFromTemplateExpression,
     CreateTableCloneMode,
+    CreateTableOptions,
     ColumnDefinition,
     IndexDefinition,
 )
@@ -468,6 +469,51 @@ class TestCreateTableStatements:
             CreateTableCloneExpression(
                 dummy_dialect, table="t", source_table="src", mode="CLONE"
             )
+
+    def test_create_table_options_or_replace(self, dummy_dialect: DummyDialect):
+        expr = CreateTableExpression(
+            dummy_dialect,
+            table="t",
+            columns=[],
+            table_options=CreateTableOptions(dummy_dialect, or_replace=True),
+        )
+        sql, _ = expr.to_sql()
+        assert sql.startswith("CREATE OR REPLACE TABLE")
+
+    def test_create_table_options_unlogged(self, dummy_dialect: DummyDialect):
+        expr = CreateTableExpression(
+            dummy_dialect,
+            table="t",
+            columns=[],
+            table_options=CreateTableOptions(dummy_dialect, unlogged=True),
+        )
+        sql, _ = expr.to_sql()
+        assert sql.startswith("CREATE UNLOGGED TABLE")
+
+    def test_create_table_options_transient(self, dummy_dialect: DummyDialect):
+        expr = CreateTableExpression(
+            dummy_dialect,
+            table="t",
+            columns=[],
+            table_options=CreateTableOptions(dummy_dialect, transient=True),
+        )
+        sql, _ = expr.to_sql()
+        assert sql.startswith("CREATE TRANSIENT TABLE")
+
+    def test_create_table_options_gated(self):
+        """A dialect without the capability flag fails fast."""
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        dialect = SQLiteDialect()
+        assert dialect.supports_create_or_replace_table() is False
+        expr = CreateTableExpression(
+            dialect,
+            table="t",
+            columns=[],
+            table_options=CreateTableOptions(dialect, or_replace=True),
+        )
+        with pytest.raises(UnsupportedFeatureError):
+            expr.to_sql()
 
     def test_create_table_with_indexes(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with indexes."""

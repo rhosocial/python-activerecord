@@ -71,6 +71,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CreateTableLikeExpression,
         CreateTableCloneExpression,
         CreateTableFromTemplateExpression,
+        CreateTableOptions,
         DropTableExpression,
         AlterTableExpression,
         CreateViewExpression,
@@ -1233,6 +1234,10 @@ class TableSupport(Protocol):
         self, expr: "CreateTableFromTemplateExpression"
     ) -> Tuple[str, tuple]:
         """Format CREATE TABLE ... USING TEMPLATE statement."""
+        ...  # pragma: no cover
+
+    def format_create_table_options(self, expr: "CreateTableOptions") -> Tuple[str, tuple]:
+        """Format CREATE TABLE header modifiers (OR REPLACE / UNLOGGED / TRANSIENT)."""
         ...  # pragma: no cover
 
 

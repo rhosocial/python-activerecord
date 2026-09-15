@@ -719,6 +719,15 @@ class DummyDialect(
     def supports_create_table_using_template(self) -> bool:
         return True
 
+    def supports_create_or_replace_table(self) -> bool:
+        return True
+
+    def supports_unlogged_table(self) -> bool:
+        return True
+
+    def supports_transient_table(self) -> bool:
+        return True
+
     # Generic partition protocol is exposed through PartitionMixin, but all
     # capabilities stay disabled for dummy because partitioning requires
     # backend-specific storage semantics.
