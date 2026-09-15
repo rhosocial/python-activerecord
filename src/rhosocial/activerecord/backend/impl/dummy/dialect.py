@@ -129,6 +129,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TemporalTableMixin,
     QualifyClauseMixin,
     LockingMixin,
+    PivotMixin,
     GraphMixin,
     GraphTableMixin,
     JoinMixin,
@@ -199,6 +200,7 @@ class DummyDialect(
     TemporalTableMixin,
     QualifyClauseMixin,
     LockingMixin,
+    PivotMixin,
     GraphMixin,
     GraphTableMixin,
     JoinMixin,
@@ -625,6 +627,24 @@ class DummyDialect(
     def supports_for_update(self) -> bool:
         return True
 
+    def supports_for_share(self) -> bool:
+        return True
+
+    def supports_for_no_key_update(self) -> bool:
+        return True
+
+    def supports_for_key_share(self) -> bool:
+        return True
+
+    def supports_lock_in_share_mode(self) -> bool:
+        return True
+
+    def supports_pivot(self) -> bool:
+        return True
+
+    def supports_unpivot(self) -> bool:
+        return True
+
     def supports_graph_match(self) -> bool:
         return True
 
@@ -683,6 +703,12 @@ class DummyDialect(
         return True
 
     def supports_offset_without_limit(self) -> bool:
+        return True
+
+    def supports_fetch_with_ties(self) -> bool:
+        return True
+
+    def supports_nulls_first_last(self) -> bool:
         return True
 
     # endregion

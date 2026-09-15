@@ -1064,6 +1064,22 @@ class LockingSupport(Protocol):
         """Whether FOR UPDATE SKIP LOCKED is supported."""
         ...  # pragma: no cover
 
+    def supports_for_share(self) -> bool:
+        """Whether the FOR SHARE lock strength is supported."""
+        ...  # pragma: no cover
+
+    def supports_for_no_key_update(self) -> bool:
+        """Whether FOR NO KEY UPDATE is supported."""
+        ...  # pragma: no cover
+
+    def supports_for_key_share(self) -> bool:
+        """Whether FOR KEY SHARE is supported."""
+        ...  # pragma: no cover
+
+    def supports_lock_in_share_mode(self) -> bool:
+        """Whether the legacy LOCK IN SHARE MODE syntax is supported."""
+        ...  # pragma: no cover
+
     def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
         """
         Formats a FOR UPDATE clause with optional locking modifiers.

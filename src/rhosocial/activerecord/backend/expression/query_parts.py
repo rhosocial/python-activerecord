@@ -32,6 +32,21 @@ class JoinType(Enum):
     # Other database-specific types could be added here
 
 
+class LockStrength(Enum):
+    """Row-level lock strength for a FOR UPDATE / FOR SHARE clause.
+
+    Only the strengths with cross-backend commonality live here. Backends
+    with a unique, non-generalisable strength define their own
+    ``{Backend}ForUpdateClause`` subclass instead.
+    """
+
+    UPDATE = "FOR UPDATE"  # Strongest exclusive lock
+    NO_KEY_UPDATE = "FOR NO KEY UPDATE"  # PostgreSQL-specific weaker exclusive lock
+    SHARE = "FOR SHARE"  # Shared lock
+    KEY_SHARE = "FOR KEY SHARE"  # Weakest shared lock (PostgreSQL)
+    LOCK_IN_SHARE_MODE = "LOCK IN SHARE MODE"  # Legacy MySQL/MariaDB syntax
+
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .statements import QueryExpression
@@ -187,6 +202,50 @@ class OrderByClause(BaseExpression):
         return "format_order_by_clause"
 
 
+class OrderByExpression(BaseExpression):
+    """A single sort element within an ORDER BY clause.
+
+    Carries the sort expression, its optional direction (``ASC`` / ``DESC``)
+    and the optional null-ordering (``NULLS FIRST`` / ``NULLS LAST``).
+
+    Examples:
+        # Ascending, nulls first
+        OrderByExpression(dialect, Column(dialect, "name"), nulls_first=True)
+
+        # Descending
+        OrderByExpression(dialect, Column(dialect, "created_at"), "DESC")
+    """
+
+    _VALID_DIRECTIONS = frozenset({"ASC", "DESC"})
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expression: "BaseExpression",
+        direction: Optional[str] = None,
+        nulls_first: bool = False,
+        nulls_last: bool = False,
+    ):
+        super().__init__(dialect)
+        if direction is not None:
+            direction = direction.upper()
+            if direction not in self._VALID_DIRECTIONS:
+                raise ValueError(
+                    f"Invalid ORDER BY direction: {direction!r}. Must be 'ASC' or 'DESC'."
+                )
+        if nulls_first and nulls_last:
+            raise ValueError("Only one of 'nulls_first' or 'nulls_last' may be set.")
+        self.expression = expression
+        self.direction = direction
+        self.nulls_first = nulls_first
+        self.nulls_last = nulls_last
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_order_by_expression"
+
+
 class LimitOffsetClause(BaseExpression):
     """
     Represents LIMIT and/or OFFSET clauses in a SQL query.
@@ -210,6 +269,7 @@ class LimitOffsetClause(BaseExpression):
         dialect: "SQLDialectBase",
         limit: Optional[Union[int, "BaseExpression"]] = None,
         offset: Optional[Union[int, "BaseExpression"]] = None,
+        with_ties: bool = False,
     ):
         super().__init__(dialect)
 
@@ -223,6 +283,7 @@ class LimitOffsetClause(BaseExpression):
 
         self.limit = limit  # Maximum number of rows to return (optional)
         self.offset = offset  # Number of rows to skip (optional, requires LIMIT in most dialects)
+        self.with_ties = with_ties  # FETCH FIRST ... WITH TIES (requires FETCH syntax)
 
     @property
     def format_method(self) -> str:
@@ -293,12 +354,14 @@ class ForUpdateClause(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
+        strength: Optional["LockStrength"] = None,
         of_columns: Optional[List[Union[str, "BaseExpression"]]] = None,  # Specify columns to lock
         nowait: bool = False,  # NOWAIT option - fail immediately if locked
         skip_locked: bool = False,  # SKIP LOCKED option - skip locked rows
         dialect_options: Optional[Dict[str, Any]] = None,
     ):  # Dialect-specific options
         super().__init__(dialect)
+        self.strength = strength if strength is not None else LockStrength.UPDATE
         self.of_columns = of_columns or []  # Columns to apply the lock to
         self.nowait = nowait  # If True, fail immediately if rows are locked
         self.skip_locked = skip_locked  # If True, skip locked rows instead of waiting

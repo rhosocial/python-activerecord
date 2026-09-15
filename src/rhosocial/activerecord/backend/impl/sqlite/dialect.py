@@ -802,6 +802,14 @@ class SQLiteDialect(
         # SQLite doesn't support FOR UPDATE in set operations
         return False
 
+    def supports_fetch_with_ties(self) -> bool:
+        """SQLite does not support FETCH ... WITH TIES."""
+        return False
+
+    def supports_nulls_first_last(self) -> bool:
+        """SQLite does not support explicit NULLS FIRST/LAST ordering."""
+        return False
+
     def format_grouping_clause(self, expr) -> Tuple[str, tuple]:
         """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
         operation = expr.operation

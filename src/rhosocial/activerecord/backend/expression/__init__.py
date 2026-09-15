@@ -116,10 +116,13 @@ from .query_parts import (
     WhereClause,
     GroupByHavingClause,
     OrderByClause,
+    OrderByExpression,
     LimitOffsetClause,
     QualifyClause,
     ForUpdateClause,
+    LockStrength,
 )
+from .pivot import PivotExpression, UnpivotExpression
 from .query_sources import (
     SetOperationExpression,
     CTEExpression,
@@ -470,9 +473,13 @@ __all__ = [
     "WhereClause",
     "GroupByHavingClause",
     "OrderByClause",
+    "OrderByExpression",
     "LimitOffsetClause",
     "QualifyClause",
     "ForUpdateClause",
+    "PivotExpression",
+    "UnpivotExpression",
+    "LockStrength",
     # Query sources
     "SetOperationExpression",
     "CTEExpression",

@@ -118,6 +118,15 @@ class SetOperationMixin:
 
         # Add FOR UPDATE clause if present
         if for_update_clause:
+            if not self.supports_set_operation_for_update():
+                from ..exceptions import UnsupportedFeatureError
+
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "FOR UPDATE in set operations",
+                    "This dialect does not support FOR UPDATE clauses in a set "
+                    "operation (UNION, INTERSECT, EXCEPT).",
+                )
             for_update_sql, for_update_params = for_update_clause.to_sql()
             sql_parts.append(for_update_sql)
             all_params.extend(for_update_params)

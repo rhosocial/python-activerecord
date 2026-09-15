@@ -11,6 +11,13 @@ from ...expression.bases import ToSQLProtocol
 
 if TYPE_CHECKING:
     from ...expression.statements.dql import QueryExpression
+    from ...expression.query_parts import (
+        GroupByHavingClause,
+        LimitOffsetClause,
+        OrderByClause,
+        OrderByExpression,
+        WhereClause,
+    )
 
 
 class DQLMixin:
@@ -28,6 +35,22 @@ class DQLMixin:
     def supports_for_update(self) -> bool:
         """Whether row-level locking with FOR UPDATE is supported (defaults to False)."""
         return False
+
+    def supports_nulls_first_last(self) -> bool:
+        """Whether ``ORDER BY ... NULLS FIRST`` / ``NULLS LAST`` is supported.
+
+        Defaults to False; dialects that accept explicit null ordering
+        (PostgreSQL, Oracle, Snowflake, Firebird, ...) override to True.
+        """
+        return False
+
+    def supports_fetch_with_ties(self) -> bool:
+        """Whether ``FETCH FIRST n ROWS WITH TIES`` is supported.
+
+        The default mirrors PostgreSQL's version gate (13+). Every other
+        backend overrides this with its own real capability.
+        """
+        return self.version >= (13, 0, 0)
 
     def format_limit_offset(self, limit=None, offset=None) -> Tuple[str, List]:
         """Format a LIMIT/OFFSET fragment.
@@ -56,14 +79,51 @@ class DQLMixin:
         """Format a LIMIT/OFFSET clause object.
 
         Args:
-            clause: Clause exposing ``limit`` and ``offset`` attributes, either
-                raw values or objects implementing ``ToSQLProtocol``.
+            clause: Clause exposing ``limit``, ``offset`` and ``with_ties``
+                attributes, either raw values or objects implementing
+                ``ToSQLProtocol``.
 
         Returns:
             A ``(sql, params)`` tuple; the SQL is empty when both are ``None``.
+
+        Raises:
+            UnsupportedFeatureError: If ``with_ties`` is requested but the
+                dialect does not support ``FETCH FIRST ... WITH TIES``.
         """
+        from ..exceptions import UnsupportedFeatureError
+
         all_params: List[Any] = []
         parts = []
+        if getattr(clause, "with_ties", False):
+            if not self.supports_fetch_with_ties():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "FETCH FIRST ... WITH TIES",
+                    "This dialect does not support FETCH FIRST ... WITH TIES.",
+                )
+            if clause.limit is None:
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "WITH TIES without a row limit",
+                    "FETCH FIRST ... WITH TIES requires a row limit.",
+                )
+            if clause.offset is not None:
+                if isinstance(clause.offset, ToSQLProtocol):
+                    offset_sql, offset_params = clause.offset.to_sql()
+                    parts.append(f"OFFSET {offset_sql} ROWS")
+                    all_params.extend(offset_params)
+                else:
+                    parts.append(f"OFFSET {self.get_parameter_placeholder()} ROWS")
+                    all_params.append(clause.offset)
+            if isinstance(clause.limit, ToSQLProtocol):
+                limit_sql, limit_params = clause.limit.to_sql()
+                parts.append(f"FETCH FIRST {limit_sql} ROWS WITH TIES")
+                all_params.extend(limit_params)
+            else:
+                parts.append(f"FETCH FIRST {self.get_parameter_placeholder()} ROWS WITH TIES")
+                all_params.append(clause.limit)
+            return " ".join(parts), tuple(all_params)
+
         if clause.limit is not None:
             if isinstance(clause.limit, ToSQLProtocol):
                 limit_sql, limit_params = clause.limit.to_sql()
@@ -125,6 +185,37 @@ class DQLMixin:
                 expr_parts.append(expr_sql)
                 all_params.extend(expr_params)
         return f"ORDER BY {', '.join(expr_parts)}", tuple(all_params)
+
+    def format_order_by_expression(self, expr: "OrderByExpression") -> Tuple[str, tuple]:
+        """Format a single sort element of an ORDER BY clause.
+
+        Args:
+            expr: An :class:`OrderByExpression` carrying the sort expression,
+                optional direction and optional null ordering.
+
+        Returns:
+            A ``(sql, params)`` tuple.
+
+        Raises:
+            UnsupportedFeatureError: If ``NULLS FIRST`` / ``NULLS LAST`` is
+                requested but the dialect does not support it.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        expr_sql, expr_params = expr.expression.to_sql()
+        parts = [expr_sql]
+        if expr.direction is not None:
+            parts.append(expr.direction)
+        if expr.nulls_first or expr.nulls_last:
+            if not self.supports_nulls_first_last():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "NULLS FIRST/LAST in ORDER BY",
+                    "This dialect does not support explicit NULLS FIRST/LAST "
+                    "ordering in an ORDER BY clause.",
+                )
+            parts.append("NULLS FIRST" if expr.nulls_first else "NULLS LAST")
+        return " ".join(parts), tuple(expr_params)
 
     def format_group_by_having_clause(self, clause: "GroupByHavingClause") -> Tuple[str, tuple]:
         """Format a combined GROUP BY / HAVING clause.

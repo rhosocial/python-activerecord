@@ -29,6 +29,7 @@ from .aggregation import OrderedSetAggregationMixin
 from .merge import MergeMixin
 from .temporal import TemporalTableMixin, QualifyClauseMixin
 from .locking import LockingMixin
+from .pivot import PivotMixin
 from .set_operation import SetOperationMixin
 from .partition import PartitionMixin
 from .ddl_table import TableMixin, ConstraintMixin
@@ -77,6 +78,7 @@ __all__ = [
     "TemporalTableMixin",
     "QualifyClauseMixin",
     "LockingMixin",
+    "PivotMixin",
     "SetOperationMixin",
     "PartitionMixin",
     "TableMixin",
