@@ -278,12 +278,16 @@ class CreateTableOptions(BaseExpression):
     **Table-level options** (after the column list):
 
     * ``comment`` -- ``COMMENT 'text'`` (MySQL, MariaDB, ClickHouse)
+    * ``engine`` -- ``ENGINE=name`` (MySQL, MariaDB, ClickHouse)
+    * ``charset`` -- ``DEFAULT CHARSET=name`` (MySQL, MariaDB)
+    * ``collate`` -- ``COLLATE=name`` (MySQL, MariaDB, table-level)
+    * ``memory_optimized`` -- ``MEMORY_OPTIMIZED=ON`` (SQL Server)
+    * ``durability`` -- ``DURABILITY=SCHEMA_ONLY|SCHEMA_AND_DATA`` (SQL Server)
 
     Header modifiers are rendered by ``format_create_table_options``; the
     statement renderer composes the returned qualifier right after
-    ``CREATE``.  Table-level options are rendered by
-    ``format_table_comment`` (or dialect-specific equivalents) and appended
-    after the column list by the statement renderer.
+    ``CREATE``.  Table-level options are rendered by the statement renderer
+    and appended after the column list.
     """
 
     @property
@@ -299,6 +303,11 @@ class CreateTableOptions(BaseExpression):
         unlogged: bool = False,
         transient: bool = False,
         comment: Optional[str] = None,
+        engine: Optional[str] = None,
+        charset: Optional[str] = None,
+        collate: Optional[str] = None,
+        memory_optimized: Optional[bool] = None,
+        durability: Optional[str] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
@@ -306,6 +315,11 @@ class CreateTableOptions(BaseExpression):
         self.unlogged = unlogged
         self.transient = transient
         self.comment = comment
+        self.engine = engine
+        self.charset = charset
+        self.collate = collate
+        self.memory_optimized = memory_optimized
+        self.durability = durability
         self.dialect_options = dialect_options or {}
 
 
