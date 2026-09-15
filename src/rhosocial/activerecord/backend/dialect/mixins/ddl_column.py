@@ -397,6 +397,8 @@ class DDLColumnMixin:
             A ``(sql, params)`` tuple.
         """
         column_sql, column_params = self.format_column_definition(action.column)
+        if getattr(action, "if_not_exists", None) and self.supports_add_column_if_not_exists():
+            return f"ADD COLUMN IF NOT EXISTS {column_sql}", column_params
         return f"ADD COLUMN {column_sql}", column_params
 
     def format_drop_column_action(self, action: "DropColumn") -> Tuple[str, Tuple]:
