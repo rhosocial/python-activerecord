@@ -54,17 +54,16 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     AutoIncrementMixin,
     CollationMixin,
     CTEMixin,
-    FilterClauseMixin,
+
     WindowFunctionMixin,
     JSONMixin,
-    AdvancedGroupingMixin,
+
     ArrayMixin,
     ExplainMixin,
     GraphMixin,
-    LockingMixin,
+
     MergeMixin,
-    OrderedSetAggregationMixin,
-    QualifyClauseMixin,
+
     TemporalTableMixin,
     UpsertMixin,
     LateralJoinMixin,
@@ -146,18 +145,17 @@ class SQLiteDialect(
     SQLDialectBase,
     # Include mixins for features that SQLite supports (with version-dependent implementations)
     CTEMixin,
-    FilterClauseMixin,
+
     WindowFunctionMixin,
     JSONMixin,
     # Include mixins for features that SQLite does NOT support but need the methods to exist
-    AdvancedGroupingMixin,
+
     ArrayMixin,
     ExplainMixin,
     GraphMixin,
-    LockingMixin,
+
     MergeMixin,
-    OrderedSetAggregationMixin,
-    QualifyClauseMixin,
+
     TemporalTableMixin,
     UpsertMixin,
     LateralJoinMixin,

@@ -10,13 +10,13 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect import (
     SQLDialectBase,
-    AdvancedGroupingMixin,
     AdvancedGroupingSupport,
     UnsupportedFeatureError,
 )
+from rhosocial.activerecord.backend.dialect.mixins import DQLMixin
 
 
-class NoAdvancedGroupingDialect(SQLDialectBase, AdvancedGroupingMixin, AdvancedGroupingSupport):
+class NoAdvancedGroupingDialect(SQLDialectBase, DQLMixin, AdvancedGroupingSupport):
     """Dialect that does not support advanced grouping operations."""
 
     def supports_rollup(self) -> bool:

@@ -23,7 +23,6 @@ pytestmark = [pytest.mark.feature, pytest.mark.backend]
 _IMPORT_FIRST_TARGETS = [
     "rhosocial.activerecord.backend.dialect.mixins.function",
     "rhosocial.activerecord.backend.dialect.mixins.expression",
-    "rhosocial.activerecord.backend.dialect.mixins.filter_clause",
     "rhosocial.activerecord.backend.dialect.mixins",
     "rhosocial.activerecord.backend.expression.statements.filter_clause",
     "rhosocial.activerecord.backend.dialect",

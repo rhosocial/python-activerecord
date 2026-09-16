@@ -330,3 +330,84 @@ class ExpressionMixin(FunctionCallMixin):
         if expr.alias:
             case_sql = f"{case_sql} AS {self.format_identifier(expr.alias)}"
         return case_sql, tuple(all_params)
+
+    # region Ordered-Set Aggregation
+    # Merged from OrderedSetAggregationMixin: WITHIN GROUP support.
+
+    def supports_ordered_set_aggregation(self) -> bool:
+        """Whether ordered-set aggregate functions are supported.
+
+        Defaults to False; dialects that render ``WITHIN GROUP`` override this
+        to return True.
+        """
+        return False
+
+    def format_ordered_set_aggregation(self, aggregation: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format an ordered-set aggregate function call.
+
+        Args:
+            aggregation: OrderedSetAggregation object to format.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support ordered-set
+                aggregate functions.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_ordered_set_aggregation():
+            raise UnsupportedFeatureError(self.name, "ordered-set aggregate functions")
+
+        # Format function arguments
+        func_args_sql, func_args_params = [], []
+        for arg in aggregation.args:
+            arg_sql, arg_params = arg.to_sql()
+            func_args_sql.append(arg_sql)
+            func_args_params.extend(arg_params)
+
+        # Get the ORDER BY SQL from the OrderByClause object
+        order_by_sql, order_by_params = aggregation.order_by.to_sql()
+        sql = f"{aggregation.func_name.upper()}({', '.join(func_args_sql)}) WITHIN GROUP ({order_by_sql})"
+
+        all_params = func_args_params + list(order_by_params)
+
+        if aggregation.alias:
+            sql = f"{sql} AS {self.format_identifier(aggregation.alias)}"
+
+        return sql, tuple(all_params)
+
+    # endregion Ordered-Set Aggregation
+
+    # region Filter Clause
+    # Merged from FilterClauseMixin: FILTER (WHERE ...) support.
+
+    def supports_filter_clause(self) -> bool:
+        """Whether FILTER clause on aggregate functions is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
+        return False
+
+    def format_filter_clause(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a FILTER clause.
+
+        Args:
+            expr: FilterClauseExpression containing the condition.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the rendered clause.
+
+        Raises:
+            UnsupportedFeatureError: If FILTER clauses are unsupported.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_filter_clause():
+            raise UnsupportedFeatureError(self.name, "FILTER clause")
+
+        condition_sql, condition_params = expr.condition.to_sql()
+        return f"FILTER (WHERE {condition_sql})", condition_params
+
+    # endregion Filter Clause

@@ -1,15 +1,12 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/temporal.py
-"""Temporal table and QUALIFY clause formatting for the dialect layer.
+"""Temporal table formatting for the dialect layer.
 
 Provides capability probes and SQL rendering for system-versioned temporal
-tables and the QUALIFY window-filter clause.
+tables. The QUALIFY clause support has been merged into DQLMixin.
 """
 from typing import Tuple, TYPE_CHECKING
 
-from ..exceptions import UnsupportedFeatureError
-
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.query_parts import QualifyClause
     from ...expression.datetime import TemporalOptionsExpression
 
 
@@ -46,32 +43,3 @@ class TemporalTableMixin:
             sql_parts.append(f"{key.upper()} {self.get_parameter_placeholder()}")
             params.append(value)
         return " ".join(sql_parts), tuple(params)
-
-
-class QualifyClauseMixin:
-    """Mixin for the QUALIFY clause (window filter) support."""
-
-    def supports_qualify_clause(self) -> bool:
-        """Whether QUALIFY clause is supported.
-
-        Defaults to False; dialects that support it override this.
-        """
-        return False
-
-    def format_qualify_clause(self, clause: "QualifyClause") -> Tuple[str, tuple]:
-        """Format a QUALIFY clause.
-
-        Args:
-            clause: QualifyClause exposing a ``condition`` expression.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-
-        Raises:
-            UnsupportedFeatureError: If QUALIFY clauses are unsupported.
-        """
-        if not self.supports_qualify_clause():
-            raise UnsupportedFeatureError(self.name, "QUALIFY clause")
-
-        condition_sql, condition_params = clause.condition.to_sql()
-        return f"QUALIFY {condition_sql}", condition_params

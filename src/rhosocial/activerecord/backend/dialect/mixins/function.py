@@ -45,7 +45,6 @@ class FunctionCallMixin:
         """
         from ...expression import aggregates, core, operators
         from ..protocols import FilterClauseSupport
-        from .filter_clause import FilterClauseMixin
 
         if (
             isinstance(expr, aggregates.AggregateFunctionCall)
@@ -80,7 +79,7 @@ class FunctionCallMixin:
 
         filter_predicate = getattr(expr, "filter_predicate", None)
         if filter_predicate:
-            if isinstance(self, FilterClauseSupport) and isinstance(self, FilterClauseMixin):
+            if isinstance(self, FilterClauseSupport):
                 if self.supports_filter_clause():
                     from ...expression.statements.filter_clause import FilterClauseExpression
                     filter_expr = FilterClauseExpression(self, condition=filter_predicate)
