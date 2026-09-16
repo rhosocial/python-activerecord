@@ -38,7 +38,7 @@ class TestBasicExpressions:
     def test_literal_repr(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test Literal repr method."""
         literal = Literal(sqlite_dialect_3_8_0, "test_value")
-        assert repr(literal) == "Literal('test_value')"
+        assert repr(literal) == "Literal('test_value', inline_literals=False)"
 
     def test_column_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic Column functionality."""

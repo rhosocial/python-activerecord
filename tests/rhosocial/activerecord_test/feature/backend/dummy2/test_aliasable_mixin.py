@@ -8,7 +8,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, TableExpression
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
-from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     JSONExpression,
     ArrayExpression,
@@ -251,7 +251,7 @@ class TestAliasNonContamination:
             lambda d: FunctionCall(d, "UPPER", Column(d, "name")),
             lambda d: Subquery(d, "SELECT 1"),
             lambda d: TableExpression(d, "users"),
-            lambda d: JoinExpression(
+            lambda d: JoinClause(
                 d,
                 left_table=TableExpression(d, "users"),
                 right_table=TableExpression(d, "items"),
@@ -259,7 +259,7 @@ class TestAliasNonContamination:
                 condition=Column(d, "id", "u") == Column(d, "user_id", "i"),
             ),
         ],
-        ids=["Literal", "Column", "FunctionCall", "Subquery", "TableExpression", "JoinExpression"],
+        ids=["Literal", "Column", "FunctionCall", "Subquery", "TableExpression", "JoinClause"],
     )
     def test_as_returns_copy_for_each_expression_type(
         self, dummy_dialect: DummyDialect, factory
@@ -285,20 +285,27 @@ class TestAliasNonContamination:
     def test_cast_on_aliased_copy_does_not_leak_to_original(
         self, dummy_dialect: DummyDialect
     ):
+        # A cast is an AST node wrapping the (copy of the) aliased column;
+        # the alias is hoisted onto the cast node so both call orders render
+        # identically, and the original column stays untouched.
         col = Column(dummy_dialect, "id")
         aliased = col.as_("id_text")
-        aliased.cast("TEXT")
-        assert aliased.to_sql()[0] == 'CAST("id" AS TEXT) AS "id_text"'
+        casted = aliased.cast("TEXT")
+        assert casted.to_sql()[0] == 'CAST("id" AS TEXT) AS "id_text"'
         assert col.to_sql()[0] == '"id"'
         assert col.alias is None
+        # The alias moved onto the cast node (outermost rendered form).
+        assert casted.alias == "id_text"
+        assert aliased.alias is None
 
     def test_cast_on_original_does_not_leak_to_aliased_copy(
         self, dummy_dialect: DummyDialect
     ):
         col = Column(dummy_dialect, "amount").cast("MONEY")
         aliased = col.as_("m")
-        col.cast("NUMERIC")
-        # The copy snapshots the cast list at as_() time.
-        assert aliased.to_sql()[0] == 'CAST("amount" AS MONEY) AS "m"'
-        assert col.to_sql()[0] == 'CAST(CAST("amount" AS MONEY) AS NUMERIC)'
+        deeper = aliased.cast("NUMERIC")
+        # as_() hoists the alias off the inner node onto the new cast; the
+        # later cast wraps that aliased node, alias moving outward again.
+        assert aliased.to_sql()[0] == 'CAST("amount" AS MONEY)'
+        assert deeper.to_sql()[0] == 'CAST(CAST("amount" AS MONEY) AS NUMERIC) AS "m"'
         assert col.alias is None

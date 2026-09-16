@@ -12,7 +12,7 @@ import inspect
 import sys
 import warnings
 from enum import Enum
-from typing import Dict, Any, Tuple, Protocol, TYPE_CHECKING, Union
+from typing import Dict, Any, List, Optional, Tuple, Protocol, TYPE_CHECKING, Union
 from typing import runtime_checkable
 
 if sys.version_info >= (3, 10):
@@ -80,21 +80,162 @@ class ToSQLProtocol(Protocol):
         """
         ...
 
+    @property
+    def inline_literals(self) -> bool:  # pragma: no cover
+        """
+        Whether this expression renders its literal values **inline** (as SQL
+        text) instead of as bind parameters.
 
-class BaseExpression(abc.ABC, ToSQLProtocol):
+        **Defaults to ``False``** (bind parameters) — inline SQL text is a
+        severe SQL-injection hazard whenever the content can be influenced by
+        end users. Only content that is fully developer-declared and never
+        exposed to end users (e.g. schema DDL derived by ActiveRecord) should
+        enable it, and developers must think carefully before doing so.
+        """
+        ...
+
+    @inline_literals.setter
+    def inline_literals(self, value: bool) -> bool:  # pragma: no cover
+        """
+        Enable/disable inline literal rendering for this expression.
+
+        Disabled by default; enabling is a deliberate, security-relevant
+        choice (see the getter's documentation).
+        """
+        ...
+
+
+class BaseExpression:
     """
-    Abstract base class for any part of a SQL expression.
+    Shared protocol-attribute implementation for every SQL expression.
+
+    Satisfies the :class:`ToSQLProtocol` contract **structurally** — explicit
+    inheritance is neither required nor used (a protocol is structural; this
+    base is the shared implementation of its members):
+
+    - :attr:`dialect` property — validated binding (constructor-optional,
+      late binding via the setter; **per-node only, no propagation**);
+    - :attr:`inline_literals` property — inline-literal switch (defaults to
+      ``False`` for injection safety).
+
+    Rendering is **centralised** and **stateless**: :meth:`to_sql` is
+    implemented once, here, and is the only rendering entry point. A concrete
+    expression class participates by declaring exactly one thing — its
+    dialect formatting method name, through the read-only :attr:`format_method`
+    property. ``to_sql()`` resolves that name on the node's own bound dialect
+    (raising if unbound or if the dialect does not provide it) and hands
+    **this** expression to the formatting function. The rendered tree is
+    responsible for its own per-node dialect binding; no reconstruction or
+    propagation happens at render time.
     """
 
-    def __init__(self, dialect: "SQLDialectBase"):
+    def __init__(self, dialect: Optional["SQLDialectBase"] = None):
         """
         Initializes the base SQL expression with a specific dialect.
+
+        *dialect* is the conventional first argument but **optional** — it may
+        be supplied later through the :attr:`dialect` property (e.g. model
+        declaration time has no dialect; DDL generation binds one).
         """
-        self._dialect = dialect
+        self._inline_literals = False
+        self.dialect = dialect
 
     @property
     def dialect(self) -> "SQLDialectBase":
+        """The dialect bound to this expression.
+
+        Reading it **validates** that a dialect is bound: rendering requires
+        one, so access before binding raises ``ValueError`` (bind via
+        construction or the setter). Construction-time state flows through
+        ``self._dialect`` instead (operators inherit the honest binding
+        state, ``None`` included).
+        """
+        if self._dialect is None:
+            raise ValueError(
+                f"{type(self).__name__} has no dialect bound. Provide one at "
+                f"construction time (first argument) or set it through the "
+                f"dialect property."
+            )
         return self._dialect
+
+    @dialect.setter
+    def dialect(self, dialect: Optional["SQLDialectBase"]) -> None:
+        """Bind (or re-bind) the dialect used to render this expression.
+
+        The dialect must be a :class:`SQLDialectBase` instance (``None`` is
+        allowed to defer binding).
+
+        The setter affects **only this node** — it does not propagate into
+        child expressions. Binding is the constructor's/caller's per-node
+        responsibility: pass the dialect to each node at construction time,
+        or walk the tree and bind nodes individually (ActiveRecord's DDL
+        derivation does exactly that at build time). Rendering
+        (:meth:`to_sql`) requires the dialect of the node being rendered and
+        raises ``ValueError`` if none is bound.
+        """
+        if dialect is not None:
+            from ..dialect import SQLDialectBase
+
+            if not isinstance(dialect, SQLDialectBase):
+                raise TypeError(
+                    f"dialect must be a SQLDialectBase instance, got "
+                    f"{type(dialect).__name__}."
+                )
+        self._dialect = dialect
+
+    @property
+    def format_method(self) -> str:
+        """Name of the dialect formatting method that renders this expression.
+
+        **Read-only by contract.** Each concrete expression class declares —
+        exactly once, for itself — the name of the single ``format_*()``
+        method on the dialect that renders it, by overriding this getter
+        (a plain ``@property`` returning the name string; the base has no
+        setter, so the declaration cannot be mutated at runtime).
+
+        :class:`BaseExpression.to_sql` resolves the name against the bound
+        dialect and raises ``AttributeError`` if the dialect does not
+        provide it. An expression class that does not override this getter
+        is not renderable: reading it raises ``NotImplementedError``.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not declare its dialect "
+            f"formatting method name. Override the `format_method` "
+            f"property to return the name of the dialect's format_*() "
+            f"method that renders it."
+        )
+
+    def to_sql(self) -> "SQLQueryAndParams":
+        """Unified rendering entry point for every expression.
+
+        Implemented **once, here** — expression subclasses never override it.
+
+        Rendering is **stateless and allocation-free**: the tree being
+        rendered is responsible for its own dialect binding (every node is
+        bound at construction time, or individually re-bound by the caller /
+        ActiveRecord's DDL derivation before rendering). No reconstruction,
+        no propagation, no copies.
+
+        1. Resolve this class's declared formatting method name
+           (:attr:`format_method`; undeclared → ``NotImplementedError``) and
+           look it up on the bound dialect (missing → ``AttributeError``;
+           unbound dialect → ``ValueError`` from :attr:`dialect`).
+        2. Call the formatting function with **this** expression —
+           formatting functions receive expression instances only.
+
+        Returns:
+            A tuple containing:
+            - str: The SQL string
+            - tuple: The parameter values for prepared statement execution
+        """
+        formatter_name = self.format_method
+        formatter = getattr(self.dialect, formatter_name, None)
+        if formatter is None or not callable(formatter):
+            raise AttributeError(
+                f"{type(self.dialect).__name__} has no formatting method "
+                f"'{formatter_name}' (required by {type(self).__name__})."
+            )
+        return formatter(self)
 
     def validate(self, strict: bool = True) -> None:
         """Validate expression parameters according to SQL standard.
@@ -114,17 +255,11 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
         """
         pass  # pragma: no cover
 
-    @abc.abstractmethod
-    def to_sql(self) -> "SQLQueryAndParams":  # pragma: no cover
-        """
-        Converts the expression into a SQL string and a tuple of parameters.
-
-        Returns:
-            A tuple containing:
-            - str: The SQL string
-            - tuple: The parameter values for prepared statement execution
-        """
-        raise NotImplementedError
+    inline_literals: bool = False
+    """Default implementation of the :class:`ToSQLProtocol` contract (see
+    its documentation for the security rationale): **False** — bind
+    parameters are the safe default. Subclasses may override the class-level
+    default; instances toggle it through the protocol setter."""
 
     def get_params(self) -> Dict[str, Any]:
         """Introspection-based default implementation.
@@ -147,7 +282,16 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
                 continue
 
             private = f"_{name}"
-            if hasattr(self, private):
+            if hasattr(self, private) and hasattr(self, name):
+                # Both spellings exist. A fluent-API method named like the
+                # parameter (e.g. `schema` on introspection expressions) is
+                # a *callable* — then the private attribute is the state.
+                # Otherwise the public attribute is the constructor's
+                # authoritative write (the private one is only the
+                # base-class default the protocol setter keeps).
+                public = getattr(self, name)
+                value = public if not callable(public) else getattr(self, private)
+            elif hasattr(self, private):
                 value = getattr(self, private)
             elif hasattr(self, name):
                 value = getattr(self, name)
@@ -205,7 +349,6 @@ class SQLValueExpression(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase"):
         super().__init__(dialect)
-        self._cast_types: list = []
 
     def collate(
         self,

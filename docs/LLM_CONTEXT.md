@@ -41,9 +41,9 @@ rhosocial/activerecord/
 │   ├── async_descriptors.py # AsyncBelongsTo, AsyncHasOne, AsyncHasMany
 │   └── cache.py             # Relation caching
 ├── field/
-│   ├── timestamp.py         # TimestampMixin — created_at/updated_at
-│   ├── soft_delete.py       # SoftDeleteMixin — deleted_at
-│   ├── version.py           # OptimisticLockMixin — version column
+│   ├── timestamp.py         # TimestampMixin + DefaultTimestampMixin
+│   ├── soft_delete.py       # SoftDeleteMixin + DefaultSoftDeleteMixin (+ async)
+│   ├── version.py           # OptimisticLockMixin + DefaultOptimisticLockMixin
 │   ├── uuid.py              # UUIDMixin — UUID primary keys
 │   └── integer_pk.py        # IntegerPKMixin
 ├── backend/
@@ -108,10 +108,12 @@ Manages the database connection and executes SQL.
 - `AsyncBackend`: `await .execute(sql, params)`, `async with .transaction()`.
 
 ### Field Mixins (field/)
-Reusable mixins that add automatic fields and logic to models.
-- `TimestampMixin` (field/timestamp.py): Adds `created_at`, `updated_at`; auto-set on save.
-- `SoftDeleteMixin` (field/soft_delete.py): Adds `deleted_at`; `.delete()` sets timestamp instead of removing row.
-- `OptimisticLockMixin` (field/version.py): Adds `version`; raises on concurrent update conflict.
+Reusable mixins that add automatic fields and logic to models. Behavior mixins that need a field
+are split into a semantics base (declares no fields; points at a model-declared field via a class
+attribute like `__created_at_field__`) and a `Default*` subclass that adds the conventional field.
+- `DefaultTimestampMixin` (field/timestamp.py): Adds `created_at`, `updated_at`; auto-set on save. `TimestampMixin` is the field-free semantics base.
+- `DefaultSoftDeleteMixin` (field/soft_delete.py): Adds `deleted_at`; `.delete()` sets timestamp instead of removing row. `SoftDeleteMixin` is the field-free semantics base (+ `AsyncSoftDeleteMixin`/`DefaultAsyncSoftDeleteMixin`).
+- `DefaultOptimisticLockMixin` (field/version.py): Adds `version`; raises on concurrent update conflict. `OptimisticLockMixin` is the field-free semantics base.
 - `UUIDMixin` (field/uuid.py): Generates UUID4 primary keys.
 - `IntegerPKMixin` (field/integer_pk.py): Auto-increment integer primary key.
 
@@ -186,9 +188,9 @@ await user.save()
 
 ### Add field mixins
 ```python
-from rhosocial.activerecord.field import TimestampMixin, SoftDeleteMixin
+from rhosocial.activerecord.field import DefaultTimestampMixin, DefaultSoftDeleteMixin
 
-class Article(ActiveRecord, TimestampMixin, SoftDeleteMixin):
+class Article(ActiveRecord, DefaultTimestampMixin, DefaultSoftDeleteMixin):
     __table_name__ = "articles"
     title: str
     body: str
@@ -245,9 +247,9 @@ pytest --cov=rhosocial.activerecord
 |-------|--------------|---------|
 | IntegerPKMixin | id: int | Auto-increment integer primary key |
 | UUIDMixin | id: UUID | UUID primary key |
-| TimestampMixin | created_at, updated_at | Auto-managed timestamps |
-| SoftDeleteMixin | deleted_at | Soft delete support |
-| OptimisticLockMixin | version: int | Concurrent update detection |
+| DefaultTimestampMixin | created_at, updated_at | Auto-managed timestamps |
+| DefaultSoftDeleteMixin | deleted_at | Soft delete support |
+| DefaultOptimisticLockMixin | version: int | Concurrent update detection |
 
 ### Event System Reference
 

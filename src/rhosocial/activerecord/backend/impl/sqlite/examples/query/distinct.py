@@ -8,6 +8,7 @@ This example demonstrates:
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -33,8 +34,8 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table="users",
     columns=[
-        ColumnDefinition("id", IntegerType()),
-        ColumnDefinition("name", TextType()),
+        ColumnDefinition(dialect, "id", IntegerType()),
+        ColumnDefinition(dialect, "name", TextType()),
     ],
     if_not_exists=True,
 )
@@ -63,7 +64,6 @@ backend.execute(sql, params)
 # SECTION: SELECT DISTINCT (using SelectModifier)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
     QueryExpression,
     TableExpression,
     SelectModifier,

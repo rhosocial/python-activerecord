@@ -9,9 +9,6 @@ intentionally NOT serialized - it must be supplied at deserialization time.
 Reserved special keys in serialized param dicts:
     "__tuple__"  →  Python tuple value (since tuple is not JSON native)
     "__expr__"   →  Nested BaseExpression instance
-    "__cast__"   →  TypeConversionMixin cast chain (list of target types),
-                    captured at serialize time and re-applied at deserialize
-                    time via cast() so fluent-API cast state round-trips.
     "__vdc__"    →  Dataclass value (FQN + field values), structurally encoded
                     so BaseExpression / Enum / nested-dataclass fields round-trip.
     "__value__"  →  Non-JSON-native scalar encoded via a registered codec.
@@ -140,9 +137,6 @@ class ExpressionSerializer:
             self._warn_issued = True
 
         params = self._serialize_value(expr.get_params(), _depth + 1)
-        cast_types = getattr(expr, "cast_types", None)
-        if cast_types:
-            params["__cast__"] = list(cast_types)
         return {
             "type": f"{expr.__class__.__module__}.{expr.__class__.__name__}",
             "params": params,
@@ -235,20 +229,10 @@ class ExpressionSerializer:
 
         params = spec.get("params", {})
         deserialized_params = self._deserialize_value(params, dialect, depth + 1)
-        cast_types = None
-        if isinstance(deserialized_params, dict) and "__cast__" in deserialized_params:
-            cast_types = deserialized_params.pop("__cast__")
         try:
             expr = _reconstruct(expr_class, dialect, deserialized_params)
         except TypeError as e:
             raise ExpressionDeserializationError(f"Failed to reconstruct expression '{fqn}': {e}") from e
-        if cast_types:
-            if not hasattr(expr, "cast"):
-                raise ExpressionDeserializationError(
-                    f"'{fqn}' carries '__cast__' but does not support cast()"
-                )
-            for target_type in cast_types:
-                expr = expr.cast(target_type)
         return expr
 
     def _deserialize_value(self, value: Any, dialect: "SQLDialectBase", depth: int) -> Any:

@@ -38,6 +38,7 @@ from .ddl_table import (
     ColumnConstraintType,
     ColumnConstraint,
     GeneratedColumnType,
+    GeneratedColumnExpression,
     ColumnDefinition,
     TableConstraintType,
     ReferentialAction,
@@ -46,7 +47,14 @@ from .ddl_table import (
     ForeignKeyConstraint,
     IndexDefinition,
     CreateTableExpression,
+    CreateTableAsExpression,
+    CreateTableLikeExpression,
+    CreateTableCloneExpression,
+    CreateTableFromTemplateExpression,
+    CreateTableOptions,
+    CreateTableCloneMode,
     DropTableExpression,
+    StorageOptionsExpression,
 )
 
 # ALTER TABLE DDL
@@ -59,10 +67,7 @@ from .ddl_alter import (
     AlterColumn,
     AddTableConstraint,
     DropTableConstraint,
-    RenameColumn,
     RenameTable,
-    AddConstraint,
-    DropConstraint,
     RenameObject,
     AddIndex,
     DropIndex,
@@ -118,6 +123,12 @@ from .ddl_function import CreateFunctionExpression, DropFunctionExpression
 # Partition DDL
 from .ddl_partition import PartitionClause, PartitionStrategy
 
+# Filter clause expression
+from .filter_clause import FilterClauseExpression
+
+# Fulltext match expression
+from .fulltext_match import FulltextMatchExpression
+
 # Re-export shared type alias
 from ._types import FromSourceType
 
@@ -150,6 +161,7 @@ __all__ = [
     "ColumnConstraintType",
     "ColumnConstraint",
     "GeneratedColumnType",
+    "GeneratedColumnExpression",
     "ColumnDefinition",
     "TableConstraintType",
     "ReferentialAction",
@@ -158,7 +170,14 @@ __all__ = [
     "ForeignKeyConstraint",
     "IndexDefinition",
     "CreateTableExpression",
+    "CreateTableAsExpression",
+    "CreateTableLikeExpression",
+    "CreateTableCloneExpression",
+    "CreateTableFromTemplateExpression",
+    "CreateTableOptions",
+    "CreateTableCloneMode",
     "DropTableExpression",
+    "StorageOptionsExpression",
     # ALTER TABLE DDL
     "AlterTableActionType",
     "AlterTableAction",
@@ -168,10 +187,7 @@ __all__ = [
     "AlterColumn",
     "AddTableConstraint",
     "DropTableConstraint",
-    "RenameColumn",
     "RenameTable",
-    "AddConstraint",
-    "DropConstraint",
     "RenameObject",
     "AddIndex",
     "DropIndex",
@@ -212,6 +228,10 @@ __all__ = [
     # Partition DDL
     "PartitionClause",
     "PartitionStrategy",
+    # Filter clause expression
+    "FilterClauseExpression",
+    # Fulltext match expression
+    "FulltextMatchExpression",
     # Type aliases
     "FromSourceType",
 ]

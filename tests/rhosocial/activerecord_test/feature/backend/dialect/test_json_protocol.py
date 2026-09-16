@@ -43,14 +43,18 @@ def test_format_json_expression_works_but_other_features_raise_error():
 
     # format_json_expression should work since it doesn't check supports_json_type
     # but JSON table expression should raise an error
+    from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression, JSONTableColumn
+    from rhosocial.activerecord.backend.expression.types import IntegerType
+
+    json_table = JSONTableExpression(
+        dialect,
+        json_column="json_data",
+        path="$.items[*]",
+        columns=[JSONTableColumn(name="id", data_type="INTEGER", path="$.id")],
+        alias="parsed_items",
+    )
     with pytest.raises(UnsupportedFeatureError):
-        dialect.format_json_table_expression(
-            json_col_sql="json_data",
-            path="$.items[*]",
-            columns=[{"name": "id", "type": "INTEGER", "path": "$.id"}],
-            alias="parsed_items",
-            params=(),
-        )
+        dialect.format_json_table_expression(json_table)
 
 
 def test_json_table_expression_integration_raises_error():
@@ -62,7 +66,7 @@ def test_json_table_expression_integration_raises_error():
         dialect,
         json_column="json_data",
         path="$[*]",
-        columns=[JSONTableColumn("id", IntegerType(), "$.id"), JSONTableColumn("name", TextType(), "$.name")],
+        columns=[JSONTableColumn("id", "INTEGER", "$.id"), JSONTableColumn("name", "TEXT", "$.name")],
         alias="parsed_json",
     )
 

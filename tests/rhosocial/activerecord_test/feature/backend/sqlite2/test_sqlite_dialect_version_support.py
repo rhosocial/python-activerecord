@@ -16,7 +16,9 @@ class TestSQLiteDialectVersionSupport:
         assert not dialect.supports_basic_cte()
         assert not dialect.supports_recursive_cte()
         assert not dialect.supports_window_functions()
-        assert not dialect.supports_returning_clause()
+        assert not dialect.supports_returning_insert()
+        assert not dialect.supports_returning_update()
+        assert not dialect.supports_returning_delete()
         assert not dialect.supports_filter_clause()
         assert not dialect.supports_json_type()
         assert not dialect.supports_upsert()
@@ -27,7 +29,9 @@ class TestSQLiteDialectVersionSupport:
         assert dialect.supports_basic_cte()
         assert dialect.supports_recursive_cte()
         assert not dialect.supports_window_functions()
-        assert not dialect.supports_returning_clause()
+        assert not dialect.supports_returning_insert()
+        assert not dialect.supports_returning_update()
+        assert not dialect.supports_returning_delete()
         assert not dialect.supports_filter_clause()
         assert not dialect.supports_json_type()
         assert not dialect.supports_upsert()
@@ -37,7 +41,9 @@ class TestSQLiteDialectVersionSupport:
         dialect = SQLiteDialect((3, 10, 0))
         assert dialect.supports_filter_clause()
         assert not dialect.supports_window_functions()
-        assert not dialect.supports_returning_clause()
+        assert not dialect.supports_returning_insert()
+        assert not dialect.supports_returning_update()
+        assert not dialect.supports_returning_delete()
         assert not dialect.supports_json_type()
         assert not dialect.supports_upsert()
 
@@ -47,7 +53,9 @@ class TestSQLiteDialectVersionSupport:
         assert dialect.supports_upsert()
         assert dialect.get_upsert_syntax_type() == "ON CONFLICT"
         assert not dialect.supports_window_functions()
-        assert not dialect.supports_returning_clause()
+        assert not dialect.supports_returning_insert()
+        assert not dialect.supports_returning_update()
+        assert not dialect.supports_returning_delete()
         assert not dialect.supports_json_type()
 
     def test_version_3_25_0_features(self):
@@ -55,13 +63,17 @@ class TestSQLiteDialectVersionSupport:
         dialect = SQLiteDialect((3, 25, 0))
         assert dialect.supports_window_functions()
         assert dialect.supports_window_frame_clause()
-        assert not dialect.supports_returning_clause()
+        assert not dialect.supports_returning_insert()
+        assert not dialect.supports_returning_update()
+        assert not dialect.supports_returning_delete()
         assert not dialect.supports_json_type()
 
     def test_version_3_35_0_features(self):
         """Test feature support for version 3.35.0 (RETURNING clause)"""
         dialect = SQLiteDialect((3, 35, 0))
-        assert dialect.supports_returning_clause()
+        assert dialect.supports_returning_insert()
+        assert dialect.supports_returning_update()
+        assert dialect.supports_returning_delete()
         assert not dialect.supports_json_type()
 
     def test_version_3_38_0_features(self):
@@ -111,7 +123,9 @@ class TestSQLiteDialectVersionSupport:
             elif feature == "window_frame_clause":
                 assert dialect.supports_window_frame_clause() == expected_value
             elif feature == "returning_clause":
-                assert dialect.supports_returning_clause() == expected_value
+                assert dialect.supports_returning_insert() == expected_value
+                assert dialect.supports_returning_update() == expected_value
+                assert dialect.supports_returning_delete() == expected_value
             elif feature == "json_type":
                 assert dialect.supports_json_type() == expected_value
 

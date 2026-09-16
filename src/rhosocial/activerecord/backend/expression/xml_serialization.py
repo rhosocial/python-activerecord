@@ -4,7 +4,7 @@ Expression spec <-> XML serialization.
 
 The expression instance is first converted to a spec dict (the ``{type, params}``
 structure produced by ``ExpressionSerializer.serialize``, with the reserved keys
-``__expr__`` / ``__tuple__`` / ``__value__`` / ``__cast__``). This module encodes
+``__expr__`` / ``__tuple__`` / ``__value__`` / ``__vdc__``). This module encodes
 that spec dict into an XML document and decodes an XML document back into the
 identical spec dict, so ``deserialize()`` and the value codecs are reused
 unchanged.
@@ -25,7 +25,6 @@ Mapping (symmetric, unambiguous wrapping):
     plain dict              -> <map><field name=…>…</field>…</map>
     {"__expr__": spec}      -> <expr><type>…</type><params>…</params></expr>
     {"__value__": [tag, payload]} -> <value tag=…>…</value>
-    {"__cast__": [...]}     -> <cast><item>…</item>…</cast>
 
 Every distinct Python container/type maps to a distinct element tag, so
 decode is lossless and symmetric with encode. All encoding/parsing is handled
@@ -44,10 +43,8 @@ TYPE_EL = "type"
 PARAMS_EL = "params"
 EXPR_NODE = "expr"
 VALUE_NODE = "value"
-CAST_NODE = "cast"
 VDC_NODE = "vdc"
 NULL = "null"
-ITEM = "item"
 
 
 # ---------- encode ----------
@@ -94,10 +91,6 @@ def _fill_value(parent: ET.Element, value: Any) -> None:
             node = ET.SubElement(parent, VDC_NODE)
             node.set("class", payload[0])
             _fill_dict(ET.SubElement(node, PARAMS_EL), payload[1])
-        elif "__cast__" in value:
-            node = ET.SubElement(parent, CAST_NODE)
-            for item in value["__cast__"]:
-                ET.SubElement(node, ITEM).text = _scalar_to_text(item)
         else:
             node = ET.SubElement(parent, MAP)
             _fill_dict(node, value)
@@ -167,7 +160,7 @@ def _decode_value(el: ET.Element) -> Any:
     tag = el.tag
     if tag == NULL:
         return None
-    if tag not in (LIST, TUPLE_NODE, MAP, EXPR_NODE, VALUE_NODE, CAST_NODE, VDC_NODE, "s"):
+    if tag not in (LIST, TUPLE_NODE, MAP, EXPR_NODE, VALUE_NODE, VDC_NODE, "s"):
         # unknown tag fallback
         return None
     if tag == "s":
@@ -185,8 +178,6 @@ def _decode_value(el: ET.Element) -> Any:
     if tag == VDC_NODE:
         params_el = _find_params(el)
         return {"__vdc__": [el.get("class") or "", _decode_dict(params_el)]}
-    if tag == CAST_NODE:
-        return {"__cast__": [_text(c) for c in el]}
     return None
 
 

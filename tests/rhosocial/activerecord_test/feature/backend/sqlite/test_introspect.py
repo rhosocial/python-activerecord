@@ -60,20 +60,24 @@ class TestSQLiteIntrospect:
         backend_old._dialect.version = (3, 30, 0)
         print(f"\nOld backend version: {backend_old.dialect.version}")
         print(f"supports_generated_columns: {backend_old.dialect.supports_generated_columns()}")
-        print(f"supports_returning_clause: {backend_old.dialect.supports_returning_clause()}")
+        print(f"supports_returning_insert: {backend_old.dialect.supports_returning_insert()}")
 
         assert backend_old.dialect.supports_generated_columns() is False
-        assert backend_old.dialect.supports_returning_clause() is False
+        assert backend_old.dialect.supports_returning_insert() is False
+        assert backend_old.dialect.supports_returning_update() is False
+        assert backend_old.dialect.supports_returning_delete() is False
 
         # Create backend and manually set dialect version to new version
         backend_new = SQLiteBackend(database=":memory:")
         backend_new._dialect.version = (3, 35, 0)
         print(f"\nNew backend version: {backend_new.dialect.version}")
         print(f"supports_generated_columns: {backend_new.dialect.supports_generated_columns()}")
-        print(f"supports_returning_clause: {backend_new.dialect.supports_returning_clause()}")
+        print(f"supports_returning_insert: {backend_new.dialect.supports_returning_insert()}")
 
         assert backend_new.dialect.supports_generated_columns() is True
-        assert backend_new.dialect.supports_returning_clause() is True
+        assert backend_new.dialect.supports_returning_insert() is True
+        assert backend_new.dialect.supports_returning_update() is True
+        assert backend_new.dialect.supports_returning_delete() is True
 
     def test_auto_version_detection(self):
         """Test automatic version detection from actual SQLite library."""

@@ -22,7 +22,8 @@ class TestLiteral:
     def test_literal_repr(self, dummy_dialect: DummyDialect):
         """Test Literal repr method."""
         literal = Literal(dummy_dialect, "test_value")
-        assert repr(literal) == "Literal('test_value')"
+        assert repr(literal) == "Literal('test_value', inline_literals=False)"
+        assert repr(Literal(dummy_dialect, "test_value", inline_literals=True)) == "Literal('test_value', inline_literals=True)"
 
     def test_literal_numeric_values(self, dummy_dialect: DummyDialect):
         """Test Literal with numeric values."""
@@ -272,10 +273,11 @@ class TestTableExpression:
 
     def test_table_expression_with_temporal_options_that_returns_none(self, dummy_dialect: DummyDialect):
         """Test TableExpression with temporal options when dialect returns None from format_temporal_options."""
+        from rhosocial.activerecord.backend.expression.datetime import TemporalOptionsExpression
         # Mock the dialect's format_temporal_options to return None
         original_method = dummy_dialect.format_temporal_options
 
-        def mock_format_temporal_options(options):
+        def mock_format_temporal_options(expr):
             return None
 
         dummy_dialect.format_temporal_options = mock_format_temporal_options
@@ -290,16 +292,16 @@ class TestTableExpression:
         # Should still work but not include temporal options since dialect returned None
         assert '"users"' in sql
 
-    def test_format_join_expression_without_condition_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that format_join_expression raises ValueError for join types that require conditions."""
-        from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+    def test_format_join_clause_without_condition_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that format_join_clause raises ValueError for join types that require conditions."""
+        from rhosocial.activerecord.backend.expression.query_parts import JoinClause
         from rhosocial.activerecord.backend.expression.core import TableExpression
 
-        # Create a JoinExpression without using or condition (should raise error for non-CROSS joins)
+        # Create a JoinClause without using or condition (should raise error for non-CROSS joins)
         left_table = TableExpression(dummy_dialect, "users")
         right_table = TableExpression(dummy_dialect, "orders")
 
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect,
             left_table=left_table,
             right_table=right_table,
@@ -309,18 +311,18 @@ class TestTableExpression:
         )
 
         with pytest.raises(ValueError, match=r"INNER JOIN requires a condition or USING clause."):
-            dummy_dialect.format_join_expression(join_expr)
+            dummy_dialect.format_join_clause(join_expr)
 
-    def test_format_join_expression_with_cross_join_without_condition_succeeds(self, dummy_dialect: DummyDialect):
-        """Tests that format_join_expression works for CROSS JOIN without condition."""
-        from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+    def test_format_join_clause_with_cross_join_without_condition_succeeds(self, dummy_dialect: DummyDialect):
+        """Tests that format_join_clause works for CROSS JOIN without condition."""
+        from rhosocial.activerecord.backend.expression.query_parts import JoinClause
         from rhosocial.activerecord.backend.expression.core import TableExpression
 
-        # Create a JoinExpression for CROSS JOIN (doesn't require a condition)
+        # Create a JoinClause for CROSS JOIN (doesn't require a condition)
         left_table = TableExpression(dummy_dialect, "users")
         right_table = TableExpression(dummy_dialect, "orders")
 
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dummy_dialect,
             left_table=left_table,
             right_table=right_table,
@@ -329,7 +331,7 @@ class TestTableExpression:
             using=None,  # No USING clause provided
         )
 
-        sql, params = dummy_dialect.format_join_expression(join_expr)
+        sql, params = dummy_dialect.format_join_clause(join_expr)
 
         assert "CROSS JOIN" in sql
         assert '"users"' in sql
@@ -338,8 +340,9 @@ class TestTableExpression:
 
     def test_format_temporal_options_with_empty_options_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_temporal_options raises ValueError when called with empty options."""
+        from rhosocial.activerecord.backend.expression.datetime import TemporalOptionsExpression
         with pytest.raises(
             ValueError,
             match=r"Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options.",  # noqa: E501
         ):
-            dummy_dialect.format_temporal_options({})
+            dummy_dialect.format_temporal_options(TemporalOptionsExpression(dummy_dialect, {}))

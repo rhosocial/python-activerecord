@@ -634,7 +634,8 @@ class TestClassifyProbeUtilities:
         def f(dialect, x: int = 1):
             return RawSQLExpression(dialect, "1")
 
-        result = _probe_tags(f, dialect=MagicMock())
+        from rhosocial.activerecord.backend.dialect import SQLDialectBase
+        result = _probe_tags(f, dialect=MagicMock(spec=SQLDialectBase))
         assert result == ["CLAUSE"]
 
     def test_classify_param_expression_type(self):

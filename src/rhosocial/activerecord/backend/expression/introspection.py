@@ -76,19 +76,7 @@ class IntrospectionExpression(BaseExpression):
         self._schema = name
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL query and parameters.
 
-        Subclasses must implement this method to delegate to the appropriate
-        dialect format_* method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-
-        Raises:
-            NotImplementedError: If not implemented by subclass.
-        """
-        raise NotImplementedError("Subclasses must implement to_sql() method")
 
 
 class DatabaseInfoExpression(IntrospectionExpression):
@@ -106,13 +94,10 @@ class DatabaseInfoExpression(IntrospectionExpression):
         >>> sql, params = expr.to_sql()
     """
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_database_info_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_database_info_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_database_info_query"
 
 
 class TableListExpression(IntrospectionExpression):
@@ -211,13 +196,10 @@ class TableListExpression(IntrospectionExpression):
         self._table_type = ttype
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_table_list_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_table_list_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_list_query"
 
 
 class TableInfoExpression(IntrospectionExpression):
@@ -336,13 +318,10 @@ class TableInfoExpression(IntrospectionExpression):
         self._include_foreign_keys = value
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_table_info_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_table_info_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_info_query"
 
 
 class ColumnInfoExpression(IntrospectionExpression):
@@ -414,13 +393,10 @@ class ColumnInfoExpression(IntrospectionExpression):
         self._include_hidden = value
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_column_info_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_column_info_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_info_query"
 
 
 class IndexInfoExpression(IntrospectionExpression):
@@ -469,13 +445,10 @@ class IndexInfoExpression(IntrospectionExpression):
         self._table_name = name
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_index_info_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_index_info_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_index_info_query"
 
 
 class ForeignKeyExpression(IntrospectionExpression):
@@ -524,13 +497,10 @@ class ForeignKeyExpression(IntrospectionExpression):
         self._table_name = name
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_foreign_key_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_foreign_key_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_foreign_key_query"
 
 
 class ViewListExpression(IntrospectionExpression):
@@ -583,13 +553,10 @@ class ViewListExpression(IntrospectionExpression):
         self._include_system = value
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_view_list_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_view_list_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_view_list_query"
 
 
 class ViewInfoExpression(IntrospectionExpression):
@@ -662,13 +629,10 @@ class ViewInfoExpression(IntrospectionExpression):
         self._include_columns = value
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_view_info_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_view_info_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_view_info_query"
 
 
 class TriggerListExpression(IntrospectionExpression):
@@ -720,13 +684,10 @@ class TriggerListExpression(IntrospectionExpression):
         self._table_name = table_name
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_trigger_list_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_trigger_list_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_trigger_list_query"
 
 
 class TriggerInfoExpression(IntrospectionExpression):
@@ -798,10 +759,7 @@ class TriggerInfoExpression(IntrospectionExpression):
         self._table_name = table_name
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_trigger_info_query method.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-        """
-        return self._dialect.format_trigger_info_query(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_trigger_info_query"

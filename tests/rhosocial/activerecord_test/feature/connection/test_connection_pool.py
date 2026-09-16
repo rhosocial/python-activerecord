@@ -1701,7 +1701,13 @@ class TestConcurrentAccess:
             pool.close(timeout=0.1)
 
     def test_concurrent_acquire_with_limit(self):
-        """Test that concurrent acquires respect max_size limit."""
+        """Concurrent acquires respect max_size.
+
+        Deterministic form: two holders occupy every slot and signal that
+        both are held; only then does a third acquire run, so it *must*
+        time out. This avoids relying on thread scheduling to happen to
+        produce a timeout.
+        """
         import threading
 
         config = PoolConfig(
@@ -1711,36 +1717,34 @@ class TestConcurrentAccess:
             backend_factory=ThreadSafePoolTestBackend,
         )
         pool = BackendPool.create(config)
-        acquired_count = [0]
-        timeout_count = [0]
+        held = []
         lock = threading.Lock()
+        both_held = threading.Event()
+        release_holders = threading.Event()
 
         def acquire_and_hold():
-            try:
-                backend = pool.acquire(timeout=0.3)
-                with lock:
-                    acquired_count[0] += 1
-                # Hold connection for a while
-                import time
+            backend = pool.acquire(timeout=5)
+            with lock:
+                held.append(backend)
+                if len(held) == 2:
+                    both_held.set()
+            release_holders.wait(timeout=10)
+            pool.release(backend)
 
-                time.sleep(0.2)
-                pool.release(backend)
-            except TimeoutError:
-                with lock:
-                    timeout_count[0] += 1
-
+        holders = [threading.Thread(target=acquire_and_hold) for _ in range(2)]
         try:
-            # 5 threads trying to acquire, but only 2 connections available
-            threads = [threading.Thread(target=acquire_and_hold) for _ in range(5)]
-            for t in threads:
+            for t in holders:
                 t.start()
-            for t in threads:
-                t.join()
+            assert both_held.wait(timeout=5), "two connections were never acquired"
 
-            # Some should succeed, some should timeout
-            assert acquired_count[0] >= 2  # At least 2 should get connections
-            assert timeout_count[0] >= 1  # At least 1 should timeout
+            # Both slots are deterministically occupied, so a further
+            # acquire cannot succeed before its timeout.
+            with pytest.raises(TimeoutError):
+                pool.acquire(timeout=0.3)
         finally:
+            release_holders.set()
+            for t in holders:
+                t.join(timeout=5)
             pool.close(timeout=0.1)
 
     def test_multiple_connections_isolation(self):
@@ -2338,7 +2342,12 @@ class TestAsyncConcurrentAccess:
 
     @pytest.mark.asyncio
     async def test_concurrent_acquire_with_limit(self):
-        """Test that async concurrent acquires respect max_size limit."""
+        """Async concurrent acquires respect max_size.
+
+        Deterministic form: two holders occupy every slot and signal that
+        both are held; only then does a third acquire run, so it *must*
+        time out.
+        """
         import asyncio
 
         config = PoolConfig(
@@ -2348,28 +2357,32 @@ class TestAsyncConcurrentAccess:
             backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
-        acquired_count = [0]
-        timeout_count = [0]
+        held = []
+        both_held = asyncio.Event()
+        release_holders = asyncio.Event()
 
         async def acquire_and_hold():
-            try:
-                backend = await pool.acquire(timeout=0.3)
-                acquired_count[0] += 1
-                # Hold connection for a while
-                await asyncio.sleep(0.2)
-                await pool.release(backend)
-            except TimeoutError:
-                timeout_count[0] += 1
+            backend = await pool.acquire(timeout=5)
+            held.append(backend)
+            if len(held) == 2:
+                both_held.set()
+            await release_holders.wait()
+            await pool.release(backend)
 
+        holders = [asyncio.create_task(acquire_and_hold()) for _ in range(2)]
         try:
-            # 5 tasks trying to acquire, but only 2 connections available
-            tasks = [acquire_and_hold() for _ in range(5)]
-            await asyncio.gather(*tasks)
+            try:
+                await asyncio.wait_for(both_held.wait(), timeout=5)
+            except asyncio.TimeoutError:
+                pytest.fail("two connections were never acquired")
 
-            # Some should succeed, some should timeout
-            assert acquired_count[0] >= 2  # At least 2 should get connections
-            assert timeout_count[0] >= 1  # At least 1 should timeout
+            # Both slots are deterministically occupied, so a further
+            # acquire cannot succeed before its timeout.
+            with pytest.raises(TimeoutError):
+                await pool.acquire(timeout=0.3)
         finally:
+            release_holders.set()
+            await asyncio.gather(*holders, return_exceptions=True)
             await pool.close(timeout=0.1)
 
     @pytest.mark.asyncio

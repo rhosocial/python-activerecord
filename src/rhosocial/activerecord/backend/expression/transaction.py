@@ -133,9 +133,10 @@ class BeginTransactionExpression(TransactionExpression):
         self._begin_type = begin_type
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_begin_transaction method."""
-        return self._dialect.format_begin_transaction(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_begin_transaction"
 
 
 class CommitTransactionExpression(TransactionExpression):
@@ -148,9 +149,10 @@ class CommitTransactionExpression(TransactionExpression):
         sql, params = expr.to_sql()
     """
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_commit_transaction method."""
-        return self._dialect.format_commit_transaction(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_commit_transaction"
 
 
 class RollbackTransactionExpression(TransactionExpression):
@@ -186,9 +188,10 @@ class RollbackTransactionExpression(TransactionExpression):
         self._savepoint = name
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_rollback_transaction method."""
-        return self._dialect.format_rollback_transaction(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_rollback_transaction"
 
 
 class SavepointExpression(TransactionExpression):
@@ -211,9 +214,10 @@ class SavepointExpression(TransactionExpression):
         """Get the savepoint name."""
         return self._name
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_savepoint method."""
-        return self._dialect.format_savepoint(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_savepoint"
 
 
 class ReleaseSavepointExpression(TransactionExpression):
@@ -236,9 +240,10 @@ class ReleaseSavepointExpression(TransactionExpression):
         """Get the savepoint name."""
         return self._name
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_release_savepoint method."""
-        return self._dialect.format_release_savepoint(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_release_savepoint"
 
 
 class SetTransactionExpression(TransactionExpression):
@@ -327,6 +332,7 @@ class SetTransactionExpression(TransactionExpression):
         self._deferrable = value
         return self
 
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL, delegating to dialect's format_set_transaction method."""
-        return self._dialect.format_set_transaction(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_set_transaction"

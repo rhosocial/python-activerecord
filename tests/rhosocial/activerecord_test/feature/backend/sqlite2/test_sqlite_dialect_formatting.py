@@ -41,75 +41,81 @@ class TestSQLiteDialectFormatting:
         result = dialect.format_identifier(identifier)
         assert result == expected
 
-    def test_format_join_expression_right_join_error(self):
+    def test_format_join_clause_right_join_error(self):
         """Test RIGHT JOIN formatting error"""
         dialect = SQLiteDialect()
         mock_join_expr = Mock()
         mock_join_expr.join_type = "RIGHT JOIN"
 
         with pytest.raises(UnsupportedFeatureError, match="does not support RIGHT JOIN"):
-            dialect.format_join_expression(mock_join_expr)
+            dialect.format_join_clause(mock_join_expr)
 
-    def test_format_join_expression_full_join_error(self):
+    def test_format_join_clause_full_join_error(self):
         """Test FULL OUTER JOIN formatting error"""
         dialect = SQLiteDialect()
         mock_join_expr = Mock()
         mock_join_expr.join_type = "FULL OUTER JOIN"
 
         with pytest.raises(UnsupportedFeatureError, match="does not support FULL JOIN"):
-            dialect.format_join_expression(mock_join_expr)
+            dialect.format_join_clause(mock_join_expr)
 
-    def test_format_join_expression_full_outer_join_error(self):
+    def test_format_join_clause_full_outer_join_error(self):
         """Test FULL OUTER JOIN formatting error (alternative form)"""
         dialect = SQLiteDialect()
         mock_join_expr = Mock()
         mock_join_expr.join_type = "FULL OUTER JOIN"
 
         with pytest.raises(UnsupportedFeatureError, match="does not support FULL JOIN"):
-            dialect.format_join_expression(mock_join_expr)
+            dialect.format_join_clause(mock_join_expr)
 
     @pytest.mark.parametrize("join_type", ["RIGHT JOIN", "FULL OUTER JOIN", "FULL JOIN"])
-    def test_format_join_expression_unsupported_joins(self, join_type):
+    def test_format_join_clause_unsupported_joins(self, join_type):
         """Parametrized test for unsupported JOIN types"""
         dialect = SQLiteDialect()
         mock_join_expr = Mock()
         mock_join_expr.join_type = join_type
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_join_expression(mock_join_expr)
+            dialect.format_join_clause(mock_join_expr)
 
         expected_keyword = join_type.upper().split()[0]
         assert expected_keyword in str(exc_info.value)
 
-    def test_format_grouping_expression_rollup_error(self):
+    def test_format_grouping_clause_rollup_error(self):
         """Test ROLLUP formatting error"""
         dialect = SQLiteDialect()
         mock_expressions = []
 
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_grouping_expression("ROLLUP", mock_expressions)
+            dialect.format_grouping_clause(GroupingClause(dialect, "ROLLUP", mock_expressions))
 
         assert "ROLLUP" in str(exc_info.value)
         assert "SQLite" in str(exc_info.value)
 
-    def test_format_grouping_expression_cube_error(self):
+    def test_format_grouping_clause_cube_error(self):
         """Test CUBE formatting error"""
         dialect = SQLiteDialect()
         mock_expressions = []
 
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_grouping_expression("CUBE", mock_expressions)
+            dialect.format_grouping_clause(GroupingClause(dialect, "CUBE", mock_expressions))
 
         assert "CUBE" in str(exc_info.value)
         assert "SQLite" in str(exc_info.value)
 
-    def test_format_grouping_expression_grouping_sets_error(self):
+    def test_format_grouping_clause_grouping_sets_error(self):
         """Test GROUPING SETS formatting error"""
         dialect = SQLiteDialect()
         mock_expressions = []
 
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_grouping_expression("GROUPING SETS", mock_expressions)
+            dialect.format_grouping_clause(GroupingClause(dialect, "GROUPING SETS", mock_expressions))
 
         assert "GROUPING SETS" in str(exc_info.value)
         assert "SQLite" in str(exc_info.value)
@@ -126,8 +132,10 @@ class TestSQLiteDialectFormatting:
         """Parametrized test for unsupported grouping formatting methods"""
         dialect = SQLiteDialect()
 
+        from rhosocial.activerecord.backend.expression.query_parts import GroupingClause
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_grouping_expression(operation, [])
+            dialect.format_grouping_clause(GroupingClause(dialect, operation, []))
 
         assert expected_error_part in str(exc_info.value)
 
@@ -157,8 +165,11 @@ class TestSQLiteDialectFormatting:
         """Test JSON_TABLE expression formatting error"""
         dialect = SQLiteDialect()
 
+        from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+
+        json_table = JSONTableExpression(dialect, json_column="json_col", path="$.path", columns=[], alias="alias")
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_json_table_expression("json_col", "$.path", [], "alias", ())
+            dialect.format_json_table_expression(json_table)
 
         assert "JSON_TABLE function" in str(exc_info.value)
         assert "SQLite does not support JSON_TABLE" in str(exc_info.value)
@@ -229,7 +240,8 @@ class TestSQLiteDialectFormatting:
                 mock_expr.cast_types = []
                 method(mock_expr)
             elif method_name == "format_json_table_expression":
-                method("json_col", "$.path", [], "alias", ())
+                from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
+                method(JSONTableExpression(dialect, json_column="json_col", path="$.path", columns=[], alias="alias"))
             elif method_name == "format_ordered_set_aggregation":
                 from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
                 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
@@ -250,7 +262,6 @@ class TestSQLiteDialectFormatting:
         assert not dialect.supports_returning_insert()
         assert not dialect.supports_returning_update()
         assert not dialect.supports_returning_delete()
-        assert not dialect.supports_returning_clause()
 
         # format_returning_clause is pure formatting, no support check
         mock_expr = Mock()

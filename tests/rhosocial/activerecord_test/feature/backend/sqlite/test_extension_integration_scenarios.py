@@ -22,6 +22,7 @@ from rhosocial.activerecord.backend.impl.sqlite.protocols import (
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5CreateVirtualTable,
     SQLiteMatchPredicate,
+    DropVirtualTableExpression,
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
     SQLiteGeopolyCreateVirtualTable,
@@ -36,7 +37,7 @@ from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     FunctionCall,
     InsertExpression,
-    JoinExpression,
+    JoinClause,
     Literal,
     QueryExpression,
     SelectSource,
@@ -102,10 +103,10 @@ class TestGeoDocumentScenario:
             *CreateTableExpression(
                 dialect, table="doc_meta",
                 columns=[
-                    ColumnDefinition("doc_id", SQLiteIntegerType(), constraints=[
-                        ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
+                    ColumnDefinition(dialect, "doc_id", SQLiteIntegerType(dialect), constraints=[
+                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("extra", SQLiteTextType()),
+                    ColumnDefinition(dialect, "extra", SQLiteTextType(dialect=dialect)),
                 ]
             ).to_sql(),
             options=ddl
@@ -188,7 +189,7 @@ class TestGeoDocumentScenario:
                     Column(dialect, "rowid", table="docs_fts"),
                     Column(dialect, "title"),
                 ],
-                from_=[JoinExpression(
+                from_=[JoinClause(
                     dialect,
                     left_table=TableExpression(dialect, "docs_fts"),
                     right_table=Subquery(
@@ -223,10 +224,10 @@ class TestGeoDocumentScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *dialect.format_drop_virtual_table("docs_fts"), options=ddl
+            *DropVirtualTableExpression(dialect, table_name="docs_fts").to_sql(), options=ddl
         )
         backend.execute(
-            *dialect.format_drop_virtual_table("doc_locations"), options=ddl
+            *DropVirtualTableExpression(dialect, table_name="doc_locations").to_sql(), options=ddl
         )
 
 
@@ -359,7 +360,7 @@ class TestGeofencingScenario:
                     Column(dialect, "name", table="z"),
                     Column(dialect, "category", table="z"),
                 ],
-                from_=[JoinExpression(
+                from_=[JoinClause(
                     dialect,
                     left_table=TableExpression(dialect, "zones", alias="z"),
                     right_table=TableExpression(dialect, "zone_fts", alias="f"),
@@ -390,10 +391,10 @@ class TestGeofencingScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *dialect.format_drop_virtual_table("zones"), options=ddl
+            *DropVirtualTableExpression(dialect, table_name="zones").to_sql(), options=ddl
         )
         backend.execute(
-            *dialect.format_drop_virtual_table("zone_fts"), options=ddl
+            *DropVirtualTableExpression(dialect, table_name="zone_fts").to_sql(), options=ddl
         )
 
 
@@ -427,12 +428,12 @@ class TestSpatialCatalogScenario:
             *CreateTableExpression(
                 dialect, table="features",
                 columns=[
-                    ColumnDefinition("id", SQLiteIntegerType(), constraints=[
-                        ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
+                    ColumnDefinition(dialect, "id", SQLiteIntegerType(dialect), constraints=[
+                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("name", SQLiteTextType()),
-                    ColumnDefinition("description", SQLiteTextType()),
-                    ColumnDefinition("props", SQLiteTextType()),
+                    ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
+                    ColumnDefinition(dialect, "description", SQLiteTextType(dialect=dialect)),
+                    ColumnDefinition(dialect, "props", SQLiteTextType(dialect=dialect)),
                 ]
             ).to_sql(),
             options=ddl
@@ -517,10 +518,10 @@ class TestSpatialCatalogScenario:
             *CreateTableExpression(
                 dialect, table="feature_props",
                 columns=[
-                    ColumnDefinition("feature_id", SQLiteIntegerType(), constraints=[
-                        ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)
+                    ColumnDefinition(dialect, "feature_id", SQLiteIntegerType(dialect), constraints=[
+                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
                     ]),
-                    ColumnDefinition("props", SQLiteTextType()),
+                    ColumnDefinition(dialect, "props", SQLiteTextType(dialect=dialect)),
                 ]
             ).to_sql(),
             options=ddl
@@ -544,9 +545,9 @@ class TestSpatialCatalogScenario:
                     Column(dialect, "name"),
                     Column(dialect, "props", table="feature_props"),
                 ],
-                from_=[JoinExpression(
+                from_=[JoinClause(
                     dialect,
-                    left_table=JoinExpression(
+                    left_table=JoinClause(
                         dialect,
                         left_table=TableExpression(dialect, "features_fts"),
                         right_table=Subquery(
@@ -582,5 +583,5 @@ class TestSpatialCatalogScenario:
         # --- Cleanup ---
         for tbl in ["features_rtree", "features_fts"]:
             backend.execute(
-                *dialect.format_drop_virtual_table(tbl), options=ddl
+                *DropVirtualTableExpression(dialect, table_name=tbl).to_sql(), options=ddl
             )

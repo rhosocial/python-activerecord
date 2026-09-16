@@ -50,20 +50,44 @@ class ToSQLProtocol(Protocol):
 
 ### BaseExpression
 
-`BaseExpression` is the root abstract base class for all expression components. It implements `ToSQLProtocol` and holds a reference to the `SQLDialect`.
+`BaseExpression` is the root base class for all expression components. It satisfies `ToSQLProtocol` structurally, holds a **per-node** dialect reference, and implements `to_sql()` **once, centrally** — subclasses never override it; they declare only their dialect formatting method name via the read-only `format_method` property.
 
 ```python
-class BaseExpression(abc.ABC, ToSQLProtocol):
-    def __init__(self, dialect: "SQLDialectBase"):
-        self._dialect = dialect
+class BaseExpression:
+    def __init__(self, dialect: Optional["SQLDialectBase"] = None):
+        # The dialect is the conventional first argument but optional —
+        # binding may be deferred (e.g. model declaration time has no
+        # dialect; ActiveRecord's DDL derivation binds one per node).
+        self._inline_literals = False
+        self.dialect = dialect
 
     @property
     def dialect(self) -> "SQLDialectBase":
-        return self._dialect
+        # Reading validates that a dialect is bound; rendering requires one,
+        # so access before binding raises ValueError ("... has no dialect
+        # bound ...").
+        ...
 
-    @abc.abstractmethod
+    @dialect.setter
+    def dialect(self, dialect: Optional["SQLDialectBase"]) -> None:
+        # Affects ONLY this node — no propagation into child expressions.
+        # Bind each node at construction, or walk the tree and bind
+        # nodes individually.
+        ...
+
+    @property
+    def format_method(self) -> str:
+        # Name of the dialect's format_*() method that renders this
+        # expression. Read-only by contract; not declaring it (or a
+        # dialect not providing it) makes the expression unrenderable.
+        ...
+
     def to_sql(self) -> Tuple[str, tuple]:
-        raise NotImplementedError
+        # Implemented once, here. Stateless and allocation-free:
+        # resolves format_method on this node's own bound dialect and
+        # calls formatter(self). No reconstruction, no propagation,
+        # no copies.
+        ...
 ```
 
 ### SQLPredicate
@@ -94,12 +118,65 @@ Represents a literal value in a SQL query. It handles parameter binding automati
 
 ```python
 class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", value: Any): ...
+    def __init__(self, dialect: "SQLDialectBase", value: Any, *, inline_literals: bool = False): ...
     
-    # Example: WHERE status = ?
+    # Default: bind-parameter mode
     # Literal(dialect, "active")
     # -> ('?', ('active',))
+
+    # Inline mode: value embedded directly in SQL (for DDL clauses)
+    # Literal(dialect, "active", inline_literals=True)
+    # -> ("'active'", ())
 ```
+
+#### Inline Literals
+
+By default, `Literal` renders as a **bind parameter** (`?` or `%s` depending on the dialect), following DB-API 2.0 (PEP 249) conventions. This is the safe, preferred mode for DML statements (`INSERT`, `SELECT`, `UPDATE`, `DELETE`).
+
+However, **DDL clauses** (`DEFAULT`, `CHECK`, partition boundaries, partial-index `WHERE`) do **not** accept bind parameters — the database engine expects literal SQL text. For these cases, set `inline_literals=True` on the `Literal` node:
+
+```python
+from rhosocial.activerecord.backend.expression import (
+    Literal, Column, ComparisonPredicate,
+    ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType
+
+# DDL: DEFAULT value must be inlined
+ColumnDefinition(dialect,
+    name="age",
+    data_type=IntegerType(dialect),
+    constraints=[
+        ColumnConstraint(dialect,
+            constraint_type=ColumnConstraintType.DEFAULT,
+            default_value=Literal(dialect, 0, inline_literals=True),  # -> DEFAULT 0
+        ),
+    ],
+)
+
+# DDL: CHECK condition — the comparison value must be inlined
+ColumnConstraint(dialect,
+    constraint_type=ColumnConstraintType.CHECK,
+    check_condition=ComparisonPredicate(
+        dialect, ">=",
+        Column(dialect, "score"),
+        Literal(dialect, 0, inline_literals=True),  # -> CHECK ("score" >= 0)
+    ),
+)
+```
+
+The `inline_literals` switch is **per-node** — each `Literal` decides independently. A single predicate can mix inline and bind-parameter values:
+
+```python
+pred = ComparisonPredicate(
+    dialect, "=",
+    Literal(dialect, "a", inline_literals=True),  # inline
+    Literal(dialect, "b"),                          # bind param
+)
+pred.to_sql()  # -> ("'a' = ?", ("b",))
+```
+
+> **Security note**: Inline literals are a SQL-injection hazard when the value can be influenced by end users. Only use `inline_literals=True` for developer-declared constants (DDL defaults, schema-derived values).
 
 ### Column
 

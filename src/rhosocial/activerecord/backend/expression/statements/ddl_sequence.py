@@ -10,6 +10,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class CreateSequenceExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_sequence_statement"
     """
     Represents a CREATE SEQUENCE statement.
 
@@ -72,11 +77,18 @@ class CreateSequenceExpression(BaseExpression):
         self.owned_by = owned_by
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_create_sequence_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_sequence_statement"
 
 
 class DropSequenceExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_sequence_statement"
     """
     Represents a DROP SEQUENCE statement.
 
@@ -108,11 +120,18 @@ class DropSequenceExpression(BaseExpression):
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_drop_sequence_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_sequence_statement"
 
 
 class AlterSequenceExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_alter_sequence_statement"
     """
     Represents an ALTER SEQUENCE statement.
 
@@ -170,5 +189,7 @@ class AlterSequenceExpression(BaseExpression):
         self.owned_by = owned_by
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_alter_sequence_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_alter_sequence_statement"

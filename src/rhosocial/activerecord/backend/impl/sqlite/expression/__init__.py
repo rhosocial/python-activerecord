@@ -22,10 +22,15 @@ from .vacuum import SQLiteVacuumExpression, SQLiteAnalyzeExpression
 from .attach import SQLiteAttachExpression, SQLiteDetachExpression
 from .predicates import SQLiteMatchPredicate
 from .fts5 import (
+    SQLiteFTS5MatchExpression,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
     SQLiteFTS5SnippetExpression,
+)
+from .virtual_table import (
+    CreateVirtualTableExpression,
+    DropVirtualTableExpression,
 )
 from .rtree import (
     SQLiteRTreeCreateVirtualTable,
@@ -46,10 +51,13 @@ __all__ = [
     "SQLiteAttachExpression",
     "SQLiteDetachExpression",
     "SQLiteMatchPredicate",
+    "SQLiteFTS5MatchExpression",
     "SQLiteFTS5CreateVirtualTable",
     "SQLiteFTS5RankExpression",
     "SQLiteFTS5HighlightExpression",
     "SQLiteFTS5SnippetExpression",
+    "CreateVirtualTableExpression",
+    "DropVirtualTableExpression",
     "SQLiteRTreeCreateVirtualTable",
     "SQLiteRTreeRangeQuery",
     "SQLiteGeopolyCreateVirtualTable",
@@ -69,10 +77,13 @@ for _expr_cls in (
     SQLiteAttachExpression,
     SQLiteDetachExpression,
     SQLiteMatchPredicate,
+    SQLiteFTS5MatchExpression,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
     SQLiteFTS5SnippetExpression,
+    CreateVirtualTableExpression,
+    DropVirtualTableExpression,
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
     SQLiteGeopolyCreateVirtualTable,

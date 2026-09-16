@@ -1,132 +1,281 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/expression.py
-from typing import Any, List, Optional, Tuple
+"""Expression formatting mixin.
+
+Renders query expression tree nodes - identifiers, literals, operators,
+casts, CASE, subqueries, VALUES and aliases - to ``(sql, params)`` pairs.
+Function-call rendering is inherited from :class:`FunctionCallMixin`.
+"""
+from typing import Any, List, Tuple
 
 from ...expression import bases
-from ...expression.bases import BaseExpression
+from ...expression.core import (
+    CastExpression,
+    QualifiedIdentifierExpression,
+    Subquery,
+    WildcardExpression,
+)
+from ...expression.literals import Identifier
+from ...expression.operators import (
+    BinaryArithmeticExpression,
+    BinaryExpression,
+    RawSQLExpression,
+    SQLOperation,
+    UnaryExpression,
+)
+from .function import FunctionCallMixin
 
 
-class ExpressionMixin:
-    """Mixin for general expression formatting (operators, functions, CAST, CASE, etc.)."""
+class ExpressionMixin(FunctionCallMixin):
+    """Format expression tree nodes (columns, tables, functions, operators, etc.).
 
-    def _apply_value_expression_modifiers(
-        self, sql: str, params: Tuple, expr: "bases.SQLValueExpression"
-    ) -> Tuple[str, Tuple]:
-        for target_type in expr.cast_types:
-            sql, params = self.format_cast_expression(sql, target_type, params, None)
-        if getattr(expr, "alias", None):
+    Function-call formatting is provided by :class:`FunctionCallMixin`.
+    """
+
+    def format_identifier_expression(self, expr: Identifier) -> Tuple[str, tuple]:
+        """Format an :class:`~...expression.literals.Identifier` node.
+
+        Args:
+            expr: Identifier expression exposing ``name`` and
+                ``name_need_quote``.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is empty.
+        """
+        return self.format_identifier(expr.name, expr.name_need_quote), ()
+
+    def format_wildcard(self, expr: WildcardExpression) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.WildcardExpression`.
+
+        Args:
+            expr: Wildcard expression optionally carrying a table and schema.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is empty.
+        """
+        if expr.schema_name and expr.table:
+            wildcard_sql = (
+                f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
+                f"{self.format_identifier(expr.table, expr.table_need_quote)}.*"
+            )
+        elif expr.table:
+            wildcard_sql = f"{self.format_identifier(expr.table, expr.table_need_quote)}.*"
+        else:
+            wildcard_sql = "*"
+        return wildcard_sql, ()
+
+    def format_qualified_identifier(self, expr: QualifiedIdentifierExpression) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.QualifiedIdentifierExpression`.
+
+        Args:
+            expr: Qualified identifier optionally carrying a schema.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is empty.
+        """
+        if expr.schema:
+            return (
+                f"{self.format_identifier(expr.schema, expr.schema_need_quote)}."
+                f"{self.format_identifier(expr.name, expr.name_need_quote)}",
+                (),
+            )
+        return self.format_identifier(expr.name, expr.name_need_quote), ()
+
+    def format_literal_expression(self, expr: "bases.SQLValueExpression") -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.Literal`.
+
+        Args:
+            expr: Literal expression exposing ``inline_literals``, ``value``
+                and optional ``alias``.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` holds the literal value when
+            it is rendered as a bind parameter, otherwise it is empty.
+
+        The construction-time ``inline_literals`` switch decides between an
+        inline (escaped, quoted) SQL atom and a bind-parameter placeholder.
+        """
+        if expr.inline_literals:
+            sql = self.format_literal(expr.value)
+            params: tuple = ()
+        else:
+            sql = self.get_parameter_placeholder()
+            params = (expr.value,)
+
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+
+        return sql, params
+
+    def format_cast_expression(self, expr: CastExpression) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.CastExpression` node.
+
+        Args:
+            expr: Cast expression exposing ``expression``, ``target_type`` and
+                optional ``alias``.
+
+        Returns:
+            A ``(sql, params)`` tuple carrying the wrapped expression's
+            parameters.
+
+        Raises:
+            ValueError: If ``target_type`` contains unsupported characters.
+
+        ``CAST(expr AS type)`` is a unary tree node; the wrapped expression
+        renders through its own ``to_sql()``.
+        """
+        expr_sql, params = expr.expression.to_sql()
+        if not self._validate_data_type(expr.target_type):
+            raise ValueError(
+                f"Invalid target type '{expr.target_type}': "
+                "must contain only alphanumeric characters, spaces, parentheses, and commas."
+            )
+        sql = f"CAST({expr_sql} AS {expr.target_type})"
+        if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, params
 
-    def format_function_call(
-        self, expr: "bases.BaseExpression", filter_predicate: Optional["bases.SQLPredicate"] = None
-    ) -> Tuple[str, Tuple]:
-        from ...expression import aggregates, core, operators
-        from ..protocols import FilterClauseSupport
-        from ..mixins import FilterClauseMixin
+    def format_sql_operation(self, expr: SQLOperation) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.operators.SQLOperation` (n-ary).
 
-        if (
-            isinstance(expr, aggregates.AggregateFunctionCall)
-            and expr.func_name.upper() == "COUNT"
-            and len(expr.args) == 1
-            and (
-                (isinstance(expr.args[0], operators.RawSQLExpression) and expr.args[0].expression == "*")
-                or isinstance(expr.args[0], core.WildcardExpression)
-            )
-        ):
-            args_sql = ["*"]
-            args_params = []
-        else:
-            args_sql = []
-            args_params = []
-            for arg in expr.args:
-                sql_part, params_part = arg.to_sql()
-                args_sql.append(sql_part)
-                args_params.append(params_part)
+        Args:
+            expr: SQL operation exposing ``op`` and ``operands``.
 
-        distinct = "DISTINCT " if expr.is_distinct else ""
-        args_sql_str = ", ".join(args_sql)
+        Returns:
+            A ``(sql, params)`` tuple of ``op(arg, ...)``; ``params`` is the
+            concatenation of the operands' parameters.
+        """
+        formatted_operands_sql = []
+        params: List[Any] = []
+        for operand in expr.operands:
+            operand_sql, operand_params = operand.to_sql()
+            formatted_operands_sql.append(operand_sql)
+            params.extend(operand_params)
+        if expr.operands:
+            return f"{expr.op}({', '.join(formatted_operands_sql)})", tuple(params)
+        return f"{expr.op}()", tuple(params)
 
-        if getattr(expr, "niladic", False) and not args_sql and not distinct:
-            func_call_sql = expr.func_name.upper()
-        else:
-            func_call_sql = f"{expr.func_name.upper()}({distinct}{args_sql_str})"
+    def format_binary_operator(self, expr: BinaryExpression) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.operators.BinaryExpression`.
 
-        all_params: List[Any] = []
-        for param_tuple in args_params:
-            all_params.extend(param_tuple)
+        Args:
+            expr: Binary expression exposing ``left``, ``op`` and ``right``.
 
-        if filter_predicate:
-            if isinstance(self, FilterClauseSupport) and isinstance(self, FilterClauseMixin):
-                if self.supports_filter_clause():
-                    filter_sql, filter_params = filter_predicate.to_sql()
-                    filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_sql, filter_params)
-                    func_call_sql += f" {filter_clause_sql}"
-                    all_params.extend(filter_clause_params)
-                else:
-                    from ..exceptions import UnsupportedFeatureError
-                    raise UnsupportedFeatureError(
-                        self.name,
-                        "FILTER clause in aggregate functions",
-                        "Use a CASE expression inside the aggregate function instead.",
-                    )
-            else:
-                from ..exceptions import UnsupportedFeatureError
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "FILTER clause in aggregate functions",
-                    "Use a CASE expression inside the aggregate function instead.",
-                )
+        Returns:
+            A ``(sql, params)`` tuple of ``left op right``.
+        """
+        left_sql, left_params = expr.left.to_sql()
+        right_sql, right_params = expr.right.to_sql()
+        return f"{left_sql} {expr.op} {right_sql}", left_params + right_params
 
-        if expr.cast_types:
-            for target_type in expr.cast_types:
-                func_call_sql, all_params_tuple = self.format_cast_expression(
-                    func_call_sql, target_type, tuple(all_params), None
-                )
-                all_params = list(all_params_tuple)
+    def format_unary_operator(self, expr: UnaryExpression) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.operators.UnaryExpression`.
 
+        Args:
+            expr: Unary expression exposing ``operand``, ``op`` and ``pos``.
+
+        Returns:
+            A ``(sql, params)`` tuple with the operator placed before or after
+            the operand according to ``pos``.
+        """
+        operand_sql, operand_params = expr.operand.to_sql()
+        if expr.pos == "before":
+            return f"{expr.op} {operand_sql}", operand_params
+        return f"{operand_sql} {expr.op}", operand_params
+
+    def format_binary_arithmetic_expression(self, expr: BinaryArithmeticExpression) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.operators.BinaryArithmeticExpression`.
+
+        Args:
+            expr: Arithmetic expression exposing ``left``, ``op``, ``right``
+                and optional ``alias``.
+
+        Returns:
+            A ``(sql, params)`` tuple; parentheses are inserted where dictated
+            by the operator-precedence table.
+
+        Parenthesization follows the operator-precedence table carried on the
+        expression class (``OPERATOR_PRECEDENCE``).
+        """
+        left_sql, left_params = expr.left.to_sql()
+        right_sql, right_params = expr.right.to_sql()
+
+        current_precedence = expr.OPERATOR_PRECEDENCE.get(expr.op, 0)
+        if self._needs_parens(expr.left, current_precedence):
+            left_sql = f"({left_sql})"
+        if self._needs_parens(expr.right, current_precedence):
+            right_sql = f"({right_sql})"
+
+        sql = f"{left_sql} {expr.op} {right_sql}"
+        params = left_params + right_params
         if expr.alias:
-            func_call_sql = f"{func_call_sql} AS {self.format_identifier(expr.alias)}"
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, params
 
-        return func_call_sql, tuple(all_params)
+    def _needs_parens(self, operand, current_precedence):
+        """Check if an arithmetic operand needs parentheses based on precedence."""
+        from ...expression.operators import BinaryArithmeticExpression
 
-    def format_binary_operator(
-        self, op: str, left_sql: str, right_sql: str, left_params: tuple, right_params: tuple
-    ) -> Tuple[str, Tuple]:
-        return f"{left_sql} {op} {right_sql}", left_params + right_params
+        if isinstance(operand, BinaryArithmeticExpression):
+            return operand.OPERATOR_PRECEDENCE.get(operand.op, 0) < current_precedence
+        return False
 
-    def format_unary_operator(self, op: str, operand_sql: str, pos: str, operand_params: tuple) -> Tuple[str, Tuple]:
-        if pos == "before":
-            return f"{op} {operand_sql}", operand_params
-        return f"{operand_sql} {op}", operand_params
+    def format_raw_sql(self, expr: RawSQLExpression) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.operators.RawSQLExpression` / ``RawSQLPredicate``.
 
-    def format_binary_arithmetic_expression(
-        self, op: str, left_sql: str, right_sql: str, left_params: tuple, right_params: tuple
-    ) -> Tuple[str, Tuple]:
-        return f"{left_sql} {op} {right_sql}", left_params + right_params
+        Args:
+            expr: Raw SQL expression exposing ``expression`` and ``params``.
 
-    def format_cast_expression(
-        self, expr_sql: str, target_type: str, expr_params: tuple, alias: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
-        from ...dialect.base import SQLDialectBase
-        if not SQLDialectBase._validate_data_type(target_type):
-            raise ValueError(
-                f"Invalid target type '{target_type}': "
-                "must contain only alphanumeric characters, spaces, parentheses, and commas."
-            )
-        sql = f"CAST({expr_sql} AS {target_type})"
-        if alias:
-            sql = f"{sql} AS {self.format_identifier(alias)}"
-        return sql, expr_params
+        Returns:
+            A ``(sql, params)`` tuple of the raw SQL text and its parameters.
 
-    def format_subquery(self, subquery_sql: str, subquery_params: tuple, alias: str) -> Tuple[str, Tuple]:
-        return f"{subquery_sql} AS {self.format_identifier(alias)}", subquery_params
+        The raw SQL text is embedded verbatim together with its parameters —
+        it bypasses the building mechanism by design and is the caller's
+        responsibility to keep safe.
+        """
+        return expr.expression, expr.params
 
-    def format_alias(self, expression_sql: str, alias: str, expression_params: tuple) -> Tuple[str, Tuple]:
+    def format_subquery(self, expr: Subquery) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.Subquery` (parenthesized query).
+
+        Args:
+            expr: Subquery exposing ``query_input``, ``query_params`` and
+                optional ``alias``.
+
+        Returns:
+            A ``(sql, params)`` tuple wrapping the query in parentheses.
+        """
+        sql = f"({expr.query_input})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, expr.query_params
+
+    def format_alias(self, expression_sql: str, alias: str, expression_params: tuple) -> Tuple[str, tuple]:
+        """Attach an alias to already-formatted SQL.
+
+        Args:
+            expression_sql: The SQL text to alias.
+            alias: The alias identifier to append.
+            expression_params: Parameters belonging to ``expression_sql``.
+
+        Returns:
+            A ``(sql, params)`` tuple of ``<expression_sql> AS <alias>`` with
+            the original parameters unchanged.
+        """
         return f"{expression_sql} AS {self.format_identifier(alias)}", expression_params
 
-    def format_values_expression(
-        self, values: List[Tuple[Any, ...]], alias: Optional[str], column_names: Optional[List[str]]
-    ) -> Tuple[str, Tuple]:
+    def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.query_sources.ValuesExpression` node.
+
+        Args:
+            expr: VALUES expression exposing ``values``, optional ``alias`` and
+                optional ``column_names``.
+
+        Returns:
+            A ``(sql, params)`` tuple; each row value becomes a bind parameter.
+        """
+        values = expr.values
+        alias = expr.alias
+        column_names = expr.column_names
         all_params: List[Any] = []
         rows_sql = []
         for row in values:
@@ -143,30 +292,122 @@ class ExpressionMixin:
             sql = f"VALUES {values_sql}{cols_sql}"
         return sql, tuple(all_params)
 
-    def format_case_expression(
-        self,
-        value_sql: Optional[str],
-        value_params: Optional[tuple],
-        conditions_results: List[Tuple[str, str, tuple, tuple]],
-        else_result_sql: Optional[str],
-        else_result_params: Optional[tuple],
-        alias: Optional[str] = None,
-    ) -> Tuple[str, Tuple]:
+    def format_case_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.advanced_functions.CaseExpression` node.
+
+        Args:
+            expr: CASE expression exposing optional ``value``, ``cases`` (a
+                list of condition/result pairs), optional ``else_result`` and
+                optional ``alias``.
+
+        Returns:
+            A ``(sql, params)`` tuple of the rendered CASE expression.
+
+        Raises:
+            ValueError: If the CASE expression has no WHEN/THEN pairs.
+        """
+        value_sql = value_params = None
+        if expr.value is not None:
+            value_sql, value_params = expr.value.to_sql()
         all_params = list(value_params) if value_params else []
-        if not conditions_results:
+        if not expr.cases:
             raise ValueError("CASE expression must have at least one WHEN/THEN condition-result pair.")
         parts = ["CASE"]
         if value_sql:
             parts.append(value_sql)
-        for condition_sql, result_sql, condition_params, result_params in conditions_results:
+        for condition, result in expr.cases:
+            condition_sql, condition_params = condition.to_sql()
+            result_sql, result_params = result.to_sql()
             parts.append(f"WHEN {condition_sql} THEN {result_sql}")
             all_params.extend(condition_params)
             all_params.extend(result_params)
-        if else_result_sql:
+        if expr.else_result is not None:
+            else_result_sql, else_result_params = expr.else_result.to_sql()
             parts.append(f"ELSE {else_result_sql}")
             all_params.extend(else_result_params)
         parts.append("END")
         case_sql = " ".join(parts)
-        if alias:
-            case_sql = f"{case_sql} AS {self.format_identifier(alias)}"
+        if expr.alias:
+            case_sql = f"{case_sql} AS {self.format_identifier(expr.alias)}"
         return case_sql, tuple(all_params)
+
+    # region Ordered-Set Aggregation
+    # Merged from OrderedSetAggregationMixin: WITHIN GROUP support.
+
+    def supports_ordered_set_aggregation(self) -> bool:
+        """Whether ordered-set aggregate functions are supported.
+
+        Defaults to False; dialects that render ``WITHIN GROUP`` override this
+        to return True.
+        """
+        return False
+
+    def format_ordered_set_aggregation(self, aggregation: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format an ordered-set aggregate function call.
+
+        Args:
+            aggregation: OrderedSetAggregation object to format.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support ordered-set
+                aggregate functions.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_ordered_set_aggregation():
+            raise UnsupportedFeatureError(self.name, "ordered-set aggregate functions")
+
+        # Format function arguments
+        func_args_sql, func_args_params = [], []
+        for arg in aggregation.args:
+            arg_sql, arg_params = arg.to_sql()
+            func_args_sql.append(arg_sql)
+            func_args_params.extend(arg_params)
+
+        # Get the ORDER BY SQL from the OrderByClause object
+        order_by_sql, order_by_params = aggregation.order_by.to_sql()
+        sql = f"{aggregation.func_name.upper()}({', '.join(func_args_sql)}) WITHIN GROUP ({order_by_sql})"
+
+        all_params = func_args_params + list(order_by_params)
+
+        if aggregation.alias:
+            sql = f"{sql} AS {self.format_identifier(aggregation.alias)}"
+
+        return sql, tuple(all_params)
+
+    # endregion Ordered-Set Aggregation
+
+    # region Filter Clause
+    # Merged from FilterClauseMixin: FILTER (WHERE ...) support.
+
+    def supports_filter_clause(self) -> bool:
+        """Whether FILTER clause on aggregate functions is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
+        return False
+
+    def format_filter_clause(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a FILTER clause.
+
+        Args:
+            expr: FilterClauseExpression containing the condition.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the rendered clause.
+
+        Raises:
+            UnsupportedFeatureError: If FILTER clauses are unsupported.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_filter_clause():
+            raise UnsupportedFeatureError(self.name, "FILTER clause")
+
+        condition_sql, condition_params = expr.condition.to_sql()
+        return f"FILTER (WHERE {condition_sql})", condition_params
+
+    # endregion Filter Clause

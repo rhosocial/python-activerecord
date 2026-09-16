@@ -324,7 +324,9 @@ class TestBatchDMLReturningTier2:
     )
     def test_returning_unsupported_old_sqlite(self, version):
         dialect = SQLiteDialect(version=version)
-        assert dialect.supports_returning_clause() is False
+        assert dialect.supports_returning_insert() is False
+        assert dialect.supports_returning_update() is False
+        assert dialect.supports_returning_delete() is False
 
         expr = _make_insert(dialect)
         clone = copy.copy(expr)
@@ -343,7 +345,9 @@ class TestBatchDMLReturningTier2:
     )
     def test_returning_supported_new_sqlite(self, version):
         dialect = SQLiteDialect(version=version)
-        assert dialect.supports_returning_clause() is True
+        assert dialect.supports_returning_insert() is True
+        assert dialect.supports_returning_update() is True
+        assert dialect.supports_returning_delete() is True
 
         expr = _make_insert(dialect)
         clone = copy.copy(expr)

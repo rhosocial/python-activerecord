@@ -33,6 +33,7 @@
     *   **[Fields & Proxies](modeling/fields.md)**: Field definition, `FieldProxy`, and mapping legacy columns. 💡 *AI Prompt: "What is FieldProxy and how does it enable type-safe query building?"*
     *   **[Mixins](modeling/mixins.md)**: Reusable logic with built-in (`UUID`, `Timestamp`) and custom Mixins.
     *   **[Validation & Hooks](modeling/validation.md)**: Pydantic validation and lifecycle hooks.
+    *   **[Model Serialization](modeling/serialization.md)**: Converting models to JSON/Dicts, field filtering, and related data.
     *   **[Custom Types](modeling/custom_types.md)**: Handling complex data types like JSON and arrays.
     *   **[Best Practices](modeling/best_practices.md)**: Naming conventions, field design, project organization, version control, index optimization.
 
@@ -68,20 +69,17 @@
 10. **[Events](events/README.md)**
     *   **[Lifecycle Events](events/lifecycle.md)**: Hooks for Decoupling business logic (before_save, after_create, etc.).
 
-11. **[Serialization](serialization/README.md)**
-    *   **[JSON Serialization](serialization/json.md)**: Converting models to JSON/Dicts, field filtering.
-
-12. **[Backend System](backend/README.md)**
+11. **[Backend System](backend/README.md)**
     *   **[Introspection](backend/introspection.md)**: Querying database structure metadata.
     *   **[Query Explain](backend/explain.md)**: Execute EXPLAIN statements and analyse query plans and index usage.
     *   **[Expression System](backend/expression/README.md)**: How Python objects are safely transformed into SQL strings. 💡 *AI Prompt: "Explain ToSQLProtocol and how Expression-Dialect separation prevents SQL injection."*
     *   **[Custom Backend](backend/custom_backend.md)**: Implementing a new database driver.
     *   **[SQLite Backend](backend/sqlite/README.md)**: SQLite-specific features and capabilities.
 
-13. **[Testing](testing/README.md)**
+12. **[Testing](testing/README.md)**
     *   **[Strategies](testing/strategies.md)**: Zero-IO Testing vs Integration Testing.
     *   **[Dummy Backend](testing/dummy.md)**: Using the dummy backend for unit tests.
 
-14. **[Scenarios](scenarios/README.md)**
+13. **[Scenarios](scenarios/README.md)**
     *   **[FastAPI Integration](scenarios/fastapi.md)**: Async support, dependency injection, and Pydantic model reuse.
     *   **[GraphQL Integration](scenarios/graphql.md)**: Solving N+1 problems with DataLoaders.

@@ -43,10 +43,10 @@ class User(ActiveRecord):
 难道要在每个类里重复写这些字段吗？不需要。我们推崇 **组合优于继承**。
 
 ```python
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 
 # 通过继承 Mixin，一行代码获得通用能力
-class Post(UUIDMixin, TimestampMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     title: str
     content: str
     

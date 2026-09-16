@@ -1,4 +1,4 @@
-# 7. Worker Pool 模块
+# Worker Pool 模块
 
 `WorkerPool` 是一个独立模块，提供驻留型 Worker 进程池，用于并行任务执行。它采用 `spawn` 模式多进程，确保跨平台一致性。
 

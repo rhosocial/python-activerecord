@@ -83,19 +83,82 @@ class TestDummyProtocolMemberCompleteness:
         )
 
     def test_all_dialects_protocols_implemented(self):
-        """Verify all protocols (except introspection) are implemented by DummyDialect."""
-        protocol_classes = self.get_all_protocol_classes()
+        """Verify every generic protocol is implemented by DummyDialect.
 
-        excluded = {"IntrospectionSupport"}
-        expected_protocols = {name for name, cls in protocol_classes if name not in excluded}
+        DummyDialect is the full-featured SQL-standard reference, so it must
+        satisfy all generic dialect protocols.
+        """
+        protocol_classes = self.get_all_protocol_classes()
+        all_protocols = {name for name, cls in protocol_classes}
 
         dummy_mro = dummy_dialect.DummyDialect.__mro__
         implemented = {
-            cls.__name__ for cls in dummy_mro if issubclass(cls, Protocol) and cls.__name__ in expected_protocols
+            cls.__name__ for cls in dummy_mro if issubclass(cls, Protocol) and cls.__name__ in all_protocols
         }
 
-        missing = expected_protocols - implemented
+        missing = all_protocols - implemented
         assert not missing, (
             f"DummyDialect is missing the following protocols: {missing}\n"
             "Please add these protocols to DummyDialect's inheritance."
         )
+
+    def test_isinstance_check_all_protocols(self, dialect):
+        """Verify isinstance(dialect, proto) returns True for all generic protocols.
+
+        This catches cases where a protocol is inherited in MRO but a required
+        method is missing — isinstance() returns False at runtime even though
+        the class appears in MRO. As the full-featured reference, DummyDialect
+        must satisfy every generic protocol (its negative list is empty).
+        """
+        protocol_classes = self.get_all_protocol_classes()
+        failures = []
+        for name, proto in protocol_classes:
+            if not isinstance(dialect, proto):
+                # Find which methods are missing
+                expected = get_all_protocol_methods(proto)
+                actual = {m for m in dir(dialect) if not m.startswith("_") and callable(getattr(dialect, m, None))}
+                missing = expected - actual
+                detail = f"  missing methods: {missing}" if missing else "  (all methods present, but isinstance returned False)"
+                failures.append(f"{name}:{detail}")
+        assert not failures, (
+            f"isinstance check failed for {len(failures)} protocol(s):\n"
+            + "\n".join(failures)
+            + "\n\nDummyDialect should satisfy all generic dialect protocols."
+        )
+
+    def test_dummy_negative_protocol_list_is_empty(self, dialect):
+        """DummyDialect implements every generic protocol: the negative list is empty.
+
+        The negative list is kept as an explicit, documented declaration. If a
+        generic protocol is ever intentionally dropped from DummyDialect, list
+        it here (and flip the assertion accordingly) so the decision is visible.
+        """
+        all_protocols = {name: cls for name, cls in self.get_all_protocol_classes()}
+        # DummyDialect is the full-featured reference: it must not skip any.
+        for name, proto in all_protocols.items():
+            assert isinstance(dialect, proto), (
+                f"DummyDialect must implement {name}; if this is intentionally "
+                f"unsupported, document it as a negative-list entry."
+            )
+
+    def test_positive_and_negative_lists_partition_all_protocols(self):
+        """Every generic protocol must be classified as implemented for Dummy.
+
+        Since DummyDialect's negative list is empty, the positive set must equal
+        the entire discovered protocol set — proving no protocol is left
+        unclassified when a new one is added to protocols.py.
+        """
+        all_protocols = {name for name, cls in self.get_all_protocol_classes()}
+        dummy_mro = dummy_dialect.DummyDialect.__mro__
+        positive = {
+            cls.__name__ for cls in dummy_mro
+            if issubclass(cls, Protocol) and cls.__name__ in all_protocols
+        }
+        negative = set()  # DummyDialect has no deliberately-unsupported protocols
+
+        unclassified = all_protocols - positive - negative
+        assert not unclassified, (
+            f"Generic protocols not classified for DummyDialect: {sorted(unclassified)}. "
+            f"Either implement them or add to the negative list."
+        )
+

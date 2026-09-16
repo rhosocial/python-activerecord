@@ -12,10 +12,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 def cast(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], target_type: str) -> "SQLValueExpression":
     """
-    Creates a type cast on an expression.
+    Creates a type cast around an expression.
 
-    This function applies a type cast using the cast() method on the expression.
-    The cast is stored in the _cast_types list and applied during to_sql().
+    ``CAST(expr AS type)`` is a proper AST node (``CastExpression``) that
+    wraps the given expression; the cast() method on the expression builds
+    exactly this node.
 
     Usage rules:
     - To generate CAST(column AS type), pass a Column object: cast(dialect, Column(dialect, "column_name"), "INTEGER")
@@ -28,11 +29,12 @@ def cast(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], target_t
         target_type: The target data type to cast to.
 
     Returns:
-        The expression with the type cast applied (same object, modified in-place)
+        A new CastExpression node wrapping the given expression
     """
+    from ..core import CastExpression, Column
+
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    target_expr.cast(target_type)
-    return target_expr
+    return CastExpression(dialect, target_expr, target_type)
 
 
 def to_char(

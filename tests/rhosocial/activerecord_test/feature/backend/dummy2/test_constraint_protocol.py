@@ -157,7 +157,7 @@ class TestConstraintSQLFormatting:
 
         action = AddTableConstraint(
             dialect,
-            constraint=TableConstraint(
+            constraint=TableConstraint(dialect, 
                 constraint_type=TableConstraintType.PRIMARY_KEY,
                 columns=["id"],
             ),
@@ -176,7 +176,7 @@ class TestConstraintSQLFormatting:
 
         action = AddTableConstraint(
             dialect,
-            constraint=TableConstraint(
+            constraint=TableConstraint(dialect, 
                 constraint_type=TableConstraintType.UNIQUE,
                 columns=["email"],
             ),
@@ -197,7 +197,7 @@ class TestConstraintSQLFormatting:
         check_condition = ExprColumn(dialect, "age") > Literal(dialect, 0)
         action = AddTableConstraint(
             dialect,
-            constraint=TableConstraint(
+            constraint=TableConstraint(dialect, 
                 constraint_type=TableConstraintType.CHECK,
                 check_condition=check_condition,
             ),
@@ -213,7 +213,7 @@ class TestConstraintSQLFormatting:
 
         action = AddTableConstraint(
             dialect,
-            constraint=ForeignKeyConstraint(
+            constraint=ForeignKeyConstraint(dialect, 
                 columns=["user_id"],
                 foreign_key_table="users",
                 foreign_key_columns=["id"],
@@ -234,7 +234,7 @@ class TestConstraintSQLFormatting:
 
         action = AddTableConstraint(
             dialect,
-            constraint=TableConstraint(
+            constraint=TableConstraint(dialect, 
                 constraint_type=TableConstraintType.UNIQUE,
                 name="uk_email",
                 columns=["email"],

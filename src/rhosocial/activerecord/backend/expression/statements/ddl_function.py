@@ -10,6 +10,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class CreateFunctionExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_function_statement"
     """SQL/PSM standard CREATE FUNCTION statement.
 
     Examples:
@@ -47,11 +52,18 @@ class CreateFunctionExpression(BaseExpression):
         self.or_replace = or_replace
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_create_function_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_function_statement"
 
 
 class DropFunctionExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_function_statement"
     """SQL/PSM standard DROP FUNCTION statement.
 
     Examples:
@@ -79,5 +91,7 @@ class DropFunctionExpression(BaseExpression):
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_drop_function_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_function_statement"

@@ -7,7 +7,7 @@ SQL generation logic is migrated from the FTS5Extension class,
 eliminating the singleton delegation layer.
 """
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from ..expression.fts5 import (
         SQLiteFTS5CreateVirtualTable,
         SQLiteFTS5HighlightExpression,
+        SQLiteFTS5MatchExpression,
         SQLiteFTS5RankExpression,
         SQLiteFTS5SnippetExpression,
     )
@@ -61,33 +62,30 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
     # ========== SQL Formatting ==========
 
     def format_fts5_match_expression(
-        self, table: str, query: str, columns: Optional[List[str]] = None, negate: bool = False
-    ) -> tuple:
+        self, expr: "SQLiteFTS5MatchExpression"
+    ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression.
 
         Args:
-            table: Name of the FTS table
-            query: Full-text search query
-            columns: Optional list of columns to scope the search
-            negate: Raises ValueError (FTS5 does not support NOT MATCH)
+            expr: SQLiteFTS5MatchExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        if negate:
+        if expr.negate:
             raise ValueError(
                 "FTS5 does not support NOT MATCH syntax. Use query-level negation instead (e.g., 'python NOT java')."
             )
 
-        if columns:
-            match_query = " OR ".join(f"{c}:{query}" for c in columns)
+        if expr.columns:
+            match_query = " OR ".join(f"{c}:{expr.query}" for c in expr.columns)
         else:
-            match_query = query
+            match_query = expr.query
 
-        sql = f"{self.format_identifier(table)} MATCH ?"
+        sql = f"{self.format_identifier(expr.table)} MATCH {self.p()}"
         return sql, (match_query,)
 
-    def format_fts5_create_virtual_table(self, expr: "SQLiteFTS5CreateVirtualTable") -> tuple:
+    def format_fts5_create_virtual_table(self, expr: "SQLiteFTS5CreateVirtualTable") -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement for FTS5.
 
         Args:
@@ -136,7 +134,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
 
         return sql, ()
 
-    def format_fts5_rank_expression(self, expr: "SQLiteFTS5RankExpression") -> tuple:
+    def format_fts5_rank_expression(self, expr: "SQLiteFTS5RankExpression") -> Tuple[str, tuple]:
         """Format FTS5 ranking expression using bm25().
 
         Args:
@@ -170,7 +168,7 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
 
         return sql, ()
 
-    def format_fts5_highlight_expression(self, expr: "SQLiteFTS5HighlightExpression") -> tuple:
+    def format_fts5_highlight_expression(self, expr: "SQLiteFTS5HighlightExpression") -> Tuple[str, tuple]:
         """Format highlight() function expression.
 
         Args:
@@ -181,11 +179,11 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         """
         sql = (
             f"highlight({self.format_identifier(expr.table_name)}, "
-            f"{self.format_identifier(expr.column)}, ?, ?)"
+            f"{self.format_identifier(expr.column)}, {self.p()}, {self.p()})"
         )
         return sql, (expr.prefix_marker, expr.suffix_marker)
 
-    def format_fts5_snippet_expression(self, expr: "SQLiteFTS5SnippetExpression") -> tuple:
+    def format_fts5_snippet_expression(self, expr: "SQLiteFTS5SnippetExpression") -> Tuple[str, tuple]:
         """Format snippet() function expression.
 
         Args:
@@ -196,6 +194,6 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
         """
         sql = (
             f"snippet({self.format_identifier(expr.table_name)}, "
-            f"{self.format_identifier(expr.column)}, ?, ?, ?, ?)"
+            f"{self.format_identifier(expr.column)}, {self.p()}, {self.p()}, {self.p()}, {self.p()})"
         )
         return sql, (expr.prefix_marker, expr.suffix_marker, expr.ellipsis, expr.context_tokens)

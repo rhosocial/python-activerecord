@@ -46,18 +46,18 @@ def sqlite_backend():
 
     # Create users table using expression system
     users_columns = [
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             name="id",
-            data_type=SQLiteIntegerType(),
-            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)],
+            data_type=SQLiteIntegerType(dialect),
+            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)],
         ),
-        ColumnDefinition(name="name", data_type=SQLiteTextType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition(name="email", data_type=SQLiteTextType()),
-        ColumnDefinition(
+        ColumnDefinition(dialect, name="name", data_type=SQLiteTextType(dialect=dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition(dialect, name="email", data_type=SQLiteTextType(dialect=dialect)),
+        ColumnDefinition(dialect, 
             name="status",
-            data_type=SQLiteTextType(),
+            data_type=SQLiteTextType(dialect=dialect),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=RawSQLExpression(dialect, "'active'"))
+                ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=RawSQLExpression(dialect, "'active'"))
             ],
         ),
     ]
@@ -69,18 +69,17 @@ def sqlite_backend():
 
     # Create orders table using expression system
     orders_columns = [
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             name="id",
-            data_type=SQLiteIntegerType(),
-            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)],
+            data_type=SQLiteIntegerType(dialect),
+            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)],
         ),
-        ColumnDefinition(name="user_id", data_type=SQLiteIntegerType()),
-        ColumnDefinition(name="amount", data_type=SQLiteRealType()),
-        ColumnDefinition(name="order_date", data_type=SQLiteTextType()),
+        ColumnDefinition(dialect, name="user_id", data_type=SQLiteIntegerType(dialect)),
+        ColumnDefinition(dialect, name="amount", data_type=SQLiteRealType(dialect=dialect)),
+        ColumnDefinition(dialect, name="order_date", data_type=SQLiteTextType(dialect=dialect)),
     ]
 
-    orders_fk_constraint = ForeignKeyConstraint(
-        constraint_type=TableConstraintType.FOREIGN_KEY,
+    orders_fk_constraint = ForeignKeyConstraint(dialect, 
         columns=["user_id"],
         foreign_key_table="users",
         foreign_key_columns=["id"],
@@ -405,7 +404,7 @@ class TestSQLiteViewJoins:
 
     def test_create_view_with_join(self, sqlite_backend):
         """Test CREATE VIEW with JOIN executes successfully."""
-        from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+        from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 
         dialect = sqlite_backend.dialect
 
@@ -413,7 +412,7 @@ class TestSQLiteViewJoins:
         orders_table = TableExpression(dialect, "orders", alias="o")
 
         join_condition = Column(dialect, "id", "u") == Column(dialect, "user_id", "o")
-        join_expr = JoinExpression(
+        join_expr = JoinClause(
             dialect, left_table=users_table, right_table=orders_table, condition=join_condition, join_type="INNER JOIN"
         )
 

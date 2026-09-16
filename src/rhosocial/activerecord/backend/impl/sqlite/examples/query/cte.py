@@ -32,23 +32,23 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table_name="employees",
     columns=[
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(
+        ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition("manager_id", IntegerType()),
-        ColumnDefinition("department", TextType()),
+        ColumnDefinition(dialect, "manager_id", IntegerType()),
+        ColumnDefinition(dialect, "department", TextType()),
     ],
     if_not_exists=True,
 )
@@ -143,11 +143,11 @@ base_query = QueryExpression(
 
 # Recursive case: employees whose manager is already in org_chart
 # Use a JOIN between the CTE result and employees table
-from rhosocial.activerecord.backend.expression import JoinExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import JoinClause  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
-join_expr = JoinExpression(
+join_expr = JoinClause(
     dialect=dialect,
     left_table=TableExpression(dialect, "org_chart", alias="oc"),
     right_table=TableExpression(dialect, "employees", alias="e"),

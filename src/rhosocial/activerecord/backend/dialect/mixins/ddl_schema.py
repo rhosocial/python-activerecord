@@ -1,5 +1,8 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_schema.py
+"""Dialect mixin for schema (namespace) DDL support."""
 from typing import Tuple, TYPE_CHECKING
+
+from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
@@ -9,7 +12,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class SchemaMixin:
-    """Mixin for schema DDL support."""
+    """Mixin adding support for schema (namespace) DDL statements."""
 
     def supports_schema(self) -> bool:
         """Whether the database models named schema namespaces at all.
@@ -22,31 +25,76 @@ class SchemaMixin:
         return False
 
     def supports_create_schema(self) -> bool:
-        """Whether CREATE SCHEMA is supported."""
+        """Whether CREATE SCHEMA is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_drop_schema(self) -> bool:
-        """Whether DROP SCHEMA is supported."""
+        """Whether DROP SCHEMA is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_schema_if_not_exists(self) -> bool:
-        """Whether CREATE SCHEMA IF NOT EXISTS is supported."""
+        """Whether CREATE SCHEMA IF NOT EXISTS is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_schema_if_exists(self) -> bool:
-        """Whether DROP SCHEMA IF EXISTS is supported."""
+        """Whether DROP SCHEMA IF EXISTS is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_schema_cascade(self) -> bool:
-        """Whether DROP SCHEMA CASCADE is supported."""
+        """Whether DROP SCHEMA CASCADE is supported.
+
+        Defaults to False.
+        """
         return False
 
     def supports_schema_authorization(self) -> bool:
-        """Whether AUTHORIZATION clause is supported."""
+        """Whether AUTHORIZATION clause is supported.
+
+        Defaults to False.
+        """
         return False
 
     def format_create_schema_statement(self, expr: "CreateSchemaExpression") -> Tuple[str, tuple]:
-        """Format CREATE SCHEMA statement per SQL standard."""
+        """Format CREATE SCHEMA statement per SQL standard.
+
+        Args:
+            expr: CreateSchemaExpression carrying the schema name, optional
+                ``if_not_exists`` flag, and optional ``authorization`` owner.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                CREATE SCHEMA or specific clauses.
+        """
+        if not self.supports_create_schema():
+            raise UnsupportedFeatureError(
+                self.name, "CREATE SCHEMA",
+                f"{self.name} does not support CREATE SCHEMA."
+            )
+        if expr.if_not_exists and not self.supports_schema_if_not_exists():
+            raise UnsupportedFeatureError(
+                self.name, "CREATE SCHEMA IF NOT EXISTS",
+                f"{self.name} does not support CREATE SCHEMA IF NOT EXISTS."
+            )
+        if expr.authorization and not self.supports_schema_authorization():
+            raise UnsupportedFeatureError(
+                self.name, "CREATE SCHEMA AUTHORIZATION",
+                f"{self.name} does not support CREATE SCHEMA AUTHORIZATION."
+            )
         parts = ["CREATE SCHEMA"]
         if expr.if_not_exists:
             parts.append("IF NOT EXISTS")
@@ -56,7 +104,34 @@ class SchemaMixin:
         return " ".join(parts), ()
 
     def format_drop_schema_statement(self, expr: "DropSchemaExpression") -> Tuple[str, tuple]:
-        """Format DROP SCHEMA statement per SQL standard."""
+        """Format DROP SCHEMA statement per SQL standard.
+
+        Args:
+            expr: DropSchemaExpression carrying the schema name, optional
+                ``if_exists`` flag, and optional ``cascade`` flag.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                DROP SCHEMA or specific clauses.
+        """
+        if not self.supports_drop_schema():
+            raise UnsupportedFeatureError(
+                self.name, "DROP SCHEMA",
+                f"{self.name} does not support DROP SCHEMA."
+            )
+        if expr.if_exists and not self.supports_schema_if_exists():
+            raise UnsupportedFeatureError(
+                self.name, "DROP SCHEMA IF EXISTS",
+                f"{self.name} does not support DROP SCHEMA IF EXISTS."
+            )
+        if expr.cascade and not self.supports_schema_cascade():
+            raise UnsupportedFeatureError(
+                self.name, "DROP SCHEMA CASCADE",
+                f"{self.name} does not support DROP SCHEMA CASCADE."
+            )
         parts = ["DROP SCHEMA"]
         if expr.if_exists:
             parts.append("IF EXISTS")

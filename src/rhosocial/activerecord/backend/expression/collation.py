@@ -29,6 +29,11 @@ class CollateExpression(
 ):
     """Applies an explicit collation to a SQL value expression."""
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_collate_expression"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -50,21 +55,12 @@ class CollateExpression(
             return str(self.collation.value)
         return str(self.collation)
 
-    def to_sql(self) -> SQLQueryAndParams:
-        sql, params = self.dialect.format_collate_expression(self)
-
-        for target_type in self._cast_types:
-            sql, params = self.dialect.format_cast_expression(sql, target_type, params, None)
-
-        if self.alias:
-            sql = f"{sql} AS {self.dialect.format_identifier(self.alias)}"
-
-        return sql, params
-
 
 def collate(
     expression: SQLValueExpression,
     collation: Union[str, Enum],
     **collation_options: Any,
 ) -> CollateExpression:
-    return CollateExpression(expression.dialect, expression, collation, **collation_options)
+    # Inherit the expression's binding state (construction-time; may be None
+    # to defer binding), matching the operator-overload convention.
+    return CollateExpression(expression._dialect, expression, collation, **collation_options)

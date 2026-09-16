@@ -5,6 +5,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
     ColumnConstraintType,
     GeneratedColumnType,
+    GeneratedColumnExpression,
     CreateTableExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -38,26 +39,65 @@ class TestGeneratedColumnProtocol:
         assert dialect.supports_virtual_generated_columns() is False
 
 
+class TestGeneratedColumnExpression:
+    """Tests for GeneratedColumnExpression as standalone expression."""
+
+    def test_to_sql_stored(self, dummy_dialect: DummyDialect):
+        """Test GeneratedColumnExpression.to_sql() for STORED."""
+        gen = GeneratedColumnExpression(
+            dummy_dialect,
+            expression=Column(dummy_dialect, "price") * Column(dummy_dialect, "qty"),
+            storage_type=GeneratedColumnType.STORED,
+        )
+        sql, params = gen.to_sql()
+        assert "GENERATED ALWAYS AS" in sql
+        assert "STORED" in sql
+        assert '"price"' in sql
+        assert params == ()
+
+    def test_to_sql_virtual(self, dummy_dialect: DummyDialect):
+        """Test GeneratedColumnExpression.to_sql() for VIRTUAL."""
+        gen = GeneratedColumnExpression(
+            dummy_dialect,
+            expression=Column(dummy_dialect, "a") + Column(dummy_dialect, "b"),
+        )
+        sql, params = gen.to_sql()
+        assert "GENERATED ALWAYS AS" in sql
+        assert "VIRTUAL" in sql
+        assert params == ()
+
+    def test_default_storage_is_virtual(self, dummy_dialect: DummyDialect):
+        """Test that default storage type is VIRTUAL."""
+        gen = GeneratedColumnExpression(
+            dummy_dialect,
+            expression=Column(dummy_dialect, "x"),
+        )
+        assert gen.storage_type == GeneratedColumnType.VIRTUAL
+
+
 class TestGeneratedColumnBasic:
     """Tests for basic generated column functionality."""
 
     def test_virtual_generated_column(self, dummy_dialect: DummyDialect):
         """Test CREATE TABLE with VIRTUAL generated column."""
         columns = [
-            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition(
-                "first_name", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect,
+                "first_name", VarCharType(dummy_dialect, 50), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)]
             ),
-            ColumnDefinition("last_name", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(
+            ColumnDefinition(dummy_dialect, "last_name", VarCharType(dummy_dialect, 50), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dummy_dialect,
                 "full_name",
-                VarCharType(101),
-                generated_expression=(
-                    Column(dummy_dialect, "first_name")
-                    + Literal(dummy_dialect, " ")
-                    + Column(dummy_dialect, "last_name")
+                VarCharType(dummy_dialect, 101),
+                generated_expression=GeneratedColumnExpression(
+                    dummy_dialect,
+                    expression=(
+                        Column(dummy_dialect, "first_name")
+                        + Literal(dummy_dialect, " ", inline_literals=True)
+                        + Column(dummy_dialect, "last_name")
+                    ),
+                    storage_type=GeneratedColumnType.VIRTUAL,
                 ),
-                generated_type=GeneratedColumnType.VIRTUAL,
             ),
         ]
 
@@ -67,21 +107,22 @@ class TestGeneratedColumnBasic:
         assert 'CREATE TABLE "users"' in sql
         assert '"full_name" VARCHAR(101) GENERATED ALWAYS AS' in sql
         assert "VIRTUAL" in sql
-        # Literal values generate parameters
-        assert len(params) == 1
-        assert params[0] == " "
+        assert params == ()
 
     def test_stored_generated_column(self, dummy_dialect: DummyDialect):
         """Test CREATE TABLE with STORED generated column."""
         columns = [
-            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("price", DecimalType(precision=10, scale=2)),
-            ColumnDefinition("quantity", IntegerType()),
-            ColumnDefinition(
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect, "price", DecimalType(dummy_dialect, precision=10, scale=2)),
+            ColumnDefinition(dummy_dialect, "quantity", IntegerType(dummy_dialect)),
+            ColumnDefinition(dummy_dialect,
                 "total",
-                DecimalType(precision=10, scale=2),
-                generated_expression=(Column(dummy_dialect, "price") * Column(dummy_dialect, "quantity")),
-                generated_type=GeneratedColumnType.STORED,
+                DecimalType(dummy_dialect, precision=10, scale=2),
+                generated_expression=GeneratedColumnExpression(
+                    dummy_dialect,
+                    expression=Column(dummy_dialect, "price") * Column(dummy_dialect, "quantity"),
+                    storage_type=GeneratedColumnType.STORED,
+                ),
             ),
         ]
 
@@ -96,9 +137,13 @@ class TestGeneratedColumnBasic:
     def test_generated_column_default_virtual(self, dummy_dialect: DummyDialect):
         """Test that generated column defaults to VIRTUAL when type not specified."""
         columns = [
-            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition(
-                "computed", IntegerType(), generated_expression=(Column(dummy_dialect, "id") + Literal(dummy_dialect, 1))
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect,
+                "computed", IntegerType(dummy_dialect),
+                generated_expression=GeneratedColumnExpression(
+                    dummy_dialect,
+                    expression=Column(dummy_dialect, "id") + Literal(dummy_dialect, 1),
+                ),
             ),
         ]
 
@@ -106,22 +151,25 @@ class TestGeneratedColumnBasic:
         sql, params = create_table.to_sql()
 
         assert '"computed" INTEGER GENERATED ALWAYS AS' in sql
-        assert "VIRTUAL" in sql or "STORED" in sql
+        assert "VIRTUAL" in sql
 
 
 class TestGeneratedColumnWithConstraints:
     """Tests for generated columns combined with other constraints."""
 
     def test_generated_column_with_not_null(self, dummy_dialect: DummyDialect):
-        """Test generated column cannot have NOT NULL constraint."""
+        """Test generated column with NOT NULL constraint."""
         columns = [
-            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition(
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect,
                 "value",
-                IntegerType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
-                generated_expression=(Column(dummy_dialect, "id") * Literal(dummy_dialect, 2)),
-                generated_type=GeneratedColumnType.VIRTUAL,
+                IntegerType(dummy_dialect),
+                constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)],
+                generated_expression=GeneratedColumnExpression(
+                    dummy_dialect,
+                    expression=Column(dummy_dialect, "id") * Literal(dummy_dialect, 2),
+                    storage_type=GeneratedColumnType.VIRTUAL,
+                ),
             ),
         ]
 
@@ -137,13 +185,16 @@ class TestGeneratedColumnExpressions:
     def test_arithmetic_expression(self, dummy_dialect: DummyDialect):
         """Test generated column with arithmetic expression."""
         columns = [
-            ColumnDefinition("a", IntegerType()),
-            ColumnDefinition("b", IntegerType()),
-            ColumnDefinition(
+            ColumnDefinition(dummy_dialect, "a", IntegerType(dummy_dialect)),
+            ColumnDefinition(dummy_dialect, "b", IntegerType(dummy_dialect)),
+            ColumnDefinition(dummy_dialect,
                 "sum_result",
-                IntegerType(),
-                generated_expression=(Column(dummy_dialect, "a") + Column(dummy_dialect, "b")),
-                generated_type=GeneratedColumnType.VIRTUAL,
+                IntegerType(dummy_dialect),
+                generated_expression=GeneratedColumnExpression(
+                    dummy_dialect,
+                    expression=Column(dummy_dialect, "a") + Column(dummy_dialect, "b"),
+                    storage_type=GeneratedColumnType.VIRTUAL,
+                ),
             ),
         ]
 
@@ -156,15 +207,16 @@ class TestGeneratedColumnExpressions:
     def test_string_concatenation(self, dummy_dialect: DummyDialect):
         """Test generated column with string concatenation."""
         columns = [
-            ColumnDefinition("first", VarCharType(50)),
-            ColumnDefinition("last", VarCharType(50)),
-            ColumnDefinition(
+            ColumnDefinition(dummy_dialect, "first", VarCharType(dummy_dialect, 50)),
+            ColumnDefinition(dummy_dialect, "last", VarCharType(dummy_dialect, 50)),
+            ColumnDefinition(dummy_dialect,
                 "full",
-                VarCharType(101),
-                generated_expression=(
-                    Column(dummy_dialect, "first") + Literal(dummy_dialect, " ") + Column(dummy_dialect, "last")
+                VarCharType(dummy_dialect, 101),
+                generated_expression=GeneratedColumnExpression(
+                    dummy_dialect,
+                    expression=Column(dummy_dialect, "first") + Literal(dummy_dialect, " ") + Column(dummy_dialect, "last"),
+                    storage_type=GeneratedColumnType.STORED,
                 ),
-                generated_type=GeneratedColumnType.STORED,
             ),
         ]
 

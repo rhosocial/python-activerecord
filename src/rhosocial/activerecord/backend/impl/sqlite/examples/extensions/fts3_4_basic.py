@@ -35,17 +35,22 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     FunctionCall,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate  # noqa: E402
+from rhosocial.activerecord.backend.impl.sqlite.expression import (
+    SQLiteMatchPredicate,  # noqa: E402
+    CreateVirtualTableExpression,  # noqa: E402
+)
 
 # Create FTS4 virtual table using the dialect's generic virtual table
 # formatting method. For FTS4, module='fts4' and tokenizer options
 # are passed via the options dict.
-create_sql, create_params = dialect.format_create_virtual_table(
+create_expr = CreateVirtualTableExpression(
+    dialect=dialect,
     module="fts4",
     table_name="documents",
     columns=["title", "content"],
     options={"tokenize": "porter"},
 )
+create_sql, create_params = create_expr.to_sql()
 
 backend.execute(create_sql, create_params)
 print("Created FTS4 table")

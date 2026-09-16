@@ -1,4 +1,7 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/auto_increment.py
+"""AUTO_INCREMENT / IDENTITY column capability probe."""
+
+
 class AutoIncrementMixin:
     """Mixin for AUTO_INCREMENT / IDENTITY column support.
 

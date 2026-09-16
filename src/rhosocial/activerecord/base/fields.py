@@ -3,12 +3,21 @@
 This module provides classes and functions related to field definitions and annotations.
 """
 
-from typing import Any, Optional, Type, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Type, Union, TYPE_CHECKING
 
+from ..backend.expression.statements.ddl_table import (
+    ColumnConstraint,
+    ColumnConstraintType,
+    IndexDefinition,
+)
 from ..backend.type_adapter import SQLTypeAdapter
 
 if TYPE_CHECKING:
-    from ..backend.expression.bases import BaseExpression, SQLDialectBase
+    from ..backend.expression.bases import BaseExpression, SQLDialectBase, SQLPredicate
+    from ..backend.expression.statements.ddl_table import (
+        ReferentialAction,
+    )
+    from ..backend.expression.types import DataType
 
 
 class UseColumn:
@@ -90,6 +99,198 @@ class UseAdapter:
         self.target_db_type = target_db_type
 
 
+class UseSqlType:
+    """Marker for ``Annotated[T, UseSqlType(*type_defs)]``.
+
+    Instructs the DDL generator to use the supplied SQL ``DataType`` instance(s)
+    when building a ``ColumnDefinition`` for this field, overriding the dialect's
+    default type suggestion for ``T``.
+
+    One or more ``DataType`` instances may be declared. At DDL-generation time
+    the generator picks the **first** declared type the current backend's dialect
+    can render (``dialect.supports_data_type``); if none matches, it falls back
+    to ``dialect.suggest_column_type(python_type)``, and raises if that also
+    yields nothing. Declaration order therefore expresses backend priority.
+
+    Each instance may be a core **generic** type (portable — every backend
+    renders it, natively or via the SQL-standard default) or a **backend-specific**
+    type (``<Backend>*Type``, e.g. ``PostgresJsonBType``, which renders only on
+    its owning backend). Backend-specific types render only on backends that
+    register them; any other backend skips them (and falls back) rather than
+    silently substituting a lossy form.
+
+    Examples::
+
+        # Generic — portable across backends
+        status: Annotated[str, UseSqlType(VarCharType(length=50))]
+
+        # Backend-priority: JSONB on PostgreSQL, JSON elsewhere, LONGTEXT on
+        # MySQL < 5.7 (where JSON is unavailable)
+        payload: Annotated[dict, UseSqlType(
+            PostgresJsonBType(), JsonType(), MySQLLongTextType(),
+        )]
+
+    Attributes:
+        data_types: Tuple of the declared ``DataType`` instances (deduplicated,
+            first occurrence wins), in declaration order.
+        data_type: The first (primary) ``DataType`` instance — kept as a
+            convenience alias for single-type use.
+    """
+
+    def __init__(self, *data_types: "DataType"):
+        from ..backend.expression.types import DataType
+
+        if not data_types:
+            raise TypeError(
+                "UseSqlType requires at least one DataType instance, e.g. "
+                "UseSqlType(VarCharType(length=50))."
+            )
+        for t in data_types:
+            if not isinstance(t, DataType):
+                raise TypeError(
+                    f"UseSqlType expects one or more DataType instances, got "
+                    f"{type(t).__name__}. Per-dialect string-keyed mappings are "
+                    f"not supported: use a generic type (each backend resolves "
+                    f"it natively), a backend-specific type, or several types "
+                    f"in declaration order."
+                )
+        # Deduplicate by value-object equality; keep first occurrence.
+        seen: list = []
+        for t in data_types:
+            if t not in seen:
+                seen.append(t)
+        self.data_types: tuple = tuple(seen)
+        self.data_type = self.data_types[0]
+
+    def __repr__(self) -> str:
+        return f"UseSqlType({', '.join(repr(t) for t in self.data_types)})"
+
+
+class UseIndex:
+    """Marker for ``Annotated[T, UseIndex(name, ...)]``.
+
+    Declares a single-column index that the DDL generator will emit inline
+    with the CREATE TABLE statement (or as a separate CREATE INDEX for backends
+    that do not support inline indexes).
+
+    For multi-column (composite) indexes, declare ``__table_indexes__`` on the model
+    class instead.
+
+    Example::
+
+        email:    Annotated[str, UseIndex("idx_email", unique=True)]
+        country:  Annotated[str, UseIndex("idx_country")]
+    """
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        unique: bool = False,
+        type: Optional[str] = None,
+        partial_condition: Optional[Union["SQLPredicate", "Callable"]] = None,
+        include_columns: Optional[List[str]] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
+        if not name:
+            raise ValueError("UseIndex requires a non-empty index name.")
+        self.name = name
+        self.unique = unique
+        self.type = type
+        # May be a ready SQLPredicate or a lazy ``(dialect) -> SQLPredicate``
+        # factory, resolved by the generator at DDL-build time.
+        self.partial_condition = partial_condition
+        self.include_columns = include_columns
+        self.dialect_options = dialect_options
+
+    def to_index_definition(self, column_name: str, dialect: "SQLDialectBase") -> "IndexDefinition":
+        """Build an IndexDefinition that references *column_name*.
+
+        The dialect is supplied by the DDL generator at build time.
+        """
+        return IndexDefinition(dialect, 
+            name=self.name,
+            columns=[column_name],
+            unique=self.unique,
+            type=self.type,
+            partial_condition=self.partial_condition,
+            include_columns=self.include_columns,
+            dialect_options=self.dialect_options,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"UseIndex({self.name!r}, unique={self.unique!r}, type={self.type!r})"
+        )
+
+
+class UseConstraint:
+    """Marker for ``Annotated[T, UseConstraint(constraint_type, ...)]``.
+
+    Declares a constraint applied directly to the annotated column in the
+    generated CREATE TABLE statement.
+
+    For table-level constraints (CHECK spanning multiple columns, composite
+    UNIQUE, composite FOREIGN KEY), declare ``__table_constraints__`` on the model
+    class instead.
+
+    Example::
+
+        # Column-level COLLATE
+        name: Annotated[str, UseConstraint(ColumnConstraintType.COLLATE,
+                                            collation="utf8mb4_unicode_ci")]
+
+        # Column-level CHARACTER SET (MySQL/MariaDB)
+        name: Annotated[str, UseConstraint(ColumnConstraintType.CHARACTER_SET,
+                                            character_set="utf8mb4")]
+    """
+
+    def __init__(
+        self,
+        constraint_type: "ColumnConstraintType",
+        *,
+        name: Optional[str] = None,
+        check_condition: Optional[Union["SQLPredicate", "Callable"]] = None,
+        foreign_key_reference: Optional[tuple] = None,
+        default_value: Any = None,
+        is_auto_increment: bool = False,
+        on_delete: Optional["ReferentialAction"] = None,
+        on_update: Optional["ReferentialAction"] = None,
+        deferrable: Optional[bool] = None,
+        initially_deferred: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+        character_set: Optional[str] = None,
+        collation: Optional[str] = None,
+    ):
+        # check_condition may be a ready SQLPredicate or a lazy
+        # ``(dialect) -> SQLPredicate`` factory; the generator resolves it.
+        # The marker is constructed at model-declaration time (no dialect
+        # yet) — the constraint node defers binding and the DDL generator
+        # binds it through the dialect setter. character_set/collation are
+        # backend-specific extras carried in dialect_options.
+        extras = dict(dialect_options or {})
+        if character_set is not None:
+            extras["character_set"] = character_set
+        if collation is not None:
+            extras["collation"] = collation
+        self.constraint = ColumnConstraint(None, 
+            constraint_type=constraint_type,
+            name=name,
+            check_condition=check_condition,
+            foreign_key_reference=foreign_key_reference,
+            default_value=default_value,
+            is_auto_increment=is_auto_increment,
+            on_delete=on_delete,
+            on_update=on_update,
+            deferrable=deferrable,
+            initially_deferred=initially_deferred,
+            dialect_options=extras,
+        )
+
+    def __repr__(self) -> str:
+        return f"UseConstraint({self.constraint.constraint_type.name})"
+
+
 class DerivedField:
     """
     A marker/descriptor for declaring derived (computed) fields on ActiveRecord models.
@@ -107,28 +308,28 @@ class DerivedField:
     1. Field proxy (recommended): reference columns via Model.c, which automatically
        injects the dialect. No manual dialect handling needed.
 
-        class Product(ActiveRecord):
-            c: ClassVar[FieldProxy] = FieldProxy()
-            price: float
-            quantity: int
-            discounted: ClassVar[Annotated[float, DerivedField(
-                lambda d: Product.c.price * Literal(d, 0.9),
-            )]]
+         class Product(ActiveRecord):
+             c: ClassVar[FieldProxy] = FieldProxy()
+             price: float
+             quantity: int
+             discounted: ClassVar[Annotated[float, DerivedField(
+                 lambda d: Product.c.price * Literal(d, 0.9),
+             )]]
 
     2. Manual Column construction: use the dialect parameter (d) passed to the
        factory to build expressions directly.
 
-        class Product(ActiveRecord):
-            price: float
-            total_value: ClassVar[Annotated[float, DerivedField(
-                lambda d: Column(d, "price") * Column(d, "quantity"),
-            )]]
+         class Product(ActiveRecord):
+             price: float
+             total_value: ClassVar[Annotated[float, DerivedField(
+                 lambda d: Column(d, "price") * Column(d, "quantity"),
+             )]]
 
-       If you need to build an expression outside the lambda, obtain the dialect
-       from the backend:
+        If you need to build an expression outside the lambda, obtain the dialect
+        from the backend:
 
-        dialect = Product.backend().dialect
-        expr = Column(dialect, "price") * Literal(dialect, 2)
+         dialect = Product.backend().dialect
+         expr = Column(dialect, "price") * Literal(dialect, 2)
     """
 
     def __init__(

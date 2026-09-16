@@ -3,7 +3,7 @@
 This module provides a mixin for handling custom column names for model fields.
 """
 
-from typing import ClassVar, Dict, Optional, Type, Any, Tuple, Union, get_type_hints
+from typing import ClassVar, Dict, Optional, Type, Any, Tuple, get_type_hints
 from functools import lru_cache
 
 from .fields import UseColumn
@@ -41,9 +41,15 @@ class ColumnNameAnnotationHandler:
         try:
             hints = get_type_hints(new_class, include_extras=True)
         except (NameError, AttributeError, TypeError):
-            # Fallback to __annotations__ if get_type_hints fails
-            # (e.g., due to forward references or other issues)
-            hints = getattr(new_class, "__annotations__", {})
+            # Python 3.8's typing.get_type_hints has no ``include_extras``;
+            # typing_extensions backports it, preserving Annotated metadata.
+            try:
+                from typing_extensions import get_type_hints as _te_get_type_hints
+
+                hints = _te_get_type_hints(new_class, include_extras=True)
+            except (ImportError, NameError, AttributeError, TypeError):
+                # Last resort: raw annotations (loses Annotated metadata).
+                hints = getattr(new_class, "__annotations__", {})
 
         for field_name, field_type in hints.items():
             column_name = ColumnNameAnnotationHandler._extract_and_validate_column_name(field_name, field_type)
@@ -126,7 +132,7 @@ class ColumnNameMixin:
     __field_column_names__: ClassVar[Dict[str, str]] = {}
 
     @classmethod
-    def _get_column_name(cls, field_name: str) -> str:
+    def get_column_name(cls, field_name: str) -> str:
         """
         Get the database column name for a given field.
 
@@ -146,7 +152,7 @@ class ColumnNameMixin:
         """
         Get the Python field name for a given database column name.
 
-        This is the reverse mapping of _get_column_name().
+        This is the reverse mapping of get_column_name().
 
         Args:
             column_name: The database column name
@@ -178,7 +184,7 @@ class ColumnNameMixin:
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
 
         for field_name in model_fields.keys():
-            mapping[field_name] = cls._get_column_name(field_name)
+            mapping[field_name] = cls.get_column_name(field_name)
 
         return mapping
 
@@ -198,9 +204,9 @@ class ColumnNameMixin:
            This ensures that user-defined mappings are prioritized.
         2. It then processes all remaining fields, only adding them if their
            implicit column name hasn't already been claimed by an explicit mapping.
-           This allows a model to define a field like `creation_date: ... UseColumn("created_at")`
-           which takes precedence over the `created_at` field inherited from `TimestampMixin`,
-           resolving the "duplicate column name" error.
+This allows a model to define a field like `creation_date: ... UseColumn("created_at")`
+            which takes precedence over the `created_at` field inherited from `DefaultTimestampMixin`,
+            resolving the "duplicate column name" error.
 
         Raises:
             ValueError: If duplicate explicit column names are detected.
@@ -233,9 +239,11 @@ class ColumnNameMixin:
             reverse_mapping[column_name] = field_name
 
         # Second pass: Process implicit mappings, skipping any that conflict with explicit ones.
+        # Resolution goes through get_column_name so behaviour-provided
+        # overrides (e.g. the optimistic-lock column knob) apply consistently
+        # on both the write and the read path.
         for field_name in implicit_mappers:
-            # For implicit mappers, the column name is the same as the field name.
-            column_name = field_name
+            column_name = cls.get_column_name(field_name)
             if column_name not in reverse_mapping:
                 reverse_mapping[column_name] = field_name
 
@@ -317,7 +325,7 @@ class ColumnNameMixin:
             result = User._map_fields_to_columns(field_data)
             # Returns: {"id": 1, "name": "Alice"}
         """
-        return {cls._get_column_name(field): value for field, value in field_data.items()}
+        return {cls.get_column_name(field): value for field, value in field_data.items()}
 
     @classmethod
     def _map_columns_to_fields(cls, column_data: Dict[str, Any]) -> Dict[str, Any]:

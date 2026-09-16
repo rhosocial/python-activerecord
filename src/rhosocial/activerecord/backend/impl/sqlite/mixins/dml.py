@@ -110,7 +110,7 @@ class SQLiteDMLMixin:
         expr,
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate for FTS5."""
-        return self.format_fts5_match_expression(expr.table, expr.query, expr.columns, expr.negate)
+        return self.format_fts5_match_expression(expr)
 
 
 # =============================================================================

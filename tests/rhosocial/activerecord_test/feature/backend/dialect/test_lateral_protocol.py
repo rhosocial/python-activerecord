@@ -10,13 +10,13 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, LateralJoinMixin, LateralJoinSupport
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.dialect.mixins import IdentifierMixin, DQLMixin, ExpressionMixin
+from rhosocial.activerecord.backend.dialect.mixins import DQLMixin, ExpressionMixin, DDLColumnMixin, TableMixin
 from rhosocial.activerecord.backend.expression import Column, QueryExpression, TableExpression, Subquery
 from rhosocial.activerecord.backend.expression.query_sources import LateralExpression, TableFunctionExpression
 
 
 class NoLateralDialect(
-    SQLDialectBase, IdentifierMixin, ExpressionMixin, DQLMixin, LateralJoinMixin, LateralJoinSupport
+    SQLDialectBase, ExpressionMixin, DDLColumnMixin, TableMixin, DQLMixin, LateralJoinMixin, LateralJoinSupport
 ):
     """Dialect that does not support lateral joins and table functions."""
 
@@ -38,8 +38,12 @@ def test_format_lateral_expression_reports_no_support():
     dialect = NoLateralDialect()
 
     assert not dialect.supports_lateral_join()
+    from rhosocial.activerecord.backend.expression.query_sources import LateralExpression
+    from rhosocial.activerecord.backend.expression.core import Subquery
+
+    lateral = LateralExpression(dialect, Subquery(dialect, "(SELECT 1)"), alias="lateral_data", join_type="CROSS")
     with pytest.raises(UnsupportedFeatureError) as excinfo:
-        dialect.format_lateral_expression("(SELECT 1)", (), "lateral_data", "CROSS")
+        dialect.format_lateral_expression(lateral)
     assert "LATERAL join" in str(excinfo.value)
 
 

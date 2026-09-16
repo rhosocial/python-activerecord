@@ -407,7 +407,7 @@ items = OrderItem.query().where(OrderItem.c.order_id == 1).all()
 
 ---
 
-## 原始 SQL（需要时）
+## 原始 SQL（除非万不得已）
 
 ```python
 # 执行原始 SQL 进行复杂查询
@@ -421,7 +421,7 @@ result = User.__backend__.execute(
 users = [User(**row) for row in result.rows]
 ```
 
-> ⚠️ **警告：** 尽量少用原始 SQL。它会降低跨数据库后端的可移植性。
+> ⚠️ **强烈警告：** 不到万不得已，**不要**使用原始 SQL（包括 `RawSQLExpression`、`RawSQLPredicate` 及直接执行 SQL 字符串）。这极易造成 **SQL 注入等安全破口**，并降低跨数据库后端的可移植性。请优先使用 FieldProxy 表达式（`User.c.field`）构建类型安全、自动参数化的查询。只有在标准表达式体系确实无法表达的极端场景（如数据库私有特性）才考虑原始 SQL，且务必使用参数占位符、绝不可拼接用户输入。
 
 ---
 

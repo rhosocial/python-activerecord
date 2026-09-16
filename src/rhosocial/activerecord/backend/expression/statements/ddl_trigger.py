@@ -35,6 +35,11 @@ class TriggerLevel(Enum):
 
 
 class CreateTriggerExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_trigger_statement"
     """SQL:1999 standard CREATE TRIGGER statement.
 
     Examples:
@@ -91,11 +96,18 @@ class CreateTriggerExpression(BaseExpression):
         self.if_not_exists = if_not_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_create_trigger_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_trigger_statement"
 
 
 class DropTriggerExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_trigger_statement"
     """SQL:1999 standard DROP TRIGGER statement.
 
     Examples:
@@ -121,5 +133,7 @@ class DropTriggerExpression(BaseExpression):
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_drop_trigger_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_trigger_statement"

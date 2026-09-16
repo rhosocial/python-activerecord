@@ -4,12 +4,12 @@ In Web applications, it is common for two users to edit the same article simulta
 
 ## Optimistic Locking
 
-`OptimisticLockMixin` solves this problem by adding a `version` field.
+`DefaultOptimisticLockMixin` solves this problem by adding a `version` field.
 
 ```python
-from rhosocial.activerecord.field import OptimisticLockMixin
+from rhosocial.activerecord.field import DefaultOptimisticLockMixin
 
-class Post(OptimisticLockMixin, ActiveRecord):
+class Post(DefaultOptimisticLockMixin, ActiveRecord):
     title: str
 ```
 

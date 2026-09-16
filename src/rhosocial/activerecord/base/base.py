@@ -15,7 +15,7 @@ from ..backend.options import DeleteOptions, UpdateOptions
 from ..backend.options import InsertOptions
 from ..backend.type_adapter import SQLTypeAdapter
 from ..interface import IActiveRecord, IAsyncActiveRecord, ModelEvent
-from ..interface.update import IUpdateBehavior
+from ..interface.update import IDataPreparationBehavior, IDeleteBehavior, IUpdateBehavior
 from ..logging import LoggingConfig, LoggingMixin
 from .bulk_operations import BulkOperationsMixin, AsyncBulkOperationsMixin
 
@@ -197,6 +197,11 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         """
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
+        generated = self.__class__.get_generated_columns()
+        if generated:
+            prepared_data = {
+                k: v for k, v in prepared_data.items() if k not in generated
+            }
         self.log_data(logging.DEBUG, "Data with database column names", prepared_data)
         self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
         column_mapping = self.__class__.get_column_to_field_map()
@@ -378,6 +383,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
         pk_fields = set(self.__class__.primary_key_fields())
+        generated = set(self.__class__.get_generated_columns())
         if is_new:
             if self.__class__.__pk_auto_generated__:
                 data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
@@ -386,9 +392,14 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         else:
             all_data = self.model_dump()
             data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}
+        # Generated columns are database-computed: never insert/update them.
+        if generated:
+            data = {k: v for k, v in data.items() if k not in generated}
         bases = self.__class__.__mro__
         for base in bases:
-            if hasattr(base, "prepare_save_data") and base != BaseActiveRecord:
+            if issubclass(base, IDataPreparationBehavior) and base not in (
+                IDataPreparationBehavior, BaseActiveRecord
+            ):
                 prepare_method = base.prepare_save_data
                 data = prepare_method(self, data, is_new)
         return data
@@ -597,7 +608,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         backend = self.backend()
         pk_value = self._get_pk_value()
         where_predicate = self._build_pk_where_predicate(pk_value)
-        is_soft_delete = hasattr(self, "prepare_delete")
+        is_soft_delete = isinstance(self, IDeleteBehavior)
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
@@ -644,7 +655,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
         all_suggestions = cls.backend().get_default_adapter_suggestions()
         for field_name, field_info in model_fields.items():
-            column_name = cls._get_column_name(field_name)
+            column_name = cls.get_column_name(field_name)
             field_py_type = field_info.annotation
             original_type = field_py_type
             origin = get_origin(field_py_type)
@@ -864,6 +875,11 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         """
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
+        generated = self.__class__.get_generated_columns()
+        if generated:
+            prepared_data = {
+                k: v for k, v in prepared_data.items() if k not in generated
+            }
         self.log_data(logging.DEBUG, "Data with database column names", prepared_data)
         self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
         column_mapping = self.__class__.get_column_to_field_map()
@@ -1045,6 +1061,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
         pk_fields = set(self.__class__.primary_key_fields())
+        generated = set(self.__class__.get_generated_columns())
         if is_new:
             if self.__class__.__pk_auto_generated__:
                 data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
@@ -1053,9 +1070,14 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         else:
             all_data = self.model_dump()
             data = {field: all_data[field] for field in self._dirty_fields if field not in pk_fields}
+        # Generated columns are database-computed: never insert/update them.
+        if generated:
+            data = {k: v for k, v in data.items() if k not in generated}
         bases = self.__class__.__mro__
         for base in bases:
-            if hasattr(base, "prepare_save_data") and base != AsyncBaseActiveRecord:
+            if issubclass(base, IDataPreparationBehavior) and base not in (
+                IDataPreparationBehavior, AsyncBaseActiveRecord
+            ):
                 prepare_method = base.prepare_save_data
                 data = prepare_method(self, data, is_new)
         return data
@@ -1264,7 +1286,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         backend = self.backend()
         pk_value = self._get_pk_value()
         where_predicate = self._build_pk_where_predicate(pk_value)
-        is_soft_delete = hasattr(self, "prepare_delete")
+        is_soft_delete = isinstance(self, IDeleteBehavior)
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
@@ -1311,7 +1333,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
         all_suggestions = cls.backend().get_default_adapter_suggestions()
         for field_name, field_info in model_fields.items():
-            column_name = cls._get_column_name(field_name)
+            column_name = cls.get_column_name(field_name)
             field_py_type = field_info.annotation
             original_type = field_py_type
             origin = get_origin(field_py_type)

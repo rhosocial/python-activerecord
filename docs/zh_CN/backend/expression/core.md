@@ -50,20 +50,41 @@ class ToSQLProtocol(Protocol):
 
 ### BaseExpression
 
-`BaseExpression` 是所有表达式组件的根抽象基类。它实现了 `ToSQLProtocol` 并持有 `SQLDialect` 的引用。
+`BaseExpression` 是所有表达式组件的根基类。它以结构方式满足 `ToSQLProtocol`，持有**逐节点**的方言引用，并且**只在基类集中实现一次** `to_sql()`——子类绝不复写它，只通过只读的 `format_method` 属性声明渲染自己的方言格式化方法名。
 
 ```python
-class BaseExpression(abc.ABC, ToSQLProtocol):
-    def __init__(self, dialect: "SQLDialectBase"):
-        self._dialect = dialect
+class BaseExpression:
+    def __init__(self, dialect: Optional["SQLDialectBase"] = None):
+        # 方言是约定俗成的第一个参数，但可选——
+        # 允许推迟绑定（例如模型声明期没有方言；
+        # ActiveRecord 的 DDL 推导会逐节点绑定）。
+        self._inline_literals = False
+        self.dialect = dialect
 
     @property
     def dialect(self) -> "SQLDialectBase":
-        return self._dialect
+        # 读取时会校验是否已绑定方言；渲染必须有方言，
+        # 因此未绑定就访问会抛出 ValueError
+        # ("... has no dialect bound ...")。
+        ...
 
-    @abc.abstractmethod
+    @dialect.setter
+    def dialect(self, dialect: Optional["SQLDialectBase"]) -> None:
+        # 只影响本节点——不会向子表达式传播。
+        # 在构造时逐节点传入方言，或遍历树逐个绑定。
+        ...
+
+    @property
+    def format_method(self) -> str:
+        # 渲染该表达式的方言 format_*() 方法名。
+        # 按契约只读；未声明（或方言未提供该方法）则不可渲染。
+        ...
+
     def to_sql(self) -> Tuple[str, tuple]:
-        raise NotImplementedError
+        # 只在这里实现一次。无状态、零分配：
+        # 在本节点绑定的方言上解析 format_method，
+        # 然后调用 formatter(self)。没有重建、没有传播、没有副本。
+        ...
 ```
 
 ### SQLPredicate
@@ -94,12 +115,65 @@ class SQLValueExpression(BaseExpression):
 
 ```python
 class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", value: Any): ...
+    def __init__(self, dialect: "SQLDialectBase", value: Any, *, inline_literals: bool = False): ...
     
-    # 示例: WHERE status = ?
+    # 默认：绑定参数模式
     # Literal(dialect, "active")
     # -> ('?', ('active',))
+
+    # 内联模式：值直接嵌入 SQL（用于 DDL 子句）
+    # Literal(dialect, "active", inline_literals=True)
+    # -> ("'active'", ())
 ```
+
+#### 内联字面量
+
+默认情况下，`Literal` 渲染为**绑定参数**（`?` 或 `%s`，取决于方言），遵循 DB-API 2.0 (PEP 249) 规范。这是 DML 语句（`INSERT`、`SELECT`、`UPDATE`、`DELETE`）的安全首选模式。
+
+然而，**DDL 子句**（`DEFAULT`、`CHECK`、分区边界、部分索引 `WHERE`）**不接受绑定参数**——数据库引擎要求直接使用 SQL 文本字面量。对于这些情况，请在 `Literal` 节点上设置 `inline_literals=True`：
+
+```python
+from rhosocial.activerecord.backend.expression import (
+    Literal, Column, ComparisonPredicate,
+    ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType
+
+# DDL：DEFAULT 值必须内联
+ColumnDefinition(dialect,
+    name="age",
+    data_type=IntegerType(dialect),
+    constraints=[
+        ColumnConstraint(dialect,
+            constraint_type=ColumnConstraintType.DEFAULT,
+            default_value=Literal(dialect, 0, inline_literals=True),  # -> DEFAULT 0
+        ),
+    ],
+)
+
+# DDL：CHECK 条件——比较值必须内联
+ColumnConstraint(dialect,
+    constraint_type=ColumnConstraintType.CHECK,
+    check_condition=ComparisonPredicate(
+        dialect, ">=",
+        Column(dialect, "score"),
+        Literal(dialect, 0, inline_literals=True),  # -> CHECK ("score" >= 0)
+    ),
+)
+```
+
+`inline_literals` 开关是**逐节点控制**的——每个 `Literal` 独立决定。单个谓词可以混合内联和绑定参数值：
+
+```python
+pred = ComparisonPredicate(
+    dialect, "=",
+    Literal(dialect, "a", inline_literals=True),  # 内联
+    Literal(dialect, "b"),                          # 绑定参数
+)
+pred.to_sql()  # -> ("'a' = ?", ("b",))
+```
+
+> **安全提示**：当值可能受终端用户影响时，内联字面量存在 SQL 注入风险。仅对开发者声明的常量（DDL 默认值、派生自 Schema 的值）使用 `inline_literals=True`。
 
 ### Column
 

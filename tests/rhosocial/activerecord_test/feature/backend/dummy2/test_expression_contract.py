@@ -33,6 +33,8 @@ from rhosocial.activerecord.testsuite.utils.expression import (
 # a justification.
 KNOWN_NON_AUTO_CONSTRUCTIBLE = {
     # class FQN suffix : reason
+    "types.enum_.EnumType": "requires non-empty `values` (structural "
+                            "construction check raises ValueError on None/[])",
 }
 
 

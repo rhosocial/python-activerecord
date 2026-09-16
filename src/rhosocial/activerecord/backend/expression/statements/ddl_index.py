@@ -10,6 +10,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class CreateIndexExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_index_statement"
     """
     Represents a CREATE INDEX statement for standalone index creation.
 
@@ -91,11 +96,18 @@ class CreateIndexExpression(BaseExpression):
         self.concurrent = concurrent
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_create_index_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_index_statement"
 
 
 class DropIndexExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_index_statement"
     """
     Represents a DROP INDEX statement.
 
@@ -136,11 +148,18 @@ class DropIndexExpression(BaseExpression):
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_drop_index_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_index_statement"
 
 
 class CreateFulltextIndexExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_fulltext_index_statement"
     """
     Represents a CREATE FULLTEXT INDEX statement.
 
@@ -198,11 +217,18 @@ class CreateFulltextIndexExpression(BaseExpression):
         self.if_not_exists = if_not_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_create_fulltext_index_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_fulltext_index_statement"
 
 
 class DropFulltextIndexExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_fulltext_index_statement"
     """
     Represents a DROP FULLTEXT INDEX statement.
 
@@ -238,5 +264,7 @@ class DropFulltextIndexExpression(BaseExpression):
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_drop_fulltext_index_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_fulltext_index_statement"

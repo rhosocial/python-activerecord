@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     TableExpression,
     DeleteExpression,
-    JoinExpression,
+    JoinClause,
     LogicalPredicate,
     ReturningClause,
     ComparisonPredicate,
@@ -71,8 +71,8 @@ class TestDeleteStatements:
                     self.set_dialect_recursive(expr.from_, dialect)
             self.set_dialect_recursive(expr.where, dialect)
 
-        # Specific for JoinExpression
-        if isinstance(expr, JoinExpression):
+        # Specific for JoinClause
+        if isinstance(expr, JoinClause):
             self.set_dialect_recursive(expr.left_table, dialect)
             self.set_dialect_recursive(expr.right_table, dialect)
             self.set_dialect_recursive(expr.condition, dialect)
@@ -182,7 +182,7 @@ class TestDeleteStatements:
             ),
             pytest.param(
                 "main_table",
-                JoinExpression(
+                JoinClause(
                     None,
                     TableExpression(None, "join_table", alias="jt"),
                     TableExpression(None, "lookup_table", alias="lt"),
@@ -258,7 +258,7 @@ class TestDeleteStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
+            match=r"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
         ):
             delete_expr = DeleteExpression(dummy_dialect, tables="users", using=unsupported_source, where=where)
             delete_expr.to_sql()
@@ -411,7 +411,7 @@ class TestDeleteStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
+            match=r"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>",  # noqa: E501
         ):
             delete_expr.validate(strict=True)
 
@@ -695,17 +695,14 @@ class TestDeleteStatements:
         assert params == ("inactive",)
 
     def test_format_case_expression_with_empty_conditions_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that format_case_expression raises ValueError when called with empty conditions_results."""
+        """Tests that format_case_expression raises ValueError for a CASE node without WHEN/THEN pairs."""
+        from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+
+        case_expr = CaseExpression(dummy_dialect, cases=[])
         with pytest.raises(
             ValueError, match=r"CASE expression must have at least one WHEN/THEN condition-result pair."
         ):
-            dummy_dialect.format_case_expression(
-                value_sql=None,
-                value_params=None,
-                conditions_results=[],  # Empty list should raise error
-                else_result_sql=None,
-                else_result_params=None,
-            )
+            case_expr.to_sql()
 
     def test_format_window_specification_with_no_components_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_window_specification raises ValueError when called with no components."""
@@ -738,11 +735,11 @@ class TestDeleteStatements:
         )
 
         # Create a ColumnDefinition with DEFAULT constraint but no value
-        col_def = ColumnDefinition(
+        col_def = ColumnDefinition(dummy_dialect, 
             name="test_col",
-            data_type=VarCharType(255),
+            data_type=VarCharType(dummy_dialect, 255),
             constraints=[
-                ColumnConstraint(
+                ColumnConstraint(dummy_dialect, 
                     constraint_type=ColumnConstraintType.DEFAULT,
                     default_value=None,  # No default value provided but constraint type is DEFAULT
                 )

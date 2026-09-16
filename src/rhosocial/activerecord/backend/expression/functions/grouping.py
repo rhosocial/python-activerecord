@@ -5,7 +5,7 @@ from typing import Union, List, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..core import Column
-from ..query_parts import GroupingExpression
+from ..query_parts import GroupingClause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -13,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 def grouping_sets(
     dialect: "SQLDialectBase", *grouping_lists: List[Union[str, "BaseExpression"]]
-) -> "GroupingExpression":
+) -> "GroupingClause":
     """
     Creates a GROUPING SETS expression for use in GROUP BY clauses.
 
@@ -26,7 +26,7 @@ def grouping_sets(
         *grouping_lists: Variable number of lists, each containing expressions to group by
 
     Returns:
-        A GroupingExpression instance representing the GROUPING SETS operation
+        A GroupingClause instance representing the GROUPING SETS operation
     """
     processed_lists = []
     for grouping_list in grouping_lists:
@@ -34,10 +34,10 @@ def grouping_sets(
             expr if isinstance(expr, BaseExpression) else Column(dialect, expr) for expr in grouping_list
         ]
         processed_lists.append(processed_exprs)
-    return GroupingExpression(dialect, "GROUPING SETS", processed_lists)
+    return GroupingClause(dialect, "GROUPING SETS", processed_lists)
 
 
-def rollup(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "GroupingExpression":
+def rollup(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "GroupingClause":
     """
     Creates a ROLLUP expression for use in GROUP BY clauses.
 
@@ -50,13 +50,13 @@ def rollup(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "
         *exprs: Variable number of expressions to include in the ROLLUP
 
     Returns:
-        A GroupingExpression instance representing the ROLLUP operation
+        A GroupingClause instance representing the ROLLUP operation
     """
     processed_exprs = [expr if isinstance(expr, BaseExpression) else Column(dialect, expr) for expr in exprs]
-    return GroupingExpression(dialect, "ROLLUP", processed_exprs)
+    return GroupingClause(dialect, "ROLLUP", processed_exprs)
 
 
-def cube(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "GroupingExpression":
+def cube(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "GroupingClause":
     """
     Creates a CUBE expression for use in GROUP BY clauses.
 
@@ -69,7 +69,7 @@ def cube(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "Gr
         *exprs: Variable number of expressions to include in the CUBE
 
     Returns:
-        A GroupingExpression instance representing the CUBE operation
+        A GroupingClause instance representing the CUBE operation
     """
     processed_exprs = [expr if isinstance(expr, BaseExpression) else Column(dialect, expr) for expr in exprs]
-    return GroupingExpression(dialect, "CUBE", processed_exprs)
+    return GroupingClause(dialect, "CUBE", processed_exprs)

@@ -25,7 +25,7 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table_name="users",
     columns=[
-        ColumnDefinition("id", IntegerType()),
+        ColumnDefinition(dialect, "id", IntegerType()),
     ],
     if_not_exists=True,
 )

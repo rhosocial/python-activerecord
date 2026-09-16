@@ -45,6 +45,69 @@ class LegacyUser(ActiveRecord):
 
 `rhosocial-activerecord` 会自动处理属性名与列名之间的转换，无论是在查询生成还是结果映射时。
 
+## 指定 SQL 列类型 (UseSqlType)
+
+默认情况下，`ActiveRecord` 会根据 Python 字段类型**自动推断**数据库列类型（`str` → 文本、`int` → 整数、`bool` → 布尔等）。当自动推断不满足需求（例如需要精确的 `VARCHAR(100)`、`DECIMAL(10,2)`、`JSONB`，或想显式控制列类型）时，使用 `UseSqlType` 注解来**显式指定 SQL 数据类型**。
+
+`UseSqlType` 接受一个或多个 `DataType` 实例：
+
+```python
+from typing import Annotated, Optional
+from rhosocial.activerecord.base import UseSqlType
+from rhosocial.activerecord.backend.expression.types import (
+    VarCharType, DecimalType, JsonType, DateTimeType, IntegerType,
+)
+
+class User(ActiveRecord):
+    __table_name__ = "users"
+
+    # 显式指定 VARCHAR(100)，而非默认的 TEXT
+    username: Annotated[str, UseSqlType(VarCharType(length=100))]
+
+    # 显式指定精确小数 DECIMAL(10,2)
+    balance: Annotated[Optional[float], UseSqlType(DecimalType(precision=10, scale=2))]
+
+    # 结构化 JSON
+    metadata: Annotated[Optional[dict], UseSqlType(JsonType())]
+
+    # 日期时间
+    created_at: Annotated[str, UseSqlType(DateTimeType())]
+
+    # 32 位自增主键
+    id: Annotated[int, UseSqlType(IntegerType())]
+```
+
+### 通用类型与后端特定类型
+
+`DataType` 分为两类，`UseSqlType` 对它们一视同仁：
+
+- **通用类型**（如 `VarCharType`、`IntegerType`、`TextType`、`JsonType`）：跨后端可移植，每个后端都将其渲染为自身原生 SQL（如 SQLite 将 `VARCHAR(100)` 渲染为 `TEXT`，MySQL 渲染为 `VARCHAR(100)`）。
+- **后端特定类型**（如 `PostgresJsonBType`、`MySQLEnumType`，命名以后端名为前缀）：只在注册它的后端上渲染；其他后端会**跳过**该类型（而非静默替换为有损形式）。
+
+### 声明顺序 = 后端优先级
+
+`UseSqlType` 可以同时声明**多个**类型。DDL 生成时，框架选择**第一个**当前方言能够渲染的类型；全部不匹配时回退到后端中立的自动推断，再失败则报错。
+
+```python
+from typing import Annotated
+from rhosocial.activerecord.base import UseSqlType
+from rhosocial.activerecord.backend.expression.types import JsonType
+# 以下为后端特定类型（来自对应后端包）
+from rhosocial.activerecord.backend.impl.postgres.expression.types import PostgresJsonBType
+from rhosocial.activerecord.backend.impl.mysql.expression.types import MySQLLongTextType
+
+# 优先级：PostgreSQL 用 JSONB，MySQL 5.7 以下用 LONGTEXT（JSON 不可用），其他用通用 JSON
+payload: Annotated[dict, UseSqlType(
+    PostgresJsonBType(), JsonType(), MySQLLongTextType(),
+)]
+```
+
+这样声明使得**同一个模型**可以跨多个后端部署，每个后端自动选择最合适的列类型。
+
+> **与 `UseColumn` 的关系**：`UseColumn` 控制**列名**（Python 属性名 ↔ 数据库列名），`UseSqlType` 控制**列类型**（SQL 数据类型），两者互不冲突，可同时使用。
+>
+> 数据类型体系的完整说明（生命周期、值对象语义、通用/后端特定配合）见[数据类型](../backend/expression/types.md)。
+
 ## FieldProxy: 类型安全的查询
 
 传统的 ORM 常常需要使用字符串来引用字段（例如 `filter(name="Alice")`），这容易导致拼写错误且难以重构。
@@ -128,143 +191,103 @@ User.find_all(User.c.username.like("admin%"))
         .all()
     ```
 
+### 多个 FieldProxy：为不同表别名创建独立代理
+
+`FieldProxy` 本身也是一个**字段**（`ClassVar`），因此像普通字段一样，**想定义几个都可以**——`c`、`c1`、`c2`、`c_mgr`、`c_sub`…… 你可以为每个代理指定**不同的表别名**，让它们分别指向同一张表的不同实例。
+
+这在**联结查询，尤其是自连接（Self-Join）** 中非常有用：不需要在每次查询时调用 `with_table_alias()` 动态创建，而是把别名代理作为模型定义的一部分预先声明，复用起来更清晰。
+
+#### 通过构造函数预绑定表别名
+
+`FieldProxy` 构造函数接受 `table_alias` 参数，创建时就绑定别名：
+
+```python
+from typing import ClassVar, Optional
+from rhosocial.activerecord.base import FieldProxy
+
+class Employee(ActiveRecord):
+    __table_name__ = "employees"
+    id: int
+    name: str
+    manager_id: Optional[int]  # 指向同一张表的 id
+
+    # 默认代理：指向 'employees' 表本身
+    c: ClassVar[FieldProxy] = FieldProxy()
+
+    # 第二个代理：预绑定 'managers' 表别名
+    c_mgr: ClassVar[FieldProxy] = FieldProxy(table_alias="managers")
+
+    # 第三个代理：预绑定 'subordinates' 表别名
+    c_sub: ClassVar[FieldProxy] = FieldProxy(table_alias="subordinates")
+```
+
+#### 自连接：查询员工及其经理
+
+```python
+# 员工表自连接：JOIN employees AS managers
+# c_mgr 自动生成 "managers"."name" 等引用
+query = Employee.query() \
+    .join(Employee, on=(Employee.c.manager_id == Employee.c_mgr.id), alias="managers") \
+    .select(Employee.c.name.as_("emp"), Employee.c_mgr.name.as_("manager"))
+
+sql, params = query.to_sql()
+# SELECT "employees"."name" AS "emp", "managers"."name" AS "manager"
+# FROM "employees"
+# JOIN "employees" AS "managers" ON "employees"."manager_id" = "managers"."id"
+
+rows = query.all()  # 每个员工的 emp + manager 名称
+```
+
+#### 更深层自连接：员工 → 经理 → 上级经理
+
+定义多个别名代理后，可以轻松级联多层自连接：
+
+```python
+query = Employee.query() \
+    .join(Employee, on=(Employee.c.manager_id == Employee.c_mgr.id), alias="managers") \
+    .join(Employee, on=(Employee.c_mgr.manager_id == Employee.c_sub.id), alias="subordinates") \
+    .select(
+        Employee.c.name.as_("emp"),
+        Employee.c_mgr.name.as_("manager"),
+        Employee.c_sub.name.as_("grand_manager"),
+    )
+
+# SELECT "employees"."name" AS "emp", "managers"."name" AS "manager",
+#        "subordinates"."name" AS "grand_manager"
+# FROM ("employees" JOIN "employees" AS "managers" ON "employees"."manager_id" = "managers"."id")
+# JOIN "employees" AS "subordinates" ON "managers"."manager_id" = "subordinates"."id"
+```
+
+#### 在 WHERE 条件中使用别名代理
+
+别名代理不仅可用于 `select`，同样可用于 `join` 的 `on`、`where` 等任何需要列引用的地方：
+
+```python
+# 查找经理名为 Alice 的所有直接下属
+query = Employee.query() \
+    .join(Employee, on=(Employee.c.manager_id == Employee.c_mgr.id), alias="managers") \
+    .where(Employee.c_mgr.name == "Alice") \
+    .select(Employee.c.name)
+```
+
+#### 与 `with_table_alias()` 的对比
+
+| 方式 | 用法 | 适用场景 |
+|------|------|----------|
+| `FieldProxy(table_alias="...")` | 定义时预绑定 | 别名固定、需要反复使用，作为模型的一部分声明 |
+| `c.with_table_alias("...")` | 使用时动态创建 | 别名临时、一次性使用 |
+
+两种方式生成的 SQL **完全相同**；预绑定方式把「这张表有哪些别名实例」集中声明在模型里，自连接语义一目了然。
+
 ## 推导字段 (Derived Fields)
 
-推导字段是只读的计算字段，其值由数据库在查询时动态计算。它们不存储在数据库中，而是通过 SQL 表达式在 SELECT 子句中生成。推导字段不会被 Pydantic 追踪，也不参与脏字段检测。
+推导字段是**只读的计算字段**，其值在查询时由数据库 SQL 表达式动态生成。它不存储在数据库表中，不会被 Pydantic 验证，也不会被脏字段跟踪。
 
-### 声明方式
+典型用途：价格计算（折扣价、含税价）、全名拼接、JSON 提取、聚合结果引用等。
 
-有两种声明推导字段的方式：
+声明与使用的完整说明请参阅：[**推导字段 (Derived Fields)**](./derived_fields.md)。
 
-#### Form A：ClassVar 赋值
-
-```python
-from typing import ClassVar
-from rhosocial.activerecord.base import DerivedField
-from rhosocial.activerecord.backend.expression import Column, Literal
-
-class Product(ActiveRecord):
-    __table_name__ = "product"
-    id: Optional[int] = None
-    name: str
-    price: float
-    quantity: int
-
-    # 使用 ClassVar 赋值
-    discounted_price: ClassVar[DerivedField] = DerivedField(
-        lambda d: Column(d, "price") * Literal(d, 0.9)
-    )
-    total_value: ClassVar[DerivedField] = DerivedField(
-        lambda d: Column(d, "price") * Column(d, "quantity")
-    )
-```
-
-#### Form B：ClassVar + Annotated
-
-```python
-from typing import Annotated, ClassVar
-from rhosocial.activerecord.base import DerivedField
-from rhosocial.activerecord.backend.expression import Column, Literal
-
-class Product(ActiveRecord):
-    __table_name__ = "product"
-    id: Optional[int] = None
-    name: str
-    price: float
-    quantity: int
-
-    # 使用 Annotated 声明，可附加类型信息
-    discounted_price: ClassVar[Annotated[float, DerivedField(
-        lambda d: Column(d, "price") * Literal(d, 0.9)
-    )]]
-    total_value: ClassVar[Annotated[float, DerivedField(
-        lambda d: Column(d, "price") * Column(d, "quantity")
-    )]]
-```
-
-### 使用 FieldProxy 构建表达式（推荐）
-
-结合 `FieldProxy` 可以获得类型安全的列引用，避免手动拼写列名：
-
-```python
-from typing import ClassVar
-from rhosocial.activerecord.base import DerivedField, FieldProxy
-from rhosocial.activerecord.backend.expression import Literal
-
-class Product(ActiveRecord):
-    __table_name__ = "product"
-    c: ClassVar[FieldProxy] = FieldProxy()
-    id: Optional[int] = None
-    name: str
-    price: float
-    quantity: int
-
-    discounted_price: ClassVar[Annotated[float, DerivedField(
-        lambda d: Product.c.price * Literal(d, 0.9)
-    )]]
-    total_value: ClassVar[Annotated[float, DerivedField(
-        lambda d: Product.c.price * Product.c.quantity
-    )]]
-```
-
-### 使用 UseColumn 自定义列别名
-
-通过 `UseColumn` 可以为推导字段指定 SQL 别名，而不影响 Python 属性名：
-
-```python
-from typing import Annotated, ClassVar
-from rhosocial.activerecord.base import DerivedField, UseColumn
-from rhosocial.activerecord.backend.expression import Column, Literal
-
-class Product(ActiveRecord):
-    __table_name__ = "product"
-    id: Optional[int] = None
-    name: str
-    price: float
-    quantity: int
-
-    # SQL 别名为 "disc"，Python 属性名为 "discounted_price"
-    discounted_price: ClassVar[Annotated[float, DerivedField(
-        lambda d: Column(d, "price") * Literal(d, 0.9)
-    ), UseColumn("disc")]]
-```
-
-### 使用 UseAdapter 进行类型适配
-
-`UseAdapter` 可以将数据库返回的值转换为 Python 类型：
-
-```python
-from typing import Annotated, Any, ClassVar, Dict, Optional, Set, Type
-from rhosocial.activerecord.base import DerivedField, UseAdapter
-from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
-from rhosocial.activerecord.backend.expression import Column, Literal
-
-class PriceToIntAdapter:
-    """将浮点价格四舍五入为整数"""
-    def to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
-        return float(value)
-    def from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
-        return int(round(value))
-    @property
-    def supported_types(self) -> Dict[Type, Set[Type]]:
-        return {int: {float}}
-
-class Product(ActiveRecord):
-    __table_name__ = "product"
-    id: Optional[int] = None
-    name: str
-    price: float
-    quantity: int
-
-    # 结果将四舍五入为整数
-    total_int: ClassVar[Annotated[int, DerivedField(
-        lambda d: Column(d, "price") * Column(d, "quantity")
-    ), UseAdapter(PriceToIntAdapter(), int)]]
-```
-
-### 查询时使用推导字段
-
-推导字段是可选的，必须通过 `derived` 参数显式请求：
+查询时，推导字段是可选的，必须通过 `derived` 参数显式请求：
 
 ```python
 # 获取所有产品，并包含推导字段
@@ -272,9 +295,6 @@ products = Product.find_all(derived=True)  # 包含所有推导字段
 
 # 只包含特定推导字段
 products = Product.find_all(derived=["discounted_price", "total_value"])
-
-# 使用字典自定义别名
-products = Product.find_all(derived={"discount": Product.c.price * Literal(0.9)})
 
 # 单个记录
 product = Product.find_one(1, derived=True)
@@ -285,11 +305,3 @@ products = Product.find_all(
     derived=["discounted_price"]
 )
 ```
-
-### 注意事项
-
-1. **只读性**：推导字段的值只能读取，不能修改。
-2. **不参与验证**：推导字段不经过 Pydantic 验证，因为它们是 ClassVar。
-3. **不跟踪变更**：推导字段不在脏字段跟踪范围内。
-4. **列名冲突**：推导字段的 `UseColumn` 别名不能与普通字段的列名冲突。
-5. **性能**：推导字段在查询时计算，复杂表达式可能影响查询性能。

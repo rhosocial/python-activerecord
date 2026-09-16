@@ -43,10 +43,10 @@ Soon you'll realize that not just `User`, but also your `Post` and `Comment` mod
 Do you have to repeat these fields in every class? No. We prefer **Composition over Inheritance**.
 
 ```python
-from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
+from rhosocial.activerecord.field import UUIDMixin, DefaultTimestampMixin
 
 # Get common capabilities in one line by inheriting Mixins
-class Post(UUIDMixin, TimestampMixin, ActiveRecord):
+class Post(UUIDMixin, DefaultTimestampMixin, ActiveRecord):
     title: str
     content: str
     

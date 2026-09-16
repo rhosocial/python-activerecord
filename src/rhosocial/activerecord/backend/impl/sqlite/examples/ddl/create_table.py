@@ -4,6 +4,7 @@ Create a table with primary key, auto-increment, and index.
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, TimestampType
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -22,43 +23,42 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, TimestampType
     IndexDefinition,
 )
 
 columns = [
-    ColumnDefinition(
+    ColumnDefinition(dialect, 
         name="id",
         data_type=IntegerType(),
         constraints=[
-            ColumnConstraint(
+            ColumnConstraint(dialect, 
                 constraint_type=ColumnConstraintType.PRIMARY_KEY,
                 is_auto_increment=True,
             ),
         ],
     ),
-    ColumnDefinition(
+    ColumnDefinition(dialect, 
         name="name",
         data_type=TextType(),
         constraints=[
-            ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL),
+            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL),
         ],
     ),
-    ColumnDefinition(
+    ColumnDefinition(dialect, 
         name="email",
         data_type=TextType(),
         constraints=[
-            ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE),
+            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.UNIQUE),
         ],
     ),
-    ColumnDefinition(
+    ColumnDefinition(dialect, 
         name="created_at",
         data_type=TimestampType(),
     ),
 ]
 
 indexes = [
-    IndexDefinition(
+    IndexDefinition(dialect, 
         name="idx_users_email",
         columns=["email"],
     ),
