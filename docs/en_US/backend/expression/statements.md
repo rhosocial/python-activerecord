@@ -141,76 +141,134 @@ sql, params = delete.to_sql()
 
 ## DDL Statements
 
+> **Inline Literals in DDL**
+>
+> DDL clauses (`DEFAULT`, `CHECK`, partial-index `WHERE`, partition boundaries, etc.) do **not** accept bind parameters — the database engine requires these positions to contain directly parseable SQL text. Therefore, when using `Literal` expressions in DDL, you **must** set `inline_literals=True`:
+>
+> ```python
+> # ✗ Wrong: DEFAULT ? in DDL causes execution failure
+> default_value=Literal(dialect, 0)
+>
+> # ✓ Correct: inlined produces DEFAULT 0
+> default_value=Literal(dialect, 0, inline_literals=True)
+> ```
+>
+> DML statements (`INSERT`/`SELECT`/`UPDATE`/`DELETE`) are not affected — the default bind-parameter mode works normally.
+
 ### CreateTableExpression
 
 `CreateTableExpression` represents a `CREATE TABLE` statement.
 
-```python
-from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition
+Data types should use `DataType` expressions (e.g. `IntegerType`, `TextType`, `VarCharType`, etc.) rather than raw strings:
 
-# Create table
+```python
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression, ColumnDefinition,
+    ColumnConstraint, ColumnConstraintType, Literal, Column,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType, RealType
+
+# Create table — using DataType expressions
 create = CreateTableExpression(
     dialect,
-    table_name="new_users",
+    table="new_users",
     columns=[
-        ColumnDefinition(dialect, "id", "INTEGER", primary_key=True),
-        ColumnDefinition(dialect, "name", "VARCHAR(255)", nullable=False)
+        ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
+            ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
+        ]),
+        ColumnDefinition(dialect, "name", VarCharType(dialect, length=255), constraints=[
+            ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+        ]),
+        ColumnDefinition(dialect, "bio", TextType(dialect)),
     ],
-    if_not_exists=True
+    if_not_exists=True,
 )
 sql, params = create.to_sql()
-# sql: 'CREATE TABLE IF NOT EXISTS "new_users" ("id" INTEGER PRIMARY KEY, "name" VARCHAR(255) NOT NULL)'
+# sql: 'CREATE TABLE IF NOT EXISTS "new_users" ("id" INTEGER PRIMARY KEY AUTOINCREMENT,
+#        "name" VARCHAR(255) NOT NULL, "bio" TEXT)'
 # params: ()
 ```
 
-#### Generated Columns (SQLite 3.31.0+, PostgreSQL, MySQL)
+#### Inline Literals in DEFAULT and CHECK Constraints
 
-SQLite 3.31.0+ supports generated columns (computed columns). Use `GeneratedColumnType` to specify the storage type:
+DDL `DEFAULT` and `CHECK` clauses require inline literals. Use `Literal(..., inline_literals=True)`:
 
 ```python
-from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType, GeneratedColumnType
-from rhosocial.activerecord.backend.expression import Column, Literal, CaseExpression
+# Column with DEFAULT value
+ColumnDefinition(dialect, "status", TextType(dialect), constraints=[
+    ColumnConstraint(dialect,
+        constraint_type=ColumnConstraintType.DEFAULT,
+        default_value=Literal(dialect, "active", inline_literals=True),  # -> DEFAULT 'active'
+    ),
+]),
+
+# Column with CHECK constraint
+ColumnDefinition(dialect, "age", IntegerType(dialect), constraints=[
+    ColumnConstraint(dialect,
+        constraint_type=ColumnConstraintType.CHECK,
+        check_condition=ComparisonPredicate(
+            dialect, ">=",
+            Column(dialect, "age"),
+            Literal(dialect, 0, inline_literals=True),  # -> CHECK ("age" >= 0)
+        ),
+    ),
+]),
+
+# DEFAULT numeric value
+ColumnDefinition(dialect, "score", RealType(dialect), constraints=[
+    ColumnConstraint(dialect,
+        constraint_type=ColumnConstraintType.DEFAULT,
+        default_value=Literal(dialect, 0.0, inline_literals=True),  # -> DEFAULT 0.0
+    ),
+]),
+```
+
+#### Generated Columns (SQLite 3.31.0+, PostgreSQL 12+, MySQL 5.7+)
+
+Generated columns (computed columns) use the `GeneratedColumnExpression` expression, rendered through `dialect.format_generated_column_expression`:
+
+```python
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType, Column,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType, RealType
+from rhosocial.activerecord.backend.expression.statements import (
+    GeneratedColumnExpression, GeneratedColumnType,
+)
 
 # Create table with generated columns
 columns = [
-    ColumnDefinition(name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-    ColumnDefinition(name="price", data_type="REAL"),
-    ColumnDefinition(name="quantity", data_type="INTEGER"),
+    ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
+        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+    ]),
+    ColumnDefinition(dialect, "price", RealType(dialect)),
+    ColumnDefinition(dialect, "quantity", IntegerType(dialect)),
     # STORED generated column - computed and stored on disk
-    ColumnDefinition(
+    ColumnDefinition(dialect,
         name="total",
-        data_type="REAL",
-        generated_expression=Column(dialect, "price") * Column(dialect, "quantity"),
-        generated_type=GeneratedColumnType.STORED
-    ),
-    # VIRTUAL generated column - using CaseExpression for conditional logic
-    ColumnDefinition(
-        name="status_label",
-        data_type="TEXT",
-        generated_expression=CaseExpression(
+        data_type=RealType(dialect),
+        generated_expression=GeneratedColumnExpression(
             dialect,
-            cases=[
-                (Column(dialect, "quantity") > Literal(dialect, 0), Literal(dialect, "in_stock")),
-            ],
-            default=Literal(dialect, "out_of_stock")
+            expression=Column(dialect, "price") * Column(dialect, "quantity"),
+            storage_type=GeneratedColumnType.STORED,
         ),
-        generated_type=GeneratedColumnType.VIRTUAL
-    )
+    ),
 ]
 
 create = CreateTableExpression(
     dialect=dialect,
-    table_name="products",
-    columns=columns
+    table="products",
+    columns=columns,
 )
 sql, params = create.to_sql()
-# sql: 'CREATE TABLE "products" ("id" INTEGER PRIMARY KEY, "price" REAL, "quantity" INTEGER,
-# "total" REAL GENERATED ALWAYS AS ("price" * "quantity") STORED,
-# "status_label" TEXT GENERATED ALWAYS AS (CASE WHEN "quantity" > ? THEN ? ELSE ? END) VIRTUAL)'
-# params: (0, "in_stock", "out_of_stock")
+# sql: 'CREATE TABLE "products" ("id" INTEGER PRIMARY KEY, "price" REAL,
+#        "quantity" INTEGER, "total" REAL GENERATED ALWAYS AS ("price" * "quantity") STORED)'
+# params: ()
 
-# Note: Generated columns require SQLite 3.31.0+
-# Use dialect.supports_generated_columns() to check availability
+# Note: Check backend support before use
+# dialect.supports_generated_columns()        - master switch
+# dialect.supports_stored_generated_columns()  - STORED support
+# dialect.supports_virtual_generated_columns() - VIRTUAL support
 ```
 
 ### DropTableExpression

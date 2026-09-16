@@ -91,7 +91,7 @@ class TestSQLiteDialectSecurityIntegration:
 
         # This should raise TypeError because ColumnDefinition rejects strings
         with pytest.raises(TypeError, match="data_type must be a DataType"):
-            ColumnDefinition(
+            ColumnDefinition(dialect, 
                 name="test_col",
                 data_type="TEXT; DROP TABLE users--",
             )

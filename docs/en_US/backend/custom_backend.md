@@ -41,6 +41,94 @@ When implementing a custom backend, please ensure:
 2. Meaningful error messages are provided
 3. Consider the impact of connection state on version detection
 
+## Connection Configuration Classes
+
+In addition to the dialect and backend I/O implementation, a backend usually needs a **connection configuration class** (`*ConnectionConfig`) describing the parameters required to establish a database connection. Config classes work together with the backend: a model binds them via `.configure(config, backend)`.
+
+### Config Class Architecture
+
+Connection configuration follows the same "generic / backend-specific" layering as the expression system:
+
+1. **Generic base `ConnectionConfig`** (`backend/config.py`): contains only the truly universal minimal parameter set (`host`, `port`, `database`, `username`/`password`, `options`). It is the base class of all backend configs.
+2. **Generic capability Mixins**: the core package provides reusable capability mixins that backends compose as needed:
+   - `BasicConnectionMixin` — basic connection parameters
+   - `ConnectionPoolMixin` — connection pool options (`pool_size`, `pool_timeout`, `pool_pre_ping`, etc.)
+   - `SSLMixin` — SSL/TLS options
+   - `CharsetMixin` — character set and collation
+   - `TimezoneMixin` — timezone handling
+   - `VersionMixin` — version information
+   - `LoggingMixin` — logging options
+3. **Backend-specific config class**: the backend inherits `ConnectionConfig`, mixes in the Mixins it needs, and adds database-private parameters on top.
+
+```python
+class MySQLConnectionConfig(
+    ConnectionConfig,
+    ConnectionPoolMixin, SSLMixin, CharsetMixin,
+    TimezoneMixin, VersionMixin, LoggingMixin,
+):
+    auth_plugin: Optional[str] = None   # MySQL-specific parameter
+    autocommit: bool = True
+    ...
+```
+
+### Config Class Protocols
+
+Like dialect protocols, config capabilities are declared via protocols for capability detection and type checking:
+
+| Protocol | Corresponding Mixin | Description |
+|----------|---------------------|-------------|
+| `BasicConnectionProtocol` | `BasicConnectionMixin` | Basic connection parameters |
+| `ConnectionPoolProtocol` | `ConnectionPoolMixin` | Connection pool options |
+| `SSLProtocol` | `SSLMixin` | SSL/TLS options |
+| `CharsetProtocol` | `CharsetMixin` | Character set and encoding |
+| `TimezoneProtocol` | `TimezoneMixin` | Timezone options |
+| `VersionProtocol` | `VersionMixin` | Version information |
+| `LoggingProtocol` | `LoggingMixin` | Logging options |
+
+### Common Config Interface
+
+All config classes (via `ConfigProtocol` / `BaseConfig`) provide three core methods:
+
+```python
+config = MySQLConnectionConfig(host="db.example.com", database="shop")
+
+# 1. Convert to dict (excludes None; useful for passing params or debugging; note: contains plaintext password)
+params = config.to_dict()
+
+# 2. Clone and modify (returns a new instance, original unchanged)
+dev_config = config.clone(database="shop_dev")
+
+# 3. Create from environment variables (prefix + uppercase field name, e.g. MYSQL_HOST)
+config = MySQLConnectionConfig.from_env(prefix="MYSQL_")
+```
+
+### Backend-Specific Config Class Examples
+
+| Backend | Config class | Notable parameters |
+|---------|--------------|--------------------|
+| SQLite | `SQLiteConnectionConfig` | `database` (default in-memory), PRAGMA parameters, `uri`, `cached_statements`, `autocommit` |
+| MySQL | `MySQLConnectionConfig` | `auth_plugin`, `init_command`, `use_pure`, `get_warnings` |
+| PostgreSQL | `PostgresConnectionConfig` | connection parameters, type adapter options |
+
+SQLite also provides convenience subclasses: `SQLiteInMemoryConfig` (in-memory database) and `SQLiteTempFileConfig` (temporary file database).
+
+### Usage Example
+
+```python
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.model import ActiveRecord
+
+# Build a config and bind it to the model
+config = SQLiteConnectionConfig(database="app.db")
+ActiveRecord.configure(config, SQLiteBackend)
+
+# Backend-specific subclass
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteInMemoryConfig
+ActiveRecord.configure(SQLiteInMemoryConfig(), SQLiteBackend)
+```
+
+> **Note**: the dict returned by `to_dict()` contains the `password` field in plaintext. Do **not** log it or serialize it to insecure destinations.
+
 ## Reference Implementations
 
 We recommend referring to the existing implementations in `src/rhosocial/activerecord/backend/impl/`:
@@ -204,22 +292,38 @@ When saving new records (INSERT), the framework needs to retrieve the database-g
 
 | Priority | Method | Requirement |
 |----------|--------|-------------|
-| 1 | RETURNING clause | Backend implements `supports_returning_clause()` returning `True` |
+| 1 | RETURNING clause | Backend implements `supports_returning_insert()` / `supports_returning_update()` / `supports_returning_delete()` for the relevant statement types |
 | 2 | last_insert_id | Backend provides integer primary key via `cursor.lastrowid` |
 
 ### Backend Implementation Requirements
 
-**If the database supports RETURNING clause** (e.g., PostgreSQL, SQLite 3.35+, MySQL 8.0+):
+**If the database supports RETURNING clause** (e.g., PostgreSQL, SQLite 3.35+, MariaDB 10.5+):
+
+The `ReturningMixin` methods are provided by the generic `DMLMixin`; a backend
+only overrides the `supports_returning_*()` probes for the statement types it
+supports (and, optionally, the generic capability switches below).
 
 ```python
-from rhosocial.activerecord.backend.dialect.mixins import ReturningMixin
+from rhosocial.activerecord.backend.dialect.mixins import DMLMixin
 from rhosocial.activerecord.backend.dialect.protocols import ReturningSupport
 
-class MyDialect(ReturningMixin, ReturningSupport):
-    def supports_returning_clause(self) -> bool:
-        """Determine RETURNING support based on database version"""
+class MyDialect(DMLMixin, ReturningSupport):
+    def supports_returning_insert(self) -> bool:
+        """Determine RETURNING support for INSERT based on database version."""
         return self.version >= (x, y, z)  # Replace with actual version
 ```
+
+Optionally override the generic capability switches to reflect dialect
+limitations (all default optimistically):
+
+| Switch | Default | Meaning |
+|--------|---------|---------|
+| `supports_returning_expressions()` | `True` | Non-column expressions (functions, arithmetic, CASE, ...) allowed |
+| `supports_returning_alias()` | `True` | Clause-level `AS alias` allowed |
+| `supports_returning_wildcard()` | `True` | `RETURNING *` allowed |
+| `supports_returning_single_row()` | `False` | RETURNING is inherently single-row |
+| `supports_returning_old_new()` | `False` | `OLD.<col>` / `NEW.<col>` references allowed |
+| `supports_returning_into()` | `False` | `RETURNING ... INTO` / `OUTPUT ... INTO` allowed |
 
 **If the database doesn't support RETURNING clause**:
 
@@ -348,9 +452,7 @@ class FullTextSearchSupport(Protocol):
 
     def format_match_against(
         self,
-        columns: List[str],
-        search_string: str,
-        mode: Optional[str] = None
+        expr: "MatchAgainstExpression",
     ) -> Tuple[str, tuple]:
         """Format MATCH...AGAINST expression."""
         ...
@@ -372,13 +474,11 @@ class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValueExpression
         self.search_string = search_string
         self.mode = mode
 
-    def to_sql(self) -> Tuple[str, tuple]:
-        # Delegate to dialect's format method
-        return self.dialect.format_match_against(
-            self.columns,
-            self.search_string,
-            self.mode,
-        )
+    @property
+    def format_method(self) -> str:
+        # Never override to_sql(): BaseExpression.to_sql() resolves this
+        # name on the bound dialect and calls dialect.format_match_against(expr).
+        return "format_match_against"
 
     def as_(self, alias: str) -> AliasColumn:
         return AliasColumn(self, alias)
@@ -397,11 +497,9 @@ class MySQLDialect(
 
     def format_match_against(
         self,
-        columns: List[str],
-        search_string: str,
-        mode: Optional[str] = None
+        expr: MatchAgainstExpression,
     ) -> Tuple[str, tuple]:
-        cols_sql = ", ".join(self.format_identifier(c) for c in columns)
+        cols_sql = ", ".join(self.format_identifier(c) for c in expr.columns)
         placeholder = self.get_parameter_placeholder()
         
         # Mode handling
@@ -410,10 +508,10 @@ class MySQLDialect(
             "BOOLEAN": "IN BOOLEAN MODE",
             "QUERY_EXPANSION": "IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION",
         }
-        mode_str = mode_map.get(mode, "IN NATURAL LANGUAGE MODE")
+        mode_str = mode_map.get(expr.mode, "IN NATURAL LANGUAGE MODE")
         
         sql = f"MATCH({cols_sql}) AGAINST({placeholder} {mode_str})"
-        return sql, (search_string,)
+        return sql, (expr.search_string,)
 ```
 
 **Step 4: Add Tests**
@@ -457,9 +555,7 @@ class MySQLFullTextMixin:
 
     def format_match_against(
         self,
-        columns: List[str],
-        search_string: str,
-        mode: Optional[str] = None
+        expr: MatchAgainstExpression,
     ) -> Tuple[str, tuple]:
         # Implementation...
 ```

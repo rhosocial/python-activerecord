@@ -141,76 +141,134 @@ sql, params = delete.to_sql()
 
 ## DDL 语句
 
+> **关于 DDL 中的参数内联**
+>
+> DDL 子句（`DEFAULT`、`CHECK`、部分索引 `WHERE`、分区边界等）**不接受绑定参数**——数据库引擎要求这些位置必须是直接可解析的 SQL 文本。因此，当在 DDL 中使用 `Literal` 表达式时，**必须**设置 `inline_literals=True`：
+>
+> ```python
+> # ✗ 错误：DDL 中 DEFAULT ? 会导致执行失败
+> default_value=Literal(dialect, 0)
+>
+> # ✓ 正确：内联后生成 DEFAULT 0
+> default_value=Literal(dialect, 0, inline_literals=True)
+> ```
+>
+> DML 语句（`INSERT`/`SELECT`/`UPDATE`/`DELETE`）不受此限制，默认绑定参数模式即可正常工作。
+
 ### CreateTableExpression
 
 `CreateTableExpression` 表示 `CREATE TABLE` 语句。
 
-```python
-from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition
+数据类型应使用 `DataType` 表达式（如 `IntegerType`、`TextType`、`VarCharType` 等），而非原始字符串：
 
-# 创建表
+```python
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression, ColumnDefinition,
+    ColumnConstraint, ColumnConstraintType, Literal, Column,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType, RealType
+
+# 创建表 — 使用 DataType 表达式
 create = CreateTableExpression(
     dialect,
-    table_name="new_users",
+    table="new_users",
     columns=[
-        ColumnDefinition(dialect, "id", "INTEGER", primary_key=True),
-        ColumnDefinition(dialect, "name", "VARCHAR(255)", nullable=False)
+        ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
+            ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
+        ]),
+        ColumnDefinition(dialect, "name", VarCharType(dialect, length=255), constraints=[
+            ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+        ]),
+        ColumnDefinition(dialect, "bio", TextType(dialect)),
     ],
-    if_not_exists=True
+    if_not_exists=True,
 )
 sql, params = create.to_sql()
-# sql: 'CREATE TABLE IF NOT EXISTS "new_users" ("id" INTEGER PRIMARY KEY, "name" VARCHAR(255) NOT NULL)'
+# sql: 'CREATE TABLE IF NOT EXISTS "new_users" ("id" INTEGER PRIMARY KEY AUTOINCREMENT,
+#        "name" VARCHAR(255) NOT NULL, "bio" TEXT)'
 # params: ()
 ```
 
-#### 生成列（SQLite 3.31.0+、PostgreSQL、MySQL）
+#### DEFAULT 和 CHECK 约束中的内联字面量
 
-SQLite 3.31.0+ 支持生成列（计算列）。使用 `GeneratedColumnType` 指定存储类型：
+DDL 的 `DEFAULT` 和 `CHECK` 子句需要内联字面量。使用 `Literal(..., inline_literals=True)`：
 
 ```python
-from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType, GeneratedColumnType
-from rhosocial.activerecord.backend.expression import Column, Literal, CaseExpression
+# 带 DEFAULT 值的列
+ColumnDefinition(dialect, "status", TextType(dialect), constraints=[
+    ColumnConstraint(dialect,
+        constraint_type=ColumnConstraintType.DEFAULT,
+        default_value=Literal(dialect, "active", inline_literals=True),  # -> DEFAULT 'active'
+    ),
+]),
+
+# 带 CHECK 约束的列
+ColumnDefinition(dialect, "age", IntegerType(dialect), constraints=[
+    ColumnConstraint(dialect,
+        constraint_type=ColumnConstraintType.CHECK,
+        check_condition=ComparisonPredicate(
+            dialect, ">=",
+            Column(dialect, "age"),
+            Literal(dialect, 0, inline_literals=True),  # -> CHECK ("age" >= 0)
+        ),
+    ),
+]),
+
+# DEFAULT 数值
+ColumnDefinition(dialect, "score", RealType(dialect), constraints=[
+    ColumnConstraint(dialect,
+        constraint_type=ColumnConstraintType.DEFAULT,
+        default_value=Literal(dialect, 0.0, inline_literals=True),  # -> DEFAULT 0.0
+    ),
+]),
+```
+
+#### 生成列（SQLite 3.31.0+、PostgreSQL 12+、MySQL 5.7+）
+
+生成列（计算列）使用 `GeneratedColumnExpression` 表达式，通过 `dialect.format_generated_column_expression` 渲染：
+
+```python
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType, Column,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType, RealType
+from rhosocial.activerecord.backend.expression.statements import (
+    GeneratedColumnExpression, GeneratedColumnType,
+)
 
 # 创建带生成列的表
 columns = [
-    ColumnDefinition(name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-    ColumnDefinition(name="price", data_type="REAL"),
-    ColumnDefinition(name="quantity", data_type="INTEGER"),
+    ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
+        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+    ]),
+    ColumnDefinition(dialect, "price", RealType(dialect)),
+    ColumnDefinition(dialect, "quantity", IntegerType(dialect)),
     # STORED 生成列 - 计算并存储在磁盘上
-    ColumnDefinition(
+    ColumnDefinition(dialect,
         name="total",
-        data_type="REAL",
-        generated_expression=Column(dialect, "price") * Column(dialect, "quantity"),
-        generated_type=GeneratedColumnType.STORED
-    ),
-    # VIRTUAL 生成列 - 使用 CaseExpression 表达条件逻辑
-    ColumnDefinition(
-        name="status_label",
-        data_type="TEXT",
-        generated_expression=CaseExpression(
+        data_type=RealType(dialect),
+        generated_expression=GeneratedColumnExpression(
             dialect,
-            cases=[
-                (Column(dialect, "quantity") > Literal(dialect, 0), Literal(dialect, "有货")),
-            ],
-            default=Literal(dialect, "缺货")
+            expression=Column(dialect, "price") * Column(dialect, "quantity"),
+            storage_type=GeneratedColumnType.STORED,
         ),
-        generated_type=GeneratedColumnType.VIRTUAL
-    )
+    ),
 ]
 
 create = CreateTableExpression(
     dialect=dialect,
-    table_name="products",
-    columns=columns
+    table="products",
+    columns=columns,
 )
 sql, params = create.to_sql()
-# sql: 'CREATE TABLE "products" ("id" INTEGER PRIMARY KEY, "price" REAL, "quantity" INTEGER, 
-# "total" REAL GENERATED ALWAYS AS ("price" * "quantity") STORED,
-# "status_label" TEXT GENERATED ALWAYS AS (CASE WHEN "quantity" > ? THEN ? ELSE ? END) VIRTUAL)'
-# params: (0, "有货", "缺货")
+# sql: 'CREATE TABLE "products" ("id" INTEGER PRIMARY KEY, "price" REAL,
+#        "quantity" INTEGER, "total" REAL GENERATED ALWAYS AS ("price" * "quantity") STORED)'
+# params: ()
 
-# 注意：生成列需要 SQLite 3.31.0+
-# 使用 dialect.supports_generated_columns() 检查可用性
+# 注意：使用前检查后端支持
+# dialect.supports_generated_columns()        — 总开关
+# dialect.supports_stored_generated_columns()  — STORED 支持
+# dialect.supports_virtual_generated_columns() — VIRTUAL 支持
 ```
 
 ### DropTableExpression
@@ -353,17 +411,22 @@ sql, params = create_index.to_sql()
 # params: ()
 
 # 带 WHERE 子句的 UNIQUE INDEX（部分索引）
+# 注意：部分索引的 WHERE 条件属于 DDL，Literal 必须使用 inline_literals
 create_index = CreateIndexExpression(
     dialect,
     index_name="idx_active_users",
     table_name="users",
     columns=["email"],
     unique=True,
-    where=Column(dialect, "status") == Literal(dialect, "active")
+    where=ComparisonPredicate(
+        dialect, "=",
+        Column(dialect, "status"),
+        Literal(dialect, "active", inline_literals=True),  # DDL：必须内联
+    ),
 )
 sql, params = create_index.to_sql()
-# sql: 'CREATE UNIQUE INDEX "idx_active_users" ON "users" ("email") WHERE "status" = ?'
-# params: ("active",)
+# sql: 'CREATE UNIQUE INDEX "idx_active_users" ON "users" ("email") WHERE "status" = ''active'''
+# params: ()
 
 # 带索引类型的复合索引
 create_index = CreateIndexExpression(
@@ -652,19 +715,23 @@ partition = PartitionClause(
 )
 
 # 在 CREATE TABLE 中使用
-from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition
+from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType
+from rhosocial.activerecord.backend.expression.types import IntegerType, TimestampType, DecimalType
 
 create = CreateTableExpression(
     dialect,
-    table_name="orders",
+    table="orders",
     columns=[
-        ColumnDefinition(dialect, "id", "INTEGER", primary_key=True),
-        ColumnDefinition(dialect, "created_at", "TIMESTAMP"),
-        ColumnDefinition(dialect, "amount", "DECIMAL(10,2)"),
+        ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
+            ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+        ]),
+        ColumnDefinition(dialect, "created_at", TimestampType(dialect)),
+        ColumnDefinition(dialect, "amount", DecimalType(dialect, precision=10, scale=2)),
     ],
-    partition_clause=partition
+    partition=partition,
 )
-# sql: 'CREATE TABLE "orders" ("id" INTEGER PRIMARY KEY, "created_at" TIMESTAMP, "amount" DECIMAL(10,2)) PARTITION BY RANGE ("created_at")'
+# sql: 'CREATE TABLE "orders" ("id" INTEGER PRIMARY KEY, "created_at" TIMESTAMP,
+#        "amount" DECIMAL(10,2)) PARTITION BY RANGE ("created_at")'
 # params: ()
 ```
 

@@ -10,10 +10,40 @@ For FTS5 MATCH predicates, use SQLiteMatchPredicate from the predicates module.
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLValueExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression, SQLPredicate, SQLValueExpression, SQLQueryAndParams
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
+
+
+class SQLiteFTS5MatchExpression(SQLPredicate):
+    """SQLite FTS5 MATCH predicate expression.
+
+    Wraps the parameters for an FTS5 MATCH expression so the format method
+    receives a single expression object instead of individual arguments.
+
+    Example:
+        >>> expr = SQLiteFTS5MatchExpression(dialect, table='docs', query='Python')
+        >>> expr.to_sql()
+        ('"docs" MATCH ?', ('Python',))
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table: str,
+        query: str,
+        columns: Optional[List[str]] = None,
+        negate: bool = False,
+    ):
+        super().__init__(dialect)
+        self.table = table
+        self.query = query
+        self.columns = columns
+        self.negate = negate
+
+    def to_sql(self) -> SQLQueryAndParams:
+        return self.dialect.format_fts5_match_expression(self)
 
 
 class SQLiteFTS5CreateVirtualTable(BaseExpression):

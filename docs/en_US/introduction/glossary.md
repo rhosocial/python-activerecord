@@ -103,7 +103,7 @@ A class that provides methods and fields to other classes through inheritance. I
 
 **Example:**
 ```python
-class Post(TimestampMixin, UUIDMixin, ActiveRecord):
+class Post(DefaultTimestampMixin, UUIDMixin, ActiveRecord):
     # Automatically gets created_at, updated_at, and UUID id
     title: str
 ```
@@ -120,7 +120,14 @@ The database-specific implementation that handles:
 **Available backends:**
 - SQLite (built-in)
 - MySQL (separate package)
+- MariaDB (separate package)
 - PostgreSQL (separate package)
+- SQL Server (separate package)
+- Oracle (separate package)
+- Firebird (separate package)
+- BigQuery (separate package)
+- ClickHouse (separate package)
+- Snowflake (separate package)
 
 > 💡 **AI Prompt:** "What is the role of the Backend in this architecture and how does it enable database independence?"
 

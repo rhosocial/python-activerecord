@@ -1195,3 +1195,171 @@ sql, params = u.to_sql()
 # sql: 'CURRENT_USER'
 # params: ()
 ```
+
+## SQL/XML Functions
+
+This section describes SQL/XML standard expression factory functions, defined in `rhosocial.activerecord.backend.expression.functions.xml`.
+
+### xmlparse
+
+Parses a string into an XML type.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlparse
+
+# Parse string as XML DOCUMENT
+expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="DOCUMENT")
+sql, params = expr.to_sql()
+# sql: 'XMLPARSE(DOCUMENT "xml_string")'
+# params: ()
+
+# Parse string as XML CONTENT
+expr = xmlparse(dialect, Column(dialect, "xml_string"), doc_type="CONTENT")
+```
+
+### xmlserialize
+
+Serializes an XML type to a string.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlserialize
+
+expr = xmlserialize(dialect, Column(dialect, "xml_data"), "VARCHAR(255)")
+sql, params = expr.to_sql()
+# sql: 'XMLSERIALIZE(DOCUMENT "xml_data" AS VARCHAR(255))'
+# params: ()
+```
+
+### xmlelement
+
+Constructs an XML element.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlelement, xmlattributes
+
+# Simple element
+elem = xmlelement(dialect, "name", Column(dialect, "user_name"))
+sql, params = elem.to_sql()
+# sql: 'XMLELEMENT(NAME "name", "user_name")'
+# params: ()
+
+# Element with attributes
+elem = xmlelement(dialect, "person",
+    xmlattributes(dialect, Column(dialect, "id"), "id"),
+    Column(dialect, "name"))
+```
+
+### xmlforest
+
+Constructs an XML forest (sequence of elements).
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlforest
+
+expr = xmlforest(dialect,
+    (Column(dialect, "first_name"), "first"),
+    (Column(dialect, "last_name"), "last"))
+sql, params = expr.to_sql()
+# sql: 'XMLFOREST("first_name" AS "first", "last_name" AS "last")'
+# params: ()
+```
+
+### xmlconcat
+
+Concatenates multiple XML values.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlconcat
+
+expr = xmlconcat(dialect, Column(dialect, "xml1"), Column(dialect, "xml2"))
+```
+
+### xmlcomment
+
+Creates an XML comment.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlcomment
+
+expr = xmlcomment(dialect, "This is a comment")
+# sql: 'XMLCOMMENT(?)'
+# params: ("This is a comment",)
+```
+
+### xmlpi
+
+Creates an XML processing instruction.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlpi
+
+expr = xmlpi(dialect, "xml-stylesheet", 'type="text/xsl" href="style.xsl"')
+# sql: 'XMLPI(NAME "xml-stylesheet", ?)'
+# params: ('type="text/xsl" href="style.xsl"',)
+```
+
+### xmlroot
+
+Modifies the root node attributes of an XML value.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlroot
+
+expr = xmlroot(dialect, Column(dialect, "xml_data"), version="1.0", standalone="YES")
+```
+
+### xmlagg
+
+XML aggregate function.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlagg
+
+expr = xmlagg(dialect, Column(dialect, "xml_column"), alias="combined_xml")
+# sql: 'XMLAGG("xml_column") AS "combined_xml"'
+# params: ()
+```
+
+### xmlquery
+
+XQuery evaluation.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlquery
+
+expr = xmlquery(dialect, "/root/element/text()",
+    passing=Column(dialect, "xml_column"))
+# sql: 'XMLQUERY(?) PASSING BY VALUE "xml_column" EMPTY ON EMPTY'
+# params: ('/root/element/text()',)
+```
+
+### xmlexists
+
+XQuery existence check.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmlexists
+
+expr = xmlexists(dialect, "/root/element",
+    passing=Column(dialect, "xml_column"))
+# sql: 'XMLEXISTS(?) PASSING BY VALUE "xml_column"'
+# params: ('/root/element',)
+```
+
+### xmltable
+
+Generates a table-valued result from an XQuery expression.
+
+```python
+from rhosocial.activerecord.backend.expression.functions.xml import xmltable
+
+expr = xmltable(dialect,
+    xquery="/root/row",
+    passing=Column(dialect, "xml_data"),
+    columns=[
+        ("id", "INTEGER", "id"),
+        ("name", "VARCHAR(100)", "name"),
+    ])
+# sql: 'XMLTABLE(?) PASSING BY VALUE "xml_data" COLUMNS ("id" INTEGER PATH "id", "name" VARCHAR(100) PATH "name")'
+# params: ('/root/row',)
+```

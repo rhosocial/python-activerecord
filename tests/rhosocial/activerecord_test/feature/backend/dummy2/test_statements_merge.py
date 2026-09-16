@@ -28,14 +28,14 @@ class TestMergeStatements:
         )
 
         when_matched_update = MergeAction(
-            action_type=MergeActionType.UPDATE,
+            dummy_dialect, action_type=MergeActionType.UPDATE,
             assignments={
                 "name": Column(dummy_dialect, "name", "new_prods"),
                 "price": Column(dummy_dialect, "price", "new_prods"),
             },
         )
         when_not_matched_insert = MergeAction(
-            action_type=MergeActionType.INSERT,
+            dummy_dialect, action_type=MergeActionType.INSERT,
             assignments={  # DummyDialect expects assignments to carry column names for INSERT
                 "id": Column(dummy_dialect, "id", "new_prods"),
                 "name": Column(dummy_dialect, "name", "new_prods"),
@@ -74,7 +74,7 @@ class TestMergeStatements:
 
         # WHEN MATCHED: UPDATE action
         when_matched_update = MergeAction(
-            action_type=MergeActionType.UPDATE,
+            dummy_dialect, action_type=MergeActionType.UPDATE,
             assignments={
                 "name": Column(dummy_dialect, "name", "new_prods"),
                 "price": Column(dummy_dialect, "price", "new_prods"),
@@ -107,7 +107,7 @@ class TestMergeStatements:
 
         # WHEN NOT MATCHED: INSERT action
         when_not_matched_insert = MergeAction(
-            action_type=MergeActionType.INSERT,
+            dummy_dialect, action_type=MergeActionType.INSERT,
             assignments={
                 "id": Column(dummy_dialect, "id", "new_prods"),
                 "name": Column(dummy_dialect, "name", "new_prods"),
@@ -142,7 +142,7 @@ class TestMergeStatements:
 
         # WHEN MATCHED: DELETE action (only for pending orders)
         when_matched_delete = MergeAction(
-            action_type=MergeActionType.DELETE,
+            dummy_dialect, action_type=MergeActionType.DELETE,
             condition=ComparisonPredicate(
                 dummy_dialect, "=", Column(dummy_dialect, "status", "ord"), Literal(dummy_dialect, "pending")
             ),
@@ -177,7 +177,7 @@ class TestMergeStatements:
 
         # WHEN MATCHED condition: only update if salary is higher
         when_matched = MergeAction(
-            action_type=MergeActionType.UPDATE,
+            dummy_dialect, action_type=MergeActionType.UPDATE,
             assignments={
                 "name": Column(dummy_dialect, "name", "new_emps"),
                 "salary": Column(dummy_dialect, "salary", "new_emps"),
@@ -189,7 +189,7 @@ class TestMergeStatements:
 
         # WHEN NOT MATCHED condition: only insert if salary >= 50000
         when_not_matched = MergeAction(
-            action_type=MergeActionType.INSERT,
+            dummy_dialect, action_type=MergeActionType.INSERT,
             assignments={
                 "id": Column(dummy_dialect, "id", "new_emps"),
                 "name": Column(dummy_dialect, "name", "new_emps"),
@@ -236,7 +236,7 @@ class TestMergeStatements:
 
         # WHEN MATCHED: delete pending orders only
         when_matched_delete = MergeAction(
-            action_type=MergeActionType.DELETE,
+            dummy_dialect, action_type=MergeActionType.DELETE,
             condition=ComparisonPredicate(
                 dummy_dialect, "=", Column(dummy_dialect, "status", "ord"), Literal(dummy_dialect, "pending")
             ),
@@ -280,12 +280,12 @@ class TestMergeNotMatchedBySource:
 
         # WHEN MATCHED: UPDATE
         when_matched_update = MergeAction(
-            action_type=MergeActionType.UPDATE, assignments={"name": Column(dummy_dialect, "name", "new_prods")}
+            dummy_dialect, action_type=MergeActionType.UPDATE, assignments={"name": Column(dummy_dialect, "name", "new_prods")}
         )
 
         # WHEN NOT MATCHED: INSERT
         when_not_matched_insert = MergeAction(
-            action_type=MergeActionType.INSERT,
+            dummy_dialect, action_type=MergeActionType.INSERT,
             assignments={
                 "id": Column(dummy_dialect, "id", "new_prods"),
                 "name": Column(dummy_dialect, "name", "new_prods"),
@@ -293,7 +293,7 @@ class TestMergeNotMatchedBySource:
         )
 
         # WHEN NOT MATCHED BY SOURCE: DELETE (remove unmatched records from target)
-        when_not_matched_by_source_delete = MergeAction(action_type=MergeActionType.DELETE)
+        when_not_matched_by_source_delete = MergeAction(dummy_dialect, action_type=MergeActionType.DELETE)
 
         merge_expr = MergeExpression(
             dummy_dialect,
@@ -333,7 +333,7 @@ class TestMergeNotMatchedBySource:
 
         # WHEN NOT MATCHED BY SOURCE: UPDATE (mark unmatched records as inactive)
         when_not_matched_by_source_update = MergeAction(
-            action_type=MergeActionType.UPDATE, assignments={"status": Literal(dummy_dialect, "inactive")}
+            dummy_dialect, action_type=MergeActionType.UPDATE, assignments={"status": Literal(dummy_dialect, "inactive")}
         )
 
         merge_expr = MergeExpression(
@@ -373,7 +373,7 @@ class TestMergeNotMatchedBySource:
 
         # WHEN NOT MATCHED BY SOURCE: DELETE with condition (only remove if quantity > threshold)
         when_not_matched_by_source_delete = MergeAction(
-            action_type=MergeActionType.DELETE,
+            dummy_dialect, action_type=MergeActionType.DELETE,
             condition=ComparisonPredicate(
                 dummy_dialect, ">", Column(dummy_dialect, "quantity", "inv"), Literal(dummy_dialect, 100)
             ),

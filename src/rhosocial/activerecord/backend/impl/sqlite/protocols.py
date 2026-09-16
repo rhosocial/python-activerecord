@@ -222,18 +222,12 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_create_virtual_table(
         self,
-        module: str,
-        table_name: str,
-        columns: List[str],
-        options: Optional[Dict[str, Any]] = None,
+        expr: Any,
     ) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement.
 
         Args:
-            module: Virtual table module (rtree, fts5, geopoly, etc.)
-            table_name: Name of the virtual table
-            columns: List of column names
-            options: Optional module-specific options
+            expr: CreateVirtualTableExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -242,14 +236,12 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_drop_virtual_table(
         self,
-        table_name: str,
-        if_exists: bool = False,
+        expr: Any,
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for virtual table.
 
         Args:
-            table_name: Name of the virtual table
-            if_exists: Add IF EXISTS clause
+            expr: DropVirtualTableExpression instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -417,7 +409,7 @@ class SQLiteFTS5Support(Protocol):
         ...
 
     def format_fts5_match_expression(
-        self, table: str, query: str, columns: Optional[List[str]] = None, negate: bool = False
+        self, expr: Any
     ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression."""
         ...

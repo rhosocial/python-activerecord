@@ -32,8 +32,9 @@ if TYPE_CHECKING:  # pragma: no cover
         CreatePropertyGraphExpression,
         DropPropertyGraphExpression,
         AlterPropertyGraphExpression,
-        JoinExpression,
+        JoinClause,
         JSONExpression,
+        ILIKEExpression,
         WindowFunctionCall,
         WindowSpecification,
         WindowFrameSpecification,
@@ -63,9 +64,14 @@ if TYPE_CHECKING:  # pragma: no cover
         XMLTableExpression,
     )
     from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause, WhereClause
-    from ..expression.advanced_functions import OrderedSetAggregation
+    from ..expression.advanced_functions import OrderedSetAggregation, ArrayExpression
     from ..expression.statements import (
         CreateTableExpression,
+        CreateTableAsExpression,
+        CreateTableLikeExpression,
+        CreateTableCloneExpression,
+        CreateTableFromTemplateExpression,
+        CreateTableOptions,
         DropTableExpression,
         AlterTableExpression,
         CreateViewExpression,
@@ -73,6 +79,9 @@ if TYPE_CHECKING:  # pragma: no cover
         TruncateExpression,
         CreateSchemaExpression,
         DropSchemaExpression,
+        CreateDatabaseExpression,
+        DropDatabaseExpression,
+        AlterDatabaseExpression,
         CreateIndexExpression,
         DropIndexExpression,
         CreateSequenceExpression,
@@ -105,6 +114,9 @@ if TYPE_CHECKING:  # pragma: no cover
         TriggerInfoExpression,
     )
     from ..expression.collation import CollateExpression
+    from ..expression.statements.filter_clause import FilterClauseExpression
+    from ..expression.datetime import TemporalOptionsExpression
+    from ..expression.statements.fulltext_match import FulltextMatchExpression
 
 
 @runtime_checkable
@@ -398,29 +410,21 @@ class CTESupport(Protocol):
         """Whether MATERIALIZED hint is supported."""
         ...  # pragma: no cover
 
-    def format_cte(
-        self,
-        name: str,
-        query_sql: str,
-        columns: Optional[List[str]] = None,
-        recursive: bool = False,
-        materialized: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        """Format a single CTE definition."""
-        ...  # pragma: no cover
+    def supports_unconditional_cte_order_by(self) -> bool:
+        """Whether ORDER BY is allowed unconditionally inside CTE definitions.
 
-    def format_with_query(
-        self, cte_sql_parts: List[str], main_query_sql: str, dialect_options: Optional[Dict[str, Any]] = None
-    ) -> str: ...  # pragma: no cover
+        SQL Server prohibits ORDER BY in CTEs unless accompanied by
+        TOP, OFFSET, or FOR XML. Most other backends support it.
+        """
+        ...  # pragma: no cover
 
 
 @runtime_checkable
 class WildcardSupport(Protocol):
     """Protocol for wildcard expression support (SELECT *)."""
 
-    def format_wildcard(self, table: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
-        """Format wildcard expression (* or table.* or schema.table.*)."""
+    def format_wildcard(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a WildcardExpression node (* or table.* or schema.table.*)."""
         ...  # pragma: no cover
 
 
@@ -440,15 +444,14 @@ class AdvancedGroupingSupport(Protocol):
         """Whether GROUPING SETS are supported."""
         ...  # pragma: no cover
 
-    def format_grouping_expression(
-        self, operation: str, expressions: List["bases.BaseExpression"]
+    def format_grouping_clause(
+        self, expr: "bases.BaseExpression"
     ) -> Tuple[str, tuple]:
         """
         Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
 
         Args:
-            operation: The grouping operation ('ROLLUP', 'CUBE', or 'GROUPING SETS').
-            expressions: List of expressions to group by.
+            expr: The GroupingClause node (operation + grouped expressions).
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -459,14 +462,6 @@ class AdvancedGroupingSupport(Protocol):
 @runtime_checkable
 class ReturningSupport(Protocol):
     """Protocol for RETURNING clause support."""
-
-    def supports_returning_clause(self) -> bool:
-        """Whether RETURNING clause is generally supported.
-        This is the AND of all DML-specific returning support flags
-        (supports_returning_insert, supports_returning_update,
-        supports_returning_delete).
-        """
-        ...  # pragma: no cover
 
     def supports_returning_insert(self) -> bool:
         """Whether RETURNING clause is supported for INSERT statements."""
@@ -480,9 +475,32 @@ class ReturningSupport(Protocol):
         """Whether RETURNING clause is supported for DELETE statements."""
         ...  # pragma: no cover
 
+    def supports_returning_expressions(self) -> bool:
+        """Whether non-column expressions are allowed in a RETURNING clause."""
+        ...  # pragma: no cover
+
+    def supports_returning_alias(self) -> bool:
+        """Whether a clause-level alias is allowed on a RETURNING clause."""
+        ...  # pragma: no cover
+
+    def supports_returning_wildcard(self) -> bool:
+        """Whether ``RETURNING *`` is allowed."""
+        ...  # pragma: no cover
+
+    def supports_returning_single_row(self) -> bool:
+        """Whether RETURNING is inherently single-row."""
+        ...  # pragma: no cover
+
+    def supports_returning_old_new(self) -> bool:
+        """Whether ``OLD.<col>`` / ``NEW.<col>`` references are allowed."""
+        ...  # pragma: no cover
+
+    def supports_returning_into(self) -> bool:
+        """Whether ``RETURNING ... INTO`` / ``OUTPUT ... INTO`` is supported."""
+        ...  # pragma: no cover
+
     def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
-        """
-        Format a RETURNING clause.
+        """Format a RETURNING clause.
 
         Args:
             clause: ReturningClause object containing expressions to return
@@ -551,18 +569,13 @@ class LateralJoinSupport(Protocol):
         ...  # pragma: no cover
 
     def format_lateral_expression(
-        self, expr_sql: str, expr_params: Tuple[Any, ...], alias: Optional[str], join_type: str
+        self, expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
-        """Format LATERAL expression."""
+        """Format a LateralExpression node."""
         ...  # pragma: no cover
 
     def format_table_function_expression(
-        self,
-        func_name: str,
-        args_sql: List[str],
-        args_params: Tuple[Any, ...],
-        alias: Optional[str],
-        column_names: Optional[List[str]],
+        self, expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
         """Format table-valued function expression."""
         ...  # pragma: no cover
@@ -596,12 +609,12 @@ class JoinSupport(Protocol):
         """Whether NATURAL JOIN is supported."""
         ...  # pragma: no cover
 
-    def format_join_expression(self, join_expr: "JoinExpression") -> Tuple[str, Tuple]:
+    def format_join_clause(self, join_expr: "JoinClause") -> Tuple[str, Tuple]:
         """
         Formats a JOIN expression.
 
         Args:
-            join_expr: JoinExpression object.
+            join_expr: JoinClause object.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -627,12 +640,17 @@ class ArraySupport(Protocol):
 
     def format_array_expression(
         self,
-        operation: str,
-        elements: Optional[List["bases.BaseExpression"]],
-        base_expr: Optional["bases.BaseExpression"],
-        index_expr: Optional["bases.BaseExpression"],
+        expr: "ArrayExpression",
     ) -> Tuple[str, Tuple]:
-        """Format array expression."""
+        """Format array expression.
+
+        Args:
+            expr: ArrayExpression node carrying all formatting state
+                  (operation, elements, base_expr, index_expr).
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
         ...  # pragma: no cover
 
 
@@ -670,7 +688,7 @@ class JSONSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_json_expression(self, column: Any, path: str, operation: str) -> Tuple[str, Tuple]:
+    def format_json_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
         """
         Format JSON expression.
 
@@ -682,9 +700,7 @@ class JSONSupport(Protocol):
         - ``JSONPathMode.AUTO``:     use arrow if supported, else function-based
 
         Args:
-            column: Column expression or name
-            path: JSON path
-            operation: JSON operation (e.g., '->', '->>')
+            expr: JSONExpression node carrying column, path, and operation info.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -713,28 +729,18 @@ class JSONSupport(Protocol):
 
     def format_json_table_expression(
         self,
-        json_col_sql: str,
-        path: str,
-        columns: List[Dict[str, Any]],
-        alias: Optional[str],
-        params: tuple,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        expr: "bases.BaseExpression",
     ) -> Tuple[str, Tuple]:
         """
         Formats a JSON_TABLE expression.
 
         Args:
-            json_col_sql: SQL for the JSON column/expression.
-            path: The JSON path expression.
-            columns: A list of dictionaries, each defining a column.
-            alias: The alias for the resulting table.
-            params: Parameters for the JSON column expression.
-            dialect_options: Optional backend-specific options (e.g., MySQL: {'on_error': 'IGNORE', 'on_empty': 'DEFAULT'})
-                See backend-specific documentation for available options.
+            expr: JSONTableExpression node carrying all formatting state
+                  (json_col, path, columns, alias, dialect_options, etc.).
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
-        """  # noqa: E501
+        """
         ...  # pragma: no cover
 
 
@@ -953,13 +959,12 @@ class FilterClauseSupport(Protocol):
         """Whether FILTER (WHERE ...) clause is supported in aggregate functions."""
         ...  # pragma: no cover
 
-    def format_filter_clause(self, condition_sql: str, condition_params: tuple) -> Tuple[str, Tuple]:
+    def format_filter_clause(self, expr: "FilterClauseExpression") -> Tuple[str, tuple]:
         """
         Format a FILTER (WHERE ...) clause.
 
         Args:
-            condition_sql: SQL string for the WHERE condition.
-            condition_params: Parameters for the WHERE condition.
+            expr: FilterClauseExpression wrapping the condition.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
@@ -1017,9 +1022,12 @@ class TemporalTableSupport(Protocol):
         """Whether temporal table queries are supported."""
         ...  # pragma: no cover
 
-    def format_temporal_options(self, options: Dict[str, Any]) -> Tuple[str, tuple]:
+    def format_temporal_options(self, expr: "TemporalOptionsExpression") -> Tuple[str, tuple]:
         """
         Formats a temporal table clause (e.g., FOR SYSTEM_TIME AS OF ...).
+
+        Args:
+            expr: TemporalOptionsExpression carrying the temporal options dict.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
@@ -1054,6 +1062,22 @@ class LockingSupport(Protocol):
 
     def supports_for_update_skip_locked(self) -> bool:
         """Whether FOR UPDATE SKIP LOCKED is supported."""
+        ...  # pragma: no cover
+
+    def supports_for_share(self) -> bool:
+        """Whether the FOR SHARE lock strength is supported."""
+        ...  # pragma: no cover
+
+    def supports_for_no_key_update(self) -> bool:
+        """Whether FOR NO KEY UPDATE is supported."""
+        ...  # pragma: no cover
+
+    def supports_for_key_share(self) -> bool:
+        """Whether FOR KEY SHARE is supported."""
+        ...  # pragma: no cover
+
+    def supports_lock_in_share_mode(self) -> bool:
+        """Whether the legacy LOCK IN SHARE MODE syntax is supported."""
         ...  # pragma: no cover
 
     def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
@@ -1102,17 +1126,9 @@ class SetOperationSupport(Protocol):
         ...  # pragma: no cover
 
     def format_set_operation_expression(
-        self,
-        left: "bases.BaseExpression",
-        right: "bases.BaseExpression",
-        operation: str,
-        alias: Optional[str],
-        all_: bool,
-        order_by_clause: Optional["OrderByClause"] = None,
-        limit_offset_clause: Optional["LimitOffsetClause"] = None,
-        for_update_clause: Optional["ForUpdateClause"] = None,
+        self, expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
-        """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
+        """Format a SetOperationExpression node (UNION, INTERSECT, EXCEPT)."""
         ...  # pragma: no cover
 
 
@@ -1202,6 +1218,22 @@ class TableSupport(Protocol):
         """Whether RENAME TABLE is supported."""
         ...  # pragma: no cover
 
+    def supports_alter_column_properties(self) -> bool:
+        """Whether ALTER COLUMN SET DEFAULT / DROP DEFAULT etc. is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_table_index_actions(self) -> bool:
+        """Whether ADD/DROP INDEX via ALTER TABLE is supported."""
+        ...  # pragma: no cover
+
+    def supports_multi_action_alter_table(self) -> bool:
+        """Whether ALTER TABLE supports multiple actions in one statement.
+
+        Most databases support comma-separated actions, but SQL Server
+        requires one action per ALTER TABLE statement.
+        """
+        ...  # pragma: no cover
+
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement."""
         ...  # pragma: no cover
@@ -1214,12 +1246,48 @@ class TableSupport(Protocol):
         """Format ALTER TABLE statement."""
         ...  # pragma: no cover
 
-    def supports_table_like_syntax(self) -> bool:
+    def supports_create_table_like(self) -> bool:
         """Whether CREATE TABLE ... LIKE (or equivalent) is supported."""
         ...  # pragma: no cover
 
-    def format_create_table_like(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
+    def format_create_table_like_statement(
+        self, expr: "CreateTableLikeExpression"
+    ) -> Tuple[str, tuple]:
         """Format CREATE TABLE ... LIKE statement."""
+        ...  # pragma: no cover
+
+    def supports_create_table_as(self) -> bool:
+        """Whether CREATE TABLE ... AS <query> (CTAS) is supported."""
+        ...  # pragma: no cover
+
+    def format_create_table_as_statement(
+        self, expr: "CreateTableAsExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TABLE ... AS <query> (CTAS) statement."""
+        ...  # pragma: no cover
+
+    def supports_create_table_clone(self) -> bool:
+        """Whether CREATE TABLE ... CLONE/COPY is supported."""
+        ...  # pragma: no cover
+
+    def format_create_table_clone_statement(
+        self, expr: "CreateTableCloneExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TABLE ... CLONE/COPY statement."""
+        ...  # pragma: no cover
+
+    def supports_create_table_using_template(self) -> bool:
+        """Whether CREATE TABLE ... USING TEMPLATE is supported."""
+        ...  # pragma: no cover
+
+    def format_create_table_using_template(
+        self, expr: "CreateTableFromTemplateExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TABLE ... USING TEMPLATE statement."""
+        ...  # pragma: no cover
+
+    def format_create_table_options(self, expr: "CreateTableOptions") -> Tuple[str, tuple]:
+        """Format CREATE TABLE header modifiers (OR REPLACE / UNLOGGED / TRANSIENT)."""
         ...  # pragma: no cover
 
 
@@ -1388,14 +1456,14 @@ class ConstraintSupport(Protocol):
 
     # FK formatter methods
 
-    def format_foreign_key_constraint(self, t_const: "TableConstraint") -> str:
+    def format_foreign_key_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
         """Format a table-level FOREIGN KEY constraint, including ON DELETE / ON UPDATE.
 
         Args:
             t_const: The table constraint to format (may be a ForeignKeyConstraint).
 
         Returns:
-            SQL string for the FK clause.
+            Tuple of (SQL string, empty params tuple).
         """
         ...  # pragma: no cover
 
@@ -1603,6 +1671,92 @@ class SchemaSupport(Protocol):
 
 
 @runtime_checkable
+class DatabaseSupport(Protocol):
+    """Protocol for DATABASE DDL support.
+
+    SQL standard has no CREATE DATABASE, but 8/10 backends support it.
+    This protocol defines capability switches and formatting methods
+    for CREATE/DROP/ALTER DATABASE statements.
+    """
+
+    def supports_database(self) -> bool:
+        """Whether the backend has a DATABASE concept at all."""
+        ...  # pragma: no cover
+
+    def supports_create_database(self) -> bool:
+        """Whether CREATE DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_database(self) -> bool:
+        """Whether DROP DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_database(self) -> bool:
+        """Whether ALTER DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_if_not_exists(self) -> bool:
+        """Whether CREATE DATABASE IF NOT EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_if_exists(self) -> bool:
+        """Whether DROP DATABASE IF EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_owner(self) -> bool:
+        """Whether OWNER/AUTHORIZATION clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_encoding(self) -> bool:
+        """Whether CHARACTER SET/ENCODING clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_collation(self) -> bool:
+        """Whether COLLATION clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_comment(self) -> bool:
+        """Whether COMMENT clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_tablespace(self) -> bool:
+        """Whether TABLESPACE clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_template(self) -> bool:
+        """Whether TEMPLATE clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_connection_limit(self) -> bool:
+        """Whether CONNECTION LIMIT clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_force_drop(self) -> bool:
+        """Whether FORCE / WITH (FORCE) drop is supported."""
+        ...  # pragma: no cover
+
+    def supports_undrop_database(self) -> bool:
+        """Whether UNDROP DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def supports_database_or_replace(self) -> bool:
+        """Whether CREATE OR REPLACE DATABASE is supported."""
+        ...  # pragma: no cover
+
+    def format_create_database_statement(self, expr: "CreateDatabaseExpression") -> Tuple[str, tuple]:
+        """Format CREATE DATABASE statement."""
+        ...  # pragma: no cover
+
+    def format_drop_database_statement(self, expr: "DropDatabaseExpression") -> Tuple[str, tuple]:
+        """Format DROP DATABASE statement."""
+        ...  # pragma: no cover
+
+    def format_alter_database_statement(self, expr: "AlterDatabaseExpression") -> Tuple[str, tuple]:
+        """Format ALTER DATABASE statement."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
 class IndexSupport(Protocol):
     """
     Protocol for index DDL support.
@@ -1708,14 +1862,12 @@ class IndexSupport(Protocol):
         ...  # pragma: no cover
 
     def format_fulltext_match(
-        self, columns: List[str], search_term: str, mode: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
+        self, expr: "FulltextMatchExpression"
+    ) -> Tuple[str, tuple]:
         """Format MATCH ... AGAINST expression for full-text search.
 
         Args:
-            columns: Columns to search
-            search_term: Search term or query
-            mode: Search mode ('NATURAL LANGUAGE', 'BOOLEAN', 'QUERY EXPANSION')
+            expr: FulltextMatchExpression node carrying columns, search_term, and mode.
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -1836,14 +1988,13 @@ class ILIKESupport(Protocol):
         """Whether ILIKE operator is supported."""
         ...  # pragma: no cover
 
-    def format_ilike_expression(self, column: Any, pattern: str, negate: bool = False) -> Tuple[str, Tuple]:
+    def format_ilike_expression(self, expr: "ILIKEExpression") -> Tuple[str, Tuple]:
         """
         Format ILIKE expression (case-insensitive pattern matching).
 
         Args:
-            column: Column expression or name
-            pattern: Pattern to match (with % and _ wildcards)
-            negate: If True, format NOT ILIKE expression
+            expr: The ILIKE expression node carrying column, pattern and
+                negate state.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -2384,19 +2535,93 @@ class DDLTypeSupport(Protocol):
     * Parse raw SQL type strings from introspection back into ``DataType``
       instances via ``parse_type()`` — called by
       ``DataType.parse_data_type_str()``.
+
+    Contract members
+    ----------------
+
+    ``format_data_type(data_type)``
+        The **total dispatcher**. It validates that ``data_type`` is a
+        ``DataType`` instance and routes by ``data_type.name`` to the
+        corresponding ``format_data_type_<name>`` method of the naming
+        family. A dialect never renders a type directly inside
+        ``format_data_type()``; it only dispatches.
+
+    ``format_data_type_<name>(data_type)`` / ``supports_data_type_<name>()``
+        **Naming-family contracts.** These per-type members cannot be
+        enumerated in the Protocol — they are discovered by convention
+        from the type's generic ``name``. The two families must correspond
+        **1:1**: for every ``format_data_type_X`` a dialect implements it
+        MUST also implement ``supports_data_type_X() -> bool``, and vice
+        versa. The supported-type surface of a dialect is exactly the set
+        of these method pairs — there is no registry.
+
+    Honesty principle (D10)
+    -----------------------
+
+    A dialect that does not support a type simply does **not** implement
+    its ``format_data_type_X`` / ``supports_data_type_X`` pair — it never
+    fakes a formatter or hard-codes ``supports_data_type_X() -> False``
+    for an unimplemented type. Dispatch on an unsupported type raises
+    ``TypeError`` (there is no ``format_data_type_<name>`` to route to),
+    which is the honest "unsupported here" signal.
+
+    Backend-specific protocol layering (D8)
+    ---------------------------------------
+
+    Backend-defined types (namespaced generic names such as
+    ``mysql_int``, ``sqlite_real``) are governed by the backend's **own**
+    protocols, defined in each backend repository — not in core. Within
+    this layering a backend dialect:
+
+    * MAY override ``format_data_type()`` — typically calling
+      ``super().format_data_type()`` for the general family first, then
+      handling its own namespaced family;
+    * MUST merge its namespaced entries into ``supports_data_types()`` —
+      call ``super().supports_data_types()`` and fold in its own
+      namespaced entries, so the returned mapping covers both layers.
+
+    Core never enumerates backend families; it only fixes the shape of
+    the dispatch and the merge.
     """
 
     def format_data_type(self, data_type: "DataType") -> "Tuple[str, tuple]":
-        """Render a ``DataType`` expression into a SQL type string and params."""
+        """Render a ``DataType`` expression into a SQL type string and params.
+
+        Total dispatcher: routes by ``data_type.name`` to the
+        ``format_data_type_<name>`` naming-family member. Raises
+        ``TypeError`` when the dialect does not support the type (no
+        family member exists) — the honest unsupported-type signal.
+        """
         ...  # pragma: no cover
 
     def parse_type(self, raw: str) -> "DataType":
         """Parse a raw SQL type string into a ``DataType``."""
         ...  # pragma: no cover
 
-    def supports_data_types(self) -> List[Tuple[Type, str]]:  # noqa
-        """List ``(DataTypeClass, sql_name)`` pairs supported by this dialect.
+    def supports_data_types(self) -> Dict[str, type]:
+        """Mapping ``{<generic name>: concrete DataType class}`` of every
+        type supported by this dialect.
 
-        Auto-generated from the ``@handles`` registry in ``DDLTypeMixin``.
+        Keys are the generic type names (the dispatch keys of the
+        ``format_data_type_<name>`` naming family); values are the concrete
+        ``DataType`` subclasses whose :attr:`~DataType.name` equals the
+        key. Backend dialects that define namespaced types must merge
+        their own entries into the inherited mapping (``super()`` + own).
+        """
+        ...  # pragma: no cover
+
+    def suggested_data_types(self) -> "Dict[str, type]":
+        """Cross-backend type-consistency suggestion map.
+
+        Keys: generic type name — same namespace as ``format_data_type_*`` /
+        ``supports_data_type_*`` (e.g. ``"uuid"``).
+        Values: the suggested replacement ``DataType`` **class** (same value
+        type as :meth:`supports_data_types` — consumers get usable class
+        objects directly, no import resolution needed).
+
+        Contract: suggested keys and supported keys are **disjoint** — a
+        type this dialect renders needs no suggestion. Suggestions only —
+        the user layer (ActiveRecord) decides whether to adopt them. Return
+        an empty dict when there is nothing to suggest (honesty principle).
         """
         ...  # pragma: no cover

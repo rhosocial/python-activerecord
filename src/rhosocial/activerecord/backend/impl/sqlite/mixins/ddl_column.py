@@ -104,9 +104,8 @@ class SQLiteDDLColumnMixin:
 
         NOTE: deliberately named ``..._column_...`` so it cannot shadow the
         TABLE-level ``SQLDialectBase.format_unique_constraint(t_const)``
-        defined in ``backend.dialect.mixins.ddl_column`` — the two share a
-        name but different signatures/return shapes (tuple vs str), and the
-        table dispatcher joins plain strings only.
+        defined in ``backend.dialect.mixins.ddl_column`` — the two handle
+        column-level vs table-level constraints respectively.
         """
         return " UNIQUE", ()
 
@@ -156,18 +155,6 @@ class SQLiteDDLColumnMixin:
 
         return result, ()
 
-    def _handle_generated_column(self, col_def) -> Tuple[str, tuple]:
-        """Handle generated column formatting."""
-        from rhosocial.activerecord.backend.expression.statements import GeneratedColumnType
-
-        if not self.supports_generated_columns():
-            raise UnsupportedFeatureError(
-                self.name, "Generated columns", "Generated columns require SQLite 3.31.0 or later."
-            )
-        gen_sql, gen_params = col_def.generated_expression.to_sql()
-        gen_type = " STORED" if col_def.generated_type == GeneratedColumnType.STORED else " VIRTUAL"
-        return f" GENERATED ALWAYS AS ({gen_sql}){gen_type}", gen_params
-
     def format_column_definition(self, col_def) -> Tuple[str, tuple]:
         """Format a column definition for SQLite, including generated columns support."""
         from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
@@ -184,7 +171,7 @@ class SQLiteDDLColumnMixin:
         }
 
         all_params = []
-        type_sql, _ = col_def.data_type.to_sql(self)
+        type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
         for constraint in col_def.constraints:
@@ -195,7 +182,7 @@ class SQLiteDDLColumnMixin:
                 all_params.extend(params)
 
         if col_def.generated_expression is not None:
-            gen_sql, gen_params = self._handle_generated_column(col_def)
+            gen_sql, gen_params = col_def.generated_expression.to_sql()
             col_sql += gen_sql
             all_params.extend(gen_params)
 

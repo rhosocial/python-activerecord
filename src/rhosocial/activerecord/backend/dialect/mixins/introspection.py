@@ -1,4 +1,10 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/introspection.py
+"""Dialect mixin for database introspection capability declaration.
+
+Dialects declare which introspection features they support and format the
+corresponding metadata queries; query execution and result parsing live in the
+backend layer.
+"""
 from typing import List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -40,77 +46,80 @@ class IntrospectionMixin:
     # ========== Capability Detection ==========
 
     def supports_introspection(self) -> bool:
-        """Whether introspection is supported."""
+        """Whether introspection is supported. Defaults to False."""
         return False
 
     def supports_database_info(self) -> bool:
-        """Whether database information query is supported."""
+        """Whether database information query is supported. Defaults to False."""
         return False
 
     def supports_table_introspection(self) -> bool:
-        """Whether table introspection is supported."""
+        """Whether table introspection is supported. Defaults to False."""
         return False
 
     def supports_column_introspection(self) -> bool:
-        """Whether column introspection is supported."""
+        """Whether column introspection is supported. Defaults to False."""
         return False
 
     def supports_index_introspection(self) -> bool:
-        """Whether index introspection is supported."""
+        """Whether index introspection is supported. Defaults to False."""
         return False
 
     def supports_foreign_key_introspection(self) -> bool:
-        """Whether foreign key introspection is supported."""
+        """Whether foreign key introspection is supported. Defaults to False."""
         return False
 
     def supports_view_introspection(self) -> bool:
-        """Whether view introspection is supported."""
+        """Whether view introspection is supported. Defaults to False."""
         return False
 
     def supports_trigger_introspection(self) -> bool:
-        """Whether trigger introspection is supported."""
+        """Whether trigger introspection is supported. Defaults to False."""
         return False
 
     # ========== Runtime Statistics ==========
 
     def supports_runtime_stats(self) -> bool:
-        """Whether runtime statistics introspection is supported."""
+        """Whether runtime statistics introspection is supported. Defaults to False."""
         return False
 
     def supports_table_stats(self) -> bool:
-        """Whether table statistics introspection is supported."""
+        """Whether table statistics introspection is supported. Defaults to False."""
         return False
 
     def supports_index_stats(self) -> bool:
-        """Whether index statistics introspection is supported."""
+        """Whether index statistics introspection is supported. Defaults to False."""
         return False
 
     def supports_unused_indexes_detection(self) -> bool:
-        """Whether unused indexes detection is supported."""
+        """Whether unused indexes detection is supported. Defaults to False."""
         return False
 
     # ========== Structure Information ==========
 
     def supports_partition_info(self) -> bool:
-        """Whether partition information introspection is supported."""
+        """Whether partition information introspection is supported. Defaults to False."""
         return False
 
     def supports_object_dependencies(self) -> bool:
-        """Whether object dependencies introspection is supported."""
+        """Whether object dependencies introspection is supported. Defaults to False."""
         return False
 
     def supports_extensions(self) -> bool:
-        """Whether installed extensions introspection is supported."""
+        """Whether installed extensions introspection is supported. Defaults to False."""
         return False
 
     # ========== DDL Extraction ==========
 
     def supports_ddl_extraction(self) -> bool:
-        """Whether DDL extraction is supported."""
+        """Whether DDL extraction is supported. Defaults to False."""
         return False
 
     def supports_ddl_extraction_native(self) -> bool:
-        """Whether native DDL extraction is supported (False means assembly required)."""
+        """Whether native DDL extraction is supported (False means assembly required).
+
+        Defaults to False.
+        """
         return False
 
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
@@ -308,77 +317,80 @@ class AsyncIntrospectionMixin:
     # ========== Capability Detection ==========
 
     def supports_introspection(self) -> bool:
-        """Whether introspection is supported."""
+        """Whether introspection is supported. Defaults to False."""
         return False
 
     def supports_database_info(self) -> bool:
-        """Whether database information query is supported."""
+        """Whether database information query is supported. Defaults to False."""
         return False
 
     def supports_table_introspection(self) -> bool:
-        """Whether table introspection is supported."""
+        """Whether table introspection is supported. Defaults to False."""
         return False
 
     def supports_column_introspection(self) -> bool:
-        """Whether column introspection is supported."""
+        """Whether column introspection is supported. Defaults to False."""
         return False
 
     def supports_index_introspection(self) -> bool:
-        """Whether index introspection is supported."""
+        """Whether index introspection is supported. Defaults to False."""
         return False
 
     def supports_foreign_key_introspection(self) -> bool:
-        """Whether foreign key introspection is supported."""
+        """Whether foreign key introspection is supported. Defaults to False."""
         return False
 
     def supports_view_introspection(self) -> bool:
-        """Whether view introspection is supported."""
+        """Whether view introspection is supported. Defaults to False."""
         return False
 
     def supports_trigger_introspection(self) -> bool:
-        """Whether trigger introspection is supported."""
+        """Whether trigger introspection is supported. Defaults to False."""
         return False
 
     # ========== Runtime Statistics ==========
 
     def supports_runtime_stats(self) -> bool:
-        """Whether runtime statistics introspection is supported."""
+        """Whether runtime statistics introspection is supported. Defaults to False."""
         return False
 
     def supports_table_stats(self) -> bool:
-        """Whether table statistics introspection is supported."""
+        """Whether table statistics introspection is supported. Defaults to False."""
         return False
 
     def supports_index_stats(self) -> bool:
-        """Whether index statistics introspection is supported."""
+        """Whether index statistics introspection is supported. Defaults to False."""
         return False
 
     def supports_unused_indexes_detection(self) -> bool:
-        """Whether unused indexes detection is supported."""
+        """Whether unused indexes detection is supported. Defaults to False."""
         return False
 
     # ========== Structure Information ==========
 
     def supports_partition_info(self) -> bool:
-        """Whether partition information introspection is supported."""
+        """Whether partition information introspection is supported. Defaults to False."""
         return False
 
     def supports_object_dependencies(self) -> bool:
-        """Whether object dependencies introspection is supported."""
+        """Whether object dependencies introspection is supported. Defaults to False."""
         return False
 
     def supports_extensions(self) -> bool:
-        """Whether installed extensions introspection is supported."""
+        """Whether installed extensions introspection is supported. Defaults to False."""
         return False
 
     # ========== DDL Extraction ==========
 
     def supports_ddl_extraction(self) -> bool:
-        """Whether DDL extraction is supported."""
+        """Whether DDL extraction is supported. Defaults to False."""
         return False
 
     def supports_ddl_extraction_native(self) -> bool:
-        """Whether native DDL extraction is supported (False means assembly required)."""
+        """Whether native DDL extraction is supported (False means assembly required).
+
+        Defaults to False.
+        """
         return False
 
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:

@@ -35,8 +35,10 @@ class GraphVertex(BaseExpression):
         self.table = table
         self.where = where
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_graph_vertex(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_graph_vertex"
 
 
 class GraphEdge(BaseExpression):
@@ -51,8 +53,10 @@ class GraphEdge(BaseExpression):
         self.table = table
         self.direction = direction
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_graph_edge(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_graph_edge"
 
 
 class QuantifiedPath(BaseExpression):
@@ -77,8 +81,10 @@ class QuantifiedPath(BaseExpression):
         self.min_repeats = min_repeats
         self.max_repeats = max_repeats
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_quantified_path(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_quantified_path"
 
 
 class PathPattern(BaseExpression):
@@ -102,8 +108,10 @@ class PathPattern(BaseExpression):
         super().__init__(dialect)
         self.path = list(path)
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_path_pattern(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_path_pattern"
 
 
 class MatchClause(BaseExpression):
@@ -152,8 +160,10 @@ class MatchClause(BaseExpression):
             )
         return self.patterns[0].path
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_match_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_match_clause"
 
 
 class GraphColumn:
@@ -172,14 +182,10 @@ class ColumnsClause(BaseExpression):
         super().__init__(dialect)
         self.columns = list(columns)
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        parts = []
-        for col in self.columns:
-            col_str = f"{self.dialect.format_identifier(col.variable)}.{self.dialect.format_identifier(col.property_name)}"
-            if col.alias:
-                col_str += f" AS {self.dialect.format_identifier(col.alias)}"
-            parts.append(col_str)
-        return f"COLUMNS ({', '.join(parts)})", ()
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_graph_columns_clause"
 
 
 class GraphTableExpression(BaseExpression):
@@ -196,8 +202,10 @@ class GraphTableExpression(BaseExpression):
         self.columns = columns
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_graph_table_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_graph_table_expression"
 
 
 class TablePropertiesClause(BaseExpression):
@@ -214,8 +222,10 @@ class TablePropertiesClause(BaseExpression):
         super().__init__(dialect)
         self.columns = columns  # None = ALL COLUMNS, [] = NONE, [...] = specific
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_table_properties_clause(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_properties_clause"
 
 
 class VertexTable(BaseExpression):
@@ -235,8 +245,10 @@ class VertexTable(BaseExpression):
         self.properties = properties
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_vertex_table(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_vertex_table"
 
 
 class EdgeTable(BaseExpression):
@@ -264,8 +276,10 @@ class EdgeTable(BaseExpression):
         self.properties = properties
         self.alias = alias
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_edge_table(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_edge_table"
 
 
 class CreatePropertyGraphExpression(BaseExpression):
@@ -284,8 +298,10 @@ class CreatePropertyGraphExpression(BaseExpression):
         self.if_not_exists = if_not_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_create_property_graph_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_property_graph_statement"
 
 
 class DropPropertyGraphExpression(BaseExpression):
@@ -301,8 +317,10 @@ class DropPropertyGraphExpression(BaseExpression):
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_drop_property_graph_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_property_graph_statement"
 
 
 class AlterPropertyGraphExpression(BaseExpression):
@@ -322,5 +340,7 @@ class AlterPropertyGraphExpression(BaseExpression):
         self.edge_tables = edge_tables or []
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_alter_property_graph_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_alter_property_graph_statement"

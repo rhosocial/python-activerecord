@@ -49,11 +49,11 @@ from typing import Dict, List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.expression.types import (
-    ArrayType, BigIntType, BlobType, BooleanType, CharType, CustomType,
-    DateType, DateTimeType, DecimalType, DoubleType, FloatType,
+    ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
+    DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
     IntType, IntegerType, IntervalType, JsonBType, JsonType,
     RealType, SmallIntType, TextType, TimeType, TimeTzType,
-    TimestampType, TimestampTzType, TinyIntType, VarCharType,
+    TimestampType, TimestampTzType, TinyIntType, VarBinaryType, VarCharType,
 )
 from rhosocial.activerecord.backend.dialect.protocols import (
     DDLTypeSupport,
@@ -99,6 +99,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     FunctionSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -116,19 +117,14 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     CollationMixin,
     WindowFunctionMixin,
     CTEMixin,
-    AdvancedGroupingMixin,
-    ReturningMixin,
     UpsertMixin,
     LateralJoinMixin,
     ArrayMixin,
     JSONMixin,
     ExplainMixin,
-    FilterClauseMixin,
-    OrderedSetAggregationMixin,
     MergeMixin,
     TemporalTableMixin,
-    QualifyClauseMixin,
-    LockingMixin,
+    PivotMixin,
     GraphMixin,
     GraphTableMixin,
     JoinMixin,
@@ -147,10 +143,10 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     FunctionMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
-    IdentifierMixin,
     PredicateMixin,
     ExpressionMixin,
     DateTimeMixin,
@@ -187,19 +183,14 @@ class DummyDialect(
     CollationMixin,
     WindowFunctionMixin,
     CTEMixin,
-    AdvancedGroupingMixin,
-    ReturningMixin,
     UpsertMixin,
     LateralJoinMixin,
     ArrayMixin,
     JSONMixin,
     ExplainMixin,
-    FilterClauseMixin,
-    OrderedSetAggregationMixin,
     MergeMixin,
     TemporalTableMixin,
-    QualifyClauseMixin,
-    LockingMixin,
+    PivotMixin,
     GraphMixin,
     GraphTableMixin,
     JoinMixin,
@@ -218,10 +209,10 @@ class DummyDialect(
     FunctionMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
     # New Mixins
-    IdentifierMixin,
     PredicateMixin,
     ExpressionMixin,
     DateTimeMixin,
@@ -274,6 +265,7 @@ class DummyDialect(
     FunctionSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -295,71 +287,124 @@ class DummyDialect(
     # DataType formatters (core types — for to_sql() testing)
     # ------------------------------------------------------------------
 
-    @DDLTypeMixin.handles(TinyIntType)
+    def supports_data_type_tinyint(self) -> bool:
+        return True
+
     def format_data_type_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
         return "TINYINT", ()
 
-    @DDLTypeMixin.handles(SmallIntType)
+    def supports_data_type_smallint(self) -> bool:
+        return True
+
     def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
         return "SMALLINT", ()
 
-    @DDLTypeMixin.handles(IntType)
+    def supports_data_type_int(self) -> bool:
+        return True
+
     def format_data_type_int(self, data_type: IntType) -> Tuple[str, tuple]:
         return "INT", ()
 
-    @DDLTypeMixin.handles(IntegerType)
+    def supports_data_type_integer(self) -> bool:
+        return True
+
     def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
         return "INTEGER", ()
 
-    @DDLTypeMixin.handles(BigIntType)
+    def supports_data_type_bigint(self) -> bool:
+        return True
+
     def format_data_type_bigint(self, data_type: BigIntType) -> Tuple[str, tuple]:
         return "BIGINT", ()
 
-    @DDLTypeMixin.handles(RealType)
+    def supports_data_type_real(self) -> bool:
+        return True
+
     def format_data_type_real(self, data_type: RealType) -> Tuple[str, tuple]:
         return "REAL", ()
 
-    @DDLTypeMixin.handles(DoubleType)
+    def supports_data_type_double(self) -> bool:
+        return True
+
     def format_data_type_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
         return "DOUBLE PRECISION", ()
 
-    @DDLTypeMixin.handles(TextType)
+    def supports_data_type_text(self) -> bool:
+        return True
+
     def format_data_type_text(self, data_type: TextType) -> Tuple[str, tuple]:
         return "TEXT", ()
 
-    @DDLTypeMixin.handles(BooleanType)
+    def supports_data_type_boolean(self) -> bool:
+        return True
+
     def format_data_type_boolean(self, data_type: BooleanType) -> Tuple[str, tuple]:
         return "BOOLEAN", ()
 
-    @DDLTypeMixin.handles(BlobType)
+    def supports_data_type_blob(self) -> bool:
+        return True
+
     def format_data_type_blob(self, data_type: BlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
 
-    @DDLTypeMixin.handles(DateType)
+    def supports_data_type_date(self) -> bool:
+        return True
+
     def format_data_type_date(self, data_type: DateType) -> Tuple[str, tuple]:
         return "DATE", ()
 
-    @DDLTypeMixin.handles(JsonType)
+    def supports_data_type_json(self) -> bool:
+        return True
+
     def format_data_type_json(self, data_type: JsonType) -> Tuple[str, tuple]:
         return "JSON", ()
 
-    @DDLTypeMixin.handles(JsonBType)
+    def supports_data_type_jsonb(self) -> bool:
+        return True
+
     def format_data_type_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
         return "JSONB", ()
 
-    @DDLTypeMixin.handles(CharType)
+    def supports_data_type_char(self) -> bool:
+        return True
+
     def format_data_type_char(self, data_type: CharType) -> Tuple[str, tuple]:
         return (f"CHAR({data_type.length})" if data_type.length is not None else "CHAR"), ()
 
-    @DDLTypeMixin.handles(VarCharType)
+    def supports_data_type_varchar(self) -> bool:
+        return True
+
     def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
         return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
 
-    @DDLTypeMixin.handles(FloatType)
+    def supports_data_type_binary(self) -> bool:
+        return True
+
+    def format_data_type_binary(self, data_type: BinaryType) -> Tuple[str, tuple]:
+        return (f"BINARY({data_type.length})" if data_type.length is not None else "BINARY"), ()
+
+    def supports_data_type_varbinary(self) -> bool:
+        return True
+
+    def format_data_type_varbinary(self, data_type: VarBinaryType) -> Tuple[str, tuple]:
+        return (f"VARBINARY({data_type.length})" if data_type.length is not None else "VARBINARY"), ()
+
+    def supports_data_type_enum(self) -> bool:
+        return True
+
+    def format_data_type_enum(self, data_type: EnumType) -> Tuple[str, tuple]:
+        values = ",".join(f"'{value}'" for value in data_type.values)
+        return f"ENUM({values}), "[: -2] + "" if False else f"ENUM({values})", ()
+
+    def supports_data_type_float(self) -> bool:
+        return True
+
     def format_data_type_float(self, data_type: FloatType) -> Tuple[str, tuple]:
         return (f"FLOAT({data_type.precision})" if data_type.precision is not None else "FLOAT"), ()
 
-    @DDLTypeMixin.handles(DecimalType)
+    def supports_data_type_decimal(self) -> bool:
+        return True
+
     def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
         if data_type.precision is not None and data_type.scale is not None:
             return f"DECIMAL({data_type.precision},{data_type.scale})", ()
@@ -367,37 +412,53 @@ class DummyDialect(
             return f"DECIMAL({data_type.precision})", ()
         return "DECIMAL", ()
 
-    @DDLTypeMixin.handles(TimeType)
+    def supports_data_type_time(self) -> bool:
+        return True
+
     def format_data_type_time(self, data_type: TimeType) -> Tuple[str, tuple]:
         return (f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"), ()
 
-    @DDLTypeMixin.handles(TimeTzType)
+    def supports_data_type_timetz(self) -> bool:
+        return True
+
     def format_data_type_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
         base = f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"
         return f"{base} WITH TIME ZONE", ()
 
-    @DDLTypeMixin.handles(DateTimeType)
+    def supports_data_type_datetime(self) -> bool:
+        return True
+
     def format_data_type_datetime(self, data_type: DateTimeType) -> Tuple[str, tuple]:
         return (f"DATETIME({data_type.precision})" if data_type.precision is not None else "DATETIME"), ()
 
-    @DDLTypeMixin.handles(TimestampType)
+    def supports_data_type_timestamp(self) -> bool:
+        return True
+
     def format_data_type_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
         return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
 
-    @DDLTypeMixin.handles(TimestampTzType)
+    def supports_data_type_timestamptz(self) -> bool:
+        return True
+
     def format_data_type_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
         base = f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"
         return f"{base} WITH TIME ZONE", ()
 
-    @DDLTypeMixin.handles(IntervalType)
+    def supports_data_type_interval(self) -> bool:
+        return True
+
     def format_data_type_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
         return (f"INTERVAL {data_type.fields}" if data_type.fields else "INTERVAL"), ()
 
-    @DDLTypeMixin.handles(CustomType)
+    def supports_data_type_custom(self) -> bool:
+        return True
+
     def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
         return data_type.raw, ()
 
-    @DDLTypeMixin.handles(ArrayType)
+    def supports_data_type_array(self) -> bool:
+        return True
+
     def format_data_type_array(self, data_type: ArrayType) -> Tuple[str, tuple]:
         element_sql, _ = self.format_data_type(data_type.element_type)
         return element_sql + "[]" * data_type.dimensions, ()
@@ -556,6 +617,24 @@ class DummyDialect(
     def supports_for_update(self) -> bool:
         return True
 
+    def supports_for_share(self) -> bool:
+        return True
+
+    def supports_for_no_key_update(self) -> bool:
+        return True
+
+    def supports_for_key_share(self) -> bool:
+        return True
+
+    def supports_lock_in_share_mode(self) -> bool:
+        return True
+
+    def supports_pivot(self) -> bool:
+        return True
+
+    def supports_unpivot(self) -> bool:
+        return True
+
     def supports_graph_match(self) -> bool:
         return True
 
@@ -616,6 +695,12 @@ class DummyDialect(
     def supports_offset_without_limit(self) -> bool:
         return True
 
+    def supports_fetch_with_ties(self) -> bool:
+        return True
+
+    def supports_nulls_first_last(self) -> bool:
+        return True
+
     # endregion
 
     # region Table DDL Support
@@ -637,6 +722,33 @@ class DummyDialect(
     def supports_if_exists_table(self) -> bool:
         return True
 
+    # The generic TableMixin provides reusable renderings for the CREATE
+    # TABLE family (AS / LIKE / CLONE / USING TEMPLATE); Dummy advertises them
+    # so the generic implementations are exercised end-to-end.
+    def supports_create_table_as(self) -> bool:
+        return True
+
+    def supports_create_table_like(self) -> bool:
+        return True
+
+    def supports_create_table_clone(self) -> bool:
+        return True
+
+    def supports_create_table_using_template(self) -> bool:
+        return True
+
+    def supports_create_or_replace_table(self) -> bool:
+        return True
+
+    def supports_unlogged_table(self) -> bool:
+        return True
+
+    def supports_transient_table(self) -> bool:
+        return True
+
+    def supports_table_comment(self) -> bool:
+        return True
+
     # Generic partition protocol is exposed through PartitionMixin, but all
     # capabilities stay disabled for dummy because partitioning requires
     # backend-specific storage semantics.
@@ -645,6 +757,12 @@ class DummyDialect(
         return True
 
     def supports_drop_column(self) -> bool:
+        return True
+
+    def supports_add_column_if_not_exists(self) -> bool:
+        return True
+
+    def supports_drop_column_if_exists(self) -> bool:
         return True
 
     def supports_alter_column_type(self) -> bool:
@@ -680,6 +798,12 @@ class DummyDialect(
         return True
 
     def supports_or_replace_view(self) -> bool:
+        return True
+
+    def supports_create_or_replace_view(self) -> bool:
+        return True
+
+    def supports_if_not_exists_view(self) -> bool:
         return True
 
     def supports_temporary_view(self) -> bool:
@@ -853,6 +977,9 @@ class DummyDialect(
     def supports_trigger_if_not_exists(self) -> bool:
         return True
 
+    def supports_trigger_if_exists(self) -> bool:
+        return True
+
     # endregion
 
     # region Function DDL Support
@@ -871,6 +998,12 @@ class DummyDialect(
     def supports_function_parameters(self) -> bool:
         return True
 
+    def supports_drop_function_if_exists(self) -> bool:
+        return True
+
+    def supports_drop_function_cascade(self) -> bool:
+        return True
+
     # endregion
 
     # region Generated Column Support
@@ -881,6 +1014,57 @@ class DummyDialect(
         return True
 
     def supports_virtual_generated_columns(self) -> bool:
+        return True
+
+    # endregion
+
+    # region Database DDL Support
+    def supports_database(self) -> bool:
+        return True
+
+    def supports_create_database(self) -> bool:
+        return True
+
+    def supports_drop_database(self) -> bool:
+        return True
+
+    def supports_alter_database(self) -> bool:
+        return True
+
+    def supports_database_if_not_exists(self) -> bool:
+        return True
+
+    def supports_database_if_exists(self) -> bool:
+        return True
+
+    def supports_database_owner(self) -> bool:
+        return True
+
+    def supports_database_encoding(self) -> bool:
+        return True
+
+    def supports_database_collation(self) -> bool:
+        return True
+
+    def supports_database_comment(self) -> bool:
+        return True
+
+    def supports_database_tablespace(self) -> bool:
+        return True
+
+    def supports_database_template(self) -> bool:
+        return True
+
+    def supports_database_connection_limit(self) -> bool:
+        return True
+
+    def supports_database_force_drop(self) -> bool:
+        return True
+
+    def supports_undrop_database(self) -> bool:
+        return True
+
+    def supports_database_or_replace(self) -> bool:
         return True
 
     # endregion
@@ -1075,7 +1259,7 @@ class DummyDialect(
 
         all_params = []
 
-        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type.to_sql(self)[0]}"
+        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type.to_sql()[0]}"
 
         for constraint in col_def.constraints:
             if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
@@ -1091,11 +1275,15 @@ class DummyDialect(
                     raise ValueError("DEFAULT constraint must have a default value specified.")
                 if isinstance(constraint.default_value, bases.BaseExpression):
                     default_sql, default_params = constraint.default_value.to_sql()
+                    if default_params and isinstance(constraint.default_value, Literal):
+                        # DDL accepts no bind parameters: inline the literal.
+                        default_sql = self.inline_sql_literal(constraint.default_value.value)
+                        default_params = ()
                     col_sql += f" DEFAULT {default_sql}"
                     all_params.extend(default_params)
                 else:
-                    col_sql += f" DEFAULT {self.get_parameter_placeholder()}"
-                    all_params.append(constraint.default_value)
+                    # DDL clauses accept no bind parameters: render inline.
+                    col_sql += f" DEFAULT {self.format_literal(constraint.default_value)}"
             elif constraint.constraint_type == ColumnConstraintType.CHECK:
                 if constraint.check_condition is None:
                     raise ValueError("CHECK constraint must have a check condition specified.")
@@ -1111,13 +1299,21 @@ class DummyDialect(
 
         if col_def.generated_expression is not None:
             gen_sql, gen_params = col_def.generated_expression.to_sql()
+            col_sql += gen_sql
             all_params.extend(gen_params)
 
-            col_sql += f" GENERATED ALWAYS AS ({gen_sql})"
-            if col_def.generated_type == GeneratedColumnType.STORED:
-                col_sql += " STORED"
-            else:
-                col_sql += " VIRTUAL"
+        identity = getattr(col_def, 'identity', None)
+        if identity:
+            col_sql += f" GENERATED {identity.upper()} AS IDENTITY"
+            start = getattr(col_def, 'identity_start', None)
+            increment = getattr(col_def, 'identity_increment', None)
+            if start is not None or increment is not None:
+                id_parts = []
+                if start is not None:
+                    id_parts.append(f"START WITH {start}")
+                if increment is not None:
+                    id_parts.append(f"INCREMENT BY {increment}")
+                col_sql += f" ({' '.join(id_parts)})"
 
         # Add comment if present
         if col_def.comment:

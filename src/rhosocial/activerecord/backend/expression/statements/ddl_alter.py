@@ -56,62 +56,43 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class AlterTableActionType(Enum):
-    """Type of action for ALTER TABLE statement."""
+    """Type of action for ALTER TABLE statement.
+
+    Each value corresponds to exactly one concrete ``AlterTableAction``
+    subclass; the mapping is maintained manually and verified by tests.
+    """
 
     ADD_COLUMN = "ADD COLUMN"
     DROP_COLUMN = "DROP COLUMN"
     ALTER_COLUMN = "ALTER COLUMN"
-    ADD_CONSTRAINT = "ADD CONSTRAINT"
-    DROP_CONSTRAINT = "DROP CONSTRAINT"
+    ADD_TABLE_CONSTRAINT = "ADD CONSTRAINT"
+    DROP_TABLE_CONSTRAINT = "DROP CONSTRAINT"
     RENAME_COLUMN = "RENAME COLUMN"
     RENAME_TABLE = "RENAME TABLE"
     ADD_INDEX = "ADD INDEX"
     DROP_INDEX = "DROP INDEX"
-    MODIFY_COLUMN = "MODIFY COLUMN"  # MySQL/MariaDB specific
-    CHANGE_COLUMN = "CHANGE COLUMN"  # MySQL/MariaDB specific
+    MODIFY_COLUMN = "MODIFY COLUMN"
+    CHANGE_COLUMN = "CHANGE COLUMN"
 
 
 class AlterTableAction(BaseExpression):
     """Abstract base class for a single action within an ALTER TABLE statement.
 
     All ALTER TABLE action subclasses inherit from BaseExpression, binding
-    a dialect at construction time and delegating SQL generation to the
-    dialect's format_*_action methods via to_sql().
+    a dialect at construction time and rendering through their own declared
+    formatting function (each concrete action class overrides
+    ``format_method`` — one action, one dialect formatting function).
     """
 
     action_type: AlterTableActionType
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """Delegate to the dialect's format_* method based on action type."""
-        dialect = self.dialect
-        if self.action_type == AlterTableActionType.ADD_COLUMN:
-            return dialect.format_add_column_action(self)
-        elif self.action_type == AlterTableActionType.DROP_COLUMN:
-            return dialect.format_drop_column_action(self)
-        elif self.action_type == AlterTableActionType.ALTER_COLUMN:
-            return dialect.format_alter_column_action(self)
-        elif self.action_type == AlterTableActionType.ADD_CONSTRAINT:
-            return dialect.format_add_table_constraint_action(self)
-        elif self.action_type == AlterTableActionType.DROP_CONSTRAINT:
-            return dialect.format_drop_table_constraint_action(self)
-        elif self.action_type == AlterTableActionType.RENAME_COLUMN:
-            return dialect.format_rename_column_action(self)
-        elif self.action_type == AlterTableActionType.RENAME_TABLE:
-            return dialect.format_rename_table_action(self)
-        elif self.action_type == AlterTableActionType.ADD_INDEX:
-            return dialect.format_add_index_action(self)
-        elif self.action_type == AlterTableActionType.DROP_INDEX:
-            return dialect.format_drop_index_action(self)
-        elif self.action_type == AlterTableActionType.MODIFY_COLUMN:
-            return dialect.format_modify_column_action(self)
-        elif self.action_type == AlterTableActionType.CHANGE_COLUMN:
-            return dialect.format_change_column_action(self)
-        else:
-            # Handle unknown action types
-            return f"PROCESS {type(self).__name__}", ()
-
 
 class AddColumn(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_add_column_action"
     """Represents an 'ADD COLUMN' action per SQL standard.
 
     Note:
@@ -150,6 +131,11 @@ class AddColumn(AlterTableAction):
 
 
 class DropColumn(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_drop_column_action"
     """Represents a 'DROP COLUMN' action per SQL standard.
 
     Note:
@@ -194,6 +180,11 @@ class ColumnAlterOperation(Enum):
 
 
 class AlterColumn(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_alter_column_action"
     """Represents an 'ALTER COLUMN' action per SQL standard."""
 
     action_type: AlterTableActionType = AlterTableActionType.ALTER_COLUMN
@@ -222,9 +213,14 @@ class AlterColumn(AlterTableAction):
 
 
 class AddTableConstraint(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_add_table_constraint_action"
     """SQL standard ADD CONSTRAINT operation"""
 
-    action_type: AlterTableActionType = AlterTableActionType.ADD_CONSTRAINT
+    action_type: AlterTableActionType = AlterTableActionType.ADD_TABLE_CONSTRAINT
     constraint: TableConstraint
     dialect_options: Dict[str, Any]
 
@@ -240,6 +236,11 @@ class AddTableConstraint(AlterTableAction):
 
 
 class DropTableConstraint(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_drop_table_constraint_action"
     """SQL standard DROP CONSTRAINT operation.
 
     Note:
@@ -256,7 +257,7 @@ class DropTableConstraint(AlterTableAction):
         See module docstring for the cross-backend capability matrix.
     """
 
-    action_type: AlterTableActionType = AlterTableActionType.DROP_CONSTRAINT
+    action_type: AlterTableActionType = AlterTableActionType.DROP_TABLE_CONSTRAINT
     constraint_name: str
     if_exists: Optional[bool]
     cascade: bool
@@ -278,28 +279,12 @@ class DropTableConstraint(AlterTableAction):
         self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
-class RenameColumn(AlterTableAction):
-    """SQL standard RENAME COLUMN operation"""
-
-    action_type: AlterTableActionType = AlterTableActionType.RENAME_COLUMN
-    old_name: str
-    new_name: str
-    dialect_options: Dict[str, Any]
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        old_name: str,
-        new_name: str,
-        dialect_options: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        super().__init__(dialect)
-        self.old_name: str = old_name
-        self.new_name: str = new_name
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
-
-
 class RenameTable(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_rename_table_action"
     """SQL standard RENAME TABLE operation"""
 
     action_type: AlterTableActionType = AlterTableActionType.RENAME_TABLE
@@ -320,41 +305,12 @@ class RenameTable(AlterTableAction):
         self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
-class AddConstraint(AlterTableAction):
-    """Represents an 'ADD CONSTRAINT' action."""
-
-    action_type: AlterTableActionType = AlterTableActionType.ADD_CONSTRAINT
-    constraint: TableConstraint
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        constraint: TableConstraint,
-    ) -> None:
-        super().__init__(dialect)
-        self.constraint: TableConstraint = constraint
-
-
-class DropConstraint(AlterTableAction):
-    """Represents a 'DROP CONSTRAINT' action."""
-
-    action_type: AlterTableActionType = AlterTableActionType.DROP_CONSTRAINT
-    constraint_name: str
-    cascade: bool
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        constraint_name: str,
-        *,
-        cascade: bool = False,
-    ) -> None:
-        super().__init__(dialect)
-        self.constraint_name: str = constraint_name
-        self.cascade: bool = cascade
-
-
 class RenameObject(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_rename_column_action"
     """Represents a 'RENAME' action for columns or tables."""
 
     action_type: AlterTableActionType = AlterTableActionType.RENAME_COLUMN
@@ -380,6 +336,11 @@ class RenameObject(AlterTableAction):
 
 
 class AddIndex(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_add_index_action"
     """Represents an 'ADD INDEX' action."""
 
     action_type: AlterTableActionType = AlterTableActionType.ADD_INDEX
@@ -395,6 +356,11 @@ class AddIndex(AlterTableAction):
 
 
 class DropIndex(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_drop_index_action"
     """Represents a 'DROP INDEX' action."""
 
     action_type: AlterTableActionType = AlterTableActionType.DROP_INDEX
@@ -414,6 +380,11 @@ class DropIndex(AlterTableAction):
 
 
 class ModifyColumn(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_modify_column_action"
     """Represents a 'MODIFY COLUMN' action.
 
     Redefines a column with a complete new specification.
@@ -444,6 +415,11 @@ class ModifyColumn(AlterTableAction):
 
 
 class ChangeColumn(AlterTableAction):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting function that renders this action."""
+        return "format_change_column_action"
     """Represents a 'CHANGE COLUMN' action.
 
     Renames a column and redefines it with a complete new specification.
@@ -492,7 +468,7 @@ class AlterTableExpression(BaseExpression):
         alter_expr = AlterTableExpression(
             dialect,
             table_name="users",
-            actions=[AddColumn(dialect, column=ColumnDefinition("email", "VARCHAR(100)"))]
+            actions=[AddColumn(dialect, column=ColumnDefinition(dialect, "email", "VARCHAR(100)"))]
         )
 
         # Drop column
@@ -507,8 +483,8 @@ class AlterTableExpression(BaseExpression):
             dialect,
             table_name="orders",
             actions=[
-                AddColumn(dialect, column=ColumnDefinition("status", "VARCHAR(20)")),
-                RenameColumn(dialect, old_name="id", new_name="order_id")
+                AddColumn(dialect, column=ColumnDefinition(dialect, "status", "VARCHAR(20)")),
+                RenameObject(dialect, old_name="id", new_name="order_id")
             ]
         )
 
@@ -519,7 +495,7 @@ class AlterTableExpression(BaseExpression):
             actions=[
                 AddTableConstraint(
                     dialect,
-                    constraint=TableConstraint(
+                    constraint=TableConstraint(dialect, 
                         constraint_type=TableConstraintType.CHECK,
                         check_condition=Column(dialect, "age") > Literal(dialect, 0)
                     )
@@ -576,16 +552,8 @@ class AlterTableExpression(BaseExpression):
         self.actions: List[AlterTableAction] = list(actions)
         self.dialect_options: Dict[str, Any] = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """
-        Generate the SQL string and parameters for this ALTER TABLE expression per SQL standard.
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_alter_table_statement"
 
-        This method delegates the SQL generation to the configured dialect, allowing for
-        database-specific variations in ALTER TABLE syntax while maintaining standard compliance.
-
-        Returns:
-            A tuple containing:
-            - str: The complete ALTER TABLE SQL string
-            - tuple: The parameter values for prepared statement execution
-        """
-        return self.dialect.format_alter_table_statement(self)

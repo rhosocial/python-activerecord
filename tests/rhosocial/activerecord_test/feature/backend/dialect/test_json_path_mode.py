@@ -18,7 +18,7 @@ from rhosocial.activerecord.backend.dialect import (
     SQLDialectBase,
     UnsupportedFeatureError,
 )
-from rhosocial.activerecord.backend.dialect.mixins.identifier import IdentifierMixin
+from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     JSONExpression,
     JSONPathMode,
@@ -33,7 +33,7 @@ if TYPE_CHECKING:  # pragma: no cover
 # ----------------------------------------------------------------------------
 
 
-class _BaseTestDialect(SQLDialectBase, JSONMixin, JSONSupport, IdentifierMixin):
+class _BaseTestDialect(SQLDialectBase, JSONMixin, JSONSupport, ExpressionMixin):
     """Common base for test dialects; provides identifier formatting."""
 
     name = "test"

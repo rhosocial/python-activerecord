@@ -7,10 +7,10 @@ the format_wildcard method works correctly while other features remain unsupport
 """
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, WildcardSupport
-from rhosocial.activerecord.backend.dialect.mixins import IdentifierMixin
+from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin
 
 
-class WildcardOnlyDialect(SQLDialectBase, IdentifierMixin, WildcardSupport):
+class WildcardOnlyDialect(SQLDialectBase, ExpressionMixin, WildcardSupport):
     """Dialect that only supports wildcard expressions."""
 
     pass
@@ -28,14 +28,16 @@ def test_format_wildcard_works():
     """Test that format_wildcard method works in wildcard-only dialect."""
     dialect = WildcardOnlyDialect()
 
+    from rhosocial.activerecord.backend.expression.core import WildcardExpression
+
     # Test with no table
-    result = dialect.format_wildcard()
+    result = dialect.format_wildcard(WildcardExpression(dialect))
     assert isinstance(result, tuple)
     assert len(result) == 2
     assert result[0] == "*"
 
     # Test with table
-    result = dialect.format_wildcard(table="users")
+    result = dialect.format_wildcard(WildcardExpression(dialect, table="users"))
     assert isinstance(result, tuple)
     assert len(result) == 2
     assert "users" in result[0]

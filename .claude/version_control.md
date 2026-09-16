@@ -126,6 +126,32 @@ English by default. Non-English messages MUST include an English translation + r
   gates are documented in the `dev-release-workflow` skill and this file's earlier full appendix
   is preserved in `devtools` history.
 
+## 6. Backend Protocol Freeze — a Release-Maturity Gate
+
+The **backend protocol** (the negotiated seams of the expression/dialect system: `to_sql()` on
+expressions; `format_*()` / `supports_*()` on the dialect; the expression/statement classes; the
+type adapters) is a shared contract implicated across **every backend** (core + all extension
+backends).
+
+**While in development (`.devN`), the protocol may still evolve** — no backward-compatibility
+guarantee is required yet. Protocol changes are nonetheless large, cross-cutting projects that
+demand extreme restraint, deep deliberation, and broad research (see `architecture.md` → rule 9).
+
+**A defining milestone for entering candidate / stable (`rcN` / final):**
+
+> The backend protocol **no longer changes**, and it has been **stable for several development
+> releases** (`X.Y.0.devN` … consecutive dev builds with zero protocol changes).
+
+Until that condition holds, the project is not ready to be marked `rc`/final — a stable, frozen
+backend protocol is a **prerequisite** for candidate/stable status, not an afterthought. A
+protocol change after `rc` is a breaking change requiring a new `X.Y` cycle.
+
+**Why this gate exists:** the backend protocol is the nervous system every backend dials into.
+Once the ecosystem advertises candidate/stable, consumers and downstream backends build against
+the protocol; any post-stable protocol change forces a breaking MAJOR bump and a coordinated
+retrofit across the whole ecosystem. Freezing the protocol across several dev releases first
+proves it is settled before any stability promise is made.
+
 ## Rules Index reminder
 
 This is the policy core. For **how-to run** any of the above (exact git/CI commands), load the

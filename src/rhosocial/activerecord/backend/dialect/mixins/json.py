@@ -1,5 +1,10 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/json.py
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+"""Dialect mixin for JSON expression support.
+
+Provides capability probes for JSON types and operators, and formats JSON
+path access using either arrow operators or function-based equivalents.
+"""
+from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression import bases
@@ -9,10 +14,15 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class JSONMixin:
-    """Mixin for JSON type support."""
+    """Mixin for JSON type support.
+
+    Dialects advertise JSON capabilities through the ``supports_json_*``
+    probes and control formatting through :meth:`format_json_expression`,
+    which dispatches to arrow-operator or function-based SQL.
+    """
 
     def supports_json_type(self) -> bool:
-        """Whether JSON type is supported."""
+        """Whether JSON type is supported. Defaults to False."""
         return False
 
     def supports_json_arrow_operators(self) -> bool:
@@ -23,21 +33,20 @@ class JSONMixin:
         them and must use function-based alternatives (e.g., JSON_EXTRACT).
 
         Returns:
-            True if the dialect supports JSON arrow operators.
+            True if the dialect supports JSON arrow operators. Defaults to False.
         """
         return False
 
     def get_json_access_operator(self) -> str:
-        """
-        Get JSON access operator.
+        """Get the JSON access operator used by this dialect.
 
         Returns:
-            '->' (PostgreSQL/MySQL/SQLite) or other dialect-specific operator
+            '->' (PostgreSQL/MySQL/SQLite) or another dialect-specific operator.
         """
         return "->"
 
     def supports_json_table(self) -> bool:
-        """Whether JSON_TABLE function is supported."""
+        """Whether JSON_TABLE function is supported. Defaults to False."""
         return False
 
     # ------------------------------------------------------------------
@@ -49,6 +58,13 @@ class JSONMixin:
 
         This method always uses arrow operator syntax. If the dialect does
         not support arrow operators, it raises UnsupportedFeatureError.
+
+        Args:
+            expr: The JSONExpression node with column, path, operation, and
+                optional alias.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the expression.
 
         Raises:
             UnsupportedFeatureError: If arrow operators are not supported.
@@ -70,10 +86,6 @@ class JSONMixin:
         sql = f"{col_sql}{expr.operation}'{escaped_path}'"
         params = col_params
 
-        if expr.cast_types:
-            for target_type in expr.cast_types:
-                sql, params = self.format_cast_expression(sql, target_type, params, None)
-
         if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
 
@@ -91,6 +103,13 @@ class JSONMixin:
 
         Backends without arrow operator support should override this
         method to provide the correct function-based SQL.
+
+        Args:
+            expr: The JSONExpression node with column, path, operation, and
+                optional alias.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the expression.
         """
         if isinstance(expr.column, bases.BaseExpression):
             col_sql, col_params = expr.column.to_sql()
@@ -109,10 +128,6 @@ class JSONMixin:
             sql = f"{col_sql} {expr.operation} '{escaped_path}'"
             params = col_params
 
-        if expr.cast_types:
-            for target_type in expr.cast_types:
-                sql, params = self.format_cast_expression(sql, target_type, params, None)
-
         if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
 
@@ -123,7 +138,7 @@ class JSONMixin:
     # ------------------------------------------------------------------
 
     def format_json_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
-        """Format JSON expression.
+        """Format JSON expression, dispatching on mode and capability.
 
         Dispatches to arrow-operator or function-based formatting depending
         on the expression's *mode* and the dialect's capability:
@@ -133,6 +148,16 @@ class JSONMixin:
         - ``JSONPathMode.AUTO``:     use arrow if supported, else function-based
 
         The default mode is ``JSONPathMode.AUTO``.
+
+        Args:
+            expr: The JSONExpression node to format.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the expression.
+
+        Raises:
+            UnsupportedFeatureError: If arrow mode is requested but arrow
+                operators are not supported.
         """
         from ...expression.advanced_functions import JSONPathMode
 
@@ -149,38 +174,44 @@ class JSONMixin:
             return self.format_json_arrow_expression(expr)
         return self.format_json_function_expression(expr)
 
-    def format_json_table_expression(
-        self, json_col_sql: str, path: str, columns: List[Dict[str, Any]], alias: Optional[str], params: tuple
-    ) -> Tuple[str, Tuple]:
-        """
-        Formats a JSON_TABLE expression.
+    def format_json_table_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a :class:`~...expression.query_sources.JSONTableExpression` node.
 
         Args:
-            json_col_sql: SQL for the JSON column/expression.
-            path: The JSON path expression.
-            columns: A list of dictionaries, each defining a column.
-            alias: The alias for the resulting table.
-            params: Parameters for the JSON column expression.
+            expr: The JSONTableExpression node with JSON column, path, column
+                definitions, and optional alias.
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted expression.
+            Tuple of (SQL string, parameters tuple) for the expression.
+
+        Raises:
+            UnsupportedFeatureError: If JSON_TABLE is not supported.
         """
+        from ...expression import bases as _bases
+
         if not self.supports_json_table():
             raise UnsupportedFeatureError(self.name, "JSON_TABLE function")
 
-        # Escape path to prevent SQL injection.
-        escaped_path = self._escape_sql_string(path)
+        if isinstance(expr.json_column, _bases.BaseExpression):
+            json_col_sql, params = expr.json_column.to_sql()
+        else:
+            json_col_sql, params = self.format_identifier(str(expr.json_column)), ()
+
+        escaped_path = self._escape_sql_string(expr.path)
 
         cols_defs = []
-        for col in columns:
-            col_name = self.format_identifier(col["name"])
-            col_type = col["type"]
-            col_path = self._escape_sql_string(col["path"])
+        for col in expr.columns:
+            col_name = self.format_identifier(col.name)
+            if isinstance(col.data_type, _bases.BaseExpression):
+                col_type, _ = col.data_type.to_sql()
+            else:
+                col_type = str(col.data_type)
+            col_path = self._escape_sql_string(col.path)
             cols_defs.append(f"{col_name} {col_type} PATH '{col_path}'")
 
         columns_sql = f"COLUMNS({', '.join(cols_defs)})"
-        if alias is not None:
-            sql = f"JSON_TABLE({json_col_sql}, '{escaped_path}' {columns_sql}) AS {self.format_identifier(alias)}"
+        if expr.alias is not None:
+            sql = f"JSON_TABLE({json_col_sql}, '{escaped_path}' {columns_sql}) AS {self.format_identifier(expr.alias)}"
         else:
             sql = f"JSON_TABLE({json_col_sql}, '{escaped_path}' {columns_sql})"
         return sql, params

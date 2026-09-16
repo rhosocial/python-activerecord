@@ -118,9 +118,10 @@ class ExplainExpression(BaseExpression):
         self.statement = statement  # SQL statement to analyze (query, insert, update, delete, etc.)
         self.options = options  # EXPLAIN options, keeping None if passed as None
 
-    def to_sql(self) -> Tuple[str, tuple]:
-        """Delegate to dialect for EXPLAIN statement SQL generation."""
-        return self.dialect.format_explain_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_explain_statement"
 
     @property
     def statement_type(self) -> StatementType:

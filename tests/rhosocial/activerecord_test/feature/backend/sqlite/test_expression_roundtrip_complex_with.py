@@ -34,7 +34,7 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     GroupByHavingClause,
     LimitOffsetClause,
     OrderByClause,
-    JoinExpression,
+    JoinClause,
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     ExistsExpression,
@@ -388,7 +388,7 @@ def build_game_of_life(d):
         & (Column(d, "y", "l") == Column(d, "y", "n"))
         & (Column(d, "gen", "l") == Column(d, "gen", "n"))
     )
-    join = JoinExpression(d, left_table=nsub, right_table=live, join_type="LEFT JOIN", condition=on)
+    join = JoinClause(d, left_table=nsub, right_table=live, join_type="LEFT JOIN", condition=on)
     return QueryExpression(
         d,
         select=[

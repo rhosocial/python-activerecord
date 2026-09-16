@@ -25,11 +25,11 @@ dialect = backend.dialect
 
 expr = CreateTableExpression(
     dialect=dialect, table="books", columns=[
-        ColumnDefinition("id", IntegerType(),
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("title", TextType(),
-            constraints=[ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("author", TextType()),
+        ColumnDefinition(dialect, "id", IntegerType(),
+            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition(dialect, "title", TextType(),
+            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition(dialect, "author", TextType()),
     ]
 )
 sql, params = expr.to_sql()

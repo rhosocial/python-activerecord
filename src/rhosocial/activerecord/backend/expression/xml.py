@@ -76,8 +76,10 @@ class XMLParseExpression(SQLValueExpression):
         self.document_type = document_type
         self.whitespace_option = whitespace_option
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlparse_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlparse_expression"
 
 
 class XMLSerializeExpression(SQLValueExpression):
@@ -97,8 +99,10 @@ class XMLSerializeExpression(SQLValueExpression):
         self.document_type = document_type
         self.whitespace_option = whitespace_option
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlserialize_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlserialize_expression"
 
 
 class XMLAttribute:
@@ -120,8 +124,10 @@ class XMLAttributesExpression(SQLValueExpression):
         super().__init__(dialect)
         self.attributes = list(attributes)
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlattributes_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlattributes_expression"
 
 
 class XMLElementExpression(SQLValueExpression):
@@ -139,8 +145,10 @@ class XMLElementExpression(SQLValueExpression):
         self.content = list(content or [])
         self.attributes = attributes
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlelement_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlelement_expression"
 
 
 class XMLForestItem:
@@ -162,8 +170,10 @@ class XMLForestExpression(SQLValueExpression):
         super().__init__(dialect)
         self.items = list(items)
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlforest_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlforest_expression"
 
 
 class XMLConcatExpression(SQLValueExpression):
@@ -173,8 +183,10 @@ class XMLConcatExpression(SQLValueExpression):
         super().__init__(dialect)
         self.parts = list(parts)
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlconcat_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlconcat_expression"
 
 
 class XMLCommentExpression(SQLValueExpression):
@@ -184,8 +196,10 @@ class XMLCommentExpression(SQLValueExpression):
         super().__init__(dialect)
         self.content = content
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlcomment_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlcomment_expression"
 
 
 class XMLPIExpression(SQLValueExpression):
@@ -201,8 +215,10 @@ class XMLPIExpression(SQLValueExpression):
         self.target = target
         self.content = content
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlpi_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlpi_expression"
 
 
 class XMLRootExpression(SQLValueExpression):
@@ -220,8 +236,10 @@ class XMLRootExpression(SQLValueExpression):
         self.version = version
         self.standalone = standalone
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlroot_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlroot_expression"
 
 
 class XMLAggExpression(SQLValueExpression):
@@ -237,8 +255,10 @@ class XMLAggExpression(SQLValueExpression):
         self.expression = expression
         self.order_by = order_by
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlagg_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlagg_expression"
 
 
 class XMLQueryExpression(SQLValueExpression):
@@ -260,8 +280,10 @@ class XMLQueryExpression(SQLValueExpression):
         self.returning_content = returning_content
         self.empty_handling = empty_handling
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlquery_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlquery_expression"
 
 
 class XMLExistsExpression(SQLPredicate):
@@ -279,8 +301,10 @@ class XMLExistsExpression(SQLPredicate):
         self.passing = list(passing or [])
         self.passing_mechanism = passing_mechanism
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmlexists_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmlexists_expression"
 
 
 class XMLTableColumn:
@@ -316,5 +340,7 @@ class XMLTableExpression(BaseExpression):
         self.passing = list(passing or [])
         self.passing_mechanism = passing_mechanism
 
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_xmltable_expression(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_xmltable_expression"

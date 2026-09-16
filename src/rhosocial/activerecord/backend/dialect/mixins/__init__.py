@@ -17,19 +17,15 @@ from .xml import (
 from .collation import CollationMixin
 from .window import WindowFunctionMixin
 from .cte import CTEMixin
-from .grouping import AdvancedGroupingMixin
-from .returning import ReturningMixin
 from .upsert import UpsertMixin
 from .join import LateralJoinMixin, JoinMixin
 from .array import ArrayMixin
 from .json import JSONMixin
 from .explain import ExplainMixin
 from .graph import GraphMixin, GraphTableMixin
-from .filter_clause import FilterClauseMixin
-from .aggregation import OrderedSetAggregationMixin
 from .merge import MergeMixin
-from .temporal import TemporalTableMixin, QualifyClauseMixin
-from .locking import LockingMixin
+from .temporal import TemporalTableMixin
+from .pivot import PivotMixin
 from .set_operation import SetOperationMixin
 from .partition import PartitionMixin
 from .ddl_table import TableMixin, ConstraintMixin
@@ -39,11 +35,10 @@ from .ddl_index import IndexMixin
 from .ddl_sequence import SequenceMixin
 from .ilike import ILIKEMixin
 from .trigger import TriggerMixin
-from .function import FunctionMixin
+from .function import FunctionMixin, FunctionCallMixin
 from .generated_column import GeneratedColumnMixin
 from .auto_increment import AutoIncrementMixin
 from .introspection import IntrospectionMixin, AsyncIntrospectionMixin
-from .identifier import IdentifierMixin
 from .predicate import PredicateMixin
 from .expression import ExpressionMixin
 from .datetime import DateTimeMixin
@@ -51,6 +46,7 @@ from .dql import DQLMixin
 from .dml import DMLMixin
 from .ddl_column import DDLColumnMixin
 from .ddl_type import DDLTypeMixin
+from .ddl_database import DatabaseMixin
 from .transaction import TransactionControlMixin
 
 __all__ = [
@@ -63,8 +59,6 @@ __all__ = [
     "CollationMixin",
     "WindowFunctionMixin",
     "CTEMixin",
-    "AdvancedGroupingMixin",
-    "ReturningMixin",
     "UpsertMixin",
     "LateralJoinMixin",
     "JoinMixin",
@@ -73,12 +67,9 @@ __all__ = [
     "ExplainMixin",
     "GraphMixin",
     "GraphTableMixin",
-    "FilterClauseMixin",
-    "OrderedSetAggregationMixin",
     "MergeMixin",
     "TemporalTableMixin",
-    "QualifyClauseMixin",
-    "LockingMixin",
+    "PivotMixin",
     "SetOperationMixin",
     "PartitionMixin",
     "TableMixin",
@@ -91,11 +82,11 @@ __all__ = [
     "ILIKEMixin",
     "TriggerMixin",
     "FunctionMixin",
+    "FunctionCallMixin",
     "GeneratedColumnMixin",
     "AutoIncrementMixin",
     "IntrospectionMixin",
     "AsyncIntrospectionMixin",
-    "IdentifierMixin",
     "PredicateMixin",
     "ExpressionMixin",
     "DateTimeMixin",
@@ -103,5 +94,6 @@ __all__ = [
     "DMLMixin",
     "DDLColumnMixin",
     "DDLTypeMixin",
+    "DatabaseMixin",
     "TransactionControlMixin",
 ]

@@ -8,12 +8,12 @@ from enum import Enum
 import pytest
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.mixins import CollationMixin, IdentifierMixin
+from rhosocial.activerecord.backend.dialect.mixins import CollationMixin, ExpressionMixin, DDLColumnMixin
 from rhosocial.activerecord.backend.expression import Column, Literal, collate
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
-class StandardCollationDialect(SQLDialectBase, IdentifierMixin, CollationMixin):
+class StandardCollationDialect(SQLDialectBase, ExpressionMixin, DDLColumnMixin, CollationMixin):
     def supports_collate_expression(self) -> bool:
         return True
 

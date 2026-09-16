@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from ._base import DataType
 
@@ -15,16 +15,14 @@ class CustomType(DataType):
     lossless even when the framework does not know the type.
     """
 
+    name = "custom"
+
     raw: str
 
-    def __init__(self, raw: str, dialect=None):
-        super().__init__(dialect)
+    def __init__(self, dialect=None, raw: str = "",
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect, dialect_options=dialect_options)
         self.raw = raw
 
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.raw == other.raw
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.raw))
+    def _type_params(self) -> tuple:
+        return (self.raw,)

@@ -4,7 +4,16 @@ Composition over inheritance. `rhosocial-activerecord` encourages using Mixins t
 
 ## Built-in Mixins
 
-The framework provides several common Mixins:
+The framework provides several common Mixins.
+
+> **The two-class convention**
+>
+> Any behavior mixin that needs a field (timestamps, optimistic locking, soft delete) is split into **two classes**:
+>
+> * **Semantics base** (e.g. `TimestampMixin`): provides only the *maintenance semantics* (event hooks, SQL conditions, query filtering) and **declares no fields**. It points at a field the model declares itself via a class attribute (e.g. `__created_at_field__`). Use it when you need a **custom field/column name**.
+> * **Default subclass** (e.g. `DefaultTimestampMixin`): adds the *conventional fields* (`created_at`/`updated_at`, `version`, `deleted_at`) on top of the semantics base. Ready to use out of the box.
+>
+> **In most cases just use the `Default*` variant.** Only reach for the semantics base (and declare your own field) when the field name differs from the convention — for example when mapping a legacy database table.
 
 ### IntegerPKMixin
 
@@ -85,26 +94,53 @@ class OrderItem(CompositePKMixin, ActiveRecord):
 
 > 💡 **AI Prompt Example**: "How do I define a composite primary key model? How does find_one work for composite PK?"
 
+### TimestampMixin / DefaultTimestampMixin
+
 Automatically records creation and update times.
 
-```python
-from rhosocial.activerecord.field import TimestampMixin
+#### Default usage: DefaultTimestampMixin
 
-class Post(TimestampMixin, ActiveRecord):
+```python
+from rhosocial.activerecord.field import DefaultTimestampMixin
+
+class Post(DefaultTimestampMixin, ActiveRecord):
     # Automatically gets:
     # created_at: datetime (UTC timezone)
     # updated_at: datetime (UTC timezone)
     pass
 ```
 
+`DefaultTimestampMixin` declares the `created_at` / `updated_at` `datetime` fields (UTC default factory) and registers the maintenance semantics.
+
+#### Custom field names: TimestampMixin
+
+When the model uses different field names (e.g. mapping a legacy database), use the semantics base `TimestampMixin`, declare your own fields, and point to them via `__created_at_field__` / `__updated_at_field__`:
+
+```python
+from rhosocial.activerecord.field import TimestampMixin
+from pydantic import Field
+from datetime import datetime, timezone
+
+class LegacyPost(TimestampMixin, ActiveRecord):
+    # The semantics base declares no fields; declare them here and point to them
+    __created_at_field__ = "creation_date"
+    __updated_at_field__ = "last_modified"
+
+    creation_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_modified: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    title: str
+```
+
+> **Note**: `TimestampMixin` requires the pointed-to fields to exist, otherwise it raises a `TypeError` at instantiation (fail-fast), avoiding silent misconfiguration.
+
 #### Timestamp Generation Strategy
 
-`TimestampMixin` uses **Python-side timestamp generation** instead of relying on database `CURRENT_TIMESTAMP` functions.
+The timestamp mixin uses **Python-side timestamp generation** instead of relying on database `CURRENT_TIMESTAMP` functions.
 
 **Design Rationale**:
 
 1. **Format Consistency**: Insert and update operations use the same UTC datetime format (ISO 8601), avoiding data format inconsistencies.
-   
+
    If using database `CURRENT_TIMESTAMP`:
    - On insert: Python generates UTC datetime (e.g., `2024-01-15T10:30:00+00:00`)
    - On update: Database generates timestamp (format may vary by database)
@@ -114,7 +150,7 @@ class Post(TimestampMixin, ActiveRecord):
    - SQLite: Returns local time string
    - PostgreSQL: Returns timestamp with timezone
    - MySQL: Returns server timezone time
-   
+
    Using Python generation ensures consistent behavior across all database backends.
 
 3. **Predictability**: Timestamp values are available before saving, facilitating business logic handling.
@@ -122,45 +158,107 @@ class Post(TimestampMixin, ActiveRecord):
 **Implementation Details**:
 
 - All timestamps use UTC timezone `datetime` objects
-- `_update_timestamps` method is called during `BEFORE_SAVE` event
-- New records: Sets both `created_at` and `updated_at`
-- Update records: Only updates `updated_at`, `created_at` remains unchanged
+- INSERT operations (`BEFORE_INSERT`) set both `created_at` and `updated_at`
+- UPDATE operations (`BEFORE_UPDATE`) only update `updated_at`; `created_at` remains unchanged
 
-### SoftDeleteMixin
+### SoftDeleteMixin / DefaultSoftDeleteMixin
 
 Marks records as deleted instead of physically removing them.
 
-```python
-from rhosocial.activerecord.field import SoftDeleteMixin
+#### Default usage: DefaultSoftDeleteMixin
 
-class Comment(SoftDeleteMixin, ActiveRecord):
-    # Automatically gets: deleted_at: Optional[int]
+```python
+from rhosocial.activerecord.field import DefaultSoftDeleteMixin
+
+class Comment(DefaultSoftDeleteMixin, ActiveRecord):
+    # Automatically gets: deleted_at: Optional[datetime] (default None)
     pass
 
 # Queries automatically filter out deleted records
 active_comments = Comment.all()
 
+# Restore
+comment = Comment.find_one(1)
+comment.restore()
+
 # Physical deletion
 comment.delete(hard=True)
 ```
 
-### OptimisticLockMixin
+#### Custom field names: SoftDeleteMixin
+
+```python
+from rhosocial.activerecord.field import SoftDeleteMixin
+from datetime import datetime
+from typing import Optional
+from pydantic import Field
+
+class LegacyComment(SoftDeleteMixin, ActiveRecord):
+    __deleted_at_field__ = "deleted"
+
+    deleted: Optional[datetime] = Field(default=None)
+    content: str
+```
+
+**Query methods**:
+
+- `query()` — returns only non-deleted records (filtered automatically by `DefaultSoftDeleteMixin`)
+- `query_with_deleted()` — returns all records
+- `query_only_deleted()` — returns only deleted records
+
+> **Async models**: async models should use `AsyncSoftDeleteMixin` / `DefaultAsyncSoftDeleteMixin` so the sync/async execution models never mix.
+
+### OptimisticLockMixin / DefaultOptimisticLockMixin
 
 Handles concurrent update conflicts.
 
-```python
-from rhosocial.activerecord.field import OptimisticLockMixin
+#### Default usage: DefaultOptimisticLockMixin
 
-class Post(OptimisticLockMixin, ActiveRecord):
-    # Automatically gets: version: int
+```python
+from rhosocial.activerecord.field import DefaultOptimisticLockMixin
+
+class Post(DefaultOptimisticLockMixin, ActiveRecord):
+    # Automatically gets: version: int (NOT NULL, ge=1, default 1)
     title: str
     pass
 
 # Usage example
 post = Post.find_one(1)
 post.title = "New Title"
-post.save()  # If other updates occurred, raises StaleObjectError
+post.save()  # If other updates occurred, raises DatabaseError
 ```
+
+#### Custom field names: OptimisticLockMixin
+
+```python
+from rhosocial.activerecord.field import OptimisticLockMixin
+from typing import Annotated
+from pydantic import Field
+from rhosocial.activerecord.base.fields import UseColumn, UseConstraint
+from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnConstraintType
+
+class Article(OptimisticLockMixin, ActiveRecord):
+    __version_field__ = "row_version"
+    __version_increment_by__ = 2   # optional, default 1
+
+    row_version: Annotated[
+        int, UseColumn("row_ver"), UseConstraint(ColumnConstraintType.NOT_NULL)
+    ] = Field(default=1, ge=1)
+    title: str
+```
+
+**How optimistic locking works**:
+
+- INSERT normalizes the version value to 1 regardless of user input
+- The UPDATE WHERE clause uses `_version_snapshot` (the last value committed to the database), so in-memory tampering cannot break the lock condition
+- The UPDATE SET clause is a column-arithmetic expression (`col = col + step`), applied after merging dirty-field data, overriding any user-assigned value
+- A user-assigned value that differs from the snapshot raises `DatabaseError` at `BEFORE_UPDATE` time
+
+**When customizing field names**:
+
+- `__version_field__`: the model's declared version field (Python field name)
+- `__version_increment_by__`: the increment applied on each UPDATE (optional, default 1)
+- The version column name follows standard `UseColumn` resolution
 
 > 💡 **AI Prompt Example**: "How do I handle multiple people editing the same article? How does optimistic locking work?"
 

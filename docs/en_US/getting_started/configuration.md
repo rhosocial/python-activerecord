@@ -200,11 +200,17 @@ print(connections)
 - Configuration can be version-controlled alongside code
 - Supports dynamic parameters for easy environment switching
 
-## Async Configuration (Preview)
+## Async Configuration
 
-While the core logic is async-ready, the current drivers are synchronous. Async driver support (e.g., `aiosqlite`) is planned for future releases.
-
-If you need async support, you can use AsyncDummyBackend to test SQL generation for async queries:
+> ⚠️ **Important: sync vs async availability depends on the backend.**
+>
+> `ActiveRecord`, `ActiveQuery`, `CTEQuery`, `SetOperationQuery` and others all have async counterparts (`AsyncActiveRecord`, `AsyncActiveQuery`, `AsyncCTEQuery`, `AsyncSetOperationQuery`) with fully symmetric APIs. But **whether you can actually use sync or async depends on the async support of the chosen backend**:
+>
+> * **SQLite**: sync works out of the box; async requires installing `aiosqlite` (`pip install rhosocial-activerecord[async]`), after which `AsyncSQLiteBackend` is available.
+> * **MySQL / PostgreSQL and other backend packages**: each backend package provides a native async driver implementation (e.g., `AsyncMySQLBackend`, `AsyncPostgresBackend`); installing the backend package is sufficient.
+> * If a backend does not provide an async implementation, only the sync API is usable (and vice versa). Consult the documentation of the backend you use to confirm its sync/async support.
+>
+> You can use `AsyncDummyBackend` to test SQL generation for async queries (no real database required):
 
 ```python
 from rhosocial.activerecord.model import AsyncActiveRecord

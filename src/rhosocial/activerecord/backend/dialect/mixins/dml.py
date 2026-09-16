@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/dml.py
+"""DML mixin for INSERT, UPDATE and DELETE statement formatting.
+
+Renders the corresponding expression trees, honoring capability switches for
+optional clauses such as RETURNING and ON CONFLICT.
+"""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
@@ -10,12 +15,164 @@ if TYPE_CHECKING:
         InsertExpression,
         UpdateExpression,
     )
+    from ...expression.statements import ReturningClause
 
 
 class DMLMixin:
-    """Mixin for DML (INSERT/UPDATE/DELETE) statement formatting."""
+    """Format INSERT, UPDATE and DELETE (DML) statements.
+
+    Optional clauses are gated by capability probes so subclasses can opt in
+    to the features their dialect supports.
+    """
+
+    def supports_returning_insert(self) -> bool:
+        """Whether RETURNING clause is supported for INSERT statements."""
+        return False
+
+    def supports_returning_update(self) -> bool:
+        """Whether RETURNING clause is supported for UPDATE statements."""
+        return False
+
+    def supports_returning_delete(self) -> bool:
+        """Whether RETURNING clause is supported for DELETE statements."""
+        return False
+
+    def supports_returning_expressions(self) -> bool:
+        """Whether non-column expressions (functions, arithmetic, CASE, ...) may
+        appear in a RETURNING clause. Optimistic default; dialects that accept
+        only column references (e.g. Oracle) override to ``False``.
+        """
+        return True
+
+    def supports_returning_alias(self) -> bool:
+        """Whether a clause-level alias (``RETURNING ... AS alias``) is
+        supported. Optimistic default; dialects that reject it (e.g. SQL Server
+        OUTPUT) override to ``False``.
+        """
+        return True
+
+    def supports_returning_wildcard(self) -> bool:
+        """Whether ``RETURNING *`` (wildcard) is supported. Optimistic default;
+        dialects that reject it override to ``False``.
+        """
+        return True
+
+    def supports_returning_single_row(self) -> bool:
+        """Whether RETURNING is inherently single-row. Default ``False``
+        (multi-row); Oracle / Firebird override to ``True``.
+        """
+        return False
+
+    def supports_returning_old_new(self) -> bool:
+        """Whether ``OLD.<col>`` / ``NEW.<col>`` references are permitted in a
+        RETURNING clause. Default ``False``; PostgreSQL 17+ overrides.
+        """
+        return False
+
+    def supports_returning_into(self) -> bool:
+        """Whether a ``RETURNING ... INTO <target>`` / ``OUTPUT ... INTO``
+        clause is supported. Default ``False``; SQL Server and Oracle override.
+        """
+        return False
+
+    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
+        """Format a RETURNING clause.
+
+        Validates the requested expressions against the dialect's capability
+        switches and raises :class:`UnsupportedFeatureError` when a requested
+        feature is not supported by the dialect.
+
+        Args:
+            clause: ReturningClause object containing expressions to return
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+
+        Raises:
+            UnsupportedFeatureError: If a requested RETURNING feature is not
+                supported by this dialect.
+        """
+        from ...expression.core import Column, Subquery, WildcardExpression
+        from ...expression.aggregates import AggregateFunctionCall
+        from ...expression.operators import RawSQLExpression
+
+        all_params: List[Any] = []
+        expr_parts: List[str] = []
+        for expr in clause.expressions:
+            if isinstance(expr, (AggregateFunctionCall, Subquery)):
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "aggregate/subquery in RETURNING",
+                    "A RETURNING clause is evaluated per row and cannot contain "
+                    "aggregate functions or subqueries.",
+                )
+            if isinstance(expr, WildcardExpression):
+                if not self.supports_returning_wildcard():
+                    raise UnsupportedFeatureError(
+                        self.name,
+                        "wildcard in RETURNING",
+                        "This dialect does not support '*' in a RETURNING clause; "
+                        "list the columns explicitly.",
+                    )
+            elif isinstance(expr, Column):
+                if expr.table and expr.table.upper() in ("OLD", "NEW"):
+                    if not self.supports_returning_old_new():
+                        raise UnsupportedFeatureError(
+                            self.name,
+                            "OLD/NEW in RETURNING",
+                            "This dialect does not support OLD/NEW row references "
+                            "in a RETURNING clause.",
+                        )
+            elif not isinstance(expr, RawSQLExpression):
+                if not self.supports_returning_expressions():
+                    raise UnsupportedFeatureError(
+                        self.name,
+                        "expressions in RETURNING",
+                        "This dialect only supports column references in a "
+                        "RETURNING clause.",
+                    )
+
+            expr_sql, expr_params = expr.to_sql()
+            expr_parts.append(expr_sql)
+            all_params.extend(expr_params)
+
+        returning_sql = f"RETURNING {', '.join(expr_parts)}"
+
+        if clause.output_into:
+            if not self.supports_returning_into():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "RETURNING ... INTO",
+                    "This dialect does not support a RETURNING/OUTPUT ... INTO target.",
+                )
+            returning_sql += f" INTO {clause.output_into}"
+
+        if clause.alias:
+            if not self.supports_returning_alias():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "alias in RETURNING",
+                    "This dialect does not support a clause-level alias on a "
+                    "RETURNING clause.",
+                )
+            returning_sql += f" AS {self.format_identifier(clause.alias)}"
+
+        return returning_sql, tuple(all_params)
 
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
+        """Format an INSERT statement.
+
+        Args:
+            expr: The InsertExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple of the statement text and its bind
+            parameters.
+
+        Raises:
+            UnsupportedFeatureError: If a RETURNING clause is requested but the
+                dialect does not support it.
+        """
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import DefaultValuesSource, ValuesSource, SelectSource
         if self.strict_validation:
@@ -70,6 +227,11 @@ class DMLMixin:
         Returns:
             Tuple of (SQL string, parameters tuple). Returns ("", ()) when no
             clauses are present.
+
+        Raises:
+            UnsupportedFeatureError: If ON CONFLICT is not supported by the
+                dialect, or if multiple clauses are given but the dialect
+                allows only one.
         """
         if not expr.on_conflict:
             return "", ()
@@ -96,6 +258,19 @@ class DMLMixin:
         return " ".join(parts), tuple(params)
 
     def format_update_statement(self, expr: "UpdateExpression") -> Tuple[str, tuple]:
+        """Format an UPDATE statement.
+
+        Args:
+            expr: The UpdateExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple of the statement text and its bind
+            parameters.
+
+        Raises:
+            UnsupportedFeatureError: If a RETURNING clause is requested but the
+                dialect does not support it.
+        """
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import QueryExpression
         all_params: List[Any] = []
@@ -113,6 +288,10 @@ class DMLMixin:
             from_params: List[Any] = []
 
             def _fmt_from(source):
+                """Render a single FROM source and return ``(sql, params)``.
+
+                Handles raw table names, subqueries, and general expressions.
+                """
                 if isinstance(source, str):
                     return self.format_identifier(source), []
                 if isinstance(source, QueryExpression):
@@ -151,6 +330,19 @@ class DMLMixin:
         return current_sql, tuple(all_params)
 
     def format_delete_statement(self, expr: "DeleteExpression") -> Tuple[str, tuple]:
+        """Format a DELETE statement.
+
+        Args:
+            expr: The DeleteExpression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple of the statement text and its bind
+            parameters.
+
+        Raises:
+            UnsupportedFeatureError: If a RETURNING clause is requested but the
+                dialect does not support it.
+        """
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import QueryExpression
         if self.strict_validation:
@@ -167,6 +359,11 @@ class DMLMixin:
             using_params: List[Any] = []
 
             def _fmt_using(source):
+                """Render a single USING source and return ``(sql, params)``.
+
+                Handles raw names, subqueries, general expressions, and other
+                values (stringified as a fallback).
+                """
                 if isinstance(source, str):
                     return self.format_identifier(source), []
                 if isinstance(source, QueryExpression):

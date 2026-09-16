@@ -10,6 +10,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class CreateSchemaExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_schema_statement"
     """
     Represents a CREATE SCHEMA statement.
 
@@ -56,11 +61,18 @@ class CreateSchemaExpression(BaseExpression):
         self.authorization = authorization
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_create_schema_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_schema_statement"
 
 
 class DropSchemaExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_schema_statement"
     """
     Represents a DROP SCHEMA statement.
 
@@ -101,5 +113,7 @@ class DropSchemaExpression(BaseExpression):
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_drop_schema_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_schema_statement"

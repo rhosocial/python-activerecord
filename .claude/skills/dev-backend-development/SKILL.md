@@ -51,6 +51,75 @@ Mirror current reference implementations where practical; `expression/` and `fun
 
 Use **absolute imports** for expressions from core/other backends; avoid deep relative imports.
 
+## DDL Mixin Conventions
+
+### File Naming
+
+DDL mixin files **must** use the `ddl_` prefix to distinguish them from other mixins:
+
+| Core Mixin | File Name | Backend Override |
+|------------|-----------|------------------|
+| `ViewMixin` | `ddl_view.py` | `{Backend}ViewMixin` |
+| `DatabaseMixin` | `ddl_database.py` | `{Backend}DatabaseMixin` |
+| `DDLColumnMixin` | `ddl_column.py` | `{Backend}DDLColumnMixin` |
+| `TableMixin` | `ddl_table.py` | `{Backend}TableMixin` |
+| `SchemaMixin` | `ddl_schema.py` | `{Backend}SchemaMixin` |
+| `IndexMixin` | `ddl_index.py` | `{Backend}IndexMixin` |
+| `SequenceMixin` | `ddl_sequence.py` | `{Backend}SequenceMixin` |
+
+> **Exception**: `TriggerMixin` and `FunctionMixin` do not use `ddl_` prefix (historical reasons).
+
+### Backend File Renaming Workflow
+
+When core renames a DDL mixin file, **all backends must同步执行**:
+
+1. Rename the backend mixin file to match core naming
+2. Update `mixins/__init__.py` import statement
+3. Update any other files that import the renamed mixin
+4. Commit with the same message pattern as core
+
+```bash
+# Example: core renames view.py -> ddl_view.py
+# Each backend must:
+mv src/.../mixins/view.py src/.../mixins/ddl_view.py
+# Edit mixins/__init__.py:
+#   from .view import XxxViewMixin  ->  from .ddl_view import XxxViewMixin
+```
+
+### DummyDialect Update Rule
+
+When core adds new `supports_*()` capability methods to any mixin, **DummyDialect must be updated** to return `True` for those methods. This ensures:
+
+- Existing tests continue to pass
+- New capability methods are properly tested via DummyDialect
+
+```python
+# In DummyDialect, add after the mixin's capability methods:
+def supports_new_feature(self) -> bool:
+    return True
+```
+
+### UnsupportedFeatureError Pattern
+
+When a DDL feature is not supported by a backend, **must raise `UnsupportedFeatureError`** instead of silently skipping:
+
+```python
+# WRONG - silent skip (forbidden)
+if expr.if_not_exists and self.supports_if_not_exists():
+    parts.append("IF NOT EXISTS")
+
+# CORRECT - raise error
+if expr.if_not_exists:
+    if not self.supports_if_not_exists():
+        raise UnsupportedFeatureError(
+            self.name, "IF NOT EXISTS",
+            f"{self.name} does not support CREATE TABLE IF NOT EXISTS."
+        )
+    parts.append("IF NOT EXISTS")
+```
+
+This ensures users get clear error messages when attempting unsupported operations, rather than silent behavioral differences.
+
 ## StorageBackend Interface
 
 Implement every abstract method:
@@ -93,6 +162,134 @@ class MyDatabaseConfig(BaseConfig):
 - Adding a protocol: SQL-standard features go in the main package; dialect-specific features in
   the extension dialect; update `DummyDialect`; add tests. See `dev-expression-dialect` for the
   full protocol/mixin table and workflow.
+
+### Generic vs Concrete Expression Placement
+
+Decide whether an expression/protocol belongs in the **generic (core) layer** or a **specific
+backend** by the *breadth* of its base — with the goal that the generic layer implements as much
+as possible, to minimise backend work:
+
+1. **Broad base → generic layer.** Feature exists with standard semantics across many databases:
+   add a `XxxSupport` protocol + `XxxMixin` generic implementation + `supports_xxx()`. Backends
+   compose the pair and inherit the behaviour; override only where their real capability differs.
+2. **No broad base → implement per-backend, prefixed with the backend name** (e.g.
+   `MySQLRangePartition`, `PostgresRangePartition`, `OracleListPartition`). Core provides at most
+   an empty marker base; each backend claims its own via `build_spec`/`isinstance`.
+3. **Generic implementation doesn't fit → override.** A backend overrides the affected
+   method(s) when the generic behaviour doesn't satisfy its needs (Override Discipline,
+   Generic-First). Overriding is the correctness escape hatch, not a reason to avoid lifting
+   broadly-shared features to the core.
+
+### Backend Boundary Rule
+
+**The backend is a consumer contract, not a servant of ActiveRecord.** ActiveRecord is a *user*
+of the backend; the backend knows **nothing** about ActiveRecord and must never be written to
+accommodate it. A backend (its dialect, expressions, protocols) describes **generic SQL and the
+concrete capabilities of the database it wraps** — never the features of the ActiveRecord layer.
+Therefore ActiveRecord adapts to the backend: it uses whatever the backend provides, and nothing
+more. When ActiveRecord needs a feature that requires backend cooperation, negotiate it as a
+**protocol/interface contract** on the backend's generic terms — do not change backend design to
+suit ActiveRecord.
+
+Forbidden (all absolutely wrong):
+- Adding ActiveRecord-serving dialect helpers (e.g. `ddl_inline`, `inline_params`) or any
+  parameter-inlining / SQL-rewriting machinery that exists only to support an ActiveRecord
+  feature.
+- Making the dialect/backend infer intent from **string characteristics** (regex matches,
+  prefix/suffix checks, statement-type sniffing from leading keywords, etc.).
+
+### The Only Expression Semantics Are `to_sql()` and `dialect.format_*()`
+
+The expression layer exposes exactly two kinds of semantic entry points and nothing else:
+
+1. **`to_sql()`** — the single method on every expression/predicate/statement object.
+2. **`dialect.format_*()`** — the single family of formatting functions on the dialect.
+
+**IRON RULE — `to_sql()` accepts NO parameters. Absolutely never.** `to_sql()` is a *terminal*
+method: every value it needs was already collected when the expression was **instantiated**. The
+signature is fixed by `ToSQLProtocol` as `to_sql(self) -> SQLQueryAndParams` and **never takes
+arguments of any kind** — no `to_sql(inline_literals=...)`, no keyword arguments, no rendering
+options. Violating this is a protocol violation and is unacceptable.
+
+**IRON RULE — `format_*()` formatting functions accept expression-class instances only, never
+additional formatting parameters.** A formatting function receives the expression/predicate it
+must render (and the dialect), and nothing else. There is no `format_*(..., inline_literals=...)`,
+no rendering flags, no per-call formatting options on the formatting function either.
+
+**Consequence — every formatting choice is a construction-time (factory) choice.** If an output
+format must differ (e.g. a `Literal` inside a DDL clause that accepts no bind parameters must be
+rendered as inline SQL text rather than a placeholder), that choice is **captured when the
+expression is instantiated** — the expression class collects it as a constructor parameter and
+carries it, so both `to_sql()` and `format_*()` are pure reads of already-collected state.
+
+**No other semantic methods are permitted.** In particular, **`render*()` methods,
+`to_sql_inline()` / `to_sql_inline_literals()` and any other "variant rendering" entry points are
+absolutely forbidden.** There is exactly one `to_sql()` and exactly one `format_*` per concern.
+
+If a render-time choice appears necessary, the expression was constructed wrong: the choice
+belongs at **construction** time, never in `to_sql()` and never as a formatting-function parameter.
+
+**Why / harm:** `to_sql()` and `format_*()` are the *only* negotiated seams of the whole
+expression/dialect system; the entire ecosystem is built on them being stable and compositional.
+Adding a parameter to `to_sql()` or a render-time option to `format_*()` ripples through every
+expression class, every dialect, and every call site at once — a single protocol change that
+breaks all backends simultaneously. Render-time switches also make output depend on *how*
+something is called rather than *what it is*, so the same expression renders differently in
+different places — the system stops being deterministic and auditable.
+
+### No Private Functions in Backend Protocol / Implementation — Everything Is Transparent
+
+Backend protocol and implementations need **no private helper functions**. All behaviour is
+reachable through the public surface (`to_sql()` on expressions; `format_*()`/`supports_*()` on
+the dialect; expression/statement classes; type adapters). **If you feel the urge to add a private
+function, you are doing something wrong — stop.** A private helper either re-implements/pre-empts
+public protocol behaviour (a protocol leak that bypasses the negotiated, backend-overridable
+interface) or hides a design gap behind an unexposed shortcut; the fix belongs in the public
+protocol or in construction, never in a private helper.
+
+**Why / harm:** a private render helper silently forks behaviour — core renders one way, a backend
+unaware of the helper renders another, no protocol test catches the divergence. It becomes a
+hidden second protocol; later work duplicates it (drift) or "fixes" it per-backend
+(fragmentation). The urge to add a private function is a reliable signal the public protocol is
+missing a deliberate capability — hiding it guarantees the gap festers.
+
+### Backend Protocol Changes Require Extreme Restraint, Deep Deliberation, Broad Research
+
+The backend protocol is a **shared contract implicated across every backend** (core + all
+extension backends). Changing any part of it is a large, cross-cutting project. **Before touching
+backend protocol: (1) broadly research every backend's implementation/tests and validate against
+real servers; (2) deliberate — ensure the change is minimal, generic, and composes with every
+existing `format_*()`/`supports_*()`/expression contract; (3) negotiate, then implement across
+the generic layer and every backend together, keeping behaviour identical everywhere.**
+
+**Why / harm:** the protocol is the system's nervous system — every backend dials into the same
+seams. A hasty protocol change (e.g. inventing a new render helper, parameterizing
+`to_sql()`/`format_*()`) commits every backend to behaviour that was never surveyed; backends
+drift as each "fixes" it differently; the shared contract fractures and forces costly retrofits.
+**This is exactly what repeatedly poisoned
+the abandoned DDL-derivation work** (`ddl_inline`, `inline_params`, string-sniffing, invented
+render helpers) — each was a protocol shortcut with catastrophic cross-backend cost.
+
+### Formatting Is Pure Concatenation — Never Touch or Scan the SQL String
+
+Backend expressions and formatting functions build SQL by **simple concatenation** of fragments:
+identifiers (via `format_identifier`), literal atoms (via `format_literal`), placeholders, and
+pre-rendered sub-fragment SQL. They **must never inspect, parse, scan, or rewrite the SQL string
+itself** — no `startswith`/`endswith`/`in` checks on generated SQL, no regex matching, no
+character-by-character scanning, no quote-state machines, no post-hoc placeholder substitution.
+
+**Why / harm:** generated SQL is the *output* of formatting, not its input — logic that reads it
+is a second, unreliable parse of data the formatter already had as typed values. String scanning
+of SQL is also an injection surface: a mismatch between scanner assumptions and real dialect
+syntax silently corrupts the statement.
+
+**The single exception — inline-literal resolution.** When a statement
+(`requires_inline_literals() == True`, trusted developer-declared DDL) renders literal values
+inline, the dialect's `format_literal` produces **escaped, quoted atoms** concatenated directly
+during formatting — no re-scanning of the assembled SQL. Because this exception splices raw
+values into SQL text, it is a **SQL-injection hazard by nature**: developers must be highly
+alert that inline content is trusted-only and never reachable by end users, and the inline
+switch must default to `False` (bind parameters).
 
 ## Type Adaptation
 

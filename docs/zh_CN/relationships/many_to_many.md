@@ -17,16 +17,16 @@
 from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import BelongsTo
-from rhosocial.activerecord.field import TimestampMixin
+from rhosocial.activerecord.field import DefaultTimestampMixin
 
 # PostTag类代表文章和标签之间的关联关系
-# 继承TimestampMixin自动添加创建时间字段
-class PostTag(TimestampMixin, ActiveRecord):
+# 继承DefaultTimestampMixin自动添加创建时间字段
+class PostTag(DefaultTimestampMixin, ActiveRecord):
     # 外键字段，关联到Post表的id字段
     post_id: str
     # 外键字段，关联到Tag表的id字段
     tag_id: str
-    # 额外信息：打标签的时间（从TimestampMixin继承）
+    # 额外信息：打标签的时间（从DefaultTimestampMixin继承）
     # created_at: datetime  # 自动添加的时间戳字段
     
     # 定义到Post的从属关系

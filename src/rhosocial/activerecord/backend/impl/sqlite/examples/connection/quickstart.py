@@ -54,20 +54,20 @@ def create_demo_tables():
         dialect=dialect,
         table="users",
         columns=[
-            ColumnDefinition(
+            ColumnDefinition(dialect, 
                 "id",
                 IntegerType(),
                 constraints=[
-                    ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                    ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                    ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
                 ],
             ),
-            ColumnDefinition(
+            ColumnDefinition(dialect, 
                 "name",
                 TextType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
+                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
             ),
-            ColumnDefinition("status", TextType()),
+            ColumnDefinition(dialect, "status", TextType()),
         ],
         if_not_exists=True,
     )
@@ -77,18 +77,18 @@ def create_demo_tables():
         dialect=dialect,
         table="logs",
         columns=[
-            ColumnDefinition(
+            ColumnDefinition(dialect, 
                 "id",
                 IntegerType(),
                 constraints=[
-                    ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-                    ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+                    ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
                 ],
             ),
-            ColumnDefinition(
+            ColumnDefinition(dialect, 
                 "message",
                 TextType(),
-                constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],
+                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
             ),
         ],
         if_not_exists=True,

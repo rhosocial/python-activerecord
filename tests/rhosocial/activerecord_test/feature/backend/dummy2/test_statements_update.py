@@ -8,7 +8,7 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     TableExpression,
     UpdateExpression,
-    JoinExpression,
+    JoinClause,
     LogicalPredicate,
     ReturningClause,
 )
@@ -217,7 +217,7 @@ class TestUpdateStatements:
                 id="from_list_of_tables",
             ),
             pytest.param(
-                JoinExpression(
+                JoinClause(
                     None,
                     TableExpression(None, "user_data", alias="ud"),
                     TableExpression(None, "users", alias="u"),
@@ -303,8 +303,8 @@ class TestUpdateStatements:
                         set_dialect_recursive(expr.from_, dialect)
                 set_dialect_recursive(expr.where, dialect)
 
-            # Specific for JoinExpression
-            if isinstance(expr, JoinExpression):
+            # Specific for JoinClause
+            if isinstance(expr, JoinClause):
                 set_dialect_recursive(expr.left_table, dialect)
                 set_dialect_recursive(expr.right_table, dialect)
                 set_dialect_recursive(expr.condition, dialect)
@@ -480,7 +480,7 @@ class TestUpdateStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>",  # noqa: E501
         ):
             update_expr.validate(strict=True)
 
@@ -552,7 +552,7 @@ class TestUpdateStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*MockInvalidType'>",  # noqa: E501
+            match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*MockInvalidType'>",  # noqa: E501
         ):
             update_expr.validate(strict=True)
 

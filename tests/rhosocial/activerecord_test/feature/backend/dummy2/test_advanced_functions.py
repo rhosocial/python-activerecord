@@ -82,16 +82,16 @@ class TestCastExpression:
     def test_cast_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic CAST expression functionality."""
         col = Column(dummy_dialect, "id")
-        col.cast("INTEGER")
-        sql, params = col.to_sql()
+        expr = col.cast("INTEGER")
+        sql, params = expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
 
     def test_cast_expression_with_literal(self, dummy_dialect: DummyDialect):
         """Test CAST expression with literal value."""
         literal = Literal(dummy_dialect, "123")
-        literal.cast("INTEGER")
-        sql, params = literal.to_sql()
+        expr = literal.cast("INTEGER")
+        sql, params = expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
         assert params == ("123",)

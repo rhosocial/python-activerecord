@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/xml.py
+"""SQL/XML expression formatting for the dialect layer.
+
+Provides capability probes and SQL rendering for the SQL/XML standard,
+covering parsing, serialization, construction, aggregation, and querying.
+"""
 import re
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
@@ -25,17 +30,31 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class SQLXMLParsingMixin:
-    """Mixin for SQL/XML parsing support."""
+    """Mixin providing SQL/XML XMLPARSE support."""
 
     def supports_xmlparse(self) -> bool:
-        """Whether SQL/XML XMLPARSE is supported."""
+        """Whether SQL/XML XMLPARSE is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def format_xmlparse_expression(
         self,
         expr: "XMLParseExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLPARSE expression."""
+        """Format a SQL/XML XMLPARSE expression.
+
+        Args:
+            expr: XMLParseExpression exposing ``content``, ``document_type``,
+                and ``whitespace_option``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLPARSE is unsupported.
+        """
         if not self.supports_xmlparse():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLPARSE")
         content_sql, params = expr.content.to_sql()
@@ -46,17 +65,33 @@ class SQLXMLParsingMixin:
 
 
 class SQLXMLSerializationMixin:
-    """Mixin for SQL/XML serialization support."""
+    """Mixin providing SQL/XML XMLSERIALIZE support."""
 
     def supports_xmlserialize(self) -> bool:
-        """Whether SQL/XML XMLSERIALIZE is supported."""
+        """Whether SQL/XML XMLSERIALIZE is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def format_xmlserialize_expression(
         self,
         expr: "XMLSerializeExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLSERIALIZE expression."""
+        """Format a SQL/XML XMLSERIALIZE expression.
+
+        Args:
+            expr: XMLSerializeExpression exposing ``content``,
+                ``document_type``, ``target_type``, and
+                ``whitespace_option``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLSERIALIZE is unsupported.
+            ValueError: If ``target_type`` is not a valid data type.
+        """
         if not self.supports_xmlserialize():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLSERIALIZE")
         if not self._validate_data_type(expr.target_type):
@@ -69,40 +104,75 @@ class SQLXMLSerializationMixin:
 
 
 class SQLXMLConstructionMixin:
-    """Mixin for SQL/XML construction support."""
+    """Mixin providing SQL/XML construction support.
+
+    Covers XMLELEMENT, XMLATTRIBUTES, XMLFOREST, XMLCONCAT, XMLCOMMENT,
+    XMLPI, and XMLROOT.
+    """
 
     _XML_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.:-]*$")
 
     def supports_xmlelement(self) -> bool:
-        """Whether SQL/XML XMLELEMENT is supported."""
+        """Whether SQL/XML XMLELEMENT is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_xmlattributes(self) -> bool:
-        """Whether SQL/XML XMLATTRIBUTES is supported."""
+        """Whether SQL/XML XMLATTRIBUTES is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_xmlforest(self) -> bool:
-        """Whether SQL/XML XMLFOREST is supported."""
+        """Whether SQL/XML XMLFOREST is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_xmlconcat(self) -> bool:
-        """Whether SQL/XML XMLCONCAT is supported."""
+        """Whether SQL/XML XMLCONCAT is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_xmlcomment(self) -> bool:
-        """Whether SQL/XML XMLCOMMENT is supported."""
+        """Whether SQL/XML XMLCOMMENT is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_xmlpi(self) -> bool:
-        """Whether SQL/XML XMLPI is supported."""
+        """Whether SQL/XML XMLPI is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_xmlroot(self) -> bool:
-        """Whether SQL/XML XMLROOT is supported."""
+        """Whether SQL/XML XMLROOT is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def format_xml_name(self, name: str) -> str:
-        """Validate and format an SQL/XML name token."""
+        """Validate and format an SQL/XML name token.
+
+        Args:
+            name: Name token to validate.
+
+        Returns:
+            The validated name unchanged.
+
+        Raises:
+            ValueError: If the name is not a valid SQL/XML identifier.
+        """
         if not self._XML_NAME_PATTERN.fullmatch(name):
             raise ValueError(f"Invalid SQL/XML name: {name}")
         return name
@@ -111,7 +181,17 @@ class SQLXMLConstructionMixin:
         self,
         expr: "XMLAttributesExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLATTRIBUTES clause."""
+        """Format a SQL/XML XMLATTRIBUTES clause.
+
+        Args:
+            expr: XMLAttributesExpression exposing ``attributes``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLATTRIBUTES is unsupported.
+        """
         if not self.supports_xmlattributes():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLATTRIBUTES")
         parts = []
@@ -129,7 +209,18 @@ class SQLXMLConstructionMixin:
         self,
         expr: "XMLElementExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLELEMENT expression."""
+        """Format a SQL/XML XMLELEMENT expression.
+
+        Args:
+            expr: XMLElementExpression exposing ``name``, ``attributes``,
+                and ``content``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLELEMENT is unsupported.
+        """
         if not self.supports_xmlelement():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLELEMENT")
         parts = [f"NAME {self.format_xml_name(expr.name)}"]
@@ -148,7 +239,17 @@ class SQLXMLConstructionMixin:
         self,
         expr: "XMLForestExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLFOREST expression."""
+        """Format a SQL/XML XMLFOREST expression.
+
+        Args:
+            expr: XMLForestExpression exposing ``items``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLFOREST is unsupported.
+        """
         if not self.supports_xmlforest():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLFOREST")
         parts = []
@@ -166,7 +267,17 @@ class SQLXMLConstructionMixin:
         self,
         expr: "XMLConcatExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLCONCAT expression."""
+        """Format a SQL/XML XMLCONCAT expression.
+
+        Args:
+            expr: XMLConcatExpression exposing ``parts``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLCONCAT is unsupported.
+        """
         if not self.supports_xmlconcat():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLCONCAT")
         parts = []
@@ -181,14 +292,34 @@ class SQLXMLConstructionMixin:
         self,
         expr: "XMLCommentExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLCOMMENT expression."""
+        """Format a SQL/XML XMLCOMMENT expression.
+
+        Args:
+            expr: XMLCommentExpression exposing ``content``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLCOMMENT is unsupported.
+        """
         if not self.supports_xmlcomment():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLCOMMENT")
         content_sql, params = expr.content.to_sql()
         return f"XMLCOMMENT({content_sql})", params
 
     def format_xmlpi_expression(self, expr: "XMLPIExpression") -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLPI expression."""
+        """Format a SQL/XML XMLPI expression.
+
+        Args:
+            expr: XMLPIExpression exposing ``target`` and ``content``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLPI is unsupported.
+        """
         if not self.supports_xmlpi():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLPI")
         sql = f"XMLPI(NAME {self.format_xml_name(expr.target)}"
@@ -201,7 +332,18 @@ class SQLXMLConstructionMixin:
         self,
         expr: "XMLRootExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLROOT expression."""
+        """Format a SQL/XML XMLROOT expression.
+
+        Args:
+            expr: XMLRootExpression exposing ``content``, ``version``, and
+                ``standalone``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLROOT is unsupported.
+        """
         if not self.supports_xmlroot():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLROOT")
         content_sql, all_params = expr.content.to_sql()
@@ -217,14 +359,27 @@ class SQLXMLConstructionMixin:
 
 
 class SQLXMLAggregationMixin:
-    """Mixin for SQL/XML aggregation support."""
+    """Mixin providing SQL/XML aggregation support (XMLAGG)."""
 
     def supports_xmlagg(self) -> bool:
-        """Whether SQL/XML XMLAGG is supported."""
+        """Whether SQL/XML XMLAGG is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def format_xmlagg_expression(self, expr: "XMLAggExpression") -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLAGG expression."""
+        """Format a SQL/XML XMLAGG expression.
+
+        Args:
+            expr: XMLAggExpression exposing ``expression`` and ``order_by``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLAGG is unsupported.
+        """
         if not self.supports_xmlagg():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLAGG")
         expression_sql, params = expr.expression.to_sql()
@@ -238,18 +393,30 @@ class SQLXMLAggregationMixin:
 
 
 class SQLXMLQueryingMixin:
-    """Mixin for SQL/XML querying support."""
+    """Mixin providing SQL/XML querying support.
+
+    Covers XMLQUERY, XMLEXISTS, and XMLTABLE.
+    """
 
     def supports_xmlquery(self) -> bool:
-        """Whether SQL/XML XMLQUERY is supported."""
+        """Whether SQL/XML XMLQUERY is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_xmlexists(self) -> bool:
-        """Whether SQL/XML XMLEXISTS is supported."""
+        """Whether SQL/XML XMLEXISTS is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def supports_xmltable(self) -> bool:
-        """Whether SQL/XML XMLTABLE is supported."""
+        """Whether SQL/XML XMLTABLE is supported.
+
+        Defaults to False; dialects that support it override this.
+        """
         return False
 
     def _format_xml_passing_clause(
@@ -257,6 +424,16 @@ class SQLXMLQueryingMixin:
         expressions: List["BaseExpression"],
         mechanism: Optional["XMLPassingMechanism"] = None,
     ) -> Tuple[str, tuple]:
+        """Format a SQL/XML PASSING clause.
+
+        Args:
+            expressions: Expressions to pass to the XML function.
+            mechanism: Optional passing mechanism value.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple); empty when no
+            expressions are supplied.
+        """
         if not expressions:
             return "", ()
         all_params = []
@@ -274,7 +451,19 @@ class SQLXMLQueryingMixin:
         self,
         expr: "XMLQueryExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLQUERY expression."""
+        """Format a SQL/XML XMLQUERY expression.
+
+        Args:
+            expr: XMLQueryExpression exposing ``query``, ``passing``,
+                ``passing_mechanism``, ``returning_content``, and
+                ``empty_handling``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLQUERY is unsupported.
+        """
         if not self.supports_xmlquery():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLQUERY")
         query_sql, query_params = expr.query.to_sql()
@@ -297,7 +486,18 @@ class SQLXMLQueryingMixin:
         self,
         expr: "XMLExistsExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLEXISTS predicate."""
+        """Format a SQL/XML XMLEXISTS predicate.
+
+        Args:
+            expr: XMLExistsExpression exposing ``query``, ``passing``, and
+                ``passing_mechanism``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLEXISTS is unsupported.
+        """
         if not self.supports_xmlexists():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLEXISTS")
         query_sql, query_params = expr.query.to_sql()
@@ -316,7 +516,19 @@ class SQLXMLQueryingMixin:
         self,
         expr: "XMLTableExpression",
     ) -> Tuple[str, tuple]:
-        """Format a SQL/XML XMLTABLE expression."""
+        """Format a SQL/XML XMLTABLE expression.
+
+        Args:
+            expr: XMLTableExpression exposing ``row_pattern``, ``passing``,
+                ``passing_mechanism``, and ``columns``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If XMLTABLE is unsupported.
+            ValueError: If a column data type is invalid.
+        """
         if not self.supports_xmltable():
             raise UnsupportedFeatureError(self.name, "SQL/XML XMLTABLE")
         row_sql, row_params = expr.row_pattern.to_sql()
@@ -354,4 +566,4 @@ class SQLXMLMixin(
     SQLXMLAggregationMixin,
     SQLXMLQueryingMixin,
 ):
-    """Mixin for complete SQL/XML standard support."""
+    """Mixin combining all SQL/XML standard capability mixins."""

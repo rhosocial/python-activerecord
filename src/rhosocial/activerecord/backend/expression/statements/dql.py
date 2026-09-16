@@ -173,7 +173,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                    When using multiple sources, you can either:
                    1. Pass a list of expressions (equivalent to comma-separated tables in
                       FROM clause, creates implicit CROSS JOIN)
-                   2. Use JoinExpression to explicitly define join conditions between tables
+                   2. Use JoinClause to explicitly define join conditions between tables
             where: WHERE clause object with the filtering condition (optional).
             group_by_having: Combined GROUP BY/HAVING clause object (optional). Handles validation
                            that HAVING requires GROUP BY within the clause object.
@@ -244,7 +244,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
             # Check if it's one of the valid types: basic types or specific expression classes
             return isinstance(item, (str, TableExpression, Subquery)) or type(item).__name__ in [
                 "SetOperationExpression",
-                "JoinExpression",
+                "JoinClause",
                 "ValuesExpression",
                 "TableFunctionExpression",
                 "LateralExpression",
@@ -258,7 +258,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                     if not _is_valid_from_source(item):
                         raise TypeError(
                             f"from_ list item at index {i} must be one of: str, TableExpression, "
-                            f"Subquery, SetOperationExpression, JoinExpression, ValuesExpression, "
+                            f"Subquery, SetOperationExpression, JoinClause, ValuesExpression, "
                             f"TableFunctionExpression, LateralExpression, GraphTableExpression, "
                             f"got {type(item)}"
                         )
@@ -267,7 +267,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                 if not _is_valid_from_source(self.from_):
                     raise TypeError(
                         f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, "
-                        f"JoinExpression, list, ValuesExpression, TableFunctionExpression, "
+                        f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, GraphTableExpression, got {type(self.from_)}"
                     )
 
@@ -304,20 +304,10 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         """Return the statement type for this query expression."""
         return StatementType.DQL
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        """
-        Generate the SQL string and parameters for this query expression.
-
-        This method delegates the SQL generation to the configured dialect, allowing for
-        database-specific variations in syntax and feature support. The generated SQL
-        follows the structure: SELECT ... FROM ... WHERE ... GROUP BY ... HAVING ... etc.
-
-        Returns:
-            A tuple containing:
-            - str: The complete SQL query string
-            - tuple: The parameter values for prepared statement execution
-        """
-        return self.dialect.format_query_statement(self)
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_query_statement"
 
 
 # endregion Query Statement

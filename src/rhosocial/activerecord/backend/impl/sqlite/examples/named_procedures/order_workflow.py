@@ -42,8 +42,8 @@ def _column(name: str, type_name: str):
     data_type = IntegerType() if type_name == "INTEGER" else TextType()
     constraints = []
     if "PRIMARY KEY" in type_name:
-        constraints.append(ColumnConstraint(constraint_type=ColumnConstraintType.PRIMARY_KEY))
-    return ColumnDefinition(name=name, data_type=data_type, constraints=constraints)
+        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY))
+    return ColumnDefinition(dialect, name=name, data_type=data_type, constraints=constraints)
 
 
 tables = [

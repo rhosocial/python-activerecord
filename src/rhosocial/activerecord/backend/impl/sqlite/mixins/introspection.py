@@ -242,7 +242,7 @@ class SQLiteIntrospectionCapabilityMixin:
         table_name = params.get("table_name", "")
         schema = params.get("schema") or "main"
 
-        sql = f"SELECT name, type, sql FROM {schema}.sqlite_master WHERE name = ?"
+        sql = f"SELECT name, type, sql FROM {schema}.sqlite_master WHERE name = {self.p()}"
         return (sql, (table_name,))
 
     def format_column_info_query(self, expr: "ColumnInfoExpression") -> Tuple[str, tuple]:
@@ -345,7 +345,7 @@ class SQLiteIntrospectionCapabilityMixin:
         view_name = params.get("view_name", "")
         schema = params.get("schema") or "main"
 
-        sql = f"SELECT name, sql FROM {schema}.sqlite_master WHERE type = 'view' AND name = ?"
+        sql = f"SELECT name, sql FROM {schema}.sqlite_master WHERE type = 'view' AND name = {self.p()}"
         return (sql, (view_name,))
 
     def format_trigger_list_query(self, expr: "TriggerListExpression") -> Tuple[str, tuple]:  # noqa: F821
@@ -365,7 +365,7 @@ class SQLiteIntrospectionCapabilityMixin:
 
         sql = f"SELECT name, tbl_name, sql FROM {schema}.sqlite_master WHERE type = 'trigger'"
         if table_name:
-            sql += " AND tbl_name = ?"
+            sql += f" AND tbl_name = {self.p()}"
             return (sql, (table_name,))
 
         sql += " ORDER BY name"
@@ -386,6 +386,6 @@ class SQLiteIntrospectionCapabilityMixin:
         trigger_name = params.get("trigger_name", "")
         schema = params.get("schema") or "main"
 
-        sql = f"SELECT name, tbl_name, sql FROM {schema}.sqlite_master WHERE type = 'trigger' AND name = ?"
+        sql = f"SELECT name, tbl_name, sql FROM {schema}.sqlite_master WHERE type = 'trigger' AND name = {self.p()}"
         return (sql, (trigger_name,))
 

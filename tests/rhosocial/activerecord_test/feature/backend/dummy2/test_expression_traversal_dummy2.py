@@ -46,8 +46,8 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     WhereClause,
     OrderByClause,
     LimitOffsetClause,
-    GroupingExpression,
-    JoinExpression,
+    GroupingClause,
+    JoinClause,
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
     SetOperationExpression,
@@ -184,13 +184,13 @@ EXPRESSION_TEST_CASES = [
     ),
     dict(name="LimitOffsetClause", cls=LimitOffsetClause, params_func=lambda d: dict(dialect=d, limit=10, offset=0)),
     dict(
-        name="GroupingExpression",
-        cls=GroupingExpression,
+        name="GroupingClause",
+        cls=GroupingClause,
         params_func=lambda d: dict(dialect=d, operation="GROUP BY", expressions=[Column(d, "dept")]),
     ),
     dict(
-        name="JoinExpression",
-        cls=JoinExpression,
+        name="JoinClause",
+        cls=JoinClause,
         params_func=lambda d: dict(
             dialect=d,
             left_table="users",

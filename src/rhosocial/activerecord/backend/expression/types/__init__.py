@@ -39,7 +39,7 @@ Usage::
     >>> from rhosocial.activerecord.backend.expression.types import (
     ...     IntegerType, VarCharType, DecimalType, BooleanType
     ... )
-    >>> col_def = ColumnDefinition("id", IntegerType())
+    >>> col_def = ColumnDefinition(dialect, "id", IntegerType())
     >>> col_def.data_type.to_sql(dialect)
     ('INTEGER', ())
 """
@@ -47,11 +47,12 @@ Usage::
 from ._base import DataType
 from .array import ArrayType
 from .custom import CustomType
+from .enum_ import EnumType
 from .integer import TinyIntType, SmallIntType, IntType, IntegerType, BigIntType
 from .numeric import FloatType, RealType, DoubleType, DecimalType
 from .string import CharType, VarCharType, TextType
 from .boolean import BooleanType
-from .binary import BlobType
+from .binary import BinaryType, BlobType, VarBinaryType
 from .datetime_ import (
     DateType,
     TimeType,
@@ -61,6 +62,7 @@ from .datetime_ import (
     TimestampTzType,
     IntervalType,
 )
+from .uuid_ import UUIDType
 from .json_ import JsonType, JsonBType
 
 __all__ = [
@@ -87,6 +89,10 @@ __all__ = [
     "BooleanType",
     # binary
     "BlobType",
+    "BinaryType",
+    "VarBinaryType",
+    # enum
+    "EnumType",
     # datetime
     "DateType",
     "TimeType",

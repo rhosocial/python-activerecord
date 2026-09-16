@@ -3,7 +3,7 @@
 Literal identifiers in SQL expressions.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from .bases import SQLQueryAndParams, SQLValueExpression
 from .mixins import ComparisonMixin
 
@@ -12,17 +12,29 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class Identifier(ComparisonMixin, SQLValueExpression):
-    """
-    Represents a generic SQL identifier (e.g., table name, column name, alias).
-    It is comparable but generally not used in arithmetic.
+    """Represents a generic SQL identifier (e.g., table name, column name, alias).
+
+    Per-role quoting fields (all default to ``True``):
+    - ``name_need_quote`` ↔ ``name``
+    - ``alias_need_quote`` ↔ ``alias``
     """
 
-    def __init__(self, dialect: "SQLDialectBase", name: str):
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        name: str,
+        name_need_quote: bool = True,
+        alias_need_quote: bool = True,
+    ):
         super().__init__(dialect)
+        self.name_need_quote = name_need_quote
+        self.alias_need_quote = alias_need_quote
         self.name = name
 
-    def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_identifier(self.name), ()
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_identifier_expression"
 
     def __repr__(self) -> str:
         return f"Identifier({self.name!r})"

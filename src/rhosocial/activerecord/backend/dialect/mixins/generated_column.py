@@ -1,4 +1,7 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/generated_column.py
+"""Generated (computed) column capability probes."""
+
+
 class GeneratedColumnMixin:
     """Mixin for generated column (computed column) support."""
 

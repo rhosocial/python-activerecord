@@ -19,6 +19,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5HighlightExpression,
     SQLiteFTS5SnippetExpression,
     SQLiteMatchPredicate,
+    DropVirtualTableExpression,
 )
 from rhosocial.activerecord.backend.impl.sqlite.protocols import (
     SQLiteFTS5Support,
@@ -653,8 +654,7 @@ class TestFTS5Scenario:
         rows = backend.fetch_all("SELECT name FROM sqlite_master WHERE name='tmp'")
         assert len(rows) == 1
 
-        dialect.format_drop_virtual_table("tmp")
-        drop_sql, _ = dialect.format_drop_virtual_table("tmp")
+        drop_sql, _ = DropVirtualTableExpression(dialect, table_name="tmp").to_sql()
         backend.execute(drop_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
         rows = backend.fetch_all("SELECT name FROM sqlite_master WHERE name='tmp'")

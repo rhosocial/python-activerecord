@@ -1,27 +1,44 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/join.py
-from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+"""Dialect mixins for JOIN clauses.
+
+Declares support for the various JOIN families and formats JOIN, LATERAL
+JOIN, and table-function source expressions into dialect SQL.
+"""
+from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.query_parts import JoinExpression
+    from ...expression import bases
+    from ...expression.query_parts import JoinClause
 
 
 class LateralJoinMixin:
-    """Mixin for LATERAL join support."""
+    """Mixin for LATERAL join support.
+
+    Dialects without native LATERAL support may override
+    :meth:`format_lateral_expression` to translate it into an equivalent
+    syntax (for example CROSS APPLY).
+    """
 
     def supports_lateral_join(self) -> bool:
-        """Whether LATERAL joins are supported."""
+        """Whether LATERAL joins are supported. Defaults to False."""
         return False
 
-    def format_lateral_expression(
-        self, expr_sql: str, expr_params: Tuple[Any, ...], alias: Optional[str], join_type: str
-    ) -> Tuple[str, Tuple]:
-        """Format LATERAL expression.
+    def format_lateral_expression(self, expr: "LateralExpression") -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.query_sources.LateralExpression` node.
 
-        Raises UnsupportedFeatureError when the dialect reports no LATERAL
-        support.  Backends only override this method to translate LATERAL
-        into an alternative syntax (e.g. CROSS APPLY).
+        Args:
+            expr: The LateralExpression node containing the joined expression,
+                join type, and optional alias.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the expression.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support LATERAL
+                joins. Backends only override this method to translate LATERAL
+                into an alternative syntax (e.g. CROSS APPLY).
         """
         if not self.supports_lateral_join():
             raise UnsupportedFeatureError(
@@ -29,21 +46,32 @@ class LateralJoinMixin:
                 "LATERAL join",
                 "Restructure the query with a plain subquery or a CTE instead.",
             )
-        if alias is not None:
-            sql = f"{join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(alias)}"
+        expr_sql, expr_params = expr.expression.to_sql()
+        if expr.alias is not None:
+            sql = f"{expr.join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(expr.alias)}"
         else:
-            sql = f"{join_type.upper()} JOIN LATERAL {expr_sql}"
+            sql = f"{expr.join_type.upper()} JOIN LATERAL {expr_sql}"
         return sql, expr_params
 
-    def format_table_function_expression(
-        self,
-        func_name: str,
-        args_sql: List[str],
-        args_params: Tuple[Any, ...],
-        alias: Optional[str],
-        column_names: Optional[List[str]],
-    ) -> Tuple[str, Tuple]:
-        """Format table-valued function expression."""
+    def format_table_function_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a :class:`~...expression.query_sources.TableFunctionExpression` node.
+
+        Args:
+            expr: The TableFunctionExpression node containing the function
+                name, arguments, optional alias, and optional column names.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the expression.
+        """
+        args_sql = []
+        all_params: list = []
+        for arg in expr.args:
+            arg_sql, arg_params = arg.to_sql()
+            args_sql.append(arg_sql)
+            all_params.extend(arg_params)
+        func_name = expr.func_name
+        alias = expr.alias
+        column_names = expr.column_names
         args_str = ", ".join(args_sql)
 
         cols_sql = ""
@@ -54,11 +82,16 @@ class LateralJoinMixin:
             sql = f"{func_name.upper()}({args_str}) AS {self.format_identifier(alias)}{cols_sql}"
         else:
             sql = f"{func_name.upper()}({args_str}){cols_sql}"
-        return sql, args_params
+        return sql, tuple(all_params)
 
 
 class JoinMixin:
-    """Mixin for JOIN clause support."""
+    """Mixin for JOIN clause support.
+
+    Dialects advertise which JOIN families they implement through the
+    ``supports_*_join`` probes, and :meth:`format_join_clause` renders the
+    clause while validating that support.
+    """
 
     def supports_inner_join(self) -> bool:
         """Whether INNER JOIN is supported. Defaults to True."""
@@ -88,12 +121,25 @@ class JoinMixin:
         """Whether MySQL STRAIGHT_JOIN is supported. Defaults to False."""
         return False
 
-    def format_join_expression(self, join_expr: "JoinExpression") -> Tuple[str, Tuple]:
+    def format_join_clause(self, join_expr: "JoinClause") -> Tuple[str, Tuple]:
+        """Format a JOIN expression into dialect SQL.
+
+        Validates support for the given join type using the ``supports_*``
+        protocol methods before rendering the clause.
+
+        Args:
+            join_expr: The JoinClause node to format.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the join clause.
+
+        Raises:
+            UnsupportedFeatureError: If the join type or NATURAL modifier is
+                not supported by this dialect.
+            ValueError: If a non-CROSS join has neither a condition nor a
+                USING clause.
         """
-        Generic implementation for formatting a JOIN expression.
-        This method validates support for the given join type using protocol methods.
-        """
-        from ...expression import QueryExpression, JoinExpression
+        from ...expression import QueryExpression, JoinClause
 
         join_type_upper = join_expr.join_type.upper()
 
@@ -119,12 +165,12 @@ class JoinMixin:
 
         # Format left and right sides of the join
         left_sql, left_params = join_expr.left_table.to_sql()
-        if isinstance(join_expr.left_table, (QueryExpression, JoinExpression)):
+        if isinstance(join_expr.left_table, (QueryExpression, JoinClause)):
             left_sql = f"({left_sql})"
         all_params.extend(left_params)
 
         right_sql, right_params = join_expr.right_table.to_sql()
-        if isinstance(join_expr.right_table, (QueryExpression, JoinExpression)):
+        if isinstance(join_expr.right_table, (QueryExpression, JoinClause)):
             right_sql = f"({right_sql})"
         all_params.extend(right_params)
 

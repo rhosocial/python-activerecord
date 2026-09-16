@@ -4,12 +4,12 @@
 
 ## 乐观锁 (Optimistic Locking)
 
-`OptimisticLockMixin` 通过增加一个 `version` 字段来解决此问题。
+`DefaultOptimisticLockMixin` 通过增加一个 `version` 字段来解决此问题。
 
 ```python
-from rhosocial.activerecord.field import OptimisticLockMixin
+from rhosocial.activerecord.field import DefaultOptimisticLockMixin
 
-class Post(OptimisticLockMixin, ActiveRecord):
+class Post(DefaultOptimisticLockMixin, ActiveRecord):
     title: str
 ```
 

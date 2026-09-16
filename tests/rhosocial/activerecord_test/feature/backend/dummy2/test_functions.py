@@ -644,12 +644,13 @@ class TestTypeConversionFunctionFactories:
 
     def test_cast_function(self, dummy_dialect: DummyDialect):
         """Test CAST function."""
-        from rhosocial.activerecord.backend.expression.core import Column
+        from rhosocial.activerecord.backend.expression.core import CastExpression, Column
 
         func = cast(dummy_dialect, "value", "INTEGER")
-        # cast() now returns a Column with cast_types set
-        assert isinstance(func, Column)
-        assert "INTEGER" in func.cast_types
+        # cast() wraps the (string-as-column) expression in a CastExpression node
+        assert isinstance(func, CastExpression)
+        assert func.target_type == "INTEGER"
+        assert isinstance(func.expression, Column)
         sql, params = func.to_sql()
         assert "CAST(" in sql
 
@@ -998,9 +999,9 @@ class TestJsonFunctionFactoriesExtended:
         from rhosocial.activerecord.backend.expression import Literal
 
         # Create a dialect that doesn't implement FilterClauseSupport protocol
-        from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin, IdentifierMixin
+        from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin, DDLColumnMixin, TableMixin
 
-        class MockDialect(SQLDialectBase, IdentifierMixin, ExpressionMixin):
+        class MockDialect(SQLDialectBase, ExpressionMixin, DDLColumnMixin, TableMixin):
             def get_placeholder(self) -> str:
                 return "?"
 
@@ -1016,4 +1017,5 @@ class TestJsonFunctionFactoriesExtended:
         filter_pred = ComparisonPredicate(mock_dialect, ">", Column(mock_dialect, "value"), Literal(mock_dialect, 100))
 
         with pytest.raises(UnsupportedFeatureError, match=r".*FILTER clause in aggregate functions.*"):
-            mock_dialect.format_function_call(func, filter_predicate=filter_pred)
+            func.filter_predicate = filter_pred
+            mock_dialect.format_function_call(func)

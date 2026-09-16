@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     TableExpression,
     WhereClause,
-    JoinExpression,
+    JoinClause,
     GroupByHavingClause,
     OrderByClause,
     LimitOffsetClause,
@@ -50,7 +50,7 @@ def where_example(dialect, status: str = "active"):
 def join_example(dialect, user_id: int = 1):
     """SELECT with JOIN.
 
-    Demonstrates JoinExpression and JoinType building blocks.
+    Demonstrates JoinClause and JoinType building blocks.
 
     Args:
         dialect: SQL dialect instance.
@@ -66,7 +66,7 @@ def join_example(dialect, user_id: int = 1):
             Column(dialect, "o.status"),
             Column(dialect, "u.name"),
         ],
-        from_=JoinExpression(
+        from_=JoinClause(
             dialect,
             left_table=TableExpression(dialect, "orders", alias="o"),
             right_table=TableExpression(dialect, "users", alias="u"),
@@ -173,7 +173,7 @@ def compound_example(dialect, user_id: int = 1, status: str = "pending"):
             Column(dialect, "o.amount"),
             Column(dialect, "u.name"),
         ],
-        from_=JoinExpression(
+        from_=JoinClause(
             dialect,
             left_table=TableExpression(dialect, "orders", alias="o"),
             right_table=TableExpression(dialect, "users", alias="u"),
