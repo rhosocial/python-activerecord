@@ -743,7 +743,7 @@ release/v1.2.0.dev1
 4. **Early PRs**: Create draft PR within 24 hours of branch creation
 5. **Clean history**: Squash trivial commits before final PR
 6. **Delete after merge**: Remove branches immediately after merging
-7. **Changelog fragments**: Create early, delete if branch abandoned
+7. **Changelog fragments**: Create after the PR is opened (named by the actual PR number), delete if branch abandoned
 
 **Commit Frequency**:
 
@@ -793,17 +793,25 @@ git checkout -b feature/ar-123-recursive-cte
 git add .
 git commit -m "feat: implement recursive CTE support"
 
-# 3. Create changelog fragment
-cat > changelog.d/123.added.md << 'EOF'
-Added support for recursive CTEs in query builder, enabling hierarchical data queries.
-EOF
-git add changelog.d/123.added.md
-git commit -m "docs: add changelog fragment for AR-123"
-
-# 4. Push and create pull request to pre-release branch
+# 3. Push and create pull request to pre-release branch
 git push origin feature/ar-123-recursive-cte
 # Create PR: feature/ar-123-recursive-cte → release/v1.2.0.dev1
+# The PR number (e.g. #456) is now assigned.
+
+# 4. Create changelog fragment using the ACTUAL PR number
+cat > changelog.d/456.added.md << 'EOF'
+Added support for recursive CTEs in query builder, enabling hierarchical data queries.
+EOF
+git add changelog.d/456.added.md
+git commit -m "docs: add changelog fragment for PR #456"
+git push origin feature/ar-123-recursive-cte
 ```
+
+> **Fragment ordering rule (PR-first)**: the changelog fragment is written
+> **after** the PR is opened, named by the **actual PR number** (not a ticket
+> number or a guess). This guarantees `changelog.d/<N>.*.md` is traceable to
+> its pull request and eliminates number collisions. The Changelog Fragment
+> Check runs on every push, so the fragment commit makes the PR green.
 
 #### Merging Development Branches
 
@@ -1011,9 +1019,10 @@ git push origin release/v1.2.0.dev1
 git checkout release/v1.2.0.dev1
 git checkout -b feature/ar-123-recursive-cte
 # ... develop feature ...
-# ... create changelog fragment ...
 git push origin feature/ar-123-recursive-cte
-# Create PR → release/v1.2.0.dev1
+# Create PR → release/v1.2.0.dev1  (PR number assigned, e.g. #123)
+# Create changelog fragment with the actual PR number and push
+# ... cat > changelog.d/123.added.md ...
 
 # Week 2: More dev releases as needed
 # Bump to 1.2.0.dev2, dev3, dev4...
@@ -1065,16 +1074,17 @@ git checkout -b hotfix/ar-999-critical-fix
 # ... make changes ...
 git commit -m "fix: critical security issue (AR-999)"
 
-# Create changelog fragment
+# Push and create PR to main
+git push origin hotfix/ar-999-critical-fix
+# Fast-track review and merge. PR number assigned (e.g. #999).
+
+# Create changelog fragment using the ACTUAL PR number
 cat > changelog.d/999.security.md << 'EOF'
 **SECURITY**: Fixed SQL injection vulnerability in parameterized queries. CVE-2024-XXXXX.
 EOF
 git add changelog.d/999.security.md
-git commit -m "docs: add security changelog fragment"
-
-# Create PR to main
+git commit -m "docs: add security changelog fragment for PR #999"
 git push origin hotfix/ar-999-critical-fix
-# Fast-track review and merge
 
 # After merge to main, also merge to active release branches
 git checkout release/v1.3.0  # If in development
@@ -1336,6 +1346,13 @@ git push origin hotfix/ar-999-security
 ### 3.9 Changelog Fragment Validation
 
 Ensure all PRs include appropriate changelog fragments unless explicitly exempted.
+
+**Fragment ordering (PR-first)**: the fragment is written **after** the PR is
+opened, named by the **actual PR number** — open the PR, then commit
+`changelog.d/<PR-number>.{added|changed|fixed|...}.md` and push. The check
+below runs on every push, so the fragment commit turns the PR green; the
+initial "missing fragment" failure right after opening the PR is expected and
+resolved by the fragment commit.
 
 #### Workflow Configuration
 
