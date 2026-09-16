@@ -1299,13 +1299,8 @@ class DummyDialect(
 
         if col_def.generated_expression is not None:
             gen_sql, gen_params = col_def.generated_expression.to_sql()
+            col_sql += gen_sql
             all_params.extend(gen_params)
-
-            col_sql += f" GENERATED ALWAYS AS ({gen_sql})"
-            if col_def.generated_type == GeneratedColumnType.STORED:
-                col_sql += " STORED"
-            else:
-                col_sql += " VIRTUAL"
 
         identity = getattr(col_def, 'identity', None)
         if identity:

@@ -137,6 +137,12 @@ class DDLColumnMixin:
             suffix, params = self.format_column_constraint(constraint)
             col_sql += suffix
             all_params.extend(params)
+
+        if col_def.generated_expression is not None:
+            gen_sql, gen_params = col_def.generated_expression.to_sql()
+            col_sql += gen_sql
+            all_params.extend(gen_params)
+
         if col_def.comment:
             if not self.supports_column_comment():
                 from ..exceptions import UnsupportedFeatureError
@@ -148,6 +154,58 @@ class DDLColumnMixin:
             escaped_comment = _B._escape_sql_string(col_def.comment)
             col_sql += f" COMMENT '{escaped_comment}'"
         return col_sql, tuple(all_params)
+
+    def format_generated_column_expression(self, expr) -> Tuple[str, Tuple]:
+        """Format a :class:`~...statements.ddl_table.GeneratedColumnExpression`.
+
+        Renders ``GENERATED ALWAYS AS (<expr>) STORED|VIRTUAL`` and delegates
+        to :meth:`supports_generated_columns` /
+        :meth:`supports_stored_generated_columns` /
+        :meth:`supports_virtual_generated_columns` for capability gating.
+
+        Backends that use non-standard syntax (e.g. Firebird's ``COMPUTED BY``)
+        should override this method.
+
+        Args:
+            expr: The generated column expression to render.
+
+        Returns:
+            A ``(sql, params)`` tuple with a leading space.
+
+        Raises:
+            UnsupportedFeatureError: If generated columns (or the requested
+                storage type) are not supported by this dialect.
+        """
+        from ...expression.statements.ddl_table import GeneratedColumnType
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_generated_columns():
+            raise UnsupportedFeatureError(
+                self.name,
+                "Generated columns",
+                f"{self.name} does not support generated (computed) columns.",
+            )
+
+        inner_sql, inner_params = expr.expression.to_sql()
+
+        if expr.storage_type == GeneratedColumnType.STORED:
+            if not self.supports_stored_generated_columns():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "STORED generated columns",
+                    f"{self.name} does not support STORED generated columns.",
+                )
+            storage = " STORED"
+        else:
+            if not self.supports_virtual_generated_columns():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "VIRTUAL generated columns",
+                    f"{self.name} does not support VIRTUAL generated columns.",
+                )
+            storage = " VIRTUAL"
+
+        return f" GENERATED ALWAYS AS ({inner_sql}){storage}", inner_params
 
     def format_column_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
         """Format a single column constraint clause.

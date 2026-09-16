@@ -14,6 +14,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
     ColumnConstraintType,
     GeneratedColumnType,
+    GeneratedColumnExpression,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteNumericType, SQLiteTextType
@@ -154,44 +155,51 @@ class TestGeneratedColumnHandler:
     """Test generated column handler method."""
 
     def test_handle_generated_column_virtual(self):
-        """Test generated column handler with VIRTUAL type."""
-        dialect = SQLiteDialect((3, 31, 0))  # Version supporting generated columns
+        """Test generated column expression with VIRTUAL type."""
+        dialect = SQLiteDialect((3, 31, 0))
         mock_expr = Mock()
         mock_expr.to_sql.return_value = ("first_name || ' ' || last_name", ())
 
-        col_def = Mock()
-        col_def.generated_expression = mock_expr
-        col_def.generated_type = GeneratedColumnType.VIRTUAL
-
-        sql, params = dialect._handle_generated_column(col_def)
+        gen = GeneratedColumnExpression(
+            dialect,
+            expression=mock_expr,
+            storage_type=GeneratedColumnType.VIRTUAL,
+        )
+        sql, params = gen.to_sql()
 
         assert sql == " GENERATED ALWAYS AS (first_name || ' ' || last_name) VIRTUAL"
         assert params == ()
 
     def test_handle_generated_column_stored(self):
-        """Test generated column handler with STORED type."""
+        """Test generated column expression with STORED type."""
         dialect = SQLiteDialect((3, 31, 0))
         mock_expr = Mock()
         mock_expr.to_sql.return_value = ("price * quantity", ())
 
-        col_def = Mock()
-        col_def.generated_expression = mock_expr
-        col_def.generated_type = GeneratedColumnType.STORED
-
-        sql, params = dialect._handle_generated_column(col_def)
+        gen = GeneratedColumnExpression(
+            dialect,
+            expression=mock_expr,
+            storage_type=GeneratedColumnType.STORED,
+        )
+        sql, params = gen.to_sql()
 
         assert sql == " GENERATED ALWAYS AS (price * quantity) STORED"
         assert params == ()
 
     def test_handle_generated_column_unsupported_version(self):
-        """Test generated column handler raises error for unsupported SQLite version."""
+        """Test generated column raises error for unsupported SQLite version."""
         dialect = SQLiteDialect((3, 30, 0))  # Version NOT supporting generated columns
         mock_expr = Mock()
-        col_def = Mock()
-        col_def.generated_expression = mock_expr
+        mock_expr.to_sql.return_value = ("col1 + 1", ())
 
-        with pytest.raises(UnsupportedFeatureError, match="Generated columns require SQLite 3.31.0"):
-            dialect._handle_generated_column(col_def)
+        gen = GeneratedColumnExpression(
+            dialect,
+            expression=mock_expr,
+            storage_type=GeneratedColumnType.VIRTUAL,
+        )
+
+        with pytest.raises(UnsupportedFeatureError, match="Generated columns"):
+            gen.to_sql()
 
 
 class TestFormatColumnDefinition:
@@ -293,11 +301,14 @@ class TestFormatColumnDefinition:
         mock_expr = Mock()
         mock_expr.to_sql.return_value = ("first_name || ' ' || last_name", ())
 
-        col_def = ColumnDefinition(dialect, 
+        col_def = ColumnDefinition(dialect,
             name="full_name",
             data_type=SQLiteTextType(dialect, 255),
-            generated_expression=mock_expr,
-            generated_type=GeneratedColumnType.VIRTUAL,
+            generated_expression=GeneratedColumnExpression(
+                dialect,
+                expression=mock_expr,
+                storage_type=GeneratedColumnType.VIRTUAL,
+            ),
         )
 
         sql, params = dialect.format_column_definition(col_def)

@@ -115,12 +115,65 @@ class SQLValueExpression(BaseExpression):
 
 ```python
 class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", value: Any): ...
+    def __init__(self, dialect: "SQLDialectBase", value: Any, *, inline_literals: bool = False): ...
     
-    # 示例: WHERE status = ?
+    # 默认：绑定参数模式
     # Literal(dialect, "active")
     # -> ('?', ('active',))
+
+    # 内联模式：值直接嵌入 SQL（用于 DDL 子句）
+    # Literal(dialect, "active", inline_literals=True)
+    # -> ("'active'", ())
 ```
+
+#### 内联字面量
+
+默认情况下，`Literal` 渲染为**绑定参数**（`?` 或 `%s`，取决于方言），遵循 DB-API 2.0 (PEP 249) 规范。这是 DML 语句（`INSERT`、`SELECT`、`UPDATE`、`DELETE`）的安全首选模式。
+
+然而，**DDL 子句**（`DEFAULT`、`CHECK`、分区边界、部分索引 `WHERE`）**不接受绑定参数**——数据库引擎要求直接使用 SQL 文本字面量。对于这些情况，请在 `Literal` 节点上设置 `inline_literals=True`：
+
+```python
+from rhosocial.activerecord.backend.expression import (
+    Literal, Column, ComparisonPredicate,
+    ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType
+
+# DDL：DEFAULT 值必须内联
+ColumnDefinition(dialect,
+    name="age",
+    data_type=IntegerType(dialect),
+    constraints=[
+        ColumnConstraint(dialect,
+            constraint_type=ColumnConstraintType.DEFAULT,
+            default_value=Literal(dialect, 0, inline_literals=True),  # -> DEFAULT 0
+        ),
+    ],
+)
+
+# DDL：CHECK 条件——比较值必须内联
+ColumnConstraint(dialect,
+    constraint_type=ColumnConstraintType.CHECK,
+    check_condition=ComparisonPredicate(
+        dialect, ">=",
+        Column(dialect, "score"),
+        Literal(dialect, 0, inline_literals=True),  # -> CHECK ("score" >= 0)
+    ),
+)
+```
+
+`inline_literals` 开关是**逐节点控制**的——每个 `Literal` 独立决定。单个谓词可以混合内联和绑定参数值：
+
+```python
+pred = ComparisonPredicate(
+    dialect, "=",
+    Literal(dialect, "a", inline_literals=True),  # 内联
+    Literal(dialect, "b"),                          # 绑定参数
+)
+pred.to_sql()  # -> ("'a' = ?", ("b",))
+```
+
+> **安全提示**：当值可能受终端用户影响时，内联字面量存在 SQL 注入风险。仅对开发者声明的常量（DDL 默认值、派生自 Schema 的值）使用 `inline_literals=True`。
 
 ### Column
 

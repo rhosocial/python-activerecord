@@ -80,6 +80,40 @@ class GeneratedColumnType(Enum):
     VIRTUAL = "VIRTUAL"  # Computed on read, not stored
 
 
+class GeneratedColumnExpression(BaseExpression):
+    """Represents the GENERATED ALWAYS AS (<expr>) [STORED|VIRTUAL] clause.
+
+    A DDL clause node rendered through the dialect's
+    ``format_generated_column_expression``.  Holds the inner expression
+    (any ``BaseExpression``) and the storage type.
+
+    Usage::
+
+        gen = GeneratedColumnExpression(
+            dialect,
+            expression=Column(dialect, "price") * Column(dialect, "qty"),
+            storage_type=GeneratedColumnType.STORED,
+        )
+        sql, params = gen.to_sql()
+        # -> ('GENERATED ALWAYS AS ("price" * "qty") STORED', ())
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_generated_column_expression"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expression: "BaseExpression",
+        storage_type: Optional[GeneratedColumnType] = None,
+    ):
+        super().__init__(dialect)
+        self.expression = expression
+        self.storage_type = storage_type or GeneratedColumnType.VIRTUAL
+
+
 class ColumnDefinition(BaseExpression):
     """Represents a column definition clause within CREATE/ALTER TABLE.
 
@@ -102,8 +136,7 @@ class ColumnDefinition(BaseExpression):
         constraints: Optional[List[ColumnConstraint]] = None,
         comment: Optional[str] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
-        generated_expression: Optional["BaseExpression"] = None,
-        generated_type: Optional[GeneratedColumnType] = None,
+        generated_expression: Optional[GeneratedColumnExpression] = None,
         identity: Optional[str] = None,
         identity_start: Optional[int] = None,
         identity_increment: Optional[int] = None,
@@ -119,7 +152,6 @@ class ColumnDefinition(BaseExpression):
         self.comment = comment
         self.dialect_options = dialect_options or {}
         self.generated_expression = generated_expression
-        self.generated_type = generated_type
         self.identity = identity
         self.identity_start = identity_start
         self.identity_increment = identity_increment
