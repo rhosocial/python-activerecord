@@ -106,11 +106,13 @@ class UseSqlType:
     when building a ``ColumnDefinition`` for this field, overriding the dialect's
     default type suggestion for ``T``.
 
-    One or more ``DataType`` instances may be declared. At DDL-generation time
-    the generator picks the **first** declared type the current backend's dialect
-    can render (``dialect.supports_data_type``); if none matches, it falls back
-    to ``dialect.suggest_column_type(python_type)``, and raises if that also
-    yields nothing. Declaration order therefore expresses backend priority.
+    One or more ``DataType`` instances may be declared. At DDL-derivation time
+    the first declared type the current dialect supports
+    (``dialect.supports_data_types()``) is used; when none matches, derivation
+    falls back to the canonical Python-type mapping and the dialect's
+    ``suggested_data_types()`` (see ``base.ddl.types.ColumnTypeResolver``), and
+    raises if that also yields nothing. Declaration order therefore expresses
+    backend priority.
 
     Each instance may be a core **generic** type (portable — every backend
     renders it, natively or via the SQL-standard default) or a **backend-specific**

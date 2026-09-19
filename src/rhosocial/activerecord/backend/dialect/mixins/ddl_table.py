@@ -129,6 +129,19 @@ class TableMixin:
         """
         return False
 
+    def supports_inline_index(self) -> bool:
+        """Whether CREATE TABLE accepts inline index definitions.
+
+        Inline index clauses inside CREATE TABLE are a dialect convenience of
+        MySQL/MariaDB/ClickHouse; the SQL-standard form is the standalone
+        CREATE INDEX statement. The generic ``format_create_table_statement``
+        raises UnsupportedFeatureError when an expression carries inline
+        indexes but this switch is False.
+
+        Defaults to False (SQL-standard behavior).
+        """
+        return False
+
     def supports_drop_column(self) -> bool:
         """Whether DROP COLUMN is supported.
 
@@ -460,6 +473,14 @@ class TableMixin:
             if partition_sql:
                 parts.append(partition_sql)
                 all_params.extend(partition_params)
+        if expr.indexes:
+            from ..exceptions import UnsupportedFeatureError
+            raise UnsupportedFeatureError(
+                self.name,
+                "inline index in CREATE TABLE",
+                f"{self.name} does not support inline index definitions in "
+                "CREATE TABLE. Emit standalone CreateIndexExpression instead.",
+            )
         return "".join(parts), tuple(all_params)
 
     def format_create_table_as_statement(self, expr: "CreateTableAsExpression") -> Tuple[str, tuple]:

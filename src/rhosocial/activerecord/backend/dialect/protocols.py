@@ -1234,6 +1234,15 @@ class TableSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_inline_index(self) -> bool:
+        """Whether CREATE TABLE accepts inline index definitions.
+
+        Inline index clauses inside CREATE TABLE are a dialect convenience of
+        MySQL/MariaDB/ClickHouse; the SQL-standard form is the standalone
+        CREATE INDEX statement. Defaults to False (SQL-standard behavior).
+        """
+        ...  # pragma: no cover
+
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement."""
         ...  # pragma: no cover
@@ -1813,6 +1822,15 @@ class IndexSupport(Protocol):
     def supports_concurrent_index(self) -> bool:
         """Whether CREATE INDEX CONCURRENTLY (PostgreSQL) is supported."""
         ...  # pragma: no cover
+
+    def supports_drop_index_on_table(self) -> bool:
+        """Whether DROP INDEX accepts/requires the ``ON <table>`` clause.
+
+        MySQL/MariaDB/SQL Server use ``DROP INDEX name ON table``;
+        PostgreSQL/SQLite/Oracle drop indexes by name without ``ON``.
+        """
+        ...  # pragma: no cover
+
 
     def get_supported_index_types(self) -> List[str]:
         """Return list of supported index types (e.g., ['BTREE', 'HASH'])."""
