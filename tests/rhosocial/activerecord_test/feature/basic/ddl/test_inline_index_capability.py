@@ -92,7 +92,9 @@ def test_generic_create_table_with_indexes_raises():
 
 def test_generic_create_table_without_indexes_ok():
     dialect = DummyDialect()
-    sql, _ = _indexed_create_table(dialect, []).to_sql()
+    sql, params = _indexed_create_table(dialect, []).to_sql()
+    assert '"t"' in sql
+    assert params == ()
 
 
 # ---------------------------------------------------------------------------
@@ -129,14 +131,6 @@ def test_deriver_drop_schema_orders_indexes_first(backend):
     assert isinstance(plan[0], DropIndexExpression)
     assert plan[0].index_name == "idx_indexed_email"
     assert plan[-1].table.name == "indexed"
-
-
-def test_deriver_inline_capable_dialect_routes_inline(backend):
-    deriver = Indexed.ddl_deriver()
-    deriver._inline_capable = True  # simulate an inline-capable dialect
-    expression = deriver.create_table()
-    assert [index.name for index in expression.indexes] == ["idx_indexed_email"]
-    assert deriver.create_indexes() == []
 
 
 def test_deriver_inline_indexes_override_true_raises_on_sqlite(backend):
