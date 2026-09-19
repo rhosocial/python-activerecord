@@ -31,7 +31,6 @@ from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.mysql.dialect import MySQLDialect
 from rhosocial.activerecord.model import ActiveRecord
 
 
@@ -220,14 +219,13 @@ def test_resolver_maps_canonical_types():
     assert resolver.is_integer(resolver.resolve(str)) is False
 
 
-def test_resolver_carries_parameters_into_suggestion():
-    dialect = MySQLDialect((8, 0, 0))
-    resolver = ColumnTypeResolver(dialect)
-    resolved = resolver.resolve(Color)
-    assert resolver.supports(resolved.name)
-    sql, _ = dialect.format_data_type(resolved)
-    assert "ENUM" in sql.upper()
-    assert "red" in sql
+def test_resolver_instantiate_carries_parameters():
+    from rhosocial.activerecord.backend.expression.types import EnumType
+
+    resolver = ColumnTypeResolver(SQLiteDialect((3, 53, 0)))
+    original = EnumType(values=["red", "green"])
+    instance = resolver.instantiate(EnumType, original)
+    assert instance.get_params()["values"] == ("red", "green")
 
 
 def test_resolver_use_sql_type_priority():

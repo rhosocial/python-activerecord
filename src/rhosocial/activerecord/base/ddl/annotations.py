@@ -10,11 +10,14 @@ annotation data is stored here.
 
 from __future__ import annotations
 
-import types as _types
+import types
 import typing
 from typing import Any, Optional, Tuple, Type
 
 from ..fields import UseConstraint, UseIndex, UseSqlType
+
+#: PEP 604 ``X | Y`` union origin; ``types.UnionType`` exists only on 3.10+.
+PEP604_UNION_TYPE = getattr(types, "UnionType", None)
 
 
 class DDLFieldMetadata:
@@ -36,7 +39,7 @@ class DDLFieldMetadata:
     def union_arguments(annotation: Any) -> Optional[tuple]:
         """Return the arguments when ``annotation`` is a union, else ``None``."""
         origin = typing.get_origin(annotation)
-        if origin is typing.Union or origin is _types.UnionType:
+        if origin is typing.Union or origin is PEP604_UNION_TYPE:
             return typing.get_args(annotation)
         return None
 

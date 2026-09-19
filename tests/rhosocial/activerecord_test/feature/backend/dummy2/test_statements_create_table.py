@@ -568,13 +568,12 @@ class TestCreateTableStatements:
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="users", columns=columns, indexes=indexes)
-        sql, params = create_table_expr.to_sql()
 
-        # The base implementation in DummyDialect should support column constraints
-        # but may not fully implement index creation in the main CREATE TABLE statement
-        # Indexes might be created separately in real implementations
-        assert '"users"' in sql
-        assert params == ()
+        # Inline indexes are a dialect convenience (MySQL/MariaDB/ClickHouse);
+        # the SQL-standard behavior is a standalone CREATE INDEX, so the generic
+        # renderer rejects inline indexes instead of silently dropping them.
+        with pytest.raises(UnsupportedFeatureError):
+            create_table_expr.to_sql()
 
     def test_create_table_with_nullable_setting(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with nullable settings."""
