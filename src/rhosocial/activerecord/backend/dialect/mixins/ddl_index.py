@@ -92,6 +92,18 @@ class IndexMixin:
         """
         return False
 
+    def supports_drop_index_on_table(self) -> bool:
+        """Whether DROP INDEX accepts/requires the ``ON <table>`` clause.
+
+        MySQL/MariaDB/SQL Server use ``DROP INDEX name ON table``;
+        PostgreSQL/SQLite/Oracle drop indexes by name without ``ON``.
+        When False, the generic ``format_drop_index_statement`` omits the
+        ``ON <table>`` suffix even if the expression carries a table name.
+
+        Defaults to True.
+        """
+        return True
+
     def supports_concurrent_index(self) -> bool:
         """Whether CREATE INDEX CONCURRENTLY is supported.
 
@@ -301,6 +313,11 @@ class IndexMixin:
         parts.append(self.format_identifier(expr.table_name))
 
         if expr.index_type:
+            if not self.supports_index_type():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX USING <type>",
+                    f"{self.name} does not support index type specification.",
+                )
             parts.append(f"USING {expr.index_type}")
 
         col_parts = []
@@ -323,6 +340,11 @@ class IndexMixin:
             parts.append(f"INCLUDE ({include_cols})")
 
         if expr.where:
+            if not self.supports_partial_index():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX ... WHERE (partial index)",
+                    f"{self.name} does not support partial indexes.",
+                )
             where_sql, where_params = expr.where.to_sql()
             parts.append(f"WHERE {where_sql}")
             all_params.extend(where_params)
@@ -361,7 +383,7 @@ class IndexMixin:
                 )
             parts.append("IF EXISTS")
         parts.append(self.format_identifier(expr.index_name))
-        if expr.table_name:
+        if expr.table_name and self.supports_drop_index_on_table():
             parts.append("ON")
             parts.append(self.format_identifier(expr.table_name))
         return " ".join(parts), ()
