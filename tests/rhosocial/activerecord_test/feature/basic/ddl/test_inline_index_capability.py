@@ -15,7 +15,12 @@ Design contract (see .claude/plan/2026-09-19/create-table-inline-index-capabilit
   index set, without overlap.
 """
 
-from typing import Annotated, Optional
+from typing import Optional
+
+try:
+    from typing import Annotated
+except ImportError:  # Python 3.8
+    from typing_extensions import Annotated
 
 import pytest
 
