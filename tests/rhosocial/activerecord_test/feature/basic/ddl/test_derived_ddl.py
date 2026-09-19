@@ -9,7 +9,12 @@ expressions and their rendered SQL (no live database connection required).
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Annotated, Optional
+from typing import Optional
+
+try:
+    from typing import Annotated
+except ImportError:  # Python 3.8
+    from typing_extensions import Annotated
 from uuid import UUID
 
 import pytest
