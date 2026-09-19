@@ -727,6 +727,13 @@ class SQLiteDialect(
         """Whether index tablespace is supported."""
         return False
 
+    def supports_drop_index_on_table(self) -> bool:
+        """Whether DROP INDEX accepts/requires the ``ON <table>`` clause.
+
+        SQLite drops indexes by name without ``ON <table>``.
+        """
+        return False
+
     def supports_fulltext_index(self) -> bool:
         """Whether MySQL-style ``CREATE FULLTEXT INDEX`` DDL is supported.
 
