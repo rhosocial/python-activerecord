@@ -14,6 +14,11 @@ import types
 import typing
 from typing import Any, Optional, Tuple, Type
 
+try:
+    from typing import Annotated
+except ImportError:  # Python 3.8
+    from typing_extensions import Annotated
+
 from ..fields import UseConstraint, UseIndex, UseSqlType
 
 #: PEP 604 ``X | Y`` union origin; ``types.UnionType`` exists only on 3.10+.
@@ -47,7 +52,7 @@ class DDLFieldMetadata:
     def strip_annotated(annotation: Any) -> Tuple[Any, list]:
         """Unwrap ``Annotated[...]`` returning the inner type and its metadata."""
         markers: list = []
-        while typing.get_origin(annotation) is typing.Annotated:
+        while typing.get_origin(annotation) is Annotated:
             args = typing.get_args(annotation)
             annotation = args[0]
             markers.extend(args[1:])
