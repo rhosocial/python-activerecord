@@ -190,3 +190,7 @@ examples/**
 .claude/plan/
 gha-creds-*.json
 .sqlite-custom/
+
+# Local-only experiment scripts
+.experiments/ddl_derivation_probe.py
+.experiments/field_type_adaptation.py
