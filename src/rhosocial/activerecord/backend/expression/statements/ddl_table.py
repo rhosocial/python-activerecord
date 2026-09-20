@@ -464,9 +464,7 @@ class CreateTableExpression(BaseExpression):
         *,  # Force keyword arguments
         partition: Optional["PartitionClause"] = None,  # Table partitioning specification
         table_options: Optional["CreateTableOptions"] = None,  # CREATE header modifiers
-        on_commit_delete: Optional[bool] = None,  # Firebird: ON COMMIT DELETE ROWS (True) or PRESERVE ROWS (False)
-        external_file: Optional[str] = None,  # Firebird: EXTERNAL FILE clause
-    ):  # Dialect-specific options
+    ):
         super().__init__(dialect)
         if isinstance(table, str):
             self.table = TableExpression(dialect, table)
@@ -487,8 +485,6 @@ class CreateTableExpression(BaseExpression):
             raise TypeError(f"partition must be a PartitionClause instance, got {type(partition).__name__}")
         self.partition = partition
         self.table_options = table_options  # CreateTableOptions (header modifiers)
-        self.on_commit_delete = on_commit_delete  # Firebird: ON COMMIT DELETE/PRESERVE ROWS
-        self.external_file = external_file  # Firebird: EXTERNAL FILE clause
 
     @property
     def table_name(self) -> str:
