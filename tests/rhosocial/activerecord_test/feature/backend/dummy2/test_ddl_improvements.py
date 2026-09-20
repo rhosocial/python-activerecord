@@ -141,6 +141,12 @@ class TestTableCapabilityGating:
             with pytest.raises(UnsupportedFeatureError, match="TEMPORARY"):
                 expr.to_sql()
 
+    def test_create_table_tablespace_raises_when_unsupported(self, dummy_dialect: DummyDialect):
+        expr = self._table(dummy_dialect, tablespace="ts")
+        with patch.object(type(dummy_dialect), "supports_table_tablespace", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="TABLESPACE"):
+                expr.to_sql()
+
     def test_inline_index_type_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         index = IndexDefinition(dummy_dialect, "idx", ["a"], type="btree")
         with patch.object(type(dummy_dialect), "supports_index_type", return_value=False):

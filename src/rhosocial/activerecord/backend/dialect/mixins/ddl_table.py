@@ -465,6 +465,11 @@ class TableMixin:
                 parts.append(storage_sql)
                 all_params.extend(storage_params)
         if expr.tablespace:
+            if not self.supports_table_tablespace():
+                raise UnsupportedFeatureError(
+                    self.name, "TABLESPACE",
+                    f"{self.name} does not support table tablespaces.",
+                )
             parts.append(f" TABLESPACE {self.format_identifier(expr.tablespace)}")
         if expr.inherits:
             inherits_str = ", ".join(self.format_identifier(table) for table in expr.inherits)
