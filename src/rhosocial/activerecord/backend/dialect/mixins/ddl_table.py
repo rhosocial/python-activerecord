@@ -266,15 +266,13 @@ class TableMixin:
         return f"COMMENT '{escaped}'", ()
 
     def format_create_table_options(self, expr: "CreateTableOptions") -> Tuple[str, tuple]:
-        """Format the ``CREATE`` header modifiers (generic reusable implementation).
+        """Format the generic ``CREATE`` header modifier.
 
-        Renders the qualifiers between ``CREATE`` and ``TABLE``, in the
-        portable order ``OR REPLACE``, then one of ``UNLOGGED`` / ``TRANSIENT``.
-        Each flag is capability-gated:
-
-        * ``or_replace`` -> :meth:`supports_create_or_replace_table`
-        * ``unlogged``   -> :meth:`supports_unlogged_table`
-        * ``transient``  -> :meth:`supports_transient_table`
+        The generic layer renders only the standard ``OR REPLACE`` qualifier
+        (capability-gated by :meth:`supports_create_or_replace_table`).
+        Backend-specific header modifiers (``UNLOGGED`` / ``TRANSIENT`` / …)
+        are added by the owning backend's ``XxxCreateTableOptions`` override,
+        which must accept both the generic and its own instance.
 
         Args:
             expr: The CreateTableOptions clause carrying the flags.
@@ -284,8 +282,8 @@ class TableMixin:
             flag is set.
 
         Raises:
-            UnsupportedFeatureError: If a requested flag is not supported by
-                the dialect.
+            UnsupportedFeatureError: If ``or_replace`` is requested but the
+                dialect does not support it.
         """
         from ..exceptions import UnsupportedFeatureError
 
@@ -294,14 +292,6 @@ class TableMixin:
             if not self.supports_create_or_replace_table():
                 raise UnsupportedFeatureError(self.name, "CREATE OR REPLACE TABLE")
             parts.append("OR REPLACE")
-        if expr.unlogged:
-            if not self.supports_unlogged_table():
-                raise UnsupportedFeatureError(self.name, "CREATE UNLOGGED TABLE")
-            parts.append("UNLOGGED")
-        if expr.transient:
-            if not self.supports_transient_table():
-                raise UnsupportedFeatureError(self.name, "CREATE TRANSIENT TABLE")
-            parts.append("TRANSIENT")
         return " ".join(parts), ()
 
     def format_create_table_like_statement(self, expr: "CreateTableLikeExpression") -> Tuple[str, tuple]:

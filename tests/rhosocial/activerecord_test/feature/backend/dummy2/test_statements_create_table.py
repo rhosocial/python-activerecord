@@ -504,25 +504,22 @@ class TestCreateTableStatements:
         sql, _ = expr.to_sql()
         assert sql.startswith("CREATE OR REPLACE TABLE")
 
-    def test_create_table_options_unlogged(self, dummy_dialect: DummyDialect):
+    def test_create_table_options_or_replace(self, dummy_dialect: DummyDialect):
         expr = CreateTableExpression(
             dummy_dialect,
             table="t",
             columns=[],
-            table_options=CreateTableOptions(dummy_dialect, unlogged=True),
+            table_options=CreateTableOptions(dummy_dialect, or_replace=True),
         )
         sql, _ = expr.to_sql()
-        assert sql.startswith("CREATE UNLOGGED TABLE")
+        assert sql.startswith("CREATE OR REPLACE TABLE")
 
-    def test_create_table_options_transient(self, dummy_dialect: DummyDialect):
-        expr = CreateTableExpression(
-            dummy_dialect,
-            table="t",
-            columns=[],
-            table_options=CreateTableOptions(dummy_dialect, transient=True),
-        )
-        sql, _ = expr.to_sql()
-        assert sql.startswith("CREATE TRANSIENT TABLE")
+    def test_create_table_options_has_no_backend_fields(self, dummy_dialect: DummyDialect):
+        """The generic options carry only or_replace/comment (no bag)."""
+        opts = CreateTableOptions(dummy_dialect, or_replace=True, comment="c")
+        for name in ("unlogged", "transient", "engine", "charset", "collate",
+                     "memory_optimized", "durability", "dialect_options"):
+            assert not hasattr(opts, name), name
 
     def test_create_table_options_comment(self, dummy_dialect: DummyDialect):
         opts = CreateTableOptions(dummy_dialect, comment="my table comment")
