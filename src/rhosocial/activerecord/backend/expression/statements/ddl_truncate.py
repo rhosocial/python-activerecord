@@ -1,9 +1,9 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_truncate.py
 """TRUNCATE statement expression."""
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLQueryAndParams
+from ..bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -46,8 +46,6 @@ class TruncateExpression(BaseExpression):
         table_name: str,
         restart_identity: bool = False,  # RESTART IDENTITY option (PostgreSQL)
         cascade: bool = False,  # CASCADE option (PostgreSQL)
-        *,  # Force keyword arguments
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize a TRUNCATE expression with the specified parameters.
@@ -57,13 +55,11 @@ class TruncateExpression(BaseExpression):
             table_name: Name of the table to truncate
             restart_identity: Whether to restart identity counters (PostgreSQL-specific)
             cascade: Whether to truncate dependent tables as well (PostgreSQL-specific)
-            dialect_options: Additional database-specific parameters
         """
         super().__init__(dialect)
         self.table_name = table_name
         self.restart_identity = restart_identity  # For PostgreSQL-style RESTART IDENTITY
         self.cascade = cascade  # For PostgreSQL-style CASCADE
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:

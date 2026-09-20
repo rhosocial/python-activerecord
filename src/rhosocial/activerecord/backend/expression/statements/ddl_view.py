@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLQueryAndParams
+from ..bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -50,7 +50,6 @@ class ViewOptions:
     force: bool = False  # Oracle-specific (create even if base tables don't exist)
     read_only: bool = False  # Oracle-specific
     check_option: Optional[ViewCheckOption] = None  # WITH CHECK OPTION variants
-    dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
 
 
 class CreateViewExpression(BaseExpression):
@@ -236,8 +235,6 @@ class CreateMaterializedViewExpression(BaseExpression):
         tablespace: Optional[str] = None,
         with_data: bool = True,  # Whether to populate immediately
         storage_options: Optional[Dict[str, Any]] = None,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.view_name = view_name
@@ -246,7 +243,6 @@ class CreateMaterializedViewExpression(BaseExpression):
         self.tablespace = tablespace
         self.with_data = with_data
         self.storage_options = storage_options or {}
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -291,14 +287,11 @@ class DropMaterializedViewExpression(BaseExpression):
         view_name: str,
         if_exists: bool = False,
         cascade: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.view_name = view_name
         self.if_exists = if_exists
         self.cascade = cascade
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -346,14 +339,11 @@ class RefreshMaterializedViewExpression(BaseExpression):
         view_name: str,
         concurrent: bool = False,  # Refresh concurrently (PostgreSQL)
         with_data: Optional[bool] = None,  # WITH DATA or WITH NO DATA
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.view_name = view_name
         self.concurrent = concurrent
         self.with_data = with_data
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:

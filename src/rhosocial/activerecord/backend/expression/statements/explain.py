@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ...schema import StatementType
@@ -63,9 +63,6 @@ class ExplainOptions:
     type: Optional[ExplainType] = None  # Analysis type
     settings: bool = False  # Show settings impact (PostgreSQL)
     wal: bool = False  # Show WAL statistics
-
-    # Dialect-specific options - for uncommon database options
-    dialect_options: Optional[Dict[str, Any]] = None
 
 
 class ExplainExpression(BaseExpression):

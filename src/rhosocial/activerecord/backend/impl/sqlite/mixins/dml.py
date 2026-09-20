@@ -16,11 +16,11 @@ class SQLiteDMLMixin:
 
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
         """Format INSERT statement with SQLite-specific OR REPLACE / OR IGNORE support."""
-        or_replace = expr.dialect_options.get("or_replace", False)
-        or_ignore = expr.dialect_options.get("or_ignore", False)
+        or_replace = getattr(expr, "or_replace", False)
+        or_ignore = getattr(expr, "or_ignore", False)
 
         if or_replace and or_ignore:
-            raise ValueError("Cannot specify both 'or_replace' and 'or_ignore' in dialect_options.")
+            raise ValueError("Cannot specify both 'or_replace' and 'or_ignore'.")
         if (or_replace or or_ignore) and expr.on_conflict:
             raise ValueError(
                 "Cannot use 'or_replace'/'or_ignore' together with 'on_conflict'. "
