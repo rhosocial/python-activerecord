@@ -52,11 +52,12 @@ class TestSQLiteSpecificExpressionSerialization:
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
-    def test_reindex_expression_with_dialect_options(self, sqlite_dialect):
-        """Test REINDEX with dialect_options."""
-        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users", dialect_options={"temp": True})
+    def test_reindex_expression_has_no_dialect_options(self, sqlite_dialect):
+        """The SQLite REINDEX expression carries no dialect_options bag."""
+        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
+        assert not hasattr(expr, "dialect_options")
         spec = serialize(expr)
-        assert spec["params"]["dialect_options"] == {"temp": True}
+        assert "dialect_options" not in spec["params"]
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 

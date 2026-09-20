@@ -5,7 +5,7 @@ SQLite-specific VACUUM and ANALYZE expressions.
 This module provides SQLiteVacuumExpression and SQLiteAnalyzeExpression.
 """
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ....expression.bases import BaseExpression, SQLQueryAndParams
 
@@ -43,8 +43,6 @@ class SQLiteVacuumExpression(BaseExpression):
         dialect: "SQLDialectBase",
         schema: Optional[str] = None,
         into: Optional[str] = None,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         """Initialize a VACUUM expression.
 
@@ -52,7 +50,6 @@ class SQLiteVacuumExpression(BaseExpression):
             dialect: The SQL dialect instance.
             schema: Optional schema (attached database) to vacuum.
             into: Optional output filename for ``VACUUM INTO`` (SQLite 3.27.0+).
-            dialect_options: Additional database-specific options.
 
         Raises:
             ValueError: If both schema and into are specified.
@@ -62,7 +59,6 @@ class SQLiteVacuumExpression(BaseExpression):
         super().__init__(dialect)
         self.schema = schema
         self.into = into
-        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL for the VACUUM statement.
@@ -89,11 +85,8 @@ class SQLiteAnalyzeExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> SQLQueryAndParams:
         """Format the ANALYZE statement.

@@ -7,9 +7,9 @@ SQL 2023 (ISO/IEC 9075-16:2023) for querying property graphs.
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import List, Optional, Tuple, Union, TYPE_CHECKING
 
-from .bases import BaseExpression, SQLQueryAndParams
+from .bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -30,6 +30,7 @@ class GraphVertex(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase", variable: Optional[str], table: str,
                  where: Optional["WhereClause"] = None):
+
         super().__init__(dialect)
         self.variable = variable
         self.table = table
@@ -48,6 +49,7 @@ class GraphEdge(BaseExpression):
                  variable: Optional[str] = None,
                  table: Optional[str] = None,
                  direction: GraphEdgeDirection = GraphEdgeDirection.RIGHT):
+
         super().__init__(dialect)
         self.variable = variable
         self.table = table
@@ -76,6 +78,7 @@ class QuantifiedPath(BaseExpression):
                  edge: "GraphEdge",
                  min_repeats: Optional[int] = None,
                  max_repeats: Optional[int] = None):
+
         super().__init__(dialect)
         self.edge = edge
         self.min_repeats = min_repeats
@@ -105,6 +108,7 @@ class PathPattern(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase",
                  *path: Union["GraphVertex", "GraphEdge", "QuantifiedPath"]):
+
         super().__init__(dialect)
         self.path = list(path)
 
@@ -135,6 +139,7 @@ class MatchClause(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase",
                  *args: Union["PathPattern", "GraphVertex", "GraphEdge", "QuantifiedPath"]):
+
         super().__init__(dialect)
         # Keep the raw constructor arguments so that the introspection-based
         # get_params() (and therefore serialization round-trip) can rebuild
@@ -179,6 +184,7 @@ class ColumnsClause(BaseExpression):
     """Represents the COLUMNS clause in a GRAPH_TABLE expression."""
 
     def __init__(self, dialect: "SQLDialectBase", *columns: GraphColumn):
+
         super().__init__(dialect)
         self.columns = list(columns)
 
@@ -196,6 +202,7 @@ class GraphTableExpression(BaseExpression):
     def __init__(self, dialect: "SQLDialectBase", graph_name: str,
                  match: MatchClause, columns: ColumnsClause,
                  alias: Optional[str] = None):
+
         super().__init__(dialect)
         self.graph_name = graph_name
         self.match = match
@@ -219,6 +226,7 @@ class TablePropertiesClause(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase",
                  columns: Optional[List[str]] = None):
+
         super().__init__(dialect)
         self.columns = columns  # None = ALL COLUMNS, [] = NONE, [...] = specific
 
@@ -238,6 +246,7 @@ class VertexTable(BaseExpression):
                  key_columns: Optional[List[str]] = None,
                  properties: Optional["TablePropertiesClause"] = None,
                  alias: Optional[str] = None):
+
         super().__init__(dialect)
         self.table = table
         self.labels = labels
@@ -265,6 +274,7 @@ class EdgeTable(BaseExpression):
                  labels: Optional[List[str]] = None,
                  properties: Optional["TablePropertiesClause"] = None,
                  alias: Optional[str] = None):
+
         super().__init__(dialect)
         self.table = table
         self.source_key = source_key
@@ -289,14 +299,12 @@ class CreatePropertyGraphExpression(BaseExpression):
                  vertex_tables: List[VertexTable],
                  edge_tables: Optional[List[EdgeTable]] = None,
                  if_not_exists: bool = False,
-                 *,
-                 dialect_options: Optional[Dict[str, Any]] = None):
+                 ):
         super().__init__(dialect)
         self.graph_name = graph_name
         self.vertex_tables = vertex_tables
         self.edge_tables = edge_tables or []
         self.if_not_exists = if_not_exists
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -309,13 +317,11 @@ class DropPropertyGraphExpression(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase", graph_name: str,
                  if_exists: bool = False, cascade: bool = False,
-                 *,
-                 dialect_options: Optional[Dict[str, Any]] = None):
+                 ):
         super().__init__(dialect)
         self.graph_name = graph_name
         self.if_exists = if_exists
         self.cascade = cascade
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -330,15 +336,13 @@ class AlterPropertyGraphExpression(BaseExpression):
                  action: str, target: str,
                  vertex_tables: Optional[List[VertexTable]] = None,
                  edge_tables: Optional[List[EdgeTable]] = None,
-                 *,
-                 dialect_options: Optional[Dict[str, Any]] = None):
+                 ):
         super().__init__(dialect)
         self.graph_name = graph_name
         self.action = action
         self.target = target
         self.vertex_tables = vertex_tables or []
         self.edge_tables = edge_tables or []
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:

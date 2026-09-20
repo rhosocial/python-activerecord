@@ -5,7 +5,7 @@ SQLite-specific REINDEX expression.
 This module provides SQLiteReindexExpression for rebuilding indexes.
 """
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ....expression.bases import BaseExpression, SQLQueryAndParams
 
@@ -42,8 +42,6 @@ class SQLiteReindexExpression(BaseExpression):
         index_name: Optional[str] = None,
         table_name: Optional[str] = None,
         expressions: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         """Initialize a REINDEX expression.
 
@@ -53,7 +51,6 @@ class SQLiteReindexExpression(BaseExpression):
             table_name: Optional table name to rebuild all indexes for.
             expressions: If True, rebuild all expression indexes (SQLite 3.53.0+).
                 Mutually exclusive with index_name and table_name.
-            dialect_options: Additional database-specific options.
 
         Raises:
             ValueError: If both index_name and table_name are specified,
@@ -68,7 +65,6 @@ class SQLiteReindexExpression(BaseExpression):
         self.index_name = index_name
         self.table_name = table_name
         self.expressions = expressions
-        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL for REINDEX statement.
