@@ -192,7 +192,6 @@ class UseIndex:
         type: Optional[str] = None,
         partial_condition: Optional[Union["SQLPredicate", "Callable"]] = None,
         include_columns: Optional[List[str]] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         if not name:
             raise ValueError("UseIndex requires a non-empty index name.")
@@ -203,7 +202,6 @@ class UseIndex:
         # factory, resolved by the generator at DDL-build time.
         self.partial_condition = partial_condition
         self.include_columns = include_columns
-        self.dialect_options = dialect_options
 
     def to_index_definition(self, column_name: str, dialect: "SQLDialectBase") -> "IndexDefinition":
         """Build an IndexDefinition that references *column_name*.
@@ -217,7 +215,6 @@ class UseIndex:
             type=self.type,
             partial_condition=self.partial_condition,
             include_columns=self.include_columns,
-            dialect_options=self.dialect_options,
         )
 
     def __repr__(self) -> str:

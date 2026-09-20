@@ -1,9 +1,9 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_index.py
 """Index DDL statement expressions."""
 
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams
+from ..bases import BaseExpression, SQLPredicate
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -80,8 +80,6 @@ class CreateIndexExpression(BaseExpression):
         include: Optional[List[str]] = None,
         tablespace: Optional[str] = None,
         concurrent: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.index_name = index_name
@@ -94,7 +92,6 @@ class CreateIndexExpression(BaseExpression):
         self.include = include
         self.tablespace = tablespace
         self.concurrent = concurrent
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -139,14 +136,13 @@ class DropIndexExpression(BaseExpression):
         index_name: str,
         table_name: Optional[str] = None,
         if_exists: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        concurrent: bool = False,
     ):
         super().__init__(dialect)
         self.index_name = index_name
         self.table_name = table_name
         self.if_exists = if_exists
-        self.dialect_options = dialect_options or {}
+        self.concurrent = concurrent
 
     @property
     def format_method(self) -> str:
@@ -206,8 +202,6 @@ class CreateFulltextIndexExpression(BaseExpression):
         columns: List[str],
         parser: Optional[str] = None,
         if_not_exists: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.index_name = index_name
@@ -215,7 +209,6 @@ class CreateFulltextIndexExpression(BaseExpression):
         self.columns = columns
         self.parser = parser
         self.if_not_exists = if_not_exists
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -255,14 +248,11 @@ class DropFulltextIndexExpression(BaseExpression):
         index_name: str,
         table_name: str,
         if_exists: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.index_name = index_name
         self.table_name = table_name
         self.if_exists = if_exists
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
