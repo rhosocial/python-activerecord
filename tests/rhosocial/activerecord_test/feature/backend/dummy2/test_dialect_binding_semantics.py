@@ -181,32 +181,19 @@ class TestValueObjectSemantics:
         assert VarCharType(None, 255) != VarCharType(None, 100)
 
 
-class TestDialectOptionsChannel:
-    """dialect_options：参数面的扩展通道（刁钻参数不进构造签名）。
+class TestDialectOptionsRemoved:
+    """data-type 值对象不再携带 ``dialect_options`` bag。
 
-    * 参与相等性（渲染语义的一部分）
-    * 不参与哈希（文档化不对称：options 是配置，极少被哈希）
-    * 不影响渲染文本（方言格式化函数自行决定是否消费）
+    后端特有类型配置改由后端自有类型子类的类型化字段承载。
     """
 
-    def test_options_participate_in_equality(self, dummy_dialect: DummyDialect):
-        a = VarCharType(dummy_dialect, 255, dialect_options={"unsigned": True})
-        b = VarCharType(dummy_dialect, 255, dialect_options={"unsigned": True})
-        c = VarCharType(dummy_dialect, 255, dialect_options={"unsigned": False})
-        assert a == b
-        assert a != c
-        assert a != VarCharType(dummy_dialect, 255)
+    def test_constructor_rejects_dialect_options(self, dummy_dialect: DummyDialect):
+        with pytest.raises(TypeError):
+            VarCharType(dummy_dialect, 255, dialect_options={"unsigned": True})
 
-    def test_options_deferred_dict_isolation(self, dummy_dialect: DummyDialect):
-        # 构造后传入的 dict 被拷贝——外部修改不污染实例。
-        opts = {"x": 1}
-        t = VarCharType(dummy_dialect, 10, dialect_options=opts)
-        opts["x"] = 2
-        assert t.dialect_options == {"x": 1}
+    def test_equality_uses_type_params_only(self, dummy_dialect: DummyDialect):
+        assert VarCharType(dummy_dialect, 255) == VarCharType(dummy_dialect, 255)
+        assert VarCharType(dummy_dialect, 255) != VarCharType(dummy_dialect, 10)
 
-    def test_options_do_not_affect_render_text(self, dummy_dialect: DummyDialect):
-        # dummy 的格式化函数不消费 options——渲染文本不受影响；
-        # 消费与否是方言格式化函数的职责（(self, expr) 原则）。
-        plain = VarCharType(dummy_dialect, 255)
-        adorned = VarCharType(dummy_dialect, 255, dialect_options={"x": 1})
-        assert plain.to_sql() == adorned.to_sql() == ("VARCHAR(255)", ())
+    def test_render_text_stable(self, dummy_dialect: DummyDialect):
+        assert VarCharType(dummy_dialect, 255).to_sql() == ("VARCHAR(255)", ())

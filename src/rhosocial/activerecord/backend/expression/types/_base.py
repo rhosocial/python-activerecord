@@ -6,9 +6,9 @@ from __future__ import annotations
 import inspect
 import re
 from abc import ABC
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Optional, Set
 
-from ..bases import BaseExpression, SQLQueryAndParams
+from ..bases import BaseExpression
 
 if TYPE_CHECKING:
     from ...dialect import SQLDialectBase
@@ -31,13 +31,8 @@ class DataType(BaseExpression, ABC):
     ``BaseExpression.to_sql()``: each type renders via the dialect's
     ``format_data_type`` formatting function.
 
-    Additionally, every type carries an optional ``dialect_options`` mapping
-    (conventional keyword argument): backend-specific configuration that
-    travels with the type instance (e.g. ``{'unsigned': True}``). Options
-    participate in **equality** but **not** in ``__hash__`` — the hash covers
-    type identity and type params only (options are configuration, rarely
-    hashed; this asymmetry is deliberate so mutable option mappings do not
-    break hashing).
+    Backend-specific type configuration is carried by typed constructor
+    fields on the backend's own type subclass, never by an untyped bag.
     """
 
     @property
@@ -118,18 +113,15 @@ class DataType(BaseExpression, ABC):
                     f"makes support-list merges unambiguous."
                 )
 
-    def __init__(self, dialect: Optional["SQLDialectBase"] = None,
-                 dialect_options: Optional[Dict[str, Any]] = None):
+    def __init__(self, dialect: Optional["SQLDialectBase"] = None):
         super().__init__(dialect)
-        self.dialect_options: Dict[str, Any] = dict(dialect_options) if dialect_options else {}
 
     # ----- value-object semantics (ignore dialect for equality) -----
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
             return False
-        return (self._type_params() == other._type_params()
-                and self.dialect_options == other.dialect_options)
+        return self._type_params() == other._type_params()
 
     def __hash__(self) -> int:
         return hash((type(self), self._type_params()))
