@@ -57,8 +57,8 @@ class SQLiteTextType(TextType):
     length: int | None = None
 
     def __init__(self, dialect=None, length: int | None = None,
-                 dialect_options: Dict[str, Any] | None = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.length = length
 
     @classmethod
@@ -78,8 +78,8 @@ class SQLiteRealType(DataType):
     precision: int | None = None
 
     def __init__(self, dialect=None, precision: int | None = None,
-                 dialect_options: Dict[str, Any] | None = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.precision = precision
 
     def _type_params(self) -> tuple:
@@ -104,8 +104,8 @@ class SQLiteNumericType(DataType):
 
     def __init__(self, dialect=None, precision: int | None = None,
                  scale: int | None = None,
-                 dialect_options: Dict[str, Any] | None = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.precision = precision
         self.scale = scale
 

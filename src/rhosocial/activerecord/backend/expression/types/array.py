@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Optional
 
 from ._base import DataType
 
@@ -39,8 +39,8 @@ class ArrayType(DataType):
 
     def __init__(self, dialect: Optional["SQLDialectBase"] = None,
                  element_type: Optional[DataType] = None, dimensions: int = 1,
-                 dialect_options: Optional[Dict[str, Any]] = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.element_type = element_type
         self.dimensions = dimensions
 

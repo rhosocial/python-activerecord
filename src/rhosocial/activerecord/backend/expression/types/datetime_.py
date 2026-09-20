@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from ._base import DataType
 
@@ -22,8 +22,8 @@ class TimeType(DataType):
     precision: Optional[int] = None
 
     def __init__(self, dialect=None, precision: Optional[int] = None,
-                 dialect_options: Optional[Dict[str, Any]] = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.precision = precision
 
     def _type_params(self) -> tuple:
@@ -38,8 +38,8 @@ class TimeTzType(DataType):
     precision: Optional[int] = None
 
     def __init__(self, dialect=None, precision: Optional[int] = None,
-                 dialect_options: Optional[Dict[str, Any]] = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.precision = precision
 
     def _type_params(self) -> tuple:
@@ -54,8 +54,8 @@ class DateTimeType(DataType):
     precision: Optional[int] = None
 
     def __init__(self, dialect=None, precision: Optional[int] = None,
-                 dialect_options: Optional[Dict[str, Any]] = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.precision = precision
 
     def _type_params(self) -> tuple:
@@ -70,8 +70,8 @@ class TimestampType(DataType):
     precision: Optional[int] = None
 
     def __init__(self, dialect=None, precision: Optional[int] = None,
-                 dialect_options: Optional[Dict[str, Any]] = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.precision = precision
 
     def _type_params(self) -> tuple:
@@ -86,8 +86,8 @@ class TimestampTzType(DataType):
     precision: Optional[int] = None
 
     def __init__(self, dialect=None, precision: Optional[int] = None,
-                 dialect_options: Optional[Dict[str, Any]] = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.precision = precision
 
     def _type_params(self) -> tuple:
@@ -102,8 +102,8 @@ class IntervalType(DataType):
     fields: Optional[str] = None  # e.g. 'YEAR', 'MONTH', 'DAY TO SECOND'
 
     def __init__(self, dialect=None, fields: Optional[str] = None,
-                 dialect_options: Optional[Dict[str, Any]] = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.fields = fields
 
     def _type_params(self) -> tuple:

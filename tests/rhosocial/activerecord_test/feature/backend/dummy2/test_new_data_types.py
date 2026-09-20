@@ -58,15 +58,9 @@ class TestEnumType:
     def test_hash_matches_equality(self):
         assert hash(EnumType(None, ["a", "b"])) == hash(EnumType(None, ["a", "b"]))
 
-    def test_options_participate_in_equality(self):
-        with_options = EnumType(None, ["a"], dialect_options={"charset": "utf8"})
-        without_options = EnumType(None, ["a"])
-        assert with_options != without_options
-        assert with_options == EnumType(None, ["a"], dialect_options={"charset": "utf8"})
-
-    def test_options_do_not_break_hash(self):
-        assert hash(EnumType(None, ["a"], dialect_options={"charset": "utf8"})) == \
-               hash(EnumType(None, ["a"]))
+    def test_constructor_rejects_dialect_options(self):
+        with pytest.raises(TypeError):
+            EnumType(None, ["a"], dialect_options={"charset": "utf8"})
 
 
 # ---------------------------------------------------------------------------
