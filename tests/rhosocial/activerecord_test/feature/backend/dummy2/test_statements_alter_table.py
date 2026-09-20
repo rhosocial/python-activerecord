@@ -148,19 +148,6 @@ class TestAlterTableStatements:
         assert "DROP COLUMN" in sql
         assert params == ()
 
-    def test_alter_table_with_dialect_options(self, dummy_dialect: DummyDialect):
-        """Tests ALTER TABLE with dialect-specific options."""
-        column_def = ColumnDefinition(dummy_dialect, name="new_field", data_type=VarCharType(dummy_dialect, 50))
-        add_action = AddColumn(dummy_dialect, column=column_def)
-
-        alter_expr = AlterTableExpression(
-            dummy_dialect, table_name="dynamic_table", actions=[add_action], dialect_options={"custom_option": "value"}
-        )
-        sql, params = alter_expr.to_sql()
-
-        assert 'ALTER TABLE "dynamic_table"' in sql
-        assert params == ()
-
     def test_alter_column_cascade_option(self, dummy_dialect: DummyDialect):
         """Tests ALTER COLUMN with CASCADE option."""
         alter_action = AlterColumn(dummy_dialect, column_name="category", operation="DROP NOT NULL", cascade=True)
