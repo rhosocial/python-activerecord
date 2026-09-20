@@ -383,7 +383,6 @@ class IndexDefinition(BaseExpression):
         type: Optional[str] = None,
         partial_condition: Optional["SQLPredicate"] = None,
         include_columns: Optional[List[str]] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.name = name
@@ -392,7 +391,6 @@ class IndexDefinition(BaseExpression):
         self.type = type
         self.partial_condition = partial_condition
         self.include_columns = include_columns
-        self.dialect_options = dialect_options or {}
 
 
 class CreateTableOptions(BaseExpression):

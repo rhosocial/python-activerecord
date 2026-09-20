@@ -298,6 +298,15 @@ class IndexMixin:
         all_params = []
         parts = ["CREATE"]
 
+        # CONCURRENTLY is a PostgreSQL extension gated by supports_concurrent_index().
+        if getattr(expr, "concurrent", False):
+            if not self.supports_concurrent_index():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX CONCURRENTLY",
+                    f"{self.name} does not support CREATE INDEX CONCURRENTLY."
+                )
+            parts.append("CONCURRENTLY")
+
         if expr.unique:
             parts.append("UNIQUE")
         parts.append("INDEX")
@@ -375,6 +384,13 @@ class IndexMixin:
         """
         from ..exceptions import UnsupportedFeatureError
         parts = ["DROP INDEX"]
+        if getattr(expr, "concurrent", False):
+            if not self.supports_concurrent_index():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP INDEX CONCURRENTLY",
+                    f"{self.name} does not support DROP INDEX CONCURRENTLY."
+                )
+            parts.append("CONCURRENTLY")
         if expr.if_exists:
             if not self.supports_index_if_exists():
                 raise UnsupportedFeatureError(

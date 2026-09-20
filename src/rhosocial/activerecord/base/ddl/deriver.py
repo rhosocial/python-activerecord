@@ -121,7 +121,6 @@ class TableDDLDeriver:
                 index_type=index.type,
                 where=index.partial_condition,
                 include=list(index.include_columns) if index.include_columns else None,
-                dialect_options=dict(index.dialect_options or {}),
             )
             for index in self.indexes()
         ]

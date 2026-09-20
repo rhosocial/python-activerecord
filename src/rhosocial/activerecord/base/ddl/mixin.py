@@ -87,7 +87,6 @@ class DDLMixin:
             type=marker.type,
             partial_condition=marker.partial_condition,
             include_columns=marker.include_columns,
-            dialect_options=marker.dialect_options,
         )
 
     # ----- column-level interfaces (unified column_*(field)) -----
