@@ -3,7 +3,7 @@
 This module provides classes and functions related to field definitions and annotations.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Type, Union, TYPE_CHECKING
+from typing import Any, Callable, List, Optional, Type, Union, TYPE_CHECKING
 
 from ..backend.expression.statements.ddl_table import (
     ColumnConstraint,
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
         ReferentialAction,
     )
     from ..backend.expression.types import DataType
+    from .ddl.attributes import ColumnAttribute
 
 
 class UseColumn:
@@ -281,6 +282,23 @@ class UseConstraint:
 
     def __repr__(self) -> str:
         return f"UseConstraint({self.constraint.constraint_type.name})"
+
+
+class UseColumnAttributes:
+    """Marker for ``Annotated[T, UseColumnAttributes(attr, ...)]``.
+
+    Declares one or more dialect-free :class:`ColumnAttribute` objects
+    (identity, collation, character set, …). The AR layer collects them per
+    column and hands the list to the backend dialect, which selects the
+    applicable attributes and renders them in the column definition.
+    """
+
+    def __init__(self, *attributes: "ColumnAttribute"):
+        self.attributes = list(attributes)
+
+    def __repr__(self) -> str:
+        kinds = ", ".join(type(attr).__name__ for attr in self.attributes)
+        return f"UseColumnAttributes({kinds})"
 
 
 class DerivedField:
