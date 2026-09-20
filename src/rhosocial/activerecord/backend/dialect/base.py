@@ -196,6 +196,7 @@ class SQLDialectBase:
         mistaken for a bind placeholder during placeholder resolution.
         """
         import datetime as _dt
+        from decimal import Decimal
 
         if value is None:
             return "NULL"
@@ -204,6 +205,12 @@ class SQLDialectBase:
             # PostgreSQL-specific TRUE/FALSE spelling is a dialect override
             # for engines that reject 1/0 in a BOOLEAN context.
             return "TRUE" if value else "FALSE"
+        if isinstance(value, Decimal):
+            # Exact decimal literal; `str` preserves precision/scale without
+            # the exponent form `repr` could produce.
+            if not value.is_finite():
+                raise ValueError("non-finite Decimal cannot be inlined into SQL")
+            return str(value)
         if isinstance(value, (int, float)):
             if isinstance(value, float) and value != value:  # NaN
                 raise ValueError("NaN cannot be inlined into SQL")
