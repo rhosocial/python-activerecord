@@ -796,6 +796,12 @@ class DDLColumnMixin:
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
         """
+        if expr.type and not self.supports_index_type():
+            from ..exceptions import UnsupportedFeatureError
+            raise UnsupportedFeatureError(
+                self.name, "index type (USING)",
+                f"{self.name} does not support index types.",
+            )
         cols_str = ", ".join(self.format_identifier(col) for col in expr.columns)
         unique_str = "UNIQUE " if expr.unique else ""
         type_str = f" USING {expr.type}" if expr.type else ""

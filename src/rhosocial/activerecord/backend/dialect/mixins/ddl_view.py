@@ -115,10 +115,16 @@ class ViewMixin:
         query_sql, query_params = expr.query.to_sql()
         sql_parts.append(f" AS {query_sql}")
         all_params.extend(query_params)
-        if expr.options.check_option == ViewCheckOption.LOCAL:
-            sql_parts.append(" WITH LOCAL CHECK OPTION")
-        elif expr.options.check_option == ViewCheckOption.CASCADED:
-            sql_parts.append(" WITH CASCADED CHECK OPTION")
+        if expr.options.check_option is not None:
+            if not self.supports_view_check_option():
+                raise UnsupportedFeatureError(
+                    self.name, "WITH CHECK OPTION",
+                    f"{self.name} does not support WITH CHECK OPTION.",
+                )
+            if expr.options.check_option == ViewCheckOption.LOCAL:
+                sql_parts.append(" WITH LOCAL CHECK OPTION")
+            elif expr.options.check_option == ViewCheckOption.CASCADED:
+                sql_parts.append(" WITH CASCADED CHECK OPTION")
         return " ".join(sql_parts), tuple(all_params)
 
     def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:

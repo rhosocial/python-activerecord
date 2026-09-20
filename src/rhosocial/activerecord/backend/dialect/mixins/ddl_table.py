@@ -430,6 +430,17 @@ class TableMixin:
             if options_sql:
                 options_part = options_sql + " "
             all_params.extend(options_params)
+        from ..exceptions import UnsupportedFeatureError
+        if expr.temporary and not self.supports_temporary_table():
+            raise UnsupportedFeatureError(
+                self.name, "TEMPORARY TABLE",
+                f"{self.name} does not support TEMPORARY tables.",
+            )
+        if expr.if_not_exists and not self.supports_if_not_exists_table():
+            raise UnsupportedFeatureError(
+                self.name, "CREATE TABLE IF NOT EXISTS",
+                f"{self.name} does not support CREATE TABLE IF NOT EXISTS.",
+            )
         temp_part = "TEMPORARY " if expr.temporary else ""
         not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
         table_sql, table_params = expr.table.to_sql()
