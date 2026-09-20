@@ -70,12 +70,11 @@ class TestDialectOptionsExpressionTraversal:
         assert restored.to_sql() == expr.to_sql()
         assert restored.dialect_options == expr.dialect_options
 
-    def test_drop_table_with_dialect_options(self, sqlite_dialect):
-        expr = DropTableExpression(sqlite_dialect, table="users", dialect_options={"if_exists": True})
+    def test_drop_table_roundtrip(self, sqlite_dialect):
+        expr = DropTableExpression(sqlite_dialect, table="users", if_exists=True)
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
-        assert restored.dialect_options == expr.dialect_options
 
     def test_create_index_roundtrip(self, sqlite_dialect):
         expr = CreateIndexExpression(sqlite_dialect, "idx_users", "users", ["name"], unique=True)

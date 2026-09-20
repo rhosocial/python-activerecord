@@ -284,7 +284,7 @@ from .ddl_partition import PartitionClause, PartitionStrategy  # noqa: E402, F40
 class ConstraintValidation(Enum):
     """Constraint validation status (PostgreSQL specific).
 
-    Used in AddTableConstraint.dialect_options['validation'] to control
+    Used as the typed ``validation`` field of ``TableConstraint`` to control
     whether PostgreSQL validates existing data against the constraint.
 
     - VALIDATE: Validate all existing data (default behavior)
@@ -314,7 +314,8 @@ class TableConstraint(BaseExpression):
         foreign_key_columns: Optional[List[str]] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        validation: Optional[ConstraintValidation] = None,
+        enforced: Optional[bool] = None,
     ):
         super().__init__(dialect)
         self.constraint_type = constraint_type
@@ -325,7 +326,10 @@ class TableConstraint(BaseExpression):
         self.foreign_key_columns = foreign_key_columns
         self.deferrable = deferrable
         self.initially_deferred = initially_deferred
-        self.dialect_options = dialect_options or {}
+        # PostgreSQL: NOT VALID for an added constraint (None = default VALIDATE).
+        self.validation = validation
+        # MariaDB/SQL Server: CHECK ... [NOT] ENFORCED (None = backend default).
+        self.enforced = enforced
 
 
 class ForeignKeyConstraint(TableConstraint):
@@ -348,7 +352,8 @@ class ForeignKeyConstraint(TableConstraint):
         name: Optional[str] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        validation: Optional[ConstraintValidation] = None,
+        enforced: Optional[bool] = None,
     ):
         super().__init__(
             dialect,
@@ -359,7 +364,8 @@ class ForeignKeyConstraint(TableConstraint):
             foreign_key_columns=foreign_key_columns,
             deferrable=deferrable,
             initially_deferred=initially_deferred,
-            dialect_options=dialect_options,
+            validation=validation,
+            enforced=enforced,
         )
         self.on_delete = on_delete
         self.on_update = on_update
@@ -458,7 +464,6 @@ class CreateTableExpression(BaseExpression):
         *,  # Force keyword arguments
         partition: Optional["PartitionClause"] = None,  # Table partitioning specification
         table_options: Optional["CreateTableOptions"] = None,  # CREATE header modifiers
-        dialect_options: Optional[Dict[str, Any]] = None,
         on_commit_delete: Optional[bool] = None,  # Firebird: ON COMMIT DELETE ROWS (True) or PRESERVE ROWS (False)
         external_file: Optional[str] = None,  # Firebird: EXTERNAL FILE clause
     ):  # Dialect-specific options
@@ -482,7 +487,6 @@ class CreateTableExpression(BaseExpression):
             raise TypeError(f"partition must be a PartitionClause instance, got {type(partition).__name__}")
         self.partition = partition
         self.table_options = table_options  # CreateTableOptions (header modifiers)
-        self.dialect_options = dialect_options or {}  # Dialect-specific options
         self.on_commit_delete = on_commit_delete  # Firebird: ON COMMIT DELETE/PRESERVE ROWS
         self.external_file = external_file  # Firebird: EXTERNAL FILE clause
 
@@ -549,7 +553,6 @@ class CreateTableAsExpression(BaseExpression):
         if_not_exists: bool = False,
         storage_options: Optional["StorageOptionsExpression"] = None,
         with_data: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.table = _normalize_table_reference(dialect, table)
@@ -561,7 +564,6 @@ class CreateTableAsExpression(BaseExpression):
         self.if_not_exists = if_not_exists
         self.storage_options = storage_options
         self.with_data = with_data
-        self.dialect_options = dialect_options or {}
 
     @property
     def table_name(self) -> str:
@@ -602,7 +604,6 @@ class CreateTableLikeExpression(BaseExpression):
         temporary: bool = False,
         if_not_exists: bool = False,
         like_options: Optional[Any] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.table = _normalize_table_reference(dialect, table)
@@ -611,7 +612,6 @@ class CreateTableLikeExpression(BaseExpression):
         self.if_not_exists = if_not_exists
         # PostgreSQL-specific INCLUDING/EXCLUDING options (dict or list).
         self.like_options = like_options
-        self.dialect_options = dialect_options or {}
 
     @property
     def table_name(self) -> str:
@@ -656,7 +656,6 @@ class CreateTableCloneExpression(BaseExpression):
         at: Optional[Any] = None,
         before: Optional[Any] = None,
         copy_grants: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         if not isinstance(mode, CreateTableCloneMode):
@@ -669,7 +668,6 @@ class CreateTableCloneExpression(BaseExpression):
         self.at = at
         self.before = before
         self.copy_grants = copy_grants
-        self.dialect_options = dialect_options or {}
 
     @property
     def table_name(self) -> str:
@@ -699,7 +697,6 @@ class CreateTableFromTemplateExpression(BaseExpression):
         *,
         temporary: bool = False,
         if_not_exists: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.table = _normalize_table_reference(dialect, table)
@@ -708,7 +705,6 @@ class CreateTableFromTemplateExpression(BaseExpression):
         self.template = template
         self.temporary = temporary
         self.if_not_exists = if_not_exists
-        self.dialect_options = dialect_options or {}
 
     @property
     def table_name(self) -> str:
@@ -753,9 +749,8 @@ class DropTableExpression(BaseExpression):
             - None: Omit from SQL (use database default)
             - True: Generate CASCADE (or dialect-specific equivalent form)
             - False: Generate RESTRICT (or raise if unsupported)
-        dialect_options: Database-specific options (e.g., Oracle PURGE via
-            ``purge=True`` which, combined with cascade=True, appends PURGE
-            after the dialect-specific cascade form).
+        purge: Oracle PURGE via a typed flag which, combined with cascade=True,
+            appends PURGE after the dialect-specific cascade form.
 
     Examples:
         # Simple drop
@@ -771,8 +766,7 @@ class DropTableExpression(BaseExpression):
         # -> DROP TABLE users CASCADE
 
         # With CASCADE on Oracle (dialect renders its own form)
-        DropTableExpression(oracle_dialect, "users", cascade=True,
-        ...                 dialect_options={"purge": True})
+        DropTableExpression(oracle_dialect, "users", cascade=True, purge=True)
         # -> DROP TABLE users CASCADE CONSTRAINTS PURGE
 
         # With schema-qualified table
@@ -791,7 +785,7 @@ class DropTableExpression(BaseExpression):
         table: Union[str, "TableExpression"],
         if_exists: bool = False,
         cascade: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        purge: bool = False,
     ):
         super().__init__(dialect)
         if isinstance(table, str):
@@ -802,7 +796,7 @@ class DropTableExpression(BaseExpression):
             raise TypeError(f"table must be str or TableExpression, got {type(table).__name__}")
         self.if_exists = if_exists
         self.cascade = cascade
-        self.dialect_options = dialect_options or {}
+        self.purge = purge
 
 
 class StorageOptionsExpression(BaseExpression):
