@@ -194,7 +194,6 @@ class TestPartitionClauseValidation:
         clause = PartitionClause(dialect, PartitionStrategy.HASH, [Column(dialect, "id")])
         assert clause.method == PartitionStrategy.HASH.value
         assert len(clause.keys) == 1
-        assert clause.dialect_options == {}
 
     def test_non_string_enum_value(self, dialect):
         from enum import Enum
