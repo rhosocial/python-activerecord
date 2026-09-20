@@ -802,10 +802,22 @@ class DDLColumnMixin:
                 self.name, "index type (USING)",
                 f"{self.name} does not support index types.",
             )
-        cols_str = ", ".join(self.format_identifier(col) for col in expr.columns)
+        all_params: List[Any] = []
+        col_parts = []
+        for col in expr.columns:
+            if isinstance(col, ToSQLProtocol):
+                col_sql, col_params = col.to_sql()
+                col_parts.append(col_sql)
+                all_params.extend(col_params)
+            else:
+                col_parts.append(self.format_identifier(str(col)))
+        cols_str = ", ".join(col_parts)
         unique_str = "UNIQUE " if expr.unique else ""
         type_str = f" USING {expr.type}" if expr.type else ""
-        return f"{unique_str}{self.format_identifier(expr.name)}{type_str} ({cols_str})", ()
+        return (
+            f"{unique_str}{self.format_identifier(expr.name)}{type_str} ({cols_str})",
+            tuple(all_params),
+        )
 
     def format_add_index_action(self, action: "AddIndex") -> Tuple[str, Tuple]:
         """Format an ``ADD INDEX`` ALTER TABLE action.
