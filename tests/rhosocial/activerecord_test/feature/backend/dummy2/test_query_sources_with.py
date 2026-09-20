@@ -78,19 +78,18 @@ class TestCTEAndWithQueryExpressions:
         assert "NOT MATERIALIZED" in sql_not_mat.upper()
         assert params_not_mat == (True,)
 
-    def test_cte_expression_with_dialect_options(self, dummy_dialect: DummyDialect):
-        """Test CTE expression with dialect-specific options."""
+    def test_cte_expression_has_no_dialect_options(self, dummy_dialect: DummyDialect):
+        """The generic CTE expression carries no dialect_options bag."""
         query = Subquery(dummy_dialect, "SELECT id FROM simple_table", ())
         cte = CTEExpression(
             dummy_dialect,
             name="dialect_specific_cte",
             query=query,
-            dialect_options={"some_hint": "value", "optimizer": "advanced"},
         )
 
+        assert not hasattr(cte, "dialect_options")
         sql, params = cte.to_sql()
 
-        # The dialect options are passed to the dialect, but the basic SQL should still work
         assert "dialect_specific_cte" in sql
         assert params == ()
 
@@ -137,8 +136,8 @@ class TestCTEAndWithQueryExpressions:
         assert "user_orders" in sql
         assert params == (18,)
 
-    def test_with_query_expression_with_dialect_options(self, dummy_dialect: DummyDialect):
-        """Test WithQuery expression with dialect-specific options."""
+    def test_with_query_expression_has_no_dialect_options(self, dummy_dialect: DummyDialect):
+        """The generic with-query expression carries no dialect_options bag."""
         cte_query = Subquery(dummy_dialect, "SELECT id FROM simple_table", ())
         cte = CTEExpression(dummy_dialect, name="simple_cte", query=cte_query)
 
@@ -147,12 +146,12 @@ class TestCTEAndWithQueryExpressions:
         )
 
         with_query = WithQueryExpression(
-            dummy_dialect, ctes=[cte], main_query=main_query, dialect_options={"optimizer": "fast", "cache": "true"}
+            dummy_dialect, ctes=[cte], main_query=main_query
         )
 
+        assert not hasattr(with_query, "dialect_options")
         sql, params = with_query.to_sql()
 
-        # The dialect options are passed to the dialect, but the basic SQL should still work
         assert "WITH" in sql.upper()
         assert "simple_cte" in sql
         assert params == ()
@@ -231,7 +230,6 @@ class TestCTEAndWithQueryExpressions:
             query=query,
             columns=["col1", "col2"],
             materialized=False,
-            dialect_options={"hint": "value"},
         )
 
         sql, params = cte.to_sql()

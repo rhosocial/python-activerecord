@@ -5,7 +5,7 @@ SQLite-specific ATTACH DATABASE and DETACH DATABASE expressions.
 This module provides SQLiteAttachExpression and SQLiteDetachExpression.
 """
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from ....expression.bases import BaseExpression, SQLQueryAndParams
 
@@ -35,8 +35,6 @@ class SQLiteAttachExpression(BaseExpression):
         dialect: "SQLDialectBase",
         database: str,
         schema: str,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         """Initialize an ATTACH DATABASE expression.
 
@@ -44,7 +42,6 @@ class SQLiteAttachExpression(BaseExpression):
             dialect: The SQL dialect instance.
             database: The database file path to attach.
             schema: The schema name (alias) under which to attach it.
-            dialect_options: Additional database-specific options.
 
         Raises:
             ValueError: If database or schema is empty.
@@ -56,7 +53,6 @@ class SQLiteAttachExpression(BaseExpression):
         super().__init__(dialect)
         self.database = database
         self.schema = schema
-        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL for the ATTACH DATABASE statement.
@@ -85,15 +81,12 @@ class SQLiteDetachExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         schema: str,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         """Initialize a DETACH DATABASE expression.
 
         Args:
             dialect: The SQL dialect instance.
             schema: The schema name to detach.
-            dialect_options: Additional database-specific options.
 
         Raises:
             ValueError: If schema is empty.
@@ -102,7 +95,6 @@ class SQLiteDetachExpression(BaseExpression):
             raise ValueError("DETACH DATABASE requires a schema name")
         super().__init__(dialect)
         self.schema = schema
-        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> SQLQueryAndParams:
         """Generate SQL for the DETACH DATABASE statement.

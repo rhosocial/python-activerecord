@@ -8,7 +8,7 @@ lateral expressions, and common table expressions.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
+from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
 from .core import Subquery, TableExpression
@@ -233,7 +233,6 @@ class CTEExpression(BaseExpression):
         query: Union["BaseExpression", "SQLQueryAndParams"],
         columns: Optional[List[str]] = None,
         materialized: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize a CTEExpression.
@@ -247,14 +246,12 @@ class CTEExpression(BaseExpression):
                      though using a tuple is preferred (params will be converted to tuple if list)
             columns: Optional list of column names for the CTE
             materialized: Whether the CTE should be materialized (for databases that support it)
-            dialect_options: Additional dialect-specific options
         """
         super().__init__(dialect)
         self.name = name
         self.query = query
         self.columns = columns
         self.materialized = materialized
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -324,13 +321,11 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         ctes: List[CTEExpression],
         main_query: "BaseExpression",
         recursive: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.ctes = ctes
         self.main_query = main_query
         self.recursive = recursive
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
