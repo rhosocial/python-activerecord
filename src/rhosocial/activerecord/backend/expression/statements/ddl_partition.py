@@ -53,20 +53,13 @@ class SubpartitionDefinition:
 
     Raises:
         ValueError: if ``name`` is empty or whitespace-only.
-        TypeError: if ``dialect_options`` is not a dict when provided.
     """
 
     name: str
-    dialect_options: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip():
             raise ValueError("subpartition name must be a non-empty string")
-        if self.dialect_options is not None and not isinstance(self.dialect_options, dict):
-            raise TypeError(
-                "dialect_options must be dict or None, "
-                f"got {type(self.dialect_options).__name__}"
-            )
 
 
 @dataclass
@@ -88,25 +81,18 @@ class PartitionDefinition:
     Raises:
         ValueError: if ``name`` is empty or whitespace-only, or if both
             ``less_than`` and ``in_values`` are provided.
-        TypeError: if ``dialect_options`` is not a dict when provided.
     """
 
     name: str
     less_than: Optional[Sequence[BaseExpression]] = None
     in_values: Optional[Sequence[Union[BaseExpression, Sequence[BaseExpression]]]] = None
     subpartition_definitions: Optional[Sequence["SubpartitionDefinition"]] = None
-    dialect_options: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip():
             raise ValueError("partition name must be a non-empty string")
         if self.less_than is not None and self.in_values is not None:
             raise ValueError("less_than and in_values are mutually exclusive")
-        if self.dialect_options is not None and not isinstance(self.dialect_options, dict):
-            raise TypeError(
-                "dialect_options must be dict or None, "
-                f"got {type(self.dialect_options).__name__}"
-            )
 
 
 class PartitionClause(BaseExpression):
@@ -131,8 +117,6 @@ class PartitionClause(BaseExpression):
         dialect: "SQLDialectBase",
         method: Enum,
         keys: Sequence[BaseExpression],
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         if isinstance(method, self.strategy_type):
@@ -158,14 +142,8 @@ class PartitionClause(BaseExpression):
                     "keys must contain BaseExpression instances, "
                     f"got {type(key).__name__}"
                 )
-        if dialect_options is not None and not isinstance(dialect_options, dict):
-            raise TypeError(
-                "dialect_options must be a dict when provided, "
-                f"got {type(dialect_options).__name__}"
-            )
         self.method = normalized_method
         self.keys = list(keys)
-        self.dialect_options = dict(dialect_options or {})
 
     @property
     def format_method(self) -> str:

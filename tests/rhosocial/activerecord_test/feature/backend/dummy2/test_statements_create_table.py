@@ -719,29 +719,15 @@ class TestCreateTableStatements:
         with pytest.raises(ValueError, match="keys are required"):
             PartitionClause(dialect=dummy_dialect, method=PartitionStrategy.RANGE, keys=[])
 
-    def test_partition_clause_requires_dict_dialect_options(self, dummy_dialect: DummyDialect):
-        """Tests dialect_options must remain a structured mapping."""
-        with pytest.raises(TypeError, match="dialect_options must be a dict"):
+    def test_partition_clause_rejects_dialect_options_kwarg(self, dummy_dialect: DummyDialect):
+        """Tests PartitionClause no longer accepts a dialect_options bag."""
+        with pytest.raises(TypeError):
             PartitionClause(
                 dialect=dummy_dialect,
                 method=PartitionStrategy.RANGE,
                 keys=[Column(dummy_dialect, "created_date")],
                 dialect_options="columns_mode",
             )
-
-    def test_partition_clause_copies_dialect_options(self, dummy_dialect: DummyDialect):
-        """Tests dialect_options are copied to avoid external mutation."""
-        options = {"backend_hint": "safe"}
-        partition = PartitionClause(
-            dialect=dummy_dialect,
-            method=PartitionStrategy.RANGE,
-            keys=[Column(dummy_dialect, "created_date")],
-            dialect_options=options,
-        )
-
-        options["backend_hint"] = "changed"
-
-        assert partition.dialect_options == {"backend_hint": "safe"}
 
     def test_partition_clause_requires_expression_keys(self, dummy_dialect: DummyDialect):
         """Tests PartitionClause keys must be expressions."""
