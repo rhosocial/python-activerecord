@@ -396,30 +396,28 @@ class IndexDefinition(BaseExpression):
 
 
 class CreateTableOptions(BaseExpression):
-    """Typed creation modifiers for ``CREATE TABLE``.
+    """Generic creation modifiers for ``CREATE TABLE``.
 
-    Captures the cross-dialect creation options explicitly instead of via an
-    untyped ``dialect_options`` bag:
+    Holds only the **generic** (SQL-standard or broadly shared) options:
 
-    **Header modifiers** (between ``CREATE`` and ``TABLE``):
+    **Header modifier** (between ``CREATE`` and ``TABLE``):
 
-    * ``or_replace`` -- ``CREATE OR REPLACE TABLE`` (Snowflake, BigQuery, MariaDB)
-    * ``unlogged``   -- ``CREATE UNLOGGED TABLE`` (PostgreSQL)
-    * ``transient``  -- ``CREATE TRANSIENT TABLE`` (Snowflake)
+    * ``or_replace`` -- ``CREATE OR REPLACE TABLE`` (standard; widely supported)
 
-    **Table-level options** (after the column list):
+    **Table-level option** (after the column list):
 
-    * ``comment`` -- ``COMMENT 'text'`` (MySQL, MariaDB, ClickHouse)
-    * ``engine`` -- ``ENGINE=name`` (MySQL, MariaDB, ClickHouse)
-    * ``charset`` -- ``DEFAULT CHARSET=name`` (MySQL, MariaDB)
-    * ``collate`` -- ``COLLATE=name`` (MySQL, MariaDB, table-level)
-    * ``memory_optimized`` -- ``MEMORY_OPTIMIZED=ON`` (SQL Server)
-    * ``durability`` -- ``DURABILITY=SCHEMA_ONLY|SCHEMA_AND_DATA`` (SQL Server)
+    * ``comment`` -- table comment (SQL-standard ``COMMENT ON``; also rendered
+      as ``COMMENT='text'`` table option by MySQL/MariaDB/ClickHouse)
 
-    Header modifiers are rendered by ``format_create_table_options``; the
-    statement renderer composes the returned qualifier right after
-    ``CREATE``.  Table-level options are rendered by the statement renderer
-    and appended after the column list.
+    Backend-specific creation options (``UNLOGGED`` / ``TRANSIENT`` /
+    ``ENGINE`` / ``CHARSET`` / table ``COLLATE`` / ``MEMORY_OPTIMIZED`` /
+    ``DURABILITY`` / …) live on a backend's own ``XxxCreateTableOptions``
+    subclass — they are **not** generic and there is no ``dialect_options``
+    bag.
+
+    ``or_replace`` is rendered by ``format_create_table_options``; the
+    statement renderer composes the returned qualifier right after ``CREATE``.
+    ``comment`` is rendered by the statement renderer after the column list.
     """
 
     @property
@@ -432,27 +430,11 @@ class CreateTableOptions(BaseExpression):
         dialect: "SQLDialectBase",
         *,
         or_replace: bool = False,
-        unlogged: bool = False,
-        transient: bool = False,
         comment: Optional[str] = None,
-        engine: Optional[str] = None,
-        charset: Optional[str] = None,
-        collate: Optional[str] = None,
-        memory_optimized: Optional[bool] = None,
-        durability: Optional[str] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.or_replace = or_replace
-        self.unlogged = unlogged
-        self.transient = transient
         self.comment = comment
-        self.engine = engine
-        self.charset = charset
-        self.collate = collate
-        self.memory_optimized = memory_optimized
-        self.durability = durability
-        self.dialect_options = dialect_options or {}
 
 
 class CreateTableExpression(BaseExpression):
