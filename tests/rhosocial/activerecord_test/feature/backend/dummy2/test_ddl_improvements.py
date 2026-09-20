@@ -14,12 +14,17 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.statements import (
     ViewCheckOption,
+    ViewOptions,
+    CreateTableExpression,
+    ColumnDefinition,
+    IndexDefinition,
     CreateTriggerExpression,
     DropTriggerExpression,
     TriggerTiming,
     TriggerEvent,
     TriggerLevel,
 )
+from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.expression.statements.ddl_database import (
     CreateDatabaseExpression,
     DropDatabaseExpression,
@@ -94,6 +99,53 @@ class TestViewCapabilityGating:
         with patch.object(type(dummy_dialect), "supports_cascade_view", return_value=False):
             with pytest.raises(UnsupportedFeatureError, match="CASCADE"):
                 drop_view.to_sql()
+
+    def test_create_view_check_option_raises_when_unsupported(self, dummy_dialect: DummyDialect):
+        """CREATE VIEW WITH CHECK OPTION should raise when unsupported."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users"),
+        )
+        create_view = CreateViewExpression(
+            dummy_dialect,
+            view_name="v",
+            query=query,
+            options=ViewOptions(check_option=ViewCheckOption.CASCADED),
+        )
+        with patch.object(type(dummy_dialect), "supports_view_check_option", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="CHECK OPTION"):
+                create_view.to_sql()
+
+
+class TestTableCapabilityGating:
+    """Tests for CREATE TABLE capability gating."""
+
+    def _table(self, dummy_dialect: DummyDialect, **kwargs):
+        return CreateTableExpression(
+            dummy_dialect,
+            table="t",
+            columns=[ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect))],
+            **kwargs,
+        )
+
+    def test_create_table_if_not_exists_raises_when_unsupported(self, dummy_dialect: DummyDialect):
+        expr = self._table(dummy_dialect, if_not_exists=True)
+        with patch.object(type(dummy_dialect), "supports_if_not_exists_table", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="IF NOT EXISTS"):
+                expr.to_sql()
+
+    def test_create_table_temporary_raises_when_unsupported(self, dummy_dialect: DummyDialect):
+        expr = self._table(dummy_dialect, temporary=True)
+        with patch.object(type(dummy_dialect), "supports_temporary_table", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="TEMPORARY"):
+                expr.to_sql()
+
+    def test_inline_index_type_raises_when_unsupported(self, dummy_dialect: DummyDialect):
+        index = IndexDefinition(dummy_dialect, "idx", ["a"], type="btree")
+        with patch.object(type(dummy_dialect), "supports_index_type", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="index type"):
+                dummy_dialect.format_index_definition(index)
 
 
 class TestColumnCapabilityGating:
