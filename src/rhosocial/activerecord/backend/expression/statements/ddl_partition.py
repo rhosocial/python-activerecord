@@ -1,13 +1,33 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_partition.py
 """Table partitioning DDL expressions.
 
-This module defines the generic PARTITION BY clause expression used by
-CREATE TABLE statements. The expression stores structured partition clause
-parameters and delegates SQL generation to the dialect formatter.
+This module defines:
+
+* the generic ``PartitionClause`` expression, which renders only the clause
+  shape ``PARTITION BY <method> (<keys>)`` (the PostgreSQL form); and
+* the structural ``PartitionDefinition`` / ``SubpartitionDefinition``
+  declarations, which describe concrete partitions inline in CREATE TABLE.
+
+Scope boundary
+--------------
+``PartitionClause`` intentionally carries **only the clause** (method + keys).
+Named partitions, ``VALUES`` boundaries, storage options, and subpartitions are
+backend-specific and live in backend expressions that derive from
+``PartitionDefinition`` / ``SubpartitionDefinition`` (for example MySQL and
+Oracle). Backends without declarative inline partitions (PostgreSQL creates
+partitions through ``CREATE TABLE ... PARTITION OF``) never populate the
+definition base classes.
+
+``PartitionDefinition`` and ``SubpartitionDefinition`` are backend-agnostic
+**structural declarations**, not renderable expressions: there is no portable
+generic syntax for a partition boundary (``VALUES LESS THAN`` /
+``VALUES IN`` / ``FOR VALUES`` all differ), so the owning dialect formatter
+(``format_partition_definition``) renders them and backends override it.
 """
 
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING
+from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING, Union
 
 from ..bases import BaseExpression, SQLQueryAndParams
 
@@ -23,13 +43,83 @@ class PartitionStrategy(Enum):
     HASH = "HASH"
 
 
+@dataclass
+class SubpartitionDefinition:
+    """Base declaration for a single named subpartition.
+
+    A backend-agnostic structural declaration. Backends add the boundary
+    fields their syntax requires (Oracle's subpartition definitions carry
+    ``less_than`` / ``in_values``; MySQL's carry only a name).
+
+    Raises:
+        ValueError: if ``name`` is empty or whitespace-only.
+        TypeError: if ``dialect_options`` is not a dict when provided.
+    """
+
+    name: str
+    dialect_options: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name.strip():
+            raise ValueError("subpartition name must be a non-empty string")
+        if self.dialect_options is not None and not isinstance(self.dialect_options, dict):
+            raise TypeError(
+                "dialect_options must be dict or None, "
+                f"got {type(self.dialect_options).__name__}"
+            )
+
+
+@dataclass
+class PartitionDefinition:
+    """Base declaration for an inline ``PARTITION ... VALUES ...`` definition.
+
+    Holds the structural shape shared by backends that declare partitions
+    inline in CREATE TABLE: a name plus an optional boundary (``less_than``
+    for RANGE-like strategies or ``in_values`` for LIST-like strategies) and
+    optional subpartition definitions.
+
+    This is a backend-agnostic **structural declaration**, not a renderable
+    expression; boundary SQL is produced by the backend's
+    ``format_partition_definition``.
+
+    Subclasses may tighten validation. MySQL additionally requires that at
+    least one boundary form is present; Oracle permits neither (HASH).
+
+    Raises:
+        ValueError: if ``name`` is empty or whitespace-only, or if both
+            ``less_than`` and ``in_values`` are provided.
+        TypeError: if ``dialect_options`` is not a dict when provided.
+    """
+
+    name: str
+    less_than: Optional[Sequence[BaseExpression]] = None
+    in_values: Optional[Sequence[Union[BaseExpression, Sequence[BaseExpression]]]] = None
+    subpartition_definitions: Optional[Sequence["SubpartitionDefinition"]] = None
+    dialect_options: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name.strip():
+            raise ValueError("partition name must be a non-empty string")
+        if self.less_than is not None and self.in_values is not None:
+            raise ValueError("less_than and in_values are mutually exclusive")
+        if self.dialect_options is not None and not isinstance(self.dialect_options, dict):
+            raise TypeError(
+                "dialect_options must be dict or None, "
+                f"got {type(self.dialect_options).__name__}"
+            )
+
+
 class PartitionClause(BaseExpression):
     """Represents a generic PARTITION BY clause for DDL statements.
 
     The expression collects the minimal stable partition clause shape:
-    method name plus partition key expressions. Backend-specific partition
-    forms should subclass this expression and add structured fields instead
-    of placing core semantics into ``dialect_options``.
+    ``PARTITION BY <method> (<keys>)``. It deliberately carries **only the
+    clause**: concrete named partitions and their ``VALUES`` boundaries are
+    described by :class:`PartitionDefinition` and rendered by backend
+    formatters. Backend-specific partition clauses (for example MySQL's
+    ``RANGE COLUMNS`` or Oracle's interval/reference partitioning) subclass
+    this expression and add structured fields instead of placing core
+    semantics into ``dialect_options``.
 
     SQL generation is always delegated to ``dialect.format_partition_clause``.
     """

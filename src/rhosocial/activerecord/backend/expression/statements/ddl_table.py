@@ -73,6 +73,108 @@ class ColumnConstraint(BaseExpression):
         self.identity = identity
 
 
+class DefaultValueClause(BaseExpression):
+    """The value clause of a ``DEFAULT`` constraint.
+
+    A DDL clause node rendered through the dialect's
+    ``format_default_value_clause``. It carries the default **value** — either
+    a plain Python scalar (rendered inline with dialect-controlled escaping) or
+    a ``BaseExpression`` (e.g. a function call or literal) — keeping the
+    value/inline logic in one place. It is a self-contained expression so the
+    value's escaping/inlining can be overridden per backend.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_default_value_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", value: Any):
+        super().__init__(dialect)
+        self.value = value
+
+
+class IdentityClause(BaseExpression):
+    """The identity/auto-increment clause of a column definition.
+
+    A DDL clause node rendered through the dialect's ``format_identity_clause``.
+    It carries the identity **parameters** (generation, start, increment,
+    bounds, cycle) so the syntax differences between backends live in one
+    place: MySQL/MariaDB ``AUTO_INCREMENT``, SQL Server ``IDENTITY(seed, inc)``,
+    PostgreSQL/Oracle/Firebird ``GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY
+    (START WITH ... INCREMENT BY ...)``, SQLite ``AUTOINCREMENT``.
+
+    ``generation`` is ``"ALWAYS"`` or ``"BY DEFAULT"`` (``None`` defaults to
+    ``BY DEFAULT``); ``start``/``increment``/``minvalue``/``maxvalue``/``cycle``
+    are optional sequence attributes.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_identity_clause"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        generation: Optional[str] = None,
+        *,
+        start: Optional[int] = None,
+        increment: Optional[int] = None,
+        minvalue: Optional[int] = None,
+        maxvalue: Optional[int] = None,
+        cycle: Optional[bool] = None,
+    ):
+        super().__init__(dialect)
+        self.generation = generation
+        self.start = start
+        self.increment = increment
+        self.minvalue = minvalue
+        self.maxvalue = maxvalue
+        self.cycle = cycle
+
+
+class ReferencesClause(BaseExpression):
+    """The ``REFERENCES`` clause of a foreign key.
+
+    A DDL clause node rendered through the dialect's ``format_references_clause``.
+    Shared by column-level (``ColumnConstraint``) and table-level
+    (``ForeignKeyConstraint``) foreign keys so the reference syntax lives in one
+    place: the referenced table/columns plus the referential actions
+    (``MATCH`` / ``ON DELETE`` / ``ON UPDATE``) and deferrability.
+
+    ``ReferentialAction`` values are resolved by the dialect's
+    ``format_references_clause``; ``on_delete``/``on_update`` are accepted as
+    the enum or its string value.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_references_clause"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        referenced_table: str,
+        referenced_columns: List[str],
+        *,
+        on_delete: Optional["ReferentialAction"] = None,
+        on_update: Optional["ReferentialAction"] = None,
+        match_type: Optional[str] = None,
+        deferrable: Optional[bool] = None,
+        initially_deferred: Optional[bool] = None,
+    ):
+        super().__init__(dialect)
+        self.referenced_table = referenced_table
+        self.referenced_columns = list(referenced_columns or [])
+        self.on_delete = on_delete
+        self.on_update = on_update
+        self.match_type = match_type
+        self.deferrable = deferrable
+        self.initially_deferred = initially_deferred
+
+
 class GeneratedColumnType(Enum):
     """Types of generated columns (computed columns)."""
 
@@ -140,6 +242,7 @@ class ColumnDefinition(BaseExpression):
         identity: Optional[str] = None,
         identity_start: Optional[int] = None,
         identity_increment: Optional[int] = None,
+        identity_clause: Optional["IdentityClause"] = None,
     ):
         super().__init__(dialect)
         if not isinstance(data_type, DataType):
@@ -155,6 +258,7 @@ class ColumnDefinition(BaseExpression):
         self.identity = identity
         self.identity_start = identity_start
         self.identity_increment = identity_increment
+        self.identity_clause = identity_clause
 
 
 class TableConstraintType(Enum):
