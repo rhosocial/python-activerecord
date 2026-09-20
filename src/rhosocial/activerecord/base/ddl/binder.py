@@ -70,7 +70,6 @@ class DialectBinder:
             on_update=constraint.on_update,
             deferrable=constraint.deferrable,
             initially_deferred=constraint.initially_deferred,
-            dialect_options=dict(constraint.dialect_options or {}),
             collation=constraint.collation,
             identity=constraint.identity,
         )

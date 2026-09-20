@@ -53,7 +53,6 @@ class ColumnConstraint(BaseExpression):
         on_update: Optional["ReferentialAction"] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
         collation: Optional[str] = None,
         identity: Optional[str] = None,
     ):
@@ -68,7 +67,6 @@ class ColumnConstraint(BaseExpression):
         self.on_update = on_update
         self.deferrable = deferrable
         self.initially_deferred = initially_deferred
-        self.dialect_options = dialect_options or {}
         self.collation = collation
         self.identity = identity
 
@@ -237,7 +235,6 @@ class ColumnDefinition(BaseExpression):
         data_type: "DataType",
         constraints: Optional[List[ColumnConstraint]] = None,
         comment: Optional[str] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
         generated_expression: Optional[GeneratedColumnExpression] = None,
         identity: Optional[str] = None,
         identity_start: Optional[int] = None,
@@ -253,7 +250,6 @@ class ColumnDefinition(BaseExpression):
         self.data_type = data_type
         self.constraints = list(constraints or [])
         self.comment = comment
-        self.dialect_options = dialect_options or {}
         self.generated_expression = generated_expression
         self.identity = identity
         self.identity_start = identity_start

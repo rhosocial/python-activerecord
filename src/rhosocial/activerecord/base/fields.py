@@ -238,13 +238,13 @@ class UseConstraint:
 
     Example::
 
-        # Column-level COLLATE
+        # Column-level COLLATE (SQL-standard, generic)
         name: Annotated[str, UseConstraint(ColumnConstraintType.COLLATE,
                                             collation="utf8mb4_unicode_ci")]
 
-        # Column-level CHARACTER SET (MySQL/MariaDB)
-        name: Annotated[str, UseConstraint(ColumnConstraintType.CHARACTER_SET,
-                                            character_set="utf8mb4")]
+        # Backend-specific column attributes (e.g. MySQL CHARACTER SET) are
+        # declared through the backend's own options/constraint classes, not
+        # through this generic marker.
     """
 
     def __init__(
@@ -260,22 +260,15 @@ class UseConstraint:
         on_update: Optional["ReferentialAction"] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
-        character_set: Optional[str] = None,
         collation: Optional[str] = None,
     ):
         # check_condition may be a ready SQLPredicate or a lazy
         # ``(dialect) -> SQLPredicate`` factory; the generator resolves it.
         # The marker is constructed at model-declaration time (no dialect
         # yet) — the constraint node defers binding and the DDL generator
-        # binds it through the dialect setter. character_set/collation are
-        # backend-specific extras carried in dialect_options.
-        extras = dict(dialect_options or {})
-        if character_set is not None:
-            extras["character_set"] = character_set
-        if collation is not None:
-            extras["collation"] = collation
-        self.constraint = ColumnConstraint(None, 
+        # binds it through the dialect setter. collation is a typed field on
+        # the generic constraint (no dialect_options bag).
+        self.constraint = ColumnConstraint(None,
             constraint_type=constraint_type,
             name=name,
             check_condition=check_condition,
@@ -286,7 +279,7 @@ class UseConstraint:
             on_update=on_update,
             deferrable=deferrable,
             initially_deferred=initially_deferred,
-            dialect_options=extras,
+            collation=collation,
         )
 
     def __repr__(self) -> str:

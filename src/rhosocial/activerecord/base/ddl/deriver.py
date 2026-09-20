@@ -212,7 +212,6 @@ class TableDDLDeriver:
             ),
             identity_start=getattr(options, "identity_start", None),
             identity_increment=getattr(options, "identity_increment", None),
-            dialect_options=dict(getattr(options, "dialect_options", {}) or {}),
         )
 
     def field_metadata(self, field: str) -> DDLFieldMetadata:
