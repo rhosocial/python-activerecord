@@ -373,7 +373,11 @@ class ForeignKeyConstraint(TableConstraint):
 
 
 class IndexDefinition(BaseExpression):
-    """Represents an index definition clause for CREATE TABLE / ADD INDEX."""
+    """Represents an index definition clause for CREATE TABLE / ADD INDEX.
+
+    ``columns`` accepts plain column names or :class:`BaseExpression`
+    instances (functional/expression index columns, e.g. ``LOWER(name)``).
+    """
 
     @property
     def format_method(self) -> str:
@@ -384,7 +388,7 @@ class IndexDefinition(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         name: str,
-        columns: List[str],
+        columns: List[Union[str, "BaseExpression"]],
         unique: bool = False,
         type: Optional[str] = None,
         partial_condition: Optional["SQLPredicate"] = None,
