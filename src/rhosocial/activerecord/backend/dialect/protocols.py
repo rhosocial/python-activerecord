@@ -98,8 +98,10 @@ if TYPE_CHECKING:  # pragma: no cover
         DropFulltextIndexExpression,
         ReturningClause,
         PartitionClause,
+        PartitionDefinition,
         ColumnConstraint,
         ForeignKeyConstraint,
+        ReferencesClause,
     )
     from ..introspection.expressions import (
         DatabaseInfoExpression,
@@ -1382,6 +1384,21 @@ class PartitionSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def format_partition_definition(self, definition: "PartitionDefinition") -> Tuple[str, tuple]:
+        """Format an inline partition definition from a structural declaration.
+
+        Backends that declare partitions inline in CREATE TABLE override this;
+        the generic implementation raises ``UnsupportedFeatureError`` because
+        partition boundary syntax is backend-specific.
+
+        Args:
+            definition: PartitionDefinition (or backend subclass) to render.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
 
 @runtime_checkable
 class AlterTableModifierSupport(Protocol):
@@ -1464,6 +1481,18 @@ class ConstraintSupport(Protocol):
         ...  # pragma: no cover
 
     # FK formatter methods
+
+    def format_references_clause(self, expr: "ReferencesClause") -> Tuple[str, tuple]:
+        """Format a shared ``REFERENCES`` clause (column/table foreign keys).
+
+        Args:
+            expr: The references clause carrying the referenced table/columns
+                and optional actions.
+
+        Returns:
+            Tuple of (SQL fragment, empty params tuple).
+        """
+        ...  # pragma: no cover
 
     def format_foreign_key_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
         """Format a table-level FOREIGN KEY constraint, including ON DELETE / ON UPDATE.

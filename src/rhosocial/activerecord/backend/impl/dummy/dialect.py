@@ -1302,17 +1302,19 @@ class DummyDialect(
             col_sql += gen_sql
             all_params.extend(gen_params)
 
-        identity = getattr(col_def, 'identity', None)
-        if identity:
-            col_sql += f" GENERATED {identity.upper()} AS IDENTITY"
-            start = getattr(col_def, 'identity_start', None)
-            increment = getattr(col_def, 'identity_increment', None)
-            if start is not None or increment is not None:
+        identity_clause = col_def.identity_clause
+        if identity_clause is not None:
+            identity_sql, identity_params = self.format_identity_clause(identity_clause)
+            col_sql += identity_sql
+            all_params.extend(identity_params)
+        elif col_def.identity:
+            col_sql += f" GENERATED {col_def.identity.upper()} AS IDENTITY"
+            if col_def.identity_start is not None or col_def.identity_increment is not None:
                 id_parts = []
-                if start is not None:
-                    id_parts.append(f"START WITH {start}")
-                if increment is not None:
-                    id_parts.append(f"INCREMENT BY {increment}")
+                if col_def.identity_start is not None:
+                    id_parts.append(f"START WITH {col_def.identity_start}")
+                if col_def.identity_increment is not None:
+                    id_parts.append(f"INCREMENT BY {col_def.identity_increment}")
                 col_sql += f" ({' '.join(id_parts)})"
 
         # Add comment if present

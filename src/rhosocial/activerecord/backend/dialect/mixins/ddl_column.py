@@ -25,7 +25,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements.ddl_table import (
         ColumnConstraint,
         ColumnDefinition,
+        DefaultValueClause,
+        IdentityClause,
         IndexDefinition,
+        ReferencesClause,
         TableConstraint,
     )
 
@@ -106,6 +109,37 @@ class DDLColumnMixin:
         """
         return False
 
+    def format_identity_clause(self, expr: "IdentityClause") -> Tuple[str, Tuple]:
+        """Format the SQL-standard identity clause.
+
+        Renders `` GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY`` with optional
+        ``(START WITH ... INCREMENT BY ... MINVALUE ... MAXVALUE ... CYCLE ...)``.
+        Backends with different syntax (MySQL ``AUTO_INCREMENT``, SQL Server
+        ``IDENTITY(seed, inc)``, SQLite ``AUTOINCREMENT``) override this.
+
+        Args:
+            expr: The ``IdentityClause`` carrying the identity parameters.
+
+        Returns:
+            A ``(sql, params)`` tuple with a leading space.
+        """
+        generation = (expr.generation or "BY DEFAULT").upper()
+        sql = f" GENERATED {generation} AS IDENTITY"
+        attributes: List[str] = []
+        if expr.start is not None:
+            attributes.append(f"START WITH {expr.start}")
+        if expr.increment is not None:
+            attributes.append(f"INCREMENT BY {expr.increment}")
+        if expr.minvalue is not None:
+            attributes.append(f"MINVALUE {expr.minvalue}")
+        if expr.maxvalue is not None:
+            attributes.append(f"MAXVALUE {expr.maxvalue}")
+        if expr.cycle is not None:
+            attributes.append("CYCLE" if expr.cycle else "NO CYCLE")
+        if attributes:
+            sql += f" ({' '.join(attributes)})"
+        return sql, ()
+
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
         """Format a column definition clause (name, type, constraints, comment).
 
@@ -120,19 +154,20 @@ class DDLColumnMixin:
         type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
-        identity = getattr(col_def, 'identity', None)
-        if identity:
-            col_sql += f" GENERATED {identity.upper()} AS IDENTITY"
-            start = getattr(col_def, 'identity_start', None)
-            increment = getattr(col_def, 'identity_increment', None)
-            if start is not None or increment is not None:
+        identity_clause = col_def.identity_clause
+        if identity_clause is not None:
+            identity_sql, identity_params = self.format_identity_clause(identity_clause)
+            col_sql += identity_sql
+            all_params.extend(identity_params)
+        elif col_def.identity:
+            col_sql += f" GENERATED {col_def.identity.upper()} AS IDENTITY"
+            if col_def.identity_start is not None or col_def.identity_increment is not None:
                 id_parts = []
-                if start is not None:
-                    id_parts.append(f"START WITH {start}")
-                if increment is not None:
-                    id_parts.append(f"INCREMENT BY {increment}")
+                if col_def.identity_start is not None:
+                    id_parts.append(f"START WITH {col_def.identity_start}")
+                if col_def.identity_increment is not None:
+                    id_parts.append(f"INCREMENT BY {col_def.identity_increment}")
                 col_sql += f" ({' '.join(id_parts)})"
-
         for constraint in col_def.constraints:
             suffix, params = self.format_column_constraint(constraint)
             col_sql += suffix
@@ -260,12 +295,39 @@ class DDLColumnMixin:
         check_sql, check_params = constraint.check_condition.to_sql()
         return f" CHECK ({check_sql})", tuple(check_params)
 
+    def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, Tuple]:
+        """Format the value clause of a ``DEFAULT`` constraint.
+
+        Scalars are inlined with dialect-controlled escaping; a
+        ``BaseExpression`` value renders through its own ``to_sql`` (a
+        parameterised ``Literal`` is inlined so DDL carries no bind params).
+
+        Args:
+            expr: The ``DefaultValueClause`` carrying the value.
+
+        Returns:
+            A ``(sql, params)`` tuple (params is always empty for DDL).
+        """
+        from ...dialect.base import SQLDialectBase
+        value = expr.value
+        if isinstance(value, BaseExpression):
+            value_sql, value_params = value.to_sql()
+            if value_params and isinstance(value, Literal):
+                # A parameterized literal inside DDL: re-render inline.
+                value_sql = self.inline_sql_literal(value.value)
+                value_params = ()
+            return value_sql, tuple(value_params)
+        if isinstance(value, str):
+            escaped = SQLDialectBase._escape_sql_string(value)
+            return f"'{escaped}'", ()
+        return self.inline_sql_literal(value), ()
+
     def format_default_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
         """Format a ``DEFAULT`` constraint.
 
         The default value is always rendered inline (DDL carries no bind
-        parameters); expression values are rendered through their own
-        ``to_sql`` and string values are escaped.
+        parameters); value rendering is delegated to
+        :meth:`format_default_value_clause`.
 
         Args:
             constraint: The constraint whose ``default_value`` is rendered.
@@ -276,27 +338,81 @@ class DDLColumnMixin:
         Raises:
             ValueError: If ``default_value`` is ``None``.
         """
-        from ...dialect.base import SQLDialectBase
+        from ...expression.statements.ddl_table import DefaultValueClause
         if constraint.default_value is None:
             raise ValueError("DEFAULT constraint must have a default value specified.")
-        # DDL accepts no bind parameters: the DEFAULT value renders inline
-        # with dialect-controlled escaping.
-        if isinstance(constraint.default_value, BaseExpression):
-            default_sql, default_params = constraint.default_value.to_sql()
-            if default_params:
-                # A parameterized value (e.g. a Literal) inside DDL:
-                # re-render its raw value inline.
-                if isinstance(constraint.default_value, Literal):
-                    default_sql = self.inline_sql_literal(constraint.default_value.value)
-                    default_params = ()
-            return f" DEFAULT {default_sql}", tuple(default_params)
-        if isinstance(constraint.default_value, str):
-            escaped = SQLDialectBase._escape_sql_string(constraint.default_value)
-            return f" DEFAULT '{escaped}'", ()
-        return f" DEFAULT {self.inline_sql_literal(constraint.default_value)}", ()
+        if isinstance(constraint.default_value, DefaultValueClause):
+            value_clause = constraint.default_value
+        else:
+            value_clause = DefaultValueClause(self, constraint.default_value)
+        value_sql, value_params = self.format_default_value_clause(value_clause)
+        return f" DEFAULT {value_sql}", tuple(value_params)
+
+    def format_references_clause(self, expr: "ReferencesClause") -> Tuple[str, Tuple]:
+        """Format a ``REFERENCES`` clause (shared by column/table foreign keys).
+
+        Renders ``REFERENCES <table>(<cols>)`` plus the referential actions and
+        deferrability. Backends with different syntax override this.
+
+        Args:
+            expr: The ``ReferencesClause`` carrying the referenced table/columns
+                and optional actions.
+
+        Returns:
+            A ``(sql, params)`` tuple (params is always empty for DDL).
+
+        Raises:
+            ValueError: If the referenced table has no columns.
+        """
+        from ...expression.statements import ReferentialAction
+        if not expr.referenced_columns:
+            raise ValueError("REFERENCES clause requires at least one referenced column.")
+        ref_cols_str = ", ".join(self.format_identifier(col) for col in expr.referenced_columns)
+        result = f"REFERENCES {self.format_identifier(expr.referenced_table)}({ref_cols_str})"
+        if expr.match_type is not None:
+            if not self.supports_fk_match():
+                from ..exceptions import UnsupportedFeatureError
+                raise UnsupportedFeatureError(
+                    self.name, "FOREIGN KEY MATCH",
+                    f"{self.name} does not support MATCH for foreign keys."
+                )
+            result += f" MATCH {expr.match_type}"
+        if expr.on_delete is not None and expr.on_delete != ReferentialAction.NO_ACTION:
+            if not self.supports_foreign_key_on_delete():
+                from ..exceptions import UnsupportedFeatureError
+                raise UnsupportedFeatureError(
+                    self.name, "FOREIGN KEY ON DELETE",
+                    f"{self.name} does not support ON DELETE for foreign keys."
+                )
+            result += f" ON DELETE {self._referential_action_value(expr.on_delete)}"
+        if expr.on_update is not None and expr.on_update != ReferentialAction.NO_ACTION:
+            if not self.supports_foreign_key_on_update():
+                from ..exceptions import UnsupportedFeatureError
+                raise UnsupportedFeatureError(
+                    self.name, "FOREIGN KEY ON UPDATE",
+                    f"{self.name} does not support ON UPDATE for foreign keys."
+                )
+            result += f" ON UPDATE {self._referential_action_value(expr.on_update)}"
+        if expr.deferrable is True:
+            if expr.initially_deferred is True:
+                result += " DEFERRABLE INITIALLY DEFERRED"
+            elif expr.initially_deferred is False:
+                result += " DEFERRABLE INITIALLY IMMEDIATE"
+            else:
+                result += " DEFERRABLE"
+        elif expr.deferrable is False:
+            result += " NOT DEFERRABLE"
+        return result, ()
+
+    @staticmethod
+    def _referential_action_value(action: Any) -> str:
+        """Normalise a referential action to its SQL keyword."""
+        return action.value if hasattr(action, "value") else str(action)
 
     def format_column_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
         """Format a column-level ``REFERENCES`` (foreign key) constraint.
+
+        Delegates the reference body to :meth:`format_references_clause`.
 
         Args:
             constraint: The constraint whose ``foreign_key_reference`` is
@@ -308,26 +424,21 @@ class DDLColumnMixin:
         Raises:
             ValueError: If ``foreign_key_reference`` is ``None``.
         """
-        from ...expression.statements import ReferentialAction
         if constraint.foreign_key_reference is None:
             raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
         referenced_table, referenced_columns = constraint.foreign_key_reference
-        ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-        result = f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
-        if constraint.on_delete is not None and constraint.on_delete != ReferentialAction.NO_ACTION:
-            result += f" ON DELETE {constraint.on_delete.value}"
-        if constraint.on_update is not None and constraint.on_update != ReferentialAction.NO_ACTION:
-            result += f" ON UPDATE {constraint.on_update.value}"
-        if constraint.deferrable is True:
-            if constraint.initially_deferred is True:
-                result += " DEFERRABLE INITIALLY DEFERRED"
-            elif constraint.initially_deferred is False:
-                result += " DEFERRABLE INITIALLY IMMEDIATE"
-            else:
-                result += " DEFERRABLE"
-        elif constraint.deferrable is False:
-            result += " NOT DEFERRABLE"
-        return result, ()
+        from ...expression.statements.ddl_table import ReferencesClause
+        references = ReferencesClause(
+            self,
+            referenced_table,
+            referenced_columns,
+            on_delete=constraint.on_delete,
+            on_update=constraint.on_update,
+            deferrable=constraint.deferrable,
+            initially_deferred=constraint.initially_deferred,
+        )
+        ref_sql, ref_params = self.format_references_clause(references)
+        return f" {ref_sql}", tuple(ref_params)
 
     def format_pk_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
         """Format the body of a ``PRIMARY KEY`` table constraint.
@@ -394,8 +505,6 @@ class DDLColumnMixin:
             ValueError: If local columns, foreign key columns, or the
                 referenced table are missing.
         """
-        from ...expression.statements import ReferentialAction, ForeignKeyConstraint
-        from ..exceptions import UnsupportedFeatureError
         if not t_const.columns:
             raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
         if not t_const.foreign_key_columns:
@@ -403,32 +512,26 @@ class DDLColumnMixin:
         if not t_const.foreign_key_table:
             raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
         cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-        ref_cols_str = ", ".join(self.format_identifier(col) for col in t_const.foreign_key_columns)
-        ref_table = self.format_identifier(t_const.foreign_key_table)
-        result = f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}({ref_cols_str})"
+        from ...expression.statements import ForeignKeyConstraint
+        from ...expression.statements.ddl_table import ReferencesClause
         if isinstance(t_const, ForeignKeyConstraint):
-            if t_const.on_delete is not None and t_const.on_delete != ReferentialAction.NO_ACTION:
-                if not self.supports_foreign_key_on_delete():
-                    raise UnsupportedFeatureError(
-                        self.name, "FOREIGN KEY ON DELETE",
-                        f"{self.name} does not support ON DELETE for foreign keys."
-                    )
-                result += f" ON DELETE {t_const.on_delete.value}"
-            if t_const.on_update is not None and t_const.on_update != ReferentialAction.NO_ACTION:
-                if not self.supports_foreign_key_on_update():
-                    raise UnsupportedFeatureError(
-                        self.name, "FOREIGN KEY ON UPDATE",
-                        f"{self.name} does not support ON UPDATE for foreign keys."
-                    )
-                result += f" ON UPDATE {t_const.on_update.value}"
-            if t_const.match_type is not None:
-                if not self.supports_fk_match():
-                    raise UnsupportedFeatureError(
-                        self.name, "FOREIGN KEY MATCH",
-                        f"{self.name} does not support MATCH for foreign keys."
-                    )
-                result += f" MATCH {t_const.match_type}"
-        return result, ()
+            on_delete = t_const.on_delete
+            on_update = t_const.on_update
+            match_type = t_const.match_type
+        else:
+            on_delete = on_update = match_type = None
+        references = ReferencesClause(
+            self,
+            t_const.foreign_key_table,
+            list(t_const.foreign_key_columns),
+            on_delete=on_delete,
+            on_update=on_update,
+            match_type=match_type,
+            deferrable=t_const.deferrable,
+            initially_deferred=t_const.initially_deferred,
+        )
+        ref_sql, ref_params = self.format_references_clause(references)
+        return f"FOREIGN KEY ({cols_str}) {ref_sql}", tuple(ref_params)
 
     def format_table_constraint(self, expr: "TableConstraint") -> Tuple[str, Tuple]:
         """Format a :class:`~...expression.statements.TableConstraint` clause.

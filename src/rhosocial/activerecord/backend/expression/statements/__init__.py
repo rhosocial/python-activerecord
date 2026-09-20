@@ -37,6 +37,9 @@ from .dml import (
 from .ddl_table import (
     ColumnConstraintType,
     ColumnConstraint,
+    DefaultValueClause,
+    IdentityClause,
+    ReferencesClause,
     GeneratedColumnType,
     GeneratedColumnExpression,
     ColumnDefinition,
@@ -121,7 +124,12 @@ from .ddl_trigger import (
 from .ddl_function import CreateFunctionExpression, DropFunctionExpression
 
 # Partition DDL
-from .ddl_partition import PartitionClause, PartitionStrategy
+from .ddl_partition import (
+    PartitionClause,
+    PartitionDefinition,
+    PartitionStrategy,
+    SubpartitionDefinition,
+)
 
 # Filter clause expression
 from .filter_clause import FilterClauseExpression
@@ -160,6 +168,9 @@ __all__ = [
     # Table DDL
     "ColumnConstraintType",
     "ColumnConstraint",
+    "DefaultValueClause",
+    "IdentityClause",
+    "ReferencesClause",
     "GeneratedColumnType",
     "GeneratedColumnExpression",
     "ColumnDefinition",
@@ -227,7 +238,9 @@ __all__ = [
     "DropFunctionExpression",
     # Partition DDL
     "PartitionClause",
+    "PartitionDefinition",
     "PartitionStrategy",
+    "SubpartitionDefinition",
     # Filter clause expression
     "FilterClauseExpression",
     # Fulltext match expression

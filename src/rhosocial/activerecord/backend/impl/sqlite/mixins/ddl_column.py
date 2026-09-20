@@ -109,27 +109,20 @@ class SQLiteDDLColumnMixin:
         """
         return " UNIQUE", ()
 
-    def format_default_constraint(self, constraint) -> Tuple[str, tuple]:
-        """Format DEFAULT constraint.
+    def format_default_value_clause(self, expr) -> Tuple[str, tuple]:
+        """Format the value clause of a DEFAULT constraint (SQLite).
 
-        Note: DEFAULT values in DDL must be literal values, not bound parameters.
-        SQLite does not support parameterized DEFAULT in CREATE TABLE statements.
-        This implementation inlines values directly into the SQL string.
+        SQLite does not support parameterized DEFAULT in CREATE TABLE, so
+        values are inlined directly. Booleans render as ``1``/``0`` (SQLite
+        has no native boolean literal); everything else delegates to the
+        generic implementation.
         """
-        if constraint.default_value is None:
-            raise ValueError("DEFAULT constraint must have a default value specified.")
         from rhosocial.activerecord.backend.expression import bases
-        from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 
-        if isinstance(constraint.default_value, bases.BaseExpression):
-            default_sql, default_params = constraint.default_value.to_sql()
-            return f" DEFAULT {default_sql}", tuple(default_params)
-        if isinstance(constraint.default_value, str):
-            escaped = SQLDialectBase._escape_sql_string(constraint.default_value)
-            return f" DEFAULT '{escaped}'", ()
-        if isinstance(constraint.default_value, bool):
-            return f" DEFAULT {'1' if constraint.default_value else '0'}", ()
-        return f" DEFAULT {constraint.default_value}", ()
+        value = expr.value
+        if isinstance(value, bool) and not isinstance(value, bases.BaseExpression):
+            return f"{'1' if value else '0'}", ()
+        return super().format_default_value_clause(expr)
 
     def format_check_constraint(self, constraint) -> Tuple[str, tuple]:
         """Format CHECK constraint."""
