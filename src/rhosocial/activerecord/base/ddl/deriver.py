@@ -197,7 +197,10 @@ class TableDDLDeriver:
         options = self.selector.select(
             COLUMN_CONTRACTS["column_options"], "column_options", self.model.column_options(field)
         )
-        return ColumnDefinition(
+        column_cls = (
+            options.column_definition_class() if options is not None else ColumnDefinition
+        )
+        column = column_cls(
             self.dialect,
             self.model.column_name(field),
             data_type,
@@ -213,6 +216,9 @@ class TableDDLDeriver:
             identity_start=getattr(options, "identity_start", None),
             identity_increment=getattr(options, "identity_increment", None),
         )
+        if options is not None:
+            options.apply_to(column)
+        return column
 
     def field_metadata(self, field: str) -> DDLFieldMetadata:
         """The DDL metadata for a field, analyzing it on demand if absent."""

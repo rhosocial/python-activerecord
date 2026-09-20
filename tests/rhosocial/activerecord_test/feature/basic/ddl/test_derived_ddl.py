@@ -30,9 +30,11 @@ from rhosocial.activerecord.base import (
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     ColumnConstraintType,
+    ColumnDefinition,
     CreateTableExpression,
 )
 from rhosocial.activerecord.backend.expression.types import VarCharType
+from rhosocial.activerecord.base.ddl.options import ColumnOptions
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -108,6 +110,41 @@ class Misdeclared(ActiveRecord):
         return IndexDefinition(None, name="idx", columns=["id"])
 
 
+class FakeColumnDefinition(ColumnDefinition):
+    """A stand-in for a backend-specific column definition."""
+
+    def __init__(self, *args, extra=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.extra = extra
+
+
+class FakeColumnOptions(ColumnOptions):
+    """A stand-in for a backend-specific column options declaration."""
+
+    def __init__(self, *, extra, **kwargs):
+        super().__init__(**kwargs)
+        self.extra = extra
+
+    def column_definition_class(self):
+        return FakeColumnDefinition
+
+    def apply_to(self, column):
+        column.extra = self.extra
+
+
+class WithColumnOptions(ActiveRecord):
+    __table_name__ = "with_column_options"
+
+    id: int
+    name: str
+
+    @classmethod
+    def column_options(cls, field):
+        if field == "name":
+            return FakeColumnOptions(extra="typed")
+        return None
+
+
 @pytest.fixture
 def backend():
     instance = SQLiteBackend(SQLiteConnectionConfig(database=":memory:"))
@@ -115,6 +152,7 @@ def backend():
     Named.__backend__ = instance
     Composite.__backend__ = instance
     Unsupported.__backend__ = instance
+    WithColumnOptions.__backend__ = instance
     return instance
 
 
@@ -265,3 +303,16 @@ def test_gate0_rejects_misdeclared_candidate(backend):
     Misdeclared.__backend__ = backend
     with pytest.raises(TypeError):
         Misdeclared.create_table()
+
+
+def test_column_options_selects_backend_definition_class(backend):
+    expression = WithColumnOptions.create_table()
+    name_column = next(col for col in expression.columns if col.name == "name")
+    assert isinstance(name_column, FakeColumnDefinition)
+    assert name_column.extra == "typed"
+    id_column = next(col for col in expression.columns if col.name == "id")
+    assert type(id_column) is ColumnDefinition
+
+
+def test_column_options_default_definition_class_is_generic():
+    assert ColumnOptions().column_definition_class() is ColumnDefinition
