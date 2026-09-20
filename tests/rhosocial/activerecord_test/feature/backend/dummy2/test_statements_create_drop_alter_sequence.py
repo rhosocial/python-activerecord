@@ -1,11 +1,13 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_alter_sequence.py
 import pytest
+from unittest.mock import patch
 from rhosocial.activerecord.backend.expression.statements import (
     CreateSequenceExpression,
     DropSequenceExpression,
     AlterSequenceExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 
 class TestCreateDropAlterSequenceStatements:
@@ -295,3 +297,31 @@ class TestCreateDropAlterSequenceStatements:
 
         assert 'CREATE SEQUENCE "序列"' in sql
         assert params == ()
+
+
+class TestAlterSequenceCapabilityGating:
+    """ALTER SEQUENCE options must honour their capability bits."""
+
+    def test_cycle_gated(self, dummy_dialect: DummyDialect):
+        expr = AlterSequenceExpression(dummy_dialect, sequence_name="s", cycle=True)
+        with patch.object(type(dummy_dialect), "supports_sequence_cycle", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="CYCLE"):
+                expr.to_sql()
+
+    def test_cache_gated(self, dummy_dialect: DummyDialect):
+        expr = AlterSequenceExpression(dummy_dialect, sequence_name="s", cache=10)
+        with patch.object(type(dummy_dialect), "supports_sequence_cache", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="CACHE"):
+                expr.to_sql()
+
+    def test_order_gated(self, dummy_dialect: DummyDialect):
+        expr = AlterSequenceExpression(dummy_dialect, sequence_name="s", order=True)
+        with patch.object(type(dummy_dialect), "supports_sequence_order", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="ORDER"):
+                expr.to_sql()
+
+    def test_owned_by_gated(self, dummy_dialect: DummyDialect):
+        expr = AlterSequenceExpression(dummy_dialect, sequence_name="s", owned_by="t.id")
+        with patch.object(type(dummy_dialect), "supports_sequence_owned_by", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="OWNED BY"):
+                expr.to_sql()

@@ -187,6 +187,7 @@ class SequenceMixin:
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
         """
+        from ..exceptions import UnsupportedFeatureError
         parts = [f"ALTER SEQUENCE {self.format_identifier(expr.sequence_name)}"]
 
         if expr.restart is not None:
@@ -200,12 +201,32 @@ class SequenceMixin:
         if expr.maxvalue is not None:
             parts.append(f"MAXVALUE {expr.maxvalue}")
         if expr.cycle is not None:
+            if not self.supports_sequence_cycle():
+                raise UnsupportedFeatureError(
+                    self.name, "ALTER SEQUENCE CYCLE",
+                    f"{self.name} does not support the CYCLE sequence option."
+                )
             parts.append("CYCLE" if expr.cycle else "NO CYCLE")
         if expr.cache is not None:
+            if not self.supports_sequence_cache():
+                raise UnsupportedFeatureError(
+                    self.name, "ALTER SEQUENCE CACHE",
+                    f"{self.name} does not support the CACHE sequence option."
+                )
             parts.append(f"CACHE {expr.cache}")
         if expr.order is not None:
+            if not self.supports_sequence_order():
+                raise UnsupportedFeatureError(
+                    self.name, "ALTER SEQUENCE ORDER",
+                    f"{self.name} does not support the ORDER sequence option."
+                )
             parts.append("ORDER" if expr.order else "NO ORDER")
         if expr.owned_by is not None:
+            if not self.supports_sequence_owned_by():
+                raise UnsupportedFeatureError(
+                    self.name, "ALTER SEQUENCE OWNED BY",
+                    f"{self.name} does not support the OWNED BY sequence option."
+                )
             if expr.owned_by:
                 parts.append(f"OWNED BY {expr.owned_by}")
             else:
