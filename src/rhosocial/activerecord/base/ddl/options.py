@@ -3,16 +3,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 
 class ColumnOptions:
-    """Backend-specific per-column options plus identity sequence settings.
+    """Per-column options declaration carrying typed generic column settings.
 
     A plain declaration (not a renderable expression): the deriver maps its
-    fields onto ``ColumnDefinition`` (``identity_start`` / ``identity_increment``
-    / ``dialect_options``). Backend-specific option names use the backend's
-    namespaced keys; an unknown option is rejected by the backend at render time.
+    fields onto ``ColumnDefinition``. Only **typed** fields are allowed — there
+    is no ``dialect_options`` bag. Backend-specific column settings live on a
+    backend's own ``XxxColumnOptions`` subclass (and are rendered by that
+    backend's ``format_column_definition``).
     """
 
     def __init__(
@@ -20,8 +21,6 @@ class ColumnOptions:
         *,
         identity_start: Optional[int] = None,
         identity_increment: Optional[int] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         self.identity_start = identity_start
         self.identity_increment = identity_increment
-        self.dialect_options: Dict[str, Any] = dict(dialect_options or {})
