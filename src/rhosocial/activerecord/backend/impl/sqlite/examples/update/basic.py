@@ -82,7 +82,6 @@ update_expr = UpdateExpression(
         Literal(dialect, "Alice"),
     ),
     returning=ReturningClause(dialect, [Column(dialect, "id"), Column(dialect, "name")]),
-    dialect_options={},
 )
 
 sql, params = update_expr.to_sql()

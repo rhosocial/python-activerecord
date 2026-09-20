@@ -1,9 +1,9 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_schema.py
 """Schema DDL statement expressions."""
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLQueryAndParams
+from ..bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -52,14 +52,11 @@ class CreateSchemaExpression(BaseExpression):
         schema_name: str,
         if_not_exists: bool = False,
         authorization: Optional[str] = None,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.schema_name = schema_name
         self.if_not_exists = if_not_exists
         self.authorization = authorization
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -104,14 +101,11 @@ class DropSchemaExpression(BaseExpression):
         schema_name: str,
         if_exists: bool = False,
         cascade: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.schema_name = schema_name
         self.if_exists = if_exists
         self.cascade = cascade
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:

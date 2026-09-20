@@ -1,9 +1,9 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_function.py
 """Function DDL statement expressions."""
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLQueryAndParams
+from ..bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -40,8 +40,6 @@ class CreateFunctionExpression(BaseExpression):
         body: str = "",
         language: str = "plpgsql",
         or_replace: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.function_name = function_name
@@ -50,7 +48,6 @@ class CreateFunctionExpression(BaseExpression):
         self.body = body
         self.language = language
         self.or_replace = or_replace
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -81,15 +78,12 @@ class DropFunctionExpression(BaseExpression):
         if_exists: bool = False,
         parameters: Optional[List[str]] = None,
         cascade: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.function_name = function_name
         self.if_exists = if_exists
         self.parameters = parameters
         self.cascade = cascade
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:

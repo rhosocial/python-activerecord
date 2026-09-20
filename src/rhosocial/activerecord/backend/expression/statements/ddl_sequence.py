@@ -1,9 +1,9 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_sequence.py
 """Sequence DDL statement expressions."""
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLQueryAndParams
+from ..bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -61,8 +61,6 @@ class CreateSequenceExpression(BaseExpression):
         cache: Optional[int] = None,
         order: bool = False,
         owned_by: Optional[str] = None,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.sequence_name = sequence_name
@@ -75,7 +73,6 @@ class CreateSequenceExpression(BaseExpression):
         self.cache = cache
         self.order = order
         self.owned_by = owned_by
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -112,13 +109,10 @@ class DropSequenceExpression(BaseExpression):
         dialect: "SQLDialectBase",
         sequence_name: str,
         if_exists: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.sequence_name = sequence_name
         self.if_exists = if_exists
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -173,8 +167,6 @@ class AlterSequenceExpression(BaseExpression):
         cache: Optional[int] = None,
         order: Optional[bool] = None,
         owned_by: Optional[str] = None,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.sequence_name = sequence_name
@@ -187,7 +179,6 @@ class AlterSequenceExpression(BaseExpression):
         self.cache = cache
         self.order = order
         self.owned_by = owned_by
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:

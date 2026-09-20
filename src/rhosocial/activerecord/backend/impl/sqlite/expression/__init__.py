@@ -21,6 +21,7 @@ from .reindex import SQLiteReindexExpression
 from .vacuum import SQLiteVacuumExpression, SQLiteAnalyzeExpression
 from .attach import SQLiteAttachExpression, SQLiteDetachExpression
 from .predicates import SQLiteMatchPredicate
+from .dml import SQLiteInsertExpression
 from .fts5 import (
     SQLiteFTS5MatchExpression,
     SQLiteFTS5CreateVirtualTable,
@@ -51,6 +52,7 @@ __all__ = [
     "SQLiteAttachExpression",
     "SQLiteDetachExpression",
     "SQLiteMatchPredicate",
+    "SQLiteInsertExpression",
     "SQLiteFTS5MatchExpression",
     "SQLiteFTS5CreateVirtualTable",
     "SQLiteFTS5RankExpression",
@@ -77,6 +79,7 @@ for _expr_cls in (
     SQLiteAttachExpression,
     SQLiteDetachExpression,
     SQLiteMatchPredicate,
+    SQLiteInsertExpression,
     SQLiteFTS5MatchExpression,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,

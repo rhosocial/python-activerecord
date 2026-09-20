@@ -2,9 +2,9 @@
 """Trigger DDL statement expressions."""
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams
+from ..bases import BaseExpression, SQLPredicate
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -80,8 +80,6 @@ class CreateTriggerExpression(BaseExpression):
         update_columns: Optional[List[str]] = None,
         referencing: Optional[str] = None,
         if_not_exists: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.trigger_name = trigger_name
@@ -94,7 +92,6 @@ class CreateTriggerExpression(BaseExpression):
         self.update_columns = update_columns
         self.referencing = referencing
         self.if_not_exists = if_not_exists
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -124,14 +121,11 @@ class DropTriggerExpression(BaseExpression):
         trigger_name: str,
         table_name: Optional[str] = None,
         if_exists: bool = False,
-        *,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.trigger_name = trigger_name
         self.table_name = table_name
         self.if_exists = if_exists
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:

@@ -24,7 +24,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import serialization
 from rhosocial.activerecord.backend.expression import TableExpression, Literal
-from rhosocial.activerecord.backend.expression.statements.dml import InsertExpression, DeleteExpression, ValuesSource
+from rhosocial.activerecord.backend.expression.statements.dml import DeleteExpression, ValuesSource
 from rhosocial.activerecord.backend.expression.statements.ddl_table import DropTableExpression
 from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression, DropIndexExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -38,6 +38,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
     SQLiteDetachExpression,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.predicates import SQLiteMatchPredicate
+from rhosocial.activerecord.backend.impl.sqlite.expression.dml import SQLiteInsertExpression
 from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import SQLiteColumnInfoExpression
 from rhosocial.activerecord.backend.impl.sqlite.expression.table_list import SQLiteTableListExpression
 
@@ -51,24 +52,24 @@ def sqlite_dialect():
 class TestDialectOptionsExpressionTraversal:
     """Test expressions with dialect_options."""
 
-    def test_insert_with_dialect_options(self, sqlite_dialect):
+    def test_insert_with_or_ignore(self, sqlite_dialect):
         table = TableExpression(sqlite_dialect, "users")
         source = ValuesSource(
             sqlite_dialect, values_list=[[Literal(sqlite_dialect, "John"), Literal(sqlite_dialect, 30)]]
         )
-        expr = InsertExpression(sqlite_dialect, into=table, source=source, dialect_options={"ignore": True})
+        expr = SQLiteInsertExpression(sqlite_dialect, into=table, source=source, or_ignore=True)
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
-        assert restored.dialect_options == expr.dialect_options
+        assert restored.or_ignore == expr.or_ignore
 
-    def test_delete_with_dialect_options(self, sqlite_dialect):
+    def test_delete_has_no_dialect_options(self, sqlite_dialect):
         table = TableExpression(sqlite_dialect, "users")
-        expr = DeleteExpression(sqlite_dialect, tables=table, dialect_options={"temp_option": "value"})
+        expr = DeleteExpression(sqlite_dialect, tables=table)
+        assert not hasattr(expr, "dialect_options")
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
-        assert restored.dialect_options == expr.dialect_options
 
     def test_drop_table_roundtrip(self, sqlite_dialect):
         expr = DropTableExpression(sqlite_dialect, table="users", if_exists=True)
