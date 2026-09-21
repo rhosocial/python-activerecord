@@ -758,7 +758,7 @@ class DummyDialect(
     def supports_table_tablespace(self) -> bool:
         return True
 
-    def supports_table_inherits(self) -> bool:
+    def supports_table_inheritance(self) -> bool:
         return True
 
     def supports_drop_column(self) -> bool:

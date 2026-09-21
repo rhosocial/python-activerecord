@@ -138,7 +138,7 @@ class TableMixin:
         """
         return False
 
-    def supports_table_inherits(self) -> bool:
+    def supports_table_inheritance(self) -> bool:
         """Whether table inheritance (``INHERITS (parent, ...)``) is supported.
 
         Defaults to False; PostgreSQL (and compatible dialects) override to
@@ -509,7 +509,7 @@ class TableMixin:
                 )
             parts.append(f" TABLESPACE {self.format_identifier(expr.tablespace)}")
         if expr.inherits:
-            if not self.supports_table_inherits():
+            if not self.supports_table_inheritance():
                 raise UnsupportedFeatureError(
                     self.name, "INHERITS",
                     f"{self.name} does not support table inheritance.",

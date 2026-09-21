@@ -149,7 +149,7 @@ class TestTableCapabilityGating:
 
     def test_create_table_inherits_raises_when_unsupported(self, dummy_dialect: DummyDialect):
         expr = self._table(dummy_dialect, inherits=["parent"])
-        with patch.object(type(dummy_dialect), "supports_table_inherits", return_value=False):
+        with patch.object(type(dummy_dialect), "supports_table_inheritance", return_value=False):
             with pytest.raises(UnsupportedFeatureError, match="INHERITS"):
                 expr.to_sql()
 
