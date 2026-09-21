@@ -240,6 +240,7 @@ class ColumnDefinition(BaseExpression):
         identity_start: Optional[int] = None,
         identity_increment: Optional[int] = None,
         identity_clause: Optional["IdentityClause"] = None,
+        attributes: Optional[List[Any]] = None,
     ):
         super().__init__(dialect)
         if not isinstance(data_type, DataType):
@@ -255,6 +256,10 @@ class ColumnDefinition(BaseExpression):
         self.identity_start = identity_start
         self.identity_increment = identity_increment
         self.identity_clause = identity_clause
+        # Dialect-free column attributes (identity, collation, character set,
+        # …) — already selected by the dialect's ``select_column_attributes``;
+        # rendered through ``format_column_attribute``.
+        self.attributes = list(attributes or [])
 
 
 class TableConstraintType(Enum):

@@ -34,6 +34,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_index import (
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     ColumnDefinition,
     CreateTableExpression,
+    DropTableExpression,
     IndexDefinition,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
@@ -122,20 +123,37 @@ def test_deriver_sqlite_create_indexes_covers_all(backend):
 
 
 def test_deriver_create_schema_completeness(backend):
-    plan = Indexed.create_schema()
+    plan = Indexed.creation_plan()
     assert isinstance(plan[0], CreateTableExpression)
     standalone = [expr for expr in plan if isinstance(expr, CreateIndexExpression)]
-    declared = Indexed.table_indexes()
+    declared = Indexed.column_indexes("email")
     # Union of inline + standalone indexes equals the declared set, no overlap.
     assert plan[0].indexes == []
     assert [expr.index_name for expr in standalone] == [i.name for i in declared]
 
 
 def test_deriver_drop_schema_orders_indexes_first(backend):
-    plan = Indexed.drop_schema()
+    plan = Indexed.teardown_plan()
     assert isinstance(plan[0], DropIndexExpression)
     assert plan[0].index_name == "idx_indexed_email"
     assert plan[-1].table.name == "indexed"
+
+
+def test_deriver_drop_indexes_if_exists(backend):
+    statements = Indexed.drop_indexes(if_exists=True)
+    sql, _ = statements[0].to_sql()
+    assert "IF EXISTS" in sql
+
+
+def test_deprecated_schema_aliases_warn_and_return_statements(backend):
+    with pytest.warns(DeprecationWarning):
+        creation = Indexed.create_schema()
+    with pytest.warns(DeprecationWarning):
+        teardown = Indexed.drop_schema()
+    assert isinstance(creation[0], CreateTableExpression)
+    assert isinstance(creation[-1], CreateIndexExpression)
+    assert isinstance(teardown[0], DropIndexExpression)
+    assert isinstance(teardown[-1], DropTableExpression)
 
 
 def test_deriver_inline_indexes_override_true_raises_on_sqlite(backend):

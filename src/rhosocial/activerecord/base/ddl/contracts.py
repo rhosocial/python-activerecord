@@ -19,6 +19,7 @@ from ...backend.expression.statements.ddl_table import (
     StorageOptionsExpression,
     TableConstraint,
 )
+from .attributes import ColumnAttribute
 from .options import ColumnOptions
 
 
@@ -69,7 +70,17 @@ TABLE_CONTRACTS: Dict[str, DeclarationContract] = {
 }
 
 COLUMN_CONTRACTS: Dict[str, DeclarationContract] = {
+    # Physical column name: a plain str, directly usable as the ``name``
+    # construction parameter of ``ColumnDefinition`` (§5.5).
+    "column_name": DeclarationContract(str),
+    # Exempt from a type contract (B9): ``column_type`` returns dialect-free
+    # type candidates (a ``UseSqlType`` marker, a ``DataType``, or a list of
+    # them) which the deriver resolves per dialect through the type resolver
+    # (``base.ddl.types.ColumnTypeResolver``) — not directly usable as an
+    # expression construction parameter, so Gate 0 does not apply.
+    "column_type": DeclarationContract(None),
     "column_constraints": DeclarationContract(ColumnConstraint, additive=True),
+    "column_attributes": DeclarationContract(ColumnAttribute, additive=True),
     "column_comment": DeclarationContract(None),
     "generated_column": DeclarationContract(GeneratedColumnExpression),
     "column_options": DeclarationContract(ColumnOptions),

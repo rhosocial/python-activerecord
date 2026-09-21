@@ -41,6 +41,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TriggerSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    ColumnAttributeSupport,
     # Introspection Protocol
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -235,6 +236,7 @@ class SQLiteDialect(
     TriggerSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    ColumnAttributeSupport,
     # SQLite-specific protocols
     SQLiteExtensionSupport,
     SQLitePragmaSupport,

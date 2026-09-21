@@ -167,6 +167,14 @@ class SQLiteDDLColumnMixin:
         type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
+        for attr in getattr(col_def, "attributes", None) or ():
+            # Dialect-free column attributes (identity, collation, …) selected
+            # by `select_column_attributes`; rendered through the dialect
+            # protocol's format_column_attribute.
+            attr_sql, attr_params = self.format_column_attribute(attr)
+            col_sql += attr_sql
+            all_params.extend(attr_params)
+
         for constraint in col_def.constraints:
             handler = constraint_handlers.get(constraint.constraint_type)
             if handler:

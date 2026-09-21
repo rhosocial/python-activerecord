@@ -20,16 +20,14 @@ class ColumnOptions:
     :meth:`column_definition_class` to return that backend's
     ``XxxColumnDefinition`` (and is rendered by the backend's
     ``format_column_definition``).
+
+    Identity is **not** carried here: it migrated to the column-attribute
+    channel (``Annotated[T, UseColumnAttributes(IdentityAttribute(...))]``),
+    so the same semantic is never carried twice (§5.3).
     """
 
-    def __init__(
-        self,
-        *,
-        identity_start: Optional[int] = None,
-        identity_increment: Optional[int] = None,
-    ):
-        self.identity_start = identity_start
-        self.identity_increment = identity_increment
+    def __init__(self):
+        pass
 
     def column_definition_class(self) -> Type["ColumnDefinition"]:
         """The ``ColumnDefinition`` class this options declaration builds.

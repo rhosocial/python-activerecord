@@ -142,6 +142,24 @@ class TableMixin:
         """
         return False
 
+    def preferred_create_table_statement(self):
+        """The backend's preferred CREATE TABLE statement class (§5.12).
+
+        Defaults to ``None`` — the generic ``CreateTableExpression`` is the
+        candidate fallback. Backends that render their own statement subclass
+        override this to return it (first candidate, order = priority); the
+        deriver composes ``[preferred, generic]`` and selects through
+        Gate 1 (ownership) + Gate 2 (renderability).
+        """
+        return None
+
+    def preferred_drop_table_statement(self):
+        """The backend's preferred DROP TABLE statement class (§5.12).
+
+        Defaults to ``None`` — the generic ``DropTableExpression``.
+        """
+        return None
+
     def supports_drop_column(self) -> bool:
         """Whether DROP COLUMN is supported.
 

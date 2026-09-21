@@ -99,6 +99,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     FunctionSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    ColumnAttributeSupport,
     DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
@@ -265,6 +266,7 @@ class DummyDialect(
     FunctionSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    ColumnAttributeSupport,
     DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,

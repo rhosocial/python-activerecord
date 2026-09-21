@@ -36,6 +36,20 @@ class IndexMixin:
         """
         return True
 
+    def preferred_create_index_statement(self):
+        """The backend's preferred CREATE INDEX statement class (§5.12).
+
+        Defaults to ``None`` — the generic ``CreateIndexExpression``.
+        """
+        return None
+
+    def preferred_drop_index_statement(self):
+        """The backend's preferred DROP INDEX statement class (§5.12).
+
+        Defaults to ``None`` — the generic ``DropIndexExpression``.
+        """
+        return None
+
     def supports_unique_index(self) -> bool:
         """Whether UNIQUE indexes are supported.
 

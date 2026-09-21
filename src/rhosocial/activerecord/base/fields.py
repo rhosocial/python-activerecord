@@ -149,9 +149,13 @@ class UseSqlType:
                 "UseSqlType(VarCharType(length=50))."
             )
         for t in data_types:
-            if not isinstance(t, DataType):
+            if not isinstance(t, DataType) or type(t) is DataType:
+                # Candidate types are restricted to DataType subclasses: only
+                # a derived class carries the semantics of a concrete type,
+                # the abstract base itself names nothing (Gate 0, §5.1).
                 raise TypeError(
-                    f"UseSqlType expects one or more DataType instances, got "
+                    f"UseSqlType expects one or more DataType subclasses "
+                    f"(not {type(t).__name__} itself), got "
                     f"{type(t).__name__}. Per-dialect string-keyed mappings are "
                     f"not supported: use a generic type (each backend resolves "
                     f"it natively), a backend-specific type, or several types "
@@ -230,19 +234,31 @@ class UseConstraint:
     Declares a constraint applied directly to the annotated column in the
     generated CREATE TABLE statement.
 
+    Rejected constraint types (declaration raises immediately):
+
+    - ``PRIMARY_KEY`` — the **only** constraint the marker refuses on
+      semantic grounds: the primary key has a single source, the
+      ``__primary_key__`` constant (accessed through ``primary_key()``);
+      a single-column PK lands on the column, a composite PK becomes a
+      table-level constraint.
+    - ``IDENTITY`` / ``COLLATE`` — migrated to the column-attribute channel:
+      declare ``UseColumnAttributes(IdentityAttribute(...))`` or
+      ``UseColumnAttributes(CollationAttribute(...))`` instead.
+
+    Accepted constraint types: NOT NULL / UNIQUE / CHECK / FOREIGN KEY /
+    DEFAULT.
+
     For table-level constraints (CHECK spanning multiple columns, composite
-    UNIQUE, composite FOREIGN KEY), declare ``__table_constraints__`` on the model
-    class instead.
+    UNIQUE, composite FOREIGN KEY), declare ``__table_constraints__`` on the
+    model class instead.
 
     Example::
 
-        # Column-level COLLATE (SQL-standard, generic)
-        name: Annotated[str, UseConstraint(ColumnConstraintType.COLLATE,
-                                            collation="utf8mb4_unicode_ci")]
-
-        # Backend-specific column attributes (e.g. MySQL CHARACTER SET) are
-        # declared through the backend's own options/constraint classes, not
-        # through this generic marker.
+        # Column-level CHECK (SQL-standard, generic)
+        status: Annotated[str, UseConstraint(
+            ColumnConstraintType.CHECK,
+            check_condition=lambda d: Column(d, "status").in_(["open", "paid"]),
+        )]
     """
 
     def __init__(
@@ -258,14 +274,32 @@ class UseConstraint:
         on_update: Optional["ReferentialAction"] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        collation: Optional[str] = None,
     ):
         # check_condition may be a ready SQLPredicate or a lazy
         # ``(dialect) -> SQLPredicate`` factory; the generator resolves it.
         # The marker is constructed at model-declaration time (no dialect
         # yet) — the constraint node defers binding and the DDL generator
-        # binds it through the dialect setter. collation is a typed field on
-        # the generic constraint (no dialect_options bag).
+        # binds it through the dialect setter.
+        if constraint_type == ColumnConstraintType.PRIMARY_KEY:
+            raise ValueError(
+                "UseConstraint does not accept PRIMARY_KEY: the primary key "
+                "has a single source, the __primary_key__ constant (or a "
+                "primary_key() override). A single-column PK lands on the "
+                "column automatically; a composite PK becomes a table-level "
+                "constraint."
+            )
+        if constraint_type == ColumnConstraintType.IDENTITY:
+            raise ValueError(
+                "UseConstraint does not accept IDENTITY: identity migrated to "
+                "the column-attribute channel. Declare "
+                "UseColumnAttributes(IdentityAttribute(...)) instead."
+            )
+        if constraint_type == ColumnConstraintType.COLLATE:
+            raise ValueError(
+                "UseConstraint does not accept COLLATE: collation migrated to "
+                "the column-attribute channel. Declare "
+                "UseColumnAttributes(CollationAttribute(...)) instead."
+            )
         self.constraint = ColumnConstraint(None,
             constraint_type=constraint_type,
             name=name,
@@ -277,7 +311,6 @@ class UseConstraint:
             on_update=on_update,
             deferrable=deferrable,
             initially_deferred=initially_deferred,
-            collation=collation,
         )
 
     def __repr__(self) -> str:
@@ -291,10 +324,32 @@ class UseColumnAttributes:
     (identity, collation, character set, …). The AR layer collects them per
     column and hands the list to the backend dialect, which selects the
     applicable attributes and renders them in the column definition.
+
+    Candidate types are restricted to :class:`ColumnAttribute` subclasses
+    (Gate 0): each attribute kind carries its own semantics, and the three
+    families (constraints / indexes / attributes) are mutually exclusive by
+    design — the same semantic is never carried twice.
     """
 
     def __init__(self, *attributes: "ColumnAttribute"):
-        self.attributes = list(attributes)
+        from .ddl.attributes import ColumnAttribute
+
+        if not attributes:
+            raise TypeError(
+                "UseColumnAttributes requires at least one ColumnAttribute "
+                "instance, e.g. UseColumnAttributes(IdentityAttribute())."
+            )
+        seen: list = []
+        for attr in attributes:
+            if not isinstance(attr, ColumnAttribute):
+                raise TypeError(
+                    f"UseColumnAttributes expects ColumnAttribute instances, "
+                    f"got {type(attr).__name__}. Constraints are declared "
+                    f"through UseConstraint, indexes through UseIndex."
+                )
+            if attr not in seen:
+                seen.append(attr)
+        self.attributes: list = seen
 
     def __repr__(self) -> str:
         kinds = ", ".join(type(attr).__name__ for attr in self.attributes)
