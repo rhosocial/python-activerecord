@@ -250,6 +250,22 @@ class DDLColumnMixin:
             sql += f" ({' '.join(attributes)})"
         return sql, ()
 
+    def format_column_attributes(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
+        """Render all of a column's attributes as one definition fragment.
+
+        Shared by the generic formatter and by backend ``format_column_definition``
+        overrides (which otherwise would not render the dialect-free
+        ``attributes`` channel). Returns the concatenated fragments with a
+        leading space each, and the accumulated parameters.
+        """
+        sql = ""
+        params: List[Any] = []
+        for attr in getattr(col_def, "attributes", None) or ():
+            attr_sql, attr_params = self.format_column_attribute(attr)
+            sql += attr_sql
+            params.extend(attr_params)
+        return sql, tuple(params)
+
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
         """Format a column definition clause (name, type, constraints, comment).
 
@@ -264,13 +280,12 @@ class DDLColumnMixin:
         type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
-        for attr in col_def.attributes or ():
-            # Dialect-free column attributes (identity, collation, character
-            # set, …) selected by `select_column_attributes`; rendered through
-            # `format_column_attribute`.
-            attr_sql, attr_params = self.format_column_attribute(attr)
-            col_sql += attr_sql
-            all_params.extend(attr_params)
+        # Dialect-free column attributes (identity, collation, character set,
+        # …) selected by `select_column_attributes`; rendered through
+        # `format_column_attribute`.
+        attr_sql, attr_params = self.format_column_attributes(col_def)
+        col_sql += attr_sql
+        all_params.extend(attr_params)
         for constraint in col_def.constraints:
             suffix, params = self.format_column_constraint(constraint)
             col_sql += suffix
