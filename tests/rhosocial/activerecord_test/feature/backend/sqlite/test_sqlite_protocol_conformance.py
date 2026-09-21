@@ -109,6 +109,7 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.CollationSupport,
     dialect_protocols.DDLTypeSupport,
     dialect_protocols.PartitionSupport,
+    dialect_protocols.ColumnAttributeSupport,
 ]
 
 # Generic protocols SQLiteDialect intentionally does NOT implement.
