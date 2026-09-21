@@ -253,6 +253,17 @@ def test_drop_table_expression(backend):
     assert params == ()
 
 
+def test_drop_table_purge_flag_is_carried(backend):
+    assert Sample.drop_table(purge=True).purge is True
+
+
+def test_drop_table_purge_unsupported_raises(backend):
+    from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+    with pytest.raises(UnsupportedFeatureError, match="PURGE"):
+        Sample.drop_table(purge=True).to_sql()
+
+
 def test_spec_roundtrip(backend):
     original = Sample.create_table()
     spec = Sample.create_table_spec()

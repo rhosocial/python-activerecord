@@ -122,6 +122,15 @@ class TableMixin:
         """
         return True
 
+    def supports_purge_on_drop_table(self) -> bool:
+        """Whether DROP TABLE accepts the PURGE option (bypass the recycle bin).
+
+        Defaults to False; Oracle (and compatible dialects) override to True.
+        When a caller requests ``purge`` and this is False, the generic helper
+        raises ``UnsupportedFeatureError`` instead of silently dropping it.
+        """
+        return False
+
     def supports_table_tablespace(self) -> bool:
         """Whether tablespace specification is supported.
 
@@ -605,6 +614,13 @@ class TableMixin:
                     "DROP TABLE ... RESTRICT",
                 )
             parts.append("RESTRICT")
+        if getattr(expr, "purge", False):
+            if not self.supports_purge_on_drop_table():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "DROP TABLE ... PURGE",
+                )
+            parts.append("PURGE")
         return " ".join(parts), table_params
 
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:

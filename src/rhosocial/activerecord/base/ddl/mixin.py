@@ -416,9 +416,10 @@ class DDLMixin:
         *,
         if_exists: bool = False,
         cascade: Optional[bool] = None,
+        purge: bool = False,
     ) -> DropTableExpression:
         """Return the ``DROP TABLE`` expression for this model."""
-        return cls._deriver().drop_table(if_exists=if_exists, cascade=cascade)
+        return cls._deriver().drop_table(if_exists=if_exists, cascade=cascade, purge=purge)
 
     @classmethod
     def create_table_spec(cls, **kwargs: Any) -> Dict[str, Any]:

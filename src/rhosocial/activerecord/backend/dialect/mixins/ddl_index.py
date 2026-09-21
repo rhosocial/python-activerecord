@@ -312,7 +312,13 @@ class IndexMixin:
         all_params = []
         parts = ["CREATE"]
 
-        # CONCURRENTLY is a PostgreSQL extension gated by supports_concurrent_index().
+        if expr.unique:
+            parts.append("UNIQUE")
+        parts.append("INDEX")
+
+        # CONCURRENTLY is a PostgreSQL extension gated by
+        # supports_concurrent_index(); it follows the INDEX keyword
+        # (``CREATE [UNIQUE] INDEX CONCURRENTLY ...``).
         if getattr(expr, "concurrent", False):
             if not self.supports_concurrent_index():
                 raise UnsupportedFeatureError(
@@ -321,9 +327,6 @@ class IndexMixin:
                 )
             parts.append("CONCURRENTLY")
 
-        if expr.unique:
-            parts.append("UNIQUE")
-        parts.append("INDEX")
         if expr.if_not_exists:
             if not self.supports_index_if_not_exists():
                 raise UnsupportedFeatureError(
