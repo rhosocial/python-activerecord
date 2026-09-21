@@ -137,25 +137,33 @@ class TableDDLDeriver:
             inline = self._inline_capable
         else:
             inline = bool(inline_indexes)
+        indexes = self.indexes() if inline else []
+        if inline:
+            self._gate_inline_statement_options(indexes)
         params: Dict[str, Any] = {
             # Canonical parameters, collected by name (§5.13); values are
             # directly usable expressions (§5.5).
             "table": self.table_expression(),
             "columns": self.columns(),
-            "indexes": self.indexes() if inline else [],
+            "indexes": indexes,
             "table_constraints": self.table_constraints(),
             "table_options": self.table_options(),
             "storage_options": self.storage_options(),
             "partition": self.partition(),
             "temporary": temporary,
             "if_not_exists": if_not_exists,
+            "inherits": self.model.table_inherits(),
+            "tablespace": self.model.table_tablespace(),
         }
         # Statement-family candidates (§5.12): the dialect protocol's
         # preferred class first, the generic form last — or the model's
         # override of the whole list.
         override = self.model.create_table_statement_classes()
         candidates = (
-            self._statement_candidates(None, CreateTableExpression)
+            self._statement_candidates(
+                getattr(self.dialect, "preferred_create_table_statement", lambda: None)(),
+                CreateTableExpression,
+            )
             if override is None
             else self._normalized_classes(override)
         )
@@ -168,6 +176,34 @@ class TableDDLDeriver:
         if isinstance(override, (list, tuple)):
             return list(override)
         return [override]
+
+    def _gate_inline_statement_options(self, indexes: List[IndexDefinition]) -> None:
+        """§5.16: statement-level index options cannot ride the inline path.
+
+        An index carried inside CREATE TABLE has no place for
+        ``if_not_exists`` / ``tablespace`` / ``concurrent``; a declared one
+        raises instead of being silently dropped. The drop-side ``if_exists``
+        is not part of the create path and is not gated here.
+        """
+        offenders: List[Tuple[str, List[str]]] = []
+        for index in indexes:
+            declared: List[str] = []
+            if index.if_not_exists:
+                declared.append("if_not_exists")
+            if index.tablespace is not None:
+                declared.append("tablespace")
+            if index.concurrent:
+                declared.append("concurrent")
+            if declared:
+                offenders.append((index.name, declared))
+        if offenders:
+            details = "; ".join(f"{name!r}: {', '.join(options)}" for name, options in offenders)
+            raise ValueError(
+                "create_table(): the inline index path cannot carry "
+                f"statement-level options ({details}). Use "
+                "create_table(inline_indexes=False) with create_indexes() / "
+                "drop_indexes() to emit standalone statements per index."
+            )
 
     def create_indexes(self) -> List[CreateIndexExpression]:
         """Build standalone ``CREATE INDEX`` statements for indexes that this
@@ -201,6 +237,11 @@ class TableDDLDeriver:
                     "index_type": index.type,
                     "where": index.partial_condition,
                     "include": list(index.include_columns) if index.include_columns else None,
+                    # Statement-level options (§5.16): per-index declarations
+                    # pass through; render gates apply at the dialect.
+                    "if_not_exists": bool(index.if_not_exists),
+                    "tablespace": index.tablespace,
+                    "concurrent": bool(index.concurrent),
                 },
             )
             for index in self.indexes()
@@ -226,7 +267,10 @@ class TableDDLDeriver:
                 {
                     "index_name": index.name,
                     "table_name": self.model.table_name(),
-                    "if_exists": if_exists,
+                    # Per-index declaration wins over the entry parameter
+                    # (explicit wins, §5.7); entry parameter is the fallback.
+                    "if_exists": index.if_exists if index.if_exists is not None else if_exists,
+                    "concurrent": bool(index.concurrent),
                 },
             )
             for index in self.indexes()

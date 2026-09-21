@@ -264,27 +264,10 @@ class DDLColumnMixin:
         type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
-        identity_clause = col_def.identity_clause
-        if identity_clause is not None:
-            identity_sql, identity_params = self.format_identity_clause(identity_clause)
-            col_sql += identity_sql
-            all_params.extend(identity_params)
-        elif col_def.identity:
-            col_sql += f" GENERATED {col_def.identity.upper()} AS IDENTITY"
-            if col_def.identity_start is not None or col_def.identity_increment is not None:
-                id_parts = []
-                if col_def.identity_start is not None:
-                    id_parts.append(f"START WITH {col_def.identity_start}")
-                if col_def.identity_increment is not None:
-                    id_parts.append(f"INCREMENT BY {col_def.identity_increment}")
-                col_sql += f" ({' '.join(id_parts)})"
-        identity_rendered = identity_clause is not None or bool(col_def.identity)
-        for attr in getattr(col_def, "attributes", None) or ():
+        for attr in col_def.attributes or ():
             # Dialect-free column attributes (identity, collation, character
-            # set, …) selected by `select_column_attributes`; the identity
-            # kind is skipped when an identity clause is already rendered.
-            if identity_rendered and getattr(attr, "kind", "") == "identity":
-                continue
+            # set, …) selected by `select_column_attributes`; rendered through
+            # `format_column_attribute`.
             attr_sql, attr_params = self.format_column_attribute(attr)
             col_sql += attr_sql
             all_params.extend(attr_params)
@@ -392,13 +375,6 @@ class DDLColumnMixin:
             return self.format_column_check_constraint(constraint)
         if ctype == ColumnConstraintType.FOREIGN_KEY:
             return self.format_column_fk_constraint(constraint)
-        if ctype == ColumnConstraintType.COLLATE:
-            if constraint.collation:
-                return f" COLLATE {constraint.collation}", ()
-            return "", ()
-        if ctype == ColumnConstraintType.IDENTITY:
-            identity = constraint.identity or "BY DEFAULT"
-            return f" GENERATED {identity.upper()} AS IDENTITY", ()
         return "", ()
 
     def format_column_check_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:

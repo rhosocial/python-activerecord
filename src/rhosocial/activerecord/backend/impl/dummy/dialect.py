@@ -1304,20 +1304,10 @@ class DummyDialect(
             col_sql += gen_sql
             all_params.extend(gen_params)
 
-        identity_clause = col_def.identity_clause
-        if identity_clause is not None:
-            identity_sql, identity_params = self.format_identity_clause(identity_clause)
-            col_sql += identity_sql
-            all_params.extend(identity_params)
-        elif col_def.identity:
-            col_sql += f" GENERATED {col_def.identity.upper()} AS IDENTITY"
-            if col_def.identity_start is not None or col_def.identity_increment is not None:
-                id_parts = []
-                if col_def.identity_start is not None:
-                    id_parts.append(f"START WITH {col_def.identity_start}")
-                if col_def.identity_increment is not None:
-                    id_parts.append(f"INCREMENT BY {col_def.identity_increment}")
-                col_sql += f" ({' '.join(id_parts)})"
+        for attr in getattr(col_def, "attributes", None) or ():
+            attr_sql, attr_params = self.format_column_attribute(attr)
+            col_sql += attr_sql
+            all_params.extend(attr_params)
 
         # Add comment if present
         if col_def.comment:
