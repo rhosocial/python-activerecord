@@ -138,6 +138,16 @@ class TableMixin:
         """
         return False
 
+    def supports_table_inherits(self) -> bool:
+        """Whether table inheritance (``INHERITS (parent, ...)``) is supported.
+
+        Defaults to False; PostgreSQL (and compatible dialects) override to
+        True. When a declaration carries ``inherits`` and this is False, the
+        generic helper raises ``UnsupportedFeatureError`` instead of emitting
+        a clause the database would reject.
+        """
+        return False
+
     def supports_inline_index(self) -> bool:
         """Whether CREATE TABLE accepts inline index definitions.
 
@@ -499,6 +509,11 @@ class TableMixin:
                 )
             parts.append(f" TABLESPACE {self.format_identifier(expr.tablespace)}")
         if expr.inherits:
+            if not self.supports_table_inherits():
+                raise UnsupportedFeatureError(
+                    self.name, "INHERITS",
+                    f"{self.name} does not support table inheritance.",
+                )
             inherits_str = ", ".join(self.format_identifier(table) for table in expr.inherits)
             parts.append(f" INHERITS ({inherits_str})")
         if expr.partition is not None:
