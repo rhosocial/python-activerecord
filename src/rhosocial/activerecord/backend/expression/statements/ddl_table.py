@@ -23,8 +23,6 @@ class ColumnConstraintType(Enum):
     CHECK = "CHECK"
     FOREIGN_KEY = "FOREIGN KEY"
     DEFAULT = "DEFAULT"
-    COLLATE = "COLLATE"  # Column-level collation (MySQL/MariaDB/Oracle/Firebird)
-    IDENTITY = "IDENTITY"  # GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY (PG/Firebird/Oracle)
 
 
 class ColumnConstraint(BaseExpression):
@@ -53,8 +51,6 @@ class ColumnConstraint(BaseExpression):
         on_update: Optional["ReferentialAction"] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        collation: Optional[str] = None,
-        identity: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.constraint_type = constraint_type
@@ -67,8 +63,6 @@ class ColumnConstraint(BaseExpression):
         self.on_update = on_update
         self.deferrable = deferrable
         self.initially_deferred = initially_deferred
-        self.collation = collation
-        self.identity = identity
 
 
 class DefaultValueClause(BaseExpression):
@@ -236,10 +230,6 @@ class ColumnDefinition(BaseExpression):
         constraints: Optional[List[ColumnConstraint]] = None,
         comment: Optional[str] = None,
         generated_expression: Optional[GeneratedColumnExpression] = None,
-        identity: Optional[str] = None,
-        identity_start: Optional[int] = None,
-        identity_increment: Optional[int] = None,
-        identity_clause: Optional["IdentityClause"] = None,
         attributes: Optional[List[Any]] = None,
     ):
         super().__init__(dialect)
@@ -252,10 +242,6 @@ class ColumnDefinition(BaseExpression):
         self.constraints = list(constraints or [])
         self.comment = comment
         self.generated_expression = generated_expression
-        self.identity = identity
-        self.identity_start = identity_start
-        self.identity_increment = identity_increment
-        self.identity_clause = identity_clause
         # Dialect-free column attributes (identity, collation, character set,
         # …) — already selected by the dialect's ``select_column_attributes``;
         # rendered through ``format_column_attribute``.
@@ -382,6 +368,13 @@ class IndexDefinition(BaseExpression):
 
     ``columns`` accepts plain column names or :class:`BaseExpression`
     instances (functional/expression index columns, e.g. ``LOWER(name)``).
+
+    Statement-level options (§5.16, plan 方案 A) are carried per index so the
+    standalone ``CREATE INDEX`` / ``DROP INDEX`` statements can differ one by
+    one. ``None`` means "not explicitly declared" — an explicit declaration
+    wins over entry-level parameters. They are ignored by the inline path
+    (an index riding inside CREATE TABLE cannot carry statement options; the
+    deriver raises on the inline path instead).
     """
 
     @property
@@ -398,6 +391,10 @@ class IndexDefinition(BaseExpression):
         type: Optional[str] = None,
         partial_condition: Optional["SQLPredicate"] = None,
         include_columns: Optional[List[str]] = None,
+        if_not_exists: Optional[bool] = None,
+        tablespace: Optional[str] = None,
+        if_exists: Optional[bool] = None,
+        concurrent: Optional[bool] = None,
     ):
         super().__init__(dialect)
         self.name = name
@@ -406,6 +403,13 @@ class IndexDefinition(BaseExpression):
         self.type = type
         self.partial_condition = partial_condition
         self.include_columns = include_columns
+        # Statement-level options (§5.16): ``if_not_exists`` (create path),
+        # ``tablespace`` (create path), ``if_exists`` (drop path) and
+        # ``concurrent`` (create/drop shared).
+        self.if_not_exists = if_not_exists
+        self.tablespace = tablespace
+        self.if_exists = if_exists
+        self.concurrent = concurrent
 
 
 class CreateTableOptions(BaseExpression):

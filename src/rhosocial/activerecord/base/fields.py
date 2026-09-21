@@ -197,6 +197,10 @@ class UseIndex:
         type: Optional[str] = None,
         partial_condition: Optional[Union["SQLPredicate", "Callable"]] = None,
         include_columns: Optional[List[str]] = None,
+        if_not_exists: Optional[bool] = None,
+        tablespace: Optional[str] = None,
+        if_exists: Optional[bool] = None,
+        concurrent: Optional[bool] = None,
     ):
         if not name:
             raise ValueError("UseIndex requires a non-empty index name.")
@@ -207,19 +211,31 @@ class UseIndex:
         # factory, resolved by the generator at DDL-build time.
         self.partial_condition = partial_condition
         self.include_columns = include_columns
+        # Statement-level options (§5.16): ``if_not_exists`` (create path),
+        # ``tablespace`` (create path), ``if_exists`` (drop path) and
+        # ``concurrent`` (create/drop shared). ``None`` means "not explicitly
+        # declared" — an explicit declaration wins over entry-level parameters.
+        self.if_not_exists = if_not_exists
+        self.tablespace = tablespace
+        self.if_exists = if_exists
+        self.concurrent = concurrent
 
     def to_index_definition(self, column_name: str, dialect: "SQLDialectBase") -> "IndexDefinition":
         """Build an IndexDefinition that references *column_name*.
 
         The dialect is supplied by the DDL generator at build time.
         """
-        return IndexDefinition(dialect, 
+        return IndexDefinition(dialect,
             name=self.name,
             columns=[column_name],
             unique=self.unique,
             type=self.type,
             partial_condition=self.partial_condition,
             include_columns=self.include_columns,
+            if_not_exists=self.if_not_exists,
+            tablespace=self.tablespace,
+            if_exists=self.if_exists,
+            concurrent=self.concurrent,
         )
 
     def __repr__(self) -> str:
@@ -287,18 +303,6 @@ class UseConstraint:
                 "primary_key() override). A single-column PK lands on the "
                 "column automatically; a composite PK becomes a table-level "
                 "constraint."
-            )
-        if constraint_type == ColumnConstraintType.IDENTITY:
-            raise ValueError(
-                "UseConstraint does not accept IDENTITY: identity migrated to "
-                "the column-attribute channel. Declare "
-                "UseColumnAttributes(IdentityAttribute(...)) instead."
-            )
-        if constraint_type == ColumnConstraintType.COLLATE:
-            raise ValueError(
-                "UseConstraint does not accept COLLATE: collation migrated to "
-                "the column-attribute channel. Declare "
-                "UseColumnAttributes(CollationAttribute(...)) instead."
             )
         self.constraint = ColumnConstraint(None,
             constraint_type=constraint_type,

@@ -254,14 +254,11 @@ def test_use_constraint_rejects_primary_key():
         UseConstraint(ColumnConstraintType.PRIMARY_KEY)
 
 
-def test_use_constraint_rejects_identity():
-    with pytest.raises(ValueError, match="IdentityAttribute"):
-        UseConstraint(ColumnConstraintType.IDENTITY)
-
-
-def test_use_constraint_rejects_collate():
-    with pytest.raises(ValueError, match="CollationAttribute"):
-        UseConstraint(ColumnConstraintType.COLLATE)
+def test_column_constraint_type_dropped_identity_and_collate():
+    """§5.3: IDENTITY/COLLATE migrated to the column-attribute channel, so the
+    constraint type enum no longer carries them."""
+    assert not hasattr(ColumnConstraintType, "IDENTITY")
+    assert not hasattr(ColumnConstraintType, "COLLATE")
 
 
 # ---------------------------------------------------------------------------

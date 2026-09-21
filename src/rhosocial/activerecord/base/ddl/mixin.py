@@ -95,6 +95,25 @@ class DDLMixin:
         return declarations
 
     @classmethod
+    def table_inherits(cls) -> Optional[List[str]]:
+        """Inherited parent tables (§5.15: PostgreSQL ``INHERITS``).
+
+        No framework default — only meaningful on backends that support table
+        inheritance; a model on other backends returning a non-empty list
+        raises through the statement instantiation (Gate 0) or render gates.
+        """
+        return None
+
+    @classmethod
+    def table_tablespace(cls) -> Optional[str]:
+        """Table tablespace (§5.15: PostgreSQL / Oracle).
+
+        No framework default — only meaningful on backends that support
+        tablespaces; renderability is gated by the dialect.
+        """
+        return None
+
+    @classmethod
     def index_definition(cls, marker: UseIndex, column_name: str) -> IndexDefinition:
         """Build a dialect-free ``IndexDefinition`` from a field's ``UseIndex``."""
         return IndexDefinition(
@@ -105,6 +124,10 @@ class DDLMixin:
             type=marker.type,
             partial_condition=marker.partial_condition,
             include_columns=marker.include_columns,
+            if_not_exists=marker.if_not_exists,
+            tablespace=marker.tablespace,
+            if_exists=marker.if_exists,
+            concurrent=marker.concurrent,
         )
 
     # ----- statement-family candidate overrides (§5.12) -----
