@@ -52,6 +52,116 @@ class DDLColumnMixin:
         """Whether COLUMN COMMENT is supported (defaults to False)."""
         return False
 
+    def supports_column_collation(self) -> bool:
+        """Whether a column-level ``COLLATE <name>`` attribute is supported.
+
+        Defaults to True — the SQL-standard form is valid on every backend
+        that renders column definitions; backends whose column COLLATE is
+        meaningless override this to return False.
+        """
+        return True
+
+    def supports_column_character_set(self) -> bool:
+        """Whether a column-level ``CHARACTER SET <name>`` attribute is
+        supported.
+
+        Defaults to False — character sets are a MySQL/MariaDB concept, not
+        part of the generic dialect; those backends override this to return
+        True.
+        """
+        return False
+
+    def select_column_attributes(self, attributes: "List[Any]") -> "List[Any]":
+        """Filter declared column attributes down to the renderable ones.
+
+        The declared attributes are dialect-free (``ColumnAttribute``
+        subclasses); selection follows the additive semantics (§5.6): a
+        foreign-backend attribute is skipped, while an owned/generic
+        attribute this dialect cannot render raises
+        :class:`DeclarationSelectionError` — a declaration is never silently
+        dropped.
+
+        Per-kind capability switches: identity →
+        :meth:`supports_auto_increment`, collation →
+        :meth:`supports_column_collation`, character set →
+        :meth:`supports_column_character_set`. Unknown kinds are backend
+        extensions and render only on their owning backend.
+        """
+        from ....base.ddl.attributes import (
+            CharacterSetAttribute,
+            CollationAttribute,
+            IdentityAttribute,
+        )
+        from ....base.ddl.selector import (
+            DeclarationSelectionError,
+            ExpressionOwnership,
+        )
+
+        ownership = ExpressionOwnership(self)
+        selected: List[Any] = []
+        for attr in attributes:
+            classification = ownership.classify(type(attr))
+            if classification == ExpressionOwnership.FOREIGN:
+                continue
+            kind = getattr(attr, "kind", "")
+            if kind == "identity":
+                renderable = self.supports_auto_increment()
+            elif kind == "collation":
+                renderable = self.supports_column_collation()
+            elif kind == "character_set":
+                renderable = self.supports_column_character_set()
+            else:
+                renderable = False
+            if renderable:
+                selected.append(attr)
+            elif kind in ("identity", "collation", "character_set"):
+                # Known generic kinds are capability-gated: the dialect skips
+                # the ones it does not support (multi-backend candidates).
+                continue
+            else:
+                # Unknown kinds are backend extensions: a generic-owned one
+                # cannot render anywhere — error, never silent (§5.6).
+                owner = ownership.owner_backend(type(attr))
+                owner_label = f"backend {owner!r}" if owner else "core (generic)"
+                raise DeclarationSelectionError(
+                    "column_attributes",
+                    [(type(attr).__name__, owner_label, "not supported by this dialect")],
+                )
+        return selected
+
+    def format_column_attribute(self, attr: "Any") -> Tuple[str, Tuple]:
+        """Render one selected column attribute as a definition fragment.
+
+        Identity reuses :meth:`format_identity_clause` (per-backend syntax);
+        collation renders the SQL-standard ``COLLATE <name>``. Backend-only
+        kinds (or unknown kinds) raise ``UnsupportedFeatureError``.
+        """
+        from ....base.ddl.attributes import (
+            CollationAttribute,
+            IdentityAttribute,
+        )
+        from ...expression.statements.ddl_table import IdentityClause
+        from ..exceptions import UnsupportedFeatureError
+
+        if isinstance(attr, IdentityAttribute):
+            clause = IdentityClause(
+                self,
+                attr.generation,
+                start=attr.start,
+                increment=attr.increment,
+                minvalue=attr.minvalue,
+                maxvalue=attr.maxvalue,
+                cycle=attr.cycle,
+            )
+            return self.format_identity_clause(clause)
+        if isinstance(attr, CollationAttribute):
+            return f" COLLATE {attr.name}", ()
+        raise UnsupportedFeatureError(
+            self.name, f"COLUMN ATTRIBUTE {type(attr).__name__}",
+            f"{self.name} cannot render the {type(attr).__name__} column "
+            f"attribute; declare it only on backends that support it.",
+        )
+
     def format_column(self, expr: "Column") -> Tuple[str, Tuple]:
         """Format a :class:`~...expression.core.Column`.
 
@@ -168,6 +278,16 @@ class DDLColumnMixin:
                 if col_def.identity_increment is not None:
                     id_parts.append(f"INCREMENT BY {col_def.identity_increment}")
                 col_sql += f" ({' '.join(id_parts)})"
+        identity_rendered = identity_clause is not None or bool(col_def.identity)
+        for attr in getattr(col_def, "attributes", None) or ():
+            # Dialect-free column attributes (identity, collation, character
+            # set, …) selected by `select_column_attributes`; the identity
+            # kind is skipped when an identity clause is already rendered.
+            if identity_rendered and getattr(attr, "kind", "") == "identity":
+                continue
+            attr_sql, attr_params = self.format_column_attribute(attr)
+            col_sql += attr_sql
+            all_params.extend(attr_params)
         for constraint in col_def.constraints:
             suffix, params = self.format_column_constraint(constraint)
             col_sql += suffix

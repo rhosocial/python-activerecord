@@ -15,6 +15,8 @@ from .ddl import (
     ColumnOptions,
     ColumnTypeResolutionError,
     ColumnTypeResolver,
+    DDLPlan,
+    DeclarationSelectionError,
     PythonTypeMapping,
 )
 from .fields import (
@@ -46,6 +48,8 @@ __all__ = [
     "ColumnOptions",
     "ColumnTypeResolutionError",
     "ColumnTypeResolver",
+    "DDLPlan",
+    "DeclarationSelectionError",
     "PythonTypeMapping",
     "UseColumn",
     "UseColumnAttributes",

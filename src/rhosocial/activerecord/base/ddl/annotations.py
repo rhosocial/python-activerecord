@@ -3,7 +3,8 @@
 
 The feature handler runs at model-class creation time and records, per field,
 the annotation-derived data the derivation needs: the base Python type,
-nullability, and the ``UseSqlType`` / ``UseConstraint`` / ``UseIndex`` markers.
+nullability, and the DDL annotation markers (``UseSqlType`` / ``UseConstraint``
+/ ``UseIndex`` / ``UseColumnAttributes``).
 Column names and the primary key are resolved later (elsewhere), so only
 annotation data is stored here.
 """
@@ -12,17 +13,29 @@ from __future__ import annotations
 
 import types
 import typing
-from typing import Any, Optional, Tuple, Type
+from typing import Any, Dict, Optional, Tuple, Type
 
 try:
     from typing import Annotated
 except ImportError:  # Python 3.8
     from typing_extensions import Annotated
 
-from ..fields import UseConstraint, UseIndex, UseSqlType
+from ..fields import UseColumnAttributes, UseConstraint, UseIndex, UseSqlType
 
 #: PEP 604 ``X | Y`` union origin; ``types.UnionType`` exists only on 3.10+.
 PEP604_UNION_TYPE = getattr(types, "UnionType", None)
+
+#: Registry of the DDL annotation markers (A9): marker class →
+#: ``(metadata attribute, singular)``. The collector iterates this registry,
+#: so adding a new marker never requires touching the collection logic.
+#: ``singular=True`` keeps the first matching marker (or ``None``);
+#: ``False`` collects every match as a tuple, in declaration order.
+MARKER_REGISTRY: Dict[Type[Any], Tuple[str, bool]] = {
+    UseSqlType: ("use_sql_type", True),
+    UseConstraint: ("constraints", False),
+    UseIndex: ("indexes", False),
+    UseColumnAttributes: ("column_attributes", False),
+}
 
 
 class DDLFieldMetadata:
@@ -34,11 +47,17 @@ class DDLFieldMetadata:
         markers.extend(getattr(field_info, "metadata", ()) or ())
         self.is_optional = self.detect_optional(annotation, getattr(field_info, "default", None))
         self.python_type = self.unwrap_optional(annotation)
-        self.use_sql_type = next((m for m in markers if isinstance(m, UseSqlType)), None)
-        self.constraints: Tuple[UseConstraint, ...] = tuple(
-            m for m in markers if isinstance(m, UseConstraint)
-        )
-        self.indexes: Tuple[UseIndex, ...] = tuple(m for m in markers if isinstance(m, UseIndex))
+        for marker_class, (attr_name, singular) in MARKER_REGISTRY.items():
+            if singular:
+                setattr(
+                    self, attr_name,
+                    next((m for m in markers if isinstance(m, marker_class)), None),
+                )
+            else:
+                setattr(
+                    self, attr_name,
+                    tuple(m for m in markers if isinstance(m, marker_class)),
+                )
 
     @staticmethod
     def union_arguments(annotation: Any) -> Optional[tuple]:

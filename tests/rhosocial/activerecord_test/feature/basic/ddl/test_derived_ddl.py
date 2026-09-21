@@ -180,15 +180,24 @@ def test_create_table_returns_expression(backend):
     assert params == ()
 
 
-def test_optional_fields_are_nullable(backend):
+def test_optional_fields_add_no_null_clause(backend):
     sql, _ = Sample.create_table().to_sql()
-    assert '"nickname" TEXT NULL' in sql
-    assert '"balance" NUMERIC NULL' in sql
+    # §5.7: Optional[T] is nullable — no explicit NULL clause is output.
+    assert '"nickname" TEXT NULL' not in sql
+    assert '"nickname" TEXT' in sql
+    assert '"balance" NUMERIC NULL' not in sql
 
 
-def test_required_fields_have_no_implicit_not_null(backend):
+def test_required_fields_add_not_null(backend):
     sql, _ = Sample.create_table().to_sql()
-    assert '"name" TEXT NOT NULL' not in sql
+    # §5.7: required T derives NOT NULL.
+    assert '"name" TEXT NOT NULL' in sql
+
+
+def test_pk_members_are_forced_not_null(backend):
+    sql, _ = Sample.create_table().to_sql()
+    # §5.7: PK members are forced NOT NULL (even the auto-increment PK).
+    assert '"id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL' in sql
 
 
 def test_explicit_not_null_overrides_optional(backend):
@@ -212,9 +221,12 @@ def test_inline_indexes_omitted_when_unsupported(backend):
 
 
 def test_use_index_is_derived(backend):
-    indexes = Sample.table_indexes()
-    assert [index.name for index in indexes] == ["idx_samples_email"]
-    assert indexes[0].unique is True
+    # §5.4: table_indexes() returns only table-level declarations; the
+    # field-level index is collected through column_indexes().
+    assert Sample.table_indexes() == []
+    field_indexes = Sample.column_indexes("email")
+    assert [index.name for index in field_indexes] == ["idx_samples_email"]
+    assert field_indexes[0].unique is True
 
     statements = Sample.create_indexes()
     assert len(statements) == 1

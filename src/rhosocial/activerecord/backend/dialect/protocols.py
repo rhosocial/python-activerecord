@@ -48,6 +48,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ReleaseSavepointExpression,
         SetTransactionExpression,
     )
+    from ...activerecord.base.ddl.attributes import ColumnAttribute
     from ..expression.xml import (
         XMLAggExpression,
         XMLAttributesExpression,
@@ -1200,6 +1201,23 @@ class TableSupport(Protocol):
         """Whether DROP TABLE accepts the RESTRICT keyword."""
         ...  # pragma: no cover
 
+    def preferred_create_table_statement(self) -> Optional[Type["CreateTableExpression"]]:
+        """The backend's preferred CREATE TABLE statement class (§5.12).
+
+        The backend is authoritative for its own statement forms: return the
+        dialect's concrete subclass when it renders one (it is the first
+        candidate, order = priority); ``None`` means the generic
+        ``CreateTableExpression``. The deriver composes the candidate list as
+        ``[preferred, generic]`` and selects through Gate 1 (ownership) +
+        Gate 2 (renderability); the model may override the whole candidate
+        list.
+        """
+        ...  # pragma: no cover
+
+    def preferred_drop_table_statement(self) -> Optional[Type["DropTableExpression"]]:
+        """The backend's preferred DROP TABLE statement class (§5.12)."""
+        ...  # pragma: no cover
+
     def supports_table_tablespace(self) -> bool:
         """Whether tablespace specification is supported."""
         ...  # pragma: no cover
@@ -1816,6 +1834,14 @@ class IndexSupport(Protocol):
         """Whether DROP INDEX is supported."""
         ...  # pragma: no cover
 
+    def preferred_create_index_statement(self) -> Optional[Type["CreateIndexExpression"]]:
+        """The backend's preferred CREATE INDEX statement class (§5.12)."""
+        ...  # pragma: no cover
+
+    def preferred_drop_index_statement(self) -> Optional[Type["DropIndexExpression"]]:
+        """The backend's preferred DROP INDEX statement class (§5.12)."""
+        ...  # pragma: no cover
+
     def supports_unique_index(self) -> bool:
         """Whether UNIQUE indexes are supported."""
         ...  # pragma: no cover
@@ -2096,6 +2122,47 @@ class AutoIncrementSupport(Protocol):
 
     def supports_auto_increment(self) -> bool:
         """Whether AUTO_INCREMENT/IDENTITY column attributes are supported."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class ColumnAttributeSupport(Protocol):
+    """Protocol for dialect-free column-attribute selection and rendering.
+
+    A **column attribute** (identity, collation, character set, …) is declared
+    dialect-free on the AR side (``Annotated[T, UseColumnAttributes(...)]``),
+    collected per column by the AR layer, and handed to the dialect, which
+    **selects the ones it can render** (:meth:`select_column_attributes`) and
+    turns them into SQL (:meth:`format_column_attribute`). Ownership and
+    capability decisions live here — the AR layer never filters by backend.
+
+    Generic attributes are filtered through the capability switches this
+    protocol implies; backend-only attributes are carried by the backend's
+    own ``ColumnAttribute`` subclasses.
+    """
+
+    def select_column_attributes(self, attributes: "List[ColumnAttribute]") -> "List[ColumnAttribute]":
+        """Filter the declared attributes down to the renderable ones.
+
+        Args:
+            attributes: Every attribute declared for one column, in
+                declaration order (order = priority).
+
+        Returns:
+            The attributes this dialect renders, in declaration order.
+        """
+        ...  # pragma: no cover
+
+    def format_column_attribute(self, attr: "ColumnAttribute") -> Tuple[str, tuple]:
+        """Render one selected attribute as a column-definition fragment.
+
+        Args:
+            attr: A selected (renderable) column attribute.
+
+        Returns:
+            A ``(sql, params)`` tuple with a leading space (DDL accepts no
+            bind parameters, so ``params`` is normally empty).
+        """
         ...  # pragma: no cover
 
 
