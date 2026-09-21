@@ -291,6 +291,7 @@ class TableDDLDeriver:
         *,
         if_exists: bool = False,
         cascade: Optional[bool] = None,
+        purge: bool = False,
     ) -> DropTableExpression:
         """Build the ``DROP TABLE`` expression for the model."""
         schema = StatementParamSchema(DropTableExpression)
@@ -306,6 +307,7 @@ class TableDDLDeriver:
                 "table": self.table_expression(),
                 "if_exists": if_exists,
                 "cascade": cascade,
+                "purge": purge,
             },
         )
 
