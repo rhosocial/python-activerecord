@@ -8,6 +8,7 @@ from typing import Any, Callable, List, Optional, Type, Union, TYPE_CHECKING
 from ..backend.expression.statements.ddl_table import (
     ColumnConstraint,
     ColumnConstraintType,
+    GeneratedColumnExpression,
     IndexDefinition,
 )
 from ..backend.type_adapter import SQLTypeAdapter
@@ -358,6 +359,54 @@ class UseColumnAttributes:
     def __repr__(self) -> str:
         kinds = ", ".join(type(attr).__name__ for attr in self.attributes)
         return f"UseColumnAttributes({kinds})"
+
+
+class UseComment:
+    """Marker for ``Annotated[T, UseComment("...")]``.
+
+    Declares the column comment rendered with the column definition (on
+    backends that support column comments). Equivalent to overriding
+    :meth:`column_comment`, but declarative.
+    """
+
+    def __init__(self, comment: str):
+        if not isinstance(comment, str):
+            raise TypeError(
+                f"UseComment expects a str, got {type(comment).__name__}."
+            )
+        if not comment.strip():
+            raise ValueError("UseComment requires a non-empty comment.")
+        self.comment = comment
+
+    def __repr__(self) -> str:
+        return f"UseComment({self.comment!r})"
+
+
+class UseGeneratedColumn:
+    """Marker for ``Annotated[T, UseGeneratedColumn(expr)]``.
+
+    Declares a generated (computed) column whose value the database derives
+    from *expr*. Equivalent to overriding :meth:`generated_column`, but
+    declarative.
+
+    *expr* is either a ready :class:`GeneratedColumnExpression` or a lazy
+    ``(dialect) -> GeneratedColumnExpression`` factory. A factory is the
+    usual form: the annotation is evaluated at class-definition time, before
+    any dialect exists, so a generated column that references other columns
+    must build its expression once the deriver supplies the dialect.
+    """
+
+    def __init__(self, expression: Any):
+        if not callable(expression) and not isinstance(expression, GeneratedColumnExpression):
+            raise TypeError(
+                "UseGeneratedColumn expects a GeneratedColumnExpression or a "
+                "(dialect) -> GeneratedColumnExpression factory, got "
+                f"{type(expression).__name__}."
+            )
+        self.expression = expression
+
+    def __repr__(self) -> str:
+        return f"UseGeneratedColumn({self.expression!r})"
 
 
 class DerivedField:

@@ -35,6 +35,7 @@ from ...backend.expression.statements.ddl_table import (
     DropTableExpression,
     IndexDefinition,
 )
+from ...backend.expression.statements.ddl_truncate import TruncateExpression
 from ...backend.expression.types import DataType
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -317,6 +318,29 @@ class TableDDLDeriver:
             self.dialect,
             self.model.table_name(),
             schema_name=self.model.schema_name(),
+        )
+
+    def truncate(
+        self,
+        *,
+        restart_identity: bool = False,
+        cascade: bool = False,
+    ) -> TruncateExpression:
+        """Build the ``TRUNCATE TABLE`` expression for the model."""
+        schema = StatementParamSchema(TruncateExpression)
+        candidates = self._statement_candidates(
+            getattr(self.dialect, "preferred_truncate_statement", lambda: None)(),
+            TruncateExpression,
+        )
+        selected = self.select_statement_class(candidates, "truncate")
+        return schema.instantiate(
+            selected,
+            self.dialect,
+            {
+                "table_name": self.model.table_name(),
+                "restart_identity": restart_identity,
+                "cascade": cascade,
+            },
         )
 
     def indexes(self) -> List[IndexDefinition]:

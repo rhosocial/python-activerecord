@@ -116,6 +116,10 @@ class DialectExpressionSelector:
             return None
         failures: List[Tuple[str, str, str]] = []
         for candidate in candidates:
+            if callable(candidate):
+                # A declared candidate may be a lazy ``(dialect) -> expression``
+                # factory; resolve it before the Gate 0 type check.
+                candidate = self.binder.bind(candidate)
             contract.validate(candidate, interface)
             applicable, classification, reason = self.applicability(candidate)
             if applicable:
@@ -137,6 +141,8 @@ class DialectExpressionSelector:
         """
         selected: List[Any] = []
         for candidate in contract.normalize(declared):
+            if callable(candidate):
+                candidate = self.binder.bind(candidate)
             contract.validate(candidate, interface)
             applicable, classification, reason = self.applicability(candidate)
             if applicable:
