@@ -255,13 +255,20 @@ class DDLMixin:
 
     @classmethod
     def column_comment(cls, field: str) -> Optional[str]:
-        """Column comment; default none."""
-        return None
+        """Column comment; defaults to the field's ``UseComment`` marker."""
+        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        marker = getattr(metadata, "column_comment", None) if metadata else None
+        return marker.comment if marker is not None else None
 
     @classmethod
     def generated_column(cls, field: str) -> Any:
-        """Generated-column declaration (``GeneratedColumnExpression``)."""
-        return None
+        """Generated-column declaration (``GeneratedColumnExpression``).
+
+        Defaults to the field's ``UseGeneratedColumn`` marker.
+        """
+        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        marker = getattr(metadata, "generated_column", None) if metadata else None
+        return marker.expression if marker is not None else None
 
     @classmethod
     def column_options(cls, field: str) -> Any:

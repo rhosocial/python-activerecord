@@ -20,7 +20,14 @@ try:
 except ImportError:  # Python 3.8
     from typing_extensions import Annotated
 
-from ..fields import UseColumnAttributes, UseConstraint, UseIndex, UseSqlType
+from ..fields import (
+    UseColumnAttributes,
+    UseComment,
+    UseConstraint,
+    UseGeneratedColumn,
+    UseIndex,
+    UseSqlType,
+)
 
 #: PEP 604 ``X | Y`` union origin; ``types.UnionType`` exists only on 3.10+.
 PEP604_UNION_TYPE = getattr(types, "UnionType", None)
@@ -35,6 +42,8 @@ MARKER_REGISTRY: Dict[Type[Any], Tuple[str, bool]] = {
     UseConstraint: ("constraints", False),
     UseIndex: ("indexes", False),
     UseColumnAttributes: ("column_attributes", False),
+    UseComment: ("column_comment", True),
+    UseGeneratedColumn: ("generated_column", True),
 }
 
 

@@ -38,7 +38,24 @@ class ActiveRecord(
 ):
     """Complete ActiveRecord implementation combining core features."""
 
-    ...
+    @classmethod
+    def truncate(cls, *, restart_identity: bool = False, cascade: bool = False):
+        """Delete every row in the table (``TRUNCATE TABLE``).
+
+        Args:
+            restart_identity: reset identity/auto-increment columns
+                (backends that support ``RESTART IDENTITY``).
+            cascade: also truncate dependent tables (backends that support
+                ``CASCADE``).
+
+        Returns:
+            The backend's ``QueryResult``.
+        """
+        expression = cls._deriver().truncate(
+            restart_identity=restart_identity, cascade=cascade
+        )
+        sql, params = expression.to_sql()
+        return cls.backend().execute(sql, params)
 
 
 class AsyncActiveRecord(
@@ -53,7 +70,24 @@ class AsyncActiveRecord(
 ):
     """Complete Async ActiveRecord implementation combining core features."""
 
-    ...
+    @classmethod
+    async def truncate(cls, *, restart_identity: bool = False, cascade: bool = False):
+        """Delete every row in the table (``TRUNCATE TABLE``).
+
+        Args:
+            restart_identity: reset identity/auto-increment columns
+                (backends that support ``RESTART IDENTITY``).
+            cascade: also truncate dependent tables (backends that support
+                ``CASCADE``).
+
+        Returns:
+            The backend's ``QueryResult``.
+        """
+        expression = cls._deriver().truncate(
+            restart_identity=restart_identity, cascade=cascade
+        )
+        sql, params = expression.to_sql()
+        return await cls.backend().execute(sql, params)
 
 
 __all__ = [
