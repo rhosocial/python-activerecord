@@ -372,7 +372,6 @@ class TypeAdapterTest(ActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = 'type_adapter_tests'
-    __primary_key__ = 'id'
 
     id: int | None = None
     name: str
@@ -391,7 +390,6 @@ class AsyncTypeAdapterTest(AsyncActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = 'type_adapter_tests'
-    __primary_key__ = 'id'
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
@@ -411,7 +409,6 @@ class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
     Python 3.12+ version using | syntax, Self type, and @override.
     """
     __table_name__ = "users"
-    __primary_key__ = "id"
 
     user_id: Annotated[int | None, UseColumn("id")] = None
     user_name: Annotated[str, UseColumn("username")]
@@ -430,7 +427,6 @@ class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = "users"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     user_id: Annotated[int | None, UseColumn("id")] = None
@@ -445,7 +441,6 @@ class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = "posts"
-    __primary_key__ = "id"
 
     post_id: Annotated[int | None, UseColumn("id")] = None
     author_id: Annotated[int, UseColumn("author")]
@@ -461,7 +456,6 @@ class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = "posts"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     post_id: Annotated[int | None, UseColumn("id")] = None
@@ -478,7 +472,6 @@ class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = "comments"
-    __primary_key__ = "id"
 
     comment_id: Annotated[int | None, UseColumn("id")] = None
     post_id: Annotated[int, UseColumn("post_ref")]
@@ -494,7 +487,6 @@ class AsyncMappedComment(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = "comments"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     comment_id: Annotated[int | None, UseColumn("id")] = None
@@ -525,7 +517,6 @@ class ColumnMappingModel(ActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = 'column_mapping_items'
-    __primary_key__ = 'id'
 
     item_id: Annotated[int | None, UseColumn("id")] = Field(default=None)
     name: str
@@ -539,7 +530,6 @@ class AsyncColumnMappingModel(AsyncActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = 'column_mapping_items'
-    __primary_key__ = 'id'
     c: ClassVar[FieldProxy] = FieldProxy()
 
     item_id: Annotated[int | None, UseColumn("id")] = Field(default=None)
@@ -618,7 +608,6 @@ class MixedAnnotationModel(ActiveRecord):
     Python 3.12+ version using | syntax, Self type, and @override.
     """
     __table_name__ = "mixed_annotation_items"
-    __primary_key__ = "id"
 
     name: str
     item_id: Annotated[int, UseColumn("id")]
@@ -640,7 +629,6 @@ class AsyncMixedAnnotationModel(AsyncActiveRecord):
     Python 3.12+ version using | syntax.
     """
     __table_name__ = "mixed_annotation_items"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     name: str
@@ -755,7 +743,6 @@ class AsyncStoreInventory(CompositePKMixin, AsyncActiveRecord):
 class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Single-column auto-increment PK -- backward compatibility control group."""
     __table_name__ = "orders"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -765,7 +752,6 @@ class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
 class AsyncOrder(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """Async variant of Order."""
     __table_name__ = "orders"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
