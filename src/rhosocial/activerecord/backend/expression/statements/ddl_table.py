@@ -423,8 +423,15 @@ class CreateTableOptions(BaseExpression):
 
     **Table-level option** (after the column list):
 
-    * ``comment`` -- table comment (SQL-standard ``COMMENT ON``; also rendered
-      as ``COMMENT='text'`` table option by MySQL/MariaDB/ClickHouse)
+    * ``comment`` -- inline table comment clause. There is **no** SQL-standard
+      table comment mechanism: the bare ``COMMENT '<text>'`` table option is a
+      MySQL/MariaDB/ClickHouse-family dialect convenience (Snowflake renders
+      ``COMMENT = '<text>'``), and the standalone ``COMMENT ON`` statement is
+      a separate de-facto vendor mechanism, not this clause. Rendering is
+      capability-gated: the statement renderer emits this clause only on
+      backends whose ``supports_table_comment()`` is True, and raises
+      ``UnsupportedFeatureError`` on the others instead of silently dropping
+      a declared comment.
 
     Backend-specific creation options (``UNLOGGED`` / ``TRANSIENT`` /
     ``ENGINE`` / ``CHARSET`` / table ``COLLATE`` / ``MEMORY_OPTIMIZED`` /
