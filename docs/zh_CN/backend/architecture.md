@@ -168,7 +168,7 @@ sequenceDiagram
 
 - `backend/protocols.py` —— 后端级声明（`ConcurrencyAware`……）
 - `dialect/protocols.py` —— 方言级声明（`WindowFunctionSupport`、`JSONSupport`、
-  `DDLTypeSupport`……）
+  `DataTypeSupport`、`UserDefinedTypeSupport`、`DomainSupport`……）
 
 这些协议都是运行时可检测的（`runtime_checkable`），`supports_*` 方法按**实际连接到的服务器版本**
 门控行为。后端在连接后会通过 `introspect_and_adapt()` 重新适配方言，因此能力是「与服务器

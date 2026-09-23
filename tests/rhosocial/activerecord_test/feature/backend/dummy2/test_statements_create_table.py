@@ -36,12 +36,12 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.core import TableExpression
-from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, DDLColumnMixin, TableMixin, ExpressionMixin, DDLTypeMixin
+from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, DDLColumnMixin, TableMixin, ExpressionMixin, DataTypeMixin
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import CustomType, DateType, DecimalType, IntegerType, SmallIntType, TextType, TimestampType, VarCharType
 
 
-class PartitionTestDialect(SQLDialectBase, ExpressionMixin, DDLColumnMixin, DDLTypeMixin, TableMixin, PartitionMixin):
+class PartitionTestDialect(SQLDialectBase, ExpressionMixin, DDLColumnMixin, DataTypeMixin, TableMixin, PartitionMixin):
     """Minimal dialect for core PartitionClause success-path tests."""
 
     def supports_table_partitioning(self) -> bool:

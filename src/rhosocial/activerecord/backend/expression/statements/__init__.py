@@ -116,6 +116,31 @@ from .ddl_sequence import (
     AlterSequenceExpression,
 )
 
+from .ddl_type import (
+    TypeDefinition,
+    TypeAlterAction,
+    CreateTypeExpression,
+    AlterTypeExpression,
+    DropTypeExpression,
+)
+
+from .ddl_domain import (
+    DomainNullability,
+    DomainValueExpression,
+    DomainCheckConstraint,
+    DomainAlterAction,
+    SetDomainDefaultAction,
+    DropDomainDefaultAction,
+    SetDomainNotNullAction,
+    DropDomainNotNullAction,
+    AddDomainCheckAction,
+    DropDomainCheckAction,
+    RenameDomainAction,
+    CreateDomainExpression,
+    AlterDomainExpression,
+    DropDomainExpression,
+)
+
 # Trigger DDL
 from .ddl_trigger import (
     TriggerTiming,
@@ -237,6 +262,25 @@ __all__ = [
     "CreateSequenceExpression",
     "DropSequenceExpression",
     "AlterSequenceExpression",
+    "TypeDefinition",
+    "TypeAlterAction",
+    "CreateTypeExpression",
+    "AlterTypeExpression",
+    "DropTypeExpression",
+    "DomainNullability",
+    "DomainValueExpression",
+    "DomainCheckConstraint",
+    "DomainAlterAction",
+    "SetDomainDefaultAction",
+    "DropDomainDefaultAction",
+    "SetDomainNotNullAction",
+    "DropDomainNotNullAction",
+    "AddDomainCheckAction",
+    "DropDomainCheckAction",
+    "RenameDomainAction",
+    "CreateDomainExpression",
+    "AlterDomainExpression",
+    "DropDomainExpression",
     # Trigger DDL
     "TriggerTiming",
     "TriggerEvent",

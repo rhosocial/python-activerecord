@@ -35,6 +35,10 @@ KNOWN_NON_AUTO_CONSTRUCTIBLE = {
     # class FQN suffix : reason
     "types.enum_.EnumType": "requires non-empty `values` (structural "
                             "construction check raises ValueError on None/[])",
+    "statements.ddl_type.CreateTypeExpression": "requires a concrete TypeDefinition",
+    "statements.ddl_type.AlterTypeExpression": "requires at least one concrete TypeAlterAction",
+    "statements.ddl_domain.AddDomainCheckAction": "requires a concrete DomainCheckConstraint",
+    "statements.ddl_domain.AlterDomainExpression": "requires at least one concrete DomainAlterAction",
 }
 
 

@@ -49,7 +49,9 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     # Function Support Protocol
     SQLFunctionSupport,
     # Type Support Protocol
-    DDLTypeSupport,
+    DataTypeSupport,
+    UserDefinedTypeSupport,
+    DomainSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     AutoIncrementMixin,
@@ -85,6 +87,8 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DQLMixin,
     DateTimeMixin,
     DDLColumnMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
     DMLMixin,
     TransactionControlMixin,
     ViewMixin,
@@ -196,6 +200,8 @@ class SQLiteDialect(
     SQLiteGeopolyMixin,
     # DataType formatting and parsing
     SQLiteTypeSupportMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
     CollationMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)
@@ -256,7 +262,9 @@ class SQLiteDialect(
     # Function Support Protocol
     SQLFunctionSupport,
     # DataType Support Protocol
-    DDLTypeSupport,
+    DataTypeSupport,
+    UserDefinedTypeSupport,
+    DomainSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.

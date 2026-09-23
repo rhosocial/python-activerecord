@@ -462,9 +462,13 @@ class TestDummyProtocolCompleteness:
                 hasattr(obj, "__protocol__")  # Protocol classes have this
                 or (hasattr(obj, "__mro__") and Protocol in obj.__mro__ and hasattr(obj, "__runtime_checkable__"))
             ):
-                # Exclude Protocol base class itself and any private classes
-                if obj is not Protocol and not name.startswith("_"):
-                    all_protocols.append((name, obj))
+                if obj is Protocol or name.startswith("_"):
+                    continue
+                if name == "DDLTypeSupport":
+                    assert obj is protocols_module.DataTypeSupport
+                    continue
+                assert name == obj.__name__, f"unexpected protocol alias: {name}"
+                all_protocols.append((name, obj))
 
         # Verify DummyDialect implements each discovered protocol
         missing_protocols = []

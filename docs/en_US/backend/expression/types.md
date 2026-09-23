@@ -189,7 +189,7 @@ Type resolution priority: `UseSqlType` annotation → backend-neutral default in
 
 ### Introspection and Sync (parse_type)
 
-When a dialect implements `parse_type(raw)` (the `DDLTypeSupport` protocol), it can parse a raw type string returned by the database back into a `DataType` object for schema introspection and comparison. Dialects without this interface fall back to `CustomType(raw=raw)`.
+When a dialect implements `parse_type(raw)` (the `DataTypeSupport` protocol), it can parse a raw type string returned by the database back into a `DataType` object for schema introspection and comparison. Dialects without this interface fall back to `CustomType(raw=raw)`. The former names `DDLTypeSupport` and `DDLTypeMixin` remain deprecated compatibility aliases for `DataTypeSupport` and `DataTypeMixin`.
 
 ## Equivalence and Synonyms
 
