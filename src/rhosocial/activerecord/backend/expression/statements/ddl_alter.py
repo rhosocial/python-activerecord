@@ -171,6 +171,7 @@ class ColumnAlterOperation(Enum):
     DROP_DEFAULT = "DROP DEFAULT"
     SET_NOT_NULL = "SET NOT NULL"  # Non-standard but widely supported
     DROP_NOT_NULL = "DROP NOT NULL"  # Non-standard but widely supported
+    SET_DATA_TYPE = "SET DATA TYPE"  # SQL standard: ALTER COLUMN ... SET DATA TYPE <type>
 
 
 class AlterColumn(AlterTableAction):
