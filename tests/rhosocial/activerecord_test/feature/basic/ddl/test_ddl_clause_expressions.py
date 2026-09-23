@@ -13,6 +13,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnConstraint,
     ColumnConstraintType,
     ColumnDefinition,
+    ColumnCommentClause,
     DefaultValueClause,
     IdentityClause,
     ReferencesClause,
@@ -186,7 +187,7 @@ def test_generic_column_definition_renders_comment_when_supported(sqlite):
             return True
 
     dialect = CommentDialect((3, 53, 0))
-    col = ColumnDefinition(dialect, "col", IntegerType(dialect), comment="hi")
+    col = ColumnDefinition(dialect, "col", IntegerType(dialect), comment=ColumnCommentClause(dialect, "hi"))
     sql, _ = DDLColumnMixin.format_column_definition(dialect, col)
     assert sql.endswith("COMMENT 'hi'")
 
@@ -194,7 +195,7 @@ def test_generic_column_definition_renders_comment_when_supported(sqlite):
 def test_generic_column_definition_comment_gate(sqlite):
     from rhosocial.activerecord.backend.dialect.mixins.ddl_column import DDLColumnMixin
 
-    col = ColumnDefinition(sqlite, "col", IntegerType(sqlite), comment="hi")
+    col = ColumnDefinition(sqlite, "col", IntegerType(sqlite), comment=ColumnCommentClause(sqlite, "hi"))
     with pytest.raises(UnsupportedFeatureError, match="COMMENT"):
         DDLColumnMixin.format_column_definition(sqlite, col)
 

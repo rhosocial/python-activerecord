@@ -29,6 +29,7 @@ from .pivot import PivotMixin
 from .set_operation import SetOperationMixin
 from .partition import PartitionMixin
 from .ddl_table import TableMixin, ConstraintMixin
+from .ddl_comment import CommentOnMixin
 from .ddl_view import ViewMixin, TruncateMixin
 from .ddl_schema import SchemaMixin
 from .ddl_index import IndexMixin
@@ -74,6 +75,7 @@ __all__ = [
     "PartitionMixin",
     "TableMixin",
     "ConstraintMixin",
+    "CommentOnMixin",
     "ViewMixin",
     "TruncateMixin",
     "SchemaMixin",

@@ -28,6 +28,7 @@ from ...backend.expression.bases import BaseExpression
 from ...backend.expression.core import TableExpression
 from ...backend.expression.statements.ddl_index import CreateIndexExpression, DropIndexExpression
 from ...backend.expression.statements.ddl_table import (
+    ColumnCommentClause,
     ColumnConstraint,
     ColumnConstraintType,
     ColumnDefinition,
@@ -417,13 +418,18 @@ class TableDDLDeriver:
         )
         name = self.model.column_name(field)
         COLUMN_CONTRACTS["column_name"].validate(name, "column_name")
+        comment_text = self.selector.select(
+            COLUMN_CONTRACTS["column_comment"], "column_comment", self.model.column_comment(field)
+        )
         column = column_cls(
             self.dialect,
             name,
             data_type,
             constraints=constraints,
-            comment=self.selector.select(
-                COLUMN_CONTRACTS["column_comment"], "column_comment", self.model.column_comment(field)
+            comment=(
+                ColumnCommentClause(self.dialect, comment_text)
+                if comment_text is not None
+                else None
             ),
             generated_expression=self.selector.select(
                 COLUMN_CONTRACTS["generated_column"],

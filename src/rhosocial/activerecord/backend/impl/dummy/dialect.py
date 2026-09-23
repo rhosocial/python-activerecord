@@ -100,6 +100,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     GeneratedColumnSupport,
     AutoIncrementSupport,
     ColumnAttributeSupport,
+    CommentSupport,
     DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
@@ -135,6 +136,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TableMixin,
     PartitionMixin,
     ConstraintMixin,
+    CommentOnMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -201,6 +203,7 @@ class DummyDialect(
     TableMixin,
     PartitionMixin,
     ConstraintMixin,
+    CommentOnMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -267,6 +270,7 @@ class DummyDialect(
     GeneratedColumnSupport,
     AutoIncrementSupport,
     ColumnAttributeSupport,
+    CommentSupport,
     DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
@@ -757,6 +761,13 @@ class DummyDialect(
         DummyDialect renders column comments unconditionally in its
         ``format_column_definition``, so the capability advertises True to
         stay consistent with the actual rendering behavior.
+        """
+        return True
+
+    def supports_comment_on(self) -> bool:
+        """Whether standalone ``COMMENT ON`` statements are supported.
+
+        DummyDialect exercises the generic ``CommentOnMixin`` rendering path.
         """
         return True
 
@@ -1321,9 +1332,11 @@ class DummyDialect(
             col_sql += attr_sql
             all_params.extend(attr_params)
 
-        # Add comment if present
-        if col_def.comment:
-            col_sql += f" COMMENT '{self._escape_sql_string(col_def.comment)}'"
+        # Add comment if present (inline column-comment clause).
+        if col_def.comment is not None:
+            comment_sql, comment_params = self.format_column_comment_clause(col_def.comment)
+            col_sql += comment_sql
+            all_params.extend(comment_params)
 
         return col_sql, tuple(all_params)
 

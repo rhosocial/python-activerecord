@@ -302,6 +302,35 @@ class TableMixin:
         escaped = self._escape_sql_string(comment)
         return f"COMMENT '{escaped}'", ()
 
+    def format_table_comment_clause(self, clause) -> Tuple[str, tuple]:
+        """Render the inline table-comment clause of ``CREATE TABLE``.
+
+        Returns the fragment **with a leading space** so the statement
+        renderer can append it directly after the column list / storage
+        options.  The text grammar is delegated to :meth:`format_table_comment`
+        so backends override only the text form (e.g. Snowflake's
+        ``COMMENT = '<text>'``, BigQuery's ``OPTIONS(description='<text>')``).
+
+        Args:
+            clause: The :class:`TableCommentClause` carrying the text.
+
+        Returns:
+            Tuple of (SQL fragment with leading space, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If :meth:`supports_table_comment` is
+                False for the dialect.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_table_comment():
+            raise UnsupportedFeatureError(
+                self.name, "TABLE COMMENT",
+                f"{self.name} does not support an inline table comment.",
+            )
+        text_sql, params = self.format_table_comment(clause.comment)
+        return f" {text_sql}", params
+
     def format_create_table_options(self, expr: "CreateTableOptions") -> Tuple[str, tuple]:
         """Format the generic ``CREATE`` header modifier.
 
@@ -509,13 +538,8 @@ class TableMixin:
                 parts.append(storage_sql)
                 all_params.extend(storage_params)
         table_comment = getattr(table_options, "comment", None) if table_options is not None else None
-        if table_comment:
-            if not self.supports_table_comment():
-                raise UnsupportedFeatureError(
-                    self.name, "TABLE COMMENT",
-                    f"{self.name} does not support an inline table comment.",
-                )
-            comment_sql, comment_params = self.format_table_comment(table_comment)
+        if table_comment is not None:
+            comment_sql, comment_params = self.format_table_comment_clause(table_comment)
             parts.append(comment_sql)
             all_params.extend(comment_params)
         if expr.tablespace:

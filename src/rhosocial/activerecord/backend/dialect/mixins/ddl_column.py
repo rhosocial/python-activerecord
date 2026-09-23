@@ -52,6 +52,35 @@ class DDLColumnMixin:
         """Whether COLUMN COMMENT is supported (defaults to False)."""
         return False
 
+    def format_column_comment_clause(self, clause) -> Tuple[str, tuple]:
+        """Render the inline ``COMMENT '<text>'`` column clause.
+
+        Generic reusable implementation: ``COMMENT '<escaped>'`` with a
+        leading space, so it composes directly after the column definition
+        fragment.  Dialects that advertise :meth:`supports_column_comment`
+        inherit this rendering as-is; dialects with a different grammar
+        (BigQuery's ``OPTIONS(description='<text>')``) override the method.
+
+        Args:
+            clause: The :class:`ColumnCommentClause` carrying the text.
+
+        Returns:
+            Tuple of (SQL fragment with leading space, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If :meth:`supports_column_comment` is
+                False for the dialect.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_column_comment():
+            raise UnsupportedFeatureError(
+                self.name, "COLUMN COMMENT",
+                f"{self.name} does not support COLUMN COMMENT."
+            )
+        escaped = self._escape_sql_string(clause.comment)
+        return f" COMMENT '{escaped}'", ()
+
     def supports_column_collation(self) -> bool:
         """Whether a column-level ``COLLATE <name>`` attribute is supported.
 
@@ -296,16 +325,10 @@ class DDLColumnMixin:
             col_sql += gen_sql
             all_params.extend(gen_params)
 
-        if col_def.comment:
-            if not self.supports_column_comment():
-                from ..exceptions import UnsupportedFeatureError
-                raise UnsupportedFeatureError(
-                    self.name, "COLUMN COMMENT",
-                    f"{self.name} does not support COLUMN COMMENT."
-                )
-            from ...dialect.base import SQLDialectBase as _B
-            escaped_comment = _B._escape_sql_string(col_def.comment)
-            col_sql += f" COMMENT '{escaped_comment}'"
+        if col_def.comment is not None:
+            comment_sql, comment_params = self.format_column_comment_clause(col_def.comment)
+            col_sql += comment_sql
+            all_params.extend(comment_params)
         return col_sql, tuple(all_params)
 
     def format_generated_column_expression(self, expr) -> Tuple[str, Tuple]:

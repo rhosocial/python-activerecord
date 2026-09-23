@@ -40,6 +40,8 @@ from .ddl_table import (
     DefaultValueClause,
     IdentityClause,
     ReferencesClause,
+    ColumnCommentClause,
+    TableCommentClause,
     GeneratedColumnType,
     GeneratedColumnExpression,
     ColumnDefinition,
@@ -59,6 +61,9 @@ from .ddl_table import (
     DropTableExpression,
     StorageOptionsExpression,
 )
+
+# COMMENT ON DDL
+from .ddl_comment import CommentObjectType, CommentOnExpression
 
 # ALTER TABLE DDL
 from .ddl_alter import (
@@ -171,6 +176,8 @@ __all__ = [
     "DefaultValueClause",
     "IdentityClause",
     "ReferencesClause",
+    "ColumnCommentClause",
+    "TableCommentClause",
     "GeneratedColumnType",
     "GeneratedColumnExpression",
     "ColumnDefinition",
@@ -189,6 +196,9 @@ __all__ = [
     "CreateTableCloneMode",
     "DropTableExpression",
     "StorageOptionsExpression",
+    # COMMENT ON DDL
+    "CommentObjectType",
+    "CommentOnExpression",
     # ALTER TABLE DDL
     "AlterTableActionType",
     "AlterTableAction",

@@ -18,6 +18,8 @@ from rhosocial.activerecord.backend.expression import (
     CreateTableCloneMode,
     CreateTableOptions,
     ColumnDefinition,
+    ColumnCommentClause,
+    TableCommentClause,
     IndexDefinition,
 )
 from rhosocial.activerecord.backend.expression.statements import (
@@ -505,14 +507,14 @@ class TestCreateTableStatements:
 
     def test_create_table_options_has_no_backend_fields(self, dummy_dialect: DummyDialect):
         """The generic options carry only or_replace/comment (no bag)."""
-        opts = CreateTableOptions(dummy_dialect, or_replace=True, comment="c")
+        opts = CreateTableOptions(dummy_dialect, or_replace=True, comment=TableCommentClause(dummy_dialect, "c"))
         for name in ("unlogged", "transient", "engine", "charset", "collate",
                      "memory_optimized", "durability", "dialect_options"):
             assert not hasattr(opts, name), name
 
     def test_create_table_options_comment(self, dummy_dialect: DummyDialect):
-        opts = CreateTableOptions(dummy_dialect, comment="my table comment")
-        assert opts.comment == "my table comment"
+        opts = CreateTableOptions(dummy_dialect, comment=TableCommentClause(dummy_dialect, "my table comment"))
+        assert opts.comment.comment == "my table comment"
         sql, _ = opts.to_sql()
         assert sql == ""
 
@@ -589,9 +591,9 @@ class TestCreateTableStatements:
                 "id",
                 IntegerType(dummy_dialect),
                 constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)],
-                comment="Primary identifier",
+                comment=ColumnCommentClause(dummy_dialect, "Primary identifier"),
             ),
-            ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 100), comment="User's display name"),
+            ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 100), comment=ColumnCommentClause(dummy_dialect, "User's display name")),
         ]
 
         create_table_expr = CreateTableExpression(dummy_dialect, table="users_with_comments", columns=columns)
@@ -794,7 +796,7 @@ class TestCreateTableStatements:
                 constraints=[
                     ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))
                 ],
-                comment="Reference to users table",
+                comment=ColumnCommentClause(dummy_dialect, "Reference to users table"),
             ),
             ColumnDefinition(dummy_dialect, 
                 "amount",
