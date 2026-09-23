@@ -2,7 +2,7 @@
 """Tests for the DataType expression system.
 
 Covers:
-- Default type rendering via DDLTypeMixin/dialect
+- Default type rendering via DataTypeMixin/dialect
 - Value-object equality / hashing
 - Synonym-based equivalence
 - CustomType fallback
@@ -204,7 +204,7 @@ class TestCustomTypeFallback:
 
 
 class TestDialectRendering:
-    """SQLite dialect rendering via DDLTypeSupport."""
+    """SQLite dialect rendering via DataTypeSupport."""
 
     @pytest.fixture
     def dialect(self):
@@ -242,9 +242,13 @@ class TestDialectRendering:
         sql, _ = dt.to_sql()
         assert sql == "NUMERIC"
 
-    def test_ddl_type_protocol_check(self, dialect):
-        from rhosocial.activerecord.backend.dialect.protocols import DDLTypeSupport
-        assert isinstance(dialect, DDLTypeSupport)
+    def test_data_type_protocol_check(self, dialect):
+        from rhosocial.activerecord.backend.dialect.protocols import (
+            DataTypeSupport,
+            DDLTypeSupport,
+        )
+        assert isinstance(dialect, DataTypeSupport)
+        assert DDLTypeSupport is DataTypeSupport
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +257,7 @@ class TestDialectRendering:
 
 
 class TestTypeParsing:
-    """SQLite type affinity parsing via DDLTypeSupport."""
+    """SQLite type affinity parsing via DataTypeSupport."""
 
     @pytest.fixture
     def dialect(self):

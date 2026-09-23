@@ -8,7 +8,7 @@ Covers:
 - SQLite suggestions point at the expected SQLite type classes
 - Honesty: no self-suggestion; a fully-capable dummy dialect suggests nothing
 - Contract invariant: suggested keys and supported keys are disjoint
-- DDLTypeMixin base default returns {}
+- DataTypeMixin base default returns {}
 """
 
 import re
@@ -91,5 +91,5 @@ class TestDummyHonesty:
         assert _dummy_dialect().suggested_data_types() == {}
 
     def test_mixin_default_is_empty(self):
-        from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
-        assert DDLTypeMixin().suggested_data_types() == {}
+        from rhosocial.activerecord.backend.dialect.mixins.data_type import DataTypeMixin
+        assert DataTypeMixin().suggested_data_types() == {}

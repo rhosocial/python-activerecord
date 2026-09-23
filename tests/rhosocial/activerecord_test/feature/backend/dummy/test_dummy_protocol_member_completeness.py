@@ -42,8 +42,13 @@ class TestDummyProtocolMemberCompleteness:
         """Dynamically discover all Protocol classes in the protocols module."""
         protocol_classes = []
         for name, obj in inspect.getmembers(protocols, inspect.isclass):
-            if Protocol in getattr(obj, "__mro__", []) and name != "Protocol":
-                protocol_classes.append((name, obj))
+            if Protocol not in getattr(obj, "__mro__", []) or name == "Protocol":
+                continue
+            if name == "DDLTypeSupport":
+                assert obj is protocols.DataTypeSupport
+                continue
+            assert name == obj.__name__, f"unexpected protocol alias: {name}"
+            protocol_classes.append((name, obj))
         return protocol_classes
 
     def get_all_protocol_methods_legacy(self):
@@ -118,7 +123,11 @@ class TestDummyProtocolMemberCompleteness:
                 expected = get_all_protocol_methods(proto)
                 actual = {m for m in dir(dialect) if not m.startswith("_") and callable(getattr(dialect, m, None))}
                 missing = expected - actual
-                detail = f"  missing methods: {missing}" if missing else "  (all methods present, but isinstance returned False)"
+                detail = (
+                    f"  missing methods: {missing}"
+                    if missing
+                    else "  (all methods present, but isinstance returned False)"
+                )
                 failures.append(f"{name}:{detail}")
         assert not failures, (
             f"isinstance check failed for {len(failures)} protocol(s):\n"

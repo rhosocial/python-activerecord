@@ -188,7 +188,7 @@ class Product(ActiveRecord):
 
 ### 内省与同步 (parse_type)
 
-方言实现 `parse_type(raw)`（`DDLTypeSupport` 协议）时，可将数据库返回的原始类型字符串解析回 `DataType` 对象，用于 schema 内省与比对。未实现该接口的方言回退为 `CustomType(raw=raw)`。
+方言实现 `parse_type(raw)`（`DataTypeSupport` 协议）时，可将数据库返回的原始类型字符串解析回 `DataType` 对象，用于 schema 内省与比对。未实现该接口的方言回退为 `CustomType(raw=raw)`。旧名 `DDLTypeSupport` / `DDLTypeMixin` 仅作为对应新名的 deprecated 兼容别名保留。
 
 ## 等价性与同义词
 

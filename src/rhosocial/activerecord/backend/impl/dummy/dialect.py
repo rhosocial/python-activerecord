@@ -45,9 +45,11 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 
 import re
 
-from typing import Dict, List, Tuple, TYPE_CHECKING
+from typing import Dict, List, Tuple, Type, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression import Literal
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
     DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
@@ -55,8 +57,17 @@ from rhosocial.activerecord.backend.expression.types import (
     RealType, SmallIntType, TextType, TimeType, TimeTzType,
     TimestampType, TimestampTzType, TinyIntType, VarBinaryType, VarCharType,
 )
+from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
+    DomainAlterAction,
+    DomainNullability,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_type import (
+    TypeAlterAction,
+    TypeDefinition,
+)
+from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
 from rhosocial.activerecord.backend.dialect.protocols import (
-    DDLTypeSupport,
+    DataTypeSupport,
     SQLXMLSupport,
     SQLXMLParsingSupport,
     SQLXMLSerializationSupport,
@@ -108,6 +119,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
+    UserDefinedTypeSupport,
+    DomainSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     SQLXMLMixin,
@@ -156,7 +169,9 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DQLMixin,
     DMLMixin,
     DDLColumnMixin,
-    DDLTypeMixin,
+    DataTypeMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
     TransactionControlMixin,
 )
 
@@ -222,8 +237,12 @@ class DummyDialect(
     DateTimeMixin,
     DQLMixin,
     DMLMixin,
-    DDLTypeMixin,
-    DDLTypeSupport,
+    DataTypeMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
+    DataTypeSupport,
+    UserDefinedTypeSupport,
+    DomainSupport,
     DDLColumnMixin,
     TransactionControlMixin,
     # Protocols for type checking
@@ -473,6 +492,110 @@ class DummyDialect(
         """Parse a raw SQL type string — dummy dialect always returns CustomType."""
         from rhosocial.activerecord.backend.expression.types import CustomType
         return CustomType(raw.strip())
+
+    def supports_type_objects(self) -> bool:
+        return True
+
+    def supports_create_type(self) -> bool:
+        return True
+
+    def supports_alter_type(self) -> bool:
+        return True
+
+    def supports_drop_type(self) -> bool:
+        return True
+
+    def supported_type_definitions(self) -> Tuple[Type[TypeDefinition], ...]:
+        return (_DummyTypeDefinition,)
+
+    def supports_type_alter_action(
+        self,
+        action_type: Type[TypeAlterAction],
+    ) -> bool:
+        return action_type is _DummyTypeAlterAction
+
+    def supports_create_type_if_not_exists(self) -> bool:
+        return True
+
+    def supports_create_type_or_replace(self) -> bool:
+        return True
+
+    def supports_alter_type_if_exists(self) -> bool:
+        return True
+
+    def supports_drop_type_if_exists(self) -> bool:
+        return True
+
+    def supports_multiple_type_alter_actions(self) -> bool:
+        return False
+
+    def format_type_definition(self, expr: TypeDefinition) -> Tuple[str, tuple]:
+        if not self.supports_type_objects():
+            raise UnsupportedFeatureError(self.name, "TYPE definition")
+        if not self.supports_type_definition(type(expr)):
+            raise UnsupportedFeatureError(
+                self.name,
+                f"TYPE definition {expr.definition_kind}",
+            )
+        if isinstance(expr, _DummyTypeDefinition):
+            data_type_sql, data_type_params = expr.data_type.to_sql()
+            return f"AS {data_type_sql}", tuple(data_type_params)
+        raise UnsupportedFeatureError(
+            self.name,
+            f"TYPE definition {expr.definition_kind}",
+        )
+
+    def format_type_alter_action(self, expr: TypeAlterAction) -> Tuple[str, tuple]:
+        if not self.supports_type_objects() or not self.supports_alter_type():
+            raise UnsupportedFeatureError(self.name, "ALTER TYPE action")
+        if not self.supports_type_alter_action(type(expr)):
+            raise UnsupportedFeatureError(
+                self.name,
+                f"ALTER TYPE action {expr.action_kind}",
+            )
+        if isinstance(expr, _DummyTypeAlterAction):
+            return f"RENAME TO {self.format_identifier(expr.new_name)}", ()
+        raise UnsupportedFeatureError(
+            self.name,
+            f"ALTER TYPE action {expr.action_kind}",
+        )
+
+
+    def supports_domains(self) -> bool:
+        return True
+
+    def supports_domain_nullability(self, nullability: DomainNullability) -> bool:
+        return True
+
+    def supports_named_domain_checks(self) -> bool:
+        return True
+
+    def supports_multiple_domain_checks(self) -> bool:
+        return True
+
+    def supports_domain_collation(self) -> bool:
+        return True
+
+    def supports_alter_domain_action(
+        self,
+        action_type: Type[DomainAlterAction],
+    ) -> bool:
+        return True
+
+    def supports_multiple_domain_alter_actions(self) -> bool:
+        return False
+
+    def supports_drop_domain_if_exists(self) -> bool:
+        return False
+
+    def supports_drop_domain_cascade(self) -> bool:
+        return False
+
+    def supports_drop_domain_restrict(self) -> bool:
+        return False
+
+    def supports_unnamed_domain_check_drop(self) -> bool:
+        return False
 
     # region Protocol Support Checks - Core Features
     def supports_xmlparse(self) -> bool:
@@ -1284,7 +1407,6 @@ class DummyDialect(
         """
         from rhosocial.activerecord.backend.expression.statements import (
             ColumnConstraintType,
-            GeneratedColumnType,
         )
         from rhosocial.activerecord.backend.expression import bases
 

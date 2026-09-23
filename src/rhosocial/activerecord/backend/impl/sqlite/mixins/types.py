@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 import re
+from typing import Tuple
 
-from rhosocial.activerecord.backend.dialect.mixins.ddl_type import DDLTypeMixin
-from rhosocial.activerecord.backend.dialect.protocols import DDLTypeSupport
+from rhosocial.activerecord.backend.dialect.mixins.data_type import DataTypeMixin
+from rhosocial.activerecord.backend.dialect.protocols import DataTypeSupport
 from rhosocial.activerecord.backend.expression.types import (
     BigIntType,
     BlobType as CoreBlobType,
@@ -41,10 +42,10 @@ from ..expression.types import (
 )
 
 
-class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
+class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
     """SQLite DataType formatting and parsing.
 
-    Implements ``DDLTypeSupport`` so the dialect can render ``DataType``
+    Implements ``DataTypeSupport`` so the dialect can render ``DataType``
     expressions to SQL strings and parse raw SQL type strings back into
     ``DataType`` instances.
 
@@ -52,10 +53,6 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     NUMERIC, INTEGER, REAL, BLOB).  This mixin maps the standard SQL types
     to their SQLite representation.
     """
-
-    # ------------------------------------------------------------------
-    # DDLTypeSupport — formatting
-    # ------------------------------------------------------------------
 
     def format_data_type_sqlite_integer(self, data_type: SQLiteIntegerType) -> Tuple[str, tuple]:
         return "INTEGER", ()
@@ -148,7 +145,6 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
         return data_type.raw, ()
 
     # ------------------------------------------------------------------
-    # DDLTypeSupport — per-type support declarations
     #
     # SQLite stores everything through type affinity: any type this mixin
     # renders is genuinely storable, so support is declared for exactly the
@@ -244,9 +240,6 @@ class SQLiteTypeSupportMixin(DDLTypeMixin, DDLTypeSupport):
     def supports_data_type_custom(self) -> bool:
         return True
 
-    # ------------------------------------------------------------------
-    # DDLTypeSupport — parsing
-    # ------------------------------------------------------------------
 
     # SQLite type affinity groups for parsing
     _INTEGER_TYPES = re.compile(

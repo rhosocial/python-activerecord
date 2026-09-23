@@ -74,6 +74,10 @@ from .protocols import (
     GeneratedColumnSupport,
     AutoIncrementSupport,
     CommentSupport,
+    DataTypeSupport,
+    DDLTypeSupport,
+    UserDefinedTypeSupport,
+    DomainSupport,
 )
 from .mixins import (
     WindowFunctionMixin,
@@ -104,6 +108,10 @@ from .mixins import (
     ILIKEMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    DataTypeMixin,
+    DDLTypeMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
 )
 
 # Import Explain types from expression module to make them available in dialect module
@@ -150,6 +158,10 @@ __all__ = [
     "ILIKESupport",
     "GeneratedColumnSupport",
     "CommentSupport",
+    "DataTypeSupport",
+    "DDLTypeSupport",
+    "UserDefinedTypeSupport",
+    "DomainSupport",
     # Mixins
     "WindowFunctionMixin",
     "CTEMixin",
@@ -178,6 +190,10 @@ __all__ = [
     "FunctionMixin",
     "ILIKEMixin",
     "GeneratedColumnMixin",
+    "DataTypeMixin",
+    "DDLTypeMixin",
+    "UserDefinedTypeMixin",
+    "DomainMixin",
     # Re-exported types from expression module
     "ExplainType",
     "ExplainFormat",

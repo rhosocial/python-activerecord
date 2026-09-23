@@ -88,6 +88,18 @@ if TYPE_CHECKING:  # pragma: no cover
         CreateSequenceExpression,
         DropSequenceExpression,
         AlterSequenceExpression,
+        TypeDefinition,
+        TypeAlterAction,
+        CreateTypeExpression,
+        AlterTypeExpression,
+        DropTypeExpression,
+        DomainAlterAction,
+        DomainNullability,
+        DomainValueExpression,
+        DomainCheckConstraint,
+        CreateDomainExpression,
+        AlterDomainExpression,
+        DropDomainExpression,
         CreateMaterializedViewExpression,
         DropMaterializedViewExpression,
         RefreshMaterializedViewExpression,
@@ -2666,16 +2678,179 @@ class SQLFunctionSupport(Protocol):
         ...  # pragma: no cover
 
 
-# ============================================================
-# DataType Support Protocol
-# ============================================================
+@runtime_checkable
+class UserDefinedTypeSupport(Protocol):
+    """Protocol for user-defined type object DDL support."""
+
+    def supports_type_objects(self) -> bool:
+        """Whether user-defined type objects are supported."""
+        ...  # pragma: no cover
+
+    def supports_create_type(self) -> bool:
+        """Whether CREATE TYPE is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_type(self) -> bool:
+        """Whether ALTER TYPE is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_type(self) -> bool:
+        """Whether DROP TYPE is supported."""
+        ...  # pragma: no cover
+
+    def supports_type_definition(self, definition_type: Type["TypeDefinition"]) -> bool:
+        """Whether a type-definition class is supported."""
+        ...  # pragma: no cover
+
+    def supported_type_definitions(self) -> Tuple[Type["TypeDefinition"], ...]:
+        """Return the concrete type-definition classes this dialect supports."""
+        ...  # pragma: no cover
+
+    def supports_type_alter_action(self, action_type: Type["TypeAlterAction"]) -> bool:
+        """Whether an ALTER TYPE action class is supported."""
+        ...  # pragma: no cover
+
+    def supports_create_type_if_not_exists(self) -> bool:
+        """Whether CREATE TYPE IF NOT EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_create_type_or_replace(self) -> bool:
+        """Whether CREATE OR REPLACE TYPE is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_type_if_exists(self) -> bool:
+        """Whether ALTER TYPE IF EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_type_if_exists(self) -> bool:
+        """Whether DROP TYPE IF EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_multiple_type_alter_actions(self) -> bool:
+        """Whether one ALTER TYPE statement may contain multiple actions."""
+        ...  # pragma: no cover
+
+    def format_create_type_statement(self, expr: "CreateTypeExpression") -> Tuple[str, tuple]:
+        """Format CREATE TYPE."""
+        ...  # pragma: no cover
+
+    def format_alter_type_statement(self, expr: "AlterTypeExpression") -> Tuple[str, tuple]:
+        """Format ALTER TYPE."""
+        ...  # pragma: no cover
+
+    def format_drop_type_statement(self, expr: "DropTypeExpression") -> Tuple[str, tuple]:
+        """Format DROP TYPE."""
+        ...  # pragma: no cover
+
+    def format_type_definition(self, expr: "TypeDefinition") -> Tuple[str, tuple]:
+        """Format one type definition."""
+        ...  # pragma: no cover
+
+    def format_type_alter_action(self, expr: "TypeAlterAction") -> Tuple[str, tuple]:
+        """Format one ALTER TYPE action."""
+        ...  # pragma: no cover
+
+@runtime_checkable
+class DomainSupport(Protocol):
+    """Protocol for domain object DDL support."""
+
+    def supports_domains(self) -> bool:
+        """Whether domain objects are supported."""
+        ...  # pragma: no cover
+
+    def supports_create_domain(self) -> bool:
+        """Whether CREATE DOMAIN is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_domain(self) -> bool:
+        """Whether ALTER DOMAIN is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_domain(self) -> bool:
+        """Whether DROP DOMAIN is supported."""
+        ...  # pragma: no cover
+
+    def supports_domain_default(self) -> bool:
+        """Whether domain DEFAULT values are supported."""
+        ...  # pragma: no cover
+
+    def supports_domain_nullability(
+        self,
+        nullability: "DomainNullability",
+    ) -> bool:
+        """Whether a domain nullability declaration is supported."""
+        ...  # pragma: no cover
+
+    def supports_domain_checks(self) -> bool:
+        """Whether domain CHECK constraints are supported."""
+        ...  # pragma: no cover
+
+    def supports_named_domain_checks(self) -> bool:
+        """Whether named domain CHECK constraints are supported."""
+        ...  # pragma: no cover
+
+    def supports_multiple_domain_checks(self) -> bool:
+        """Whether a domain may contain multiple CHECK constraints."""
+        ...  # pragma: no cover
+
+    def supports_domain_collation(self) -> bool:
+        """Whether domain COLLATE clauses are supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_domain_action(self, action_type: Type["DomainAlterAction"]) -> bool:
+        """Whether an ALTER DOMAIN action class is supported."""
+        ...  # pragma: no cover
+
+    def supports_multiple_domain_alter_actions(self) -> bool:
+        """Whether one ALTER DOMAIN statement may contain multiple actions."""
+        ...  # pragma: no cover
+
+    def supports_drop_domain_if_exists(self) -> bool:
+        """Whether DROP DOMAIN IF EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_domain_cascade(self) -> bool:
+        """Whether DROP DOMAIN CASCADE is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_domain_restrict(self) -> bool:
+        """Whether DROP DOMAIN RESTRICT is supported."""
+        ...  # pragma: no cover
+
+    def supports_unnamed_domain_check_drop(self) -> bool:
+        """Whether an unnamed domain CHECK constraint may be dropped."""
+        ...  # pragma: no cover
+
+    def format_create_domain_statement(self, expr: "CreateDomainExpression") -> Tuple[str, tuple]:
+        """Format CREATE DOMAIN."""
+        ...  # pragma: no cover
+
+    def format_alter_domain_statement(self, expr: "AlterDomainExpression") -> Tuple[str, tuple]:
+        """Format ALTER DOMAIN."""
+        ...  # pragma: no cover
+
+    def format_drop_domain_statement(self, expr: "DropDomainExpression") -> Tuple[str, tuple]:
+        """Format DROP DOMAIN."""
+        ...  # pragma: no cover
+
+    def format_domain_value_expression(self, expr: "DomainValueExpression") -> Tuple[str, tuple]:
+        """Format the domain VALUE expression."""
+        ...  # pragma: no cover
+
+    def format_domain_check_constraint(self, expr: "DomainCheckConstraint") -> Tuple[str, tuple]:
+        """Format one domain CHECK constraint."""
+        ...  # pragma: no cover
+
+    def format_domain_alter_action(self, expr: "DomainAlterAction") -> Tuple[str, tuple]:
+        """Format one ALTER DOMAIN action."""
+        ...  # pragma: no cover
 
 
 @runtime_checkable
-class DDLTypeSupport(Protocol):
+class DataTypeSupport(Protocol):
     """Dialect support for structured ``DataType`` — formatting and parsing.
 
-    Dialects that implement this protocol (usually via ``DDLTypeMixin``) can:
+    Dialects that implement this protocol (usually via ``DataTypeMixin``) can:
 
     * Render ``DataType`` expressions into backend-specific SQL strings
       via ``format_data_type()`` — called by ``DataType.to_sql()``.
@@ -2772,3 +2947,6 @@ class DDLTypeSupport(Protocol):
         an empty dict when there is nothing to suggest (honesty principle).
         """
         ...  # pragma: no cover
+
+
+DDLTypeSupport = DataTypeSupport

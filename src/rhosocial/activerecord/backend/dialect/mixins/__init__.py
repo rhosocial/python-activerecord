@@ -46,7 +46,10 @@ from .datetime import DateTimeMixin
 from .dql import DQLMixin
 from .dml import DMLMixin
 from .ddl_column import DDLColumnMixin
+from .data_type import DataTypeMixin
 from .ddl_type import DDLTypeMixin
+from .user_defined_type import UserDefinedTypeMixin
+from .ddl_domain import DomainMixin
 from .ddl_database import DatabaseMixin
 from .transaction import TransactionControlMixin
 
@@ -95,7 +98,10 @@ __all__ = [
     "DQLMixin",
     "DMLMixin",
     "DDLColumnMixin",
+    "DataTypeMixin",
     "DDLTypeMixin",
+    "UserDefinedTypeMixin",
+    "DomainMixin",
     "DatabaseMixin",
     "TransactionControlMixin",
 ]
