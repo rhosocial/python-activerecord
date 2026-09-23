@@ -599,7 +599,7 @@ class TestCreateTableStatements:
 
         assert '"users_with_comments"' in sql
         assert "COMMENT 'Primary identifier'" in sql
-        assert "COMMENT 'User's display name'" in sql
+        assert "COMMENT 'User''s display name'" in sql
         assert params == ()
 
     def test_create_table_partition_unsupported_by_dummy(self, dummy_dialect: DummyDialect):

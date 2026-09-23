@@ -152,6 +152,16 @@ class SQLiteDDLColumnMixin:
         """Format a column definition for SQLite, including generated columns support."""
         from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
 
+        if getattr(col_def, "comment", None):
+            # SQLite has no comment mechanism (neither an inline COMMENT
+            # clause nor COMMENT ON); a comment on a column definition is
+            # never silently dropped.
+            from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+            raise UnsupportedFeatureError(
+                self.name, "COLUMN COMMENT",
+                "SQLite has no column comment mechanism; comments are not supported.",
+            )
+
         constraint_handlers = {
             ColumnConstraintType.PRIMARY_KEY: self.format_primary_key_constraint,
             ColumnConstraintType.NOT_NULL: self.format_not_null_constraint,

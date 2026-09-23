@@ -190,10 +190,15 @@ class TestColumnCapabilityGating:
         dialect = DummyDialect()
         assert dialect.supports_fk_match() is True  # DummyDialect overrides to True for testing
 
-    def test_supports_column_comment_default_false(self):
-        """DDLColumnMixin should not support COLUMN COMMENT by default."""
+    def test_supports_column_comment_true(self):
+        """DDLColumnMixin should not support COLUMN COMMENT by default.
+
+        DummyDialect overrides to True: its ``format_column_definition``
+        renders column comments unconditionally, so the capability stays
+        consistent with the actual rendering behavior.
+        """
         dialect = DummyDialect()
-        assert dialect.supports_column_comment() is False
+        assert dialect.supports_column_comment() is True
 
 
 class TestTriggerCapabilityGating:

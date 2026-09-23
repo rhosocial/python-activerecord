@@ -751,6 +751,15 @@ class DummyDialect(
     def supports_table_comment(self) -> bool:
         return True
 
+    def supports_column_comment(self) -> bool:
+        """Whether a column-level ``COMMENT 'text'`` attribute is supported.
+
+        DummyDialect renders column comments unconditionally in its
+        ``format_column_definition``, so the capability advertises True to
+        stay consistent with the actual rendering behavior.
+        """
+        return True
+
     # Generic partition protocol is exposed through PartitionMixin, but all
     # capabilities stay disabled for dummy because partitioning requires
     # backend-specific storage semantics.
@@ -1314,7 +1323,7 @@ class DummyDialect(
 
         # Add comment if present
         if col_def.comment:
-            col_sql += f" COMMENT '{col_def.comment}'"
+            col_sql += f" COMMENT '{self._escape_sql_string(col_def.comment)}'"
 
         return col_sql, tuple(all_params)
 

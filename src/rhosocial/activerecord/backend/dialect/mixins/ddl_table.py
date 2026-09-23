@@ -448,13 +448,20 @@ class TableMixin:
         """Format CREATE TABLE statement (generic implementation).
 
         Handles the explicit-schema form only (columns, constraints, storage,
-        tablespace, inherits, partition). CTAS / LIKE / CLONE have their own
-        expressions and formatters -- this method does not touch them.
+        table comment, tablespace, inherits, partition). CTAS / LIKE / CLONE
+        have their own expressions and formatters -- this method does not
+        touch them.
+
+        The ``table_options.comment`` inline clause is rendered after the
+        column list and storage options, before any PARTITION BY clause, and
+        only on dialects whose :meth:`supports_table_comment` is True; on the
+        others a declared comment raises ``UnsupportedFeatureError`` instead
+        of being silently dropped.
 
         Args:
             expr: CreateTableExpression carrying the table reference, column
-                definitions, constraints, and optional storage, tablespace,
-                inherits, and partition clauses.
+                definitions, constraints, and optional storage, table comment,
+                tablespace, inherits, and partition clauses.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
@@ -501,6 +508,16 @@ class TableMixin:
             if storage_sql:
                 parts.append(storage_sql)
                 all_params.extend(storage_params)
+        table_comment = getattr(table_options, "comment", None) if table_options is not None else None
+        if table_comment:
+            if not self.supports_table_comment():
+                raise UnsupportedFeatureError(
+                    self.name, "TABLE COMMENT",
+                    f"{self.name} does not support an inline table comment.",
+                )
+            comment_sql, comment_params = self.format_table_comment(table_comment)
+            parts.append(comment_sql)
+            all_params.extend(comment_params)
         if expr.tablespace:
             if not self.supports_table_tablespace():
                 raise UnsupportedFeatureError(
