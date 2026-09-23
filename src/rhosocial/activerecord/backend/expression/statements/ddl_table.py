@@ -531,11 +531,6 @@ class CreateTableOptions(BaseExpression):
 
 
 class CreateTableExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_table_statement"
     """Represents a comprehensive CREATE TABLE statement supporting full SQL standard features."""
 
     def __init__(

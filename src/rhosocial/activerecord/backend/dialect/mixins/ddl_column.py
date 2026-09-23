@@ -758,10 +758,16 @@ class DDLColumnMixin:
             A ``(sql, params)`` tuple with empty parameters.
 
         Raises:
-            UnsupportedFeatureError: If IF EXISTS is requested but not
+            UnsupportedFeatureError: If the dialect does not support
+                ``DROP COLUMN``, or if IF EXISTS is requested but not
                 supported by the dialect.
         """
         from ..exceptions import UnsupportedFeatureError
+        if not self.supports_drop_column():
+            raise UnsupportedFeatureError(
+                self.name, "ALTER TABLE DROP COLUMN",
+                f"{self.name} does not support DROP COLUMN.",
+            )
         if hasattr(action, "if_exists") and action.if_exists:
             if not self.supports_drop_column_if_exists():
                 raise UnsupportedFeatureError(
@@ -786,11 +792,27 @@ class DDLColumnMixin:
             A ``(sql, params)`` tuple.
 
         Raises:
+            UnsupportedFeatureError: If the dialect does not support the
+                requested alteration (data-type changes and column-property
+                changes are gated by separate capability switches).
             ValueError: If a ``SET DATA TYPE`` value is not a valid data type
                 specification.
         """
+        from ..exceptions import UnsupportedFeatureError
         all_params: List[Any] = []
         operation_str = action.operation.value if hasattr(action.operation, "value") else str(action.operation)
+        if operation_str == "SET DATA TYPE":
+            if not self.supports_alter_column_type():
+                raise UnsupportedFeatureError(
+                    self.name, "ALTER COLUMN SET DATA TYPE",
+                    f"{self.name} does not support changing a column data type.",
+                )
+        elif not self.supports_alter_column_properties():
+            raise UnsupportedFeatureError(
+                self.name, "ALTER COLUMN",
+                f"{self.name} does not support altering column properties "
+                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+            )
         column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {operation_str}"
         if hasattr(action, "new_value") and action.new_value is not None:
             if operation_str == "SET DATA TYPE":
@@ -961,7 +983,17 @@ class DDLColumnMixin:
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                ``ALTER TABLE ADD INDEX``.
         """
+        from ..exceptions import UnsupportedFeatureError
+        if not self.supports_alter_table_index_actions():
+            raise UnsupportedFeatureError(
+                self.name, "ALTER TABLE ADD INDEX",
+                f"{self.name} does not support ALTER TABLE ADD INDEX.",
+            )
         columns = ", ".join(
             self.format_identifier(col) for col in action.index.columns
         )
@@ -980,7 +1012,17 @@ class DDLColumnMixin:
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                ``ALTER TABLE DROP INDEX``.
         """
+        from ..exceptions import UnsupportedFeatureError
+        if not self.supports_alter_table_index_actions():
+            raise UnsupportedFeatureError(
+                self.name, "ALTER TABLE DROP INDEX",
+                f"{self.name} does not support ALTER TABLE DROP INDEX.",
+            )
         if hasattr(action, "if_exists") and action.if_exists:
             return f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}", ()
         return f"DROP INDEX {self.format_identifier(action.index_name)}", ()
@@ -993,7 +1035,17 @@ class DDLColumnMixin:
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                ``ALTER TABLE RENAME COLUMN``.
         """
+        from ..exceptions import UnsupportedFeatureError
+        if not self.supports_rename_column():
+            raise UnsupportedFeatureError(
+                self.name, "ALTER TABLE RENAME COLUMN",
+                f"{self.name} does not support RENAME COLUMN.",
+            )
         return (
             f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}",
             (),
@@ -1007,7 +1059,17 @@ class DDLColumnMixin:
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
+
+        Raises:
+            UnsupportedFeatureError: If the dialect does not support
+                ``ALTER TABLE RENAME TO``.
         """
+        from ..exceptions import UnsupportedFeatureError
+        if not self.supports_rename_table():
+            raise UnsupportedFeatureError(
+                self.name, "ALTER TABLE RENAME TO",
+                f"{self.name} does not support RENAME TABLE.",
+            )
         return f"RENAME TO {self.format_identifier(action.new_name)}", ()
 
     def format_modify_column_action(self, action: "ModifyColumn") -> Tuple[str, Tuple]:
