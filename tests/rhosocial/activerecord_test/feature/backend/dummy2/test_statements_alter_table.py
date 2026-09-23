@@ -10,6 +10,7 @@ from rhosocial.activerecord.backend.expression import (
     AddColumn,
     DropColumn,
     ColumnDefinition,
+    ColumnCommentClause,
     IndexDefinition,
 )
 from rhosocial.activerecord.backend.expression.statements import (
@@ -35,7 +36,7 @@ class TestAlterTableStatements:
 
     def test_add_column_action(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD COLUMN action."""
-        column_def = ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100), comment="User's email address")
+        column_def = ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100), comment=ColumnCommentClause(dummy_dialect, "User's email address"))
         add_action = AddColumn(dummy_dialect, column=column_def)
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="users", actions=[add_action])
@@ -270,7 +271,7 @@ class TestAlterTableStatements:
 
     def test_add_column_action_direct(self, dummy_dialect: DummyDialect):
         """Tests direct ADD COLUMN action creation and formatting."""
-        column_def = ColumnDefinition(dummy_dialect, "phone", VarCharType(dummy_dialect, 20), comment="User's phone number")
+        column_def = ColumnDefinition(dummy_dialect, "phone", VarCharType(dummy_dialect, 20), comment=ColumnCommentClause(dummy_dialect, "User's phone number"))
         add_action = AddColumn(dummy_dialect, column=column_def)
         # Action now has dialect bound at construction time
         sql, params = add_action.to_sql()
@@ -506,7 +507,7 @@ class TestAlterTableStatements:
             name="username",
             data_type=VarCharType(dummy_dialect, 50),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)],  # Use constraint instead of nullable flag
-            comment="Username (cannot be null)",
+            comment=ColumnCommentClause(dummy_dialect, "Username (cannot be null)"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -534,7 +535,7 @@ class TestAlterTableStatements:
             name="description",
             data_type=TextType(dummy_dialect),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NULL)],  # Explicitly allow NULL
-            comment="Description field",
+            comment=ColumnCommentClause(dummy_dialect, "Description field"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -562,7 +563,7 @@ class TestAlterTableStatements:
             name="status",
             data_type=VarCharType(dummy_dialect, 20),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value="active")],  # Default value
-            comment="Status field with default value",
+            comment=ColumnCommentClause(dummy_dialect, "Status field with default value"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -595,7 +596,7 @@ class TestAlterTableStatements:
             name="created_at",
             data_type=TimestampType(dummy_dialect),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value=now_func)],  # Default function
-            comment="Timestamp with default function",
+            comment=ColumnCommentClause(dummy_dialect, "Timestamp with default function"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -632,7 +633,7 @@ class TestAlterTableStatements:
             constraints=[
                 ColumnConstraint(dummy_dialect, ColumnConstraintType.CHECK, check_condition=check_condition)
             ],  # Check constraint
-            comment="Age must be positive",
+            comment=ColumnCommentClause(dummy_dialect, "Age must be positive"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -661,7 +662,7 @@ class TestAlterTableStatements:
             name="id",
             data_type=IntegerType(dummy_dialect),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)],  # Primary key constraint
-            comment="Primary key column",
+            comment=ColumnCommentClause(dummy_dialect, "Primary key column"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -689,7 +690,7 @@ class TestAlterTableStatements:
             name="email",
             data_type=VarCharType(dummy_dialect, 100),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.UNIQUE)],  # Unique constraint
-            comment="Unique email address",
+            comment=ColumnCommentClause(dummy_dialect, "Unique email address"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -719,7 +720,7 @@ class TestAlterTableStatements:
             constraints=[
                 ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))
             ],  # Foreign key constraint
-            comment="Reference to users table",
+            comment=ColumnCommentClause(dummy_dialect, "Reference to users table"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -751,7 +752,7 @@ class TestAlterTableStatements:
             constraints=[
                 ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY)
             ],  # Foreign key constraint without reference
-            comment="Reference to users table",
+            comment=ColumnCommentClause(dummy_dialect, "Reference to users table"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 

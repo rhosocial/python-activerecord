@@ -73,6 +73,7 @@ from .protocols import (
     ILIKESupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    CommentSupport,
 )
 from .mixins import (
     WindowFunctionMixin,
@@ -92,6 +93,7 @@ from .mixins import (
     TableMixin,
     PartitionMixin,
     ConstraintMixin,
+    CommentOnMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -147,6 +149,7 @@ __all__ = [
     "FunctionSupport",
     "ILIKESupport",
     "GeneratedColumnSupport",
+    "CommentSupport",
     # Mixins
     "WindowFunctionMixin",
     "CTEMixin",
@@ -165,6 +168,7 @@ __all__ = [
     "TableMixin",
     "PartitionMixin",
     "ConstraintMixin",
+    "CommentOnMixin",
     "ViewMixin",
     "TruncateMixin",
     "SchemaMixin",

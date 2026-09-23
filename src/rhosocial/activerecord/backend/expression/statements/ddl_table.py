@@ -208,13 +208,70 @@ class GeneratedColumnExpression(BaseExpression):
         self.storage_type = storage_type or GeneratedColumnType.VIRTUAL
 
 
+class ColumnCommentClause(BaseExpression):
+    """The inline comment clause of a column definition.
+
+    A CREATE TABLE / ALTER TABLE **clause** node rendered through the
+    dialect's ``format_column_comment_clause``.  It is deliberately distinct
+    from the standalone ``COMMENT ON`` statement (:class:`CommentOnExpression`):
+    the inline clause is part of the *column-definition grammar* and only
+    exists on dialects that advertise :meth:`supports_column_comment`.
+
+    Dialects render it differently — MySQL/MariaDB/SQLite-family emit
+    ``COMMENT '<text>'``, BigQuery emits ``OPTIONS(description='<text>')``;
+    PostgreSQL/Oracle/Firebird/SQL Server have no inline column-comment
+    grammar and raise ``UnsupportedFeatureError`` instead of silently
+    dropping the declared comment.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_comment_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", comment: str):
+        super().__init__(dialect)
+        self.comment = comment
+
+
+class TableCommentClause(BaseExpression):
+    """The inline table-comment clause of ``CREATE TABLE``.
+
+    A CREATE TABLE **clause** node rendered through the dialect's
+    ``format_table_comment_clause``.  There is no SQL-standard table-comment
+    mechanism: the bare ``COMMENT '<text>'`` table option is a
+    MySQL/MariaDB/ClickHouse-family convenience (Snowflake renders
+    ``COMMENT = '<text>'``, BigQuery ``OPTIONS(description='<text>')``), while
+    the standalone ``COMMENT ON`` statement is a separate de-facto vendor
+    mechanism (:class:`CommentOnExpression`), not this clause.
+
+    Rendering is capability-gated: the statement renderer emits this clause
+    only on dialects whose :meth:`supports_table_comment` is True, and raises
+    ``UnsupportedFeatureError`` on the others instead of silently dropping a
+    declared comment.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_comment_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", comment: str):
+        super().__init__(dialect)
+        self.comment = comment
+
+
 class ColumnDefinition(BaseExpression):
     """Represents a column definition clause within CREATE/ALTER TABLE.
 
     A DDL clause node rendered through the dialect's
     ``format_column_definition``; its children (data type, constraints,
-    generated-column expression) are proper expression nodes, so dialect
-    propagation reaches the whole clause subtree.
+    generated-column expression, inline comment clause) are proper expression
+    nodes, so dialect propagation reaches the whole clause subtree.
+
+    ``comment`` is a :class:`ColumnCommentClause` (or ``None``); bare comment
+    text is **not** accepted here — build the clause node explicitly so the
+    inline comment always flows through the clause channel.
     """
 
     @property
@@ -228,7 +285,7 @@ class ColumnDefinition(BaseExpression):
         name: str,
         data_type: "DataType",
         constraints: Optional[List[ColumnConstraint]] = None,
-        comment: Optional[str] = None,
+        comment: Optional["ColumnCommentClause"] = None,
         generated_expression: Optional[GeneratedColumnExpression] = None,
         attributes: Optional[List[Any]] = None,
     ):
@@ -236,6 +293,10 @@ class ColumnDefinition(BaseExpression):
         if not isinstance(data_type, DataType):
             raise TypeError(
                 f"data_type must be a DataType instance, got {type(data_type).__name__}"
+            )
+        if comment is not None and not isinstance(comment, ColumnCommentClause):
+            raise TypeError(
+                f"comment must be a ColumnCommentClause, got {type(comment).__name__}"
             )
         self.name = name
         self.data_type = data_type
@@ -423,15 +484,18 @@ class CreateTableOptions(BaseExpression):
 
     **Table-level option** (after the column list):
 
-    * ``comment`` -- inline table comment clause. There is **no** SQL-standard
-      table comment mechanism: the bare ``COMMENT '<text>'`` table option is a
+    * ``comment`` -- inline table-comment clause, carried as a
+      :class:`TableCommentClause`. There is **no** SQL-standard table comment
+      mechanism: the bare ``COMMENT '<text>'`` table option is a
       MySQL/MariaDB/ClickHouse-family dialect convenience (Snowflake renders
-      ``COMMENT = '<text>'``), and the standalone ``COMMENT ON`` statement is
-      a separate de-facto vendor mechanism, not this clause. Rendering is
-      capability-gated: the statement renderer emits this clause only on
-      backends whose ``supports_table_comment()`` is True, and raises
-      ``UnsupportedFeatureError`` on the others instead of silently dropping
-      a declared comment.
+      ``COMMENT = '<text>'``, BigQuery ``OPTIONS(description='<text>')``), and
+      the standalone ``COMMENT ON`` statement is a separate de-facto vendor
+      mechanism (:class:`CommentOnExpression`), not this clause. Bare comment
+      text is **not** accepted — build the clause node explicitly; rendering
+      is capability-gated by the statement renderer through
+      :meth:`supports_table_comment`, which raises ``UnsupportedFeatureError``
+      on dialects without the grammar instead of silently dropping a declared
+      comment.
 
     Backend-specific creation options (``UNLOGGED`` / ``TRANSIENT`` /
     ``ENGINE`` / ``CHARSET`` / table ``COLLATE`` / ``MEMORY_OPTIMIZED`` /
@@ -441,7 +505,8 @@ class CreateTableOptions(BaseExpression):
 
     ``or_replace`` is rendered by ``format_create_table_options``; the
     statement renderer composes the returned qualifier right after ``CREATE``.
-    ``comment`` is rendered by the statement renderer after the column list.
+    ``comment`` is a clause node rendered by the statement renderer after the
+    column list.
     """
 
     @property
@@ -454,9 +519,13 @@ class CreateTableOptions(BaseExpression):
         dialect: "SQLDialectBase",
         *,
         or_replace: bool = False,
-        comment: Optional[str] = None,
+        comment: Optional["TableCommentClause"] = None,
     ):
         super().__init__(dialect)
+        if comment is not None and not isinstance(comment, TableCommentClause):
+            raise TypeError(
+                f"comment must be a TableCommentClause, got {type(comment).__name__}"
+            )
         self.or_replace = or_replace
         self.comment = comment
 

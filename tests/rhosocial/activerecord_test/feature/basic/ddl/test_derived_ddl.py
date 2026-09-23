@@ -91,9 +91,10 @@ class Overridden(ActiveRecord):
     def table_options(cls):
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
             CreateTableOptions,
+            TableCommentClause,
         )
 
-        return CreateTableOptions(None, comment="hello")
+        return CreateTableOptions(None, comment=TableCommentClause(None, "hello"))
 
 
 class Misdeclared(ActiveRecord):
@@ -304,9 +305,12 @@ def test_resolver_use_sql_type_priority():
 
 def test_binder_copies_declared_expression(backend):
     from rhosocial.activerecord.base.ddl import DialectBinder
-    from rhosocial.activerecord.backend.expression.statements.ddl_table import CreateTableOptions
+    from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+        CreateTableOptions,
+        TableCommentClause,
+    )
 
-    declared = CreateTableOptions(None, comment="hello")
+    declared = CreateTableOptions(None, comment=TableCommentClause(None, "hello"))
     bound = DialectBinder(backend.dialect).bind(declared)
 
     assert bound is not declared
@@ -319,7 +323,7 @@ def test_interface_override_is_used(backend):
     Overridden.__backend__ = backend
     expression = Overridden.create_table()
     assert expression.table_options is not None
-    assert expression.table_options.comment == "hello"
+    assert expression.table_options.comment.comment == "hello"
 
 
 def test_gate0_rejects_misdeclared_candidate(backend):

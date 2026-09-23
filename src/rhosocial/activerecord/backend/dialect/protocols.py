@@ -1222,6 +1222,17 @@ class TableSupport(Protocol):
         """Whether tablespace specification is supported."""
         ...  # pragma: no cover
 
+    def supports_table_comment(self) -> bool:
+        """Whether an inline table-comment clause on CREATE TABLE is supported.
+
+        The inline ``COMMENT '<text>'`` table option is a dialect convenience
+        (MySQL/MariaDB/ClickHouse; Snowflake renders ``COMMENT = '<text>'``,
+        BigQuery ``OPTIONS(description='<text>')``). It is distinct from the
+        standalone ``COMMENT ON`` statement, which is declared by
+        :class:`CommentSupport`. Defaults to False (SQL-standard behavior).
+        """
+        ...  # pragma: no cover
+
     def supports_drop_column(self) -> bool:
         """Whether DROP COLUMN is supported in ALTER TABLE."""
         ...  # pragma: no cover
@@ -2163,6 +2174,46 @@ class ColumnAttributeSupport(Protocol):
             A ``(sql, params)`` tuple with a leading space (DDL accepts no
             bind parameters, so ``params`` is normally empty).
         """
+        ...  # pragma: no cover
+
+
+class CommentSupport(Protocol):
+    """Protocol for comment DDL: inline column clauses and standalone COMMENT ON.
+
+    Two distinct mechanisms are covered, deliberately kept apart:
+
+    * the **inline column-comment clause** (``COMMENT '<text>'`` inside a
+      column definition; BigQuery renders ``OPTIONS(description='<text>')``) —
+      part of the CREATE TABLE grammar, declared by
+      :meth:`supports_column_comment` / :meth:`format_column_comment_clause`;
+    * the **standalone ``COMMENT ON`` statement** — annotates existing schema
+      objects and is the only comment mechanism on PostgreSQL/Oracle/Firebird,
+      declared by :meth:`supports_comment_on` / :meth:`format_comment_statement`.
+
+    The inline *table*-comment clause is declared separately on
+    :class:`TableSupport` (:meth:`supports_table_comment`).
+    """
+
+    def supports_column_comment(self) -> bool:
+        """Whether an inline ``COMMENT '<text>'`` column clause is supported.
+
+        Defaults to False; MySQL/MariaDB/ClickHouse/BigQuery override.
+        """
+        ...  # pragma: no cover
+
+    def format_column_comment_clause(self, clause: "ColumnCommentClause") -> Tuple[str, tuple]:
+        """Render the inline column-comment clause (with a leading space)."""
+        ...  # pragma: no cover
+
+    def supports_comment_on(self) -> bool:
+        """Whether standalone ``COMMENT ON`` statements are supported.
+
+        Defaults to False; PostgreSQL/Oracle/Firebird/Snowflake override.
+        """
+        ...  # pragma: no cover
+
+    def format_comment_statement(self, expr: "CommentOnExpression") -> Tuple[str, tuple]:
+        """Render a standalone ``COMMENT ON <object> IS '<text>'`` statement."""
         ...  # pragma: no cover
 
 
