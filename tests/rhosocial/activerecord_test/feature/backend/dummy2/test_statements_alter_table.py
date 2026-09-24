@@ -27,6 +27,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     AlterTableAction,
 )
 from rhosocial.activerecord.backend.expression.bases import ToSQLProtocol
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import DecimalType, IntegerType, TextType, TimestampType, VarCharType
 
@@ -63,7 +64,10 @@ class TestAlterTableStatements:
     def test_alter_column_modify_type(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ALTER COLUMN to modify data type."""
         alter_action = AlterColumn(
-            dummy_dialect, column_name="price", operation="SET DATA TYPE", new_value="DECIMAL(10,2)"
+            dummy_dialect,
+            column_name="price",
+            operation=ColumnAlterOperation.SET_DATA_TYPE,
+            new_value="DECIMAL(10,2)",
         )
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="products", actions=[alter_action])
@@ -73,7 +77,7 @@ class TestAlterTableStatements:
         assert 'ALTER TABLE "products"' in sql
         assert "ALTER COLUMN" in sql
         assert '"price"' in sql
-        assert "SET DATA TYPE" in sql
+        assert "SET DATA TYPE DECIMAL(10,2)" in sql
         assert params == ()
 
     def test_alter_column_modify_default(self, dummy_dialect: DummyDialect):
@@ -493,6 +497,150 @@ class TestAlterTableStatements:
         assert 'ALTER TABLE "legacy_table"' in sql
         assert 'DROP COLUMN IF EXISTS "old_column"' in sql
         assert params == ()
+
+    @pytest.mark.parametrize(
+        ("action_factory", "capability", "feature", "suggestion"),
+        [
+            (
+                lambda dialect: DropColumn(dialect, "value"),
+                "supports_drop_column",
+                "ALTER TABLE DROP COLUMN",
+                "Dummy does not support DROP COLUMN.",
+            ),
+            (
+                lambda dialect: DropColumn(dialect, "value", if_exists=True),
+                "supports_drop_column_if_exists",
+                "DROP COLUMN IF EXISTS",
+                "Dummy does not support DROP COLUMN IF EXISTS.",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.SET_DATA_TYPE,
+                    new_value="VARCHAR(20)",
+                ),
+                "supports_alter_column_type",
+                "ALTER COLUMN SET DATA TYPE",
+                "Dummy does not support changing a column data type.",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.SET_DEFAULT,
+                    new_value="active",
+                ),
+                "supports_alter_column_properties",
+                "ALTER COLUMN",
+                "Dummy does not support altering column properties "
+                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.DROP_DEFAULT,
+                ),
+                "supports_alter_column_properties",
+                "ALTER COLUMN",
+                "Dummy does not support altering column properties "
+                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.SET_NOT_NULL,
+                ),
+                "supports_alter_column_properties",
+                "ALTER COLUMN",
+                "Dummy does not support altering column properties "
+                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.DROP_NOT_NULL,
+                ),
+                "supports_alter_column_properties",
+                "ALTER COLUMN",
+                "Dummy does not support altering column properties "
+                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+            ),
+            (
+                lambda dialect: AddIndex(
+                    dialect,
+                    IndexDefinition(dialect, "idx_value", ["value"]),
+                ),
+                "supports_alter_table_index_actions",
+                "ALTER TABLE ADD INDEX",
+                "Dummy does not support ALTER TABLE ADD INDEX.",
+            ),
+            (
+                lambda dialect: DropIndex(dialect, "idx_value", if_exists=True),
+                "supports_alter_table_index_actions",
+                "ALTER TABLE DROP INDEX",
+                "Dummy does not support ALTER TABLE DROP INDEX.",
+            ),
+            (
+                lambda dialect: RenameObject(dialect, "old_value", "new_value"),
+                "supports_rename_column",
+                "ALTER TABLE RENAME COLUMN",
+                "Dummy does not support RENAME COLUMN.",
+            ),
+            (
+                lambda dialect: RenameTable(dialect, "records", "renamed_records"),
+                "supports_rename_table",
+                "ALTER TABLE RENAME TO",
+                "Dummy does not support RENAME TABLE.",
+            ),
+        ],
+        ids=[
+            "drop-column",
+            "drop-column-if-exists",
+            "set-data-type",
+            "set-default",
+            "drop-default",
+            "set-not-null",
+            "drop-not-null",
+            "add-index",
+            "drop-index",
+            "rename-column",
+            "rename-table",
+        ],
+    )
+    def test_capability_gated_action_rejects_unsupported_dialect(
+        self,
+        dummy_dialect: DummyDialect,
+        monkeypatch,
+        action_factory,
+        capability,
+        feature,
+        suggestion,
+    ):
+        """Rejects each ALTER TABLE action when its capability is disabled."""
+        monkeypatch.setattr(dummy_dialect, capability, lambda: False)
+        expression = AlterTableExpression(
+            dummy_dialect,
+            table_name="records",
+            actions=[action_factory(dummy_dialect)],
+        )
+
+        with pytest.raises(UnsupportedFeatureError) as exc_info:
+            expression.to_sql()
+
+        error = exc_info.value
+        expected_message = (
+            f"'{dummy_dialect.name}' dialect does not support {feature}. "
+            f"Suggestion: {suggestion}"
+        )
+        assert error.dialect_name == dummy_dialect.name
+        assert error.feature_name == feature
+        assert error.suggestion == suggestion
+        assert str(error) == expected_message
+        assert error.args == (expected_message,)
 
     def test_add_column_action_with_not_null_constraint(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with NOT NULL constraint (replacing the nullable=False functionality)."""
