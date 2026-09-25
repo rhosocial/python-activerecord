@@ -34,7 +34,6 @@ from .ddl import (
     IdentityAttribute,
     MARKER_REGISTRY,
 )
-from .ddl_mixin import AsyncDDLMethodMixin, DDLMethodMixin
 from .metaclass import MetaclassMixin, ActiveRecordMetaclass
 
 __all__ = [
@@ -71,8 +70,6 @@ __all__ = [
     "DDLSourceMixin",
     "IdentityAttribute",
     "MARKER_REGISTRY",
-    "AsyncDDLMethodMixin",
-    "DDLMethodMixin",
     "MetaclassMixin",
     "ActiveRecordMetaclass",
 ]

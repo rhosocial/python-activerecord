@@ -745,15 +745,15 @@ if dialect.supports_table_partitioning():
     # 可以使用 PARTITION BY
 
 # 检查具体分区类型
-if dialect.supports_range_partitioning():
+if dialect.supports_range_table_partitioning():
     pass
-if dialect.supports_list_partitioning():
+if dialect.supports_list_table_partitioning():
     pass
-if dialect.supports_hash_partitioning():
+if dialect.supports_hash_table_partitioning():
     pass
 ```
 
-> **注意**：分区 DDL 功能由 dialect 的 `PartitionMixin` 提供，各后端需要实现相应接口。目前支持 `supports_table_partitioning()` 等 10 个能力查询方法。
+> **注意**：通用分区表达式由 dialect 的 `PartitionMixin` 提供。核心协议保留 7 个分区能力与格式化查询接口，不提供分区生命周期编排。
 
 ### 检查物化视图支持
 

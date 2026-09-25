@@ -335,20 +335,6 @@ class TestConstraintEnforcementAndValidation:
         with pytest.raises(UnsupportedFeatureError):
             constraint.to_sql()
 
-    def test_binder_preserves_column_enforcement(self):
-        from rhosocial.activerecord.backend.expression import ColumnConstraint, ColumnConstraintType
-        from rhosocial.activerecord.ddl.binder import DialectBinder
-        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-
-        declared = ColumnConstraint(
-            None,
-            ColumnConstraintType.NOT_NULL,
-            enforced=False,
-        )
-        bound = DialectBinder(DummyDialect()).bind(declared)
-
-        assert bound.enforced is False
-
     def test_alter_constraint_actions(self):
         from rhosocial.activerecord.backend.expression import (
             AlterConstraint,

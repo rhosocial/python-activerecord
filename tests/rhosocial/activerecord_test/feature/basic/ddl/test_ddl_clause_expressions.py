@@ -137,7 +137,7 @@ def _identity_column(dialect, **kwargs):
     from rhosocial.activerecord.base import IdentityAttribute
 
     col = _column(dialect)
-    col.attributes = dialect.select_column_attributes([IdentityAttribute(**kwargs)])
+    col.attributes = [IdentityAttribute(**kwargs)]
     return col
 
 

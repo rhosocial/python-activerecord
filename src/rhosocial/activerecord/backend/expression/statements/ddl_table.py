@@ -305,9 +305,7 @@ class ColumnDefinition(BaseExpression):
         self.constraints = list(constraints or [])
         self.comment = comment
         self.generated_expression = generated_expression
-        # Dialect-free column attributes (identity, collation, character set,
-        # …) — already selected by the dialect's ``select_column_attributes``;
-        # rendered through ``format_column_attribute``.
+        # Dialect-free attributes are rendered by the owning backend.
         self.attributes = list(attributes or [])
 
 

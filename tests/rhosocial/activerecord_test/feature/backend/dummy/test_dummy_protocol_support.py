@@ -213,12 +213,6 @@ class TestDummyProtocolSupport:
         assert dialect.supports_list_table_partitioning() is False
         assert dialect.supports_hash_table_partitioning() is False
         assert dialect.supports_subpartitioning() is False
-        assert dialect.supports_add_partition() is False
-        assert dialect.supports_drop_partition() is False
-        assert dialect.supports_truncate_partition() is False
-        assert dialect.supports_reorganize_partition() is False
-        assert dialect.supports_attach_partition() is False
-        assert dialect.supports_detach_partition() is False
         assert dialect.supports_table_tablespace() is True
         assert dialect.supports_drop_column() is True
         assert dialect.supports_drop_column_if_exists() is True

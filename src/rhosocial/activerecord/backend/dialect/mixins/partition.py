@@ -1,11 +1,11 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/partition.py
-"""Dialect mixin for table partitioning support.
+"""Dialect mixin for generic table partitioning expressions.
 
-Declares partitioning capabilities and formats the generic PARTITION BY
-clause. All ``supports_*`` capability flags default to False; the clause
-renderer succeeds only when the dialect advertises partitioned-table creation
-support. Inline partition definitions have no portable generic syntax, so
-``format_partition_definition`` always raises unless a backend overrides it.
+Declares partitioning capabilities and formats the generic ``PARTITION BY``
+clause. Lifecycle orchestration is not part of this mixin. All ``supports_*``
+capability flags default to False; inline partition definitions have no
+portable generic syntax, so ``format_partition_definition`` always raises
+unless a backend overrides it.
 """
 from typing import Tuple, TYPE_CHECKING
 
@@ -58,48 +58,6 @@ class PartitionMixin:
 
     def supports_subpartitioning(self) -> bool:
         """Whether table subpartitioning is supported. Defaults to False."""
-        return False
-
-    def supports_add_partition(self) -> bool:
-        """Whether adding partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_drop_partition(self) -> bool:
-        """Whether dropping partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_truncate_partition(self) -> bool:
-        """Whether truncating partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_reorganize_partition(self) -> bool:
-        """Whether reorganizing partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_attach_partition(self) -> bool:
-        """Whether attaching partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_detach_partition(self) -> bool:
-        """Whether detaching partitions through the public API is supported.
-
-        Defaults to False.
-        """
         return False
 
     def format_partition_clause(self, expr: "PartitionClause") -> Tuple[str, tuple]:

@@ -1349,21 +1349,11 @@ class TableSupport(Protocol):
 
 @runtime_checkable
 class PartitionSupport(Protocol):
-    """Protocol for table partitioning support.
+    """Protocol for generic table partitioning expression support.
 
-    This protocol defines the minimal generic interface for table partitioning
-    capability detection and PARTITION BY clause formatting. Backend-specific
-    partition lifecycle construction is exposed separately through the
-    dialect's optional ``get_partition_lifecycle_provider`` hook.
-
-    Operation capability flags such as add/drop/truncate/reorganize/attach/detach
-    describe generic feature categories only. Backends that expose executable
-    partition maintenance statements must define both a lifecycle provider and
-    the corresponding backend-owned expressions.
-
-    Dialects implementing this protocol must provide:
-    - supports_*() methods for generic capability detection
-    - format_partition_clause() for SQL generation
+    The protocol covers capability detection, ``PARTITION BY`` clause
+    formatting, and backend-owned partition definition formatting. Partition
+    lifecycle orchestration is intentionally outside this protocol.
     """
 
     def supports_table_partitioning(self) -> bool:
@@ -1392,30 +1382,6 @@ class PartitionSupport(Protocol):
 
     def supports_subpartitioning(self) -> bool:
         """Whether table subpartitioning is supported."""
-        ...  # pragma: no cover
-
-    def supports_add_partition(self) -> bool:
-        """Whether adding partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_drop_partition(self) -> bool:
-        """Whether dropping partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_truncate_partition(self) -> bool:
-        """Whether truncating partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_reorganize_partition(self) -> bool:
-        """Whether reorganizing partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_attach_partition(self) -> bool:
-        """Whether attaching partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_detach_partition(self) -> bool:
-        """Whether detaching partitions through the public API is supported."""
         ...  # pragma: no cover
 
     def format_partition_clause(self, expr: "PartitionClause") -> Tuple[str, tuple]:
@@ -2170,31 +2136,7 @@ class AutoIncrementSupport(Protocol):
 
 @runtime_checkable
 class ColumnAttributeSupport(Protocol):
-    """Protocol for dialect-free column-attribute selection and rendering.
-
-    A **column attribute** (identity, collation, character set, …) is declared
-    dialect-free on the AR side (``Annotated[T, UseColumnAttributes(...)]``),
-    collected per column by the AR layer, and handed to the dialect, which
-    **selects the ones it can render** (:meth:`select_column_attributes`) and
-    turns them into SQL (:meth:`format_column_attribute`). Ownership and
-    capability decisions live here — the AR layer never filters by backend.
-
-    Generic attributes are filtered through the capability switches this
-    protocol implies; backend-only attributes are carried by the backend's
-    own ``ColumnAttribute`` subclasses.
-    """
-
-    def select_column_attributes(self, attributes: "List[ColumnAttribute]") -> "List[ColumnAttribute]":
-        """Filter the declared attributes down to the renderable ones.
-
-        Args:
-            attributes: Every attribute declared for one column, in
-                declaration order (order = priority).
-
-        Returns:
-            The attributes this dialect renders, in declaration order.
-        """
-        ...  # pragma: no cover
+    """Protocol for rendering explicitly supplied column attributes."""
 
     def format_column_attribute(self, attr: "ColumnAttribute") -> Tuple[str, tuple]:
         """Render one selected attribute as a column-definition fragment.

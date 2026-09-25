@@ -148,9 +148,7 @@ def configure_test_db():
     backend = SQLiteBackend(config)
     User.configure(backend=backend)
     Order.configure(backend=backend)
-    # Create schema
-    User.create_table()
-    Order.create_table()
+    # Provision the schema with explicit DDL expressions or migrations.
     yield
     # Teardown: nothing to do for :memory: -- it disappears with the process
 
@@ -171,7 +169,7 @@ def fresh_db():
     config = SQLiteConnectionConfig(database=":memory:")
     backend = SQLiteBackend(config)
     User.configure(backend=backend)
-    User.create_table()
+    # Provision the schema before issuing model queries.
     yield backend
     # No explicit cleanup needed; :memory: is discarded after the test
 ```

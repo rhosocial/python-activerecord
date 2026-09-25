@@ -105,56 +105,6 @@ class DDLColumnMixin:
         """
         return False
 
-    def select_column_attributes(self, attributes: "List[Any]") -> "List[Any]":
-        """Filter declared column attributes down to the renderable ones.
-
-        The declared attributes are dialect-free (``ColumnAttribute``
-        subclasses); selection follows the additive semantics (§5.6): a
-        foreign-backend attribute is skipped, while an owned/generic
-        attribute this dialect cannot render raises
-        :class:`DeclarationSelectionError` — a declaration is never silently
-        dropped.
-
-        Per-kind capability switches: identity →
-        :meth:`supports_auto_increment`, collation →
-        :meth:`supports_column_collation`, character set →
-        :meth:`supports_column_character_set`. Unknown kinds are backend
-        extensions and render only on their owning backend.
-        """
-        from ....ddl.selector import DeclarationSelectionError, ExpressionOwnership
-
-        ownership = ExpressionOwnership(self)
-        selected: List[Any] = []
-        for attr in attributes:
-            classification = ownership.classify(type(attr))
-            if classification == ExpressionOwnership.FOREIGN:
-                continue
-            kind = getattr(attr, "kind", "")
-            if kind == "identity":
-                renderable = self.supports_auto_increment()
-            elif kind == "collation":
-                renderable = self.supports_column_collation()
-            elif kind == "character_set":
-                renderable = self.supports_column_character_set()
-            else:
-                renderable = False
-            if renderable:
-                selected.append(attr)
-            elif kind in ("identity", "collation", "character_set"):
-                # Known generic kinds are capability-gated: the dialect skips
-                # the ones it does not support (multi-backend candidates).
-                continue
-            else:
-                # Unknown kinds are backend extensions: a generic-owned one
-                # cannot render anywhere — error, never silent (§5.6).
-                owner = ownership.owner_backend(type(attr))
-                owner_label = f"backend {owner!r}" if owner else "core (generic)"
-                raise DeclarationSelectionError(
-                    "column_attributes",
-                    [(type(attr).__name__, owner_label, "not supported by this dialect")],
-                )
-        return selected
-
     def format_column_attribute(self, attr: "Any") -> Tuple[str, Tuple]:
         """Render one selected column attribute as a definition fragment.
 
@@ -306,9 +256,6 @@ class DDLColumnMixin:
         type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
-        # Dialect-free column attributes (identity, collation, character set,
-        # …) selected by `select_column_attributes`; rendered through
-        # `format_column_attribute`.
         attr_sql, attr_params = self.format_column_attributes(col_def)
         col_sql += attr_sql
         all_params.extend(attr_params)

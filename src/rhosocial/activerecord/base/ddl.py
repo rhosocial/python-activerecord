@@ -307,8 +307,8 @@ class DDLSource(Protocol):
 
     ``DDLSource`` exposes declarations only: table and field metadata, column
     constraints and attributes, indexes, generated columns, and table-level
-    options.  ``ActiveDDL`` consumes this contract to build backend-bound DDL
-    expressions; the source itself never creates, renders, or executes SQL.
+    options.  Consumers use this contract to inspect DDL declarations; the
+    source itself never creates, renders, or executes SQL.
 
     The protocol is intentionally structural.  ``ActiveRecord`` satisfies it
     through :class:`DDLSourceMixin`, while integrations may provide their own
@@ -416,10 +416,9 @@ class DDLSourceMixin:
     Backend-owned field annotations are accepted only when an explicit
     ``DDLAnnotationHandler`` is registered by the model.
 
-    It only presents parameters.  It does not import or construct ``ActiveDDL``,
-    bind a backend dialect, generate statements, retain DDL state, or execute
-    SQL.  Applications may override any classmethod to provide a different
-    declaration source while keeping ``ActiveDDL`` independent of ActiveRecord.
+    It only presents parameters.  It does not bind a backend dialect, generate
+    statements, retain DDL state, or execute SQL.  Applications may override
+    any classmethod to provide a different declaration source.
     """
 
     _feature_handlers = [DDLAnnotationHandler]

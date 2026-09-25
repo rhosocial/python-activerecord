@@ -114,25 +114,13 @@ class UseAdapter:
 class UseSqlType(DDLAnnotation):
     """Marker for ``Annotated[T, UseSqlType(*type_defs)]``.
 
-    Instructs the DDL generator to use the supplied SQL ``DataType`` instance(s)
-    when building a ``ColumnDefinition`` for this field, overriding the dialect's
-    default type suggestion for ``T``.
+    Declares the SQL ``DataType`` candidates associated with a model field.
+    ``DDLSource`` exposes the candidates in declaration order; dialect binding,
+    capability selection, and fallback policy belong to external consumers.
 
-    One or more ``DataType`` instances may be declared. At DDL-derivation time
-    the first declared type the current dialect supports
-    (``dialect.supports_data_types()``) is used; when none matches, derivation
-    falls back to the canonical Python-type mapping and the dialect's
-    ``suggested_data_types()`` (see
-    ``rhosocial.activerecord.ddl.ColumnTypeResolver``), and raises if that also
-    yields nothing. Declaration order therefore expresses
-    backend priority.
-
-    Each instance may be a core **generic** type (portable — every backend
-    renders it, natively or via the SQL-standard default) or a **backend-specific**
-    type (``<Backend>*Type``, e.g. ``PostgresJsonBType``, which renders only on
-    its owning backend). Backend-specific types render only on backends that
-    register them; any other backend skips them (and falls back) rather than
-    silently substituting a lossy form.
+    Each instance may be a core generic type or a backend-specific type such as
+    ``PostgresJsonBType``. Declaration order expresses backend priority without
+    coupling the declaration layer to any particular dialect.
 
     Examples::
 
