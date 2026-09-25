@@ -18,6 +18,12 @@ from rhosocial.activerecord.backend.expression import (
     SubpartitionDefinition,
 )
 from rhosocial.activerecord.backend.impl.dummy import DummyDialect
+from rhosocial.activerecord.ddl import (
+    PartitionCapabilities,
+    PartitionLifecycle,
+    PartitionOperation,
+    PartitionOperationNotSupportedError,
+)
 
 
 class _PartitionDialect(DummyDialect):
@@ -37,6 +43,46 @@ class _PartitionDialect(DummyDialect):
 
     def supports_hash_table_partitioning(self) -> bool:
         return True
+
+
+class _LifecycleSource:
+    @classmethod
+    def table_name(cls):
+        return "events"
+
+    @classmethod
+    def schema_name(cls):
+        return None
+
+
+class _LifecycleProvider:
+    def __init__(self, dialect):
+        self.dialect = dialect
+        self.request = None
+
+    def capabilities(self):
+        return PartitionCapabilities(
+            frozenset({PartitionOperation.CREATE, PartitionOperation.DROP}),
+            ("RANGE",),
+        )
+
+    def supports(self, operation):
+        return operation in {PartitionOperation.CREATE, PartitionOperation.DROP}
+
+    def build(self, request):
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
+        self.request = request
+        return TableExpression(self.dialect, request.table.name)
+
+
+class _LifecycleDialect(DummyDialect):
+    def __init__(self):
+        super().__init__()
+        self.lifecycle_provider = _LifecycleProvider(self)
+
+    def get_partition_lifecycle_provider(self):
+        return self.lifecycle_provider
 
 
 @pytest.fixture
@@ -166,3 +212,39 @@ def test_generic_format_partition_definition_fails_fast():
     dialect = DefinitionMixinDialect()
     with pytest.raises(UnsupportedFeatureError, match="partition definition"):
         dialect.format_partition_definition(PartitionDefinition(name="p0"))
+
+
+def test_partition_lifecycle_uses_explicit_provider():
+    lifecycle = PartitionLifecycle(_LifecycleSource, _LifecycleDialect())
+    assert lifecycle.capabilities().supports(PartitionOperation.DROP)
+    assert lifecycle.drop_partition("p0").name == "events"
+
+
+def test_partition_lifecycle_fails_without_provider():
+    lifecycle = PartitionLifecycle(_LifecycleSource, DummyDialect())
+    with pytest.raises(PartitionOperationNotSupportedError):
+        lifecycle.drop_partition("p0")
+
+
+def test_create_partition_forwards_clause_and_schema_overrides():
+    dialect = _LifecycleDialect()
+    lifecycle = PartitionLifecycle(_LifecycleSource, dialect)
+    clause = PartitionClause(
+        dialect,
+        PartitionStrategy.LIST,
+        [Column(dialect, "region")],
+    )
+
+    lifecycle.create_partition(
+        "events_emea",
+        "RANGE",
+        {"from": "2026-01-01", "to": "2027-01-01"},
+        partition_clause=clause,
+        partition_schema="events_child",
+        parent_schema="events_parent",
+    )
+
+    request = dialect.lifecycle_provider.request
+    assert request.partition_clause is clause
+    assert request.partition_schema == "events_child"
+    assert request.parent_schema == "events_parent"

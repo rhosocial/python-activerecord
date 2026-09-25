@@ -10,7 +10,7 @@ generic renderer gates them on ``supports_table_inherits()`` /
 
 import pytest
 
-from rhosocial.activerecord.base.ddl import TableDDLDeriver
+from rhosocial.activerecord.ddl import TableDDLDeriver
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.dummy import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect

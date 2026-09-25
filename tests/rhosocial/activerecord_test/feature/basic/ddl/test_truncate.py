@@ -1,14 +1,13 @@
 # tests/rhosocial/activerecord_test/feature/basic/ddl/test_truncate.py
-"""Model-level ``truncate()`` operation (§5.18).
+"""Source-bound TRUNCATE expression generation (§5.18).
 
-``truncate`` is a model operation (it executes), built on the deriver's
-``TRUNCATE TABLE`` expression; backends that lack the statement raise through
-their render gate rather than silently degrading.
+Backends that lack the statement raise through the expression render gate
+rather than silently degrading.
 """
 
 import pytest
 
-from rhosocial.activerecord.base.ddl import TableDDLDeriver
+from rhosocial.activerecord.ddl import TableDDLDeriver
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
     TruncateExpression,
@@ -42,7 +41,7 @@ def test_truncate_renders_options():
     assert "CASCADE" in sql
 
 
-def test_model_truncate_unsupported_raises():
+def test_model_truncate_expression_unsupported_raises():
     Event.__backend__ = SQLiteBackend(SQLiteConnectionConfig(database=":memory:"))
     with pytest.raises(UnsupportedFeatureError):
-        Event.truncate()
+        Event.ddl().truncate().to_sql()

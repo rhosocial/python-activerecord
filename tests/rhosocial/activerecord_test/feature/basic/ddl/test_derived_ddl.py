@@ -20,9 +20,9 @@ from uuid import UUID
 import pytest
 
 from rhosocial.activerecord.base import (
-    ColumnTypeResolutionError,
-    ColumnTypeResolver,
-    PythonTypeMapping,
+    ColumnOptions,
+    DDLAnnotation,
+    DDLAnnotationHandler,
     UseColumn,
     UseConstraint,
     UseIndex,
@@ -34,7 +34,12 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     CreateTableExpression,
 )
 from rhosocial.activerecord.backend.expression.types import VarCharType
-from rhosocial.activerecord.base.ddl.options import ColumnOptions
+from rhosocial.activerecord.ddl import (
+    ColumnTypeResolutionError,
+    ColumnTypeResolver,
+    PythonTypeMapping,
+    TableDDLDeriver,
+)
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -146,6 +151,41 @@ class WithColumnOptions(ActiveRecord):
         return None
 
 
+class UnhandledDDLAnnotation(DDLAnnotation):
+    pass
+
+
+class ModelWithUnhandledDDLAnnotation(ActiveRecord):
+    __table_name__ = "unhandled_ddl_annotation"
+
+    id: int
+    value: Annotated[str, UnhandledDDLAnnotation()]
+
+
+class BackendDDLAnnotation(DDLAnnotation):
+    def __init__(self, option):
+        self.option = option
+
+
+class BackendDDLAnnotationHandler(DDLAnnotationHandler):
+    annotation_types = (BackendDDLAnnotation,)
+
+    @classmethod
+    def apply(cls, new_class, field_name, annotation, metadata):
+        metadata.add_column_options(annotation.option)
+
+
+class BackendDDLAnnotationMixin:
+    _feature_handlers = [BackendDDLAnnotationHandler]
+
+
+class ModelWithBackendDDLAnnotation(BackendDDLAnnotationMixin, ActiveRecord):
+    __table_name__ = "backend_ddl_annotation"
+
+    id: int
+    value: Annotated[str, BackendDDLAnnotation(FakeColumnOptions(extra="annotated"))]
+
+
 @pytest.fixture
 def backend():
     instance = SQLiteBackend(SQLiteConnectionConfig(database=":memory:"))
@@ -164,6 +204,17 @@ def test_handler_collects_field_metadata():
     assert Sample.__table_ddl_fields__["code"].use_sql_type is not None
 
 
+def test_unhandled_ddl_annotation_fails_explicitly():
+    with pytest.raises(TypeError, match="explicit handler"):
+        ModelWithUnhandledDDLAnnotation.ddl_field_names()
+
+
+def test_backend_ddl_annotation_handler_populates_options():
+    options = ModelWithBackendDDLAnnotation.column_options("value")
+    assert isinstance(options, FakeColumnOptions)
+    assert options.extra == "annotated"
+
+
 def test_python_type_mapping_basics():
     assert type(PythonTypeMapping.data_type_for(int)).__name__ == "IntegerType"
     assert type(PythonTypeMapping.data_type_for(bool)).__name__ == "BooleanType"
@@ -174,7 +225,7 @@ def test_python_type_mapping_basics():
 
 
 def test_create_table_returns_expression(backend):
-    expression = Sample.create_table()
+    expression = Sample.ddl().create_table()
     assert isinstance(expression, CreateTableExpression)
     sql, params = expression.to_sql()
     assert sql.startswith('CREATE TABLE "samples" (')
@@ -182,7 +233,7 @@ def test_create_table_returns_expression(backend):
 
 
 def test_optional_fields_add_no_null_clause(backend):
-    sql, _ = Sample.create_table().to_sql()
+    sql, _ = Sample.ddl().create_table().to_sql()
     # §5.7: Optional[T] is nullable — no explicit NULL clause is output.
     assert '"nickname" TEXT NULL' not in sql
     assert '"nickname" TEXT' in sql
@@ -190,35 +241,35 @@ def test_optional_fields_add_no_null_clause(backend):
 
 
 def test_required_fields_add_not_null(backend):
-    sql, _ = Sample.create_table().to_sql()
+    sql, _ = Sample.ddl().create_table().to_sql()
     # §5.7: required T derives NOT NULL.
     assert '"name" TEXT NOT NULL' in sql
 
 
 def test_pk_members_are_forced_not_null(backend):
-    sql, _ = Sample.create_table().to_sql()
+    sql, _ = Sample.ddl().create_table().to_sql()
     # §5.7: PK members are forced NOT NULL (even the auto-increment PK).
     assert '"id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL' in sql
 
 
 def test_explicit_not_null_overrides_optional(backend):
-    sql, _ = Sample.create_table().to_sql()
+    sql, _ = Sample.ddl().create_table().to_sql()
     assert '"status" TEXT NOT NULL' in sql
 
 
 def test_primary_key_auto_increment_for_integer(backend):
-    sql, _ = Sample.create_table().to_sql()
+    sql, _ = Sample.ddl().create_table().to_sql()
     assert '"id" INTEGER PRIMARY KEY AUTOINCREMENT' in sql
 
 
 def test_use_sql_type_override(backend):
-    sql, _ = Sample.create_table().to_sql()
+    sql, _ = Sample.ddl().create_table().to_sql()
     assert '"code" TEXT' in sql
 
 
 def test_inline_indexes_omitted_when_unsupported(backend):
     # SQLite has no inline index support: CREATE TABLE carries no indexes.
-    assert Sample.create_table().indexes == []
+    assert Sample.ddl().create_table().indexes == []
 
 
 def test_use_index_is_derived(backend):
@@ -229,52 +280,51 @@ def test_use_index_is_derived(backend):
     assert [index.name for index in field_indexes] == ["idx_samples_email"]
     assert field_indexes[0].unique is True
 
-    statements = Sample.create_indexes()
+    statements = TableDDLDeriver(Sample, backend.dialect).create_indexes()
     assert len(statements) == 1
     assert statements[0].index_name == "idx_samples_email"
     assert statements[0].unique is True
 
 
 def test_use_column_maps_column_and_primary_key(backend):
-    sql, _ = Named.create_table().to_sql()
+    sql, _ = Named.ddl().create_table().to_sql()
     assert '"id" INTEGER PRIMARY KEY AUTOINCREMENT' in sql
     assert '"user_id"' not in sql
     assert '"label" TEXT' in sql
 
 
 def test_composite_primary_key_becomes_table_constraint(backend):
-    expression = Composite.create_table()
+    expression = Composite.ddl().create_table()
     sql, _ = expression.to_sql()
     assert 'PRIMARY KEY ("order_id", "product_id")' in sql
 
 
 def test_drop_table_expression(backend):
-    sql, params = Sample.drop_table(if_exists=True).to_sql()
+    sql, params = Sample.ddl().drop_table(if_exists=True).to_sql()
     assert sql == 'DROP TABLE IF EXISTS "samples"'
     assert params == ()
 
 
 def test_drop_table_purge_flag_is_carried(backend):
-    assert Sample.drop_table(purge=True).purge is True
+    assert Sample.ddl().drop_table(purge=True).purge is True
 
 
 def test_drop_table_purge_unsupported_raises(backend):
     from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
     with pytest.raises(UnsupportedFeatureError, match="PURGE"):
-        Sample.drop_table(purge=True).to_sql()
+        Sample.ddl().drop_table(purge=True).to_sql()
 
 
-def test_spec_roundtrip(backend):
-    original = Sample.create_table()
-    spec = Sample.create_table_spec()
-    rebuilt = Sample.create_table_from_spec(spec)
-    assert rebuilt.to_sql() == original.to_sql()
+def test_expression_generation_is_stable(backend):
+    first = Sample.ddl().create_table()
+    second = Sample.ddl().create_table()
+    assert first.to_sql() == second.to_sql()
 
 
 def test_unsupported_python_type_raises(backend):
     with pytest.raises(ColumnTypeResolutionError):
-        Unsupported.create_table()
+        Unsupported.ddl().create_table()
 
 
 def test_resolver_maps_canonical_types():
@@ -304,7 +354,7 @@ def test_resolver_use_sql_type_priority():
 
 
 def test_binder_copies_declared_expression(backend):
-    from rhosocial.activerecord.base.ddl import DialectBinder
+    from rhosocial.activerecord.ddl import DialectBinder
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
         CreateTableOptions,
         TableCommentClause,
@@ -319,9 +369,41 @@ def test_binder_copies_declared_expression(backend):
         _ = declared.dialect
 
 
+def test_binder_recursively_binds_table_and_index_expressions(backend):
+    from rhosocial.activerecord.ddl import DialectBinder
+    from rhosocial.activerecord.backend.expression import Column, FunctionCall, Literal
+    from rhosocial.activerecord.backend.expression.statements import (
+        IndexDefinition,
+        TableConstraint,
+        TableConstraintType,
+    )
+
+    table_constraint = TableConstraint(
+        None,
+        TableConstraintType.CHECK,
+        check_condition=Column(None, "age") > Literal(None, 0),
+    )
+    index = IndexDefinition(
+        None,
+        "idx_name_lower",
+        [FunctionCall(None, "LOWER", Column(None, "name"))],
+    )
+    binder = DialectBinder(backend.dialect)
+
+    bound_constraint = binder.bind(table_constraint)
+    bound_index = binder.bind(index)
+
+    assert bound_constraint.to_sql() == ('CHECK ("age" > 0)', ())
+    assert bound_index.columns[0].to_sql() == ('LOWER("name")', ())
+    with pytest.raises(ValueError):
+        table_constraint.to_sql()
+    with pytest.raises(ValueError):
+        index.columns[0].to_sql()
+
+
 def test_interface_override_is_used(backend):
     Overridden.__backend__ = backend
-    expression = Overridden.create_table()
+    expression = Overridden.ddl().create_table()
     assert expression.table_options is not None
     assert expression.table_options.comment.comment == "hello"
 
@@ -329,11 +411,11 @@ def test_interface_override_is_used(backend):
 def test_gate0_rejects_misdeclared_candidate(backend):
     Misdeclared.__backend__ = backend
     with pytest.raises(TypeError):
-        Misdeclared.create_table()
+        Misdeclared.ddl().create_table()
 
 
 def test_column_options_selects_backend_definition_class(backend):
-    expression = WithColumnOptions.create_table()
+    expression = WithColumnOptions.ddl().create_table()
     name_column = next(col for col in expression.columns if col.name == "name")
     assert isinstance(name_column, FakeColumnDefinition)
     assert name_column.extra == "typed"

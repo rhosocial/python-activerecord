@@ -2,7 +2,49 @@
 """Dialect mixins for table DDL and constraint capability detection."""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
+
+def _normalize_constraint_type(constraint_type: Any, constraint_enum: type, label: str) -> Any:
+    if isinstance(constraint_type, constraint_enum):
+        return constraint_type
+    raw_value = getattr(constraint_type, "value", constraint_type)
+    raw_name = getattr(constraint_type, "name", raw_value)
+    candidates = []
+    for candidate in (raw_value, raw_name):
+        if isinstance(candidate, str):
+            normalized = " ".join(candidate.strip().split()).upper()
+            candidates.extend((normalized, normalized.replace(" ", "_")))
+    for candidate in candidates:
+        try:
+            return constraint_enum(candidate)
+        except ValueError:
+            continue
+    raise ValueError(
+        f"{label} must be a {constraint_enum.__name__} or its string value"
+    )
+
+
+def normalize_column_constraint_type(constraint_type: Any) -> Any:
+    from ...expression.statements.ddl_table import ColumnConstraintType
+
+    return _normalize_constraint_type(
+        constraint_type,
+        ColumnConstraintType,
+        "column constraint type",
+    )
+
+
+def normalize_table_constraint_type(constraint_type: Any) -> Any:
+    from ...expression.statements.ddl_table import TableConstraintType
+
+    return _normalize_constraint_type(
+        constraint_type,
+        TableConstraintType,
+        "table constraint type",
+    )
+
+
 if TYPE_CHECKING:  # pragma: no cover
+    from ...expression.core import TableExpression
     from ...expression.statements import (
         CreateTableExpression,
         CreateTableAsExpression,
@@ -526,6 +568,12 @@ class TableMixin:
             all_params.extend(col_params)
         all_def_parts = [", ".join(column_parts)]
         for t_const in expr.table_constraints:
+            validation = getattr(t_const, "validation", None)
+            if validation is not None:
+                validation_value = getattr(validation, "value", validation)
+                normalized_validation = "".join(str(validation_value).strip().upper().split())
+                if normalized_validation in {"NOTVALID", "NOVALIDATE"}:
+                    raise ValueError("NOT VALID is only valid when adding a constraint")
             const_sql, const_params = self.format_table_constraint(t_const)
             if const_sql:
                 all_def_parts.append(const_sql)
@@ -800,6 +848,21 @@ class ConstraintMixin:
         Defaults to True.
         """
         return True
+
+    def supports_alter_constraint_enforced(
+        self,
+        constraint_type: Any = None,
+    ) -> bool:
+        """Whether ALTER CONSTRAINT enforcement control is supported."""
+        return False
+
+    def supports_exclude_constraint(self) -> bool:
+        """Whether EXCLUDE table constraints are supported."""
+        return False
+
+    def supports_validate_constraint(self) -> bool:
+        """Whether VALIDATE CONSTRAINT is supported."""
+        return False
 
     # ALTER TABLE constraint operations (SQL-92)
 

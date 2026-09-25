@@ -16,13 +16,10 @@ KNOWN_NON_AUTO_CONSTRUCTIBLE with a reason, so new violations fail loudly.
 import inspect
 import warnings
 
-import pytest
-
-from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.core import Literal
 from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
 
 from rhosocial.activerecord.testsuite.utils.expression import (
-    _placeholder_for,
     _try_construct,
     special_constructors,
 )
@@ -39,6 +36,8 @@ KNOWN_NON_AUTO_CONSTRUCTIBLE = {
     "statements.ddl_type.AlterTypeExpression": "requires at least one concrete TypeAlterAction",
     "statements.ddl_domain.AddDomainCheckAction": "requires a concrete DomainCheckConstraint",
     "statements.ddl_domain.AlterDomainExpression": "requires at least one concrete DomainAlterAction",
+    "statements.ddl_alter.AlterConstraint": "requires a non-empty constraint name",
+    "statements.ddl_alter.ValidateConstraint": "requires a non-empty constraint name",
 }
 
 
@@ -124,7 +123,6 @@ class TestInitParamAttributeContract:
         for fqn, cls in ExpressionRegistry._registry.items():
             if inspect.isabstract(cls):
                 continue
-            src = _inspect.getsource(cls.get_params)
             sig = _inspect.signature(cls.__init__)
             is_vararg = any(
                 p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)

@@ -19,7 +19,17 @@ if TYPE_CHECKING:
         ReferentialAction,
     )
     from ..backend.expression.types import DataType
-    from .ddl.attributes import ColumnAttribute
+    from .ddl import ColumnAttribute
+
+
+class DDLAnnotation:
+    """Base marker for field annotations that affect DDL generation.
+
+    Core markers and backend-owned markers use this common base so the DDL
+    metadata collector can distinguish DDL declarations from unrelated
+    annotation metadata.  A backend marker must be accompanied by an explicit
+    handler registered in the model's ``_feature_handlers`` collection.
+    """
 
 
 class UseColumn:
@@ -101,7 +111,7 @@ class UseAdapter:
         self.target_db_type = target_db_type
 
 
-class UseSqlType:
+class UseSqlType(DDLAnnotation):
     """Marker for ``Annotated[T, UseSqlType(*type_defs)]``.
 
     Instructs the DDL generator to use the supplied SQL ``DataType`` instance(s)
@@ -112,8 +122,9 @@ class UseSqlType:
     the first declared type the current dialect supports
     (``dialect.supports_data_types()``) is used; when none matches, derivation
     falls back to the canonical Python-type mapping and the dialect's
-    ``suggested_data_types()`` (see ``base.ddl.types.ColumnTypeResolver``), and
-    raises if that also yields nothing. Declaration order therefore expresses
+    ``suggested_data_types()`` (see
+    ``rhosocial.activerecord.ddl.ColumnTypeResolver``), and raises if that also
+    yields nothing. Declaration order therefore expresses
     backend priority.
 
     Each instance may be a core **generic** type (portable — every backend
@@ -174,7 +185,7 @@ class UseSqlType:
         return f"UseSqlType({', '.join(repr(t) for t in self.data_types)})"
 
 
-class UseIndex:
+class UseIndex(DDLAnnotation):
     """Marker for ``Annotated[T, UseIndex(name, ...)]``.
 
     Declares a single-column index that the DDL generator will emit inline
@@ -245,7 +256,7 @@ class UseIndex:
         )
 
 
-class UseConstraint:
+class UseConstraint(DDLAnnotation):
     """Marker for ``Annotated[T, UseConstraint(constraint_type, ...)]``.
 
     Declares a constraint applied directly to the annotated column in the
@@ -291,6 +302,7 @@ class UseConstraint:
         on_update: Optional["ReferentialAction"] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
+        enforced: Optional[bool] = None,
     ):
         # check_condition may be a ready SQLPredicate or a lazy
         # ``(dialect) -> SQLPredicate`` factory; the generator resolves it.
@@ -316,13 +328,14 @@ class UseConstraint:
             on_update=on_update,
             deferrable=deferrable,
             initially_deferred=initially_deferred,
+            enforced=enforced,
         )
 
     def __repr__(self) -> str:
         return f"UseConstraint({self.constraint.constraint_type.name})"
 
 
-class UseColumnAttributes:
+class UseColumnAttributes(DDLAnnotation):
     """Marker for ``Annotated[T, UseColumnAttributes(attr, ...)]``.
 
     Declares one or more dialect-free :class:`ColumnAttribute` objects
@@ -337,7 +350,7 @@ class UseColumnAttributes:
     """
 
     def __init__(self, *attributes: "ColumnAttribute"):
-        from .ddl.attributes import ColumnAttribute
+        from .ddl import ColumnAttribute
 
         if not attributes:
             raise TypeError(
@@ -361,7 +374,7 @@ class UseColumnAttributes:
         return f"UseColumnAttributes({kinds})"
 
 
-class UseComment:
+class UseComment(DDLAnnotation):
     """Marker for ``Annotated[T, UseComment("...")]``.
 
     Declares the column comment rendered with the column definition (on
@@ -382,7 +395,7 @@ class UseComment:
         return f"UseComment({self.comment!r})"
 
 
-class UseGeneratedColumn:
+class UseGeneratedColumn(DDLAnnotation):
     """Marker for ``Annotated[T, UseGeneratedColumn(expr)]``.
 
     Declares a generated (computed) column whose value the database derives

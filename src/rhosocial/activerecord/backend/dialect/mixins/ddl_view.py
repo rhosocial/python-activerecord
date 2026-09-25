@@ -107,7 +107,10 @@ class ViewMixin:
                     f"{self.name} does not support CREATE VIEW IF NOT EXISTS."
                 )
             if_not_exists_part = "IF NOT EXISTS "
-        sql_parts = [f"CREATE {replace_part}{temporary_part}VIEW {if_not_exists_part}{self.format_identifier(expr.view_name)}"]
+        sql_parts = [
+            f"CREATE {replace_part}{temporary_part}VIEW {if_not_exists_part}"
+            f"{self.format_identifier(expr.view_name)}"
+        ]
         all_params: List[Any] = []
         if expr.column_aliases:
             aliases_str = ", ".join(self.format_identifier(alias) for alias in expr.column_aliases)
@@ -296,7 +299,13 @@ class TruncateMixin:
                 self.name, "TRUNCATE CASCADE",
                 f"{self.name} does not support TRUNCATE with CASCADE."
             )
-        sql = f"TRUNCATE TABLE {self.format_identifier(expr.table_name)}"
+        table_sql = self.format_identifier(expr.table_name)
+        if getattr(expr, "schema", None):
+            table_sql = (
+                f"{self.format_identifier(expr.schema)}."
+                f"{table_sql}"
+            )
+        sql = f"TRUNCATE TABLE {table_sql}"
         if expr.restart_identity:
             sql += " RESTART IDENTITY"
         if expr.cascade:

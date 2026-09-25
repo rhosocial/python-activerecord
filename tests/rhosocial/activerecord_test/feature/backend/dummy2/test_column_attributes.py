@@ -3,11 +3,11 @@
 
 import pytest
 
-from rhosocial.activerecord.base import UseColumnAttributes
-from rhosocial.activerecord.base.ddl.attributes import (
+from rhosocial.activerecord.base import (
     CharacterSetAttribute,
     CollationAttribute,
     IdentityAttribute,
+    UseColumnAttributes,
 )
 
 

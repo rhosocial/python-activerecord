@@ -19,7 +19,6 @@ if TYPE_CHECKING:  # pragma: no cover
         MergeExpression,
         MatchClause,
         QualifyClause,
-        GraphEdgeDirection,
         GraphTableExpression,
         GraphVertex,
         GraphEdge,
@@ -48,7 +47,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ReleaseSavepointExpression,
         SetTransactionExpression,
     )
-    from ...activerecord.base.ddl.attributes import ColumnAttribute
+    from ...base.ddl import ColumnAttribute
     from ..expression.xml import (
         XMLAggExpression,
         XMLAttributesExpression,
@@ -64,7 +63,7 @@ if TYPE_CHECKING:  # pragma: no cover
         XMLSerializeExpression,
         XMLTableExpression,
     )
-    from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause, WhereClause
+    from ..expression.query_parts import ForUpdateClause
     from ..expression.advanced_functions import OrderedSetAggregation, ArrayExpression
     from ..expression.statements import (
         CreateTableExpression,
@@ -112,9 +111,14 @@ if TYPE_CHECKING:  # pragma: no cover
         ReturningClause,
         PartitionClause,
         PartitionDefinition,
-        ColumnConstraint,
-        ForeignKeyConstraint,
-        ReferencesClause,
+         ColumnConstraint,
+         CommentOnExpression,
+         ReferencesClause,
+         TableConstraint,
+         AlterConstraint,
+         ValidateConstraint,
+
+
     )
     from ..introspection.expressions import (
         DatabaseInfoExpression,
@@ -1349,13 +1353,13 @@ class PartitionSupport(Protocol):
 
     This protocol defines the minimal generic interface for table partitioning
     capability detection and PARTITION BY clause formatting. Backend-specific
-    partition methods and detailed maintenance operations belong in backend
-    protocols.
+    partition lifecycle construction is exposed separately through the
+    dialect's optional ``get_partition_lifecycle_provider`` hook.
 
     Operation capability flags such as add/drop/truncate/reorganize/attach/detach
     describe generic feature categories only. Backends that expose executable
-    partition maintenance statements must define the corresponding structured
-    expressions and format_* methods in backend-specific protocols.
+    partition maintenance statements must define both a lifecycle provider and
+    the corresponding backend-owned expressions.
 
     Dialects implementing this protocol must provide:
     - supports_*() methods for generic capability detection
@@ -1574,6 +1578,22 @@ class ConstraintSupport(Protocol):
     def supports_constraint_enforced(self) -> bool:
         """Whether ENFORCED / NOT ENFORCED constraint control is supported."""
         ...  # pragma: no cover
+
+    def supports_alter_constraint_enforced(self) -> bool:
+        """Whether ALTER CONSTRAINT enforcement control is supported."""
+        ...
+
+    def supports_validate_constraint(self) -> bool:
+        """Whether VALIDATE CONSTRAINT is supported."""
+        ...
+
+    def format_alter_constraint_action(self, action: "AlterConstraint") -> Tuple[str, tuple]:
+        """Format an ALTER CONSTRAINT enforcement action."""
+        ...
+
+    def format_validate_constraint_action(self, action: "ValidateConstraint") -> Tuple[str, tuple]:
+        """Format a VALIDATE CONSTRAINT action."""
+        ...
 
     # ALTER TABLE constraint operations (SQL-92)
 

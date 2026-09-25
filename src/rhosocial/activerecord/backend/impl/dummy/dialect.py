@@ -942,6 +942,12 @@ class DummyDialect(
         """Whether EXCLUDE constraints are supported (PG-proprietary)."""
         return True
 
+    def supports_alter_constraint_enforced(self) -> bool:
+        return True
+
+    def supports_validate_constraint(self) -> bool:
+        return True
+
     # endregion
 
     # region View DDL Support
@@ -1441,14 +1447,18 @@ class DummyDialect(
                 if constraint.check_condition is None:
                     raise ValueError("CHECK constraint must have a check condition specified.")
                 check_sql, check_params = constraint.check_condition.to_sql()
-                col_sql += f" CHECK ({check_sql})"
+                enforcement = self._format_constraint_enforcement(constraint)
+                suffix = f" {enforcement}" if enforcement else ""
+                col_sql += f" CHECK ({check_sql}){suffix}"
                 all_params.extend(check_params)
             elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
                 if constraint.foreign_key_reference is None:
                     raise ValueError("FOREIGN KEY constraint must have a foreign key reference specified.")
                 ref_table, ref_cols = constraint.foreign_key_reference
                 ref_cols_str = ", ".join(self.format_identifier(col) for col in ref_cols)
-                col_sql += f" REFERENCES {self.format_identifier(ref_table)}({ref_cols_str})"
+                enforcement = self._format_constraint_enforcement(constraint)
+                suffix = f" {enforcement}" if enforcement else ""
+                col_sql += f" REFERENCES {self.format_identifier(ref_table)}({ref_cols_str}){suffix}"
 
         if col_def.generated_expression is not None:
             gen_sql, gen_params = col_def.generated_expression.to_sql()

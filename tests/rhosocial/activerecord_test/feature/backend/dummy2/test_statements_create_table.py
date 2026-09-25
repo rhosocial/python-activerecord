@@ -290,7 +290,7 @@ class TestCreateTableStatements:
 
     def test_column_definition_identity_via_attribute(self, dummy_dialect: DummyDialect):
         """Identity is declared through the column-attribute channel (§5.3)."""
-        from rhosocial.activerecord.base.ddl.attributes import IdentityAttribute
+        from rhosocial.activerecord.base import IdentityAttribute
 
         col = ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect))
         col.attributes = dummy_dialect.select_column_attributes(

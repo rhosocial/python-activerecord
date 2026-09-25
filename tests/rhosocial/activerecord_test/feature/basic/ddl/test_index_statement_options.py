@@ -16,7 +16,7 @@ except ImportError:  # Python 3.8
 import pytest
 
 from rhosocial.activerecord.base import UseIndex
-from rhosocial.activerecord.base.ddl import TableDDLDeriver
+from rhosocial.activerecord.ddl import TableDDLDeriver
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     IndexDefinition,
 )

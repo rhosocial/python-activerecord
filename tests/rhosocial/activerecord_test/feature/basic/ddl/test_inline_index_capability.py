@@ -34,7 +34,6 @@ from rhosocial.activerecord.backend.expression.statements.ddl_index import (
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     ColumnDefinition,
     CreateTableExpression,
-    DropTableExpression,
     IndexDefinition,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
@@ -42,6 +41,7 @@ from rhosocial.activerecord.backend.impl.dummy import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.ddl import TableDDLDeriver
 from rhosocial.activerecord.model import ActiveRecord
 
 
@@ -110,11 +110,11 @@ def test_generic_create_table_without_indexes_ok():
 
 def test_deriver_sqlite_snapshot_carries_no_indexes(backend):
     # SQLite has no inline index support: CREATE TABLE carries no indexes.
-    assert Indexed.create_table().indexes == []
+    assert Indexed.ddl().create_table().indexes == []
 
 
 def test_deriver_sqlite_create_indexes_covers_all(backend):
-    statements = Indexed.create_indexes()
+    statements = TableDDLDeriver(Indexed, backend.dialect).create_indexes()
     assert len(statements) == 1
     assert isinstance(statements[0], CreateIndexExpression)
     assert statements[0].index_name == "idx_indexed_email"
@@ -122,50 +122,37 @@ def test_deriver_sqlite_create_indexes_covers_all(backend):
     assert statements[0].unique is True
 
 
-def test_deriver_create_schema_completeness(backend):
-    plan = Indexed.creation_plan()
-    assert isinstance(plan[0], CreateTableExpression)
-    standalone = [expr for expr in plan if isinstance(expr, CreateIndexExpression)]
+def test_deriver_create_table_and_standalone_indexes(backend):
+    table = Indexed.ddl().create_table()
+    standalone = TableDDLDeriver(Indexed, backend.dialect).create_indexes()
     declared = Indexed.column_indexes("email")
-    # Union of inline + standalone indexes equals the declared set, no overlap.
-    assert plan[0].indexes == []
+    assert isinstance(table, CreateTableExpression)
+    assert table.indexes == []
     assert [expr.index_name for expr in standalone] == [i.name for i in declared]
 
 
-def test_deriver_drop_schema_orders_indexes_first(backend):
-    plan = Indexed.teardown_plan()
-    assert isinstance(plan[0], DropIndexExpression)
-    assert plan[0].index_name == "idx_indexed_email"
-    assert plan[-1].table.name == "indexed"
+def test_deriver_drop_table_expression(backend):
+    expression = Indexed.ddl().drop_table(if_exists=True)
+    assert expression.table.name == "indexed"
+    assert expression.if_exists is True
 
 
 def test_deriver_drop_indexes_if_exists(backend):
-    statements = Indexed.drop_indexes(if_exists=True)
+    statements = TableDDLDeriver(Indexed, backend.dialect).drop_indexes(if_exists=True)
     sql, _ = statements[0].to_sql()
     assert "IF EXISTS" in sql
 
 
-def test_deprecated_schema_aliases_warn_and_return_statements(backend):
-    with pytest.warns(DeprecationWarning):
-        creation = Indexed.create_schema()
-    with pytest.warns(DeprecationWarning):
-        teardown = Indexed.drop_schema()
-    assert isinstance(creation[0], CreateTableExpression)
-    assert isinstance(creation[-1], CreateIndexExpression)
-    assert isinstance(teardown[0], DropIndexExpression)
-    assert isinstance(teardown[-1], DropTableExpression)
-
-
 def test_deriver_inline_indexes_override_true_raises_on_sqlite(backend):
     # Explicit intent conflicts with capability -> visible error, not silence.
-    expression = Indexed.create_table(inline_indexes=True)
+    expression = Indexed.ddl().create_table(inline_indexes=True)
     assert [index.name for index in expression.indexes] == ["idx_indexed_email"]
     with pytest.raises(UnsupportedFeatureError, match="inline index"):
         expression.to_sql()
 
 
 def test_deriver_inline_indexes_override_false_forces_standalone(backend):
-    expression = Indexed.create_table(inline_indexes=False)
+    expression = Indexed.ddl().create_table(inline_indexes=False)
     assert expression.indexes == []
 
 

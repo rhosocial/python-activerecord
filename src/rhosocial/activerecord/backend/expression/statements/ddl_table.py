@@ -51,6 +51,7 @@ class ColumnConstraint(BaseExpression):
         on_update: Optional["ReferentialAction"] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
+        enforced: Optional[bool] = None,
     ):
         super().__init__(dialect)
         self.constraint_type = constraint_type
@@ -63,6 +64,7 @@ class ColumnConstraint(BaseExpression):
         self.on_update = on_update
         self.deferrable = deferrable
         self.initially_deferred = initially_deferred
+        self.enforced = enforced
 
 
 class DefaultValueClause(BaseExpression):

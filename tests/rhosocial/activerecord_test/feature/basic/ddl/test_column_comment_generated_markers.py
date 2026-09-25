@@ -9,7 +9,7 @@ except ImportError:  # Python 3.8
 import pytest
 
 from rhosocial.activerecord.base import UseComment, UseGeneratedColumn
-from rhosocial.activerecord.base.ddl import TableDDLDeriver
+from rhosocial.activerecord.ddl import TableDDLDeriver
 from rhosocial.activerecord.backend.expression.core import Column
 from rhosocial.activerecord.backend.expression.statements import (
     GeneratedColumnExpression,

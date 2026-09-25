@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_truncate.py
 """TRUNCATE statement expression."""
 
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 
@@ -46,6 +46,7 @@ class TruncateExpression(BaseExpression):
         table_name: str,
         restart_identity: bool = False,  # RESTART IDENTITY option (PostgreSQL)
         cascade: bool = False,  # CASCADE option (PostgreSQL)
+        schema: Optional[str] = None,
     ):
         """
         Initialize a TRUNCATE expression with the specified parameters.
@@ -60,6 +61,7 @@ class TruncateExpression(BaseExpression):
         self.table_name = table_name
         self.restart_identity = restart_identity  # For PostgreSQL-style RESTART IDENTITY
         self.cascade = cascade  # For PostgreSQL-style CASCADE
+        self.schema = schema
 
     @property
     def format_method(self) -> str:

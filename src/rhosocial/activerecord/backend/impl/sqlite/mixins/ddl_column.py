@@ -129,7 +129,9 @@ class SQLiteDDLColumnMixin:
         if constraint.check_condition is None:
             return "", ()
         check_sql, check_params = constraint.check_condition.to_sql()
-        return f" CHECK ({check_sql})", check_params
+        enforcement = self._format_constraint_enforcement(constraint)
+        suffix = f" {enforcement}" if enforcement else ""
+        return f" CHECK ({check_sql}){suffix}", check_params
 
     def format_column_fk_constraint(self, constraint) -> Tuple[str, tuple]:
         """Format a column-level FOREIGN KEY reference for SQLite."""
@@ -145,6 +147,9 @@ class SQLiteDDLColumnMixin:
             result += f" ON DELETE {constraint.on_delete.value}"
         if constraint.on_update is not None and constraint.on_update != ReferentialAction.NO_ACTION:
             result += f" ON UPDATE {constraint.on_update.value}"
+        enforcement = self._format_constraint_enforcement(constraint)
+        if enforcement:
+            result += f" {enforcement}"
 
         return result, ()
 

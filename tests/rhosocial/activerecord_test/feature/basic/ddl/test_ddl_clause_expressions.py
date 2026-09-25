@@ -134,7 +134,7 @@ def test_identity_clause_cycle_flags(dummy):
 
 
 def _identity_column(dialect, **kwargs):
-    from rhosocial.activerecord.base.ddl.attributes import IdentityAttribute
+    from rhosocial.activerecord.base import IdentityAttribute
 
     col = _column(dialect)
     col.attributes = dialect.select_column_attributes([IdentityAttribute(**kwargs)])
@@ -249,9 +249,15 @@ def test_references_clause_deferrable_without_initially(dummy):
 
 
 def test_references_clause_accepts_string_actions(dummy):
-    clause = ReferencesClause(dummy, "a", ["id"], on_delete="CASCADE")
+    clause = ReferencesClause(dummy, "a", ["id"], on_delete=" set null ")
     sql, _ = dummy.format_references_clause(clause)
-    assert sql.endswith("ON DELETE CASCADE")
+    assert sql.endswith("ON DELETE SET NULL")
+
+
+def test_references_clause_rejects_invalid_action(dummy):
+    clause = ReferencesClause(dummy, "a", ["id"], on_update="DO SOMETHING")
+    with pytest.raises(ValueError, match="Invalid referential action"):
+        dummy.format_references_clause(clause)
 
 
 def test_references_clause_on_update_gate(dummy):

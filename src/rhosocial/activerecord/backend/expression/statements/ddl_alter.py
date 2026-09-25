@@ -48,8 +48,14 @@ Carrying the qualifiers:
 from enum import Enum
 from typing import Any, List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLQueryAndParams
-from .ddl_table import ColumnDefinition, TableConstraint, IndexDefinition
+from ..bases import BaseExpression
+from .ddl_table import (
+    ColumnConstraintType,
+    ColumnDefinition,
+    IndexDefinition,
+    TableConstraint,
+    TableConstraintType,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -67,6 +73,8 @@ class AlterTableActionType(Enum):
     ALTER_COLUMN = "ALTER COLUMN"
     ADD_TABLE_CONSTRAINT = "ADD CONSTRAINT"
     DROP_TABLE_CONSTRAINT = "DROP CONSTRAINT"
+    ALTER_CONSTRAINT = "ALTER CONSTRAINT"
+    VALIDATE_CONSTRAINT = "VALIDATE CONSTRAINT"
     RENAME_COLUMN = "RENAME COLUMN"
     RENAME_TABLE = "RENAME TABLE"
     ADD_INDEX = "ADD INDEX"
@@ -263,6 +271,104 @@ class DropTableConstraint(AlterTableAction):
         self.constraint_name: str = constraint_name
         self.if_exists: Optional[bool] = if_exists
         self.cascade: bool = cascade
+
+
+class AlterConstraint(AlterTableAction):
+    """Typed ``ALTER CONSTRAINT`` enforcement action."""
+
+    action_type: AlterTableActionType = AlterTableActionType.ALTER_CONSTRAINT
+    constraint_name: str
+    enforced: bool
+    constraint_type: TableConstraintType
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        constraint_name: Optional[str] = None,
+        enforced: bool = True,
+        *,
+        name: Optional[str] = None,
+        constraint_type: Union[
+            ColumnConstraintType,
+            TableConstraintType,
+            str,
+        ],
+    ) -> None:
+        super().__init__(dialect)
+        if constraint_name is None:
+            constraint_name = name
+        elif name is not None and name != constraint_name:
+            raise ValueError("name and constraint_name must match")
+        if not isinstance(constraint_name, str) or not constraint_name.strip():
+            raise ValueError("constraint_name must be a non-empty string")
+        if not isinstance(enforced, bool):
+            raise TypeError("enforced must be a bool")
+        raw_value = getattr(constraint_type, "value", constraint_type)
+        raw_name = getattr(constraint_type, "name", raw_value)
+        normalized_type = None
+        for candidate in (raw_value, raw_name):
+            if not isinstance(candidate, str):
+                continue
+            normalized = " ".join(candidate.strip().upper().split())
+            for value in (normalized, normalized.replace(" ", "_")):
+                try:
+                    normalized_type = TableConstraintType(value)
+                    break
+                except ValueError:
+                    continue
+            if normalized_type is not None:
+                break
+        if normalized_type is None:
+            raise TypeError(
+                "constraint_type must be a CHECK or FOREIGN KEY constraint type"
+            )
+        if normalized_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
+            raise ValueError(
+                "constraint_type must be TableConstraintType.CHECK or "
+                "TableConstraintType.FOREIGN_KEY"
+            )
+        self.constraint_name = constraint_name
+        self.name = constraint_name
+        self.enforced = enforced
+        self.constraint_type = normalized_type
+
+    @property
+    def format_method(self) -> str:
+        return "format_alter_constraint_action"
+
+
+class ValidateConstraint(AlterTableAction):
+    """Typed ``VALIDATE CONSTRAINT`` action."""
+
+    action_type: AlterTableActionType = AlterTableActionType.VALIDATE_CONSTRAINT
+    constraint_name: str
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        constraint_name: Optional[str] = None,
+        *,
+        name: Optional[str] = None,
+    ) -> None:
+        super().__init__(dialect)
+        if constraint_name is None:
+            constraint_name = name
+        elif name is not None and name != constraint_name:
+            raise ValueError("name and constraint_name must match")
+        if not isinstance(constraint_name, str) or not constraint_name.strip():
+            raise ValueError("constraint_name must be a non-empty string")
+        self.constraint_name = constraint_name
+        self.name = constraint_name
+
+    @property
+    def format_method(self) -> str:
+        return "format_validate_constraint_action"
+
+
+AlterConstraintAction = AlterConstraint
+ValidateConstraintAction = ValidateConstraint
+AlterTableConstraint = AlterConstraint
+ValidateTableConstraint = ValidateConstraint
 
 
 class RenameTable(AlterTableAction):
