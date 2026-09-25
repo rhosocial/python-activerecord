@@ -8,7 +8,7 @@ All SQL formatting logic lives in Mixin classes in mixins.py.
 
 import re
 import warnings as _warnings
-from typing import Any, FrozenSet, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, FrozenSet, Optional, Tuple, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
 from ..warnings import IdentifierQuotingWarning
