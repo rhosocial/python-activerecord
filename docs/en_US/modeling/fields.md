@@ -47,7 +47,7 @@ class LegacyUser(ActiveRecord):
 
 ## Specifying SQL Column Types (UseSqlType)
 
-By default, `ActiveRecord` **auto-infers** the database column type from the Python field type (`str` → text, `int` → integer, `bool` → boolean, etc.). When auto-inference is not sufficient — e.g. you need an exact `VARCHAR(100)`, `DECIMAL(10,2)`, `JSONB`, or you want explicit control over the column type — use the `UseSqlType` annotation to **explicitly specify the SQL data type**.
+`ActiveRecord` does not generate a DDL `DataType` from a plain Python annotation. `DDLSourceMixin.column_type()` returns `None` when `UseSqlType` is absent; use `UseSqlType` when a SQL type must be declared explicitly. See [DDLSource Declarations](ddl_source.md) for the complete collection rules.
 
 `UseSqlType` accepts one or more `DataType` instances:
 
@@ -79,30 +79,25 @@ class User(ActiveRecord):
 
 ### Generic Types vs. Backend-Specific Types
 
-`DataType` comes in two flavors, both accepted by `UseSqlType`:
+`DataType` comes in generic and backend-specific forms. `UseSqlType` preserves both forms in declaration order; the collection layer does not select or replace them:
 
-- **Generic types** (e.g. `VarCharType`, `IntegerType`, `TextType`, `JsonType`): portable across backends — every backend renders them as its own native SQL (e.g. SQLite renders `VARCHAR(100)` as `TEXT`, MySQL as `VARCHAR(100)`).
-- **Backend-specific types** (e.g. `PostgresJsonBType`, `MySQLEnumType`, named with the backend name as prefix): render only on the backend that registers them; other backends **skip** that type (rather than silently substituting a lossy form).
+- **Generic types** (e.g. `VarCharType`, `IntegerType`, `TextType`, `JsonType`) can be used as cross-backend candidates.
+- **Backend-specific types** (e.g. `PostgresUUIDType`, `MySQLEnumType`) remain candidates for that backend; support is decided by the backend dialect.
 
-### Declaration Order = Backend Priority
+### Candidate Order
 
-`UseSqlType` can declare **multiple** types at once. At DDL generation time, the framework picks the **first** type the current dialect can render; if none matches, it falls back to the backend-neutral auto-inference, and raises if that yields nothing either.
+`UseSqlType` can declare multiple types. `DDLSourceMixin` preserves the candidates and their order; a later DDL consumer must select one explicitly for the active dialect.
 
 ```python
 from typing import Annotated
 from rhosocial.activerecord.base import UseSqlType
-from rhosocial.activerecord.backend.expression.types import JsonType
-# Backend-specific types below (from the corresponding backend packages)
-from rhosocial.activerecord.backend.impl.postgres.expression.types import PostgresJsonBType
-from rhosocial.activerecord.backend.impl.mysql.expression.types import MySQLLongTextType
+from rhosocial.activerecord.backend.expression.types import TextType
+from rhosocial.activerecord.backend.impl.postgres.expression.types import PostgresUUIDType
 
-# Priority: JSONB on PostgreSQL, LONGTEXT on MySQL < 5.7 (where JSON is unavailable), generic JSON elsewhere
-payload: Annotated[dict, UseSqlType(
-    PostgresJsonBType(), JsonType(), MySQLLongTextType(),
-)]
+identifier: Annotated[str, UseSqlType(PostgresUUIDType(), TextType())]
 ```
 
-This lets **one model** deploy across multiple backends, each automatically choosing the most appropriate column type.
+This preserves candidate priority across backends; the actual choice must be made explicitly by a backend DDL consumer.
 
 > **Relationship with `UseColumn`**: `UseColumn` controls the **column name** (Python attribute ↔ database column); `UseSqlType` controls the **column type** (SQL data type). They do not conflict and can be used together.
 >

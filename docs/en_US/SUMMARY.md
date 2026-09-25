@@ -48,6 +48,8 @@
 * [Concurrency](modeling/concurrency.md)
 * [Configuration Management](modeling/configuration_management.md)
 * [DDL](modeling/ddl.md)
+* [DDLSource Declarations](modeling/ddl_source.md)
+* [DDLSource Examples](modeling/ddl_source_examples.md)
 * [DDL Views](modeling/ddl_views.md)
 
 ## Relationships

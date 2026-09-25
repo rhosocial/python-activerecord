@@ -50,20 +50,7 @@ class Product(ActiveRecord):
 
 Model classes define their field type annotations at **import time**, when the model has **not yet been configured with any backend** — the dialect is only determined later, at `configure(config, backend)`. This is exactly what deferred binding is for: construct without a dialect, bind later.
 
-When `ActiveRecord` builds DDL, the framework walks the collected definitions, **copies the declaration-time instances and injects the dialect node-by-node at build time** — producing a self-sufficient tree in which every node is bound. Each node then renders through its own argument-less `to_sql()`:
-
-```
-Model field declaration (unbound type)              DDL construction (build time)
-Annotated[str, UseSqlType(MySQLEnumType(...))]  ──►  copy + inject dialect node-by-node ──► node.to_sql()
-int (auto-inferred IntegerType)                 ──►  copy + inject dialect node-by-node ──► node.to_sql()
-```
-
-This "types defer dialect binding, DDL construction binds each node" design means:
-
-- The same model class can be reused across backends without changing field declarations
-- The dialect is injected at the moment DDL is generated; users never bind manually
-- Types stay decoupled from dialects, matching the schema-time vs query-time role split
-- Rendering stays stateless: `to_sql()` simply reads the node's own bound dialect — no reconstruction, no propagation, no copies at render time
+`DDLSourceMixin` only collects and preserves the candidates in `UseSqlType`; it does not copy candidates, select one, or inject a dialect. After obtaining a dialect, the backend DDL consumer is responsible for copying/binding candidates and constructing renderable expressions. See [DDLSource Declarations](../../modeling/ddl_source.md).
 
 ## Value-Object Semantics
 
@@ -167,25 +154,21 @@ for name, dt_cls in dialect.supports_data_types().items():
 
 ### Integration with Model Fields
 
-#### Automatic Inference
+### Integration with Model Fields
 
-Fields declared with plain Python annotations are resolved to generic `DataType` instances by the ActiveRecord field layer, using a **backend-neutral** "reasonable lowest common denominator" mapping (e.g. `str` → a text type, `int` → an integer type). It deliberately avoids backend-exclusive types such as `UUID`/`JSONB`/`ENUM`. Dialects do not provide per-call inference hooks; instead they advertise their type surface (`supports_data_types()`) and cross-backend suggestions (`suggested_data_types()`), which the DDL generator consults when resolving portable field declarations.
-
-#### Explicit Specification (UseSqlType)
-
-The field-level `UseSqlType` annotation takes precedence over automatic inference and is the standard way to use backend-specific types:
+A plain Python annotation is not converted into a `DataType` by `DDLSourceMixin`. Without `UseSqlType`, `column_type()` returns `None`. Use `UseSqlType` for an explicit declaration; it preserves candidates in declaration order:
 
 ```python
 from typing import Annotated
-from rhosocial.activerecord.base.fields import UseSqlType
+from rhosocial.activerecord.base import UseSqlType
+from rhosocial.activerecord.backend.expression.types import TextType
 from rhosocial.activerecord.backend.impl.mysql.expression.types import MySQLEnumType
 
 class Product(ActiveRecord):
-    # Explicitly specify a MySQL-specific type
-    size: Annotated[str, UseSqlType(MySQLEnumType(values=['S', 'M', 'L']))]
+    size: Annotated[str, UseSqlType(MySQLEnumType(values=["S", "M", "L"]), TextType())]
 ```
 
-Type resolution priority: `UseSqlType` annotation → backend-neutral default inference.
+`DDLSourceMixin` does not select candidates or perform backend fallback; those steps belong to the later dialect consumer.
 
 ### Introspection and Sync (parse_type)
 

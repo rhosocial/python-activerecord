@@ -30,7 +30,10 @@
     *   **[常见错误解决](getting_started/troubleshooting.md)**: 遇到问题？常见错误及解决方案（后端未配置、FieldProxy 缺失、PYTHONPATH 问题等）。
 
 3.  **[模型定义 (Modeling Data)](modeling/README.md)**
-    *   **[字段定义 (Fields & Proxies)](modeling/fields.md)**: 深入理解 `FieldProxy` 与类型安全，以及如何映射遗留数据库列。 💡 *AI 提示词："什么是 FieldProxy？它是如何实现类型安全的查询构建的？"*
+     *   **[字段定义 (Fields & Proxies)](modeling/fields.md)**: 深入理解 `FieldProxy` 与类型安全，以及如何映射遗留数据库列。 💡 *AI 提示词："什么是 FieldProxy？它是如何实现类型安全的查询构建的？"*
+     *   **[DDLSource 声明收集](modeling/ddl_source.md)**: 了解 `DDLSource` 协议、`DDLSourceMixin` 的收集规则和后端表达式接入方式。
+     *   **[DDLSource 使用示例](modeling/ddl_source_examples.md)**: 查看默认、局部注记、跨后端及不兼容表达式的实测示例。
+
     *   **[Mixin 与复用 (Mixins)](modeling/mixins.md)**: 使用 Mixin 消除重复代码，包括 UUID、时间戳和软删除。
     *   **[验证与生命周期 (Validation & Hooks)](modeling/validation.md)**: 在保存前后自动执行逻辑，确保数据一致性。
     *   **[模型序列化 (Model Serialization)](modeling/serialization.md)**: 模型与 JSON/Dict 之间的转换、字段过滤、关联数据处理。

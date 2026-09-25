@@ -30,7 +30,10 @@
     *   **[Troubleshooting](getting_started/troubleshooting.md)**: Running into issues? Common errors and their solutions (No backend configured, FieldProxy missing, PYTHONPATH issues, etc.).
 
 3.  **[Modeling Data](modeling/README.md)**
-    *   **[Fields & Proxies](modeling/fields.md)**: Field definition, `FieldProxy`, and mapping legacy columns. 💡 *AI Prompt: "What is FieldProxy and how does it enable type-safe query building?"*
+     *   **[Fields & Proxies](modeling/fields.md)**: Field definition, `FieldProxy`, and mapping legacy columns. 💡 *AI Prompt: "What is FieldProxy and how does it enable type-safe query building?"*
+     *   **[DDLSource Declarations](modeling/ddl_source.md)**: The `DDLSource` protocol, `DDLSourceMixin` collection rules, and backend expression integration.
+     *   **[DDLSource Examples](modeling/ddl_source_examples.md)**: Observed examples of default, annotated, cross-backend, and incompatible expressions.
+
     *   **[Mixins](modeling/mixins.md)**: Reusable logic with built-in (`UUID`, `Timestamp`) and custom Mixins.
     *   **[Validation & Hooks](modeling/validation.md)**: Pydantic validation and lifecycle hooks.
     *   **[Model Serialization](modeling/serialization.md)**: Converting models to JSON/Dicts, field filtering, and related data.

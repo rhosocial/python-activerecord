@@ -2,6 +2,8 @@
 
 `rhosocial-activerecord` 提供了类型安全的、基于表达式的 DDL（Data Definition Language，数据定义语言）API。你可以使用 Python 对象构建表、索引、视图和模式，而无需编写原生 SQL 字符串。
 
+> 本章介绍显式 DDL 表达式的构造和渲染。若要从 ActiveRecord 模型声明中读取 DDL 定义，请参阅 [DDLSource 声明收集](ddl_source.md)。当前 `DDLSourceMixin` 只收集并呈现声明，不自动生成或执行 DDL。
+
 ## 为什么要使用 DDL 表达式？
 
 - **类型安全**：所有列名、数据类型和约束都在运行时经过验证。
@@ -337,8 +339,8 @@ if table_info:
 ## 示例代码
 
 本章的完整示例代码可以在以下位置找到：
-[docs/examples/chapter_03_modeling/ddl_basic.py](../../../examples/chapter_03_modeling/ddl_basic.py)
+[docs/examples/chapter_03_modeling/ddl_basic.py](../../examples/chapter_03_modeling/ddl_basic.py)
 
 更多示例：
-- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../../examples/chapter_03_modeling/ddl_relationships.py) — 创建带外键关系的表
-- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../../examples/chapter_03_modeling/ddl_indexes.py) — 索引创建模式
+- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../examples/chapter_03_modeling/ddl_relationships.py) — 创建带外键关系的表
+- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../examples/chapter_03_modeling/ddl_indexes.py) — 索引创建模式

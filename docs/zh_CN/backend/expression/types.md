@@ -50,19 +50,7 @@ class Product(ActiveRecord):
 
 模型类在**导入时**就定义了字段类型注解，而模型此时**尚未配置任何后端**——方言要到之后 `configure(config, backend)` 时才确定。这正是「推迟绑定」的用武之地：先不带方言构造，之后再绑定。
 
-当 `ActiveRecord` 构造 DDL 时，框架遍历收集到的定义，**在构建期复制声明期实例并逐节点注入方言**——产出一棵每个节点都已绑定的自足的树。随后每个节点通过各自无参的 `to_sql()` 渲染：
-
-```
-模型字段声明（未绑定类型）                        DDL 构建期
-Annotated[str, UseSqlType(MySQLEnumType(...))]  ──►  复制 + 逐节点注入方言 ──► node.to_sql()
-int（自动推断 IntegerType）                    ──►  复制 + 逐节点注入方言 ──► node.to_sql()
-```
-
-这种「类型推迟绑定方言、DDL 构建期逐节点绑定」的设计，使得：
-- 同一模型类可在不同后端复用，字段声明无需改动
-- 方言在 DDL 生成的那一刻注入，用户无需手动绑定
-- 类型与方言解耦，符合 schema 时对象与查询时对象的角色划分
-- 渲染保持无状态：`to_sql()` 只读取节点自身绑定的方言——渲染期没有重建、没有传播、没有副本
+`DDLSourceMixin` 只收集并保留 `UseSqlType` 中的候选，不会复制候选、选择候选或注入方言。后端 DDL 消费者在获得方言后，负责复制/绑定候选并构造可渲染表达式。详见 [DDLSource 声明收集](../../modeling/ddl_source.md)。
 
 ## 值对象语义
 
@@ -166,25 +154,19 @@ for name, dt_cls in dialect.supports_data_types().items():
 
 ### 与模型字段的集成
 
-#### 自动推断
-
-以普通 Python 注解声明的字段由 ActiveRecord 字段层解析为通用 `DataType` 实例，采用**后端中立的**「合理最低公共分母」映射（如 `str` → 文本类型、`int` → 整数类型），刻意回避 `UUID`/`JSONB`/`ENUM` 等后端独有类型。方言不提供逐次调用的推断钩子；而是通过 `supports_data_types()`（类型面）与 `suggested_data_types()`（跨后端建议）声明自身能力，供 DDL 生成器在解析可移植字段声明时参考。
-
-#### 显式指定 (UseSqlType)
-
-字段级注解 `UseSqlType` 优先于自动推断，是使用后端特定类型的标准方式：
+普通 Python 注解不会由 `DDLSourceMixin` 自动转换为 `DataType`。没有 `UseSqlType` 时，`column_type()` 返回 `None`。显式声明使用 `UseSqlType`，它会按声明顺序保留候选：
 
 ```python
 from typing import Annotated
-from rhosocial.activerecord.base.fields import UseSqlType
+from rhosocial.activerecord.base import UseSqlType
+from rhosocial.activerecord.backend.expression.types import TextType
 from rhosocial.activerecord.backend.impl.mysql.expression.types import MySQLEnumType
 
 class Product(ActiveRecord):
-    # 显式指定 MySQL 特定类型
-    size: Annotated[str, UseSqlType(MySQLEnumType(values=['S', 'M', 'L']))]
+    size: Annotated[str, UseSqlType(MySQLEnumType(values=["S", "M", "L"]), TextType())]
 ```
 
-类型解析优先级：`UseSqlType` 注解 → 后端中立默认推断。
+`DDLSourceMixin` 不执行候选选择或后端回退；这些工作由后续方言消费者完成。
 
 ### 内省与同步 (parse_type)
 

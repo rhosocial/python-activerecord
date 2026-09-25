@@ -454,13 +454,31 @@ class DDLSourceMixin:
         declarations = list(getattr(cls, "__table_constraints__", ()) or [])
         source = cast(Any, cls)
         if source.is_composite_pk():
-            declarations.append(
-                TableConstraint(
-                    cast(Any, None),
-                    TableConstraintType.PRIMARY_KEY,
-                    columns=list(source.primary_key_columns()),
+            primary_key_columns = list(source.primary_key_columns())
+            explicit_primary_keys = [
+                constraint
+                for constraint in declarations
+                if constraint.constraint_type == TableConstraintType.PRIMARY_KEY
+            ]
+            if explicit_primary_keys:
+                matching_primary_keys = [
+                    constraint
+                    for constraint in explicit_primary_keys
+                    if list(constraint.columns or []) == primary_key_columns
+                ]
+                if not matching_primary_keys:
+                    raise ValueError(
+                        f"{cls.__name__} declares a table-level primary key that "
+                        f"does not match __primary_key__ {primary_key_columns!r}"
+                    )
+            else:
+                declarations.append(
+                    TableConstraint(
+                        cast(Any, None),
+                        TableConstraintType.PRIMARY_KEY,
+                        columns=primary_key_columns,
+                    )
                 )
-            )
         return declarations
 
     @classmethod

@@ -26,7 +26,9 @@ from rhosocial.activerecord.base import (
     CharacterSetAttribute,
     CollationAttribute,
     ColumnAttribute,
+    ColumnOptions,
     DDLAnnotation,
+    DDLFieldMetadata,
     DDLSource,
     IdentityAttribute,
     UseColumnAttributes,
@@ -56,6 +58,21 @@ class Composite(ActiveRecord):
     order_id: int
     product_id: int
     quantity: int
+
+
+class CompositeWithDeclaredPrimaryKey(ActiveRecord):
+    __table_name__ = "composite_with_declared_primary_key"
+    __primary_key__ = ("order_id", "product_id")
+    __table_constraints__ = [
+        TableConstraint(
+            None,
+            TableConstraintType.PRIMARY_KEY,
+            columns=["order_id", "product_id"],
+        ),
+    ]
+
+    order_id: int
+    product_id: int
 
 
 class WithTableConstraint(ActiveRecord):
@@ -170,6 +187,17 @@ def test_marker_type_contracts():
         IdentityAttribute(generation="SOMETIMES")
     with pytest.raises(ValueError):
         CollationAttribute(name="")
+    with pytest.raises(ValueError):
+        CharacterSetAttribute(name="")
+
+
+def test_column_options_base_contract():
+    options = ColumnOptions()
+    assert options.column_definition_class().__name__ == "ColumnDefinition"
+    assert options.apply_to(object()) is None
+    metadata = DDLFieldMetadata(Plain.model_fields["id"])
+    with pytest.raises(TypeError, match="ColumnOptions"):
+        metadata.add_column_options(object())
 
 
 def test_single_primary_key_is_added_to_column_declaration():
@@ -192,6 +220,16 @@ def test_composite_primary_key_is_added_as_table_constraint():
     primary_keys = [
         constraint
         for constraint in Composite.table_constraints()
+        if constraint.constraint_type == TableConstraintType.PRIMARY_KEY
+    ]
+    assert len(primary_keys) == 1
+    assert primary_keys[0].columns == ["order_id", "product_id"]
+
+
+def test_declared_composite_primary_key_is_not_duplicated():
+    primary_keys = [
+        constraint
+        for constraint in CompositeWithDeclaredPrimaryKey.table_constraints()
         if constraint.constraint_type == TableConstraintType.PRIMARY_KEY
     ]
     assert len(primary_keys) == 1

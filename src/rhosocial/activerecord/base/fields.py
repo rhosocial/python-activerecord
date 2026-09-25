@@ -119,7 +119,7 @@ class UseSqlType(DDLAnnotation):
     capability selection, and fallback policy belong to external consumers.
 
     Each instance may be a core generic type or a backend-specific type such as
-    ``PostgresJsonBType``. Declaration order expresses backend priority without
+    ``PostgresUUIDType``. Declaration order expresses backend priority without
     coupling the declaration layer to any particular dialect.
 
     Examples::
@@ -127,10 +127,9 @@ class UseSqlType(DDLAnnotation):
         # Generic — portable across backends
         status: Annotated[str, UseSqlType(VarCharType(length=50))]
 
-        # Backend-priority: JSONB on PostgreSQL, JSON elsewhere, LONGTEXT on
-        # MySQL < 5.7 (where JSON is unavailable)
-        payload: Annotated[dict, UseSqlType(
-            PostgresJsonBType(), JsonType(), MySQLLongTextType(),
+        # Backend-priority: PostgreSQL UUID, generic text elsewhere
+        identifier: Annotated[str, UseSqlType(
+            PostgresUUIDType(), TextType(),
         )]
 
     Attributes:
