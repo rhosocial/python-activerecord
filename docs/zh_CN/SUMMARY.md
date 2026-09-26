@@ -67,7 +67,6 @@
 * [CTEQuery](querying/cte_query.md)
 * [SetOperationQuery](querying/set_operation_query.md)
 * [查询速查表](querying/cheatsheet.md)
-* [属性图查询](querying/graph_query.md)
 * [复杂查询实战](querying/recipes.md)
 
 ## 连接管理

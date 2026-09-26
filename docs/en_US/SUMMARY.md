@@ -67,7 +67,6 @@
 * [CTEQuery](querying/cte_query.md)
 * [SetOperationQuery](querying/set_operation_query.md)
 * [Query Cheatsheet](querying/cheatsheet.md)
-* [Property Graph Query](querying/graph_query.md)
 * [Query Recipes](querying/recipes.md)
 
 ## Connection Management
