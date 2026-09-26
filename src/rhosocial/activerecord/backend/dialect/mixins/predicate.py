@@ -81,20 +81,29 @@ class PredicateMixin:
         # A Literal wrapping a collection renders as a value list; anything
         # else (e.g. a subquery) renders through its own to_sql().
         if isinstance(expr.values, Literal) and isinstance(expr.values.value, (list, tuple, set)):
-            return self._format_in_value_list(expr_sql, expr_params, expr.values.value)
+            return self._format_in_value_list(expr_sql, expr_params, expr.values)
         values_sql, values_params = expr.values.to_sql()
         return f"{expr_sql} IN {values_sql}", expr_params + values_params
 
-    def _format_in_value_list(self, expr_sql: str, expr_params: tuple, values) -> Tuple[str, Tuple]:
-        """Render ``IN (…)"`` for a collection of bind values."""
+    def _format_in_value_list(self, expr_sql: str, expr_params: tuple, literal) -> Tuple[str, Tuple]:
+        """Render ``IN (…)`` for a :class:`Literal` wrapping a collection.
+
+        The whole ``Literal`` is passed in rather than just its ``value``
+        because its ``inline_literals`` switch has to be honoured: DDL
+        preparation sets that flag on every literal it finds (PostgreSQL rejects
+        bind parameters in DDL), and dropping it here is the only reason ``IN``
+        could not previously be used inside a CHECK constraint. Rendering goes
+        through ``format_literal`` so escaping and quoting match every other
+        inline literal.
+        """
+        values = literal.value
         if not values:
-            values_sql = "()"
-            values_params: tuple = ()
-        else:
-            placeholders = ", ".join([self.get_parameter_placeholder()] * len(values))
-            values_sql = f"({placeholders})"
-            values_params = tuple(values)
-        return f"{expr_sql} IN {values_sql}", expr_params + values_params
+            return f"{expr_sql} IN ()", expr_params
+        if literal.inline_literals:
+            rendered = ", ".join(self.format_literal(value) for value in values)
+            return f"{expr_sql} IN ({rendered})", expr_params
+        placeholders = ", ".join([self.get_parameter_placeholder()] * len(values))
+        return f"{expr_sql} IN ({placeholders})", expr_params + tuple(values)
 
     def format_between_predicate(self, expr: BetweenPredicate) -> Tuple[str, tuple]:
         """Format a ``BETWEEN`` predicate.

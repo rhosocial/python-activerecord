@@ -413,3 +413,128 @@ class TestConstraintEnforcementAndValidation:
         constraint = TableConstraint(SQLiteDialect(), TableConstraintType.EXCLUDE)
         with pytest.raises(UnsupportedFeatureError, match="EXCLUDE"):
             constraint.to_sql()
+
+
+class TestInPredicateInDDLCheckConstraints:
+    """``IN`` must be usable inside a CHECK constraint.
+
+    PostgreSQL and MySQL both reject bind parameters in DDL, so the dialect
+    preparation pass sets ``inline_literals`` on every literal inside a CHECK
+    predicate. ``InPredicate`` used to discard that flag -- it unpacked the
+    collection and rebuilt placeholders unconditionally -- which made ``IN`` the
+    one predicate shape that could not appear in a CHECK. Since the flag was
+    dropped, the shape that silently produced a bind parameter was the ordinary
+    ``column.in_([...])`` call rather than anything unusual.
+    """
+
+    def _check(self, dialect, condition):
+        from rhosocial.activerecord.backend.expression import TableConstraint
+        return TableConstraint(dialect, "CHECK", check_condition=condition)
+
+    def test_in_list_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "direction").in_(["debit", "credit"])
+        )
+        assert constraint.to_sql() == (
+            'CHECK ("direction" IN (\'debit\', \'credit\'))', (),
+        )
+
+    def test_in_tuple_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column, Literal
+
+        condition = Column(dummy_dialect, "direction").in_(
+            Literal(dummy_dialect, ("debit", "credit"))
+        )
+        assert self._check(dummy_dialect, condition).to_sql() == (
+            'CHECK ("direction" IN (\'debit\', \'credit\'))', (),
+        )
+
+    def test_not_in_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "state").not_in(["a", "b"])
+        )
+        assert constraint.to_sql() == (
+            'CHECK (NOT ("state" IN (\'a\', \'b\')))', (),
+        )
+
+    def test_numeric_in_list_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "priority").in_([1, 2, 3])
+        )
+        assert constraint.to_sql() == (
+            'CHECK ("priority" IN (1, 2, 3))', (),
+        )
+
+    def test_in_list_escapes_quotes_when_inlined(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "label").in_(["a'b"])
+        )
+        assert constraint.to_sql() == ('CHECK ("label" IN (\'a\'\'b\'))', ())
+
+    def test_in_list_with_null_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "parent").in_([None, 1])
+        )
+        assert constraint.to_sql() == ('CHECK ("parent" IN (NULL, 1))', ())
+
+    def test_empty_in_list_stays_empty_parens(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "direction").in_([])
+        )
+        assert constraint.to_sql() == ('CHECK ("direction" IN ())', ())
+
+    def test_in_list_still_binds_outside_ddl(self, dummy_dialect: DummyDialect):
+        """The DML path must be untouched: inlining there would be an injection."""
+        from rhosocial.activerecord.backend.expression import Column
+
+        condition = Column(dummy_dialect, "direction").in_(["debit", "credit"])
+        assert condition.to_sql() == ('"direction" IN (?, ?)', ("debit", "credit"))
+
+    def test_subquery_in_does_not_go_through_the_value_list_path(
+        self, dummy_dialect: DummyDialect
+    ):
+        """A subquery renders through its own to_sql(), so the collection fix
+        must not touch it -- that path has no Literal and no inline flag."""
+        from rhosocial.activerecord.backend.expression import Column, Subquery
+
+        condition = Column(dummy_dialect, "id").in_(
+            Subquery(dummy_dialect, "SELECT id FROM other", ())
+        )
+        sql, params = condition.to_sql()
+        assert "SELECT id FROM other" in sql
+        assert params == ()
+
+    def test_literal_wrapping_a_list_outside_ddl_still_binds(
+        self, dummy_dialect: DummyDialect
+    ):
+        """Hand-building the Literal is the documented IN form; it must behave
+        the same as the plain list call when the inline flag is off."""
+        from rhosocial.activerecord.backend.expression import Column, Literal
+
+        condition = Column(dummy_dialect, "direction").in_(
+            Literal(dummy_dialect, ["debit", "credit"])
+        )
+        assert condition.to_sql() == ('"direction" IN (?, ?)', ("debit", "credit"))
+
+    def test_explicitly_inlined_literal_list_renders_inline_without_ddl(
+        self, dummy_dialect: DummyDialect
+    ):
+        """The inline switch works on its own, not only via DDL preparation."""
+        from rhosocial.activerecord.backend.expression import Column, Literal
+
+        condition = Column(dummy_dialect, "direction").in_(
+            Literal(dummy_dialect, ("debit", "credit"), inline_literals=True)
+        )
+        assert condition.to_sql() == ('"direction" IN (\'debit\', \'credit\')', ())
