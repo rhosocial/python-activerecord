@@ -23,8 +23,6 @@ class ColumnConstraintType(Enum):
     CHECK = "CHECK"
     FOREIGN_KEY = "FOREIGN KEY"
     DEFAULT = "DEFAULT"
-    COLLATE = "COLLATE"  # Column-level collation (MySQL/MariaDB/Oracle/Firebird)
-    IDENTITY = "IDENTITY"  # GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY (PG/Firebird/Oracle)
 
 
 class ColumnConstraint(BaseExpression):
@@ -53,9 +51,7 @@ class ColumnConstraint(BaseExpression):
         on_update: Optional["ReferentialAction"] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
-        collation: Optional[str] = None,
-        identity: Optional[str] = None,
+        enforced: Optional[bool] = None,
     ):
         super().__init__(dialect)
         self.constraint_type = constraint_type
@@ -68,9 +64,109 @@ class ColumnConstraint(BaseExpression):
         self.on_update = on_update
         self.deferrable = deferrable
         self.initially_deferred = initially_deferred
-        self.dialect_options = dialect_options or {}
-        self.collation = collation
-        self.identity = identity
+        self.enforced = enforced
+
+
+class DefaultValueClause(BaseExpression):
+    """The value clause of a ``DEFAULT`` constraint.
+
+    A DDL clause node rendered through the dialect's
+    ``format_default_value_clause``. It carries the default **value** — either
+    a plain Python scalar (rendered inline with dialect-controlled escaping) or
+    a ``BaseExpression`` (e.g. a function call or literal) — keeping the
+    value/inline logic in one place. It is a self-contained expression so the
+    value's escaping/inlining can be overridden per backend.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_default_value_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", value: Any):
+        super().__init__(dialect)
+        self.value = value
+
+
+class IdentityClause(BaseExpression):
+    """The identity/auto-increment clause of a column definition.
+
+    A DDL clause node rendered through the dialect's ``format_identity_clause``.
+    It carries the identity **parameters** (generation, start, increment,
+    bounds, cycle) so the syntax differences between backends live in one
+    place: MySQL/MariaDB ``AUTO_INCREMENT``, SQL Server ``IDENTITY(seed, inc)``,
+    PostgreSQL/Oracle/Firebird ``GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY
+    (START WITH ... INCREMENT BY ...)``, SQLite ``AUTOINCREMENT``.
+
+    ``generation`` is ``"ALWAYS"`` or ``"BY DEFAULT"`` (``None`` defaults to
+    ``BY DEFAULT``); ``start``/``increment``/``minvalue``/``maxvalue``/``cycle``
+    are optional sequence attributes.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_identity_clause"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        generation: Optional[str] = None,
+        *,
+        start: Optional[int] = None,
+        increment: Optional[int] = None,
+        minvalue: Optional[int] = None,
+        maxvalue: Optional[int] = None,
+        cycle: Optional[bool] = None,
+    ):
+        super().__init__(dialect)
+        self.generation = generation
+        self.start = start
+        self.increment = increment
+        self.minvalue = minvalue
+        self.maxvalue = maxvalue
+        self.cycle = cycle
+
+
+class ReferencesClause(BaseExpression):
+    """The ``REFERENCES`` clause of a foreign key.
+
+    A DDL clause node rendered through the dialect's ``format_references_clause``.
+    Shared by column-level (``ColumnConstraint``) and table-level
+    (``ForeignKeyConstraint``) foreign keys so the reference syntax lives in one
+    place: the referenced table/columns plus the referential actions
+    (``MATCH`` / ``ON DELETE`` / ``ON UPDATE``) and deferrability.
+
+    ``ReferentialAction`` values are resolved by the dialect's
+    ``format_references_clause``; ``on_delete``/``on_update`` are accepted as
+    the enum or its string value.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_references_clause"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        referenced_table: str,
+        referenced_columns: List[str],
+        *,
+        on_delete: Optional["ReferentialAction"] = None,
+        on_update: Optional["ReferentialAction"] = None,
+        match_type: Optional[str] = None,
+        deferrable: Optional[bool] = None,
+        initially_deferred: Optional[bool] = None,
+    ):
+        super().__init__(dialect)
+        self.referenced_table = referenced_table
+        self.referenced_columns = list(referenced_columns or [])
+        self.on_delete = on_delete
+        self.on_update = on_update
+        self.match_type = match_type
+        self.deferrable = deferrable
+        self.initially_deferred = initially_deferred
 
 
 class GeneratedColumnType(Enum):
@@ -114,13 +210,70 @@ class GeneratedColumnExpression(BaseExpression):
         self.storage_type = storage_type or GeneratedColumnType.VIRTUAL
 
 
+class ColumnCommentClause(BaseExpression):
+    """The inline comment clause of a column definition.
+
+    A CREATE TABLE / ALTER TABLE **clause** node rendered through the
+    dialect's ``format_column_comment_clause``.  It is deliberately distinct
+    from the standalone ``COMMENT ON`` statement (:class:`CommentOnExpression`):
+    the inline clause is part of the *column-definition grammar* and only
+    exists on dialects that advertise :meth:`supports_column_comment`.
+
+    Dialects render it differently — MySQL/MariaDB/SQLite-family emit
+    ``COMMENT '<text>'``, BigQuery emits ``OPTIONS(description='<text>')``;
+    PostgreSQL/Oracle/Firebird/SQL Server have no inline column-comment
+    grammar and raise ``UnsupportedFeatureError`` instead of silently
+    dropping the declared comment.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column_comment_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", comment: str):
+        super().__init__(dialect)
+        self.comment = comment
+
+
+class TableCommentClause(BaseExpression):
+    """The inline table-comment clause of ``CREATE TABLE``.
+
+    A CREATE TABLE **clause** node rendered through the dialect's
+    ``format_table_comment_clause``.  There is no SQL-standard table-comment
+    mechanism: the bare ``COMMENT '<text>'`` table option is a
+    MySQL/MariaDB/ClickHouse-family convenience (Snowflake renders
+    ``COMMENT = '<text>'``, BigQuery ``OPTIONS(description='<text>')``), while
+    the standalone ``COMMENT ON`` statement is a separate de-facto vendor
+    mechanism (:class:`CommentOnExpression`), not this clause.
+
+    Rendering is capability-gated: the statement renderer emits this clause
+    only on dialects whose :meth:`supports_table_comment` is True, and raises
+    ``UnsupportedFeatureError`` on the others instead of silently dropping a
+    declared comment.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_table_comment_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", comment: str):
+        super().__init__(dialect)
+        self.comment = comment
+
+
 class ColumnDefinition(BaseExpression):
     """Represents a column definition clause within CREATE/ALTER TABLE.
 
     A DDL clause node rendered through the dialect's
     ``format_column_definition``; its children (data type, constraints,
-    generated-column expression) are proper expression nodes, so dialect
-    propagation reaches the whole clause subtree.
+    generated-column expression, inline comment clause) are proper expression
+    nodes, so dialect propagation reaches the whole clause subtree.
+
+    ``comment`` is a :class:`ColumnCommentClause` (or ``None``); bare comment
+    text is **not** accepted here — build the clause node explicitly so the
+    inline comment always flows through the clause channel.
     """
 
     @property
@@ -134,27 +287,26 @@ class ColumnDefinition(BaseExpression):
         name: str,
         data_type: "DataType",
         constraints: Optional[List[ColumnConstraint]] = None,
-        comment: Optional[str] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        comment: Optional["ColumnCommentClause"] = None,
         generated_expression: Optional[GeneratedColumnExpression] = None,
-        identity: Optional[str] = None,
-        identity_start: Optional[int] = None,
-        identity_increment: Optional[int] = None,
+        attributes: Optional[List[Any]] = None,
     ):
         super().__init__(dialect)
         if not isinstance(data_type, DataType):
             raise TypeError(
                 f"data_type must be a DataType instance, got {type(data_type).__name__}"
             )
+        if comment is not None and not isinstance(comment, ColumnCommentClause):
+            raise TypeError(
+                f"comment must be a ColumnCommentClause, got {type(comment).__name__}"
+            )
         self.name = name
         self.data_type = data_type
         self.constraints = list(constraints or [])
         self.comment = comment
-        self.dialect_options = dialect_options or {}
         self.generated_expression = generated_expression
-        self.identity = identity
-        self.identity_start = identity_start
-        self.identity_increment = identity_increment
+        # Dialect-free attributes are rendered by the owning backend.
+        self.attributes = list(attributes or [])
 
 
 class TableConstraintType(Enum):
@@ -184,7 +336,7 @@ from .ddl_partition import PartitionClause, PartitionStrategy  # noqa: E402, F40
 class ConstraintValidation(Enum):
     """Constraint validation status (PostgreSQL specific).
 
-    Used in AddTableConstraint.dialect_options['validation'] to control
+    Used as the typed ``validation`` field of ``TableConstraint`` to control
     whether PostgreSQL validates existing data against the constraint.
 
     - VALIDATE: Validate all existing data (default behavior)
@@ -214,7 +366,8 @@ class TableConstraint(BaseExpression):
         foreign_key_columns: Optional[List[str]] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        validation: Optional[ConstraintValidation] = None,
+        enforced: Optional[bool] = None,
     ):
         super().__init__(dialect)
         self.constraint_type = constraint_type
@@ -225,7 +378,10 @@ class TableConstraint(BaseExpression):
         self.foreign_key_columns = foreign_key_columns
         self.deferrable = deferrable
         self.initially_deferred = initially_deferred
-        self.dialect_options = dialect_options or {}
+        # PostgreSQL: NOT VALID for an added constraint (None = default VALIDATE).
+        self.validation = validation
+        # MariaDB/SQL Server: CHECK ... [NOT] ENFORCED (None = backend default).
+        self.enforced = enforced
 
 
 class ForeignKeyConstraint(TableConstraint):
@@ -248,7 +404,8 @@ class ForeignKeyConstraint(TableConstraint):
         name: Optional[str] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        validation: Optional[ConstraintValidation] = None,
+        enforced: Optional[bool] = None,
     ):
         super().__init__(
             dialect,
@@ -259,7 +416,8 @@ class ForeignKeyConstraint(TableConstraint):
             foreign_key_columns=foreign_key_columns,
             deferrable=deferrable,
             initially_deferred=initially_deferred,
-            dialect_options=dialect_options,
+            validation=validation,
+            enforced=enforced,
         )
         self.on_delete = on_delete
         self.on_update = on_update
@@ -267,7 +425,18 @@ class ForeignKeyConstraint(TableConstraint):
 
 
 class IndexDefinition(BaseExpression):
-    """Represents an index definition clause for CREATE TABLE / ADD INDEX."""
+    """Represents an index definition clause for CREATE TABLE / ADD INDEX.
+
+    ``columns`` accepts plain column names or :class:`BaseExpression`
+    instances (functional/expression index columns, e.g. ``LOWER(name)``).
+
+    Statement-level options (§5.16, plan 方案 A) are carried per index so the
+    standalone ``CREATE INDEX`` / ``DROP INDEX`` statements can differ one by
+    one. ``None`` means "not explicitly declared" — an explicit declaration
+    wins over entry-level parameters. They are ignored by the inline path
+    (an index riding inside CREATE TABLE cannot carry statement options; the
+    deriver raises on the inline path instead).
+    """
 
     @property
     def format_method(self) -> str:
@@ -278,12 +447,15 @@ class IndexDefinition(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         name: str,
-        columns: List[str],
+        columns: List[Union[str, "BaseExpression"]],
         unique: bool = False,
         type: Optional[str] = None,
         partial_condition: Optional["SQLPredicate"] = None,
         include_columns: Optional[List[str]] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        if_not_exists: Optional[bool] = None,
+        tablespace: Optional[str] = None,
+        if_exists: Optional[bool] = None,
+        concurrent: Optional[bool] = None,
     ):
         super().__init__(dialect)
         self.name = name
@@ -292,34 +464,49 @@ class IndexDefinition(BaseExpression):
         self.type = type
         self.partial_condition = partial_condition
         self.include_columns = include_columns
-        self.dialect_options = dialect_options or {}
+        # Statement-level options (§5.16): ``if_not_exists`` (create path),
+        # ``tablespace`` (create path), ``if_exists`` (drop path) and
+        # ``concurrent`` (create/drop shared).
+        self.if_not_exists = if_not_exists
+        self.tablespace = tablespace
+        self.if_exists = if_exists
+        self.concurrent = concurrent
 
 
 class CreateTableOptions(BaseExpression):
-    """Typed creation modifiers for ``CREATE TABLE``.
+    """Generic creation modifiers for ``CREATE TABLE``.
 
-    Captures the cross-dialect creation options explicitly instead of via an
-    untyped ``dialect_options`` bag:
+    Holds only the **generic** (SQL-standard or broadly shared) options:
 
-    **Header modifiers** (between ``CREATE`` and ``TABLE``):
+    **Header modifier** (between ``CREATE`` and ``TABLE``):
 
-    * ``or_replace`` -- ``CREATE OR REPLACE TABLE`` (Snowflake, BigQuery, MariaDB)
-    * ``unlogged``   -- ``CREATE UNLOGGED TABLE`` (PostgreSQL)
-    * ``transient``  -- ``CREATE TRANSIENT TABLE`` (Snowflake)
+    * ``or_replace`` -- ``CREATE OR REPLACE TABLE`` (standard; widely supported)
 
-    **Table-level options** (after the column list):
+    **Table-level option** (after the column list):
 
-    * ``comment`` -- ``COMMENT 'text'`` (MySQL, MariaDB, ClickHouse)
-    * ``engine`` -- ``ENGINE=name`` (MySQL, MariaDB, ClickHouse)
-    * ``charset`` -- ``DEFAULT CHARSET=name`` (MySQL, MariaDB)
-    * ``collate`` -- ``COLLATE=name`` (MySQL, MariaDB, table-level)
-    * ``memory_optimized`` -- ``MEMORY_OPTIMIZED=ON`` (SQL Server)
-    * ``durability`` -- ``DURABILITY=SCHEMA_ONLY|SCHEMA_AND_DATA`` (SQL Server)
+    * ``comment`` -- inline table-comment clause, carried as a
+      :class:`TableCommentClause`. There is **no** SQL-standard table comment
+      mechanism: the bare ``COMMENT '<text>'`` table option is a
+      MySQL/MariaDB/ClickHouse-family dialect convenience (Snowflake renders
+      ``COMMENT = '<text>'``, BigQuery ``OPTIONS(description='<text>')``), and
+      the standalone ``COMMENT ON`` statement is a separate de-facto vendor
+      mechanism (:class:`CommentOnExpression`), not this clause. Bare comment
+      text is **not** accepted — build the clause node explicitly; rendering
+      is capability-gated by the statement renderer through
+      :meth:`supports_table_comment`, which raises ``UnsupportedFeatureError``
+      on dialects without the grammar instead of silently dropping a declared
+      comment.
 
-    Header modifiers are rendered by ``format_create_table_options``; the
-    statement renderer composes the returned qualifier right after
-    ``CREATE``.  Table-level options are rendered by the statement renderer
-    and appended after the column list.
+    Backend-specific creation options (``UNLOGGED`` / ``TRANSIENT`` /
+    ``ENGINE`` / ``CHARSET`` / table ``COLLATE`` / ``MEMORY_OPTIMIZED`` /
+    ``DURABILITY`` / …) live on a backend's own ``XxxCreateTableOptions``
+    subclass — they are **not** generic and there is no ``dialect_options``
+    bag.
+
+    ``or_replace`` is rendered by ``format_create_table_options``; the
+    statement renderer composes the returned qualifier right after ``CREATE``.
+    ``comment`` is a clause node rendered by the statement renderer after the
+    column list.
     """
 
     @property
@@ -332,35 +519,18 @@ class CreateTableOptions(BaseExpression):
         dialect: "SQLDialectBase",
         *,
         or_replace: bool = False,
-        unlogged: bool = False,
-        transient: bool = False,
-        comment: Optional[str] = None,
-        engine: Optional[str] = None,
-        charset: Optional[str] = None,
-        collate: Optional[str] = None,
-        memory_optimized: Optional[bool] = None,
-        durability: Optional[str] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        comment: Optional["TableCommentClause"] = None,
     ):
         super().__init__(dialect)
+        if comment is not None and not isinstance(comment, TableCommentClause):
+            raise TypeError(
+                f"comment must be a TableCommentClause, got {type(comment).__name__}"
+            )
         self.or_replace = or_replace
-        self.unlogged = unlogged
-        self.transient = transient
         self.comment = comment
-        self.engine = engine
-        self.charset = charset
-        self.collate = collate
-        self.memory_optimized = memory_optimized
-        self.durability = durability
-        self.dialect_options = dialect_options or {}
 
 
 class CreateTableExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_table_statement"
     """Represents a comprehensive CREATE TABLE statement supporting full SQL standard features."""
 
     def __init__(
@@ -378,10 +548,7 @@ class CreateTableExpression(BaseExpression):
         *,  # Force keyword arguments
         partition: Optional["PartitionClause"] = None,  # Table partitioning specification
         table_options: Optional["CreateTableOptions"] = None,  # CREATE header modifiers
-        dialect_options: Optional[Dict[str, Any]] = None,
-        on_commit_delete: Optional[bool] = None,  # Firebird: ON COMMIT DELETE ROWS (True) or PRESERVE ROWS (False)
-        external_file: Optional[str] = None,  # Firebird: EXTERNAL FILE clause
-    ):  # Dialect-specific options
+    ):
         super().__init__(dialect)
         if isinstance(table, str):
             self.table = TableExpression(dialect, table)
@@ -402,9 +569,6 @@ class CreateTableExpression(BaseExpression):
             raise TypeError(f"partition must be a PartitionClause instance, got {type(partition).__name__}")
         self.partition = partition
         self.table_options = table_options  # CreateTableOptions (header modifiers)
-        self.dialect_options = dialect_options or {}  # Dialect-specific options
-        self.on_commit_delete = on_commit_delete  # Firebird: ON COMMIT DELETE/PRESERVE ROWS
-        self.external_file = external_file  # Firebird: EXTERNAL FILE clause
 
     @property
     def table_name(self) -> str:
@@ -469,7 +633,6 @@ class CreateTableAsExpression(BaseExpression):
         if_not_exists: bool = False,
         storage_options: Optional["StorageOptionsExpression"] = None,
         with_data: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.table = _normalize_table_reference(dialect, table)
@@ -481,7 +644,6 @@ class CreateTableAsExpression(BaseExpression):
         self.if_not_exists = if_not_exists
         self.storage_options = storage_options
         self.with_data = with_data
-        self.dialect_options = dialect_options or {}
 
     @property
     def table_name(self) -> str:
@@ -522,7 +684,6 @@ class CreateTableLikeExpression(BaseExpression):
         temporary: bool = False,
         if_not_exists: bool = False,
         like_options: Optional[Any] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.table = _normalize_table_reference(dialect, table)
@@ -531,7 +692,6 @@ class CreateTableLikeExpression(BaseExpression):
         self.if_not_exists = if_not_exists
         # PostgreSQL-specific INCLUDING/EXCLUDING options (dict or list).
         self.like_options = like_options
-        self.dialect_options = dialect_options or {}
 
     @property
     def table_name(self) -> str:
@@ -576,7 +736,6 @@ class CreateTableCloneExpression(BaseExpression):
         at: Optional[Any] = None,
         before: Optional[Any] = None,
         copy_grants: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         if not isinstance(mode, CreateTableCloneMode):
@@ -589,7 +748,6 @@ class CreateTableCloneExpression(BaseExpression):
         self.at = at
         self.before = before
         self.copy_grants = copy_grants
-        self.dialect_options = dialect_options or {}
 
     @property
     def table_name(self) -> str:
@@ -619,7 +777,6 @@ class CreateTableFromTemplateExpression(BaseExpression):
         *,
         temporary: bool = False,
         if_not_exists: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.table = _normalize_table_reference(dialect, table)
@@ -628,7 +785,6 @@ class CreateTableFromTemplateExpression(BaseExpression):
         self.template = template
         self.temporary = temporary
         self.if_not_exists = if_not_exists
-        self.dialect_options = dialect_options or {}
 
     @property
     def table_name(self) -> str:
@@ -673,9 +829,8 @@ class DropTableExpression(BaseExpression):
             - None: Omit from SQL (use database default)
             - True: Generate CASCADE (or dialect-specific equivalent form)
             - False: Generate RESTRICT (or raise if unsupported)
-        dialect_options: Database-specific options (e.g., Oracle PURGE via
-            ``purge=True`` which, combined with cascade=True, appends PURGE
-            after the dialect-specific cascade form).
+        purge: Oracle PURGE via a typed flag which, combined with cascade=True,
+            appends PURGE after the dialect-specific cascade form.
 
     Examples:
         # Simple drop
@@ -691,8 +846,7 @@ class DropTableExpression(BaseExpression):
         # -> DROP TABLE users CASCADE
 
         # With CASCADE on Oracle (dialect renders its own form)
-        DropTableExpression(oracle_dialect, "users", cascade=True,
-        ...                 dialect_options={"purge": True})
+        DropTableExpression(oracle_dialect, "users", cascade=True, purge=True)
         # -> DROP TABLE users CASCADE CONSTRAINTS PURGE
 
         # With schema-qualified table
@@ -711,7 +865,7 @@ class DropTableExpression(BaseExpression):
         table: Union[str, "TableExpression"],
         if_exists: bool = False,
         cascade: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        purge: bool = False,
     ):
         super().__init__(dialect)
         if isinstance(table, str):
@@ -722,7 +876,7 @@ class DropTableExpression(BaseExpression):
             raise TypeError(f"table must be str or TableExpression, got {type(table).__name__}")
         self.if_exists = if_exists
         self.cascade = cascade
-        self.dialect_options = dialect_options or {}
+        self.purge = purge
 
 
 class StorageOptionsExpression(BaseExpression):

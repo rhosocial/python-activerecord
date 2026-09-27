@@ -2,7 +2,49 @@
 """Dialect mixins for table DDL and constraint capability detection."""
 from typing import Any, List, Tuple, TYPE_CHECKING
 
+
+def _normalize_constraint_type(constraint_type: Any, constraint_enum: type, label: str) -> Any:
+    if isinstance(constraint_type, constraint_enum):
+        return constraint_type
+    raw_value = getattr(constraint_type, "value", constraint_type)
+    raw_name = getattr(constraint_type, "name", raw_value)
+    candidates = []
+    for candidate in (raw_value, raw_name):
+        if isinstance(candidate, str):
+            normalized = " ".join(candidate.strip().split()).upper()
+            candidates.extend((normalized, normalized.replace(" ", "_")))
+    for candidate in candidates:
+        try:
+            return constraint_enum(candidate)
+        except ValueError:
+            continue
+    raise ValueError(
+        f"{label} must be a {constraint_enum.__name__} or its string value"
+    )
+
+
+def normalize_column_constraint_type(constraint_type: Any) -> Any:
+    from ...expression.statements.ddl_table import ColumnConstraintType
+
+    return _normalize_constraint_type(
+        constraint_type,
+        ColumnConstraintType,
+        "column constraint type",
+    )
+
+
+def normalize_table_constraint_type(constraint_type: Any) -> Any:
+    from ...expression.statements.ddl_table import TableConstraintType
+
+    return _normalize_constraint_type(
+        constraint_type,
+        TableConstraintType,
+        "table constraint type",
+    )
+
+
 if TYPE_CHECKING:  # pragma: no cover
+    from ...expression.core import TableExpression
     from ...expression.statements import (
         CreateTableExpression,
         CreateTableAsExpression,
@@ -122,12 +164,62 @@ class TableMixin:
         """
         return True
 
+    def supports_purge_on_drop_table(self) -> bool:
+        """Whether DROP TABLE accepts the PURGE option (bypass the recycle bin).
+
+        Defaults to False; Oracle (and compatible dialects) override to True.
+        When a caller requests ``purge`` and this is False, the generic helper
+        raises ``UnsupportedFeatureError`` instead of silently dropping it.
+        """
+        return False
+
     def supports_table_tablespace(self) -> bool:
         """Whether tablespace specification is supported.
 
         Defaults to False.
         """
         return False
+
+    def supports_table_inheritance(self) -> bool:
+        """Whether table inheritance (``INHERITS (parent, ...)``) is supported.
+
+        Defaults to False; PostgreSQL (and compatible dialects) override to
+        True. When a declaration carries ``inherits`` and this is False, the
+        generic helper raises ``UnsupportedFeatureError`` instead of emitting
+        a clause the database would reject.
+        """
+        return False
+
+    def supports_inline_index(self) -> bool:
+        """Whether CREATE TABLE accepts inline index definitions.
+
+        Inline index clauses inside CREATE TABLE are a dialect convenience of
+        MySQL/MariaDB/ClickHouse; the SQL-standard form is the standalone
+        CREATE INDEX statement. The generic ``format_create_table_statement``
+        raises UnsupportedFeatureError when an expression carries inline
+        indexes but this switch is False.
+
+        Defaults to False (SQL-standard behavior).
+        """
+        return False
+
+    def preferred_create_table_statement(self):
+        """The backend's preferred CREATE TABLE statement class (§5.12).
+
+        Defaults to ``None`` — the generic ``CreateTableExpression`` is the
+        candidate fallback. Backends that render their own statement subclass
+        override this to return it (first candidate, order = priority); the
+        deriver composes ``[preferred, generic]`` and selects through
+        Gate 1 (ownership) + Gate 2 (renderability).
+        """
+        return None
+
+    def preferred_drop_table_statement(self):
+        """The backend's preferred DROP TABLE statement class (§5.12).
+
+        Defaults to ``None`` — the generic ``DropTableExpression``.
+        """
+        return None
 
     def supports_drop_column(self) -> bool:
         """Whether DROP COLUMN is supported.
@@ -252,16 +344,43 @@ class TableMixin:
         escaped = self._escape_sql_string(comment)
         return f"COMMENT '{escaped}'", ()
 
+    def format_table_comment_clause(self, clause) -> Tuple[str, tuple]:
+        """Render the inline table-comment clause of ``CREATE TABLE``.
+
+        Returns the fragment **with a leading space** so the statement
+        renderer can append it directly after the column list / storage
+        options.  The text grammar is delegated to :meth:`format_table_comment`
+        so backends override only the text form (e.g. Snowflake's
+        ``COMMENT = '<text>'``, BigQuery's ``OPTIONS(description='<text>')``).
+
+        Args:
+            clause: The :class:`TableCommentClause` carrying the text.
+
+        Returns:
+            Tuple of (SQL fragment with leading space, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: If :meth:`supports_table_comment` is
+                False for the dialect.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_table_comment():
+            raise UnsupportedFeatureError(
+                self.name, "TABLE COMMENT",
+                f"{self.name} does not support an inline table comment.",
+            )
+        text_sql, params = self.format_table_comment(clause.comment)
+        return f" {text_sql}", params
+
     def format_create_table_options(self, expr: "CreateTableOptions") -> Tuple[str, tuple]:
-        """Format the ``CREATE`` header modifiers (generic reusable implementation).
+        """Format the generic ``CREATE`` header modifier.
 
-        Renders the qualifiers between ``CREATE`` and ``TABLE``, in the
-        portable order ``OR REPLACE``, then one of ``UNLOGGED`` / ``TRANSIENT``.
-        Each flag is capability-gated:
-
-        * ``or_replace`` -> :meth:`supports_create_or_replace_table`
-        * ``unlogged``   -> :meth:`supports_unlogged_table`
-        * ``transient``  -> :meth:`supports_transient_table`
+        The generic layer renders only the standard ``OR REPLACE`` qualifier
+        (capability-gated by :meth:`supports_create_or_replace_table`).
+        Backend-specific header modifiers (``UNLOGGED`` / ``TRANSIENT`` / …)
+        are added by the owning backend's ``XxxCreateTableOptions`` override,
+        which must accept both the generic and its own instance.
 
         Args:
             expr: The CreateTableOptions clause carrying the flags.
@@ -271,8 +390,8 @@ class TableMixin:
             flag is set.
 
         Raises:
-            UnsupportedFeatureError: If a requested flag is not supported by
-                the dialect.
+            UnsupportedFeatureError: If ``or_replace`` is requested but the
+                dialect does not support it.
         """
         from ..exceptions import UnsupportedFeatureError
 
@@ -281,14 +400,6 @@ class TableMixin:
             if not self.supports_create_or_replace_table():
                 raise UnsupportedFeatureError(self.name, "CREATE OR REPLACE TABLE")
             parts.append("OR REPLACE")
-        if expr.unlogged:
-            if not self.supports_unlogged_table():
-                raise UnsupportedFeatureError(self.name, "CREATE UNLOGGED TABLE")
-            parts.append("UNLOGGED")
-        if expr.transient:
-            if not self.supports_transient_table():
-                raise UnsupportedFeatureError(self.name, "CREATE TRANSIENT TABLE")
-            parts.append("TRANSIENT")
         return " ".join(parts), ()
 
     def format_create_table_like_statement(self, expr: "CreateTableLikeExpression") -> Tuple[str, tuple]:
@@ -408,13 +519,20 @@ class TableMixin:
         """Format CREATE TABLE statement (generic implementation).
 
         Handles the explicit-schema form only (columns, constraints, storage,
-        tablespace, inherits, partition). CTAS / LIKE / CLONE have their own
-        expressions and formatters -- this method does not touch them.
+        table comment, tablespace, inherits, partition). CTAS / LIKE / CLONE
+        have their own expressions and formatters -- this method does not
+        touch them.
+
+        The ``table_options.comment`` inline clause is rendered after the
+        column list and storage options, before any PARTITION BY clause, and
+        only on dialects whose :meth:`supports_table_comment` is True; on the
+        others a declared comment raises ``UnsupportedFeatureError`` instead
+        of being silently dropped.
 
         Args:
             expr: CreateTableExpression carrying the table reference, column
-                definitions, constraints, and optional storage, tablespace,
-                inherits, and partition clauses.
+                definitions, constraints, and optional storage, table comment,
+                tablespace, inherits, and partition clauses.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
@@ -427,6 +545,17 @@ class TableMixin:
             if options_sql:
                 options_part = options_sql + " "
             all_params.extend(options_params)
+        from ..exceptions import UnsupportedFeatureError
+        if expr.temporary and not self.supports_temporary_table():
+            raise UnsupportedFeatureError(
+                self.name, "TEMPORARY TABLE",
+                f"{self.name} does not support TEMPORARY tables.",
+            )
+        if expr.if_not_exists and not self.supports_if_not_exists_table():
+            raise UnsupportedFeatureError(
+                self.name, "CREATE TABLE IF NOT EXISTS",
+                f"{self.name} does not support CREATE TABLE IF NOT EXISTS.",
+            )
         temp_part = "TEMPORARY " if expr.temporary else ""
         not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
         table_sql, table_params = expr.table.to_sql()
@@ -439,6 +568,12 @@ class TableMixin:
             all_params.extend(col_params)
         all_def_parts = [", ".join(column_parts)]
         for t_const in expr.table_constraints:
+            validation = getattr(t_const, "validation", None)
+            if validation is not None:
+                validation_value = getattr(validation, "value", validation)
+                normalized_validation = "".join(str(validation_value).strip().upper().split())
+                if normalized_validation in {"NOTVALID", "NOVALIDATE"}:
+                    raise ValueError("NOT VALID is only valid when adding a constraint")
             const_sql, const_params = self.format_table_constraint(t_const)
             if const_sql:
                 all_def_parts.append(const_sql)
@@ -450,9 +585,24 @@ class TableMixin:
             if storage_sql:
                 parts.append(storage_sql)
                 all_params.extend(storage_params)
+        table_comment = getattr(table_options, "comment", None) if table_options is not None else None
+        if table_comment is not None:
+            comment_sql, comment_params = self.format_table_comment_clause(table_comment)
+            parts.append(comment_sql)
+            all_params.extend(comment_params)
         if expr.tablespace:
+            if not self.supports_table_tablespace():
+                raise UnsupportedFeatureError(
+                    self.name, "TABLESPACE",
+                    f"{self.name} does not support table tablespaces.",
+                )
             parts.append(f" TABLESPACE {self.format_identifier(expr.tablespace)}")
         if expr.inherits:
+            if not self.supports_table_inheritance():
+                raise UnsupportedFeatureError(
+                    self.name, "INHERITS",
+                    f"{self.name} does not support table inheritance.",
+                )
             inherits_str = ", ".join(self.format_identifier(table) for table in expr.inherits)
             parts.append(f" INHERITS ({inherits_str})")
         if expr.partition is not None:
@@ -460,6 +610,14 @@ class TableMixin:
             if partition_sql:
                 parts.append(partition_sql)
                 all_params.extend(partition_params)
+        if expr.indexes:
+            from ..exceptions import UnsupportedFeatureError
+            raise UnsupportedFeatureError(
+                self.name,
+                "inline index in CREATE TABLE",
+                f"{self.name} does not support inline index definitions in "
+                "CREATE TABLE. Emit standalone CreateIndexExpression instead.",
+            )
         return "".join(parts), tuple(all_params)
 
     def format_create_table_as_statement(self, expr: "CreateTableAsExpression") -> Tuple[str, tuple]:
@@ -560,6 +718,13 @@ class TableMixin:
                     "DROP TABLE ... RESTRICT",
                 )
             parts.append("RESTRICT")
+        if getattr(expr, "purge", False):
+            if not self.supports_purge_on_drop_table():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "DROP TABLE ... PURGE",
+                )
+            parts.append("PURGE")
         return " ".join(parts), table_params
 
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
@@ -683,6 +848,21 @@ class ConstraintMixin:
         Defaults to True.
         """
         return True
+
+    def supports_alter_constraint_enforced(
+        self,
+        constraint_type: Any = None,
+    ) -> bool:
+        """Whether ALTER CONSTRAINT enforcement control is supported."""
+        return False
+
+    def supports_exclude_constraint(self) -> bool:
+        """Whether EXCLUDE table constraints are supported."""
+        return False
+
+    def supports_validate_constraint(self) -> bool:
+        """Whether VALIDATE CONSTRAINT is supported."""
+        return False
 
     # ALTER TABLE constraint operations (SQL-92)
 

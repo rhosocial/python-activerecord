@@ -313,8 +313,6 @@ class YesOrNoBooleanAdapter(BaseSQLTypeAdapter):
 class TypeAdapterTest(ActiveRecord):
     """Model for testing various type adapter scenarios."""
     __table_name__ = 'type_adapter_tests'
-    __primary_key__ = 'id'
-
 
     id: Optional[int] = None
     name: str
@@ -332,7 +330,6 @@ class TypeAdapterTest(ActiveRecord):
 class AsyncTypeAdapterTest(AsyncActiveRecord):
     """Model for testing various type adapter scenarios."""
     __table_name__ = 'type_adapter_tests'
-    __primary_key__ = 'id'
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -354,7 +351,6 @@ class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """User model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "users"
-    __primary_key__ = "id"
 
     # Python field: user_id, Database column: id
     user_id: Annotated[Optional[int], UseColumn("id")] = None
@@ -373,7 +369,6 @@ class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """User model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "users"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Python field: user_id, Database column: id
@@ -394,7 +389,6 @@ class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Post model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "posts"
-    __primary_key__ = "id"
 
     # Python field: post_id, Database column: id
     post_id: Annotated[Optional[int], UseColumn("id")] = None
@@ -418,7 +412,6 @@ class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """Post model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "posts"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Python field: post_id, Database column: id
@@ -444,7 +437,6 @@ class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Comment model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "comments"
-    __primary_key__ = "id"
 
     # Python field: comment_id, Database column: id
     comment_id: Annotated[Optional[int], UseColumn("id")] = None
@@ -469,7 +461,6 @@ class AsyncMappedComment(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """Comment model with custom column name mappings for testing in basic feature."""
 
     __table_name__ = "comments"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Python field: comment_id, Database column: id
@@ -514,7 +505,6 @@ class ColumnMappingModel(ActiveRecord):
     including mapping the primary key attribute.
     """
     __table_name__ = 'column_mapping_items'
-    __primary_key__ = 'id'
 
     # Primary key defaults to 'id'. item_id attribute maps to this 'id' column.
     item_id: Annotated[Optional[int], UseColumn("id")] = Field(default=None)
@@ -528,7 +518,6 @@ class AsyncColumnMappingModel(AsyncActiveRecord):
     including mapping the primary key attribute.
     """
     __table_name__ = 'column_mapping_items'
-    __primary_key__ = 'id'
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Primary key defaults to 'id'. item_id attribute maps to this 'id' column.
@@ -615,7 +604,6 @@ class JsonToStringAdapter(BaseSQLTypeAdapter):
 class MixedAnnotationModel(ActiveRecord):
     """A model with various combinations of annotations to test field mapping and adapters."""
     __table_name__ = "mixed_annotation_items"
-    __primary_key__ = "id" # Corrected from "item_id"
 
     # 1. Standard Python type
     name: str
@@ -639,7 +627,6 @@ class MixedAnnotationModel(ActiveRecord):
 class AsyncMixedAnnotationModel(AsyncActiveRecord):
     """A model with various combinations of annotations to test field mapping and adapters."""
     __table_name__ = "mixed_annotation_items"
-    __primary_key__ = "id" # Corrected from "item_id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # 1. Standard Python type
@@ -737,7 +724,6 @@ class AsyncStoreInventory(CompositePKMixin, AsyncActiveRecord):
 class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Single-column auto-increment PK — backward compatibility control group."""
     __table_name__ = "orders"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -747,7 +733,6 @@ class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
 class AsyncOrder(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """Async variant of Order."""
     __table_name__ = "orders"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None

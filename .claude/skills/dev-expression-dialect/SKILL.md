@@ -263,6 +263,46 @@ Examples: `CREATE TRIGGER`/`CREATE FUNCTION` → main package; `COMMENT ON`, `CR
 AS ENUM`, `BIGSERIAL` → PostgreSQL; `AUTO_INCREMENT` → MySQL; RANGE/LIST/HASH partitioning →
 backend-specific (each backend names and implements its own partition classes).
 
+### Generic vs Backend: The Two-Way Responsibility (Core Balances, Backends Never Share)
+
+The generic (core) layer and the concrete backend layers divide responsibility in **two
+directions**, and both directions are mandatory:
+
+1. **The generic layer must actively balance across backends.** When defining a generic
+   expression's parameters, its `supports_*()` switches, and its `format_*()` method, the core
+   must deliberately account for *how the different backends differ* — model the common shape
+   broadly enough to cover the shared semantics (not a narrow subset, not an over-broad grab-bag),
+   and give a sensible generic default implementation. The generic layer's job is to **shoulder as
+   much of the backends' work as possible**, so each backend can inherit behaviour untouched.
+
+2. **A difference the generic layer cannot balance is handled by each backend on its own.** For
+   such a difference a backend derives its **own** expression class (from the generic base),
+   extends/overrides its **own** `supports_*()` switches, and provides its **own** `format_*()`
+   method. This is the `MySQLRangePartition` / `PostgresRangePartition` / `OracleListPartition`
+   pattern.
+
+**IRON RULE — a backend must never reuse another backend's expression classes, switches, or
+formatters — not even when the definitions are byte-for-byte identical.** Cross-backend code
+sharing is forbidden. MariaDB does **not** import MySQL's partition expressions even though the
+syntax is identical; it declares its own `MariaDB*` classes derived from the same generic base.
+Backends are **independent**: each depends only on the core generic layer, never on a sibling
+backend.
+
+**Why:** (a) the generic layer owning the balance keeps backends thin and the shared contract
+coherent; (b) a backend is free to diverge the moment its real capability differs — but that
+freedom is only real if the class/switch/formatter actually lives in its own package. Sharing a
+sibling's class welds their fates: a change made for one backend silently changes the other, a
+version-gated capability cannot be tightened independently, and the override seam belongs to the
+wrong package. "It is identical today" is not a reason to share, because identity is not
+guaranteed tomorrow.
+
+**What happens if you break it (harm):** a cross-backend import creates a hidden dependency edge
+(backend→backend) that the packaging, versioning, and CI of independent repositories do not model;
+upgrading or splitting one backend breaks the other; and the shared class becomes an undeclared
+third contract with no owner. The correct move is always: if it is truly common, **lift it to the
+generic layer (rule 1)**; otherwise **derive a private copy in each backend (rule 2)** — never
+import across backends.
+
 ### Adding a New Protocol
 
 ```python

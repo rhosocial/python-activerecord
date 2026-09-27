@@ -9,6 +9,7 @@ from rhosocial.activerecord.backend.expression.graph import (
     GraphVertex, GraphEdge, GraphEdgeDirection,
     QuantifiedPath, PathPattern, MatchClause,
 )
+from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -284,6 +285,37 @@ class TestPathPattern:
         assert '(a IS "person")' in sql
         assert '-[e IS "knows"]->{1,}' in sql
         assert '(b IS "person")' in sql
+
+    def test_rejects_unsupported_path_element(self, dummy_dialect: DummyDialect):
+        vertex = GraphVertex(dummy_dialect, "a", "person")
+        raw = RawSQLExpression(dummy_dialect, "1); DROP TABLE people; --")
+        pattern = PathPattern(dummy_dialect, vertex, raw, GraphVertex(dummy_dialect, "b", "person"))
+
+        with pytest.raises(TypeError, match="PathPattern elements"):
+            pattern.to_sql()
+
+    @pytest.mark.parametrize(
+        "path_factory",
+        [
+            lambda dialect, vertex, edge: (vertex, edge),
+            lambda dialect, vertex, edge: (edge, vertex),
+            lambda dialect, vertex, edge: (vertex, vertex),
+        ],
+    )
+    def test_rejects_invalid_endpoint_sequence(self, dummy_dialect, path_factory):
+        vertex = GraphVertex(dummy_dialect, "a", "person")
+        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        pattern = PathPattern(dummy_dialect, *path_factory(dummy_dialect, vertex, edge))
+
+        with pytest.raises(ValueError, match="alternate vertices and edges"):
+            pattern.to_sql()
+
+    def test_rejects_invalid_quantifier_bounds(self, dummy_dialect: DummyDialect):
+        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        quantified = QuantifiedPath(dummy_dialect, edge, min_repeats=3, max_repeats=2)
+
+        with pytest.raises(ValueError, match="cannot exceed"):
+            quantified.to_sql()
 
 
 class TestMatchClauseMultiPattern:

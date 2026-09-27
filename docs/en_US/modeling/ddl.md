@@ -2,6 +2,8 @@
 
 `rhosocial-activerecord` provides a type-safe, expression-based API for building DDL (Data Definition Language) statements. Instead of writing raw SQL strings, you can construct tables, indexes, views, and schemas using Python objects.
 
+> This chapter describes explicit DDL expression construction and rendering. To read DDL declarations from an ActiveRecord model, see [DDLSource Declarations](ddl_source.md). The current `DDLSourceMixin` only collects and presents declarations; it does not generate or execute DDL automatically.
+
 ## Why Use DDL Expressions?
 
 - **Type Safety**: All column names, types, and constraints are validated at runtime.
@@ -337,8 +339,8 @@ Always refer to your specific backend's documentation for accurate API usage.
 ## Example Code
 
 Full example code for this chapter can be found at:
-[docs/examples/chapter_03_modeling/ddl_basic.py](../../../examples/chapter_03_modeling/ddl_basic.py)
+[docs/examples/chapter_03_modeling/ddl_basic.py](../../examples/chapter_03_modeling/ddl_basic.py)
 
 More examples:
-- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../../examples/chapter_03_modeling/ddl_relationships.py) — Creating tables with foreign key relationships
-- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../../examples/chapter_03_modeling/ddl_indexes.py) — Index creation patterns
+- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../examples/chapter_03_modeling/ddl_relationships.py) — Creating tables with foreign key relationships
+- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../examples/chapter_03_modeling/ddl_indexes.py) — Index creation patterns

@@ -256,3 +256,285 @@ class TestConstraintSQLFormatting:
         sql, params = dialect.format_drop_table_constraint_action(action)
         assert "DROP CONSTRAINT" in sql
         assert "uk_email" in sql
+
+
+class TestConstraintEnforcementAndValidation:
+    def test_table_and_column_enforcement(self):
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            ColumnConstraint,
+            ColumnConstraintType,
+            ColumnDefinition,
+            CreateTableExpression,
+            Literal,
+            TableConstraint,
+            TableConstraintType,
+        )
+        from rhosocial.activerecord.backend.expression.types import IntegerType
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+        dialect = DummyDialect()
+        condition = Column(dialect, "age") > Literal(dialect, 0, inline_literals=True)
+        table_constraint = TableConstraint(
+            dialect,
+            TableConstraintType.CHECK,
+            name="age_check",
+            check_condition=condition,
+            enforced=False,
+        )
+        column_constraint = ColumnConstraint(
+            dialect,
+            ColumnConstraintType.CHECK,
+            check_condition=condition,
+            enforced=False,
+        )
+        expression = CreateTableExpression(
+            dialect,
+            "people",
+            [ColumnDefinition(dialect, "age", IntegerType(dialect), [column_constraint])],
+            table_constraints=[table_constraint],
+        )
+
+        sql, params = expression.to_sql()
+
+        assert sql == (
+            'CREATE TABLE "people" ("age" INTEGER CHECK ("age" > 0) NOT ENFORCED, '
+            'CONSTRAINT "age_check" CHECK ("age" > 0) NOT ENFORCED)'
+        )
+        assert params == ()
+
+    def test_add_constraint_validation_is_type_specific(self):
+        from rhosocial.activerecord.backend.expression import AddTableConstraint, TableConstraint, TableConstraintType
+        from rhosocial.activerecord.backend.expression.statements import ConstraintValidation
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+        dialect = DummyDialect()
+        for constraint_type in (TableConstraintType.PRIMARY_KEY, TableConstraintType.UNIQUE):
+            constraint = TableConstraint(
+                dialect,
+                constraint_type,
+                columns=["id"],
+                validation=ConstraintValidation.NOVALIDATE,
+            )
+            with pytest.raises(ValueError, match="NOT VALID"):
+                AddTableConstraint(dialect, constraint).to_sql()
+
+    def test_enforcement_capability_is_gated(self):
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+        from rhosocial.activerecord.backend.expression import Column, ColumnConstraint, ColumnConstraintType, Literal
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        dialect = SQLiteDialect()
+        condition = Column(dialect, "age") > Literal(dialect, 0, inline_literals=True)
+        constraint = ColumnConstraint(
+            dialect,
+            ColumnConstraintType.CHECK,
+            check_condition=condition,
+            enforced=False,
+        )
+        with pytest.raises(UnsupportedFeatureError):
+            constraint.to_sql()
+
+    def test_alter_constraint_actions(self):
+        from rhosocial.activerecord.backend.expression import (
+            AlterConstraint,
+            ColumnConstraintType,
+            TableConstraintType,
+            ValidateConstraint,
+        )
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+        dialect = DummyDialect()
+
+        action = AlterConstraint(
+            dialect,
+            "age_check",
+            False,
+            constraint_type=ColumnConstraintType.CHECK,
+        )
+        assert action.constraint_type is TableConstraintType.CHECK
+        assert action.to_sql()[0] == 'ALTER CONSTRAINT "age_check" NOT ENFORCED'
+        assert ValidateConstraint(dialect, "age_check").to_sql()[0] == (
+            'VALIDATE CONSTRAINT "age_check"'
+        )
+        with pytest.raises(TypeError):
+            AlterConstraint(dialect, "age_check", False)
+
+    def test_constraint_type_and_validation_strings_are_normalized(self):
+        from rhosocial.activerecord.backend.expression import (
+            AddTableConstraint,
+            Column,
+            Literal,
+            TableConstraint,
+        )
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+        dialect = DummyDialect()
+        constraint = TableConstraint(
+            dialect,
+            " check ",
+            check_condition=Column(dialect, "age") > Literal(dialect, 0),
+            validation=" not valid ",
+        )
+
+        assert AddTableConstraint(dialect, constraint).to_sql()[0].endswith("NOT VALID")
+        assert "NOT VALID" not in constraint.to_sql()[0]
+
+    def test_check_predicate_inlines_literals_and_rejects_raw_parameters(self):
+        from rhosocial.activerecord.backend.expression import (
+            Column,
+            Literal,
+            RawSQLPredicate,
+            TableConstraint,
+        )
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+        dialect = DummyDialect()
+        trusted = TableConstraint(
+            dialect,
+            "CHECK",
+            check_condition=Column(dialect, "age") > Literal(dialect, 0),
+        )
+        assert trusted.to_sql() == ('CHECK ("age" > 0)', ())
+
+        unsafe = TableConstraint(
+            dialect,
+            "CHECK",
+            check_condition=RawSQLPredicate(dialect, "age > %s", (0,)),
+        )
+        with pytest.raises(ValueError, match="must not contain bind parameters"):
+            unsafe.to_sql()
+
+    def test_exclude_is_rejected_on_unsupported_dialect(self):
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+        from rhosocial.activerecord.backend.expression import TableConstraint, TableConstraintType
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        constraint = TableConstraint(SQLiteDialect(), TableConstraintType.EXCLUDE)
+        with pytest.raises(UnsupportedFeatureError, match="EXCLUDE"):
+            constraint.to_sql()
+
+
+class TestInPredicateInDDLCheckConstraints:
+    """``IN`` must be usable inside a CHECK constraint.
+
+    PostgreSQL and MySQL both reject bind parameters in DDL, so the dialect
+    preparation pass sets ``inline_literals`` on every literal inside a CHECK
+    predicate. ``InPredicate`` used to discard that flag -- it unpacked the
+    collection and rebuilt placeholders unconditionally -- which made ``IN`` the
+    one predicate shape that could not appear in a CHECK. Since the flag was
+    dropped, the shape that silently produced a bind parameter was the ordinary
+    ``column.in_([...])`` call rather than anything unusual.
+    """
+
+    def _check(self, dialect, condition):
+        from rhosocial.activerecord.backend.expression import TableConstraint
+        return TableConstraint(dialect, "CHECK", check_condition=condition)
+
+    def test_in_list_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "direction").in_(["debit", "credit"])
+        )
+        assert constraint.to_sql() == (
+            'CHECK ("direction" IN (\'debit\', \'credit\'))', (),
+        )
+
+    def test_in_tuple_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column, Literal
+
+        condition = Column(dummy_dialect, "direction").in_(
+            Literal(dummy_dialect, ("debit", "credit"))
+        )
+        assert self._check(dummy_dialect, condition).to_sql() == (
+            'CHECK ("direction" IN (\'debit\', \'credit\'))', (),
+        )
+
+    def test_not_in_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "state").not_in(["a", "b"])
+        )
+        assert constraint.to_sql() == (
+            'CHECK (NOT ("state" IN (\'a\', \'b\')))', (),
+        )
+
+    def test_numeric_in_list_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "priority").in_([1, 2, 3])
+        )
+        assert constraint.to_sql() == (
+            'CHECK ("priority" IN (1, 2, 3))', (),
+        )
+
+    def test_in_list_escapes_quotes_when_inlined(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "label").in_(["a'b"])
+        )
+        assert constraint.to_sql() == ('CHECK ("label" IN (\'a\'\'b\'))', ())
+
+    def test_in_list_with_null_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "parent").in_([None, 1])
+        )
+        assert constraint.to_sql() == ('CHECK ("parent" IN (NULL, 1))', ())
+
+    def test_empty_in_list_stays_empty_parens(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import Column
+
+        constraint = self._check(
+            dummy_dialect, Column(dummy_dialect, "direction").in_([])
+        )
+        assert constraint.to_sql() == ('CHECK ("direction" IN ())', ())
+
+    def test_in_list_still_binds_outside_ddl(self, dummy_dialect: DummyDialect):
+        """The DML path must be untouched: inlining there would be an injection."""
+        from rhosocial.activerecord.backend.expression import Column
+
+        condition = Column(dummy_dialect, "direction").in_(["debit", "credit"])
+        assert condition.to_sql() == ('"direction" IN (?, ?)', ("debit", "credit"))
+
+    def test_subquery_in_does_not_go_through_the_value_list_path(
+        self, dummy_dialect: DummyDialect
+    ):
+        """A subquery renders through its own to_sql(), so the collection fix
+        must not touch it -- that path has no Literal and no inline flag."""
+        from rhosocial.activerecord.backend.expression import Column, Subquery
+
+        condition = Column(dummy_dialect, "id").in_(
+            Subquery(dummy_dialect, "SELECT id FROM other", ())
+        )
+        sql, params = condition.to_sql()
+        assert "SELECT id FROM other" in sql
+        assert params == ()
+
+    def test_literal_wrapping_a_list_outside_ddl_still_binds(
+        self, dummy_dialect: DummyDialect
+    ):
+        """Hand-building the Literal is the documented IN form; it must behave
+        the same as the plain list call when the inline flag is off."""
+        from rhosocial.activerecord.backend.expression import Column, Literal
+
+        condition = Column(dummy_dialect, "direction").in_(
+            Literal(dummy_dialect, ["debit", "credit"])
+        )
+        assert condition.to_sql() == ('"direction" IN (?, ?)', ("debit", "credit"))
+
+    def test_explicitly_inlined_literal_list_renders_inline_without_ddl(
+        self, dummy_dialect: DummyDialect
+    ):
+        """The inline switch works on its own, not only via DDL preparation."""
+        from rhosocial.activerecord.backend.expression import Column, Literal
+
+        condition = Column(dummy_dialect, "direction").in_(
+            Literal(dummy_dialect, ("debit", "credit"), inline_literals=True)
+        )
+        assert condition.to_sql() == ('"direction" IN (\'debit\', \'credit\')', ())

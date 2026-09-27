@@ -36,6 +36,20 @@ class IndexMixin:
         """
         return True
 
+    def preferred_create_index_statement(self):
+        """The backend's preferred CREATE INDEX statement class (§5.12).
+
+        Defaults to ``None`` — the generic ``CreateIndexExpression``.
+        """
+        return None
+
+    def preferred_drop_index_statement(self):
+        """The backend's preferred DROP INDEX statement class (§5.12).
+
+        Defaults to ``None`` — the generic ``DropIndexExpression``.
+        """
+        return None
+
     def supports_unique_index(self) -> bool:
         """Whether UNIQUE indexes are supported.
 
@@ -91,6 +105,18 @@ class IndexMixin:
         Defaults to False.
         """
         return False
+
+    def supports_drop_index_on_table(self) -> bool:
+        """Whether DROP INDEX accepts/requires the ``ON <table>`` clause.
+
+        MySQL/MariaDB/SQL Server use ``DROP INDEX name ON table``;
+        PostgreSQL/SQLite/Oracle drop indexes by name without ``ON``.
+        When False, the generic ``format_drop_index_statement`` omits the
+        ``ON <table>`` suffix even if the expression carries a table name.
+
+        Defaults to True.
+        """
+        return True
 
     def supports_concurrent_index(self) -> bool:
         """Whether CREATE INDEX CONCURRENTLY is supported.
@@ -289,6 +315,18 @@ class IndexMixin:
         if expr.unique:
             parts.append("UNIQUE")
         parts.append("INDEX")
+
+        # CONCURRENTLY is a PostgreSQL extension gated by
+        # supports_concurrent_index(); it follows the INDEX keyword
+        # (``CREATE [UNIQUE] INDEX CONCURRENTLY ...``).
+        if getattr(expr, "concurrent", False):
+            if not self.supports_concurrent_index():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX CONCURRENTLY",
+                    f"{self.name} does not support CREATE INDEX CONCURRENTLY."
+                )
+            parts.append("CONCURRENTLY")
+
         if expr.if_not_exists:
             if not self.supports_index_if_not_exists():
                 raise UnsupportedFeatureError(
@@ -301,6 +339,11 @@ class IndexMixin:
         parts.append(self.format_identifier(expr.table_name))
 
         if expr.index_type:
+            if not self.supports_index_type():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX USING <type>",
+                    f"{self.name} does not support index type specification.",
+                )
             parts.append(f"USING {expr.index_type}")
 
         col_parts = []
@@ -323,6 +366,11 @@ class IndexMixin:
             parts.append(f"INCLUDE ({include_cols})")
 
         if expr.where:
+            if not self.supports_partial_index():
+                raise UnsupportedFeatureError(
+                    self.name, "CREATE INDEX ... WHERE (partial index)",
+                    f"{self.name} does not support partial indexes.",
+                )
             where_sql, where_params = expr.where.to_sql()
             parts.append(f"WHERE {where_sql}")
             all_params.extend(where_params)
@@ -353,6 +401,13 @@ class IndexMixin:
         """
         from ..exceptions import UnsupportedFeatureError
         parts = ["DROP INDEX"]
+        if getattr(expr, "concurrent", False):
+            if not self.supports_concurrent_index():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP INDEX CONCURRENTLY",
+                    f"{self.name} does not support DROP INDEX CONCURRENTLY."
+                )
+            parts.append("CONCURRENTLY")
         if expr.if_exists:
             if not self.supports_index_if_exists():
                 raise UnsupportedFeatureError(
@@ -361,7 +416,7 @@ class IndexMixin:
                 )
             parts.append("IF EXISTS")
         parts.append(self.format_identifier(expr.index_name))
-        if expr.table_name:
+        if expr.table_name and self.supports_drop_index_on_table():
             parts.append("ON")
             parts.append(self.format_identifier(expr.table_name))
         return " ".join(parts), ()

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from ._base import DataType
 
@@ -16,8 +16,8 @@ class FloatType(DataType):
     precision: Optional[int] = None
 
     def __init__(self, dialect=None, precision: Optional[int] = None,
-                 dialect_options: Optional[Dict[str, Any]] = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.precision = precision
 
     def _type_params(self) -> tuple:
@@ -46,8 +46,8 @@ class DecimalType(DataType):
 
     def __init__(self, dialect=None, precision: Optional[int] = None,
                  scale: Optional[int] = None,
-                 dialect_options: Optional[Dict[str, Any]] = None):
-        super().__init__(dialect, dialect_options=dialect_options)
+                 ):
+        super().__init__(dialect)
         self.precision = precision
         self.scale = scale
 

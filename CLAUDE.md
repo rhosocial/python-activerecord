@@ -85,3 +85,9 @@ When executing tests, ALWAYS show the complete unfiltered output. Do NOT:
 The full pytest output (including the summary line with pass/fail/skip counts) MUST be visible.
 Exception: if the output is so large it exceeds tool limits, use the dedicated output capture
 mechanism instead of manual truncation.
+
+## Search Scope
+
+- Use `rg` for repository searches; never use `grep`.
+- Limit searches to this `python-activerecord` repository and its related testsuite/backend directories.
+- Exclude `.git/`, `.venv*/`, `__pycache__/`, `build/`, `dist/`, and other cache directories.

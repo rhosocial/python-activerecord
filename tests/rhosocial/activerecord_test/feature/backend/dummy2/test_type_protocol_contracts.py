@@ -2,7 +2,7 @@
 """Layered correspondence contracts for the data-type protocol.
 
 Verifies the namespace rules and the naming-family discipline that the
-``DataType`` / ``DDLTypeSupport`` contracts formalize:
+``DataType`` / ``DataTypeSupport`` contracts formalize:
 
 * ``format_data_type_*`` / ``supports_data_type_*`` 1:1 correspondence
   (dummy dialect);

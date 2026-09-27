@@ -45,9 +45,11 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 
 import re
 
-from typing import Dict, List, Tuple, TYPE_CHECKING
+from typing import Dict, List, Tuple, Type, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression import Literal
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
     DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
@@ -55,8 +57,17 @@ from rhosocial.activerecord.backend.expression.types import (
     RealType, SmallIntType, TextType, TimeType, TimeTzType,
     TimestampType, TimestampTzType, TinyIntType, VarBinaryType, VarCharType,
 )
+from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
+    DomainAlterAction,
+    DomainNullability,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_type import (
+    TypeAlterAction,
+    TypeDefinition,
+)
+from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
 from rhosocial.activerecord.backend.dialect.protocols import (
-    DDLTypeSupport,
+    DataTypeSupport,
     SQLXMLSupport,
     SQLXMLParsingSupport,
     SQLXMLSerializationSupport,
@@ -99,6 +110,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     FunctionSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    ColumnAttributeSupport,
+    CommentSupport,
     DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
@@ -106,6 +119,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
+    UserDefinedTypeSupport,
+    DomainSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     SQLXMLMixin,
@@ -134,6 +149,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TableMixin,
     PartitionMixin,
     ConstraintMixin,
+    CommentOnMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -153,7 +169,9 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DQLMixin,
     DMLMixin,
     DDLColumnMixin,
-    DDLTypeMixin,
+    DataTypeMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
     TransactionControlMixin,
 )
 
@@ -200,6 +218,7 @@ class DummyDialect(
     TableMixin,
     PartitionMixin,
     ConstraintMixin,
+    CommentOnMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -218,8 +237,12 @@ class DummyDialect(
     DateTimeMixin,
     DQLMixin,
     DMLMixin,
-    DDLTypeMixin,
-    DDLTypeSupport,
+    DataTypeMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
+    DataTypeSupport,
+    UserDefinedTypeSupport,
+    DomainSupport,
     DDLColumnMixin,
     TransactionControlMixin,
     # Protocols for type checking
@@ -265,6 +288,8 @@ class DummyDialect(
     FunctionSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    ColumnAttributeSupport,
+    CommentSupport,
     DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
@@ -467,6 +492,110 @@ class DummyDialect(
         """Parse a raw SQL type string — dummy dialect always returns CustomType."""
         from rhosocial.activerecord.backend.expression.types import CustomType
         return CustomType(raw.strip())
+
+    def supports_type_objects(self) -> bool:
+        return True
+
+    def supports_create_type(self) -> bool:
+        return True
+
+    def supports_alter_type(self) -> bool:
+        return True
+
+    def supports_drop_type(self) -> bool:
+        return True
+
+    def supported_type_definitions(self) -> Tuple[Type[TypeDefinition], ...]:
+        return (_DummyTypeDefinition,)
+
+    def supports_type_alter_action(
+        self,
+        action_type: Type[TypeAlterAction],
+    ) -> bool:
+        return action_type is _DummyTypeAlterAction
+
+    def supports_create_type_if_not_exists(self) -> bool:
+        return True
+
+    def supports_create_type_or_replace(self) -> bool:
+        return True
+
+    def supports_alter_type_if_exists(self) -> bool:
+        return True
+
+    def supports_drop_type_if_exists(self) -> bool:
+        return True
+
+    def supports_multiple_type_alter_actions(self) -> bool:
+        return False
+
+    def format_type_definition(self, expr: TypeDefinition) -> Tuple[str, tuple]:
+        if not self.supports_type_objects():
+            raise UnsupportedFeatureError(self.name, "TYPE definition")
+        if not self.supports_type_definition(type(expr)):
+            raise UnsupportedFeatureError(
+                self.name,
+                f"TYPE definition {expr.definition_kind}",
+            )
+        if isinstance(expr, _DummyTypeDefinition):
+            data_type_sql, data_type_params = expr.data_type.to_sql()
+            return f"AS {data_type_sql}", tuple(data_type_params)
+        raise UnsupportedFeatureError(
+            self.name,
+            f"TYPE definition {expr.definition_kind}",
+        )
+
+    def format_type_alter_action(self, expr: TypeAlterAction) -> Tuple[str, tuple]:
+        if not self.supports_type_objects() or not self.supports_alter_type():
+            raise UnsupportedFeatureError(self.name, "ALTER TYPE action")
+        if not self.supports_type_alter_action(type(expr)):
+            raise UnsupportedFeatureError(
+                self.name,
+                f"ALTER TYPE action {expr.action_kind}",
+            )
+        if isinstance(expr, _DummyTypeAlterAction):
+            return f"RENAME TO {self.format_identifier(expr.new_name)}", ()
+        raise UnsupportedFeatureError(
+            self.name,
+            f"ALTER TYPE action {expr.action_kind}",
+        )
+
+
+    def supports_domains(self) -> bool:
+        return True
+
+    def supports_domain_nullability(self, nullability: DomainNullability) -> bool:
+        return True
+
+    def supports_named_domain_checks(self) -> bool:
+        return True
+
+    def supports_multiple_domain_checks(self) -> bool:
+        return True
+
+    def supports_domain_collation(self) -> bool:
+        return True
+
+    def supports_alter_domain_action(
+        self,
+        action_type: Type[DomainAlterAction],
+    ) -> bool:
+        return True
+
+    def supports_multiple_domain_alter_actions(self) -> bool:
+        return False
+
+    def supports_drop_domain_if_exists(self) -> bool:
+        return False
+
+    def supports_drop_domain_cascade(self) -> bool:
+        return False
+
+    def supports_drop_domain_restrict(self) -> bool:
+        return False
+
+    def supports_unnamed_domain_check_drop(self) -> bool:
+        return False
 
     # region Protocol Support Checks - Core Features
     def supports_xmlparse(self) -> bool:
@@ -749,11 +878,30 @@ class DummyDialect(
     def supports_table_comment(self) -> bool:
         return True
 
+    def supports_column_comment(self) -> bool:
+        """Whether a column-level ``COMMENT 'text'`` attribute is supported.
+
+        DummyDialect renders column comments unconditionally in its
+        ``format_column_definition``, so the capability advertises True to
+        stay consistent with the actual rendering behavior.
+        """
+        return True
+
+    def supports_comment_on(self) -> bool:
+        """Whether standalone ``COMMENT ON`` statements are supported.
+
+        DummyDialect exercises the generic ``CommentOnMixin`` rendering path.
+        """
+        return True
+
     # Generic partition protocol is exposed through PartitionMixin, but all
     # capabilities stay disabled for dummy because partitioning requires
     # backend-specific storage semantics.
 
     def supports_table_tablespace(self) -> bool:
+        return True
+
+    def supports_table_inheritance(self) -> bool:
         return True
 
     def supports_drop_column(self) -> bool:
@@ -766,6 +914,12 @@ class DummyDialect(
         return True
 
     def supports_alter_column_type(self) -> bool:
+        return True
+
+    def supports_alter_column_properties(self) -> bool:
+        return True
+
+    def supports_alter_table_index_actions(self) -> bool:
         return True
 
     def supports_rename_column(self) -> bool:
@@ -786,6 +940,12 @@ class DummyDialect(
 
     def supports_exclude_constraint(self) -> bool:
         """Whether EXCLUDE constraints are supported (PG-proprietary)."""
+        return True
+
+    def supports_alter_constraint_enforced(self) -> bool:
+        return True
+
+    def supports_validate_constraint(self) -> bool:
         return True
 
     # endregion
@@ -1253,7 +1413,6 @@ class DummyDialect(
         """
         from rhosocial.activerecord.backend.expression.statements import (
             ColumnConstraintType,
-            GeneratedColumnType,
         )
         from rhosocial.activerecord.backend.expression import bases
 
@@ -1288,36 +1447,34 @@ class DummyDialect(
                 if constraint.check_condition is None:
                     raise ValueError("CHECK constraint must have a check condition specified.")
                 check_sql, check_params = constraint.check_condition.to_sql()
-                col_sql += f" CHECK ({check_sql})"
+                enforcement = self._format_constraint_enforcement(constraint)
+                suffix = f" {enforcement}" if enforcement else ""
+                col_sql += f" CHECK ({check_sql}){suffix}"
                 all_params.extend(check_params)
             elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
                 if constraint.foreign_key_reference is None:
                     raise ValueError("FOREIGN KEY constraint must have a foreign key reference specified.")
                 ref_table, ref_cols = constraint.foreign_key_reference
                 ref_cols_str = ", ".join(self.format_identifier(col) for col in ref_cols)
-                col_sql += f" REFERENCES {self.format_identifier(ref_table)}({ref_cols_str})"
+                enforcement = self._format_constraint_enforcement(constraint)
+                suffix = f" {enforcement}" if enforcement else ""
+                col_sql += f" REFERENCES {self.format_identifier(ref_table)}({ref_cols_str}){suffix}"
 
         if col_def.generated_expression is not None:
             gen_sql, gen_params = col_def.generated_expression.to_sql()
             col_sql += gen_sql
             all_params.extend(gen_params)
 
-        identity = getattr(col_def, 'identity', None)
-        if identity:
-            col_sql += f" GENERATED {identity.upper()} AS IDENTITY"
-            start = getattr(col_def, 'identity_start', None)
-            increment = getattr(col_def, 'identity_increment', None)
-            if start is not None or increment is not None:
-                id_parts = []
-                if start is not None:
-                    id_parts.append(f"START WITH {start}")
-                if increment is not None:
-                    id_parts.append(f"INCREMENT BY {increment}")
-                col_sql += f" ({' '.join(id_parts)})"
+        for attr in getattr(col_def, "attributes", None) or ():
+            attr_sql, attr_params = self.format_column_attribute(attr)
+            col_sql += attr_sql
+            all_params.extend(attr_params)
 
-        # Add comment if present
-        if col_def.comment:
-            col_sql += f" COMMENT '{col_def.comment}'"
+        # Add comment if present (inline column-comment clause).
+        if col_def.comment is not None:
+            comment_sql, comment_params = self.format_column_comment_clause(col_def.comment)
+            col_sql += comment_sql
+            all_params.extend(comment_params)
 
         return col_sql, tuple(all_params)
 

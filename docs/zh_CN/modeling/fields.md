@@ -47,7 +47,7 @@ class LegacyUser(ActiveRecord):
 
 ## 指定 SQL 列类型 (UseSqlType)
 
-默认情况下，`ActiveRecord` 会根据 Python 字段类型**自动推断**数据库列类型（`str` → 文本、`int` → 整数、`bool` → 布尔等）。当自动推断不满足需求（例如需要精确的 `VARCHAR(100)`、`DECIMAL(10,2)`、`JSONB`，或想显式控制列类型）时，使用 `UseSqlType` 注解来**显式指定 SQL 数据类型**。
+`ActiveRecord` 不会因为 Python 字段类型而自动生成 DDL `DataType`。`DDLSourceMixin.column_type()` 在没有 `UseSqlType` 时返回 `None`；需要声明 SQL 类型时，请显式使用 `UseSqlType`。完整的收集规则见 [DDLSource 声明收集](ddl_source.md)。
 
 `UseSqlType` 接受一个或多个 `DataType` 实例：
 
@@ -79,30 +79,25 @@ class User(ActiveRecord):
 
 ### 通用类型与后端特定类型
 
-`DataType` 分为两类，`UseSqlType` 对它们一视同仁：
+`DataType` 分为通用类型和后端特定类型。`UseSqlType` 会按声明顺序保存这些候选，收集层不会替后端选择或替换：
 
-- **通用类型**（如 `VarCharType`、`IntegerType`、`TextType`、`JsonType`）：跨后端可移植，每个后端都将其渲染为自身原生 SQL（如 SQLite 将 `VARCHAR(100)` 渲染为 `TEXT`，MySQL 渲染为 `VARCHAR(100)`）。
-- **后端特定类型**（如 `PostgresJsonBType`、`MySQLEnumType`，命名以后端名为前缀）：只在注册它的后端上渲染；其他后端会**跳过**该类型（而非静默替换为有损形式）。
+- **通用类型**（如 `VarCharType`、`IntegerType`、`TextType`、`JsonType`）可作为跨后端候选。
+- **后端特定类型**（如 `PostgresUUIDType`、`MySQLEnumType`）作为该后端的候选保留；是否支持由后端方言决定。
 
-### 声明顺序 = 后端优先级
+### 候选顺序
 
-`UseSqlType` 可以同时声明**多个**类型。DDL 生成时，框架选择**第一个**当前方言能够渲染的类型；全部不匹配时回退到后端中立的自动推断，再失败则报错。
+`UseSqlType` 可以同时声明多个类型。`DDLSourceMixin` 只保留候选及其声明顺序；后续消费者必须根据当前方言明确选择，不能把 source 的收集结果理解为已经完成类型选择。
 
 ```python
 from typing import Annotated
 from rhosocial.activerecord.base import UseSqlType
-from rhosocial.activerecord.backend.expression.types import JsonType
-# 以下为后端特定类型（来自对应后端包）
-from rhosocial.activerecord.backend.impl.postgres.expression.types import PostgresJsonBType
-from rhosocial.activerecord.backend.impl.mysql.expression.types import MySQLLongTextType
+from rhosocial.activerecord.backend.expression.types import TextType
+from rhosocial.activerecord.backend.impl.postgres.expression.types import PostgresUUIDType
 
-# 优先级：PostgreSQL 用 JSONB，MySQL 5.7 以下用 LONGTEXT（JSON 不可用），其他用通用 JSON
-payload: Annotated[dict, UseSqlType(
-    PostgresJsonBType(), JsonType(), MySQLLongTextType(),
-)]
+identifier: Annotated[str, UseSqlType(PostgresUUIDType(), TextType())]
 ```
 
-这样声明使得**同一个模型**可以跨多个后端部署，每个后端自动选择最合适的列类型。
+这样声明保留了同一个模型在不同后端之间的候选优先级；实际选择必须由后端 DDL 消费者显式完成。
 
 > **与 `UseColumn` 的关系**：`UseColumn` 控制**列名**（Python 属性名 ↔ 数据库列名），`UseSqlType` 控制**列类型**（SQL 数据类型），两者互不冲突，可同时使用。
 >

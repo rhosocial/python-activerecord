@@ -8,7 +8,32 @@ from .column_name_mixin import ColumnNameMixin, ColumnNameAnnotationHandler
 from .field_adapter_mixin import FieldAdapterMixin, AdapterAnnotationHandler
 from .derived_field_mixin import DerivedFieldMixin
 from .derived_field_handler import DerivedFieldHandler
-from .fields import UseColumn, UseAdapter, DerivedField
+from .fields import (
+    DDLAnnotation,
+    DerivedField,
+    UseAdapter,
+    UseColumn,
+    UseColumnAttributes,
+    UseComment,
+    UseConstraint,
+    UseGeneratedColumn,
+    UseIndex,
+    UseSqlType,
+)
+from .ddl import (
+    CharacterSetAttribute,
+    CollationAttribute,
+    ColumnAttribute,
+    ColumnOptions,
+    DDLAnnotationHandler,
+    DDLColumnType,
+    DDLFieldMetadata,
+    DDLGeneratedColumn,
+    DDLSource,
+    DDLSourceMixin,
+    IdentityAttribute,
+    MARKER_REGISTRY,
+)
 from .metaclass import MetaclassMixin, ActiveRecordMetaclass
 
 __all__ = [
@@ -23,9 +48,28 @@ __all__ = [
     "AdapterAnnotationHandler",
     "DerivedFieldMixin",
     "DerivedFieldHandler",
+    "DDLAnnotation",
     "UseColumn",
+    "UseColumnAttributes",
+    "UseComment",
     "UseAdapter",
+    "UseConstraint",
+    "UseGeneratedColumn",
+    "UseIndex",
+    "UseSqlType",
     "DerivedField",
+    "CharacterSetAttribute",
+    "CollationAttribute",
+    "ColumnAttribute",
+    "ColumnOptions",
+    "DDLAnnotationHandler",
+    "DDLColumnType",
+    "DDLFieldMetadata",
+    "DDLGeneratedColumn",
+    "DDLSource",
+    "DDLSourceMixin",
+    "IdentityAttribute",
+    "MARKER_REGISTRY",
     "MetaclassMixin",
     "ActiveRecordMetaclass",
 ]

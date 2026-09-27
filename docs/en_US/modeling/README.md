@@ -24,6 +24,14 @@ This chapter details how to define powerful data models.
   - CREATE VIEW, DROP VIEW
   - View with column aliases and OR REPLACE
   - Introspection for views
+- **[DDLSource Declarations](ddl_source.md)**
+  - The `DDLSource` protocol and `DDLSourceMixin`
+  - Collection rules for model declarations, field markers, and backend expressions
+  - Return interfaces, ordering, error boundaries, and backend integration
+- **[DDLSource Examples](ddl_source_examples.md)**
+  - Default declarations and annotated fields
+  - Core, backend-specific, and cross-backend expressions
+  - Observed failures when a foreign expression is incompatible
 - **[Mixins](mixins.md)**
   - Using built-in Mixins (`UUIDMixin`, `TimestampMixin`)
   - Creating custom Mixins for reusable logic
@@ -60,10 +68,10 @@ This chapter details how to define powerful data models.
 ## Example Code
 
 Full example code for this chapter can be found at:
-[docs/examples/chapter_03_modeling/basic_models.py](../../../examples/chapter_03_modeling/basic_models.py)
+[docs/examples/chapter_03_modeling/basic_models.py](../../examples/chapter_03_modeling/basic_models.py)
 
 Additional DDL examples:
-- [docs/examples/chapter_03_modeling/ddl_basic.py](../../../examples/chapter_03_modeling/ddl_basic.py) — Basic DDL operations
-- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../../examples/chapter_03_modeling/ddl_relationships.py) — Tables with foreign keys
-- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../../examples/chapter_03_modeling/ddl_indexes.py) — Index management
-- [docs/examples/chapter_03_modeling/ddl_views.py](../../../examples/chapter_03_modeling/ddl_views.py) — View creation and management
+- [docs/examples/chapter_03_modeling/ddl_basic.py](../../examples/chapter_03_modeling/ddl_basic.py) — Basic DDL operations
+- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../examples/chapter_03_modeling/ddl_relationships.py) — Tables with foreign keys
+- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../examples/chapter_03_modeling/ddl_indexes.py) — Index management
+- [docs/examples/chapter_03_modeling/ddl_views.py](../../examples/chapter_03_modeling/ddl_views.py) — View creation and management

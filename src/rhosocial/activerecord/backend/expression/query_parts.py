@@ -7,9 +7,9 @@ and delegate SQL generation to backend-specific dialects.
 """
 
 from enum import Enum
-from typing import Tuple, List, Union, Optional, Any, Dict, TYPE_CHECKING
+from typing import Tuple, List, Union, Optional, TYPE_CHECKING
 
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams
+from .bases import BaseExpression, SQLPredicate
 from .core import Subquery, TableExpression
 from .mixins import AliasableMixin
 
@@ -358,14 +358,12 @@ class ForUpdateClause(BaseExpression):
         of_columns: Optional[List[Union[str, "BaseExpression"]]] = None,  # Specify columns to lock
         nowait: bool = False,  # NOWAIT option - fail immediately if locked
         skip_locked: bool = False,  # SKIP LOCKED option - skip locked rows
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):  # Dialect-specific options
         super().__init__(dialect)
         self.strength = strength if strength is not None else LockStrength.UPDATE
         self.of_columns = of_columns or []  # Columns to apply the lock to
         self.nowait = nowait  # If True, fail immediately if rows are locked
         self.skip_locked = skip_locked  # If True, skip locked rows instead of waiting
-        self.dialect_options = dialect_options or {}  # Additional dialect-specific options
 
     @property
     def format_method(self) -> str:
@@ -451,7 +449,6 @@ class JoinClause(AliasableMixin, BaseExpression):
         using: Optional[List[str]] = None,  # USING clause columns (mutually exclusive with 'condition')
         natural: bool = False,  # NATURAL join flag
         alias: Optional[str] = None,  # Alias for the joined result
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):  # Dialect-specific options
         super().__init__(dialect)
 
@@ -482,7 +479,6 @@ class JoinClause(AliasableMixin, BaseExpression):
         self.using = using  # USING columns
         self.natural = natural  # NATURAL join flag
         self.alias = alias  # Alias for the join result
-        self.dialect_options = dialect_options or {}  # Dialect-specific options
 
     @property
     def format_method(self) -> str:
@@ -525,7 +521,6 @@ class JoinClause(AliasableMixin, BaseExpression):
             using=using,
             natural=natural,
             alias=alias,
-            dialect_options=self.dialect_options,
         )
 
     def inner_join(

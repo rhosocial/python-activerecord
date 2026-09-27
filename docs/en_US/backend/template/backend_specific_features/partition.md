@@ -28,7 +28,7 @@ else:
     ...
 ```
 
-> **Core provides a common interface, but partitioning is inherently backend-specific.** The SQL syntax for creating partitions, adding/removing partitions, and managing partition lifecycles differs completely between MySQL and PostgreSQL. rhosocial-activerecord provides backend-specific expression classes for each operation.
+> **Partitioning is inherently backend-specific.** Partition clause and definition syntax differs between databases, so each backend supplies its own expression classes and formatter.
 
 ## Supported Strategies
 
@@ -88,27 +88,6 @@ from rhosocial.activerecord.backend.impl.mysql.expression.partition import (
 # Backend-specific partition expression
 ```
 
-## Partition Lifecycle Management
-
-### PostgreSQL Lifecycle
-
-| Operation | Description |
-|-----------|-------------|
-| `CREATE TABLE ... PARTITION OF parent FOR VALUES ...` | Create a new partition |
-| `ALTER TABLE ... ATTACH PARTITION ...` | Attach an existing table as a partition |
-| `ALTER TABLE ... DETACH PARTITION ...` | Detach a partition (PG 14+ supports `CONCURRENTLY`) |
-
-### MySQL Lifecycle
-
-| Operation | Description |
-|-----------|-------------|
-| `ALTER TABLE ... ADD PARTITION` | Add a new partition |
-| `ALTER TABLE ... DROP PARTITION` | Drop a partition (data is lost) |
-| `ALTER TABLE ... TRUNCATE PARTITION` | Truncate a partition (keep structure) |
-| `ALTER TABLE ... REORGANIZE PARTITION` | Merge or split partitions |
-| `ALTER TABLE ... EXCHANGE PARTITION` | Swap a partition with a regular table |
-| `ALTER TABLE ... COALESCE PARTITION` | Reduce number of HASH/KEY partitions |
-
 ## Dialect Feature Detection
 
 ```python
@@ -127,15 +106,6 @@ if dialect.supports_list_table_partitioning():
 
 if dialect.supports_hash_table_partitioning():
     # HASH partitioning is available
-    ...
-
-# Check partition lifecycle operations
-if dialect.supports_add_partition():
-    # Can add partitions
-    ...
-
-if dialect.supports_detach_partition():
-    # Can detach partitions (PG 14+)
     ...
 ```
 

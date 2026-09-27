@@ -46,10 +46,16 @@ Carrying the qualifiers:
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLQueryAndParams
-from .ddl_table import ColumnDefinition, TableConstraint, IndexDefinition
+from ..bases import BaseExpression
+from .ddl_table import (
+    ColumnConstraintType,
+    ColumnDefinition,
+    IndexDefinition,
+    TableConstraint,
+    TableConstraintType,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -67,6 +73,8 @@ class AlterTableActionType(Enum):
     ALTER_COLUMN = "ALTER COLUMN"
     ADD_TABLE_CONSTRAINT = "ADD CONSTRAINT"
     DROP_TABLE_CONSTRAINT = "DROP CONSTRAINT"
+    ALTER_CONSTRAINT = "ALTER CONSTRAINT"
+    VALIDATE_CONSTRAINT = "VALIDATE CONSTRAINT"
     RENAME_COLUMN = "RENAME COLUMN"
     RENAME_TABLE = "RENAME TABLE"
     ADD_INDEX = "ADD INDEX"
@@ -114,7 +122,6 @@ class AddColumn(AlterTableAction):
     action_type: AlterTableActionType = AlterTableActionType.ADD_COLUMN
     column: ColumnDefinition
     if_not_exists: Optional[bool]
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
@@ -122,12 +129,10 @@ class AddColumn(AlterTableAction):
         column: ColumnDefinition,
         *,
         if_not_exists: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.column: ColumnDefinition = column
         self.if_not_exists: Optional[bool] = if_not_exists
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
 class DropColumn(AlterTableAction):
@@ -154,7 +159,6 @@ class DropColumn(AlterTableAction):
     action_type: AlterTableActionType = AlterTableActionType.DROP_COLUMN
     column_name: str
     if_exists: Optional[bool]
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
@@ -162,12 +166,10 @@ class DropColumn(AlterTableAction):
         column_name: str,
         *,
         if_exists: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.column_name: str = column_name
         self.if_exists: Optional[bool] = if_exists
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
 class ColumnAlterOperation(Enum):
@@ -177,6 +179,7 @@ class ColumnAlterOperation(Enum):
     DROP_DEFAULT = "DROP DEFAULT"
     SET_NOT_NULL = "SET NOT NULL"  # Non-standard but widely supported
     DROP_NOT_NULL = "DROP NOT NULL"  # Non-standard but widely supported
+    SET_DATA_TYPE = "SET DATA TYPE"  # SQL standard: ALTER COLUMN ... SET DATA TYPE <type>
 
 
 class AlterColumn(AlterTableAction):
@@ -192,7 +195,6 @@ class AlterColumn(AlterTableAction):
     operation: Union[ColumnAlterOperation, str]
     new_value: Any
     cascade: bool
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
@@ -202,14 +204,12 @@ class AlterColumn(AlterTableAction):
         *,
         new_value: Any = None,
         cascade: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.column_name: str = column_name
         self.operation: Union[ColumnAlterOperation, str] = operation
         self.new_value: Any = new_value
         self.cascade: bool = cascade
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
 class AddTableConstraint(AlterTableAction):
@@ -222,17 +222,14 @@ class AddTableConstraint(AlterTableAction):
 
     action_type: AlterTableActionType = AlterTableActionType.ADD_TABLE_CONSTRAINT
     constraint: TableConstraint
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         constraint: TableConstraint,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.constraint: TableConstraint = constraint
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
 class DropTableConstraint(AlterTableAction):
@@ -261,7 +258,6 @@ class DropTableConstraint(AlterTableAction):
     constraint_name: str
     if_exists: Optional[bool]
     cascade: bool
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
@@ -270,13 +266,109 @@ class DropTableConstraint(AlterTableAction):
         *,
         if_exists: Optional[bool] = None,
         cascade: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.constraint_name: str = constraint_name
         self.if_exists: Optional[bool] = if_exists
         self.cascade: bool = cascade
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
+
+
+class AlterConstraint(AlterTableAction):
+    """Typed ``ALTER CONSTRAINT`` enforcement action."""
+
+    action_type: AlterTableActionType = AlterTableActionType.ALTER_CONSTRAINT
+    constraint_name: str
+    enforced: bool
+    constraint_type: TableConstraintType
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        constraint_name: Optional[str] = None,
+        enforced: bool = True,
+        *,
+        name: Optional[str] = None,
+        constraint_type: Union[
+            ColumnConstraintType,
+            TableConstraintType,
+            str,
+        ],
+    ) -> None:
+        super().__init__(dialect)
+        if constraint_name is None:
+            constraint_name = name
+        elif name is not None and name != constraint_name:
+            raise ValueError("name and constraint_name must match")
+        if not isinstance(constraint_name, str) or not constraint_name.strip():
+            raise ValueError("constraint_name must be a non-empty string")
+        if not isinstance(enforced, bool):
+            raise TypeError("enforced must be a bool")
+        raw_value = getattr(constraint_type, "value", constraint_type)
+        raw_name = getattr(constraint_type, "name", raw_value)
+        normalized_type = None
+        for candidate in (raw_value, raw_name):
+            if not isinstance(candidate, str):
+                continue
+            normalized = " ".join(candidate.strip().upper().split())
+            for value in (normalized, normalized.replace(" ", "_")):
+                try:
+                    normalized_type = TableConstraintType(value)
+                    break
+                except ValueError:
+                    continue
+            if normalized_type is not None:
+                break
+        if normalized_type is None:
+            raise TypeError(
+                "constraint_type must be a CHECK or FOREIGN KEY constraint type"
+            )
+        if normalized_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
+            raise ValueError(
+                "constraint_type must be TableConstraintType.CHECK or "
+                "TableConstraintType.FOREIGN_KEY"
+            )
+        self.constraint_name = constraint_name
+        self.name = constraint_name
+        self.enforced = enforced
+        self.constraint_type = normalized_type
+
+    @property
+    def format_method(self) -> str:
+        return "format_alter_constraint_action"
+
+
+class ValidateConstraint(AlterTableAction):
+    """Typed ``VALIDATE CONSTRAINT`` action."""
+
+    action_type: AlterTableActionType = AlterTableActionType.VALIDATE_CONSTRAINT
+    constraint_name: str
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        constraint_name: Optional[str] = None,
+        *,
+        name: Optional[str] = None,
+    ) -> None:
+        super().__init__(dialect)
+        if constraint_name is None:
+            constraint_name = name
+        elif name is not None and name != constraint_name:
+            raise ValueError("name and constraint_name must match")
+        if not isinstance(constraint_name, str) or not constraint_name.strip():
+            raise ValueError("constraint_name must be a non-empty string")
+        self.constraint_name = constraint_name
+        self.name = constraint_name
+
+    @property
+    def format_method(self) -> str:
+        return "format_validate_constraint_action"
+
+
+AlterConstraintAction = AlterConstraint
+ValidateConstraintAction = ValidateConstraint
+AlterTableConstraint = AlterConstraint
+ValidateTableConstraint = ValidateConstraint
 
 
 class RenameTable(AlterTableAction):
@@ -290,19 +382,16 @@ class RenameTable(AlterTableAction):
     action_type: AlterTableActionType = AlterTableActionType.RENAME_TABLE
     old_name: str
     new_name: str
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         old_name: str,
         new_name: str,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.old_name: str = old_name
         self.new_name: str = new_name
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
 class RenameObject(AlterTableAction):
@@ -317,7 +406,6 @@ class RenameObject(AlterTableAction):
     old_name: str
     new_name: str
     object_type: str
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
@@ -326,13 +414,11 @@ class RenameObject(AlterTableAction):
         new_name: str,
         *,
         object_type: str = "COLUMN",
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.old_name: str = old_name
         self.new_name: str = new_name
         self.object_type: str = object_type
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
 class AddIndex(AlterTableAction):
@@ -396,7 +482,6 @@ class ModifyColumn(AlterTableAction):
     column: ColumnDefinition
     first: bool
     after_column: Optional[str]
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
@@ -405,13 +490,11 @@ class ModifyColumn(AlterTableAction):
         *,
         first: bool = False,
         after_column: Optional[str] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.column: ColumnDefinition = column
         self.first: bool = first
         self.after_column: Optional[str] = after_column
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
 class ChangeColumn(AlterTableAction):
@@ -431,7 +514,6 @@ class ChangeColumn(AlterTableAction):
     column: ColumnDefinition
     first: bool
     after_column: Optional[str]
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
@@ -441,14 +523,12 @@ class ChangeColumn(AlterTableAction):
         *,
         first: bool = False,
         after_column: Optional[str] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(dialect)
         self.old_name: str = old_name
         self.column: ColumnDefinition = column
         self.first: bool = first
         self.after_column: Optional[str] = after_column
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
 
 
 class AlterTableExpression(BaseExpression):
@@ -520,15 +600,12 @@ class AlterTableExpression(BaseExpression):
 
     table_name: str
     actions: List[AlterTableAction]
-    dialect_options: Dict[str, Any]
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         table_name: str,
         actions: List[AlterTableAction],
-        *,  # Force keyword arguments
-        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Initialize an ALTER TABLE expression with the specified modifications per SQL standard.
@@ -537,7 +614,6 @@ class AlterTableExpression(BaseExpression):
             dialect: The SQL dialect instance that determines query generation rules
             table_name: Name of the table to alter
             actions: List of actions to perform on the table (per SQL standard)
-            dialect_options: Additional database-specific parameters
 
         Raises:
             ValueError: If required parameters are missing or invalid
@@ -550,7 +626,6 @@ class AlterTableExpression(BaseExpression):
             if not isinstance(action, AlterTableAction):
                 raise TypeError(f"actions must be AlterTableAction instances, got {type(action).__name__}")
         self.actions: List[AlterTableAction] = list(actions)
-        self.dialect_options: Dict[str, Any] = dialect_options or {}
 
     @property
     def format_method(self) -> str:

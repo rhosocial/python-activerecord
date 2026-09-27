@@ -205,3 +205,20 @@ class TestCreateDropIndexStatements:
         assert "TABLESPACE" in sql
         # DDL clauses accept no bind parameters: WHERE literals are inline.
         assert params == ()
+
+
+class TestIndexDefinitionExpressionColumns:
+    """Functional / expression index columns in an inline IndexDefinition."""
+
+    def test_expression_column_renders(self, dummy_dialect: DummyDialect):
+        from rhosocial.activerecord.backend.expression import FunctionCall
+        from rhosocial.activerecord.backend.expression.statements import IndexDefinition
+
+        idx = IndexDefinition(
+            dummy_dialect,
+            "idx_lower_name",
+            [FunctionCall(dummy_dialect, "LOWER", Column(dummy_dialect, "name"))],
+        )
+        sql, params = idx.to_sql()
+        assert 'LOWER("name")' in sql
+        assert params == ()

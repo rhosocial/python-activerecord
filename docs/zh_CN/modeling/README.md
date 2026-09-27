@@ -24,6 +24,14 @@
   - CREATE VIEW、DROP VIEW
   - 带列别名的视图和 OR REPLACE
   - 视图内省
+- **[DDLSource 声明收集 (DDLSource Declarations)](ddl_source.md)**
+  - `DDLSource` 协议与 `DDLSourceMixin`
+  - 模型声明、字段标记和后端表达式的收集规则
+  - 返回接口、顺序、错误边界和后端接入
+- **[DDLSource 使用示例 (DDLSource Examples)](ddl_source_examples.md)**
+  - 默认声明与局部注记
+  - 通用、后端及跨后端表达式
+  - 不兼容方言的实际失败边界
 - **[Mixin 与复用 (Mixins)](mixins.md)**
   - 使用内置 Mixin (`UUIDMixin`, `TimestampMixin`)
   - 创建自定义 Mixin 复用逻辑
@@ -60,10 +68,10 @@
 ## 示例代码
 
 本章的完整示例代码可以在以下位置找到：
-[docs/examples/chapter_03_modeling/basic_models.py](../../../examples/chapter_03_modeling/basic_models.py)
+[docs/examples/chapter_03_modeling/basic_models.py](../../examples/chapter_03_modeling/basic_models.py)
 
 其他 DDL 示例：
-- [docs/examples/chapter_03_modeling/ddl_basic.py](../../../examples/chapter_03_modeling/ddl_basic.py) — 基础 DDL 操作
-- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../../examples/chapter_03_modeling/ddl_relationships.py) — 带外键的表
-- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../../examples/chapter_03_modeling/ddl_indexes.py) — 索引管理
-- [docs/examples/chapter_03_modeling/ddl_views.py](../../../examples/chapter_03_modeling/ddl_views.py) — 视图创建和管理
+- [docs/examples/chapter_03_modeling/ddl_basic.py](../../examples/chapter_03_modeling/ddl_basic.py) — 基础 DDL 操作
+- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../examples/chapter_03_modeling/ddl_relationships.py) — 带外键的表
+- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../examples/chapter_03_modeling/ddl_indexes.py) — 索引管理
+- [docs/examples/chapter_03_modeling/ddl_views.py](../../examples/chapter_03_modeling/ddl_views.py) — 视图创建和管理

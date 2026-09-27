@@ -142,9 +142,7 @@ def configure_test_db():
     backend = SQLiteBackend(config)
     User.configure(backend=backend)
     Order.configure(backend=backend)
-    # 创建表结构
-    User.create_table()
-    Order.create_table()
+    # 使用显式 DDL 表达式或迁移创建表结构。
     yield
     # 清理：:memory: 数据库随进程结束自动销毁，无需手动清理
 
@@ -165,7 +163,7 @@ def fresh_db():
     config = SQLiteConnectionConfig(database=":memory:")
     backend = SQLiteBackend(config)
     User.configure(backend=backend)
-    User.create_table()
+    # 执行模型查询前通过显式 DDL 表达式或迁移创建表结构。
     yield backend
     # 无需显式清理；:memory: 数据库在测试结束后自动释放
 ```

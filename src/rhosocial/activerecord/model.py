@@ -8,6 +8,7 @@ Each mixin contributes a distinct capability:
 - ColumnNameMixin: UseColumn annotation → physical column name mapping
 - FieldAdapterMixin: UseAdapter annotation → per-field type conversion
 - DerivedFieldMixin: DerivedField annotation → database-computed virtual columns
+- DDLSourceMixin: DDL parameter presentation
 - MetaclassMixin: ActiveRecordMetaclass integration and feature handler dispatch
 - BaseActiveRecord / AsyncBaseActiveRecord: CRUD, lifecycle hooks, backend binding
 """
@@ -20,6 +21,7 @@ from .base import (
     ColumnNameMixin,
     FieldAdapterMixin,
     DerivedFieldMixin,
+    DDLSourceMixin,
     MetaclassMixin,
 )
 from .relation import RelationManagementMixin
@@ -31,12 +33,11 @@ class ActiveRecord(
     ColumnNameMixin,
     FieldAdapterMixin,
     DerivedFieldMixin,
+    DDLSourceMixin,
     MetaclassMixin,
     BaseActiveRecord,
 ):
     """Complete ActiveRecord implementation combining core features."""
-
-    ...
 
 
 class AsyncActiveRecord(
@@ -45,12 +46,11 @@ class AsyncActiveRecord(
     ColumnNameMixin,
     FieldAdapterMixin,
     DerivedFieldMixin,
+    DDLSourceMixin,
     MetaclassMixin,
     AsyncBaseActiveRecord,
 ):
     """Complete Async ActiveRecord implementation combining core features."""
-
-    ...
 
 
 __all__ = [

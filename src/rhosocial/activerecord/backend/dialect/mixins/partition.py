@@ -1,15 +1,18 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/partition.py
-"""Dialect mixin for table partitioning support.
+"""Dialect mixin for generic table partitioning expressions.
 
-Declares partitioning capabilities and formats PARTITION BY clauses; the
-default implementation reports no support and raises UnsupportedFeatureError.
+Declares partitioning capabilities and formats the generic ``PARTITION BY``
+clause. Lifecycle orchestration is not part of this mixin. All ``supports_*``
+capability flags default to False; inline partition definitions have no
+portable generic syntax, so ``format_partition_definition`` always raises
+unless a backend overrides it.
 """
 from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.statements import PartitionClause
+    from ...expression.statements import PartitionClause, PartitionDefinition
 
 
 class PartitionMixin:
@@ -57,53 +60,14 @@ class PartitionMixin:
         """Whether table subpartitioning is supported. Defaults to False."""
         return False
 
-    def supports_add_partition(self) -> bool:
-        """Whether adding partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_drop_partition(self) -> bool:
-        """Whether dropping partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_truncate_partition(self) -> bool:
-        """Whether truncating partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_reorganize_partition(self) -> bool:
-        """Whether reorganizing partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_attach_partition(self) -> bool:
-        """Whether attaching partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
-    def supports_detach_partition(self) -> bool:
-        """Whether detaching partitions through the public API is supported.
-
-        Defaults to False.
-        """
-        return False
-
     def format_partition_clause(self, expr: "PartitionClause") -> Tuple[str, tuple]:
-        """Format a PARTITION BY clause from an expression.
+        """Format the generic ``PARTITION BY <method> (<keys>)`` clause.
 
-        The generic mixin does not generate backend-specific PARTITION BY
-        syntax. Dialects that support partitioning must override this method.
+        This default renders only the clause shape shared by RANGE/LIST/HASH
+        partitioning; concrete partition definitions are backend-specific and
+        are never produced here. Dialects without declarative partitioning
+        (``supports_partitioned_table_creation()`` returning False) raise
+        ``UnsupportedFeatureError``.
 
         Args:
             expr: PartitionClause with partition method and key expressions.
@@ -112,13 +76,67 @@ class PartitionMixin:
             Tuple of (SQL string, parameters tuple).
 
         Raises:
+            UnsupportedFeatureError: If the dialect does not support creating
+                partitioned tables, or the requested method is not supported.
+        """
+        if not self.supports_partitioned_table_creation():
+            raise UnsupportedFeatureError(
+                self.name,
+                "PARTITION BY clause",
+                "PartitionClause requires a dialect implementing PartitionSupport. "
+                "Use a concrete backend partition protocol such as MySQL or PostgreSQL "
+                "when table partitioning is available.",
+            )
+
+        method = expr.method.upper()
+        method_gates = {
+            "RANGE": self.supports_range_table_partitioning,
+            "LIST": self.supports_list_table_partitioning,
+            "HASH": self.supports_hash_table_partitioning,
+        }
+        gate = method_gates.get(method)
+        if gate is None:
+            raise UnsupportedFeatureError(
+                self.name,
+                f"{method} partitioning",
+                f"{method} is not a generic partitioning method.",
+            )
+        if not gate():
+            raise UnsupportedFeatureError(
+                self.name,
+                f"{method} partitioning",
+                f"{self.name} does not support {method} table partitioning.",
+            )
+
+        key_parts = []
+        params = []
+        for key in expr.keys:
+            key_sql, key_params = key.to_sql()
+            key_parts.append(key_sql)
+            params.extend(key_params)
+        return f" PARTITION BY {method} ({', '.join(key_parts)})", tuple(params)
+
+    def format_partition_definition(self, definition: "PartitionDefinition") -> Tuple[str, tuple]:
+        """Format an inline partition definition.
+
+        There is no portable generic syntax for a partition boundary
+        (``VALUES LESS THAN`` / ``VALUES IN`` / ``FOR VALUES`` all differ),
+        so the generic mixin does not render definitions. Backends that declare
+        partitions inline must override this method.
+
+        Args:
+            definition: PartitionDefinition (or backend subclass) to render.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
             UnsupportedFeatureError: Always, unless a concrete backend
-                overrides this method with partitioning support.
+                overrides this method.
         """
         raise UnsupportedFeatureError(
             self.name,
-            "PARTITION BY clause",
-            "PartitionClause requires a dialect implementing PartitionSupport. "
-            "Use a concrete backend partition protocol such as MySQL or PostgreSQL "
-            "when table partitioning is available.",
+            "partition definition",
+            "partition definitions require a dialect implementing inline "
+            "partition rendering; use a concrete backend such as MySQL or Oracle.",
         )

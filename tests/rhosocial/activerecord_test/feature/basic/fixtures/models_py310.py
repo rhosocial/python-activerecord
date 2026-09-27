@@ -338,7 +338,6 @@ class TypeAdapterTest(ActiveRecord):
     Python 3.10+ version using | syntax instead of Optional and Union.
     """
     __table_name__ = 'type_adapter_tests'
-    __primary_key__ = 'id'
 
     id: int | None = None
     name: str
@@ -360,7 +359,6 @@ class AsyncTypeAdapterTest(AsyncActiveRecord):
     Python 3.10+ version using | syntax instead of Optional and Union.
     """
     __table_name__ = 'type_adapter_tests'
-    __primary_key__ = 'id'
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: int | None = None
@@ -383,7 +381,6 @@ class MappedUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = "users"
-    __primary_key__ = "id"
 
     # Python field: user_id, Database column: id
     user_id: Annotated[int | None, UseColumn("id")] = None
@@ -404,7 +401,6 @@ class AsyncMappedUser(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = "users"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Python field: user_id, Database column: id
@@ -426,7 +422,6 @@ class MappedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = "posts"
-    __primary_key__ = "id"
 
     # Python field: post_id, Database column: id
     post_id: Annotated[int | None, UseColumn("id")] = None
@@ -453,7 +448,6 @@ class AsyncMappedPost(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = "posts"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Python field: post_id, Database column: id
@@ -481,7 +475,6 @@ class MappedComment(IntegerPKMixin, TimestampMixin, ActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = "comments"
-    __primary_key__ = "id"
 
     # Python field: comment_id, Database column: id
     comment_id: Annotated[int | None, UseColumn("id")] = None
@@ -508,7 +501,6 @@ class AsyncMappedComment(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = "comments"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Python field: comment_id, Database column: id
@@ -551,7 +543,6 @@ class ColumnMappingModel(ActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = 'column_mapping_items'
-    __primary_key__ = 'id'
 
     # Primary key defaults to 'id'. item_id attribute maps to this 'id' column.
     item_id: Annotated[int | None, UseColumn("id")] = Field(default=None)
@@ -567,7 +558,6 @@ class AsyncColumnMappingModel(AsyncActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = 'column_mapping_items'
-    __primary_key__ = 'id'
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # Primary key defaults to 'id'. item_id attribute maps to this 'id' column.
@@ -647,7 +637,6 @@ class MixedAnnotationModel(ActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = "mixed_annotation_items"
-    __primary_key__ = "id"
 
     # 1. Standard Python type
     name: str
@@ -674,7 +663,6 @@ class AsyncMixedAnnotationModel(AsyncActiveRecord):
     Python 3.10+ version using | syntax instead of Optional.
     """
     __table_name__ = "mixed_annotation_items"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     # 1. Standard Python type
@@ -750,7 +738,6 @@ class AsyncStoreInventory(CompositePKMixin, AsyncActiveRecord):
 class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Single-column auto-increment PK -- backward compatibility control group."""
     __table_name__ = "orders"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None
@@ -760,7 +747,6 @@ class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
 class AsyncOrder(IntegerPKMixin, TimestampMixin, AsyncActiveRecord):
     """Async variant of Order."""
     __table_name__ = "orders"
-    __primary_key__ = "id"
     c: ClassVar[FieldProxy] = FieldProxy()
 
     id: Optional[int] = None

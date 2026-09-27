@@ -30,7 +30,7 @@ from rhosocial.activerecord.backend.introspection.status import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..backend import SQLiteBackend
-    from ..async_backend import AsyncSQLiteBackend
+    from ..backend.async_backend import AsyncSQLiteBackend
 
 
 # SQLite PRAGMA parameters to expose as status items

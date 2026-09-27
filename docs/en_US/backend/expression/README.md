@@ -4,7 +4,7 @@ The Expression System provides a database-agnostic way to build SQL using Python
 
 ## Design Goal: Encapsulate All SQL Semantics
 
-The fundamental goal of the expression system is to **fully encapsulate all SQL semantics with Python objects** — from the simplest `SELECT`/`INSERT`, through window functions, CTEs, JSON operations, property graph queries (PGQ), to data types and backend-private syntax.
+The fundamental goal of the expression system is to **fully encapsulate all SQL semantics with Python objects** — from the simplest `SELECT`/`INSERT`, through window functions, CTEs, JSON operations, to data types and backend-private syntax.
 
 `to_sql()` is the single production entry point: any expression can independently call `to_sql()` to produce `(SQL string, parameter tuple)` without a full query compilation. This means:
 
@@ -31,7 +31,7 @@ Direct benefits:
 Broad coverage is not "one size fits all". Every database has its own syntax and capability boundaries, and the generic layer **never imposes unified semantics**:
 
 - **Strictly faithful rendering**: a dialect renders only declarations it natively supports; unsupported cases **raise errors with guidance** instead of silently substituting approximate semantics (e.g. declaring a generic auto-increment type on PostgreSQL raises and points to `PostgresSerialType`)
-- **Capability negotiation**: dialects expose their supported scope via protocols and capability query methods (e.g. `supports_graph_match()`), checkable at runtime
+- **Capability negotiation**: dialects expose their supported scope via protocols and capability query methods (e.g. `supports_window_functions()`), checkable at runtime
 - **Backend-specific extensions**: private syntax the generic layer cannot cover is provided by backend packages as **backend-name-prefixed** expressions (below)
 
 ### Principle 3: Backend-Specific Expressions Use the Backend Name as Prefix

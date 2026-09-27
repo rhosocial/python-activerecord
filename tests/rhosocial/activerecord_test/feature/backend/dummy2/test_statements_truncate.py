@@ -42,9 +42,10 @@ class TestTruncateStatements:
         assert "CASCADE" in sql
         assert params == ()
 
-    def test_truncate_with_dialect_options(self, dummy_dialect: DummyDialect):
-        """Tests TRUNCATE TABLE with dialect-specific options."""
-        truncate_expr = TruncateExpression(dummy_dialect, table_name="logs", dialect_options={"custom_option": "value"})
+    def test_truncate_has_no_dialect_options(self, dummy_dialect: DummyDialect):
+        """The generic TRUNCATE expression carries no dialect_options bag."""
+        truncate_expr = TruncateExpression(dummy_dialect, table_name="logs")
+        assert not hasattr(truncate_expr, "dialect_options")
         sql, params = truncate_expr.to_sql()
 
         assert 'TRUNCATE TABLE "logs"' in sql

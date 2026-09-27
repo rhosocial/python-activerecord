@@ -6,7 +6,6 @@ Tests expression construction using DummyDialect; actual SQL execution
 requires a database with PGQ support (PostgreSQL 19+ or Oracle 23c+).
 """
 import pytest
-from rhosocial.activerecord.backend.dialect.protocols import GraphTableSupport
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.graph import (
     GraphVertex, GraphEdge, GraphEdgeDirection, MatchClause,
@@ -55,6 +54,18 @@ class TestColumnsClause:
         sql, params = clause.to_sql()
         assert "AS" in sql
         assert "person_name" in sql
+
+    def test_rejects_non_graph_column_entry(self, dummy_dialect: DummyDialect):
+        clause = ColumnsClause(dummy_dialect, "p")
+
+        with pytest.raises(TypeError, match="GraphColumn"):
+            clause.to_sql()
+
+    def test_rejects_invalid_graph_column_variable(self, dummy_dialect: DummyDialect):
+        clause = ColumnsClause(dummy_dialect, GraphColumn("bad var", "name"))
+
+        with pytest.raises(ValueError, match="Invalid graph column variable"):
+            clause.to_sql()
 
 
 class TestGraphTableExpression:
@@ -242,6 +253,19 @@ class TestAlterPropertyGraphExpression:
         sql, params = expr.to_sql()
         assert '"person"' in sql
         assert '"knows"' in sql
+
+    @pytest.mark.parametrize(
+        ("action", "target", "label"),
+        [
+            ("ADD; DROP TABLE people", "VERTEX TABLES", "action"),
+            ("ADD", "VERTEX TABLES; DROP TABLE people", "target"),
+        ],
+    )
+    def test_rejects_alter_keyword_injection(self, dummy_dialect, action, target, label):
+        expression = AlterPropertyGraphExpression(dummy_dialect, "g", action, target)
+
+        with pytest.raises(ValueError, match=f"Invalid ALTER PROPERTY GRAPH {label}"):
+            expression.to_sql()
 
 
 class TestEdgeAbbreviatedSyntax:

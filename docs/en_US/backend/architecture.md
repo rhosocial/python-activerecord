@@ -181,7 +181,7 @@ layers expose fine-grained protocols:
 
 - `backend/protocols.py` — backend-level declarations (`ConcurrencyAware`, ...)
 - `dialect/protocols.py` — dialect-level declarations (`WindowFunctionSupport`,
-  `JSONSupport`, `DDLTypeSupport`, ...)
+  `JSONSupport`, `DataTypeSupport`, `UserDefinedTypeSupport`, `DomainSupport`, ...)
 
 These are runtime-checkable (`runtime_checkable`), and the `supports_*` methods gate
 behavior on the *actually connected* server version. Backends re-adapt their dialect via

@@ -2,9 +2,9 @@
 """DQL (Data Query Language) statement expressions."""
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
+from ..bases import BaseExpression, SQLPredicate, SQLValueExpression
 from ..core import Subquery, TableExpression
 from ..mixins import ArithmeticMixin, ComparisonMixin
 from ..query_parts import (
@@ -155,9 +155,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         limit_offset: Optional["LimitOffsetClause"] = None,  # Combined LIMIT/OFFSET clause object
         for_update: Optional["ForUpdateClause"] = None,  # FOR UPDATE clause object
         select_modifier: Optional[SelectModifier] = None,  # SELECT modifier - DISTINCT|ALL, None means no modifier
-        *,  # Force keyword arguments
-        dialect_options: Optional[Dict[str, Any]] = None,
-    ):  # Dialect-specific options - optional
+    ):
         """
         Initialize a QueryExpression instance with the specified query components.
 
@@ -183,7 +181,6 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                                 that OFFSET requires LIMIT within the clause object.
             for_update: FOR UPDATE clause object with the locking specification (optional).
             select_modifier: Modifier for the SELECT clause (optional). Options: DISTINCT, ALL.
-            dialect_options: Additional database-specific parameters (optional).
 
         Raises:
             ValueError: If HAVING is provided without GROUP BY (validated within GroupByHavingClause)
@@ -219,7 +216,6 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         self.select = select or []  # List of expressions to be selected
         self.from_ = from_  # Source of query data (optional)
         self.select_modifier = select_modifier  # SELECT modifier (DISTINCT/ALL), optional
-        self.dialect_options = dialect_options or {}  # Dialect-specific options
 
     def validate(self, strict: bool = True) -> None:
         """Validate QueryExpression parameters according to SQL standard.

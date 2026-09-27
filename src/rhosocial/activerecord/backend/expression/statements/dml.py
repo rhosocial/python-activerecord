@@ -3,9 +3,9 @@
 
 import abc
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Dict, List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams
+from ..bases import BaseExpression, SQLPredicate
 from ..core import TableExpression, Subquery
 from ..query_parts import WhereClause
 from ...schema import StatementType
@@ -176,13 +176,11 @@ class ReturningClause(BaseExpression):
         expressions: List["BaseExpression"],  # List of expressions to return
         alias: Optional[str] = None,  # Optional alias for the returning result
         output_into: Optional[str] = None,  # Optional OUTPUT/RETURNING INTO target
-        dialect_options: Optional[Dict[str, Any]] = None,
-    ):  # Dialect-specific options
+    ):
         super().__init__(dialect)
         self.expressions = expressions or []
         self.alias = alias  # Optional alias for the returning clause
         self.output_into = output_into  # OUTPUT/RETURNING INTO target (SQL Server / Oracle)
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -226,7 +224,6 @@ class DeleteExpression(BaseExpression):
         ] = None,
         where: Optional[Union["SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         returning: Optional["ReturningClause"] = None,  # RETURNING clause object
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
 
@@ -258,7 +255,6 @@ class DeleteExpression(BaseExpression):
             self.where = None
 
         self.returning = returning  # RETURNING clause object
-        self.dialect_options = dialect_options or {}
 
     def validate(self, strict: bool = True) -> None:
         """Validate DeleteExpression parameters according to SQL standard.
@@ -368,7 +364,6 @@ class UpdateExpression(BaseExpression):
         ] = None,
         where: Optional[Union["SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         returning: Optional["ReturningClause"] = None,  # RETURNING clause object
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
 
@@ -392,7 +387,6 @@ class UpdateExpression(BaseExpression):
             self.where = None
 
         self.returning = returning  # RETURNING clause object
-        self.dialect_options = dialect_options or {}
 
     def validate(self, strict: bool = True) -> None:
         """Validate UpdateExpression parameters according to SQL standard.
@@ -568,7 +562,6 @@ class InsertExpression(BaseExpression):
         *,
         on_conflict: Optional[Union[OnConflictClause, List[OnConflictClause]]] = None,
         returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
 
@@ -577,7 +570,6 @@ class InsertExpression(BaseExpression):
         self.columns = columns
         self.on_conflict = self._normalize_on_conflict(on_conflict)
         self.returning = returning  # ReturningClause object or None
-        self.dialect_options = dialect_options or {}
 
         # Perform validation
         # 1. First, check if on_conflict is used with a valid source

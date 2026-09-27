@@ -3,11 +3,12 @@
 This module provides classes and functions related to field definitions and annotations.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Type, Union, TYPE_CHECKING
+from typing import Any, Callable, List, Optional, Type, Union, TYPE_CHECKING
 
 from ..backend.expression.statements.ddl_table import (
     ColumnConstraint,
     ColumnConstraintType,
+    GeneratedColumnExpression,
     IndexDefinition,
 )
 from ..backend.type_adapter import SQLTypeAdapter
@@ -18,6 +19,17 @@ if TYPE_CHECKING:
         ReferentialAction,
     )
     from ..backend.expression.types import DataType
+    from .ddl import ColumnAttribute
+
+
+class DDLAnnotation:
+    """Base marker for field annotations that affect DDL generation.
+
+    Core markers and backend-owned markers use this common base so the DDL
+    metadata collector can distinguish DDL declarations from unrelated
+    annotation metadata.  A backend marker must be accompanied by an explicit
+    handler registered in the model's ``_feature_handlers`` collection.
+    """
 
 
 class UseColumn:
@@ -99,35 +111,25 @@ class UseAdapter:
         self.target_db_type = target_db_type
 
 
-class UseSqlType:
+class UseSqlType(DDLAnnotation):
     """Marker for ``Annotated[T, UseSqlType(*type_defs)]``.
 
-    Instructs the DDL generator to use the supplied SQL ``DataType`` instance(s)
-    when building a ``ColumnDefinition`` for this field, overriding the dialect's
-    default type suggestion for ``T``.
+    Declares the SQL ``DataType`` candidates associated with a model field.
+    ``DDLSource`` exposes the candidates in declaration order; dialect binding,
+    capability selection, and fallback policy belong to external consumers.
 
-    One or more ``DataType`` instances may be declared. At DDL-generation time
-    the generator picks the **first** declared type the current backend's dialect
-    can render (``dialect.supports_data_type``); if none matches, it falls back
-    to ``dialect.suggest_column_type(python_type)``, and raises if that also
-    yields nothing. Declaration order therefore expresses backend priority.
-
-    Each instance may be a core **generic** type (portable — every backend
-    renders it, natively or via the SQL-standard default) or a **backend-specific**
-    type (``<Backend>*Type``, e.g. ``PostgresJsonBType``, which renders only on
-    its owning backend). Backend-specific types render only on backends that
-    register them; any other backend skips them (and falls back) rather than
-    silently substituting a lossy form.
+    Each instance may be a core generic type or a backend-specific type such as
+    ``PostgresUUIDType``. Declaration order expresses backend priority without
+    coupling the declaration layer to any particular dialect.
 
     Examples::
 
         # Generic — portable across backends
         status: Annotated[str, UseSqlType(VarCharType(length=50))]
 
-        # Backend-priority: JSONB on PostgreSQL, JSON elsewhere, LONGTEXT on
-        # MySQL < 5.7 (where JSON is unavailable)
-        payload: Annotated[dict, UseSqlType(
-            PostgresJsonBType(), JsonType(), MySQLLongTextType(),
+        # Backend-priority: PostgreSQL UUID, generic text elsewhere
+        identifier: Annotated[str, UseSqlType(
+            PostgresUUIDType(), TextType(),
         )]
 
     Attributes:
@@ -146,9 +148,13 @@ class UseSqlType:
                 "UseSqlType(VarCharType(length=50))."
             )
         for t in data_types:
-            if not isinstance(t, DataType):
+            if not isinstance(t, DataType) or type(t) is DataType:
+                # Candidate types are restricted to DataType subclasses: only
+                # a derived class carries the semantics of a concrete type,
+                # the abstract base itself names nothing (Gate 0, §5.1).
                 raise TypeError(
-                    f"UseSqlType expects one or more DataType instances, got "
+                    f"UseSqlType expects one or more DataType subclasses "
+                    f"(not {type(t).__name__} itself), got "
                     f"{type(t).__name__}. Per-dialect string-keyed mappings are "
                     f"not supported: use a generic type (each backend resolves "
                     f"it natively), a backend-specific type, or several types "
@@ -166,7 +172,7 @@ class UseSqlType:
         return f"UseSqlType({', '.join(repr(t) for t in self.data_types)})"
 
 
-class UseIndex:
+class UseIndex(DDLAnnotation):
     """Marker for ``Annotated[T, UseIndex(name, ...)]``.
 
     Declares a single-column index that the DDL generator will emit inline
@@ -190,7 +196,10 @@ class UseIndex:
         type: Optional[str] = None,
         partial_condition: Optional[Union["SQLPredicate", "Callable"]] = None,
         include_columns: Optional[List[str]] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
+        if_not_exists: Optional[bool] = None,
+        tablespace: Optional[str] = None,
+        if_exists: Optional[bool] = None,
+        concurrent: Optional[bool] = None,
     ):
         if not name:
             raise ValueError("UseIndex requires a non-empty index name.")
@@ -201,21 +210,31 @@ class UseIndex:
         # factory, resolved by the generator at DDL-build time.
         self.partial_condition = partial_condition
         self.include_columns = include_columns
-        self.dialect_options = dialect_options
+        # Statement-level options (§5.16): ``if_not_exists`` (create path),
+        # ``tablespace`` (create path), ``if_exists`` (drop path) and
+        # ``concurrent`` (create/drop shared). ``None`` means "not explicitly
+        # declared" — an explicit declaration wins over entry-level parameters.
+        self.if_not_exists = if_not_exists
+        self.tablespace = tablespace
+        self.if_exists = if_exists
+        self.concurrent = concurrent
 
     def to_index_definition(self, column_name: str, dialect: "SQLDialectBase") -> "IndexDefinition":
         """Build an IndexDefinition that references *column_name*.
 
         The dialect is supplied by the DDL generator at build time.
         """
-        return IndexDefinition(dialect, 
+        return IndexDefinition(dialect,
             name=self.name,
             columns=[column_name],
             unique=self.unique,
             type=self.type,
             partial_condition=self.partial_condition,
             include_columns=self.include_columns,
-            dialect_options=self.dialect_options,
+            if_not_exists=self.if_not_exists,
+            tablespace=self.tablespace,
+            if_exists=self.if_exists,
+            concurrent=self.concurrent,
         )
 
     def __repr__(self) -> str:
@@ -224,25 +243,37 @@ class UseIndex:
         )
 
 
-class UseConstraint:
+class UseConstraint(DDLAnnotation):
     """Marker for ``Annotated[T, UseConstraint(constraint_type, ...)]``.
 
     Declares a constraint applied directly to the annotated column in the
     generated CREATE TABLE statement.
 
+    Rejected constraint types (declaration raises immediately):
+
+    - ``PRIMARY_KEY`` — the **only** constraint the marker refuses on
+      semantic grounds: the primary key has a single source, the
+      ``__primary_key__`` constant (accessed through ``primary_key()``);
+      a single-column PK lands on the column, a composite PK becomes a
+      table-level constraint.
+    - ``IDENTITY`` / ``COLLATE`` — migrated to the column-attribute channel:
+      declare ``UseColumnAttributes(IdentityAttribute(...))`` or
+      ``UseColumnAttributes(CollationAttribute(...))`` instead.
+
+    Accepted constraint types: NOT NULL / UNIQUE / CHECK / FOREIGN KEY /
+    DEFAULT.
+
     For table-level constraints (CHECK spanning multiple columns, composite
-    UNIQUE, composite FOREIGN KEY), declare ``__table_constraints__`` on the model
-    class instead.
+    UNIQUE, composite FOREIGN KEY), declare ``__table_constraints__`` on the
+    model class instead.
 
     Example::
 
-        # Column-level COLLATE
-        name: Annotated[str, UseConstraint(ColumnConstraintType.COLLATE,
-                                            collation="utf8mb4_unicode_ci")]
-
-        # Column-level CHARACTER SET (MySQL/MariaDB)
-        name: Annotated[str, UseConstraint(ColumnConstraintType.CHARACTER_SET,
-                                            character_set="utf8mb4")]
+        # Column-level CHECK (SQL-standard, generic)
+        status: Annotated[str, UseConstraint(
+            ColumnConstraintType.CHECK,
+            check_condition=lambda d: Column(d, "status").in_(["open", "paid"]),
+        )]
     """
 
     def __init__(
@@ -258,22 +289,22 @@ class UseConstraint:
         on_update: Optional["ReferentialAction"] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
-        character_set: Optional[str] = None,
-        collation: Optional[str] = None,
+        enforced: Optional[bool] = None,
     ):
         # check_condition may be a ready SQLPredicate or a lazy
         # ``(dialect) -> SQLPredicate`` factory; the generator resolves it.
         # The marker is constructed at model-declaration time (no dialect
         # yet) — the constraint node defers binding and the DDL generator
-        # binds it through the dialect setter. character_set/collation are
-        # backend-specific extras carried in dialect_options.
-        extras = dict(dialect_options or {})
-        if character_set is not None:
-            extras["character_set"] = character_set
-        if collation is not None:
-            extras["collation"] = collation
-        self.constraint = ColumnConstraint(None, 
+        # binds it through the dialect setter.
+        if constraint_type == ColumnConstraintType.PRIMARY_KEY:
+            raise ValueError(
+                "UseConstraint does not accept PRIMARY_KEY: the primary key "
+                "has a single source, the __primary_key__ constant (or a "
+                "primary_key() override). A single-column PK lands on the "
+                "column automatically; a composite PK becomes a table-level "
+                "constraint."
+            )
+        self.constraint = ColumnConstraint(None,
             constraint_type=constraint_type,
             name=name,
             check_condition=check_condition,
@@ -284,11 +315,98 @@ class UseConstraint:
             on_update=on_update,
             deferrable=deferrable,
             initially_deferred=initially_deferred,
-            dialect_options=extras,
+            enforced=enforced,
         )
 
     def __repr__(self) -> str:
         return f"UseConstraint({self.constraint.constraint_type.name})"
+
+
+class UseColumnAttributes(DDLAnnotation):
+    """Marker for ``Annotated[T, UseColumnAttributes(attr, ...)]``.
+
+    Declares one or more dialect-free :class:`ColumnAttribute` objects
+    (identity, collation, character set, …). The AR layer collects them per
+    column and hands the list to the backend dialect, which selects the
+    applicable attributes and renders them in the column definition.
+
+    Candidate types are restricted to :class:`ColumnAttribute` subclasses
+    (Gate 0): each attribute kind carries its own semantics, and the three
+    families (constraints / indexes / attributes) are mutually exclusive by
+    design — the same semantic is never carried twice.
+    """
+
+    def __init__(self, *attributes: "ColumnAttribute"):
+        from .ddl import ColumnAttribute
+
+        if not attributes:
+            raise TypeError(
+                "UseColumnAttributes requires at least one ColumnAttribute "
+                "instance, e.g. UseColumnAttributes(IdentityAttribute())."
+            )
+        seen: list = []
+        for attr in attributes:
+            if not isinstance(attr, ColumnAttribute):
+                raise TypeError(
+                    f"UseColumnAttributes expects ColumnAttribute instances, "
+                    f"got {type(attr).__name__}. Constraints are declared "
+                    f"through UseConstraint, indexes through UseIndex."
+                )
+            if attr not in seen:
+                seen.append(attr)
+        self.attributes: list = seen
+
+    def __repr__(self) -> str:
+        kinds = ", ".join(type(attr).__name__ for attr in self.attributes)
+        return f"UseColumnAttributes({kinds})"
+
+
+class UseComment(DDLAnnotation):
+    """Marker for ``Annotated[T, UseComment("...")]``.
+
+    Declares the column comment rendered with the column definition (on
+    backends that support column comments). Equivalent to overriding
+    :meth:`column_comment`, but declarative.
+    """
+
+    def __init__(self, comment: str):
+        if not isinstance(comment, str):
+            raise TypeError(
+                f"UseComment expects a str, got {type(comment).__name__}."
+            )
+        if not comment.strip():
+            raise ValueError("UseComment requires a non-empty comment.")
+        self.comment = comment
+
+    def __repr__(self) -> str:
+        return f"UseComment({self.comment!r})"
+
+
+class UseGeneratedColumn(DDLAnnotation):
+    """Marker for ``Annotated[T, UseGeneratedColumn(expr)]``.
+
+    Declares a generated (computed) column whose value the database derives
+    from *expr*. Equivalent to overriding :meth:`generated_column`, but
+    declarative.
+
+    *expr* is either a ready :class:`GeneratedColumnExpression` or a lazy
+    ``(dialect) -> GeneratedColumnExpression`` factory. A factory is the
+    usual form: the annotation is evaluated at class-definition time, before
+    any dialect exists, so a generated column that references other columns
+    must build its expression once the deriver supplies the dialect.
+    """
+
+    def __init__(self, expression: Any):
+        if not callable(expression) and not isinstance(expression, GeneratedColumnExpression):
+            raise TypeError(
+                "UseGeneratedColumn expects a GeneratedColumnExpression or a "
+                "(dialect) -> GeneratedColumnExpression factory, got "
+                f"{type(expression).__name__}."
+            )
+        self.expression = expression
+
+    def __repr__(self) -> str:
+        return f"UseGeneratedColumn({self.expression!r})"
 
 
 class DerivedField:

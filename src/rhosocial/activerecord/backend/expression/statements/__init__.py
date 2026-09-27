@@ -37,6 +37,11 @@ from .dml import (
 from .ddl_table import (
     ColumnConstraintType,
     ColumnConstraint,
+    DefaultValueClause,
+    IdentityClause,
+    ReferencesClause,
+    ColumnCommentClause,
+    TableCommentClause,
     GeneratedColumnType,
     GeneratedColumnExpression,
     ColumnDefinition,
@@ -57,6 +62,9 @@ from .ddl_table import (
     StorageOptionsExpression,
 )
 
+# COMMENT ON DDL
+from .ddl_comment import CommentObjectType, CommentOnExpression
+
 # ALTER TABLE DDL
 from .ddl_alter import (
     AlterTableActionType,
@@ -67,6 +75,12 @@ from .ddl_alter import (
     AlterColumn,
     AddTableConstraint,
     DropTableConstraint,
+    AlterConstraint,
+    ValidateConstraint,
+    AlterConstraintAction,
+    ValidateConstraintAction,
+    AlterTableConstraint,
+    ValidateTableConstraint,
     RenameTable,
     RenameObject,
     AddIndex,
@@ -108,6 +122,31 @@ from .ddl_sequence import (
     AlterSequenceExpression,
 )
 
+from .ddl_type import (
+    TypeDefinition,
+    TypeAlterAction,
+    CreateTypeExpression,
+    AlterTypeExpression,
+    DropTypeExpression,
+)
+
+from .ddl_domain import (
+    DomainNullability,
+    DomainValueExpression,
+    DomainCheckConstraint,
+    DomainAlterAction,
+    SetDomainDefaultAction,
+    DropDomainDefaultAction,
+    SetDomainNotNullAction,
+    DropDomainNotNullAction,
+    AddDomainCheckAction,
+    DropDomainCheckAction,
+    RenameDomainAction,
+    CreateDomainExpression,
+    AlterDomainExpression,
+    DropDomainExpression,
+)
+
 # Trigger DDL
 from .ddl_trigger import (
     TriggerTiming,
@@ -121,7 +160,12 @@ from .ddl_trigger import (
 from .ddl_function import CreateFunctionExpression, DropFunctionExpression
 
 # Partition DDL
-from .ddl_partition import PartitionClause, PartitionStrategy
+from .ddl_partition import (
+    PartitionClause,
+    PartitionDefinition,
+    PartitionStrategy,
+    SubpartitionDefinition,
+)
 
 # Filter clause expression
 from .filter_clause import FilterClauseExpression
@@ -160,6 +204,11 @@ __all__ = [
     # Table DDL
     "ColumnConstraintType",
     "ColumnConstraint",
+    "DefaultValueClause",
+    "IdentityClause",
+    "ReferencesClause",
+    "ColumnCommentClause",
+    "TableCommentClause",
     "GeneratedColumnType",
     "GeneratedColumnExpression",
     "ColumnDefinition",
@@ -178,6 +227,9 @@ __all__ = [
     "CreateTableCloneMode",
     "DropTableExpression",
     "StorageOptionsExpression",
+    # COMMENT ON DDL
+    "CommentObjectType",
+    "CommentOnExpression",
     # ALTER TABLE DDL
     "AlterTableActionType",
     "AlterTableAction",
@@ -187,6 +239,12 @@ __all__ = [
     "AlterColumn",
     "AddTableConstraint",
     "DropTableConstraint",
+    "AlterConstraint",
+    "ValidateConstraint",
+    "AlterConstraintAction",
+    "ValidateConstraintAction",
+    "AlterTableConstraint",
+    "ValidateTableConstraint",
     "RenameTable",
     "RenameObject",
     "AddIndex",
@@ -216,6 +274,25 @@ __all__ = [
     "CreateSequenceExpression",
     "DropSequenceExpression",
     "AlterSequenceExpression",
+    "TypeDefinition",
+    "TypeAlterAction",
+    "CreateTypeExpression",
+    "AlterTypeExpression",
+    "DropTypeExpression",
+    "DomainNullability",
+    "DomainValueExpression",
+    "DomainCheckConstraint",
+    "DomainAlterAction",
+    "SetDomainDefaultAction",
+    "DropDomainDefaultAction",
+    "SetDomainNotNullAction",
+    "DropDomainNotNullAction",
+    "AddDomainCheckAction",
+    "DropDomainCheckAction",
+    "RenameDomainAction",
+    "CreateDomainExpression",
+    "AlterDomainExpression",
+    "DropDomainExpression",
     # Trigger DDL
     "TriggerTiming",
     "TriggerEvent",
@@ -227,7 +304,9 @@ __all__ = [
     "DropFunctionExpression",
     # Partition DDL
     "PartitionClause",
+    "PartitionDefinition",
     "PartitionStrategy",
+    "SubpartitionDefinition",
     # Filter clause expression
     "FilterClauseExpression",
     # Fulltext match expression

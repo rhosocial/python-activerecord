@@ -20,12 +20,14 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    InsertExpression,
     ValuesSource,
     QueryExpression,
     TableExpression,
     CreateTableExpression,
     DropTableExpression,
+)
+from rhosocial.activerecord.backend.impl.sqlite.expression.dml import (  # noqa: E402
+    SQLiteInsertExpression,
 )
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
@@ -105,8 +107,8 @@ for row in result.data or []:
 # --- INSERT OR REPLACE ---
 # INSERT OR REPLACE deletes the existing conflicting row and inserts the new one.
 # Note: This resets any columns NOT provided in the insert to their defaults.
-# Use dialect_options={'or_replace': True} to enable this SQLite-specific syntax.
-insert_or_replace = InsertExpression(
+# Use SQLiteInsertExpression(or_replace=True) to enable this SQLite-specific syntax.
+insert_or_replace = SQLiteInsertExpression(
     dialect=dialect,
     into="users",
     columns=["username", "email", "login_count"],
@@ -117,7 +119,7 @@ insert_or_replace = InsertExpression(
             [Literal(dialect, "alice"), Literal(dialect, "alice_new@example.com"), Literal(dialect, 0)],
         ],
     ),
-    dialect_options={"or_replace": True},
+    or_replace=True,
 )
 sql, params = insert_or_replace.to_sql()
 print(f"\nINSERT OR REPLACE SQL: {sql}")
@@ -125,8 +127,8 @@ print(f"Params: {params}")
 
 # --- INSERT OR IGNORE ---
 # INSERT OR IGNORE silently skips rows that would cause constraint violations.
-# Use dialect_options={'or_ignore': True} to enable this SQLite-specific syntax.
-insert_or_ignore = InsertExpression(
+# Use SQLiteInsertExpression(or_ignore=True) to enable this SQLite-specific syntax.
+insert_or_ignore = SQLiteInsertExpression(
     dialect=dialect,
     into="users",
     columns=["username", "email", "login_count"],
@@ -139,7 +141,7 @@ insert_or_ignore = InsertExpression(
             [Literal(dialect, "charlie"), Literal(dialect, "charlie@example.com"), Literal(dialect, 1)],
         ],
     ),
-    dialect_options={"or_ignore": True},
+    or_ignore=True,
 )
 sql, params = insert_or_ignore.to_sql()
 print(f"\nINSERT OR IGNORE SQL: {sql}")
@@ -185,10 +187,10 @@ backend.disconnect()
 # SECTION: Summary
 # ============================================================
 # Key points:
-# 1. Use dialect_options={'or_replace': True} for INSERT OR REPLACE
+# 1. Use SQLiteInsertExpression(or_replace=True) for INSERT OR REPLACE
 #    - Deletes existing row on conflict and inserts new row
 #    - Auto-increment ID and unspecified columns are reset to defaults
-# 2. Use dialect_options={'or_ignore': True} for INSERT OR IGNORE
+# 2. Use SQLiteInsertExpression(or_ignore=True) for INSERT OR IGNORE
 #    - Silently skips rows that would cause UNIQUE/PRIMARY KEY constraint violations
 #    - Other rows in the same batch are still inserted
 # 3. Cannot combine or_replace/or_ignore with on_conflict (OnConflictClause)

@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_database.py
 """DATABASE DDL statement expressions."""
 
-from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
@@ -32,7 +31,7 @@ class CreateDatabaseExpression(BaseExpression):
 
     Supports common parameters across multiple database backends.
     Backend-specific features (CLONE, TRANSIENT, ENGINE, etc.)
-    should be passed via ``dialect_options``.
+    live on a backend's own ``XxxCreateDatabaseExpression`` subclass.
     """
 
     @property
@@ -53,7 +52,6 @@ class CreateDatabaseExpression(BaseExpression):
         connection_limit: Optional[int] = None,
         comment: Optional[str] = None,
         or_replace: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.database_name = database_name
@@ -66,7 +64,6 @@ class CreateDatabaseExpression(BaseExpression):
         self.connection_limit = connection_limit
         self.comment = comment
         self.or_replace = or_replace
-        self.dialect_options = dialect_options or {}
 
 
 class DropDatabaseExpression(BaseExpression):
@@ -74,7 +71,7 @@ class DropDatabaseExpression(BaseExpression):
 
     Supports common parameters across multiple database backends.
     Backend-specific features (SYNC, PURGE, etc.)
-    should be passed via ``dialect_options``.
+    live on a backend's own ``XxxDropDatabaseExpression`` subclass.
     """
 
     @property
@@ -88,13 +85,11 @@ class DropDatabaseExpression(BaseExpression):
         database_name: str,
         if_exists: bool = False,
         force: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.database_name = database_name
         self.if_exists = if_exists
         self.force = force
-        self.dialect_options = dialect_options or {}
 
 
 class AlterDatabaseExpression(BaseExpression):
@@ -116,7 +111,6 @@ class AlterDatabaseExpression(BaseExpression):
         target: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
         if_exists: bool = False,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.database_name = database_name
@@ -124,7 +118,6 @@ class AlterDatabaseExpression(BaseExpression):
         self.target = target
         self.properties = properties or {}
         self.if_exists = if_exists
-        self.dialect_options = dialect_options or {}
 
 
 __all__ = [

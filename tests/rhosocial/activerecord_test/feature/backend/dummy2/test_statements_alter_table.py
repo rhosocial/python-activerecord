@@ -10,6 +10,7 @@ from rhosocial.activerecord.backend.expression import (
     AddColumn,
     DropColumn,
     ColumnDefinition,
+    ColumnCommentClause,
     IndexDefinition,
 )
 from rhosocial.activerecord.backend.expression.statements import (
@@ -26,6 +27,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     AlterTableAction,
 )
 from rhosocial.activerecord.backend.expression.bases import ToSQLProtocol
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import DecimalType, IntegerType, TextType, TimestampType, VarCharType
 
@@ -35,7 +37,7 @@ class TestAlterTableStatements:
 
     def test_add_column_action(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD COLUMN action."""
-        column_def = ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100), comment="User's email address")
+        column_def = ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100), comment=ColumnCommentClause(dummy_dialect, "User's email address"))
         add_action = AddColumn(dummy_dialect, column=column_def)
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="users", actions=[add_action])
@@ -62,7 +64,10 @@ class TestAlterTableStatements:
     def test_alter_column_modify_type(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ALTER COLUMN to modify data type."""
         alter_action = AlterColumn(
-            dummy_dialect, column_name="price", operation="SET DATA TYPE", new_value="DECIMAL(10,2)"
+            dummy_dialect,
+            column_name="price",
+            operation=ColumnAlterOperation.SET_DATA_TYPE,
+            new_value="DECIMAL(10,2)",
         )
 
         alter_expr = AlterTableExpression(dummy_dialect, table_name="products", actions=[alter_action])
@@ -72,7 +77,7 @@ class TestAlterTableStatements:
         assert 'ALTER TABLE "products"' in sql
         assert "ALTER COLUMN" in sql
         assert '"price"' in sql
-        assert "SET DATA TYPE" in sql
+        assert "SET DATA TYPE DECIMAL(10,2)" in sql
         assert params == ()
 
     def test_alter_column_modify_default(self, dummy_dialect: DummyDialect):
@@ -146,19 +151,6 @@ class TestAlterTableStatements:
         assert 'ALTER TABLE "profiles"' in sql
         assert "ADD COLUMN" in sql
         assert "DROP COLUMN" in sql
-        assert params == ()
-
-    def test_alter_table_with_dialect_options(self, dummy_dialect: DummyDialect):
-        """Tests ALTER TABLE with dialect-specific options."""
-        column_def = ColumnDefinition(dummy_dialect, name="new_field", data_type=VarCharType(dummy_dialect, 50))
-        add_action = AddColumn(dummy_dialect, column=column_def)
-
-        alter_expr = AlterTableExpression(
-            dummy_dialect, table_name="dynamic_table", actions=[add_action], dialect_options={"custom_option": "value"}
-        )
-        sql, params = alter_expr.to_sql()
-
-        assert 'ALTER TABLE "dynamic_table"' in sql
         assert params == ()
 
     def test_alter_column_cascade_option(self, dummy_dialect: DummyDialect):
@@ -283,7 +275,7 @@ class TestAlterTableStatements:
 
     def test_add_column_action_direct(self, dummy_dialect: DummyDialect):
         """Tests direct ADD COLUMN action creation and formatting."""
-        column_def = ColumnDefinition(dummy_dialect, "phone", VarCharType(dummy_dialect, 20), comment="User's phone number")
+        column_def = ColumnDefinition(dummy_dialect, "phone", VarCharType(dummy_dialect, 20), comment=ColumnCommentClause(dummy_dialect, "User's phone number"))
         add_action = AddColumn(dummy_dialect, column=column_def)
         # Action now has dialect bound at construction time
         sql, params = add_action.to_sql()
@@ -506,6 +498,150 @@ class TestAlterTableStatements:
         assert 'DROP COLUMN IF EXISTS "old_column"' in sql
         assert params == ()
 
+    @pytest.mark.parametrize(
+        ("action_factory", "capability", "feature", "suggestion"),
+        [
+            (
+                lambda dialect: DropColumn(dialect, "value"),
+                "supports_drop_column",
+                "ALTER TABLE DROP COLUMN",
+                "Dummy does not support DROP COLUMN.",
+            ),
+            (
+                lambda dialect: DropColumn(dialect, "value", if_exists=True),
+                "supports_drop_column_if_exists",
+                "DROP COLUMN IF EXISTS",
+                "Dummy does not support DROP COLUMN IF EXISTS.",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.SET_DATA_TYPE,
+                    new_value="VARCHAR(20)",
+                ),
+                "supports_alter_column_type",
+                "ALTER COLUMN SET DATA TYPE",
+                "Dummy does not support changing a column data type.",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.SET_DEFAULT,
+                    new_value="active",
+                ),
+                "supports_alter_column_properties",
+                "ALTER COLUMN",
+                "Dummy does not support altering column properties "
+                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.DROP_DEFAULT,
+                ),
+                "supports_alter_column_properties",
+                "ALTER COLUMN",
+                "Dummy does not support altering column properties "
+                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.SET_NOT_NULL,
+                ),
+                "supports_alter_column_properties",
+                "ALTER COLUMN",
+                "Dummy does not support altering column properties "
+                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+            ),
+            (
+                lambda dialect: AlterColumn(
+                    dialect,
+                    "value",
+                    ColumnAlterOperation.DROP_NOT_NULL,
+                ),
+                "supports_alter_column_properties",
+                "ALTER COLUMN",
+                "Dummy does not support altering column properties "
+                "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
+            ),
+            (
+                lambda dialect: AddIndex(
+                    dialect,
+                    IndexDefinition(dialect, "idx_value", ["value"]),
+                ),
+                "supports_alter_table_index_actions",
+                "ALTER TABLE ADD INDEX",
+                "Dummy does not support ALTER TABLE ADD INDEX.",
+            ),
+            (
+                lambda dialect: DropIndex(dialect, "idx_value", if_exists=True),
+                "supports_alter_table_index_actions",
+                "ALTER TABLE DROP INDEX",
+                "Dummy does not support ALTER TABLE DROP INDEX.",
+            ),
+            (
+                lambda dialect: RenameObject(dialect, "old_value", "new_value"),
+                "supports_rename_column",
+                "ALTER TABLE RENAME COLUMN",
+                "Dummy does not support RENAME COLUMN.",
+            ),
+            (
+                lambda dialect: RenameTable(dialect, "records", "renamed_records"),
+                "supports_rename_table",
+                "ALTER TABLE RENAME TO",
+                "Dummy does not support RENAME TABLE.",
+            ),
+        ],
+        ids=[
+            "drop-column",
+            "drop-column-if-exists",
+            "set-data-type",
+            "set-default",
+            "drop-default",
+            "set-not-null",
+            "drop-not-null",
+            "add-index",
+            "drop-index",
+            "rename-column",
+            "rename-table",
+        ],
+    )
+    def test_capability_gated_action_rejects_unsupported_dialect(
+        self,
+        dummy_dialect: DummyDialect,
+        monkeypatch,
+        action_factory,
+        capability,
+        feature,
+        suggestion,
+    ):
+        """Rejects each ALTER TABLE action when its capability is disabled."""
+        monkeypatch.setattr(dummy_dialect, capability, lambda: False)
+        expression = AlterTableExpression(
+            dummy_dialect,
+            table_name="records",
+            actions=[action_factory(dummy_dialect)],
+        )
+
+        with pytest.raises(UnsupportedFeatureError) as exc_info:
+            expression.to_sql()
+
+        error = exc_info.value
+        expected_message = (
+            f"'{dummy_dialect.name}' dialect does not support {feature}. "
+            f"Suggestion: {suggestion}"
+        )
+        assert error.dialect_name == dummy_dialect.name
+        assert error.feature_name == feature
+        assert error.suggestion == suggestion
+        assert str(error) == expected_message
+        assert error.args == (expected_message,)
+
     def test_add_column_action_with_not_null_constraint(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with NOT NULL constraint (replacing the nullable=False functionality)."""
         from rhosocial.activerecord.backend.expression.statements import (
@@ -519,7 +655,7 @@ class TestAlterTableStatements:
             name="username",
             data_type=VarCharType(dummy_dialect, 50),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)],  # Use constraint instead of nullable flag
-            comment="Username (cannot be null)",
+            comment=ColumnCommentClause(dummy_dialect, "Username (cannot be null)"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -547,7 +683,7 @@ class TestAlterTableStatements:
             name="description",
             data_type=TextType(dummy_dialect),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NULL)],  # Explicitly allow NULL
-            comment="Description field",
+            comment=ColumnCommentClause(dummy_dialect, "Description field"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -575,7 +711,7 @@ class TestAlterTableStatements:
             name="status",
             data_type=VarCharType(dummy_dialect, 20),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value="active")],  # Default value
-            comment="Status field with default value",
+            comment=ColumnCommentClause(dummy_dialect, "Status field with default value"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -608,7 +744,7 @@ class TestAlterTableStatements:
             name="created_at",
             data_type=TimestampType(dummy_dialect),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value=now_func)],  # Default function
-            comment="Timestamp with default function",
+            comment=ColumnCommentClause(dummy_dialect, "Timestamp with default function"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -645,7 +781,7 @@ class TestAlterTableStatements:
             constraints=[
                 ColumnConstraint(dummy_dialect, ColumnConstraintType.CHECK, check_condition=check_condition)
             ],  # Check constraint
-            comment="Age must be positive",
+            comment=ColumnCommentClause(dummy_dialect, "Age must be positive"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -674,7 +810,7 @@ class TestAlterTableStatements:
             name="id",
             data_type=IntegerType(dummy_dialect),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)],  # Primary key constraint
-            comment="Primary key column",
+            comment=ColumnCommentClause(dummy_dialect, "Primary key column"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -702,7 +838,7 @@ class TestAlterTableStatements:
             name="email",
             data_type=VarCharType(dummy_dialect, 100),
             constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.UNIQUE)],  # Unique constraint
-            comment="Unique email address",
+            comment=ColumnCommentClause(dummy_dialect, "Unique email address"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -732,7 +868,7 @@ class TestAlterTableStatements:
             constraints=[
                 ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))
             ],  # Foreign key constraint
-            comment="Reference to users table",
+            comment=ColumnCommentClause(dummy_dialect, "Reference to users table"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 
@@ -764,7 +900,7 @@ class TestAlterTableStatements:
             constraints=[
                 ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY)
             ],  # Foreign key constraint without reference
-            comment="Reference to users table",
+            comment=ColumnCommentClause(dummy_dialect, "Reference to users table"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
 

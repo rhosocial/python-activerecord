@@ -48,6 +48,8 @@
 * [并发](modeling/concurrency.md)
 * [配置管理](modeling/configuration_management.md)
 * [DDL](modeling/ddl.md)
+* [DDLSource 声明收集](modeling/ddl_source.md)
+* [DDLSource 使用示例](modeling/ddl_source_examples.md)
 * [DDL 视图](modeling/ddl_views.md)
 
 ## 关联关系
@@ -65,7 +67,6 @@
 * [CTEQuery](querying/cte_query.md)
 * [SetOperationQuery](querying/set_operation_query.md)
 * [查询速查表](querying/cheatsheet.md)
-* [属性图查询](querying/graph_query.md)
 * [复杂查询实战](querying/recipes.md)
 
 ## 连接管理

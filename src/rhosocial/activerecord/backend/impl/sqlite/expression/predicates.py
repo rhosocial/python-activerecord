@@ -11,8 +11,8 @@ from typing import List, Optional, TYPE_CHECKING
 from ....expression.bases import SQLPredicate
 
 if TYPE_CHECKING:
-    from ....backend.dialect.base import SQLDialectBase
-    from ....backend.bases import SQLQueryAndParams
+    from .....backend.dialect.base import SQLDialectBase
+    from ....expression.bases import SQLQueryAndParams
 
 
 class SQLiteMatchPredicate(SQLPredicate):

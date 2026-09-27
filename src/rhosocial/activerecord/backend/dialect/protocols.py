@@ -19,7 +19,6 @@ if TYPE_CHECKING:  # pragma: no cover
         MergeExpression,
         MatchClause,
         QualifyClause,
-        GraphEdgeDirection,
         GraphTableExpression,
         GraphVertex,
         GraphEdge,
@@ -48,6 +47,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ReleaseSavepointExpression,
         SetTransactionExpression,
     )
+    from ...base.ddl import ColumnAttribute
     from ..expression.xml import (
         XMLAggExpression,
         XMLAttributesExpression,
@@ -63,7 +63,7 @@ if TYPE_CHECKING:  # pragma: no cover
         XMLSerializeExpression,
         XMLTableExpression,
     )
-    from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause, WhereClause
+    from ..expression.query_parts import ForUpdateClause
     from ..expression.advanced_functions import OrderedSetAggregation, ArrayExpression
     from ..expression.statements import (
         CreateTableExpression,
@@ -87,6 +87,18 @@ if TYPE_CHECKING:  # pragma: no cover
         CreateSequenceExpression,
         DropSequenceExpression,
         AlterSequenceExpression,
+        TypeDefinition,
+        TypeAlterAction,
+        CreateTypeExpression,
+        AlterTypeExpression,
+        DropTypeExpression,
+        DomainAlterAction,
+        DomainNullability,
+        DomainValueExpression,
+        DomainCheckConstraint,
+        CreateDomainExpression,
+        AlterDomainExpression,
+        DropDomainExpression,
         CreateMaterializedViewExpression,
         DropMaterializedViewExpression,
         RefreshMaterializedViewExpression,
@@ -98,8 +110,15 @@ if TYPE_CHECKING:  # pragma: no cover
         DropFulltextIndexExpression,
         ReturningClause,
         PartitionClause,
-        ColumnConstraint,
-        ForeignKeyConstraint,
+        PartitionDefinition,
+         ColumnConstraint,
+         CommentOnExpression,
+         ReferencesClause,
+         TableConstraint,
+         AlterConstraint,
+         ValidateConstraint,
+
+
     )
     from ..introspection.expressions import (
         DatabaseInfoExpression,
@@ -1198,8 +1217,36 @@ class TableSupport(Protocol):
         """Whether DROP TABLE accepts the RESTRICT keyword."""
         ...  # pragma: no cover
 
+    def preferred_create_table_statement(self) -> Optional[Type["CreateTableExpression"]]:
+        """The backend's preferred CREATE TABLE statement class (§5.12).
+
+        The backend is authoritative for its own statement forms: return the
+        dialect's concrete subclass when it renders one (it is the first
+        candidate, order = priority); ``None`` means the generic
+        ``CreateTableExpression``. The deriver composes the candidate list as
+        ``[preferred, generic]`` and selects through Gate 1 (ownership) +
+        Gate 2 (renderability); the model may override the whole candidate
+        list.
+        """
+        ...  # pragma: no cover
+
+    def preferred_drop_table_statement(self) -> Optional[Type["DropTableExpression"]]:
+        """The backend's preferred DROP TABLE statement class (§5.12)."""
+        ...  # pragma: no cover
+
     def supports_table_tablespace(self) -> bool:
         """Whether tablespace specification is supported."""
+        ...  # pragma: no cover
+
+    def supports_table_comment(self) -> bool:
+        """Whether an inline table-comment clause on CREATE TABLE is supported.
+
+        The inline ``COMMENT '<text>'`` table option is a dialect convenience
+        (MySQL/MariaDB/ClickHouse; Snowflake renders ``COMMENT = '<text>'``,
+        BigQuery ``OPTIONS(description='<text>')``). It is distinct from the
+        standalone ``COMMENT ON`` statement, which is declared by
+        :class:`CommentSupport`. Defaults to False (SQL-standard behavior).
+        """
         ...  # pragma: no cover
 
     def supports_drop_column(self) -> bool:
@@ -1231,6 +1278,15 @@ class TableSupport(Protocol):
 
         Most databases support comma-separated actions, but SQL Server
         requires one action per ALTER TABLE statement.
+        """
+        ...  # pragma: no cover
+
+    def supports_inline_index(self) -> bool:
+        """Whether CREATE TABLE accepts inline index definitions.
+
+        Inline index clauses inside CREATE TABLE are a dialect convenience of
+        MySQL/MariaDB/ClickHouse; the SQL-standard form is the standalone
+        CREATE INDEX statement. Defaults to False (SQL-standard behavior).
         """
         ...  # pragma: no cover
 
@@ -1293,21 +1349,11 @@ class TableSupport(Protocol):
 
 @runtime_checkable
 class PartitionSupport(Protocol):
-    """Protocol for table partitioning support.
+    """Protocol for generic table partitioning expression support.
 
-    This protocol defines the minimal generic interface for table partitioning
-    capability detection and PARTITION BY clause formatting. Backend-specific
-    partition methods and detailed maintenance operations belong in backend
-    protocols.
-
-    Operation capability flags such as add/drop/truncate/reorganize/attach/detach
-    describe generic feature categories only. Backends that expose executable
-    partition maintenance statements must define the corresponding structured
-    expressions and format_* methods in backend-specific protocols.
-
-    Dialects implementing this protocol must provide:
-    - supports_*() methods for generic capability detection
-    - format_partition_clause() for SQL generation
+    The protocol covers capability detection, ``PARTITION BY`` clause
+    formatting, and backend-owned partition definition formatting. Partition
+    lifecycle orchestration is intentionally outside this protocol.
     """
 
     def supports_table_partitioning(self) -> bool:
@@ -1338,35 +1384,26 @@ class PartitionSupport(Protocol):
         """Whether table subpartitioning is supported."""
         ...  # pragma: no cover
 
-    def supports_add_partition(self) -> bool:
-        """Whether adding partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_drop_partition(self) -> bool:
-        """Whether dropping partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_truncate_partition(self) -> bool:
-        """Whether truncating partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_reorganize_partition(self) -> bool:
-        """Whether reorganizing partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_attach_partition(self) -> bool:
-        """Whether attaching partitions through the public API is supported."""
-        ...  # pragma: no cover
-
-    def supports_detach_partition(self) -> bool:
-        """Whether detaching partitions through the public API is supported."""
-        ...  # pragma: no cover
-
     def format_partition_clause(self, expr: "PartitionClause") -> Tuple[str, tuple]:
         """Format PARTITION BY clause from expression.
 
         Args:
             expr: PartitionClause with partition method and key expressions.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        ...  # pragma: no cover
+
+    def format_partition_definition(self, definition: "PartitionDefinition") -> Tuple[str, tuple]:
+        """Format an inline partition definition from a structural declaration.
+
+        Backends that declare partitions inline in CREATE TABLE override this;
+        the generic implementation raises ``UnsupportedFeatureError`` because
+        partition boundary syntax is backend-specific.
+
+        Args:
+            definition: PartitionDefinition (or backend subclass) to render.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -1456,6 +1493,18 @@ class ConstraintSupport(Protocol):
 
     # FK formatter methods
 
+    def format_references_clause(self, expr: "ReferencesClause") -> Tuple[str, tuple]:
+        """Format a shared ``REFERENCES`` clause (column/table foreign keys).
+
+        Args:
+            expr: The references clause carrying the referenced table/columns
+                and optional actions.
+
+        Returns:
+            Tuple of (SQL fragment, empty params tuple).
+        """
+        ...  # pragma: no cover
+
     def format_foreign_key_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
         """Format a table-level FOREIGN KEY constraint, including ON DELETE / ON UPDATE.
 
@@ -1495,6 +1544,22 @@ class ConstraintSupport(Protocol):
     def supports_constraint_enforced(self) -> bool:
         """Whether ENFORCED / NOT ENFORCED constraint control is supported."""
         ...  # pragma: no cover
+
+    def supports_alter_constraint_enforced(self) -> bool:
+        """Whether ALTER CONSTRAINT enforcement control is supported."""
+        ...
+
+    def supports_validate_constraint(self) -> bool:
+        """Whether VALIDATE CONSTRAINT is supported."""
+        ...
+
+    def format_alter_constraint_action(self, action: "AlterConstraint") -> Tuple[str, tuple]:
+        """Format an ALTER CONSTRAINT enforcement action."""
+        ...
+
+    def format_validate_constraint_action(self, action: "ValidateConstraint") -> Tuple[str, tuple]:
+        """Format a VALIDATE CONSTRAINT action."""
+        ...
 
     # ALTER TABLE constraint operations (SQL-92)
 
@@ -1778,6 +1843,14 @@ class IndexSupport(Protocol):
         """Whether DROP INDEX is supported."""
         ...  # pragma: no cover
 
+    def preferred_create_index_statement(self) -> Optional[Type["CreateIndexExpression"]]:
+        """The backend's preferred CREATE INDEX statement class (§5.12)."""
+        ...  # pragma: no cover
+
+    def preferred_drop_index_statement(self) -> Optional[Type["DropIndexExpression"]]:
+        """The backend's preferred DROP INDEX statement class (§5.12)."""
+        ...  # pragma: no cover
+
     def supports_unique_index(self) -> bool:
         """Whether UNIQUE indexes are supported."""
         ...  # pragma: no cover
@@ -1813,6 +1886,15 @@ class IndexSupport(Protocol):
     def supports_concurrent_index(self) -> bool:
         """Whether CREATE INDEX CONCURRENTLY (PostgreSQL) is supported."""
         ...  # pragma: no cover
+
+    def supports_drop_index_on_table(self) -> bool:
+        """Whether DROP INDEX accepts/requires the ``ON <table>`` clause.
+
+        MySQL/MariaDB/SQL Server use ``DROP INDEX name ON table``;
+        PostgreSQL/SQLite/Oracle drop indexes by name without ``ON``.
+        """
+        ...  # pragma: no cover
+
 
     def get_supported_index_types(self) -> List[str]:
         """Return list of supported index types (e.g., ['BTREE', 'HASH'])."""
@@ -2049,6 +2131,45 @@ class AutoIncrementSupport(Protocol):
 
     def supports_auto_increment(self) -> bool:
         """Whether AUTO_INCREMENT/IDENTITY column attributes are supported."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class ColumnAttributeSupport(Protocol):
+    """Protocol for rendering explicitly supplied column attributes."""
+
+    def format_column_attribute(self, attr: "ColumnAttribute") -> Tuple[str, tuple]:
+        """Render one selected attribute as a column-definition fragment.
+
+        Args:
+            attr: A selected (renderable) column attribute.
+
+        Returns:
+            A ``(sql, params)`` tuple with a leading space (DDL accepts no
+            bind parameters, so ``params`` is normally empty).
+        """
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class CommentSupport(Protocol):
+    """Protocol for the standalone ``COMMENT ON`` statement.
+
+    ``COMMENT ON`` annotates an existing schema object and is deliberately
+    distinct from the inline CREATE TABLE comment *clauses* (the inline
+    *table*-comment clause is declared by :class:`TableSupport`, the inline
+    *column*-comment clause by ``DDLColumnMixin``). A dialect advertises this
+    protocol when it renders the standalone statement
+    (PostgreSQL/Oracle/Firebird/Snowflake); dialects whose only comment
+    mechanism is the inline clause do not.
+    """
+
+    def supports_comment_on(self) -> bool:
+        """Whether standalone ``COMMENT ON`` statements are supported."""
+        ...  # pragma: no cover
+
+    def format_comment_statement(self, expr: "CommentOnExpression") -> Tuple[str, tuple]:
+        """Render a standalone ``COMMENT ON <object> IS '<text>'`` statement."""
         ...  # pragma: no cover
 
 
@@ -2519,16 +2640,179 @@ class SQLFunctionSupport(Protocol):
         ...  # pragma: no cover
 
 
-# ============================================================
-# DataType Support Protocol
-# ============================================================
+@runtime_checkable
+class UserDefinedTypeSupport(Protocol):
+    """Protocol for user-defined type object DDL support."""
+
+    def supports_type_objects(self) -> bool:
+        """Whether user-defined type objects are supported."""
+        ...  # pragma: no cover
+
+    def supports_create_type(self) -> bool:
+        """Whether CREATE TYPE is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_type(self) -> bool:
+        """Whether ALTER TYPE is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_type(self) -> bool:
+        """Whether DROP TYPE is supported."""
+        ...  # pragma: no cover
+
+    def supports_type_definition(self, definition_type: Type["TypeDefinition"]) -> bool:
+        """Whether a type-definition class is supported."""
+        ...  # pragma: no cover
+
+    def supported_type_definitions(self) -> Tuple[Type["TypeDefinition"], ...]:
+        """Return the concrete type-definition classes this dialect supports."""
+        ...  # pragma: no cover
+
+    def supports_type_alter_action(self, action_type: Type["TypeAlterAction"]) -> bool:
+        """Whether an ALTER TYPE action class is supported."""
+        ...  # pragma: no cover
+
+    def supports_create_type_if_not_exists(self) -> bool:
+        """Whether CREATE TYPE IF NOT EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_create_type_or_replace(self) -> bool:
+        """Whether CREATE OR REPLACE TYPE is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_type_if_exists(self) -> bool:
+        """Whether ALTER TYPE IF EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_type_if_exists(self) -> bool:
+        """Whether DROP TYPE IF EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_multiple_type_alter_actions(self) -> bool:
+        """Whether one ALTER TYPE statement may contain multiple actions."""
+        ...  # pragma: no cover
+
+    def format_create_type_statement(self, expr: "CreateTypeExpression") -> Tuple[str, tuple]:
+        """Format CREATE TYPE."""
+        ...  # pragma: no cover
+
+    def format_alter_type_statement(self, expr: "AlterTypeExpression") -> Tuple[str, tuple]:
+        """Format ALTER TYPE."""
+        ...  # pragma: no cover
+
+    def format_drop_type_statement(self, expr: "DropTypeExpression") -> Tuple[str, tuple]:
+        """Format DROP TYPE."""
+        ...  # pragma: no cover
+
+    def format_type_definition(self, expr: "TypeDefinition") -> Tuple[str, tuple]:
+        """Format one type definition."""
+        ...  # pragma: no cover
+
+    def format_type_alter_action(self, expr: "TypeAlterAction") -> Tuple[str, tuple]:
+        """Format one ALTER TYPE action."""
+        ...  # pragma: no cover
+
+@runtime_checkable
+class DomainSupport(Protocol):
+    """Protocol for domain object DDL support."""
+
+    def supports_domains(self) -> bool:
+        """Whether domain objects are supported."""
+        ...  # pragma: no cover
+
+    def supports_create_domain(self) -> bool:
+        """Whether CREATE DOMAIN is supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_domain(self) -> bool:
+        """Whether ALTER DOMAIN is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_domain(self) -> bool:
+        """Whether DROP DOMAIN is supported."""
+        ...  # pragma: no cover
+
+    def supports_domain_default(self) -> bool:
+        """Whether domain DEFAULT values are supported."""
+        ...  # pragma: no cover
+
+    def supports_domain_nullability(
+        self,
+        nullability: "DomainNullability",
+    ) -> bool:
+        """Whether a domain nullability declaration is supported."""
+        ...  # pragma: no cover
+
+    def supports_domain_checks(self) -> bool:
+        """Whether domain CHECK constraints are supported."""
+        ...  # pragma: no cover
+
+    def supports_named_domain_checks(self) -> bool:
+        """Whether named domain CHECK constraints are supported."""
+        ...  # pragma: no cover
+
+    def supports_multiple_domain_checks(self) -> bool:
+        """Whether a domain may contain multiple CHECK constraints."""
+        ...  # pragma: no cover
+
+    def supports_domain_collation(self) -> bool:
+        """Whether domain COLLATE clauses are supported."""
+        ...  # pragma: no cover
+
+    def supports_alter_domain_action(self, action_type: Type["DomainAlterAction"]) -> bool:
+        """Whether an ALTER DOMAIN action class is supported."""
+        ...  # pragma: no cover
+
+    def supports_multiple_domain_alter_actions(self) -> bool:
+        """Whether one ALTER DOMAIN statement may contain multiple actions."""
+        ...  # pragma: no cover
+
+    def supports_drop_domain_if_exists(self) -> bool:
+        """Whether DROP DOMAIN IF EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_domain_cascade(self) -> bool:
+        """Whether DROP DOMAIN CASCADE is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_domain_restrict(self) -> bool:
+        """Whether DROP DOMAIN RESTRICT is supported."""
+        ...  # pragma: no cover
+
+    def supports_unnamed_domain_check_drop(self) -> bool:
+        """Whether an unnamed domain CHECK constraint may be dropped."""
+        ...  # pragma: no cover
+
+    def format_create_domain_statement(self, expr: "CreateDomainExpression") -> Tuple[str, tuple]:
+        """Format CREATE DOMAIN."""
+        ...  # pragma: no cover
+
+    def format_alter_domain_statement(self, expr: "AlterDomainExpression") -> Tuple[str, tuple]:
+        """Format ALTER DOMAIN."""
+        ...  # pragma: no cover
+
+    def format_drop_domain_statement(self, expr: "DropDomainExpression") -> Tuple[str, tuple]:
+        """Format DROP DOMAIN."""
+        ...  # pragma: no cover
+
+    def format_domain_value_expression(self, expr: "DomainValueExpression") -> Tuple[str, tuple]:
+        """Format the domain VALUE expression."""
+        ...  # pragma: no cover
+
+    def format_domain_check_constraint(self, expr: "DomainCheckConstraint") -> Tuple[str, tuple]:
+        """Format one domain CHECK constraint."""
+        ...  # pragma: no cover
+
+    def format_domain_alter_action(self, expr: "DomainAlterAction") -> Tuple[str, tuple]:
+        """Format one ALTER DOMAIN action."""
+        ...  # pragma: no cover
 
 
 @runtime_checkable
-class DDLTypeSupport(Protocol):
+class DataTypeSupport(Protocol):
     """Dialect support for structured ``DataType`` — formatting and parsing.
 
-    Dialects that implement this protocol (usually via ``DDLTypeMixin``) can:
+    Dialects that implement this protocol (usually via ``DataTypeMixin``) can:
 
     * Render ``DataType`` expressions into backend-specific SQL strings
       via ``format_data_type()`` — called by ``DataType.to_sql()``.
@@ -2625,3 +2909,6 @@ class DDLTypeSupport(Protocol):
         an empty dict when there is nothing to suggest (honesty principle).
         """
         ...  # pragma: no cover
+
+
+DDLTypeSupport = DataTypeSupport

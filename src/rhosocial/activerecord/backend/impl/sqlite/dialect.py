@@ -41,6 +41,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TriggerSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    ColumnAttributeSupport,
     # Introspection Protocol
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -48,7 +49,9 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     # Function Support Protocol
     SQLFunctionSupport,
     # Type Support Protocol
-    DDLTypeSupport,
+    DataTypeSupport,
+    UserDefinedTypeSupport,
+    DomainSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     AutoIncrementMixin,
@@ -71,6 +74,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # DDL Mixins
     TableMixin,
     ConstraintMixin,
+    CommentOnMixin,
     SchemaMixin,
     IndexMixin,
     SequenceMixin,
@@ -83,6 +87,8 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DQLMixin,
     DateTimeMixin,
     DDLColumnMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
     DMLMixin,
     TransactionControlMixin,
     ViewMixin,
@@ -163,6 +169,7 @@ class SQLiteDialect(
     # DDL Mixins (without SQLite overrides)
     TableMixin,
     ConstraintMixin,
+    CommentOnMixin,
     SchemaMixin,
     IndexMixin,
     SequenceMixin,
@@ -193,6 +200,8 @@ class SQLiteDialect(
     SQLiteGeopolyMixin,
     # DataType formatting and parsing
     SQLiteTypeSupportMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
     CollationMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)
@@ -235,6 +244,7 @@ class SQLiteDialect(
     TriggerSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
+    ColumnAttributeSupport,
     # SQLite-specific protocols
     SQLiteExtensionSupport,
     SQLitePragmaSupport,
@@ -252,7 +262,9 @@ class SQLiteDialect(
     # Function Support Protocol
     SQLFunctionSupport,
     # DataType Support Protocol
-    DDLTypeSupport,
+    DataTypeSupport,
+    UserDefinedTypeSupport,
+    DomainSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -725,6 +737,13 @@ class SQLiteDialect(
 
     def supports_index_tablespace(self) -> bool:
         """Whether index tablespace is supported."""
+        return False
+
+    def supports_drop_index_on_table(self) -> bool:
+        """Whether DROP INDEX accepts/requires the ``ON <table>`` clause.
+
+        SQLite drops indexes by name without ``ON <table>``.
+        """
         return False
 
     def supports_fulltext_index(self) -> bool:

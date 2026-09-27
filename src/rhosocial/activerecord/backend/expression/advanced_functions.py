@@ -4,9 +4,9 @@ Advanced SQL functions and expressions like CASE, EXISTS, ANY/ALL, Window functi
 JSON operations, and Array operations.
 """
 from enum import Enum
-from typing import Any, List, Optional, Union, TYPE_CHECKING, Dict
+from typing import Any, List, Optional, Union, TYPE_CHECKING
 
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
+from .bases import BaseExpression, SQLPredicate, SQLValueExpression
 from .core import Column, Subquery
 from .mixins import (
     AliasableMixin,
@@ -127,13 +127,11 @@ class WindowFrameSpecification(BaseExpression):
         frame_type: str,  # 'ROWS', 'RANGE', 'GROUPS'
         start_frame: str,  # 'UNBOUNDED PRECEDING', 'N PRECEDING', 'CURRENT ROW', etc.
         end_frame: Optional[str] = None,  # 'UNBOUNDED FOLLOWING', 'N FOLLOWING', etc.
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.frame_type = frame_type
         self.start_frame = start_frame
         self.end_frame = end_frame
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -150,7 +148,6 @@ class WindowSpecification(BaseExpression):
         partition_by: Optional[List[Union["BaseExpression", str]]] = None,
         order_by: Optional[Union["OrderByClause", str]] = None,  # Accept only single OrderByClause or str
         frame: Optional[WindowFrameSpecification] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.partition_by = partition_by or []
@@ -167,7 +164,6 @@ class WindowSpecification(BaseExpression):
             raise TypeError(f"order_by must be OrderByClause or str, got {type(order_by)}")
 
         self.frame = frame
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -183,12 +179,10 @@ class WindowDefinition(BaseExpression):
         dialect: "SQLDialectBase",
         name: str,
         specification: WindowSpecification,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.name = name
         self.specification = specification
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -203,11 +197,9 @@ class WindowClause(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         definitions: List[WindowDefinition],
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.definitions = definitions
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:
@@ -233,14 +225,12 @@ class WindowFunctionCall(
         args: Optional[List[Union["BaseExpression", Any]]] = None,
         window_spec: Optional[Union[WindowSpecification, str]] = None,
         alias: Optional[str] = None,
-        dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.function_name = function_name
         self.args = args or []
         self.window_spec = window_spec
         self.alias = alias
-        self.dialect_options = dialect_options or {}
 
     @property
     def format_method(self) -> str:

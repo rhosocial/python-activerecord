@@ -48,6 +48,8 @@
 * [Concurrency](modeling/concurrency.md)
 * [Configuration Management](modeling/configuration_management.md)
 * [DDL](modeling/ddl.md)
+* [DDLSource Declarations](modeling/ddl_source.md)
+* [DDLSource Examples](modeling/ddl_source_examples.md)
 * [DDL Views](modeling/ddl_views.md)
 
 ## Relationships
@@ -65,7 +67,6 @@
 * [CTEQuery](querying/cte_query.md)
 * [SetOperationQuery](querying/set_operation_query.md)
 * [Query Cheatsheet](querying/cheatsheet.md)
-* [Property Graph Query](querying/graph_query.md)
 * [Query Recipes](querying/recipes.md)
 
 ## Connection Management
