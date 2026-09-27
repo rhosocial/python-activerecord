@@ -79,6 +79,14 @@ NON_ISOLATION_MARKERS = {
     "mixin", "events", "interface", "cte", "benchmark", "asyncio",
 }
 
+# Markers pytest provides itself. They are always available and must never be
+# reported as unregistered: usefixtures in particular is built in, so flagging it
+# sends the reader to pyproject.toml for something that needs no entry.
+PYTEST_BUILTIN_MARKERS = {
+    "usefixtures", "filterwarnings", "skipif", "xfail", "parametrize",
+    "skip", "tryfirst", "trylast", "getfixturevalue",
+}
+
 # Coarse signals that a file depends on process or filesystem state.
 RISK_PATTERNS = {
     "spawns processes": re.compile(
@@ -285,6 +293,8 @@ def analyse(repo, workflow_rel, tests_root):
                 )
         for name in sorted(names):
             if name in NON_ISOLATION_MARKERS or name in isolation:
+                continue
+            if name in PYTEST_BUILTIN_MARKERS:
                 continue
             if name not in declared and dist_modes:
                 report["unregistered_markers"].append({"file": rel, "marker": name})
