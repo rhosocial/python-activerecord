@@ -43,7 +43,39 @@ makes them mandatory checkpoints.
    verdict, the sequence is: open PR → write fragments named by the **actual PR number** (per
    the fragment plan from E1) → push → merge.
 
-## 2. Six-Category Checklist
+## 2. Scripted Checks (run these first)
+
+Three checks in this skill are fully mechanical and have their own tooling. Run
+them before reading any code, and paste their output as the evidence for the
+corresponding checklist items. Each script prints the evidence behind its own
+verdict; a bare conclusion is not acceptable in the evaluation.
+
+```bash
+S=.claude/skills/dev-merge-evaluation/scripts
+
+# B5 + B1: the whole main -> release -> feature chain, per link
+python3 $S/topology.py --repo . --feature <feature-branch> [--fetch]
+
+# Real branch protection, including ruleset bypass actors
+python3 $S/protection.py --repo <owner>/<name> --branch main
+
+# How much work porting commits from one branch to another actually is
+python3 $S/port_triage.py --repo . --base <receiving-branch> --from <source-branch>
+```
+
+| Script | Covers | Exit codes |
+|---|---|---|
+| `topology.py` | B1, B5 | 0 chain holds, 1 diverged, 2 branch absent (skip the repo) |
+| `protection.py` | branch-protection reality | 0 protected, 1 unprotected, 2 `gh` not authed |
+| `port_triage.py` | porting workload | 0 report produced, 2 bad arguments |
+
+**Run `topology.py` across every repository in the ecosystem, not just the core.**
+A backend can hold the same defect independently, and the core chain holding says
+nothing about the backends. `port_triage.py` is the tool to reach for whenever
+work landed on one branch and must reach another; see the note under B5 about
+conflict counts.
+
+## 3. Six-Category Checklist
 
 ### A. Purpose Achievement
 
@@ -60,10 +92,40 @@ makes them mandatory checkpoints.
 | B1. Divergence from target | `git rev-list --left-right --count <target>...<feature>`; `git log --oneline <target> --not <feature>` to see what the branch lacks. If the target moved ahead, assess the rebase/merge conflict surface (`git diff <target>...<feature>` on colliding files). **The target must fall behind the feature — a two-way divergence is a blocker to reconcile first**. This covers only the `release -> feature` link; the `main -> release` link is B5 |
 | B2. Clean worktree | `git status --short` must be empty; verify recent edits are committed, not lost |
 | B3. Commit convention | Spot check conventional commits; all breaking commits carry `!` and a `BREAKING CHANGE` footer |
+| B3a. Branch protection is real | `python3 .claude/skills/dev-merge-evaluation/scripts/protection.py --repo <owner>/<name> --branch main`. **Never infer protection from a single endpoint.** The legacy `branches/{b}/protection` API returns 404 both when a branch is unprotected *and* when protection comes from a ruleset, and `gh api` writes that JSON error object to stdout — parsing it yields a truthy dict and reports an unprotected branch as protected. Cross-check `branches/{b}.protected`, the rulesets API (including `~DEFAULT_BRANCH`, `~ALL` and glob conditions), and the **bypass actors**: a strict rule list means little when an `always` bypass actor exists, because commits landing under it never passed review or status checks |
+| B3b. CI actually triggers on this branch | Read `on.push.branches` in the workflow. Most of these workflows listen only to `main`, `release/v**` and `maint/**`, so **pushing a feature branch runs nothing** and a green-looking branch has stale CI. Dispatch explicitly and confirm the run's `headSha` equals the branch tip |
 | B4. Fork source & merge path | Determine the branch the feature was forked from: a candidate branch whose **tip equals `git merge-base <candidate> <feature>`** is a fork-source match; disambiguate multiple matches by ancestry (the fork source is the one the others descend from). Merge path by fork source: **forked from a `release/vX.Y.*` branch → PR into that release branch (fragments per the E1 plan)**; **forked from `main` → direct merge, no PR, no fragments**. **Unreleased repos** (never published, no release branch — e.g. a backend still on dev-only main): work directly on `main`, forks are unnecessary; if a fork already exists (e.g. forked from another feature branch — a process violation), resolve it by direct fast-forward merge into `main`, no PR, no fragments, then delete the fork branches |
 | B5. Topology invariant | The intended topology is a chain, with no divergence at any link: **`main` ⊆ `release/<active>` ⊆ `feature/*`\|`fix/*`**. Verify each link separately, because B1 only covers the second one |
 
 #### B5. Topology invariant
+
+The intended topology is a chain, with no divergence at any link: **`main` ⊆ `release/<active>` ⊆ `feature/*`|`fix/*`**. Verify each link separately, because B1 only covers the second one.
+
+**Run `scripts/topology.py` rather than assembling this by hand.** Run it for every
+repository in the ecosystem, not only the core: a backend can hold the same defect
+independently, and a green core chain says nothing about the backends.
+
+```bash
+python3 .claude/skills/dev-merge-evaluation/scripts/topology.py \
+    --repo <repo-path> --feature <feature-branch> --fetch
+```
+
+The script resolves the active release branch, checks `main->release`,
+`release->feature` and `main->feature`, and on a broken link reports the drifted
+side, the commit list, and the file overlap computed from the merge base. It also
+handles four cases that produce wrong readings when done by hand:
+
+- Release branches must be ordered **numerically**, not lexicographically.
+  `v1.0.0.dev9` otherwise outranks `v1.0.0.dev20`, and auditing the wrong release
+  branch invents a divergence that does not exist.
+- Prefer the **remote-tracking ref** over a local branch. A local branch left over
+  from before a reset reports a divergence that is not published anywhere.
+- Compute overlap from the **merge base**, never tip-to-tip, or reverted files
+  appear as conflicts.
+- A repository with **no release branch** is unreleased, not diverged; that is a
+  different workflow (see B4), and the script says so instead of failing.
+
+The equivalent manual form, when the script is unavailable:
 
 ```bash
 R=origin/release/vX.Y.Z            # the active release branch
@@ -107,6 +169,17 @@ Then record an explicit decision, because the mechanical check cannot choose for
 > Zero merge commits on a branch does **not** by itself prove direct pushes: squash and
 > rebase merges also land non-merge commits. Confirm with the PR list, which records the
 > merge regardless of strategy. Check the dates line up as well.
+
+> **A conflict-hunk count is not a measure of missing work.** When work must move from one
+> branch to another, run `scripts/port_triage.py` instead of estimating from a trial
+> cherry-pick. It separates `CLEAN`, `ALREADY_PRESENT`, `EVOLVED` (the target already has
+> the change in a newer shape), `SUPERSEDED` (the mechanism the change depends on no
+> longer exists, so it is unreachable) and `NEEDS_REVIEW` (genuinely absent). Only
+> `NEEDS_REVIEW` is outstanding work. In one measured case the raw two-sided hunk total
+> was 84 across 29 commits while `NEEDS_REVIEW` was 4, and those 4 were already present
+> in an evolved form as well — the gap was work that was never missing. The script resolves
+> no conflicts, because choosing a side is a design judgement; it hands the decision over
+> with evidence.
 
 ### C. Test & Quality Gates (CI-owned)
 
@@ -157,7 +230,7 @@ that has every backend installed.
 > without a corresponding declaration will otherwise be published as a release with a
 > known gap.
 
-## 3. Breaking-Change Inventory Method
+## 4. Breaking-Change Inventory Method
 
 For each breaking item, record:
 
@@ -180,7 +253,7 @@ rg "<symbol>" python-activerecord*/src/ python-activerecord-*/src/
 rg "from.*import.*<symbol>" --type py python-activerecord*/ python-activerecord-*/
 ```
 
-## 4. Verdict Rules
+## 5. Verdict Rules
 
 | Verdict | Conditions |
 |---|---|
@@ -191,7 +264,7 @@ rg "from.*import.*<symbol>" --type py python-activerecord*/ python-activerecord-
 When in doubt between conditional-merge and hold, **hold** — a merge that lands unadapted
 backends into a release line costs more than a delayed merge.
 
-## 5. Output Template
+## 6. Output Template
 
 ```markdown
 # Merge Evaluation: <feature> → <target>
@@ -238,7 +311,7 @@ backends into a release line costs more than a delayed merge.
 <commands and commit hashes>
 ```
 
-## 6. Post-Evaluation Sequence & Relation to `dev-release-workflow`
+## 7. Post-Evaluation Sequence & Relation to `dev-release-workflow`
 
 **After the verdict**, in order:
 
