@@ -289,6 +289,8 @@ markers = [
 
     # Parallel execution markers (from testsuite)
     "serial: marks tests that must run serially (never concurrently with other tests)",
+    "feature: category label for feature-area tests; changes collection grouping only, not ordering",
+
 ]
 
 [tool.coverage.run]
