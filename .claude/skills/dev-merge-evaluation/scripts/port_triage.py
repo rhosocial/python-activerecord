@@ -65,6 +65,7 @@ import ast
 import json
 import os
 import re
+import keyword
 import shutil
 import subprocess
 import sys
@@ -216,16 +217,20 @@ def classify_hunks(text):
 
 
 def added_definition_names(repo, sha):
-    """Top-level definition names a commit introduces, per file.
+    """Module-level definition names a commit introduces, per file.
 
-    Restricted to ``def`` / ``class`` / non-indented assignment targets, so a
-    local variable cannot masquerade as a public symbol.
+    Only **column-zero** ``def`` / ``class`` / assignment targets are collected.
+    Indented definitions are excluded on purpose: a helper nested inside a test
+    function is local to that test, not a symbol the target branch is missing.
+    Treating those as absent produced a long list of false NEEDS_REVIEW entries
+    (``extract_expr``, ``datepart_expr``, ``partition_clause`` and similar local
+    factories) for work that was already present.
     """
     names = {}
     current = None
     patterns = (
-        re.compile(r"^\s*(?:async\s+)?def\s+(\w+)"),
-        re.compile(r"^\s*class\s+(\w+)"),
+        re.compile(r"^(?:async\s+)?def\s+(\w+)"),
+        re.compile(r"^class\s+(\w+)"),
         re.compile(r"^(\w+)\s*(?::[^=]+)?="),
     )
     for line in run_git(repo, ["show", "--format=", "--unified=0", sha]).split("\n"):
@@ -236,12 +241,67 @@ def added_definition_names(repo, sha):
         if current is None or not line.startswith("+") or line.startswith("+++"):
             continue
         body = line[1:]
+        if not body or body[0].isspace():
+            continue
         for pattern in patterns:
             match = pattern.match(body)
             if match:
                 names[current].add(match.group(1))
                 break
     return {path: sorted(symbols) for path, symbols in names.items() if symbols}
+
+
+def rename_candidates(missing, tree_symbols):
+    """Map each missing name to existing names that look like renames of it.
+
+    A refactor that renames ``DateAddExpression`` to ``DateTimeAddExpression``
+    leaves the target with no symbol of the old name, which reads as absent work.
+    Requiring every significant token of the missing name to appear in a candidate
+    keeps this conservative: ``DateTimeAddExpression`` shares ``add`` and
+    ``expression`` with the old name, while an unrelated symbol shares nothing.
+
+    Returned separately from *missing* because a rename still has to be confirmed
+    by a human; it merely stops the tool from calling it absent outright.
+    """
+    tokens = {}
+    for name in tree_symbols:
+        parts = [p for p in name.lower().split("_") if len(p) > 2]
+        if parts:
+            tokens.setdefault(name, set()).update(parts)
+    by_token = {}
+    for name, parts in tokens.items():
+        for part in parts:
+            by_token.setdefault(part, set()).add(name)
+
+    def same_style(name, candidate):
+        """Constants rename to constants, classes to classes, functions likewise.
+
+        Without this, token overlap pairs the UPPER_CASE constant ``CAST_NODE``
+        with a lower_case test helper, which is noise rather than a rename.
+        """
+        def kind(text):
+            stripped = text.lstrip("_")
+            if stripped.isupper():
+                return "const"
+            if stripped[:1].isupper():
+                return "class"
+            return "func"
+
+        return kind(name) == kind(candidate)
+
+    renamed = {}
+    for name in missing:
+        parts = [p for p in name.lower().split("_") if len(p) > 2]
+        if not parts:
+            continue
+        shared = None
+        for part in parts:
+            holders = by_token.get(part, set())
+            shared = holders if shared is None else (shared & holders)
+        plausible = sorted(candidate for candidate in (shared or ()) if same_style(name, candidate))
+        if plausible:
+            renamed[name] = plausible[:3]
+    return renamed
 
 
 def collect_tree_symbols(worktree):
@@ -359,8 +419,16 @@ def triage_commit(repo, worktree, sha, base_sha, tree_symbols, attribute_cache):
         "hunks_one_sided": 0,
         "hunks_two_sided": 0,
         "files": [],
-        "symbols_introduced": sorted({s for v in definitions.values() for s in v}),
+        "symbols_introduced": sorted(
+            {
+                name
+                for v in definitions.values()
+                for name in v
+                if not keyword.iskeyword(name) and name not in ("pass", "break")
+            }
+        ),
         "missing_symbols": [],
+        "renamed_symbols": {},
         "unreachable_attributes": [],
     }
 
@@ -382,7 +450,11 @@ def triage_commit(repo, worktree, sha, base_sha, tree_symbols, attribute_cache):
         result["hunks_two_sided"] += two
 
     introduced = set(result["symbols_introduced"])
-    result["missing_symbols"] = sorted(introduced - tree_symbols)
+    absent = introduced - tree_symbols
+    result["renamed_symbols"] = rename_candidates(absent, tree_symbols)
+    # A name with a plausible rename in the target is not treated as absent work;
+    # it is reported for confirmation instead.
+    result["missing_symbols"] = sorted(set(absent) - set(result["renamed_symbols"]))
 
     # The attribute probe must see the *pristine* base tree. The worktree is
     # still holding the conflicted pick, whose incoming side contains the very
@@ -444,6 +516,10 @@ def render(results, args):
                 extra = len(item["unreachable_attributes"]) - 8
                 if extra > 0:
                     add("          ... {} more".format(extra))
+            if item.get("renamed_symbols"):
+                add("        possibly renamed in the base tree (confirm, not absent):")
+                for name, options in sorted(item["renamed_symbols"].items())[:6]:
+                    add("          {} -> {}".format(name, ", ".join(options)))
             if item["missing_symbols"]:
                 add("        symbols absent from the base tree:")
                 for name in item["missing_symbols"][:10]:
