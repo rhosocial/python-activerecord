@@ -53,8 +53,13 @@ from rhosocial.activerecord.worker import TaskContext
 
 
 # WorkerPool tests spawn sub-processes and rely on process/timing state, so
-# they must not run concurrently with other tests under xdist.
-pytestmark = pytest.mark.serial
+# they must not run concurrently with each other under xdist.
+#
+# This has to be xdist_group, not a bare marker: the suite runs with
+# `--dist=loadgroup`, which schedules by xdist_group and ignores any other
+# marker. A pytest.mark.serial here is inert, and these tests then fail
+# intermittently under parallel execution while passing serially.
+pytestmark = pytest.mark.xdist_group("worker_pool")
 
 
 def simple_task(ctx: TaskContext, n: int) -> int:
