@@ -61,6 +61,9 @@ python3 $S/protection.py --repo <owner>/<name> --branch main
 
 # How much work porting commits from one branch to another actually is
 python3 $S/port_triage.py --repo . --base <receiving-branch> --from <source-branch>
+
+# Whether test isolation declarations match the runner configuration
+python3 $S/test_isolation.py --repo .
 ```
 
 | Script | Covers | Exit codes |
@@ -68,8 +71,9 @@ python3 $S/port_triage.py --repo . --base <receiving-branch> --from <source-bran
 | `topology.py` | B1, B5 | 0 chain holds, 1 diverged, 2 branch absent (skip the repo) |
 | `protection.py` | branch-protection reality | 0 protected, 1 unprotected, 2 `gh` not authed |
 | `port_triage.py` | porting workload | 0 report produced, 2 bad arguments |
+| `test_isolation.py` | B3a, C4 | 0 no inert declaration, 1 inert declaration, 2 workflow or tests root absent |
 
-**Run `topology.py` across every repository in the ecosystem, not just the core.**
+**Run these across every repository in the ecosystem, not just the core.**
 A backend can hold the same defect independently, and the core chain holding says
 nothing about the backends. `port_triage.py` is the tool to reach for whenever
 work landed on one branch and must reach another; see the note under B5 about
@@ -188,6 +192,7 @@ Then record an explicit decision, because the mechanical check cannot choose for
 | C1. CI green | Branch CI status in GitHub Actions — all jobs pass, including the full Python version matrix and free-threaded builds |
 | C2. Coverage | `test-with-coverage` job: ≥90% for modified files (per branch protection rules) |
 | C3. Lint & types | `ruff check src/` and `mypy src/` clean (spot check locally only if CI does not run them) |
+| C4. Test isolation is real | `python3 .claude/skills/dev-merge-evaluation/scripts/test_isolation.py --repo .`. A file can declare that it must not run in parallel and get **no protection at all**, because the marker it used is not the one the runner reads: `--dist=loadgroup` schedules by `xdist_group` and ignores every other marker, and an unregistered marker is only a warning. The defect is invisible in a serial run and surfaces intermittently in CI, on one Python version, so it survives review. Also review the files it lists as state-dependent with no declaration |
 
 ### D. Breaking Changes & Compatibility (decisive)
 
