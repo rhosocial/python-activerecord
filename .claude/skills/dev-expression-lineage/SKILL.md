@@ -50,11 +50,19 @@ Projects are discovered at runtime, so a newly installed backend needs no code c
 - `rhosocial.activerecord.backend.impl.<name>` → project `<name>`
 
 A backend is scanned as a **whole `impl.<name>` package**, not just
-`impl.<name>.expression`, because the layout convention does not hold everywhere: 70
-expression classes sit outside `impl.<name>.expression` (ClickHouse, MySQL and MariaDB
-have 20 `Show*Expression` introspection classes each in `impl.<name>.show.expressions`,
-Oracle 9, Postgres 1). The graph keeps them and `misplaced()` reports them, because
-scope follows the class hierarchy rather than a directory convention.
+`impl.<name>.expression`, so that a class in the wrong place is reported rather
+than silently dropped from the graph. Scope follows the class hierarchy, not a
+directory filter.
+
+This mattered until recently: 70 expression classes used to sit outside
+`impl.<name>.expression` (ClickHouse, MySQL and MariaDB had 20
+`Show*Expression` introspection classes each in `impl.<name>.show.expressions`,
+Oracle 9, Postgres 1 in `impl.<name>.types`). All of them have been relocated
+into the expression namespace (`expression/show.py` and
+`expression/enum_.py`), and the top-level `types` package has been renamed
+`type_values` so that `types` unambiguously means DataType expressions.
+`misplaced()` is therefore now an enforceable invariant and should report
+**0**; a non-empty result is a regression.
 
 **Third-party namespaces.** Pass extras to analyse them alongside the in-tree backends:
 
@@ -169,12 +177,20 @@ These are runtime-inert but break mypy, IDE resolution and any static tool. Fire
 > module's `__package__`. Hand-rolled level arithmetic is wrong: level 0 is already
 > absolute, and anchoring it to the importing module invents paths that never existed.
 
-**Placement: `misplaced()` versus `secondary_home_nodes()`.** Expression classes are
-*expected* under `impl.<name>.expression`, but the backends also group introspection
-under `impl.<name>.show` and data types under `impl.<name>.types`. Both are accepted as
-secondary homes, so 70 classes that a naive check reports as misplaced are counted
-separately instead. Only a class outside every accepted home is a `misplaced()`
-finding.
+**`misplaced()` — the iron rule for placement.** An expression class must be defined under
+`backend.expression` (core) or `impl.<name>.expression` (backend), with no exemptions. The
+expected result is **0**; any entry is a regression.
+
+> This check used to carry an allowlist. `SECONDARY_HOME_SEGMENTS = ("show", "types")`
+> existed to stop this exact check reporting 70 classes — the `show` introspection
+> expressions and `PostgresEnumType` — as drift. They *were* drift. They have since moved
+> into the expression namespace and `types` has been renamed `type_values`, so the allowlist
+> was deleted rather than emptied: an empty one would only invite the next exemption. Do not
+> reintroduce it. If a future grouping looks legitimate, the fix is to move the classes, not
+> to widen the rule.
+
+The same invariant is asserted at test time by `test_expression_namespace.py` in the
+postgres and oracle suites, so a violation fails CI without anyone running this script.
 
 **Integrity: `parse_failures` and `unimportable`.** These exist because the check
 originally failed silently, which is the worst possible failure for an audit:
@@ -203,20 +219,89 @@ graph.ancestors("mysql::MySQLPointType")        # cycle-guarded
 graph.save("/tmp/lineage.json"); graph = type(graph).load("/tmp/lineage.json")
 ```
 
-## 8. Known limits
+## 8. Run this after every expression change
 
-- **Requires all backends importable in one interpreter.** A missing backend is silently
-  absent from the graph, so cross-backend findings are only as complete as the
-  environment. Check `--report`'s project list before trusting a "0 violations" result.
+**Whenever the expression system is modified — a class added, moved, renamed, reparented,
+or a backend gaining or losing expressions — run a lineage audit afterwards and check it
+against what you intended.** This is the step that catches what review and tests miss,
+because a rename can be correct in isolation and still leave the graph describing something
+other than the layout you believe you have.
+
+```bash
+PY=.venv3.14-ubuntu26.04/bin/python
+S=.claude/skills/dev-expression-lineage/scripts
+
+# 1. placement, iron rule, and integrity in one pass
+$PY $S/expression_lineage_mermaid.py --report
+
+# 2. for a structural change, diff the graph against the base revision
+$PY $S/expression_lineage_mermaid.py --report --save-graph /tmp/after.json
+git stash            # or check out the base revision
+$PY $S/expression_lineage_mermaid.py --report --save-graph /tmp/before.json
+git stash pop
+```
+
+What to read, in order:
+
+| Line | Expected after a clean change |
+|---|---|
+| `integrity` | `0 unparseable, 0 unimportable` — otherwise the run is under-reported and the rest means little |
+| `placement` | `0 misplaced`; a non-zero value is a regression, not a known exception |
+| `iron rule` | `0 cross-backend inheritance` |
+| `nodes/edges` | changed by exactly the delta you intended, no more |
+| `dangling TYPE_CHECKING imports` | `none`, or fewer than before |
+
+`--save-graph` makes the diff reviewable, which is the point of separating the model from
+the renderer. A class count that moved without a matching edit is the signal that something
+imported twice, shadowed, or silently vanished.
+
+**Reach for this after any change that moves a module, splits a file, renames a package, or
+alters a base class.** Those are the operations that can leave the namespace correct in the
+diff and wrong on disk.
+
+## 9. Known limits
+
+- **Backends must be *installed*, not merely importable.** `discover_projects()` stubs any
+  DB driver that fails to load (see §10), so a missing OS library no longer costs a backend
+  its audit. A backend whose *package* is not installed is still silently absent, so check
+  `--report`'s project list before trusting a "0 violations" result.
 - **No live-database verification.** The graph reflects code structure, not whether a
-  database accepts the SQL.
+  database accepts the SQL. No driver is ever exercised, which is exactly why stubbing one
+  is safe.
 - **Mermaid is validated by parsing, not by pixel rendering.** Syntax is verified against
   Mermaid 11 in a headless DOM; actual layout needs a browser. Very large diagrams may
   still be unwieldy to read.
-- **Reflection needs the code importable.** Classes in modules that fail to import are
-  absent from the graph; the shortfall is reported under `unimportable` rather than
-  hidden, but it must be read.
+- **Reflection needs the code importable.** Classes in modules that fail to import for any
+  reason other than a missing driver are absent from the graph; the shortfall is reported
+  under `unimportable` rather than hidden, but it must be read.
 - **A full run is slow on a network or mounted filesystem** — roughly 3-4 minutes on
-  `/mnt/i`, of which only about 30 seconds is CPU. The cost is importing on the order
-  of a thousand modules, so it tracks filesystem latency rather than graph size. Cache
+  `/mnt/i`, of which only about 30 seconds is CPU. The cost is importing on the order of
+  a thousand modules, so it tracks filesystem latency rather than graph size. Cache
   with `--save-graph` if you need to iterate.
+
+## 10. Why drivers are stubbed
+
+Lineage is computed by reflection only. Nothing here opens a connection, issues a query,
+or touches a driver. But every backend's `__init__` imports its driver eagerly, and Python
+runs a parent package's `__init__` before any submodule — so there is no way to reach
+`impl.sqlserver.expression` without `impl.sqlserver.__init__` first.
+
+That made `pyodbc` a hard requirement for auditing sqlserver, even though `pyodbc` is a C
+extension needing the OS `libodbc.so` and the expression classes never reference it. The
+wheel alone was not enough, so sqlserver used to drop out of the graph entirely and take
+its placement audit with it.
+
+`install_driver_stubs()` therefore replaces a driver with an inert module *before*
+discovery runs, and only if the real import failed. Each stub attribute is a fresh
+`Exception` subclass, which covers the only three things a backend does with its driver at
+import time: subclass it, catch it, and call it. A driver that loads normally is never
+touched, so this cannot mask a genuine environment problem.
+
+```python
+from expression_lineage import install_driver_stubs
+install_driver_stubs()          # -> ['pyodbc', ...] for those that failed
+```
+
+Stubbing restores coverage; it does not verify anything about the driver. If you need the
+real driver exercised, install the OS library and re-run, and `install_driver_stubs()` will
+report an empty list.
