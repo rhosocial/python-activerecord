@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.expression import bases, core
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
-    from .dialect import SQLiteDialect
+    from ..dialect import SQLiteDialect
 
 
 def _convert_to_expression(

@@ -30,7 +30,7 @@ from .codec import encode_value as _codec_encode_value
 from .codec import register_codec
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .dialect import SQLDialectBase
+    from ..dialect import SQLDialectBase
 
 
 class ExpressionDeserializationError(Exception):
