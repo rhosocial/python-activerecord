@@ -36,6 +36,18 @@ def _find_async_backend(module_path: str, module, sync_class_name: str):
             candidate = importlib.import_module(parent_name)
         except ImportError:
             break
+    # The async class conventionally lives in the backend's own
+    # ``async_backend`` module, which the upward walk cannot reach.
+    parent_name = module_path.rpartition('.')[0]
+    for candidate_name in (f'{parent_name}.async_backend',
+                            f'{module_path.rsplit(".", 1)[0]}.async_backend'):
+        try:
+            sibling = importlib.import_module(candidate_name)
+        except ImportError:
+            continue
+        found = getattr(sibling, wanted, None)
+        if found is not None:
+            return found
     return getattr(module, sync_class_name)
 
 
