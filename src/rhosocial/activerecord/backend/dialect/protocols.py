@@ -120,7 +120,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
     )
-    from ..introspection.expressions import (
+    from ..expression.introspection import (
         DatabaseInfoExpression,
         TableListExpression,
         TableInfoExpression,
