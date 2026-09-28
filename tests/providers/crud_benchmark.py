@@ -127,7 +127,9 @@ class CrudBenchmarkProvider:
         return model_class
 
     async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario: str) -> Type[ActiveRecord]:
-        from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+            AsyncSQLiteBackend,
+        )
 
         _, original_config = get_scenario(scenario)
         config = self._make_config(scenario, original_config)

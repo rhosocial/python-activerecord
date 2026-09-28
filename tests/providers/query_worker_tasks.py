@@ -14,7 +14,6 @@ Features:
 from typing import Dict, Any
 import importlib
 
-from .worker_tasks import _find_async_backend
 
 
 def _configure_models_from_params(params: dict) -> None:
@@ -83,9 +82,10 @@ async def _async_configure_models_from_params(params: dict) -> None:
 
     # Convert sync backend to async backend if needed
     # e.g., SQLiteBackend -> AsyncSQLiteBackend, PostgresBackend -> AsyncPostgresBackend
-    if not backend_class.__name__.startswith("Async"):
-        backend_class = _find_async_backend(
-            params["backend_module"], backend_module, backend_class.__name__
+    if not backend_class.__name__.startswith('Async'):
+        backend_class = getattr(
+            importlib.import_module(f"{params['backend_module']}.async_backend"),
+            f"Async{backend_class.__name__}",
         )
 
     config_module = importlib.import_module(params["config_module"])

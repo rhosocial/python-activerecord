@@ -103,7 +103,7 @@ def sqlite_backend_sync_context(request, benchmark_size):
 
 @pytest.fixture(scope="function", params=SCENARIO_PARAMS)
 def sqlite_backend_async_context(request, benchmark_size):
-    from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 
     scenario = request.param
     _, original_config = get_scenario(scenario)

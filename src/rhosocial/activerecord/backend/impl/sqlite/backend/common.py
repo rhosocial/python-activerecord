@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/backend/common.py
+# src/rhosocial/activerecord/backend/impl/sqlite/common.py
 """
 Common base classes and mixins for SQLite backend implementations.
 

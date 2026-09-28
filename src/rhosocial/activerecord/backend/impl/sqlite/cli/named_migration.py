@@ -46,7 +46,9 @@ def handle(args):
 
         def backend_async_factory():
             nonlocal async_backend
-            from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+            from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+                AsyncSQLiteBackend,
+            )
 
             config = resolve_connection_config_from_args(args)
             config.check_same_thread = False

@@ -3,7 +3,8 @@
 
 import sqlite3
 import pytest
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend, AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 
 class TestSQLiteIntrospect:

@@ -968,7 +968,9 @@ class TestAsyncMigrationRunnerIntegration:
         return mod
 
     async def test_async_up_creates_table(self):
-        from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+            AsyncSQLiteBackend,
+        )
         from rhosocial.activerecord.backend.migration.async_runner import AsyncMigrationRunner
 
         backend = AsyncSQLiteBackend(database=":memory:")
@@ -1005,7 +1007,9 @@ class TestAsyncMigrationRunnerIntegration:
             await backend.disconnect()
 
     async def test_async_up_then_down(self):
-        from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+            AsyncSQLiteBackend,
+        )
         from rhosocial.activerecord.backend.migration.async_runner import AsyncMigrationRunner
 
         backend = AsyncSQLiteBackend(database=":memory:")
@@ -1042,7 +1046,9 @@ class TestAsyncMigrationRunnerIntegration:
             await backend.disconnect()
 
     async def test_async_dry_run_skips_execution(self):
-        from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+            AsyncSQLiteBackend,
+        )
         from rhosocial.activerecord.backend.migration.async_runner import AsyncMigrationRunner
 
         backend = AsyncSQLiteBackend(database=":memory:")
@@ -1081,7 +1087,9 @@ class TestAsyncMigrationRunnerIntegration:
             await backend.disconnect()
 
     async def test_async_record_store(self, tmp_path):
-        from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+            AsyncSQLiteBackend,
+        )
         from rhosocial.activerecord.backend.migration.async_runner import AsyncMigrationRunner
         from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
@@ -1113,7 +1121,9 @@ class TestAsyncMigrationRunnerIntegration:
             await backend.disconnect()
 
     async def test_async_user_params(self):
-        from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+            AsyncSQLiteBackend,
+        )
         from rhosocial.activerecord.backend.migration.async_runner import AsyncMigrationRunner
 
         backend = AsyncSQLiteBackend(database=":memory:")
