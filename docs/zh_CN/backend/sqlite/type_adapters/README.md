@@ -124,7 +124,7 @@ print(type(user.settings))  # <class 'dict'>
 要为您的自定义 Python 类注册类型转换器：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
 

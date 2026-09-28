@@ -164,7 +164,7 @@ class TriggerInfo:
 ### Accessing the Introspector
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
 backend.connect()
@@ -299,7 +299,7 @@ trigger_info = backend.introspector.get_trigger_info("users", "trg_users_audit")
 The async backend provides identical introspection methods with the same names as the sync version:
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 backend = AsyncSQLiteBackend(database=":memory:")
 await backend.connect()

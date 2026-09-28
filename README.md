@@ -80,7 +80,7 @@ pip install rhosocial-activerecord
 ```python
 """Save as demo.py and run with: python demo.py"""
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableExpression
 from rhosocial.activerecord.backend.expression.statements import (
@@ -136,7 +136,7 @@ sql, params = User.query().where(User.c.age >= 18).to_sql()
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableExpression
 from rhosocial.activerecord.backend.expression.statements import (

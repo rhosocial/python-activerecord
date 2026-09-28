@@ -17,7 +17,7 @@ import aiofiles.os
 
 from rhosocial.activerecord.backend.errors import DatabaseError, QueryError, TransactionError
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.transaction import IsolationLevel
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType

@@ -28,7 +28,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 

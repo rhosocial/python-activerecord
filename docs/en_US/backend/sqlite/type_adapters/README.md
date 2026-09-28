@@ -124,7 +124,7 @@ print(type(user.settings))  # <class 'dict'>
 To register custom type converters for your own Python classes:
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
 

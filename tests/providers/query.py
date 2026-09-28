@@ -477,7 +477,7 @@ class QuerySyncProvider(QueryProviderBase, IQuerySyncProvider, WorkerTestProtoco
         schema_sql = self._get_schema_sql_for_fixture_type(base_fixture_type)
 
         return {
-            "backend_module": "rhosocial.activerecord.backend.impl.sqlite",
+            "backend_module": "rhosocial.activerecord.backend.impl.sqlite.backend",
             "backend_class_name": backend_class_name,
             "config_class_module": "rhosocial.activerecord.backend.impl.sqlite.config",
             "config_class_name": "SQLiteConnectionConfig",
@@ -719,7 +719,7 @@ class QueryAsyncProvider(QueryProviderBase, IQueryAsyncProvider):
     # --- Composite PK async setup ---
 
     async def setup_order_item_model(self, scenario_name: str) -> Type[AsyncActiveRecord]:
-        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
         from providers.fixtures.basic import TABLE_EXPRESSIONS
         _, original_config = get_scenario(scenario_name)
         config = original_config

@@ -8,7 +8,8 @@ import pytest
 
 from rhosocial.activerecord.logging import LoggingConfig
 from rhosocial.activerecord.logging.mixin import LoggingMixin
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 
 class TestLoggingMixinLevelGating:
@@ -313,7 +314,8 @@ class TestBackendLoggingMixinCoverage:
 
     def test_backend_set_logger_validates_type(self):
         """Backend logger setter should reject non-Logger objects."""
-        from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+        from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
         backend = SQLiteBackend(SQLiteConnectionConfig(database=":memory:"))
         try:
@@ -324,7 +326,8 @@ class TestBackendLoggingMixinCoverage:
 
     def test_backend_log_data_with_data(self):
         """Backend log_data() should produce output with summarized data."""
-        from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+        from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
         backend = SQLiteBackend(SQLiteConnectionConfig(database=":memory:"))
         try:

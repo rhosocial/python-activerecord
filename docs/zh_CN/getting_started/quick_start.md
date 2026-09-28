@@ -138,7 +138,11 @@ class AsyncPost(UUIDMixin, DefaultTimestampMixin, AsyncActiveRecord):
 
 ```python
 # 导入数据库后端相关模块
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig, AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import (
+    SQLiteBackend,
+    AsyncSQLiteBackend,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 

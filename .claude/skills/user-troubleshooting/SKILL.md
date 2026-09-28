@@ -91,7 +91,7 @@ user.save()  # Raises NoBackendConfiguredError
 ```python
 # ✅ Configure backend first
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # Configure the model with a backend
 User.configure(SQLiteBackend("sqlite:///app.db"))

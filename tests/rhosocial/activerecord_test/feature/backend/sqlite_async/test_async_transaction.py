@@ -15,7 +15,7 @@ import pytest_asyncio
 from unittest.mock import patch
 
 from rhosocial.activerecord.backend.errors import TransactionError
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.async_transaction import AsyncSQLiteTransactionManager
 from rhosocial.activerecord.backend.transaction import IsolationLevel
 

@@ -58,7 +58,8 @@ class BaseExplainResult(BaseModel):
 ### 解释一条查询（同步）
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteExplainResult
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainResult
 from rhosocial.activerecord.backend.expression import RawSQLExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -103,7 +104,7 @@ result = backend.explain(query)
 from rhosocial.activerecord.backend.expression.statements import (
     ExplainOptions, ExplainType,
 )
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteExplainQueryPlanResult
+from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainQueryPlanResult
 
 opts = ExplainOptions(type=ExplainType.QUERY_PLAN)
 result = backend.explain(query, opts)
@@ -116,7 +117,7 @@ for row in result.rows:
 ### 异步 API
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 backend = AsyncSQLiteBackend(database="mydb.sqlite3")
 await backend.connect()

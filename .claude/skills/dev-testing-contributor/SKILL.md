@@ -180,7 +180,7 @@ import pytest
 from typing import Tuple, Type
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from tests.providers.base import BackendProvider
 
 

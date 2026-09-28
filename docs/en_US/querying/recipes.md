@@ -342,8 +342,8 @@ for row in result:
 
 ```python
 # Choose date function dynamically based on backend type
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
-from rhosocial.activerecord.backend.impl.postgres import PostgresDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.postgres.dialect import PostgresDialect
 
 backend = Order.backend()
 

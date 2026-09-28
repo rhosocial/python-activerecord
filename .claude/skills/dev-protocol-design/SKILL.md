@@ -437,7 +437,7 @@ from typing import Type
 
 def test_sqlite_backend_protocol():
     """Test SQLite backend implements required protocols."""
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
     from rhosocial.activerecord.backend.dialect.protocols import CTESupport
     
     backend = SQLiteBackend(":memory:")

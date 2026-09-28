@@ -10,7 +10,7 @@ import pytest
 
 from rhosocial.activerecord.backend.protocols import ConcurrencyAware, ConcurrencyHint
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 
 class TestConcurrencyAwareProtocol:

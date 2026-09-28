@@ -40,7 +40,7 @@ def memory_db_persistent():
 # SECTION: Execution (run the expression)
 # ============================================================
 if __name__ == "__main__":
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
     print("=" * 60)
     print("In-Memory SQLite Connection Examples")

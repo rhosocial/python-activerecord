@@ -11,7 +11,7 @@ import tempfile
 import pytest
 import pytest_asyncio
 
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 

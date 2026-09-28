@@ -55,7 +55,8 @@ class AuditUser(ActiveRecord):
 Backend, query, and transaction logs are not controlled by `ActiveRecord.__logging_config__`:
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.logging import LoggerConfig, LoggingConfig, LogDataMode
 
 backend_config = LoggingConfig(log_data_mode=LogDataMode.KEYS_ONLY)

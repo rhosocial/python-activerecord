@@ -160,7 +160,7 @@ if fts4.deprecated:
 ### Detection via Dialect
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect(version=(3, 35, 0))
 
@@ -252,7 +252,7 @@ reset_registry()
 The extension framework automatically handles version compatibility:
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 # Different SQLite versions support different features
 dialect_old = SQLiteDialect(version=(3, 8, 0))

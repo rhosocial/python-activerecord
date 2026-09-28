@@ -40,7 +40,8 @@ backend = SQLiteBackend(database=db_file)
 User.configure(backend=backend)
 
 # Correct - Pass config and backend class
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 config = SQLiteConnectionConfig(database=db_file)
 User.configure(config, SQLiteBackend)
 ```
@@ -115,7 +116,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from typing import Optional
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin, IntegerPKMixin
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 
 class User(IntegerPKMixin, TimestampMixin, ActiveRecord):

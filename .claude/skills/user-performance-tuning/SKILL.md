@@ -392,7 +392,7 @@ backend.execute("CREATE INDEX IF NOT EXISTS idx_order_user ON orders(user_id)")
 ### Connection Pooling
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 class OptimizedSQLiteBackend(SQLiteBackend):
     """SQLite backend with optimized settings."""

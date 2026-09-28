@@ -19,7 +19,7 @@ SQLite 使用文件级锁。当一个连接持有写锁时，其他连接会阻�
 1. **启用 WAL 模式** —— 允许在写入期间并发读取：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database="my.db")
 backend.connect()

@@ -18,7 +18,7 @@ FTS5 特性：
 ## 版本兼容性检查
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect(version=(3, 35, 0))
 
@@ -44,7 +44,7 @@ print(f"支持的 tokenizer: {tokenizers}")
 ### 基本创建
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect(version=(3, 35, 0))
 
@@ -333,7 +333,8 @@ sql, params = dialect.format_fts5_drop_virtual_table(
 ### 创建文章搜索系统
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 

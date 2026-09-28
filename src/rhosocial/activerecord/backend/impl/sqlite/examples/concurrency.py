@@ -8,7 +8,7 @@ to understand its concurrency constraints.
 
 import logging
 
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.protocols import ConcurrencyAware
 

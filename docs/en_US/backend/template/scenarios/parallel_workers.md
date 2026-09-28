@@ -92,7 +92,7 @@ async def init_pool():
     pool_config = PoolConfig(
         min_size=2,
         max_size=10,
-        backend_factory=lambda: AsyncPostgreSQLBackend(connection_config=config),
+        backend_factory=lambda: AsyncPostgresBackend(connection_config=config),
     )
     _pool = AsyncBackendPool(pool_config)
 ```

@@ -233,7 +233,7 @@ def submit_comment_task(ctx: TaskContext, params: dict) -> int:
     content = params['content']
 
     # 1. Configure database connection (inside worker process)
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from myapp.models import User, Post, Comment
 

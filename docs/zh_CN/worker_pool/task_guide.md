@@ -39,7 +39,7 @@ WorkerPool 原生支持异步任务函数：
 # 同步模式进程池使用异步任务
 async def async_query_task(ctx: TaskContext, params: dict) -> dict:
     """使用 AsyncActiveRecord 的异步任务"""
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from myapp.models import User
 
@@ -108,7 +108,7 @@ def my_task(ctx: TaskContext, params: dict) -> dict:
     # ... 其他参数
 
     # 2. 配置连接（在 Worker 内）
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from myapp.models import MyModel
 

@@ -16,10 +16,8 @@ from models import User, Post, Comment  # noqa: E402
 from main import Loaders  # Import Loaders from main  # noqa: E402
 
 # Override backend to use memory for testing
-from rhosocial.activerecord.backend.impl.sqlite import (  # noqa: E402
-    SQLiteBackend,
-    SQLiteConnectionConfig,
-)
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 
 def test_query():

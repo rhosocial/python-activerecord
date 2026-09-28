@@ -56,7 +56,7 @@ def test_format_function_call_filter_path_in_fresh_interpreter():
     """
     body = (
         "import rhosocial.activerecord.backend.dialect.mixins.function  # noqa: F401\n"
-        "from rhosocial.activerecord.backend.impl.dummy import DummyDialect\n"
+        "from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect\n"
         "from rhosocial.activerecord.backend.expression.core import FunctionCall, Column\n"
         "\n"
         "d = DummyDialect()\n"

@@ -8,7 +8,7 @@ to verify version-specific feature support.
 
 import pytest
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 
 def _id_from_version(version):

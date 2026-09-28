@@ -95,7 +95,7 @@ User.configure(postgres_config, PostgresBackend)  # PostgreSQL
 
 ```python
 from rhosocial.activerecord.backend.expression import Column, Literal
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
 dialect = backend.dialect

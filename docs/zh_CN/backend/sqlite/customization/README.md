@@ -98,7 +98,7 @@ class MyClassAdapter:
 要注册自定义类型转换器：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
 backend.type_registry.register(MyClass, MyAdapter)

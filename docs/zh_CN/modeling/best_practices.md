@@ -182,7 +182,7 @@ my_project/
 ```python
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from typing import ClassVar
 
 # 配置基础后端
@@ -580,7 +580,8 @@ class User(ActiveRecord):
 ```python
 from typing import Optional
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 class User(ActiveRecord):
     __table_name__ = "users"

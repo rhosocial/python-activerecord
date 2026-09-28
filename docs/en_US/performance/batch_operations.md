@@ -16,7 +16,7 @@ Both methods support synchronous and asynchronous variants with identical APIs.
 ### Basic Usage
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource, Literal
 
 backend = SQLiteBackend(database=":memory:")

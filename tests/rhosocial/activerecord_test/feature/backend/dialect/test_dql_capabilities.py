@@ -21,7 +21,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.statements import QueryExpression
 from rhosocial.activerecord.backend.expression.query_sources import SetOperationExpression
-from rhosocial.activerecord.backend.impl.dummy import DummyDialect
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 
 pytestmark = [pytest.mark.feature, pytest.mark.backend]
 

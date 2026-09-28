@@ -75,10 +75,8 @@ def assert_methods_on_backend() -> None:
     print("CHECK 2 — Methods live on the backend instance")
     print("=" * 60)
 
-    from rhosocial.activerecord.backend.impl.sqlite import (
-        SQLiteBackend,
-        SQLiteConnectionConfig,
-    )
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from rhosocial.activerecord.backend.base import BatchExecutionMixin
 
     config = SQLiteConnectionConfig(database=":memory:")
@@ -173,10 +171,8 @@ def demonstrate_batch_dml() -> None:
     print("DEMO 1 — execute_batch_dml (backend method, not free function)")
     print("=" * 60)
 
-    from rhosocial.activerecord.backend.impl.sqlite import (
-        SQLiteBackend,
-        SQLiteConnectionConfig,
-    )
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from rhosocial.activerecord.backend.expression import (
         InsertExpression,
         ValuesSource,
@@ -259,10 +255,8 @@ def demonstrate_batch_dql() -> None:
     print("DEMO 2 — execute_batch_dql (backend method, not free function)")
     print("=" * 60)
 
-    from rhosocial.activerecord.backend.impl.sqlite import (
-        SQLiteBackend,
-        SQLiteConnectionConfig,
-    )
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from rhosocial.activerecord.backend.expression.statements import QueryExpression
     from rhosocial.activerecord.backend.expression import (
         WildcardExpression,

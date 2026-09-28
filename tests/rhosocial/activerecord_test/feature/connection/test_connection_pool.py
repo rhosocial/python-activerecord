@@ -52,7 +52,7 @@ from rhosocial.activerecord.connection.pool import (
     BackendPool,
     AsyncBackendPool,
 )
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType

@@ -19,7 +19,8 @@ or worker thread starts.
 ```python
 # ✅ Correct: configure at application startup
 # app.py / main.py
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from myapp.models import User, Order, Product
 
 def create_app():
@@ -71,7 +72,8 @@ post-fork hook:
 # gunicorn.conf.py
 def post_fork(server, worker):
     """Called in each worker process after forking."""
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from myapp.models import Base  # your base model or all model classes
 
     config = SQLiteConnectionConfig(database="app.db")
@@ -110,7 +112,8 @@ app = FastAPI(lifespan=lifespan)
 For server-based databases, the backend uses a connection pool.  Key parameters:
 
 ```python
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
 
 config = MySQLConnectionConfig(
     host="db.example.com",
@@ -156,8 +159,8 @@ config = MySQLConnectionConfig(
 )
 
 # PostgreSQL example
-from rhosocial.activerecord.backend.impl.postgresql import PostgreSQLConnectionConfig
-config = PostgreSQLConnectionConfig(
+from rhosocial.activerecord.backend.impl.postgres.config import PostgresConnectionConfig
+config = PostgresConnectionConfig(
     pool_recycle=3600,
 )
 ```
@@ -175,7 +178,7 @@ config = MySQLConnectionConfig(
 )
 
 # PostgreSQL example
-config = PostgreSQLConnectionConfig(
+config = PostgresConnectionConfig(
     # psycopg v3 enables TCP keepalive by default
     # Adjust via environment variables or driver parameters
 )
@@ -273,7 +276,8 @@ graph TB
 # gunicorn.conf.py
 def post_fork(server, worker):
     """Called in each worker process after forking."""
-    from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+    from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+    from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
     from myapp.models import User, Order
 
     config = MySQLConnectionConfig(
@@ -295,7 +299,8 @@ app = Celery('myapp')
 @app.on_after_configure.connect
 def setup_models(sender, **kwargs):
     """Configure models when worker starts."""
-    from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+    from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+    from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
     from myapp.models import User
 
     config = MySQLConnectionConfig(...)
@@ -310,7 +315,8 @@ from fastapi import FastAPI
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Configure when each worker process starts
-    from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+    from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+    from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
     from myapp.models import User
 
     config = MySQLConnectionConfig(...)
@@ -366,7 +372,8 @@ graph TB
 ```python
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
 from myapp.models import User
 
 # Configure once in main thread (pool handles multi-thread access automatically)

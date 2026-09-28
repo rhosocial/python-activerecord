@@ -115,7 +115,8 @@ SQLite 还提供便捷子类：`SQLiteInMemoryConfig`（内存数据库）与 `S
 ### 使用示例
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.model import ActiveRecord
 
 # 构建配置并绑定到模型

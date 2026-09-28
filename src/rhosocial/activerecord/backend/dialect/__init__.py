@@ -12,7 +12,7 @@ Architecture:
 - Exceptions provide clear error messages when features aren't available
 
 Usage:
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.dialect.protocols import WindowFunctionSupport
 
 dialect = SQLiteDialect()

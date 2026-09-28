@@ -14,7 +14,7 @@ alongside raw SQL execution for clarity.
 # ============================================================
 # SECTION: Setup
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5CreateVirtualTable,

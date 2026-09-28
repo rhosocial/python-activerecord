@@ -30,7 +30,7 @@ Pragma 按功能分为六大类：
 ### 获取 Pragma 信息
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect(version=(3, 35, 0))
 

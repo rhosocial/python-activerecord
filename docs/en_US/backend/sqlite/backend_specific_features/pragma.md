@@ -30,7 +30,7 @@ Pragmas are organized into six categories:
 ### Getting Pragma Information
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect(version=(3, 35, 0))
 

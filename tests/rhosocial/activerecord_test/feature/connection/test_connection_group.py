@@ -10,7 +10,7 @@ manual connect()/disconnect() calls.
 import pytest
 
 from rhosocial.activerecord.connection import BackendGroup, AsyncBackendGroup
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # Import models from local conftest using absolute path
 from rhosocial.activerecord_test.feature.connection.conftest import User, Post, Comment, AsyncUser, AsyncPost

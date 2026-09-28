@@ -820,7 +820,7 @@ StorageBackendBase (ABC)
 ```python
 # 1. User configures model
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 class User(ActiveRecord):
     __table_name__ = "users"
@@ -893,10 +893,11 @@ explicitly and bound to models via `configure()`:
 
 ```python
 # Users (or extension entry points) import the backend explicitly.
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 # Installed extensions are importable the same way:
-#   from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
-#   from rhosocial.activerecord.backend.impl.postgres import PostgresBackend
+#   from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+#   from rhosocial.activerecord.backend.impl.postgres.backend import PostgresBackend
 
 User.configure(SQLiteConnectionConfig(database="app.db"), SQLiteBackend)
 ```

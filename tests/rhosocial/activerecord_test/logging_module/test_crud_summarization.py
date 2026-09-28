@@ -15,7 +15,7 @@ from datetime import datetime
 import pytest
 
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.logging import (
     SummarizerConfig,
     DataSummarizer,

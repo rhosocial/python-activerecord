@@ -14,8 +14,9 @@ For `ActiveRecord` models, focus on metadata definitions, field expressions, and
 ### Example
 
 ```python
-from rhosocial.activerecord.backend.impl.dummy import DummyBackend
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 def test_user_metadata():
     """Test table name and primary key"""

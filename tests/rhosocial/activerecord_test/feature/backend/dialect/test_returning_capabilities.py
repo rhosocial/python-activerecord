@@ -20,7 +20,7 @@ from rhosocial.activerecord.backend.expression.core import (
     WildcardExpression,
 )
 from rhosocial.activerecord.backend.expression.statements import ReturningClause
-from rhosocial.activerecord.backend.impl.dummy import DummyDialect
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 
 pytestmark = [pytest.mark.feature, pytest.mark.backend]
 

@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression import (
     PartitionStrategy,
     SubpartitionDefinition,
 )
-from rhosocial.activerecord.backend.impl.dummy import DummyDialect
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 
 
 class PartitionDialect(DummyDialect):

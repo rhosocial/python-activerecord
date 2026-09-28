@@ -123,7 +123,7 @@ subgraph NotRecommended["Not Recommended"]
 
 ```python
 from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # Create connection pool
 config = PoolConfig(
@@ -1104,7 +1104,7 @@ pool = BackendPool(config)
 
 ```python
 from rhosocial.activerecord.connection import BackendGroup
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # 创建并配置 BackendGroup
 group = BackendGroup(
@@ -1136,7 +1136,7 @@ finally:
 
 ```python
 from rhosocial.activerecord.connection import BackendGroup
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # Create and configure a BackendGroup
 group = BackendGroup(

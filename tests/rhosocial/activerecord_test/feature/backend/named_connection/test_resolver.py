@@ -27,7 +27,7 @@ from rhosocial.activerecord.backend.named_connection.exceptions import (
     NamedConnectionMissingParameterError,
     NamedConnectionInvalidParameterError,
 )
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import (
     SQLiteConnectionConfig,
     SQLiteInMemoryConfig,

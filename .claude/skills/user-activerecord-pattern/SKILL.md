@@ -41,7 +41,7 @@ from typing import ClassVar, Optional
 from datetime import datetime
 from pydantic import Field
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.base import FieldProxy
 
 class User(ActiveRecord):

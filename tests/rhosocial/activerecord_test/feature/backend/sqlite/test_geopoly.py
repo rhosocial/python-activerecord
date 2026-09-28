@@ -9,10 +9,8 @@ Two test categories:
 
 import pytest
 
-from rhosocial.activerecord.backend.impl.sqlite import (
-    SQLiteDialect,
-    SQLiteBackend,
-)
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteGeopolyCreateVirtualTable,
     SQLiteGeopolyContainsExpression,

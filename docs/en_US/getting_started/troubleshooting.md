@@ -34,7 +34,8 @@ You tried to use a model before configuring its database backend.
 Call `configure()` before using the model:
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # 1. Create configuration
 config = SQLiteConnectionConfig(database='myapp.db')
@@ -207,7 +208,7 @@ from rhosocial.activerecord.model import ActiveRecord
 
 # ✅ Correct: Import other common components
 from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.field import TimestampMixin
 ```
 
