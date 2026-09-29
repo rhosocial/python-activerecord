@@ -383,7 +383,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
         pk_fields = set(self.__class__.primary_key_fields())
-        generated = set(self.__class__.get_generated_columns())
+        generated = set(self.__class__.get_generated_field_names())
         if is_new:
             if self.__class__.__pk_auto_generated__:
                 data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
@@ -1061,7 +1061,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
         pk_fields = set(self.__class__.primary_key_fields())
-        generated = set(self.__class__.get_generated_columns())
+        generated = set(self.__class__.get_generated_field_names())
         if is_new:
             if self.__class__.__pk_auto_generated__:
                 data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())

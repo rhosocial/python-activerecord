@@ -174,14 +174,40 @@ class ActiveRecordBase(BaseModel, ABC):
         return pk if isinstance(pk, tuple) else (pk,)
 
     @classmethod
+    def get_generated_field_names(cls) -> Tuple[str, ...]:
+        """Field names backed by generated (computed) expressions.
+
+        Generated columns are computed by the database and must be excluded
+        from INSERT/UPDATE payloads. This is the field-keyed view, for the
+        call sites that hold a ``model_dump()`` result; see
+        :meth:`get_generated_columns` for the column-keyed view.
+
+        Derived from the DDL declaration (``UseGeneratedColumn`` /
+        ``DDLSourceMixin.generated_column``) rather than a separate cache, so
+        declaring a generated column is enough to exclude it.
+        """
+        generated = getattr(cls, "columns_generated", None)
+        if not callable(generated):
+            return ()
+        return tuple(field for field, spec in generated().items() if spec is not None)
+
+    @classmethod
     def get_generated_columns(cls) -> Tuple[str, ...]:
         """Column names backed by generated (computed) expressions.
 
         Generated columns are computed by the database and must be excluded
-        from INSERT/UPDATE column lists. Populated by the DDL derivation
-        (``GeneratedColumnSpec``) via ``__table_generated_columns__``.
+        from INSERT/UPDATE column lists. This is the column-keyed view, for
+        the call sites that hold an already-mapped payload; see
+        :meth:`get_generated_field_names` for the field-keyed view.
+
+        The two differ whenever a field renames its column, so both are
+        needed: filtering a mapped payload by field name would silently miss
+        every renamed generated column.
         """
-        return tuple(getattr(cls, "__table_generated_columns__", ()) or ())
+        column_name = getattr(cls, "column_name", None)
+        if not callable(column_name):
+            return tuple(cls.get_generated_field_names())
+        return tuple(column_name(field) for field in cls.get_generated_field_names())
 
     @classmethod
     def backend(cls) -> Union[StorageBackend, AsyncStorageBackend]:
@@ -287,7 +313,7 @@ class ActiveRecordBase(BaseModel, ABC):
             # Include all fields for new records
             data = self.model_dump()
         # Generated columns are database-computed: never insert/update them.
-        generated = set(self.__class__.get_generated_columns())
+        generated = set(self.__class__.get_generated_field_names())
         if generated:
             data = {k: v for k, v in data.items() if k not in generated}
         return data
