@@ -188,7 +188,7 @@ class ActiveQuery(
         query_expr = statements.QueryExpression(
             dialect,
             select=self.select_columns,
-            from_=from_clause,
+            from_=self.join_clause if self.join_clause else from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
@@ -550,7 +550,7 @@ class AsyncActiveQuery(
         query_expr = statements.QueryExpression(
             dialect,
             select=self.select_columns,
-            from_=from_clause,
+            from_=self.join_clause if self.join_clause else from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
@@ -583,14 +583,13 @@ class AsyncActiveQuery(
 
         return record
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
-        """Generate the SQL query string and parameters for AsyncActiveQuery.
+    def to_query_expression(self) -> "statements.QueryExpression":
+        """Build the underlying QueryExpression for this query.
 
-        This method overrides the base implementation to use the model's table name
-        instead of a placeholder.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
+        Public so predicates (e.g. ``IN``) can embed this query as a
+        subquery without reaching into private state. Building the expression
+        is synchronous -- only execution is awaited -- so this mirrors
+        :meth:`ActiveQuery.to_query_expression`.
         """
         # Get dialect from backend
         dialect = self.backend().dialect
@@ -601,7 +600,7 @@ class AsyncActiveQuery(
         )
 
         # Create QueryExpression with all components
-        query_expr = statements.QueryExpression(
+        return statements.QueryExpression(
             dialect,
             select=self.select_columns,
             from_=self.join_clause if self.join_clause else from_clause,
@@ -612,8 +611,17 @@ class AsyncActiveQuery(
             for_update=self._for_update_clause,
         )
 
+    def to_sql(self) -> "bases.SQLQueryAndParams":
+        """Generate the SQL query string and parameters for AsyncActiveQuery.
+
+        This method overrides the base implementation to use the model's table name
+        instead of a placeholder.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
         # Generate SQL using the QueryExpression
-        return query_expr.to_sql()
+        return self.to_query_expression().to_sql()
 
     def union(self, other: "IAsyncQuery") -> "IAsyncSetOperationQuery":
         """Perform a UNION operation with another query.
