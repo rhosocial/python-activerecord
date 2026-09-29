@@ -86,7 +86,7 @@ def _get_protocol(name):
 
 @pytest.fixture
 def sqlite_backend():
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
     backend = SQLiteBackend(database=":memory:")
     backend.connect()
@@ -96,6 +96,6 @@ def sqlite_backend():
 
 @pytest.fixture
 def dummy_backend():
-    from rhosocial.activerecord.backend.impl.dummy import DummyBackend
+    from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend
 
     return DummyBackend()

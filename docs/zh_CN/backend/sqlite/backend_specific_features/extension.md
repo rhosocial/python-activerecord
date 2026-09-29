@@ -160,7 +160,7 @@ if fts4.deprecated:
 ### 通过 Dialect 检测
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect(version=(3, 35, 0))
 
@@ -252,7 +252,7 @@ reset_registry()
 扩展框架自动处理版本兼容性：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 # 不同版本的 SQLite 支持不同特性
 dialect_old = SQLiteDialect(version=(3, 8, 0))

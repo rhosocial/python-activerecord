@@ -5,7 +5,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import PivotExpression, UnpivotExpression
-from rhosocial.activerecord.backend.impl.dummy import DummyDialect
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 
 pytestmark = [pytest.mark.feature, pytest.mark.backend]
 

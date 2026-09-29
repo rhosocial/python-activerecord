@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/backend/async_backend.py
+# src/rhosocial/activerecord/backend/impl/sqlite/async_backend.py
 """
 Async SQLite Backend Implementation
 

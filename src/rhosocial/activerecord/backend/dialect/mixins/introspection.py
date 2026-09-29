@@ -11,7 +11,7 @@ from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...introspection.types import IntrospectionScope
-    from ...introspection.expressions import (
+    from ...expression.introspection import (
         DatabaseInfoExpression,
         TableListExpression,
         TableInfoExpression,

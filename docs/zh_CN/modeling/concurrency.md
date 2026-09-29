@@ -16,7 +16,8 @@
 ```python
 # ✅ 正确：在应用启动时配置
 # app.py / main.py
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from myapp.models import User, Order, Product
 
 def create_app():
@@ -64,7 +65,8 @@ User.configure(config, SQLiteBackend)
 # gunicorn.conf.py
 def post_fork(server, worker):
     """在 fork 后的每个 Worker 进程中调用。"""
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from myapp.models import Base  # 基础模型类或所有模型类
 
     config = SQLiteConnectionConfig(database="app.db")
@@ -102,7 +104,8 @@ app = FastAPI(lifespan=lifespan)
 对于服务器型数据库，后端使用连接池。关键参数如下：
 
 ```python
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
 
 config = MySQLConnectionConfig(
     host="db.example.com",
@@ -146,8 +149,8 @@ config = MySQLConnectionConfig(
 )
 
 # PostgreSQL 示例
-from rhosocial.activerecord.backend.impl.postgresql import PostgreSQLConnectionConfig
-config = PostgreSQLConnectionConfig(
+from rhosocial.activerecord.backend.impl.postgres.config import PostgresConnectionConfig
+config = PostgresConnectionConfig(
     pool_recycle=3600,
 )
 ```
@@ -165,7 +168,7 @@ config = MySQLConnectionConfig(
 )
 
 # PostgreSQL 示例
-config = PostgreSQLConnectionConfig(
+config = PostgresConnectionConfig(
     # psycopg v3 默认启用 TCP keepalive
     # 可通过环境变量或驱动参数调整
 )
@@ -259,7 +262,8 @@ graph TB
 # gunicorn.conf.py
 def post_fork(server, worker):
     """在 fork 后的每个 Worker 进程中调用。"""
-    from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+    from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+    from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
     from myapp.models import User, Order
 
     config = MySQLConnectionConfig(
@@ -281,7 +285,8 @@ app = Celery('myapp')
 @app.on_after_configure.connect
 def setup_models(sender, **kwargs):
     """在 Worker 启动时配置模型。"""
-    from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+    from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+    from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
     from myapp.models import User
 
     config = MySQLConnectionConfig(...)
@@ -296,7 +301,8 @@ from fastapi import FastAPI
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 每个 Worker 进程启动时配置
-    from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+    from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+    from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
     from myapp.models import User
 
     config = MySQLConnectionConfig(...)
@@ -349,7 +355,8 @@ graph TB
 ```python
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
 from myapp.models import User
 
 # 在主线程配置一次（连接池会自动管理多线程访问）

@@ -28,7 +28,8 @@ from pydantic import (
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import UseAdapter
 from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter

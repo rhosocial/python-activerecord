@@ -164,8 +164,8 @@ impl/postgres/
 ├── backend/                 # Backend implementation
 │   ├── __init__.py
 │   ├── base.py              # Shared base class
-│   ├── sync.py              # PostgreSQLBackend (sync)
-│   └── async_backend.py     # AsyncPostgreSQLBackend (async)
+│   ├── sync.py              # PostgresBackend (sync)
+│   └── async_backend.py     # AsyncPostgresBackend (async)
 │
 ├── types/                   # PostgreSQL-specific types
 │   ├── json.py              # JSON/JSONB
@@ -332,7 +332,7 @@ async with backend.transaction_manager.transaction():
 For generating SQL without an actual database connection:
 
 ```python
-from rhosocial.activerecord.backend.impl.dummy import DummyBackend
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend
 
 backend = DummyBackend()
 # All operations requiring a real connection will raise NotImplementedError
@@ -361,7 +361,7 @@ backend = DummyBackend()
 
 ```python
 from rhosocial.activerecord import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 class User(ActiveRecord):
     id: int
@@ -384,14 +384,14 @@ User.configure(
 def create_backend(backend_type: str, **config):
     """Factory function to create backend instances."""
     if backend_type == 'sqlite':
-        from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
         return SQLiteBackend(**config)
     elif backend_type == 'mysql':
-        from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+        from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
         return MySQLBackend(**config)
     elif backend_type == 'postgres':
-        from rhosocial.activerecord.backend.impl.postgres import PostgreSQLBackend
-        return PostgreSQLBackend(**config)
+        rhosocial.activerecord.backend.impl.postgres.backend import PostgresBackend
+        return PostgresBackend(**config)
     else:
         raise ValueError(f"Unsupported backend type: {backend_type}")
 ```
@@ -399,7 +399,7 @@ def create_backend(backend_type: str, **config):
 ### Async Backend Usage
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 async def main():
     backend = AsyncSQLiteBackend(database=":memory:")

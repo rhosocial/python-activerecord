@@ -69,8 +69,8 @@ class User(ActiveRecord):
 ```python
 # Plain field access
 User.query().where(User.c.age > 25)
-User.query().where((User.fields.status == 'active') & (User.fields.age > 18))
-User.query().select(User.cols.id, User.cols.name, User.cols.email)
+User.query().where((User.c.status == 'active') & (User.c.age > 18))
+User.query().select(User.c.id, User.c.name, User.c.email)
 ```
 
 ### 3.2 UseColumn-Annotated Field Access
@@ -125,12 +125,19 @@ User.query().where(
     (User.c.created_at > datetime.now() - timedelta(days=30))
 )
 
-# Aggregate function support
+# Aggregates are QUERY-level, not Column methods: `Column` has no `.avg()`
+# or `.count()`. Use the query methods, or the functions module -- note every
+# function takes the DIALECT as its first argument.
+dialect = User.__backend__.dialect
+
 User.query().select(
     User.c.department,
-    User.c.salary.avg().as_('avg_salary'),
-    User.c.id.count().as_('employee_count')
+    avg(dialect, User.c.salary).as_('avg_salary'),
+    count(dialect, User.c.id).as_('employee_count')
 ).group_by(User.c.department)
+
+# equivalently, via the query API:
+# User.query().select(User.c.department).avg(User.c.salary).count(User.c.id)
 ```
 
 ### 4.2 Relationship Query Enhancement
@@ -149,9 +156,11 @@ User.query().join(Order).join(Product).where(
 ### 4.3 Data Validation and Type Safety
 
 ```python
-# Since field proxies are directly tied to model fields, the IDE provides full type hints
-# Wrong field names are caught at development time
-User.query().where(User.c.non_existent_field == 'value')  # IDE flags an error
+# NOTE: the proxy resolves field names at RUNTIME, not at type-check time.
+# There are no .pyi stubs, so a typo is not an IDE error -- it raises
+# AttributeError: Field 'x' does not exist on model 'User' when the query
+# is built.
+User.query().where(User.c.non_existent_field == 'value')  # runtime AttributeError
 ```
 
 ### 4.4 Dynamic Query Building
@@ -176,16 +185,21 @@ def select_fields(model, field_names):
 
 ```python
 # Window functions
+# There is no `Column.rank()` and no `Column.desc()`. `rank()` takes only
+# (dialect, alias) -- it is a bare window function, not one that wraps a
+# column. Sort direction is spelled `order_by((col, "DESC"))`.
+from rhosocial.activerecord.backend.expression.functions import rank
+
+dialect = User.__backend__.dialect
 User.query().select(
     User.c.name,
-    User.c.salary.rank().over(
-        partition_by=[User.c.department],
-        order_by=[User.c.salary.desc()]
-    ).as_('salary_rank')
-)
+    rank(dialect, 'salary_rank')
+).order_by((User.c.salary, "DESC"))
 
 # CTE (Common Table Expression)
-with_recursive_users = User.query().where(User.c.manager_id.is_null()).union_all(
+# `ActiveQuery` exposes union / intersect / except_ -- there is no
+# `union_all`.
+with_recursive_users = User.query().where(User.c.manager_id.is_null()).union(
     User.query().join(with_recursive_users).where(
         User.c.manager_id == with_recursive_users.c.id
     )
@@ -199,13 +213,18 @@ with_recursive_users = User.query().where(User.c.manager_id.is_null()).union_all
 User.query().select(
     User.c.name,
     (User.c.salary * 12).as_('annual_salary'),
-    (User.c.age > 18).as_('is_adult')
+    # `as_` comes from AliasableMixin, which `Column` inherits but
+    # predicates do NOT -- a bare comparison cannot be aliased. Wrap it in a
+    # function call first.
+    age_group(dialect, User.c.age).as_('age_group')
 )
 
 # String operations
 User.query().select(
-    User.c.name.upper().as_('uppercase_name'),
-    User.c.email.contains('@gmail.com').as_('is_gmail_user')
+    # No `Column.upper()` and no `Column.contains()`. Use the functions
+    # module, or the LIKE/ILIKE helpers that Column does provide.
+    upper(dialect, User.c.name).as_('uppercase_name'),
+    User.c.email.like('%@gmail.com').as_('is_gmail_user')
 )
 ```
 

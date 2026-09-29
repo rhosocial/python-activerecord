@@ -16,7 +16,7 @@
 ### 基本用法
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource, Literal
 
 backend = SQLiteBackend(database=":memory:")

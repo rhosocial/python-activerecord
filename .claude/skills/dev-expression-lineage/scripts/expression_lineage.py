@@ -23,12 +23,13 @@ Modelling premises
    inheriting from a *sibling* backend, so a cross-backend edge is a violation
    signal the model can answer, not something a human eyeballs in a diagram.
 
-5. **The expected package layout is a convention, not a guarantee.** Expressions
-   are expected under ``backend.expression`` and ``impl.<name>.expression``, but
-   introspection expressions such as ``ClickHouseShowColumnsExpression`` live in
-   ``impl.<name>.show.expressions`` instead. Scope therefore follows the class
-   hierarchy, and :meth:`LineageGraph.misplaced` reports classes that sit outside
-   their expected package rather than silently dropping them.
+5. **The expected package layout is a guarantee, not a convention.** Expressions
+   live under ``backend.expression`` and ``impl.<name>.expression``. This used to
+   be a convention with known exceptions: introspection expressions sat in
+   ``impl.<name>.show.expressions`` and ``PostgresEnumType`` in
+   ``impl.<name>.types``. Those have been relocated, so
+   :meth:`LineageGraph.misplaced` is now an enforceable invariant that should
+   report zero, and no exemption list exists.
 
 6. **Weak references are not inheritance.** Module-level ``if TYPE_CHECKING:``
    imports exist only for annotations, are not lineage edges, and rot silently:
@@ -56,6 +57,7 @@ import pkgutil
 import subprocess
 import sys
 import textwrap
+import types
 import warnings
 from collections import defaultdict
 import dataclasses
@@ -80,17 +82,20 @@ BACKEND_LAYER = 1
 #: Module-name fragments skipped while scanning (examples, tests, caches).
 EXCLUDE_FRAGMENTS = ("examples", "tests", "test_", "__pycache__", ".cover")
 
-#: Package segment that marks the conventional home of expression classes.
-EXPRESSION_SEGMENT = "expression"
-
-#: Recognised secondary homes for expression classes, directly under a backend.
+#: Package segment that marks the home of expression classes. There is no
+#: exemption list: an expression defined anywhere else is a defect.
 #:
-#: ``show`` groups introspection expressions (``ShowColumnsExpression`` and friends)
-#: and ``types`` groups data-type expressions (``PostgresEnumType``). Both are
-#: deliberate groupings that the backends introduced, and treating them as drift
-#: would report 70 perfectly reasonable classes as misplaced. Anything outside the
-#: primary home *and* these segments is still reported by ``misplaced()``.
-SECONDARY_HOME_SEGMENTS = ("show", "types")
+#: This tool used to carry a secondary-home allowlist of ``("show", "types")``.
+#: The backends kept introspection expressions in ``impl.<name>.show.expressions``
+#: (20 classes each in ClickHouse, MySQL and MariaDB, 9 in Oracle) and
+#: ``PostgresEnumType`` in ``impl.<name>.types``, and the allowlist existed only to
+#: stop :meth:`LineageGraph.misplaced` reporting those 70 classes. They were
+#: drift, not intent; all have since moved into the expression namespace
+#: (``expression/show.py`` and ``expression/enum_.py``) and the top-level ``types``
+#: package has been renamed ``type_values`` to free the name for DataType
+#: expressions. The allowlist is gone rather than emptied, because an empty one
+#: would only invite the next exemption.
+EXPRESSION_SEGMENT = "expression"
 
 NodeId = str
 
@@ -121,7 +126,7 @@ def family_of(module: str) -> str:
     ``...expression.statements.ddl_domain`` -> ``statements.ddl_domain``
     ``...impl.postgres.expression.ddl.domain`` -> ``ddl.domain``
     ``...impl.mysql.expression.partition``   -> ``partition``
-    ``...impl.clickhouse.show.expressions``   -> ``show.expressions``
+    ``...impl.postgres.expression.enum_``    -> ``enum_``
     """
     parts = module.split(".")
     if EXPRESSION_SEGMENT in parts:
@@ -185,7 +190,11 @@ class TypecheckImport:
         module: Dotted name of the importing module.
         imported_module: Dotted name of the module the import resolves to, after
             relative levels are made absolute.
-        name: The imported attribute name.
+        name: The attribute looked up in ``imported_module``. For
+            ``from m import X as Y`` this is ``X``, because ``m`` is what has to
+            define the attribute.
+        local_name: The name bound in the importing module, i.e. ``Y`` for an
+            aliased import and equal to :attr:`name` otherwise.
         path: Filesystem path of the importing module, when known.
         lineno: 1-based line of the import statement, when known.
         written_level: Number of leading dots as authored.
@@ -199,10 +208,16 @@ class TypecheckImport:
     module: str
     imported_module: str
     name: str
+    local_name: str = ""
     path: Optional[str] = None
     lineno: Optional[int] = None
     written_level: int = 0
     written_module: str = ""
+
+    def __post_init__(self) -> None:
+        # Backwards compatible for payloads written before the alias split.
+        if not self.local_name:
+            object.__setattr__(self, "local_name", self.name)
 
     def describe(self) -> str:
         location = "{}:{}".format(self.module, self.lineno or "?")
@@ -229,24 +244,20 @@ class ProjectSpec:
     label: str
     scan_packages: Tuple[str, ...]
     home_package: str
-    secondary_homes: Tuple[str, ...] = ()
     in_tree: bool = True
 
     @classmethod
     def backend(cls, label: str, in_tree: bool = True) -> "ProjectSpec":
         """Build a spec for a backend rooted at ``impl.<label>``.
 
-        The primary home is ``impl.<label>.expression``; ``show`` and ``types``
-        groupings directly under the backend are accepted as secondary homes.
+        The home is ``impl.<label>.expression`` and there are no exemptions:
+        every expression class defined in the backend must live there.
         """
         root = "{}.{}".format(IMPL_ROOT, label)
         return cls(
             label=label,
             scan_packages=(root,),
             home_package="{}.{}".format(root, EXPRESSION_SEGMENT),
-            secondary_homes=tuple(
-                "{}.{}".format(root, segment) for segment in SECONDARY_HOME_SEGMENTS
-            ),
             in_tree=in_tree,
         )
 
@@ -268,12 +279,132 @@ class ProjectSpec:
         return self.scan_packages[0]
 
 
+#: DB driver modules that must never be required in order to analyse expression
+#: lineage.
+#:
+#: Lineage is computed by reflection alone: no connection is opened, no query is
+#: issued, no driver is exercised. Yet every backend's ``__init__`` imports its
+#: driver eagerly, so a driver that cannot be loaded silently removes the whole
+#: backend from the graph. That is how ``pyodbc`` -- a C extension that needs the
+#: OS ``libodbc.so``, not just the wheel -- used to cost sqlserver its entire
+#: placement audit.
+#:
+#: Each name is stubbed *only if importing it fails*. A driver that loads
+#: normally is left alone, so this never masks a real environment problem with a
+#: package that would have imported fine.
+#:
+#: Every name must be the module the backend actually imports. ``firebird-driver``
+#: 2.x is imported as ``firebird.driver`` and aliased to ``fdb`` at the call
+#: site, so listing ``fdb`` stubbed a name nothing imports and reported a
+#: misleading failure for a working driver. ``psycopg2`` was likewise listed but
+#: unused: the postgres backend depends on psycopg 3. Both entries made the
+#: stubbed list unreadable as a signal about driver health.
+DRIVER_STUB_MODULES = (
+    "pyodbc",
+    "clickhouse_connect",
+    "mysql.connector",
+    "mariadb",
+    "oracledb",
+    "psycopg",
+    "snowflake.connector",
+    "firebird.driver",
+)
+
+
+def _make_driver_stub(name: str) -> Any:
+    """Build an inert stand-in for a DB driver module.
+
+    Attribute access yields a fresh ``Exception`` subclass, which is enough for
+    the three things a backend does with its driver at import time: subclass it,
+    raise it in an ``except`` clause, and call it. Nothing here is ever meant to
+    reach a database.
+    """
+
+    module = types.ModuleType(name)
+    module.__path__ = []  # type: ignore[attr-defined]
+    module.__doc__ = "Inert stub installed by dev-expression-lineage."
+
+    def __getattr__(attr: str) -> Any:  # PEP 562
+        if attr.startswith("__") and attr.endswith("__"):
+            raise AttributeError(attr)
+        stub = type(attr, (Exception,), {"__module__": name})
+        setattr(module, attr, stub)
+        return stub
+
+    module.__getattr__ = __getattr__  # type: ignore[attr-defined]
+    return module
+
+
+def install_driver_stubs(
+    names: Sequence[str] = DRIVER_STUB_MODULES,
+) -> List[str]:
+    """Stub any listed driver that cannot be imported. Returns the names stubbed.
+
+    Safe to call repeatedly. Must run before :func:`discover_projects`, which is
+    the first step that imports a backend package.
+    """
+    stubbed: List[str] = []
+    for name in names:
+        root = name.split(".")[0]
+        if name in sys.modules:
+            continue
+        try:
+            importlib.import_module(name)
+            continue
+        except Exception:
+            pass
+        try:
+            importlib.import_module(root)
+            continue  # the top-level package loads; only the leaf is absent
+        except Exception:
+            pass
+        sys.modules[name] = _make_driver_stub(name)
+        stubbed.append(name)
+    return stubbed
+
+
 def _importable(pkg_name: str) -> bool:
     try:
         importlib.import_module(pkg_name)
         return True
     except Exception:
         return False
+
+
+def _installed_backend_names(impl_pkg: types.ModuleType) -> List[str]:
+    """List the backend directories visible under ``impl.<root>``.
+
+    ``pkgutil.iter_modules`` reports a directory as a package only when it holds
+    an ``__init__.py``. The backends are PEP 420 namespace portions, so they have
+    none, and enumeration silently returned an empty list: the audit then covered
+    the core alone and reported ``0 misplaced`` across a graph of 227 nodes while
+    every backend was absent from it.
+
+    A backend is therefore identified by being a directory on ``impl``'s search
+    path, which is what the enummeration was always trying to approximate. The
+    same ``__path__`` already lists the backends contributed by editable installs
+    of the separate backend repositories, so this keeps picking them up.
+
+    Args:
+        impl_pkg: The imported ``impl`` namespace package.
+
+    Returns:
+        Sorted backend directory names, excluding examples, tests and caches.
+    """
+    names = set()
+    for entry in getattr(impl_pkg, "__path__", ()):
+        try:
+            children = os.listdir(entry)
+        except OSError:
+            # A stale path entry from an uninstalled backend, or a path we cannot
+            # read. Skipping is right: there is nothing to audit there.
+            continue
+        for child in children:
+            if child.startswith(".") or any(f in child for f in EXCLUDE_FRAGMENTS):
+                continue
+            if os.path.isdir(os.path.join(entry, child)):
+                names.add(child)
+    return sorted(names)
 
 
 def discover_projects(
@@ -286,14 +417,22 @@ def discover_projects(
     Enumerates ``rhosocial.activerecord.backend.impl.*`` in the active
     interpreter and keeps every installed backend, plus the core expression
     package. A newly installed backend is picked up without editing this file.
-    Third-party namespaces are appended from ``extra`` and analysed alongside the
-    in-tree ones.
+    Backends are recognised as directories rather than as packages, since they
+    are PEP 420 namespace portions and carry no ``__init__.py``; see
+    :func:`_installed_backend_names`. Third-party namespaces are appended from
+    ``extra`` and analysed alongside the in-tree ones.
+
+    DB drivers that cannot be loaded are stubbed first, via
+    :func:`install_driver_stubs`. Importing a backend runs its ``__init__``,
+    which imports the driver, but the expression classes never use it, so a
+    missing driver should not cost a backend its audit.
 
     Args:
         extra: Third-party :class:`ProjectSpec` entries.
         impl_root: Namespace root that holds the backends.
         core_expression: The core expression package.
     """
+    install_driver_stubs()
     specs: List[ProjectSpec] = [
         ProjectSpec(
             label=CORE_PROJECT,
@@ -307,10 +446,8 @@ def discover_projects(
     except Exception:
         impl_pkg = None
     if impl_pkg is not None:
-        for info in pkgutil.iter_modules(getattr(impl_pkg, "__path__", [])):
-            if info.ispkg and any(frag in info.name for frag in EXCLUDE_FRAGMENTS):
-                continue
-            specs.append(ProjectSpec.backend(info.name))
+        for name in sorted(_installed_backend_names(impl_pkg)):
+            specs.append(ProjectSpec.backend(name))
     specs.extend(extra)
     return specs
 
@@ -399,24 +536,20 @@ class LineageGraph:
         self._pending: List[Tuple[NodeId, Tuple[type, ...], Tuple[str, ...]]] = []
         self._mixin_names: Set[str] = set()
         self._home: Dict[str, str] = {}
-        self._secondary_home: Dict[str, Tuple[str, ...]] = {}
         self.typecheck_imports: List[TypecheckImport] = []
         self.parse_failures: List[Tuple[str, str]] = []
         self.unimportable: List[Tuple[str, str, str]] = []
         self.root_class_name = root_class_name
 
-    def set_home_package(
-        self, project: str, home_package: str, secondary: Sequence[str] = ()
-    ) -> None:
+    def set_home_package(self, project: str, home_package: str) -> None:
         """Record where a project's expressions are expected to live.
 
         The expected package is recorded rather than reconstructed from the module
-        path, because a third-party namespace does not follow the
-        ``rhosocial.activerecord.backend.impl.<name>.expression`` convention and
-        would otherwise be reported wholesale as misplaced.
+        path, because a third-party namespace may expose its expressions from a
+        package this tool does not assume, and would otherwise be reported
+        wholesale as misplaced.
         """
         self._home[project] = home_package
-        self._secondary_home[project] = tuple(secondary)
 
     # ── Construction ──────────────────────────────────────────────────────
 
@@ -633,15 +766,16 @@ class LineageGraph:
         return sorted(out)
 
     def misplaced(self) -> List[NodeId]:
-        """Expression classes living outside their project's expected package.
+        """Expression classes living outside their project's expression package.
 
-        The convention is ``backend.expression`` for the core and
-        ``impl.<name>.expression`` for a backend. Introspection expressions such as
-        ``ClickHouseShowColumnsExpression`` sit in ``impl.<name>.show`` instead;
-        they are still expressions and stay in the graph, but the divergence is
-        worth reporting. The expected package comes from the recorded
-        :class:`ProjectSpec`, so third-party namespaces are judged by their own
-        layout rather than the in-tree convention.
+        The rule is ``backend.expression`` for the core and
+        ``impl.<name>.expression`` for a backend, with no exemptions. This was
+        previously a convention carrying 70 exceptions -- the ``show``
+        introspection expressions and ``PostgresEnumType`` -- which were excused
+        and then relocated, so the expected result is empty and any entry is a
+        genuine regression. The expected package comes from the recorded
+        :class:`ProjectSpec`, so a third-party namespace is judged by the home it
+        declares rather than by the in-tree convention.
         """
         out: List[NodeId] = []
         for node in self.nodes():
@@ -650,28 +784,7 @@ class LineageGraph:
             expected = self._home.get(node.project)
             if not expected:
                 continue
-            accepted = (expected,) + self._secondary_home.get(node.project, ())
-            if not any(node.module.startswith(prefix) for prefix in accepted):
-                out.append(node.id)
-        return out
-
-    def secondary_home_nodes(self) -> List[NodeId]:
-        """Expression classes living in a recognised secondary grouping.
-
-        These are legitimate placements such as ``impl.<name>.show`` for
-        introspection expressions. Reported for visibility, not as defects.
-        """
-        out: List[NodeId] = []
-        for node in self.nodes():
-            if node.is_external or node.is_core:
-                continue
-            primary = self._home.get(node.project)
-            if not primary or node.module.startswith(primary):
-                continue
-            if any(
-                node.module.startswith(prefix)
-                for prefix in self._secondary_home.get(node.project, ())
-            ):
+            if not node.module.startswith(expected):
                 out.append(node.id)
         return out
 
@@ -709,7 +822,6 @@ class LineageGraph:
             "by_family": dict(sorted(by_family.items(), key=lambda kv: (-kv[1], kv[0]))),
             "cross_backend_violations": len(self.violations()),
             "misplaced": len(self.misplaced()),
-            "secondary_home": len(self.secondary_home_nodes()),
             "mixins": len(self._mixin_names),
             "dangling_typecheck": len(self.dangling_typecheck_refs()),
             "parse_failures": len(self.parse_failures),
@@ -722,7 +834,6 @@ class LineageGraph:
         return {
             "root_class": self.root_class_name,
             "home_packages": dict(self._home),
-            "secondary_homes": {k: list(v) for k, v in self._secondary_home.items()},
             "parse_failures": [list(f) for f in self.parse_failures],
             "unimportable": [list(u) for u in self.unimportable],
             "typecheck_imports": [dataclasses.asdict(t) for t in self.typecheck_imports],
@@ -747,8 +858,6 @@ class LineageGraph:
     def from_dict(cls, payload: Dict[str, Any]) -> "LineageGraph":
         graph = cls(payload.get("root_class", DEFAULT_ROOT))
         graph._home.update(payload.get("home_packages", {}))
-        for project, packages in payload.get("secondary_homes", {}).items():
-            graph._secondary_home[project] = tuple(packages)
         for path, message in payload.get("parse_failures", []):
             graph.parse_failures.append((path, message))
         for project, package, reason in payload.get("unimportable", []):
@@ -885,7 +994,11 @@ def _parse_typecheck_imports(
                             project=project,
                             module=module_name,
                             imported_module=source,
-                            name=alias.asname or alias.name,
+                            # Resolve the *source* attribute, not the local binding.
+                            # ``from m import X as Y`` is satisfied when ``m`` defines X;
+                            # looking up Y would report every aliased import as dangling.
+                            name=alias.name,
+                            local_name=alias.asname or alias.name,
                             path=path,
                             lineno=sub.lineno,
                             written_level=sub.level,
@@ -953,11 +1066,18 @@ def _walk_typecheck_sources(spec: ProjectSpec, graph: LineageGraph) -> None:
 
 
 def _resolves(imported_module: str, name: str) -> bool:
-    """Whether ``imported_module`` exposes ``name``."""
+    """Whether ``imported_module`` exposes ``name``.
+
+    A module that will not import proves nothing either way, so it counts as
+    resolved. The shortfall is already reported under ``unimportable``, and
+    counting it again here would blame a source file for a missing DB driver:
+    ``impl.sqlserver.backend`` cannot be imported without ``libodbc``, which says
+    nothing about whether ``SQLServerBackend`` is correctly declared.
+    """
     try:
         module = importlib.import_module(imported_module)
     except Exception:
-        return False
+        return True
     return hasattr(module, name)
 
 
@@ -1018,7 +1138,7 @@ def build_graph(
 
     for spec in projects:
         graph.set_home_package(
-            spec.label, spec.home_package, spec.secondary_homes
+            spec.label, spec.home_package
         )
 
     if scan_annotations:

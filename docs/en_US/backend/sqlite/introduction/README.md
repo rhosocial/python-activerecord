@@ -54,7 +54,8 @@ The connection config and dialect are shared between sync and async — they are
 ```python
 # Synchronous
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 class User(ActiveRecord):
     ...
@@ -64,7 +65,8 @@ user = User.find_one(1)
 
 # Asynchronous
 from rhosocial.activerecord.model import AsyncActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 class User(AsyncActiveRecord):
     ...
@@ -92,7 +94,7 @@ If you import `AsyncSQLiteBackend` and `aiosqlite` is not installed, you will ge
 ## Quick Start
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # In-memory database (great for testing)
 backend = SQLiteBackend(database=":memory:")

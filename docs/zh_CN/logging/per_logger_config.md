@@ -55,7 +55,8 @@ class AuditUser(ActiveRecord):
 backend、query、transaction 日志不由 `ActiveRecord.__logging_config__` 控制：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.logging import LoggerConfig, LoggingConfig, LogDataMode
 
 backend_config = LoggingConfig(log_data_mode=LogDataMode.KEYS_ONLY)

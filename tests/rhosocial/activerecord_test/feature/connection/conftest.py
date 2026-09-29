@@ -13,7 +13,7 @@ from typing import Generator, Type, Optional
 import pytest
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.field import IntegerPKMixin
@@ -195,7 +195,7 @@ def shared_sqlite_db_config(shared_sqlite_db_path: str) -> SQLiteConnectionConfi
 def cleanup_shared_db_tables(shared_sqlite_db_path: str):
     """Clean up test tables before each test to avoid conflicts with session-scoped database."""
     # Import here to avoid circular imports
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
     backend = SQLiteBackend(database=shared_sqlite_db_path)
     try:

@@ -1,44 +1,34 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/backend/__init__.py
-"""
-SQLite backend implementations.
+"""Sqlite backend implementations.
 
-This module provides both synchronous and asynchronous SQLite backend implementations.
-
-Async components (AsyncSQLiteBackend) are loaded lazily to avoid requiring aiosqlite
-for users who only need synchronous operations. Install the async extra to use:
-    pip install rhosocial-activerecord[async]
+Every backend keeps both classes in this package: the sync class in
+``backend.py`` and the async class in ``async_backend.py``. The async class is
+re-exported here too, but resolved on first access, because it needs the
+``aiosqlite`` package that the ``rhosocial-activerecord[async]`` extra installs.
 """
 
-from .sync import SQLiteBackend
-from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
+from .backend import SQLiteBackend
 
 __all__ = [
     "SQLiteBackend",
-    "AsyncSQLiteBackend",  # Lazily loaded via __getattr__
-    "SQLiteBackendMixin",
-    "DEFAULT_PRAGMAS",
+    "AsyncSQLiteBackend",
 ]
 
 
 def __getattr__(name: str):
-    """Lazily load AsyncSQLiteBackend to avoid forcing aiosqlite dependency.
-
-    This allows users to import SQLiteBackend without having aiosqlite installed.
-    Only when AsyncSQLiteBackend is actually accessed will aiosqlite be required.
+    """Resolve the async class on first access.
 
     Raises:
-        ImportError: If aiosqlite is not installed when accessing AsyncSQLiteBackend.
-        AttributeError: If the requested attribute doesn't exist.
+        ImportError: if aiosqlite is missing, naming the extra that provides it.
+        AttributeError: for any other name.
     """
     if name == "AsyncSQLiteBackend":
         try:
             from .async_backend import AsyncSQLiteBackend as backend
-
-            return backend
         except ImportError as e:
             raise ImportError(
-                "AsyncSQLiteBackend requires 'aiosqlite' package. "
-                "Install it with: pip install rhosocial-activerecord[async] "
-                "or pip install aiosqlite"
+                "AsyncSQLiteBackend requires the 'aiosqlite' package. "
+                "Install it with: pip install rhosocial-activerecord[async] or pip install aiosqlite"
             ) from e
+        return backend
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

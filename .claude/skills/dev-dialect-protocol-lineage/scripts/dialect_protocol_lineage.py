@@ -84,6 +84,21 @@ from typing import (
     Tuple,
 )
 
+# The expression-lineage skill owns backend discovery, and enumerating by
+# directory rather than by package is what keeps the PEP 420 backends visible.
+# It lives one skill away, so reach it by path rather than duplicating the rule:
+# two copies of a discovery rule drift, and this one had already drifted.
+_EXPRESSION_LINEAGE_SCRIPTS = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    os.pardir,
+    os.pardir,
+    "dev-expression-lineage",
+    "scripts",
+)
+if _EXPRESSION_LINEAGE_SCRIPTS not in sys.path:
+    sys.path.insert(0, _EXPRESSION_LINEAGE_SCRIPTS)
+from expression_lineage import _installed_backend_names  # noqa: E402
+
 warnings.filterwarnings("ignore")
 
 IMPL_ROOT = "rhosocial.activerecord.backend.impl"
@@ -409,9 +424,8 @@ def discover_dialects() -> List[Tuple[str, str, str]]:
         impl = None
     roots: List[Tuple[str, str]] = []
     if impl is not None:
-        for info in pkgutil.iter_modules(getattr(impl, "__path__", [])):
-            if info.ispkg and not any(f in info.name for f in EXCLUDE_FRAGMENTS):
-                roots.append((info.name, "{}.{}.dialect".format(IMPL_ROOT, info.name)))
+        for name in _installed_backend_names(impl):
+            roots.append((name, "{}.{}.dialect".format(IMPL_ROOT, name)))
     for project, module_name in roots:
         try:
             module = importlib.import_module(module_name)
@@ -444,9 +458,8 @@ def collect_protocols() -> Tuple[List[ProtocolDecl], List[Tuple[str, str]]]:
     except Exception:
         impl = None
     if impl is not None:
-        for info in pkgutil.iter_modules(getattr(impl, "__path__", [])):
-            if info.ispkg and not any(f in info.name for f in EXCLUDE_FRAGMENTS):
-                targets.append((info.name, "{}.{}.protocols".format(IMPL_ROOT, info.name)))
+        for name in _installed_backend_names(impl):
+            targets.append((name, "{}.{}.protocols".format(IMPL_ROOT, name)))
     seen: Set[str] = set()
     for project, pkg_name in targets:
         for module in _iter_modules(pkg_name, failures):

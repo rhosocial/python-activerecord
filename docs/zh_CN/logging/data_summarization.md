@@ -142,7 +142,8 @@ User.log_data(logging.INFO, "Creating user", {
 backend、query、transaction 日志使用 backend 的 `LoggingConfig`，不使用 `ActiveRecord.__logging_config__`：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.logging import LoggingConfig, LogDataMode
 
 backend_config = LoggingConfig(log_data_mode=LogDataMode.KEYS_ONLY)

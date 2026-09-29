@@ -19,7 +19,7 @@ SQLite uses file-level locking. When one connection holds a write lock, other co
 1. **Enable WAL mode** — allows concurrent reads during writes:
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database="my.db")
 backend.connect()

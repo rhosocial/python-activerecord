@@ -115,7 +115,8 @@ SQLite also provides convenience subclasses: `SQLiteInMemoryConfig` (in-memory d
 ### Usage Example
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.model import ActiveRecord
 
 # Build a config and bind it to the model

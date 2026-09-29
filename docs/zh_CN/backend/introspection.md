@@ -164,7 +164,7 @@ class TriggerInfo:
 ### 访问内省器
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
 backend.connect()
@@ -299,7 +299,7 @@ trigger_info = backend.introspector.get_trigger_info("users", "trg_users_audit")
 异步后端提供相同的内省方法，方法名不带 `_async` 后缀（与同步方法同名）：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 backend = AsyncSQLiteBackend(database=":memory:")
 await backend.connect()

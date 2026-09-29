@@ -225,7 +225,7 @@ class BackendPool:
         backend_type = config.get("type", "sqlite")
 
         if backend_type == "sqlite":
-            from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+            from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
             # Extract SQLite-specific config
             database = config.get("database", ":memory:")

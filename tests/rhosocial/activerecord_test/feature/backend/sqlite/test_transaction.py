@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from rhosocial.activerecord.backend.errors import TransactionError
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.transaction import SQLiteTransactionManager
 from rhosocial.activerecord.backend.transaction import IsolationLevel
 from rhosocial.activerecord.backend.options import ExecutionOptions

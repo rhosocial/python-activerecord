@@ -14,7 +14,7 @@ Python 3.8+ required. Full per-Python dependency pins: see `version_control.md` 
 
 ## 2. CRITICAL: PYTHONPATH Configuration
 
-**MUST set `PYTHONPATH=src` before running any pytest.** The test directory is **not** on the
+**Set `PYTHONPATH=src:tests` before running pytest.** `src` is already declared in `pyproject.toml` under `[tool.pytest.ini_options] pythonpath = [".", "src"]`, so it is `tests` that is load-bearing: it makes `providers/registry.py` importable. The test directory is **not** on the
 module path; tests import `rhosocial.activerecord` from the `src/` tree.
 
 ```
@@ -27,21 +27,21 @@ project-root/
 
 Linux/macOS:
 ```bash
-PYTHONPATH=src pytest         # single run
+PYTHONPATH=src:tests pytest         # single run
 export PYTHONPATH=src          # persistent for session
 ```
 
 Windows PowerShell 7 (recommended):
 ```powershell
-$env:PYTHONPATH="src"; pytest
-$env:PYTHONPATH="src"
+$env:PYTHONPATH="src;tests"; pytest
+$env:PYTHONPATH="src;tests"
 ```
 
 Extension projects (`python-activerecord-mysql`, `-postgres`, ...) use their own `src/`. With the
 core installed as a dependency, only the extension's `src/` is needed:
 ```bash
-PYTHONPATH=src pytest                       # extension alone
-PYTHONPATH=src:../python-activerecord/src pytest   # when core not installed
+PYTHONPATH=src:tests pytest                       # extension alone
+PYTHONPATH=src:tests:../python-activerecord/src pytest   # when core not installed
 ```
 
 **Common error without it**: `ModuleNotFoundError: No module named 'rhosocial.activerecord'`.
@@ -64,7 +64,7 @@ pip install -e ../python-activerecord-testsuite     # editable, for local test-s
 selection (markers remain for legacy/global grouping):
 
 ```bash
-export PYTHONPATH=src
+export PYTHONPATH=src:tests
 
 # Feature tests by category
 pytest tests/rhosocial/activerecord_test/feature/basic/
@@ -79,8 +79,8 @@ pytest tests/rhosocial/activerecord_test/feature/backend/sqlite2/
 pytest tests/rhosocial/activerecord_test/feature/backend/dialect/
 
 # Real-world scenarios and benchmarks
-pytest tests/rhosocial/activerecord_test/realworld/ecommerce/
-pytest tests/rhosocial/activerecord_test/realworld/finance/
+pytest tests/rhosocial/activerecord_test/feature/basic/
+pytest tests/rhosocial/activerecord_test/feature/query/
 pytest tests/benchmark/
 ```
 
@@ -108,9 +108,9 @@ Free-threaded builds are fully supported and all tests pass. Setup:
 
 ```bash
 pyenv install 3.13t && pyenv local 3.13t   # macOS/Linux example
-export PYTHONPATH=src
+export PYTHONPATH=src:tests
 python -m pytest tests/                      # local tests
-python -m pytest tests/ --run-testsuite      # include testsuite
+python -m PYTHONPATH=src:tests pytest ../python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/
 ```
 
 Free-threading exposes race conditions hidden by the GIL — keep shared state synchronized.
@@ -133,7 +133,7 @@ feature detection (`@requires_protocol(ProtocolClass)` / `@requires_protocol(Pro
 schema file management, and sync/async parity rules.
 
 Quick correctness checklist (also see skill):
-- ✅ `PYTHONPATH=src` before pytest
+- ✅ `PYTHONPATH=src:tests` before pytest
 - ✅ install testsuite; parallelize only with the plugin + serial markers (see §5)
 - ✅ provider always returns tuples
 - ✅ backend access via `model.backend()` / `model.__backend__` (per `IActiveRecord`)

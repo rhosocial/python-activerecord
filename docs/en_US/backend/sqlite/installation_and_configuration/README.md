@@ -35,7 +35,7 @@ No SSL configuration is needed — SQLite is a local file-based database with no
 ### SQLiteConnectionConfig
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # In-memory database
 config = SQLiteConnectionConfig(database=":memory:")
@@ -57,7 +57,7 @@ The `database` parameter accepts:
 ### Connecting
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
 backend.connect()
@@ -70,7 +70,7 @@ backend.disconnect()
 ### Connecting with Async
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 backend = AsyncSQLiteBackend(database=":memory:")
 await backend.connect()

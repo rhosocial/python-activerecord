@@ -28,8 +28,8 @@ from rhosocial.activerecord.backend.expression.statements import (
     ExplainType,
     QueryExpression,
 )
-from rhosocial.activerecord.backend.impl.sqlite import (
-    SQLiteBackend,
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.explain import (
     SQLiteExplainRow,
     SQLiteExplainQueryPlanRow,
     SQLiteExplainResult,
@@ -87,7 +87,9 @@ class TestMixinAndProtocol:
 
     def test_async_backend_class_is_mixin_instance(self):
         try:
-            from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+            from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+                AsyncSQLiteBackend,
+            )
         except ImportError:
             pytest.skip("aiosqlite not installed")
         assert issubclass(AsyncSQLiteBackend, AsyncExplainBackendMixin)
@@ -202,7 +204,9 @@ class TestAsyncExplain:
     @pytest.fixture()
     async def async_backend(self):
         try:
-            from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+            from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+                AsyncSQLiteBackend,
+            )
         except ImportError:
             pytest.skip("aiosqlite not installed")
         backend = AsyncSQLiteBackend(database=":memory:")

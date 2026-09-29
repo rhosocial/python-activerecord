@@ -10,10 +10,8 @@ Two categories:
 
 import pytest
 
-from rhosocial.activerecord.backend.impl.sqlite import (
-    SQLiteDialect,
-    PragmaCategory,
-)
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.pragma import PragmaCategory
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5MatchExpression,
     SQLiteFTS5CreateVirtualTable,

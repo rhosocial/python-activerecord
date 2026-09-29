@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from typing import Optional, ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface.base import ModelEvent
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 

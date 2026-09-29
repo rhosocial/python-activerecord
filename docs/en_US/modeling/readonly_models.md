@@ -70,7 +70,8 @@ Configure the read-only model against a separate backend -- typically a read rep
 analytics database:
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # Primary database -- writable models
 primary_config = SQLiteConnectionConfig(database="primary.db")

@@ -14,8 +14,9 @@ rhosocial-activerecord 建议根据被测组件的不同特性（ActiveRecord �
 ### 示例
 
 ```python
-from rhosocial.activerecord.backend.impl.dummy import DummyBackend
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 def test_user_metadata():
     """测试表名和主键"""

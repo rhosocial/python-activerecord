@@ -22,7 +22,8 @@ The pattern is straightforward:
 
 ```python
 import multiprocessing
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
 from models import Post
 
 def worker(post_ids: list[int]):

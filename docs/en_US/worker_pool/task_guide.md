@@ -39,7 +39,7 @@ WorkerPool natively supports async task functions:
 # Sync mode pool with async tasks
 async def async_query_task(ctx: TaskContext, params: dict) -> dict:
     """Async task using AsyncActiveRecord"""
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from myapp.models import User
 
@@ -108,7 +108,7 @@ def my_task(ctx: TaskContext, params: dict) -> dict:
     # ... other parameters
 
     # 2. Configure connection (inside worker)
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from myapp.models import MyModel
 

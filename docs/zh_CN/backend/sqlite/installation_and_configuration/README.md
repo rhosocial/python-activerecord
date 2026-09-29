@@ -35,7 +35,7 @@ pip install rhosocial-activerecord[all]
 ### SQLiteConnectionConfig
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # 内存数据库
 config = SQLiteConnectionConfig(database=":memory:")
@@ -57,7 +57,7 @@ config = SQLiteConnectionConfig(database="/path/to/database.db")
 ### 连接
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
 backend.connect()
@@ -70,7 +70,7 @@ backend.disconnect()
 ### 异步连接
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 backend = AsyncSQLiteBackend(database=":memory:")
 await backend.connect()

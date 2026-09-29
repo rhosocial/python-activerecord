@@ -10,7 +10,8 @@
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # 1. 创建配置对象
 config = SQLiteConnectionConfig(
@@ -94,7 +95,7 @@ Post.__backend_class__ = User.__backend_class__
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.dummy import DummyBackend
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 
 # 1. 创建配置对象
@@ -157,7 +158,7 @@ class ConnectionFactory:
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
 
 # 方式1: 使用便捷函数
@@ -214,7 +215,7 @@ print(connections)
 
 ```python
 from rhosocial.activerecord.model import AsyncActiveRecord
-from rhosocial.activerecord.backend.impl.dummy import AsyncDummyBackend
+from rhosocial.activerecord.backend.impl.dummy.backend import AsyncDummyBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 
 # 配置异步 Dummy 后端

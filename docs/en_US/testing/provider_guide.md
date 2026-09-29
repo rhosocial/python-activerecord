@@ -69,7 +69,8 @@ class MyBackendProvider:
 
     def _create_connection(self):
         """Create a connection to the test database."""
-        from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+        from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+        from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
         config = MySQLConnectionConfig(
             host=os.environ.get('MYSQL_HOST', 'localhost'),
             database=os.environ.get('MYSQL_DATABASE', 'test'),

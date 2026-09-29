@@ -328,9 +328,7 @@ def render_report(graph: LineageGraph, prov: Dict[str, Any]) -> str:
         )
     )
     out.append(
-        "placement     : {} misplaced, {} in a recognised secondary home".format(
-            stats["misplaced"], stats["secondary_home"]
-        )
+        "placement     : {} misplaced (expected 0)".format(stats["misplaced"])
     )
     out.append(
         "annotations   : {} TYPE_CHECKING import(s) scanned".format(
@@ -378,22 +376,8 @@ def render_report(graph: LineageGraph, prov: Dict[str, Any]) -> str:
         out.append("  {}".format(name))
     out.append("")
 
-    secondary = graph.secondary_home_nodes()
-    out.append("Expression classes in a recognised secondary home")
-    out.append("(e.g. impl.<name>.show for introspection, impl.<name>.types)")
-    if not secondary:
-        out.append("  none")
-    else:
-        by_project: Dict[str, int] = {}
-        for node_id in secondary:
-            project = graph.node(node_id).project
-            by_project[project] = by_project.get(project, 0) + 1
-        for project, count in sorted(by_project.items(), key=lambda kv: -kv[1]):
-            out.append("  {:<14} {}".format(project, count))
-    out.append("")
-
     misplaced = graph.misplaced()
-    out.append("Expression classes outside every accepted home (defects)")
+    out.append("Expression classes outside impl.<name>.expression (defects, expected none)")
     if not misplaced:
         out.append("  none")
     else:

@@ -75,7 +75,8 @@ Centralise all backend construction in one factory function:
 ```python
 # config/database.py
 import os
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 def make_backend():
     env = os.environ.get("APP_ENV", "development")
@@ -91,7 +92,8 @@ def make_backend():
 
     if env == "production":
         # Switch to MySQL/PostgreSQL backend in production
-        from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+        from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+        from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
         config = MySQLConnectionConfig(
             host=os.environ["DB_HOST"],
             port=int(os.environ.get("DB_PORT", 3306)),
@@ -138,7 +140,8 @@ maximum isolation):
 ```python
 # tests/conftest.py
 import pytest
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from myapp.models import User, Order
 
 @pytest.fixture(scope="session", autouse=True)

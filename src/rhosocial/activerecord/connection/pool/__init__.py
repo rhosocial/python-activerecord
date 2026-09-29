@@ -45,7 +45,7 @@ Context Functions (Asynchronous):
 Example:
     # PostgreSQL — suitable for connection pool (threadsafety=2)
     from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
-    from rhosocial.activerecord.backend.impl.postgres import PostgresBackend
+    from rhosocial.activerecord.backend.impl.postgres.backend import PostgresBackend
 
     config = PoolConfig(
         min_size=2,
@@ -61,7 +61,7 @@ Example:
 
     # SQLite/MySQL — use BackendGroup + backend.context() instead
     from rhosocial.activerecord.connection import BackendGroup
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
     group = BackendGroup(
         name="app",

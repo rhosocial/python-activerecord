@@ -571,7 +571,7 @@ class BasicSyncProvider(BasicProviderBase, IBasicSyncProvider, WorkerTestProtoco
             schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
 
         return {
-            "backend_module": "rhosocial.activerecord.backend.impl.sqlite",
+            "backend_module": "rhosocial.activerecord.backend.impl.sqlite.backend",
             "backend_class_name": backend_class_name,
             "config_class_module": "rhosocial.activerecord.backend.impl.sqlite.config",
             "config_class_name": "SQLiteConnectionConfig",
@@ -663,7 +663,9 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
     ) -> Type[ActiveRecord]:
         """A generic helper method to handle the setup for any given async model."""
         # 1. Get the async backend class (AsyncSQLiteBackend) and connection config for the requested scenario.
-        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+            AsyncSQLiteBackend,
+        )
 
         backend_class = AsyncSQLiteBackend
         _, original_config = get_scenario(scenario_name)

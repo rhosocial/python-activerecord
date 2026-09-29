@@ -156,7 +156,7 @@ The programmatic API provides more control and integrates well with applications
 **One-shot method (quick):**
 ```python
 from rhosocial.activerecord.backend.named_expression import resolve_named_expression
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database="mydb.sqlite")
 dialect = backend.dialect
@@ -393,7 +393,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
 from rhosocial.activerecord.backend.named_expression import (
     ProcedureRunner, TransactionMode, ProcedureResult,
 )
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database="mydb.sqlite")
 dialect = backend.dialect
@@ -456,7 +456,7 @@ class MonthlyCleanupAsyncProcedure(AsyncProcedure):
 # FastAPI endpoint
 from fastapi import FastAPI
 from rhosocial.activerecord.backend.named_expression import AsyncProcedureRunner, TransactionMode
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 app = FastAPI()
 async_backend = AsyncSQLiteBackend(database="mydb.sqlite")

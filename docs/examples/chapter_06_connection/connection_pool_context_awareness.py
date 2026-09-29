@@ -19,7 +19,7 @@ from rhosocial.activerecord.connection.pool import (
     get_current_connection_backend,
     get_current_backend,
 )
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 

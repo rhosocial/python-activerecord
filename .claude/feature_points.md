@@ -57,5 +57,5 @@ These scopes are for changes within the `rhosocial-activerecord-testsuite` packa
     -   *Example*: `test(realworld): add e-commerce scenario`
 -   **`benchmark`**: Changes to performance benchmark tests.
     -   *Example*: `test(benchmark): add benchmark for bulk insert performance`
--   **`provider`**: Changes related to the test provider interface (`IProvider`).
+-   **`provider`**: Changes related to the test provider interface (`IBasicProvider`, `IQueryProvider`, `IRelationProvider`, `IEventsProvider`, `IMixinsProvider`).
     -   *Example*: `refactor(provider): simplify schema setup`

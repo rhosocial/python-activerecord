@@ -290,7 +290,9 @@ class MixinsAsyncProvider(MixinsProviderBase, IMixinsAsyncProvider):
     async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
         """A generic async helper method to handle the setup for any given model."""
         from providers.scenarios import get_scenario
-        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+            AsyncSQLiteBackend,
+        )
 
         backend_class = AsyncSQLiteBackend
         _, original_config = get_scenario(scenario_name)

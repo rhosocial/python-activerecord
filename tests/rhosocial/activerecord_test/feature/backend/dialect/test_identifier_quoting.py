@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.expression.core import (
     WildcardExpression,
 )
 from rhosocial.activerecord.backend.expression.literals import Identifier
-from rhosocial.activerecord.backend.impl.dummy import DummyDialect
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 

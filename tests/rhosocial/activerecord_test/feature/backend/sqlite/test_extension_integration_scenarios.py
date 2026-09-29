@@ -14,7 +14,7 @@ from rhosocial.activerecord.testsuite.utils import (
     requires_protocol,
 )
 
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.protocols import (
     SQLiteFTS5Support,
     SQLiteRTreeSupport,

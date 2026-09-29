@@ -7,7 +7,7 @@ This section covers SQLite-specific features that differentiate it from other ba
 SQLite PRAGMA statements control database behavior, query metadata, and perform diagnostics. The backend provides a complete pragma system with version-aware availability checking.
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect(version=(3, 35, 0))
 

@@ -19,7 +19,8 @@ In [Database Configuration](configuration.md), we covered how to configure datab
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.connection import BackendGroup
 
 # Define models
@@ -113,7 +114,8 @@ When you need to connect to multiple databases (e.g., main database + statistics
 
 ```python
 from rhosocial.activerecord.connection import BackendManager
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # Create manager
 manager = BackendManager()
@@ -254,7 +256,8 @@ In CLI tools, using `BackendGroup` ensures connections are properly closed when 
 ```python
 # scripts/migrate_users.py
 from rhosocial.activerecord.connection import BackendGroup
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from app.models import User, Post
 
 def migrate_users():
@@ -280,7 +283,8 @@ if __name__ == "__main__":
 ```python
 # tasks/daily_report.py
 from rhosocial.activerecord.connection import BackendManager
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from app.models import User, Order, Report
 
 def generate_daily_report():
@@ -325,7 +329,7 @@ In web frameworks like FastAPI, you can manage connections in the application li
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from rhosocial.activerecord.connection import AsyncBackendManager
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 manager = AsyncBackendManager()
 
@@ -353,7 +357,8 @@ app = FastAPI(lifespan=lifespan)
 
 ```python
 from rhosocial.activerecord.connection import BackendManager
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 class TenantManager:
     """Multi-tenant connection manager."""

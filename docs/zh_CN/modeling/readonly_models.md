@@ -67,7 +67,8 @@ class UserAnalytics(ReadOnlyMixin, ActiveRecord):
 将只读模型配置到独立的后端——通常是只读副本或分析数据库：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # 主库——可写模型
 primary_config = SQLiteConnectionConfig(database="primary.db")

@@ -70,7 +70,7 @@ async def async_backend_with_typed(async_sqlite_backend):
 @pytest_asyncio.fixture
 async def async_backend_no_returning(tmp_path):
     """Async SQLite backend with dialect downgraded to 3.30.0 (no RETURNING)."""
-    from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
     db_path = tmp_path / "tier2_async.db"

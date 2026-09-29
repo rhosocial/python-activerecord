@@ -34,7 +34,8 @@ Call User.configure(backend) first.
 在使用模型前调用 `configure()` 方法：
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # 1. 创建配置
 config = SQLiteConnectionConfig(database='myapp.db')
@@ -207,7 +208,7 @@ from rhosocial.activerecord.model import ActiveRecord
 
 # ✅ 正确：导入其他常用组件
 from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.field import TimestampMixin
 ```
 

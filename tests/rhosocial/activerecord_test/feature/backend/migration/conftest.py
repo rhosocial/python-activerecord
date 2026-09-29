@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 
 @pytest.fixture

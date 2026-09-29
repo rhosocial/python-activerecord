@@ -6,7 +6,8 @@ from typing import Optional
 
 import pytest
 
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 from rhosocial.activerecord.connection.group import BackendGroup, AsyncBackendGroup
 from rhosocial.activerecord.logging import LoggingConfig, LogDataMode

@@ -138,7 +138,11 @@ In this step, we will configure database connections and create the necessary ta
 
 ```python
 # Import database backend related modules
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig, AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import (
+    SQLiteBackend,
+    AsyncSQLiteBackend,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 

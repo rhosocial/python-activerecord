@@ -7,7 +7,7 @@
 SQLite PRAGMA 语句控制数据库行为、查询元数据和执行诊断。后端提供了一个完整的 pragma 系统，具有版本感知的可用性检查。
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect(version=(3, 35, 0))
 

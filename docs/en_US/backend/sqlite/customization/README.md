@@ -99,7 +99,7 @@ See [Custom Data Types](../../template/customization/custom_types.md) for detail
 To register custom type converters:
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 backend = SQLiteBackend(database=":memory:")
 backend.type_registry.register(MyClass, MyAdapter)

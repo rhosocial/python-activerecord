@@ -7,7 +7,8 @@ Data payload visibility is controlled only by LoggingConfig.log_data_mode.
 import logging
 from typing import Optional
 
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.logging import LoggingConfig, LogDataMode, SummarizerConfig

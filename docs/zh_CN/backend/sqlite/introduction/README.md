@@ -54,7 +54,8 @@ SQLite 后端提供功能等效的同步和异步 API。本文档中的所有示
 ```python
 # 同步
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 class User(ActiveRecord):
     ...
@@ -64,7 +65,8 @@ user = User.find_one(1)
 
 # 异步
 from rhosocial.activerecord.model import AsyncActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 class User(AsyncActiveRecord):
     ...
@@ -92,7 +94,7 @@ pip install rhosocial-activerecord[all]
 ## 快速入门
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # 内存数据库（非常适合测试）
 backend = SQLiteBackend(database=":memory:")

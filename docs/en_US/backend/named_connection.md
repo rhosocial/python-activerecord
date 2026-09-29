@@ -273,7 +273,7 @@ config = resolve_named_connection(
 # Since configure() accepts any callable that returns ConnectionConfig,
 # you can import the named connection function and pass it directly:
 from myapp.connections import production_db
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
 
 User.configure(production_db, MySQLBackend)
 
@@ -306,7 +306,7 @@ config = resolver.resolve(user_params={"pool_size": 20})
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
 
 # Method 1: Resolve then configure (string-based, for dynamic selection)
@@ -565,7 +565,7 @@ def staging_db():
 # main.py
 import os
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
 
 
@@ -595,7 +595,7 @@ if __name__ == "__main__":
 # app/main.py
 from fastapi import FastAPI
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
 
 app = FastAPI()
 
@@ -710,7 +710,7 @@ flowchart LR
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples
 PYTHONPATH=../../../../..:. python3 -c "
 from rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory import memory_db
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 config = memory_db()
 backend = SQLiteBackend(connection_config=config)

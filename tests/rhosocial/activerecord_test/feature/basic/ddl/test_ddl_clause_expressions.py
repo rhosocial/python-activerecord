@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ReferentialAction,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
-from rhosocial.activerecord.backend.impl.dummy import DummyDialect
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 

@@ -12,7 +12,7 @@ import inspect
 
 import pytest
 
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5MatchExpression,
     SQLiteFTS5CreateVirtualTable,

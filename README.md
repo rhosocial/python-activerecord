@@ -80,12 +80,13 @@ pip install rhosocial-activerecord
 ```python
 """Save as demo.py and run with: python demo.py"""
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableExpression
+from rhosocial.activerecord.backend.expression import CreateTableExpression
 from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint, ColumnConstraintType
+    ColumnConstraint, ColumnConstraintType, ColumnDefinition,
 )
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
 from rhosocial.activerecord.base import FieldProxy
 from typing import ClassVar, Optional
 from pydantic import Field
@@ -97,6 +98,7 @@ class User(ActiveRecord):
     name: str = Field(max_length=100)
     email: str
     age: int = 0
+    # Required: without it, `User.c.age` does not exist.
     c: ClassVar[FieldProxy] = FieldProxy()
 
 
@@ -104,20 +106,24 @@ class User(ActiveRecord):
 config = SQLiteConnectionConfig(database=":memory:")
 User.configure(config, SQLiteBackend)
 
-# Create table using DDL expression (type-safe, no raw SQL)
+# Create table using DDL expressions. Every node takes the dialect as its
+# first argument, and column types are DataType instances rather than strings.
+dialect = User.__backend__.dialect
 create_table = CreateTableExpression(
-    dialect=User.__backend__.dialect,
-    table_name="users",
+    dialect=dialect,
+    table="users",
     columns=[
-        ColumnDefinition("id", "INTEGER",
-            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("name", "VARCHAR(100)",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("email", "VARCHAR(255)"),
-        ColumnDefinition("age", "INTEGER"),
+        ColumnDefinition(dialect, "id", IntegerType(dialect),
+            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY,
+                is_auto_increment=True)]),
+        ColumnDefinition(dialect, "name", VarCharType(dialect, 100),
+            constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition(dialect, "email", VarCharType(dialect, 255)),
+        ColumnDefinition(dialect, "age", IntegerType(dialect)),
     ]
 )
-User.__backend__.execute(create_table)
+# execute() takes SQL text, not an expression node: render it first.
+User.__backend__.execute(*create_table.to_sql())
 
 # Insert
 alice = User(name="Alice", email="alice@example.com", age=30)
@@ -132,18 +138,23 @@ sql, params = User.query().where(User.c.age >= 18).to_sql()
 # Params: (18,)
 ```
 
+> **Note**: `ColumnDefinition` and `ColumnConstraint` take the dialect as their
+> first positional argument. Older releases accepted `(name, "VARCHAR(100)")`
+> with plain SQL type strings; that signature is gone. `execute()` also takes
+> SQL text, not an expression node — render with `to_sql()` first.
+
 ### Relationships
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableExpression
+from rhosocial.activerecord.backend.expression import CreateTableExpression
 from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint, ColumnConstraintType,
-    TableConstraint, TableConstraintType,
-    ForeignKeyConstraint, ReferentialAction
+    ColumnConstraint, ColumnConstraintType, ColumnDefinition,
+    ForeignKeyConstraint, ReferentialAction,
 )
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 from typing import ClassVar, Optional
@@ -174,34 +185,39 @@ Post.__backend__ = Author.__backend__
 # Create tables using DDL expressions
 dialect = Author.__backend__.dialect
 
-Author.__backend__.execute(CreateTableExpression(
+Author.__backend__.execute(*CreateTableExpression(
     dialect=dialect,
-    table_name="authors",
+    table="authors",
     columns=[
-        ColumnDefinition("id", "INTEGER",
-            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("name", "TEXT"),
+        ColumnDefinition(dialect, "id", IntegerType(dialect),
+            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY,
+                is_auto_increment=True)]),
+        ColumnDefinition(dialect, "name", TextType(dialect)),
     ]
-))
+).to_sql())
 
-Author.__backend__.execute(CreateTableExpression(
+Author.__backend__.execute(*CreateTableExpression(
     dialect=dialect,
-    table_name="posts",
+    table="posts",
     columns=[
-        ColumnDefinition("id", "INTEGER",
-            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("title", "TEXT"),
-        ColumnDefinition("author_id", "INTEGER"),
+        ColumnDefinition(dialect, "id", IntegerType(dialect),
+            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY,
+                is_auto_increment=True)]),
+        ColumnDefinition(dialect, "title", TextType(dialect)),
+        ColumnDefinition(dialect, "author_id", IntegerType(dialect)),
     ],
-    constraints=[
+    table_constraints=[
+        # ForeignKeyConstraint is a TableConstraint subclass, so it goes
+        # straight into the list.
         ForeignKeyConstraint(
+            dialect,
             columns=["author_id"],
-            reference_table="authors",
-            reference_columns=["id"],
-            on_delete=ReferentialAction.CASCADE
+            foreign_key_table="authors",
+            foreign_key_columns=["id"],
+            on_delete=ReferentialAction.CASCADE,
         )
     ]
-))
+).to_sql())
 
 # Eager loading — one query, no N+1
 authors = Author.query().with_("posts").all()
@@ -262,24 +278,43 @@ For details, see the [documentation](docs/en_US/).
 
 ## Backend Support
 
-| Backend | Package | Link | Sync | Async |
-|---|---|---|---|---|
-| **SQLite** | Built-in | — | ✅ Stable | ✅ Stable |
-| **MySQL** | `rhosocial-activerecord-mysql` | [PyPI](https://pypi.org/project/rhosocial-activerecord-mysql/) \| [GitHub](https://github.com/rhosocial/python-activerecord-mysql) | 🔄 In progress | 🔄 In progress |
-| **MariaDB** | `rhosocial-activerecord-mariadb` | [PyPI](https://pypi.org/project/rhosocial-activerecord-mariadb/) \| [GitHub](https://github.com/rhosocial/python-activerecord-mariadb) | 🔄 In progress | 🔄 In progress |
-| **PostgreSQL** | `rhosocial-activerecord-postgres` | [PyPI](https://pypi.org/project/rhosocial-activerecord-postgres/) \| [GitHub](https://github.com/rhosocial/python-activerecord-postgres) | 🔄 In progress | 🔄 In progress |
-| **Oracle** | `rhosocial-activerecord-oracle` | [PyPI](https://pypi.org/project/rhosocial-activerecord-oracle/) \| [GitHub](https://github.com/rhosocial/python-activerecord-oracle) | 🔄 In progress | 🔄 In progress |
-| **SQL Server** | `rhosocial-activerecord-sqlserver` | [PyPI](https://pypi.org/project/rhosocial-activerecord-sqlserver/) \| [GitHub](https://github.com/rhosocial/python-activerecord-sqlserver) | 🔄 In progress | 🔄 In progress |
-| **Snowflake** | `rhosocial-activerecord-snowflake` | [PyPI](https://pypi.org/project/rhosocial-activerecord-snowflake/) \| [GitHub](https://github.com/rhosocial/python-activerecord-snowflake) | 🔄 In progress | 🔄 In progress |
-| **Firebird** | `rhosocial-activerecord-firebird` | [PyPI](https://pypi.org/project/rhosocial-activerecord-firebird/) \| [GitHub](https://github.com/rhosocial/python-activerecord-firebird) | 🔄 In progress | 🔄 In progress |
+All backends are pre-1.0 (`1.0.0.devN`). `requires-python` is the lower bound
+declared in each backend's `pyproject.toml`, and it is **not** uniform — the
+core library supports 3.8+, but some backends require more.
+
+| Backend | Package | Python | Sync | Async | PyPI |
+|---|---|---|---|---|---|
+| **SQLite** | built-in | `>=3.8` | ✅ | ✅ | — |
+| **MySQL** | `rhosocial-activerecord-mysql` | `>=3.8` | ✅ | ✅ | [dev19](https://pypi.org/project/rhosocial-activerecord-mysql/) |
+| **PostgreSQL** | `rhosocial-activerecord-postgres` | `>=3.8` | ✅ | ✅ | [dev16](https://pypi.org/project/rhosocial-activerecord-postgres/) |
+| **MariaDB** | `rhosocial-activerecord-mariadb` | `>=3.8` | ✅ | ✅ | [dev2](https://pypi.org/project/rhosocial-activerecord-mariadb/) |
+| **SQL Server** | `rhosocial-activerecord-sqlserver` | `>=3.9` | ✅ | ✅ | [dev2](https://pypi.org/project/rhosocial-activerecord-sqlserver/) |
+| **Oracle** | `rhosocial-activerecord-oracle` | `>=3.8` | ✅ | ✅ | [dev2](https://pypi.org/project/rhosocial-activerecord-oracle/) |
+| **Snowflake** | `rhosocial-activerecord-snowflake` | `>=3.8` | ✅ | ⚠️ thread-pool¹ | [dev1](https://pypi.org/project/rhosocial-activerecord-snowflake/) |
+| **Firebird** | `rhosocial-activerecord-firebird` | `>=3.11` | ✅ | ✅ | [dev1](https://pypi.org/project/rhosocial-activerecord-firebird/) |
+| **BigQuery** | `rhosocial-activerecord-bigquery` | `>=3.10` | ✅ | ✅ | _unpublished_ |
+| **ClickHouse** | `rhosocial-activerecord-clickhouse` | `>=3.10,<3.15` | ✅ | ❌² | _unpublished_ |
+
+¹ `snowflake-connector-python` has no native async driver, so
+`AsyncSnowflakeBackend` runs sync calls through `asyncio.run_in_executor()`.
+Same method names, but it is a wrapper, not a native implementation.
+
+² `clickhouse-connect` is sync-only. `AsyncClickHouseBackend` exists as an
+import placeholder and raises `NotImplementedError` on instantiation.
+
+Source: [rhosocial/python-activerecord](https://github.com/rhosocial/python-activerecord)
 
 ## Requirements
 
-* **Python**: 3.8+ (including 3.13t/3.14t free-threaded builds)
+* **Python**: 3.8+ for the core library and the SQLite backend. Individual
+  backends raise this floor — see the Backend Support table above.
 * **Core Dependency**: Pydantic 2.10+ (Python 3.8) or 2.12+ (Python 3.9+)
 * **SQLite**: 3.25+ (for the built-in backend)
 
-See [Python Version Support](docs/en_US/introduction/python_version_support.md) for detailed compatibility.
+Free-threaded builds: the core library and the SQLite backend are tested on
+3.13t/3.14t. Per-backend status differs — Snowflake is **not** supported on
+3.13t (`cryptography` → `cffi` has no free-threaded 3.13 build), and
+ClickHouse caps at `<3.15`.
 
 ## Get Started with AI Code Agents
 
@@ -317,7 +352,7 @@ See the **[AI-Assisted Development Guide](docs/en_US/introduction/ai_assistance.
 * **[Modeling Guide](docs/en_US/modeling/)** — Defining models, fields, and relationships
 * **[Querying Guide](docs/en_US/querying/)** — Complete query builder documentation
 * **[Backend Development](docs/en_US/backend/)** — Creating custom database backends
-* **[Architecture Overview](docs/ARCHITECTURE.md)** — Module structure and design decisions
+* **[Architecture Overview](docs/en_US/introduction/architecture.md)** — Module structure and design decisions
 * **[LLM Context](docs/LLM_CONTEXT.md)** — Structured context for AI assistants
 * **[API Reference](https://docs.python-activerecord.dev.rho.social/api/)** — Full API documentation
 

@@ -4,7 +4,8 @@ Tests for SQLite extension detection via dialect.
 """
 
 
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect, SQLiteExtensionInfo
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.mixins.extension import SQLiteExtensionInfo
 from rhosocial.activerecord.backend.impl.sqlite.mixins.extension import ExtensionType
 
 

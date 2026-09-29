@@ -204,7 +204,9 @@ def create_async_backend_factory(args) -> Callable:
     """
 
     def factory():
-        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import (
+            AsyncSQLiteBackend,
+        )
 
         config = resolve_connection_config_from_args(args)
         async_backend = AsyncSQLiteBackend(connection_config=config)

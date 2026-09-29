@@ -388,7 +388,7 @@ def submit_comment_task(ctx: TaskContext, params: dict) -> int:
     content = params['content']
 
     # 1. 在 Worker 进程内配置数据库连接
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from myapp.models import User, Post, Comment
 

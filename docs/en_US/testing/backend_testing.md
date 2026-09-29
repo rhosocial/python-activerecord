@@ -36,7 +36,8 @@ When your tests need to verify that INSERT, SELECT, UPDATE, and DELETE actually 
 This is the first point where you call `configure()`. Unlike DummyBackend, SQLite requires a configuration step because it needs to know where to find (or create) the database.
 
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 config = SQLiteConnectionConfig(database=':memory:')
 User.configure(config, SQLiteBackend)
@@ -60,7 +61,8 @@ End-to-end tests exercise the full stack against the actual database you deploy 
 
 ```python
 import os
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend, MySQLConnectionConfig
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
 
 config = MySQLConnectionConfig(
     host=os.environ.get('MYSQL_HOST', 'localhost'),

@@ -199,7 +199,7 @@ pytest tests/
 
 ### "No backend configured"
 ```python
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 Model.configure(SQLiteBackend("sqlite:///test.db"))
 ```
 

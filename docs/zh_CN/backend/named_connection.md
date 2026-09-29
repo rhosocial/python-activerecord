@@ -196,7 +196,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite query \
 
 ```python
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
 
 # 一步解析
 config = resolve_named_connection(
@@ -213,7 +213,7 @@ backend = MySQLBackend(connection_config=config)
 # configure() 接受任何返回 ConnectionConfig 的 callable，
 # 因此可以直接导入命名连接函数并传入：
 from myapp.connections import production_db
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
 
 User.configure(production_db, MySQLBackend)
 
@@ -246,7 +246,7 @@ config = resolver.resolve(user_params={"pool_size": 20})
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
 
 # 方式 1: 字符串解析（适合动态选择）
@@ -507,7 +507,7 @@ def staging_db():
 # main.py
 import os
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
 
 
@@ -534,7 +534,7 @@ from fastapi import FastAPI
 import os
 
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
 
 

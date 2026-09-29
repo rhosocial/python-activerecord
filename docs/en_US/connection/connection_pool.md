@@ -123,7 +123,7 @@ flowchart LR
 
 ```python
 from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # Create connection pool
 config = PoolConfig(
@@ -1104,7 +1104,7 @@ Use `backend.connect()` and `backend.disconnect()` directly when you need fine-g
 
 ```python
 from rhosocial.activerecord.connection import BackendGroup
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # Create and configure a BackendGroup
 group = BackendGroup(
@@ -1136,7 +1136,7 @@ Use `backend.context()` for automatic connect/disconnect — enter the context t
 
 ```python
 from rhosocial.activerecord.connection import BackendGroup
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 # Create and configure a BackendGroup
 group = BackendGroup(

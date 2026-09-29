@@ -60,7 +60,7 @@ for validating the async abstraction.
 
 ```python
 # Production sync backend
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 class SQLiteBackend(StorageBackend):
     def connect(self): ...
@@ -463,8 +463,8 @@ class TestAsyncBackendErrorHandling:
 
 ```python
 # Production sync/async backends
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
 
 # Sync/async common
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
