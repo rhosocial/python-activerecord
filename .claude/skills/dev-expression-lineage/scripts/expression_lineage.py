@@ -292,6 +292,13 @@ class ProjectSpec:
 #: Each name is stubbed *only if importing it fails*. A driver that loads
 #: normally is left alone, so this never masks a real environment problem with a
 #: package that would have imported fine.
+#:
+#: Every name must be the module the backend actually imports. ``firebird-driver``
+#: 2.x is imported as ``firebird.driver`` and aliased to ``fdb`` at the call
+#: site, so listing ``fdb`` stubbed a name nothing imports and reported a
+#: misleading failure for a working driver. ``psycopg2`` was likewise listed but
+#: unused: the postgres backend depends on psycopg 3. Both entries made the
+#: stubbed list unreadable as a signal about driver health.
 DRIVER_STUB_MODULES = (
     "pyodbc",
     "clickhouse_connect",
@@ -299,9 +306,8 @@ DRIVER_STUB_MODULES = (
     "mariadb",
     "oracledb",
     "psycopg",
-    "psycopg2",
     "snowflake.connector",
-    "fdb",
+    "firebird.driver",
 )
 
 
@@ -365,6 +371,42 @@ def _importable(pkg_name: str) -> bool:
         return False
 
 
+def _installed_backend_names(impl_pkg: types.ModuleType) -> List[str]:
+    """List the backend directories visible under ``impl.<root>``.
+
+    ``pkgutil.iter_modules`` reports a directory as a package only when it holds
+    an ``__init__.py``. The backends are PEP 420 namespace portions, so they have
+    none, and enumeration silently returned an empty list: the audit then covered
+    the core alone and reported ``0 misplaced`` across a graph of 227 nodes while
+    every backend was absent from it.
+
+    A backend is therefore identified by being a directory on ``impl``'s search
+    path, which is what the enummeration was always trying to approximate. The
+    same ``__path__`` already lists the backends contributed by editable installs
+    of the separate backend repositories, so this keeps picking them up.
+
+    Args:
+        impl_pkg: The imported ``impl`` namespace package.
+
+    Returns:
+        Sorted backend directory names, excluding examples, tests and caches.
+    """
+    names = set()
+    for entry in getattr(impl_pkg, "__path__", ()):
+        try:
+            children = os.listdir(entry)
+        except OSError:
+            # A stale path entry from an uninstalled backend, or a path we cannot
+            # read. Skipping is right: there is nothing to audit there.
+            continue
+        for child in children:
+            if child.startswith(".") or any(f in child for f in EXCLUDE_FRAGMENTS):
+                continue
+            if os.path.isdir(os.path.join(entry, child)):
+                names.add(child)
+    return sorted(names)
+
+
 def discover_projects(
     extra: Sequence[ProjectSpec] = (),
     impl_root: str = IMPL_ROOT,
@@ -375,8 +417,10 @@ def discover_projects(
     Enumerates ``rhosocial.activerecord.backend.impl.*`` in the active
     interpreter and keeps every installed backend, plus the core expression
     package. A newly installed backend is picked up without editing this file.
-    Third-party namespaces are appended from ``extra`` and analysed alongside the
-    in-tree ones.
+    Backends are recognised as directories rather than as packages, since they
+    are PEP 420 namespace portions and carry no ``__init__.py``; see
+    :func:`_installed_backend_names`. Third-party namespaces are appended from
+    ``extra`` and analysed alongside the in-tree ones.
 
     DB drivers that cannot be loaded are stubbed first, via
     :func:`install_driver_stubs`. Importing a backend runs its ``__init__``,
@@ -402,10 +446,8 @@ def discover_projects(
     except Exception:
         impl_pkg = None
     if impl_pkg is not None:
-        for info in pkgutil.iter_modules(getattr(impl_pkg, "__path__", [])):
-            if info.ispkg and any(frag in info.name for frag in EXCLUDE_FRAGMENTS):
-                continue
-            specs.append(ProjectSpec.backend(info.name))
+        for name in sorted(_installed_backend_names(impl_pkg)):
+            specs.append(ProjectSpec.backend(name))
     specs.extend(extra)
     return specs
 
