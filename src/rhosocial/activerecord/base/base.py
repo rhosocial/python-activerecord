@@ -8,7 +8,12 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union, get_origin,
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
-from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
+from ..backend.errors import (
+    DatabaseError,
+    ReadOnlyError,
+    RecordNotFound,
+    ValidationError as DBValidationError,
+)
 from ..backend.expression import ComparisonPredicate, Column, Literal, SQLPredicate
 from ..backend.expression.bases import is_sql_query_and_params
 from ..backend.options import DeleteOptions, UpdateOptions
@@ -24,6 +29,32 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     """
     Core ActiveRecord implementation providing the fundamental ORM functionality.
     """
+
+    @classmethod
+    def refuse_read_only(cls, operation: str) -> None:
+        """Refuse ``operation`` if this model declares itself read-only.
+
+        The single write gate. Every framework write path calls this before
+        issuing anything, so a refused write never reaches the database. The
+        decision is delegated to ``read_only()`` -- the model answers, and a
+        model that does not implement the read-only behaviour is unaffected,
+        which keeps the feature opt-in.
+
+        Reads the *value* returned by ``read_only()`` rather than testing
+        ``isinstance(model, IReadOnlyBehavior)``: membership in the protocol
+        only says a ``read_only`` method exists, not that the model is
+        read-only, so a type test would refuse writable models that merely
+        implement the interface.
+
+        Args:
+            operation: Name of the refused write, for the error message.
+
+        Raises:
+            ReadOnlyError: If the model is read-only.
+        """
+        read_only = getattr(cls, "read_only", None)
+        if callable(read_only) and read_only():
+            raise ReadOnlyError(cls.__name__, operation)
 
     @classmethod
     def configure(
@@ -195,6 +226,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
         """
+        self.refuse_read_only("insert")
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
         generated = self.__class__.get_generated_columns()
@@ -286,6 +318,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         Returns:
             The result object from the backend update operation
         """
+        self.refuse_read_only("update")
         self.log(
             logging.INFO,
             f"Starting update operation for {self.__class__.__name__} record: "
@@ -560,7 +593,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             DatabaseError: If there are issues connecting to or executing against
                           the database
             ValidationError: If the model fails validation before saving
+            ReadOnlyError: If the model is read-only
         """
+        self.refuse_read_only("save")
         if not self.backend():
             raise DatabaseError("No backend configured")
         try:
@@ -599,7 +634,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             DatabaseError: If there are issues connecting to or executing against
                           the database
             ValueError: If the record doesn't have a valid primary key value
+            ReadOnlyError: If the model is read-only
         """
+        self.refuse_read_only("delete")
         if not self.backend():
             raise DatabaseError("No backend configured")
         if self.is_new_record:
@@ -685,6 +722,37 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     """
     Core Async ActiveRecord implementation providing the fundamental ORM functionality.
     """
+
+    # Mirrors BaseActiveRecord.refuse_read_only. The two base classes are
+    # independent (the async one does not inherit from the sync one), so the
+    # gate is declared on both. One implementation serves both model families:
+    # ReadOnlyMixin.read_only is a zero-I/O classmethod, so the same mixin gates
+    # sync and async writes and needs no async variant.
+    @classmethod
+    def refuse_read_only(cls, operation: str) -> None:
+        """Refuse ``operation`` if this model declares itself read-only.
+
+        The single write gate. Every framework write path calls this before
+        issuing anything, so a refused write never reaches the database. The
+        decision is delegated to ``read_only()`` -- the model answers, and a
+        model that does not implement the read-only behaviour is unaffected,
+        which keeps the feature opt-in.
+
+        Reads the *value* returned by ``read_only()`` rather than testing
+        ``isinstance(model, IReadOnlyBehavior)``: membership in the protocol
+        only says a ``read_only`` method exists, not that the model is
+        read-only, so a type test would refuse writable models that merely
+        implement the interface.
+
+        Args:
+            operation: Name of the refused write, for the error message.
+
+        Raises:
+            ReadOnlyError: If the model is read-only.
+        """
+        read_only = getattr(cls, "read_only", None)
+        if callable(read_only) and read_only():
+            raise ReadOnlyError(cls.__name__, operation)
 
     async def _trigger_event(self, event: ModelEvent, **kwargs) -> None:
         """Trigger event asynchronously, awaiting coroutine handlers.
@@ -873,6 +941,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
         """
+        self.refuse_read_only("insert")
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
         generated = self.__class__.get_generated_columns()
@@ -964,6 +1033,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         Returns:
             The result object from the backend update operation
         """
+        self.refuse_read_only("update")
         self.log(
             logging.INFO,
             f"Starting update operation for {self.__class__.__name__} record: "
@@ -1238,7 +1308,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             DatabaseError: If there are issues connecting to or executing against
                           the database
             ValidationError: If the model fails validation before saving
+            ReadOnlyError: If the model is read-only
         """
+        self.refuse_read_only("save")
         if not self.backend():
             raise DatabaseError("No backend configured")
         try:
@@ -1277,7 +1349,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             DatabaseError: If there are issues connecting to or executing against
                           the database
             ValueError: If the record doesn't have a valid primary key value
+            ReadOnlyError: If the model is read-only
         """
+        self.refuse_read_only("delete")
         if not self.backend():
             raise DatabaseError("No backend configured")
         if self.is_new_record:

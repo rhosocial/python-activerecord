@@ -180,3 +180,35 @@ class IDataPreparationBehavior(ABC):
             Dict[str, Any]: The (possibly modified) payload.
         """
         return data
+
+
+class IReadOnlyBehavior(ABC):
+    """Interface for read-only model behavior.
+
+    Implementing this interface (e.g. ``ReadOnlyMixin``) tells the framework
+    that writes through the model API must be refused. The framework asks
+    :meth:`read_only` and acts on the **returned value**, not on the type of
+    the receiver -- a model that inherits this interface is not thereby
+    read-only, it merely answers the question.
+
+    That distinction matters: ``isinstance(model, IReadOnlyBehavior)`` only
+    reports that a ``read_only`` method exists, so gating on it would either
+    be a no-op or refuse models that are perfectly writable. ``read_only``
+    returns ``bool`` rather than ``None`` for the same reason -- a ``None``
+    return invites ``is None`` being used as a type test.
+    """
+
+    @classmethod
+    def read_only(cls) -> bool:
+        """Whether writes through framework paths must be refused.
+
+        Declared as a classmethod because that is how the framework calls it:
+        some write paths are class-level (``bulk_create``) and some hold only
+        the model *class* (``ActiveQuery.update_all()``). Implementations must
+        therefore be classmethods, reading a class variable.
+
+        Returns:
+            bool: False by default; inheriting this interface expresses
+                participation in the read-only protocol, not read-only-ness.
+        """
+        return False

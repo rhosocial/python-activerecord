@@ -35,6 +35,24 @@ class ValidationError(DatabaseError):
     pass
 
 
+class ReadOnlyError(DatabaseError):
+    """A write was attempted on a read-only model.
+
+    Raised before any statement is issued, so a refused write leaves the
+    database untouched. Carries the operation name and the model so callers
+    can report which write was refused.
+    """
+
+    def __init__(self, model_name: str, operation: str):
+        self.model_name = model_name
+        self.operation = operation
+        super().__init__(
+            f"{operation} is not allowed on read-only model '{model_name}'. "
+            f"{model_name} declares __read_only__ = True (ReadOnlyMixin); the framework "
+            f"refuses framework-level writes for it."
+        )
+
+
 class LockError(DatabaseError):
     """Lock error"""
 
