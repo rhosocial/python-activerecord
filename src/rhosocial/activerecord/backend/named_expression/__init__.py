@@ -112,7 +112,6 @@ from .graph_result import (
 from .graph_runner import (
     ProcedureGraphRunner,
     AsyncProcedureGraphRunner,
-    ProcedureGraphValidationError as GraphValidationError,  # noqa: F401
 )
 from .graph_resolver import (
     NamedProcedureGraphResolver,

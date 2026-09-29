@@ -28,7 +28,6 @@ class MockQueryBase(IQuery):
         self.condition_groups = [[]]
         self.current_group = 0
         self.order_clauses = []
-        self.join_clauses = []
         self.limit_count = None
         self.offset_count = None
         from rhosocial.activerecord.backend.expression import WildcardExpression

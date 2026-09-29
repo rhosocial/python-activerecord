@@ -112,7 +112,6 @@ from .advanced_functions import (
 from .query_parts import (
     GroupingClause,
     JoinClause,
-    JoinType,
     WhereClause,
     GroupByHavingClause,
     OrderByClause,
@@ -504,7 +503,6 @@ __all__ = [
     # Query parts
     "GroupingClause",
     "JoinClause",
-    "JoinType",
     "WhereClause",
     "GroupByHavingClause",
     "OrderByClause",

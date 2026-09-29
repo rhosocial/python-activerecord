@@ -14,24 +14,6 @@ from .core import Subquery, TableExpression
 from .mixins import AliasableMixin
 
 
-class JoinType(Enum):
-    """Enumeration of SQL JOIN types."""
-
-    INNER = "INNER JOIN"  # INNER JOIN
-    JOIN = "JOIN"  # JOIN (equivalent to INNER JOIN)
-    LEFT = "LEFT JOIN"  # LEFT JOIN
-    LEFT_OUTER = "LEFT OUTER JOIN"  # LEFT OUTER JOIN
-    RIGHT = "RIGHT JOIN"  # RIGHT JOIN
-    RIGHT_OUTER = "RIGHT OUTER JOIN"  # RIGHT OUTER JOIN
-    FULL = "FULL JOIN"  # FULL JOIN
-    FULL_OUTER = "FULL OUTER JOIN"  # FULL OUTER JOIN
-    CROSS = "CROSS JOIN"  # CROSS JOIN
-    # Additional types could be added if needed
-    # MySQL-specific
-    STRAIGHT = "STRAIGHT_JOIN"  # MySQL STRAIGHT_JOIN
-    # Other database-specific types could be added here
-
-
 class LockStrength(Enum):
     """Row-level lock strength for a FOR UPDATE / FOR SHARE clause.
 
@@ -403,7 +385,7 @@ class JoinClause(AliasableMixin, BaseExpression):
             dialect,
             left_table=TableExpression(dialect, "users", alias="u"),
             right_table=TableExpression(dialect, "orders", alias="o"),
-            join_type=JoinType.INNER,
+            join_type="INNER JOIN",
             condition=Column(dialect, "user_id", "u") == Column(dialect, "user_id", "o")
         )
 
@@ -412,7 +394,7 @@ class JoinClause(AliasableMixin, BaseExpression):
             dialect,
             left_table=TableExpression(dialect, "employees", alias="e"),
             right_table=TableExpression(dialect, "departments", alias="d"),
-            join_type=JoinType.LEFT,
+            join_type="LEFT JOIN",
             using=["dept_id"]
         )
 
@@ -421,7 +403,7 @@ class JoinClause(AliasableMixin, BaseExpression):
             dialect,
             left_table=TableExpression(dialect, "table1"),
             right_table=TableExpression(dialect, "table2"),
-            join_type=JoinType.INNER,
+            join_type="INNER JOIN",
             natural=True
         )
 

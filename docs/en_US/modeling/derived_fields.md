@@ -91,23 +91,26 @@ Control whether derived fields are loaded via the `derived` argument:
 
 ```python
 # Load all derived fields
-products = Product.find_all(derived=True).all()
+products = Product.find_all(derived=True)
 for p in products:
     print(f"{p.name}: ${p.price} -> ${p.discount_price}")
 
 # Load specific derived fields
-products = Product.find_all(derived=["discount_price"]).all()
+products = Product.find_all(derived=["discount_price"])
 
 # Custom alias and expression
 products = Product.find_all(derived={
     "total": lambda d: d.c.price * d.c.quantity
-}).all()
+})
 ```
 
-Also supported in `ActiveQuery`:
+`derived` is a keyword argument of the model classmethods `find_one`, `find_all`
+and `find_one_or_fail` (and their async counterparts). It is **not** a parameter
+of `ActiveQuery.all()` / `one()` -- those take no arguments, because they already
+project every column:
 
 ```python
-products = Product.query().where(Product.c.price > 100).all(derived=True)
+products = Product.query().where(Product.c.price > 100).all()
 ```
 
 ## Important Notes
@@ -115,5 +118,5 @@ products = Product.query().where(Product.c.price > 100).all(derived=True)
 1. **Read-only**: derived fields cannot be assigned; attempts to assign are ignored.
 2. **Not validated**: derived fields do not go through Pydantic validators.
 3. **Not tracked**: derived fields do not appear in dirty-field tracking.
-4. **Column name conflicts**: a derived field name must not conflict with a database column name, otherwise a `ValueError` is raised.
+4. **Column name conflicts**: a derived field's `UseColumn` name must not collide with a regular field's column name, otherwise a `TypeError` is raised at class-definition time.
 5. **Performance**: a SQL expression is generated for each query; be mindful of database-side computation overhead when used frequently.

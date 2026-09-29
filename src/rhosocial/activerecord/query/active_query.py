@@ -68,7 +68,6 @@ class ActiveQuery(
         # Initialize attributes from BaseQueryMixin
         self.where_clause = None
         self.order_by_clause = None
-        self.join_clauses = []
         self.select_columns = [WildcardExpression(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
@@ -430,7 +429,6 @@ class AsyncActiveQuery(
         # Initialize attributes from BaseQueryMixin
         self.where_clause = None
         self.order_by_clause = None
-        self.join_clauses = []
         self.select_columns = [WildcardExpression(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None

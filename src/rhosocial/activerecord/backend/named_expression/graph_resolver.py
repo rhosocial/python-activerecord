@@ -210,7 +210,7 @@ class NamedProcedureGraphResolver:
 
         errors = result.validate()
         if errors:
-            from .graph_runner import ProcedureGraphValidationError
+            from .exceptions import ProcedureGraphValidationError
 
             raise ProcedureGraphValidationError(errors)
 

@@ -9,7 +9,7 @@ including both synchronous and asynchronous implementations.
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from .exceptions import ProcedureError
+from .exceptions import ProcedureError, ProcedureGraphValidationError
 from .graph_result import ProcedureGraphResult, StepStatus, StepTraceEntry
 from .procedure_graph import (
     GraphContext,
@@ -20,14 +20,6 @@ from .procedure_graph import (
 
 # Fallback statement type for graph steps whose expression does not expose one.
 _DEFAULT_STMT_TYPE = None
-
-
-class ProcedureGraphValidationError(ProcedureError):
-    """Raised when ProcedureGraph validation fails."""
-
-    def __init__(self, errors: List[str]):
-        self.errors = errors
-        super().__init__(f"Graph validation failed: {', '.join(errors)}")
 
 
 class ProcedureGraphRunner:
