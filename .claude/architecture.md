@@ -124,26 +124,25 @@ Clear distinction between Backend and ActiveRecord, avoiding tight coupling betw
 
 **Implementation**: The `SQLDialectBase` (and its concrete implementations like `SQLiteDialect`) provides dedicated methods for this:
 - `format_identifier(self, identifier: str) -> str`: Formats and quotes identifiers.
-- `format_string_literal(self, value: str) -> str`: Formats and quotes string literals.
+- `format_literal(self, value: Any) -> str`: Formats and quotes string literals.
 
 All query building components (e.g., mixins, `SQLExpression` subclasses) are designed to route identifier and literal formatting through these dialect methods, ensuring a single, centralized point of control for SQL syntax generation.
 
 ```python
-# In backend/dialect.py
+# In backend/dialect/base.py
 class SQLDialectBase(ABC):
     @abstractmethod
     def format_identifier(self, identifier: str) -> str:
         """Format identifier (table name, column name)."""
         pass
 
-    @abstractmethod
-    def format_string_literal(self, value: str) -> str:
-        """Format string literal."""
+    def format_literal(self, value: Any) -> str:
+        """Format a Python value as a SQL literal."""
         pass
 
 # Usage in query builder (conceptual)
 # formatted_column = self.model_class.backend().dialect.format_identifier(column_name)
-# formatted_string = self.model_class.backend().dialect.format_string_literal(string_value)
+# formatted_string = self.model_class.backend().dialect.format_literal(string_value)
 ```
 
 ### 6. ActiveRecord Adapts to the Backend (Backend Never Serves ActiveRecord)
@@ -440,7 +439,7 @@ rhosocial-activerecord/          # Core package (PEP 420 namespace package - no 
 │       │       ├── expression/ # SQLite-specific expressions
 │       │       ├── functions/  # SQLite-specific SQL functions
 │       │       ├── mixins/     # SQLite dialect mixins
-│       │       ├── extension/  # SQLite extensions (FTS5, RTree, etc.)
+│       │       ├── mixins/      # extension.py, fts5.py, rtree.py
 │       │       ├── pragma/     # PRAGMA support
 │       │       ├── explain/    # EXPLAIN support
 │       │       ├── introspection/ # SQLite introspection
@@ -547,7 +546,10 @@ class ActiveRecord(
 # backend/base/base.py -> StorageBackendBase (ABC)
 # backend/base/__init__.py -> composed StorageBackend / AsyncStorageBackend
 class StorageBackend(
-    # ...composed from LoggingMixin, CapabilityMixin, TypeAdaptionMixin, SQLBuildingMixin, etc.
+    # ...composed from LoggingMixin, TypeAdaptionMixin, SQLBuildingMixin,
+    # ReturningClauseMixin, ResultProcessingMixin, SQLOperationsMixin,
+    # ExecutionMixin, BatchExecutionMixin, ExecutionHooksMixin, ConnectionMixin,
+    # TransactionManagementMixin. There is no `CapabilityMixin`.
     ABC
 ):
     """
@@ -569,7 +571,7 @@ class StorageBackend(
 **Purpose**: Concrete database implementations
 
 ```python
-# backend/impl/sqlite/backend/sync.py
+# backend/impl/sqlite/backend/backend.py
 class SQLiteBackend(StorageBackend):
     """SQLite-specific implementation."""
 
@@ -632,18 +634,20 @@ class SQLTypeAdapter(Protocol):
 **Purpose**: Composable functionality
 
 ```python
-class TimestampMixin:
-    """Add timestamp tracking."""
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = None
+# Neither mixin declares fields, and neither overrides delete(). They are
+# semantics-only: each registers handlers on ModelEvent and REQUIRES the model
+# to declare the fields itself (names come from __created_at_field__ /
+# __updated_at_field__ / __deleted_at_field__). Use the Default* variants to
+# have the fields declared for you, or the class above raises TypeError at
+# class-definition time.
+class TimestampMixin:      # hooks BEFORE_INSERT / BEFORE_UPDATE
+    ...
 
-class SoftDeleteMixin:
-    """Add soft delete capability."""
-    deleted_at: Optional[datetime] = None
+class SoftDeleteMixin:     # hooks BEFORE_DELETE -> _mark_as_deleted
+    ...
 
-    def delete(self):
-        self.deleted_at = datetime.now()
-        return self.save()
+# The field-declaring classes are DefaultTimestampMixin and
+# DefaultSoftDeleteMixin (field/timestamp.py, field/soft_delete.py).
 
 # Composition
 class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):
@@ -787,7 +791,7 @@ BaseModel (Pydantic)
 ```
 
 Note: The actual composition (`model.py`) is `ActiveRecord(RelationManagementMixin,
-QueryMixin, ColumnNameMixin, FieldAdapterMixin, DerivedFieldMixin, MetaclassMixin,
+QueryMixin, ColumnNameMixin, FieldAdapterMixin, DerivedFieldMixin, DDLSourceMixin, MetaclassMixin,
 BaseActiveRecord)`, and a parallel `AsyncActiveRecord` class exists for async support.
 
 ### Backend Hierarchy
@@ -796,9 +800,10 @@ BaseActiveRecord)`, and a parallel `AsyncActiveRecord` class exists for async su
 StorageBackendBase (ABC)                # backend/base/base.py
     # Composed from mixins for sync operations
     └── StorageBackend (ABC)            # backend/base/__init__.py
-        └── SQLiteBackend               # backend/impl/sqlite/backend/sync.py
+        └── SQLiteBackend               # backend/impl/sqlite/backend/backend.py
         # └── MySQLBackend (extension: rhosocial-activerecord-mysql)
-        # └── PostgreSQLBackend (extension: rhosocial-activerecord-postgres)
+        # └── PostgresBackend (extension: rhosocial-activerecord-postgres;
+        #     the class is PostgresBackend, not PostgreSQLBackend)
         # ...
 
 StorageBackendBase (ABC)
@@ -866,7 +871,7 @@ The project maintains **minimal core dependencies** by design:
 dependencies = [
     "pydantic==2.10.6; python_version == '3.8'",          # Data validation and model definition
     "pydantic>=2.12.0; python_version >= '3.9'",
-    "typing_extensions>=4.0.0",                            # Backported typing features for Python 3.8
+    "typing-extensions>=4.12.0; python_version < '3.9'",  # Backported typing features for Python 3.8
 ]
 ```
 
@@ -907,15 +912,18 @@ User.configure(SQLiteConnectionConfig(database="app.db"), SQLiteBackend)
 ### 1. Custom Fields
 
 ```python
-class EncryptedField(Field):
-    """Custom encrypted field type."""
+# There is no `Field` base class in this codebase. `base/fields.py` contains
+# only annotation markers: DDLAnnotation, UseColumn, UseAdapter, UseSqlType,
+# UseIndex, UseConstraint, UseColumnAttributes, UseComment, UseGeneratedColumn,
+# DerivedField. Encrypted or otherwise transformed values go through a
+# SQLTypeAdapter, or a pydantic field_validator on the model.
+class EncryptedModel(ActiveRecord):
+    settings: str
 
-    def __set__(self, instance, value):
-        encrypted = encrypt(value)
-        super().__set__(instance, encrypted)
-
-    def __get__(self, instance, owner):
-        value = super().__get__(instance, owner)
+    @field_validator("settings", mode="before")
+    @classmethod
+    def _decrypt(cls, v):
+        return decrypt(v)
         return decrypt(value) if value else None
 ```
 
@@ -953,14 +961,16 @@ class User(UserQueryMixin, ActiveRecord):
 ### 4. Event Hooks
 
 ```python
-class User(ActiveRecord):
-    def before_save(self):
-        """Called before saving."""
-        self.updated_at = datetime.now()
+# `before_save` / `after_save` are NEVER called -- there is no such hook and
+# no dispatch for them, so code written this way is silently dead. Lifecycle
+# is registered per instance against the ModelEvent enum.
+from rhosocial.activerecord.interface.base import ModelEvent
 
-    def after_save(self):
-        """Called after saving."""
-        cache.invalidate(f"user:{self.id}")
+user = User(name="Alice")
+user.on(ModelEvent.AFTER_INSERT, lambda rec: cache.invalidate(f"user:{rec.id}"))
+
+# Available events: BEFORE_VALIDATE, AFTER_VALIDATE, BEFORE_INSERT,
+# AFTER_INSERT, BEFORE_UPDATE, AFTER_UPDATE, BEFORE_DELETE, AFTER_DELETE.
 ```
 
 ## Performance Optimization
@@ -1108,17 +1118,18 @@ race conditions on shared cache structures.
 ### Exception Hierarchy
 
 ```python
-class ActiveRecordError(Exception):
+# backend/errors.py -- there is NO `ActiveRecordError` class. `DatabaseError`
+# is the actual root, and everything below derives from it.
+class DatabaseError(Exception):
     """Base exception for all ActiveRecord errors."""
 
-class DatabaseError(ActiveRecordError):
-    """Database operation errors."""
-
-class ValidationError(ActiveRecordError):
-    """Data validation errors."""
-
-class RecordNotFound(DatabaseError):
-    """Record not found in database."""
+class ConnectionError(DatabaseError): ...
+class TransactionError(DatabaseError): ...
+class QueryError(DatabaseError): ...
+class ValidationError(DatabaseError): ...
+class IntegrityError(DatabaseError): ...
+class LockError(DatabaseError): ...
+class RecordNotFound(DatabaseError): ...
 ```
 
 ### Error Propagation
@@ -1146,7 +1157,7 @@ unit/integration/fixtures directories:
 tests/
 ├── conftest.py                        # Shared fixtures and hooks
 ├── benchmark/                         # Performance benchmarks (activerecord_bulk, backend, relation)
-├── config/                            # Test scenario configs (e.g. redis_scenarios.yaml)
+├── providers/                         # Scenario configs + provider registry (e.g. redis_scenarios.py)
 ├── providers/                         # Testsuite-style provider/fixture implementations
 │   ├── basic.py, query.py, relation.py, events.py, mixins.py ...
 │   └── registry.py                    # Provider registry

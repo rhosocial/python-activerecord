@@ -28,14 +28,24 @@ abstraction layer. Source lives in `src/rhosocial/activerecord/`.
 ```
 src/rhosocial/activerecord/
 ├── model.py            # ActiveRecord, AsyncActiveRecord, model mixins
-├── field.py            # Field, FieldProxy
+├── base/field_proxy.py # FieldProxy (there is no field.py; base/fields.py
+│                       #   holds only annotation markers, and there is no
+│                       #   `Field` class to subclass)
+├── field/              # TimestampMixin, SoftDeleteMixin, UUIDMixin, ...
 ├── query/              # ActiveQuery and query mixins (Aggregate/Base/Join/Relational/Range)
 ├── backend/            # backend abstraction: base, dialect, type_adapter, expression/, impl/
 │   └── impl/           # sqlite, dummy, ... (mysql/postgres live in separate packages)
 ├── interface/          # IActiveRecord, backend interfaces/protocols
 └── ...
-tests/rhosocial/activerecord_test/   # feature/, realworld/, benchmark/
+tests/
+├── rhosocial/activerecord_test/  # feature/, realworld/ (reserved), logging_module/
+├── benchmark/                    # benchmarks live here, not under activerecord_test/
+└── providers/                    # scenario configs + provider registry
 ```
+
+> `rhosocial/activerecord/` is a PEP 420 namespace package: there is no
+> `__init__.py` at that level, so `from rhosocial.activerecord import X` never
+> works. Import from the concrete subpackage instead.
 
 ## Rules Index
 

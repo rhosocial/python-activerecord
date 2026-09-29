@@ -38,7 +38,7 @@ Where:
 $$\rho_{\mathbf{AR}\text{-}b} := \mathcal{B}_{b}^{\rho} \triangleright \rho_{\mathbf{AR}}^{\mathcal{I}}$$
 
 Where:
-- $b \in \{\text{mysql}, \text{postgres}, \text{mongodb}, \ldots\}$
+- $b \in \{\text{mysql}, \text{mariadb}, \text{postgres}, \text{sqlserver}, \text{oracle}, \text{snowflake}, \text{clickhouse}, \text{firebird}, \text{bigquery}, \text{sqlite}\}$ — all backends are SQL-speaking; there is no NoSQL backend, and the expression system does not validate that generated SQL is standard-conforming.
 - $\triangleright$: Represents a "unidirectional dependency" relationship
 - $\mathcal{B}_{b}^{\rho}$: Represents the official implementation for backend $b$
 

@@ -27,14 +27,14 @@ Before proceeding, it is essential to understand and strictly adhere to the foll
 ### 2. Test Environment Isolation Principle
 The test environment of backend projects (e.g., `python-activerecord`) relies on `PYTHONPATH`, not on `pip`'s editable mode installation.
 
--   **DO NOT**: Execute `pip install -e .` for the backend project (`python-activerecord`) itself within its virtual environment.
+-   **DO**: install the project editable (`pip install -e .`) — the documented venvs already do this.
 -   **CONSEQUENCE**: This will lead to confusing and incorrect `ModuleNotFoundError` or `ImportError` errors during module discovery and import by `pytest`. The correct practice is to **only** temporarily append `PYTHONPATH=src` when executing `pytest`.
 
 ### 3. Fixture Organization Principle
 To avoid import issues, related fixture classes (such as test models and their dependent custom type adapters) should be placed within the same file.
 
 -   **DO NOT**: Disperse multiple fixture classes required for a test scenario (e.g., `MyModel` and `MyAdapter`) across multiple files within the `fixtures` directory.
--   **CONSEQUENCE**: Due to the fact that test directories (especially the `fixtures` directory) are not treated as standard Python packages (**IT IS FORBIDDEN TO ADD `__init__.py` TO THEM**), relative or absolute imports between files will fail during `pytest`'s test collection phase.
+-   **CONSEQUENCE**: Due to the fact that test directories (especially the `fixtures` directory) are not treated as standard Python packages (**IT IS FORBIDDEN TO ADD `__init__.py` TO NEW FIXTURE DIRECTORIES** (note: the testsuite already has `feature/basic/fixtures/__init__.py` and `feature/ddl/fixtures/__init__.py`)), relative or absolute imports between files will fail during `pytest`'s test collection phase.
 -   **DO**: Place the definitions of `MyModel` and `MyAdapter` within the same `.../fixtures/my_feature_models.py` file.
 
 ### 4. Provider Import Pattern Principle
@@ -69,7 +69,7 @@ In the `src/rhosocial/activerecord/testsuite/feature/<category>/` directory, cre
 
 #### Step 1.3: Update Provider Interface
 
-Open the `src/rhosocial/activerecord/testsuite/feature/<category>/interfaces.py` file. In the `IProvider` interface you are extending, add a new abstract method (e.g., `setup_annotated_query_fixtures`).
+Open the `src/rhosocial/activerecord/testsuite/feature/<category>/interfaces.py` file. In the `IBasicProvider` / `IQueryProvider` / `IRelationProvider` interface you are extending, add a new abstract method (e.g., `setup_annotated_query_fixtures`).
 
 #### Step 1.4: Define `testsuite` Fixture
 
@@ -114,10 +114,10 @@ In the `tests/rhosocial/activerecord_test/feature/<category>/` directory, create
 
 Execute tests from the root directory of the **backend project** (`python-activerecord`).
 
--   **Correct Command**: `PYTHONPATH=src pytest -v tests/rhosocial/activerecord_test/feature/<category>/test_my_feature.py`
+-   **Correct Command**: `PYTHONPATH=src:tests pytest -v tests/rhosocial/activerecord_test/feature/<category>/test_my_feature.py`
 -   **Incorrect Commands**:
     -   **DO NOT** execute `pytest` directly within the `testsuite` project.
-    -   **DO NOT** manually add the `tests` directory to `PYTHONPATH`.
+    -   **DO** add the `tests` directory to `PYTHONPATH` (`PYTHONPATH=src:tests`).
 
 #### Step 3.2: Debugging
 

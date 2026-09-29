@@ -43,7 +43,7 @@ Pre-release cycle per new `X.Y.0`: `dev → alpha → beta → rc → final`. Ph
 
 **Where the version lives**: The package is a PEP 420 namespace package with **no `__init__.py`
 and no `__version__`**. The canonical version is `[project] version` in `pyproject.toml`
-(currently `1.0.0.dev29`). Version bumps edit `pyproject.toml` only.
+(currently `1.0.0.dev30`). Version bumps edit `pyproject.toml` only.
 
 ## 2. Branching Strategy
 
@@ -59,7 +59,7 @@ and no `__version__`**. The canonical version is `[project] version` in `pyproje
 ### Protection & CI gates (all protected branches)
 
 - **Linear history everywhere** — no merge commits on `main`/`release`/`maint`; rebase/squash.
-- Required checks must pass: `test-with-coverage`, `test-other-versions`, `test-free-threaded`.
+- Required checks must pass: `test`, `test`, `test`.
 - Branch must be up-to-date before merge; review required (≥1 approval).
 - Maintainers may bypass on release branches only for version bumps / changelog / docs-only.
 - Enable CI on push & PR for `main`, `release/v**`, `maint/**`.
