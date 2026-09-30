@@ -6,10 +6,12 @@ Core SQL expression components like columns, literals, function calls, and subqu
 from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression, is_sql_query_and_params
+from .column_types import ColumnBase
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
+    JSONAccessorMixin,
     StringMixin,
     TypeCastingMixin,
 )
@@ -59,25 +61,31 @@ class Literal(
 
 
 class Column(
-    AliasableMixin,
     ArithmeticMixin,
-    ComparisonMixin,
     StringMixin,
-    TypeCastingMixin,
-    SQLValueExpression,
+    JSONAccessorMixin,
+    ColumnBase,
 ):
-    """Represents a column in a SQL query.
+    """A column reference whose value type is not known.
 
-    Per-role quoting properties (all default to ``True``):
-    - ``name_need_quote`` ↔ ``name``
-    - ``table_need_quote`` ↔ ``table``
-    - ``schema_need_quote`` ↔ ``schema_name``
-    - ``alias_need_quote`` ↔ ``alias``
+    This is the **permissive** column: it keeps the full operation set and
+    is a *sibling* of the type-narrowed classes in
+    :mod:`...expression.column_types`, not their parent. Two reasons it
+    survives rather than being replaced:
+
+    * A column built by hand — ``Column(dialect, "settings")`` — has no model
+      field behind it, so there is nothing to infer a type from. This is
+      common in tests, in ``DerivedField`` callbacks and in backend examples.
+    * A model field whose annotation cannot be classified (``Any``, an
+      unresolvable ``Union``) must not lose operations it may well support.
+
+    When the type *is* known, :class:`FieldProxy
+    <rhosocial.activerecord.base.field_proxy.FieldProxy>` returns the
+    matching narrow class instead — ``User.c.age`` is a
+    :class:`~...expression.column_types.NumericColumn` and offers no
+    ``.like()``, while a hand-built ``Column`` still does. The class identity
+    of a typed column does not vary by backend; only its storage does.
     """
-
-    @property
-    def format_method(self) -> str:
-        return "format_column"
 
     def __init__(
         self,
@@ -91,15 +99,18 @@ class Column(
         schema_need_quote: bool = True,
         table_need_quote: bool = True,
     ):
-        super().__init__(dialect)
-        self.name_need_quote = name_need_quote
-        self.alias_need_quote = alias_need_quote
-        self.schema_need_quote = schema_need_quote
-        self.table_need_quote = table_need_quote
-        self.name = name
-        self.table = table
-        self.alias = alias
-        self.schema_name = schema_name
+        super().__init__(
+            dialect,
+            name,
+            table=table,
+            alias=alias,
+            schema_name=schema_name,
+            name_need_quote=name_need_quote,
+            alias_need_quote=alias_need_quote,
+            schema_need_quote=schema_need_quote,
+            table_need_quote=table_need_quote,
+            value_type=None,
+        )
 
 
 class FunctionCall(

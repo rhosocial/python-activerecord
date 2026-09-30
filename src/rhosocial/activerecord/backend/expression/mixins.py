@@ -31,6 +31,16 @@ from typing import Any, Optional, Union, List, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression, SQLPredicate
+    from .core import CastExpression, FunctionCall
+    from .datetime import (
+        DatePartExpression,
+        DateTimeAddExpression,
+        DateTimeDiffExpression,
+        DateTimeSubtractExpression,
+        DateTruncExpression,
+        ExtractExpression,
+    )
+    from .advanced_functions import JSONExpression
 
 T = TypeVar("T")
 
@@ -687,3 +697,225 @@ class TypeCastingMixin:
         if alias is not None and hasattr(self, "alias"):
             self.alias = None
         return node
+
+
+class DateTimeMixin:
+    """Temporal operations available on a value known to hold a date/time.
+
+    Every method here wraps *this* expression in a proper AST node and hands
+    rendering to the dialect (``format_extract_expression``,
+    ``format_date_trunc_expression``, ``format_datetime_add_expression``, …).
+    No SQL is built by this mixin, and the expression nodes it constructs
+    already exist — this is a thin, dialect-neutral façade over them.
+
+    The mixin is mixed into :class:`~...expression.column_types.DateTimeColumn`
+    only, so a numeric or string column cannot reach these operations.
+
+    Chaining nests like any other expression::
+
+        >>> col = DateTimeColumn(dialect, "created_at")
+        >>> col.date_trunc("month")
+        >>> # -> DATE_TRUNC('month', "created_at")
+        >>> col.date_trunc("day").extract("year")
+        >>> # -> EXTRACT(year FROM DATE_TRUNC('day', "created_at"))
+
+    Note:
+        ``now()`` / ``current_date()`` / ``current_timestamp()`` are
+        deliberately absent: they take no column and belong to the
+        ``functions.datetime`` module, not to a column's own surface.
+    """
+
+    def _temporal_node(self, node_class, *args, **kwargs):
+        """Build *node_class* over this expression, hoisting the alias.
+
+        Mirrors :meth:`TypeCastingMixin.cast`: the alias decorates the
+        outermost rendered form, so ``col.as_("d").date_trunc("day")`` and
+        ``col.date_trunc("day").as_("d")`` both render the same SQL. The
+        receiver is only mutated when it is itself a temporary copy (the
+        ``as_()`` convention returns copies).
+        """
+        alias = getattr(self, "alias", None)
+        node = node_class(self._dialect, *args, alias=alias, **kwargs)
+        if alias is not None and hasattr(self, "alias"):
+            self.alias = None
+        return node
+
+    def extract(self, field: str) -> "ExtractExpression":
+        """Extract one field as a number, e.g. ``col.extract("year")``."""
+        from .datetime import ExtractExpression
+
+        return self._temporal_node(ExtractExpression, field, self)
+
+    def date_part(self, field: str) -> "DatePartExpression":
+        """SQL-standard spelling of :meth:`extract`."""
+        from .datetime import DatePartExpression
+
+        return self._temporal_node(DatePartExpression, field, self)
+
+    def date_trunc(self, field: str) -> "DateTruncExpression":
+        """Truncate to *field*, e.g. ``col.date_trunc("month")``."""
+        from .datetime import DateTruncExpression
+
+        return self._temporal_node(DateTruncExpression, field, self)
+
+    def date_add(self, value, unit: Optional[str] = None) -> "DateTimeAddExpression":
+        """Add an interval, e.g. ``col.date_add(7, "day")``."""
+        from .datetime import DateTimeAddExpression
+
+        return self._temporal_node(
+            DateTimeAddExpression, self, _as_interval(self._dialect, value, unit)
+        )
+
+    def date_sub(self, value, unit: Optional[str] = None) -> "DateTimeSubtractExpression":
+        """Subtract an interval, e.g. ``col.date_sub(1, "month")``."""
+        from .datetime import DateTimeSubtractExpression
+
+        return self._temporal_node(
+            DateTimeSubtractExpression, self, _as_interval(self._dialect, value, unit)
+        )
+
+    def date_diff(self, unit: str, end) -> "DateTimeDiffExpression":
+        """Difference between this value and *end*, expressed in *unit*."""
+        from .datetime import DateTimeDiffExpression
+
+        return self._temporal_node(DateTimeDiffExpression, unit, self, end)
+
+
+def _as_interval(dialect, value, unit: Optional[str]):
+    """Coerce ``(value, unit)`` or an ``IntervalExpression`` to an interval.
+
+    A bare number needs its unit; an already-built interval must not be given
+    one, since that would be ambiguous.
+    """
+    from .datetime import IntervalExpression
+
+    if isinstance(value, IntervalExpression):
+        if unit is not None:
+            raise ValueError("unit must not be provided when value is an IntervalExpression")
+        return value
+    if unit is None:
+        raise ValueError("unit is required when value is numeric")
+    return IntervalExpression(dialect, value, unit)
+
+
+class ArrayMixin:
+    """Array operations available on a value known to hold an array.
+
+    Mixed into :class:`~...expression.column_types.ArrayColumn` only. The
+    expression nodes and dialect formatters already exist; this is a thin
+    façade so a caller does not have to thread the dialect by hand.
+    """
+
+    def array_length(self, dimension: int = 1) -> "FunctionCall":
+        """Number of elements, e.g. ``col.array_length()``."""
+        from .functions.array import array_length
+
+        return array_length(self._dialect, self, dimension)
+
+    def unnest(self, alias: Optional[str] = None) -> "FunctionCall":
+        """Expand this array into rows, e.g. in a FROM clause."""
+        from .functions.array import unnest
+
+        return unnest(self._dialect, self)
+
+
+class JSONAccessorMixin:
+    """Path access for a value known to hold JSON.
+
+    Mixed into **both** :class:`~...expression.column_types.JSONColumn` and
+    :class:`~...expression.advanced_functions.JSONExpression` — the latter is
+    what :meth:`json_path` returns, so without it on both, chaining
+    ``col.json_value("a").json_value("b")`` would break at the second call.
+
+    Two shapes, matching the two JSON access operators:
+
+    * :meth:`json_path` (``->>``) yields a **scalar** and ends the chain.
+    * :meth:`json_value` (``->``) yields **JSON** and can be chained again.
+
+    Keys accumulate into one path rather than nesting two expressions.
+    That matters: nesting two paths re-anchors the second one at ``$`` and
+    applies ``->`` to the previous result, which is wrong on every backend
+    (``->`` on the text that ``->>`` returned, and ``$.b`` matching nothing).
+
+    Example:
+        >>> col = JSONColumn(dialect, "settings")
+        >>> col.json_path("a", "b")          # -> "settings"->>'$.a.b'
+        >>> col.json_path("tags", 0)         # -> "settings"->>'$.tags[0]'
+        >>> col.json_value("a").json_value("b")   # -> "settings"->'$.a'->'$.b'
+    """
+
+    def _json_path(self, keys, as_text: bool, mode) -> "JSONExpression":
+        from .advanced_functions import JSONExpression
+
+        alias = getattr(self, "alias", None)
+        node = JSONExpression(
+            self._dialect,
+            self,
+            build_json_path(*keys),
+            operation="->>" if as_text else "->",
+            alias=alias,
+            mode=mode,
+        )
+        if alias is not None and hasattr(self, "alias"):
+            self.alias = None
+        return node
+
+    def json_path(self, *keys, mode=None) -> "JSONExpression":
+        """Extract a scalar at *keys* (renders ``->>``).
+
+        Args:
+            *keys: Path segments. An ``int`` is an array index and renders
+                as ``[n]``; a ``str`` is always an object key, so ``"0"``
+                renders ``.0`` (a key literally named ``0``) — pass the int
+                ``0`` for the first element. A string that already starts
+                with ``[`` is passed through, so a caller can express a
+                native path segment this helper does not model.
+            mode: Optional :class:`JSONPathMode` (or its string value) to
+                force arrow or function-based rendering.
+        """
+        return self._json_path(keys, as_text=True, mode=mode)
+
+    def json_value(self, *keys, mode=None) -> "JSONExpression":
+        """Extract JSON at *keys* (renders ``->``), preserving the JSON type.
+
+        Chainable: the result is itself a JSON expression, so further
+        segments can be appended.
+        """
+        return self._json_path(keys, as_text=False, mode=mode)
+
+
+def build_json_path(*keys) -> str:
+    """Join path *keys* into a JSONPath rooted at ``$``.
+
+    Array indices must render as ``[n]``: ``$.tags.0`` is an object key
+    literally named ``0`` and matches nothing, while ``$.tags[0]`` is the
+    first element. A segment that already looks like a native path segment
+    (starts with ``[``) is passed through untouched so callers can express
+    anything this helper does not cover.
+
+    A ``str`` is **always** an object key, including one that looks like a
+    number — ``"0"`` is a key named ``0``, not an index. The distinction is
+    the type, not the spelling, so ``json_path("tags", 0)`` is the first
+    element and ``json_path("tags", "0")`` is the key ``"0"``.
+
+    Example:
+        >>> build_json_path("a", "b")
+        '$.a.b'
+        >>> build_json_path("tags", 0)
+        '$.tags[0]'
+        >>> build_json_path("tags", "[0]")
+        '$.tags[0]'
+    """
+    path = "$"
+    for key in keys:
+        if isinstance(key, bool):
+            # bool is an int subclass; treating True as index 1 would be a
+            # silent, baffling bug.
+            raise TypeError(f"JSON path segment must be str or int, got bool: {key!r}")
+        if isinstance(key, int):
+            path += f"[{key}]"
+        elif isinstance(key, str) and key.startswith("["):
+            path += key
+        else:
+            path += f".{key}"
+    return path

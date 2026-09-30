@@ -12,6 +12,7 @@ from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
+    JSONAccessorMixin,
     StringMixin,
     TypeCastingMixin,
 )
@@ -244,6 +245,7 @@ class JSONExpression(
     ComparisonMixin,
     StringMixin,
     TypeCastingMixin,
+    JSONAccessorMixin,
     SQLValueExpression,
 ):
     """Represents JSON operations like json->, json->>.
@@ -254,6 +256,11 @@ class JSONExpression(
     - ``JSONPathMode.ARROW``: force arrow operators (-> / ->>); raises
       UnsupportedFeatureError if the dialect does not support them.
     - ``JSONPathMode.FUNCTION``: force function-based formatting (e.g. JSON_EXTRACT).
+
+    It carries :class:`~...expression.mixins.JSONAccessorMixin` so a path
+    access can be chained: ``col.json_value("a")`` returns one of these, and
+    ``.json_value("b")`` must be available on it. The mixin is on
+    ``JSONColumn`` too; without it on both, the second call would fail.
     """
 
     def __init__(

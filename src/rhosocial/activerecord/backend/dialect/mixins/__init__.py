@@ -21,6 +21,7 @@ from .upsert import UpsertMixin
 from .join import LateralJoinMixin, JoinMixin
 from .array import ArrayMixin
 from .json import JSONMixin
+from .uuid import UUIDMixin
 from .explain import ExplainMixin
 from .graph import GraphMixin, GraphTableMixin
 from .merge import MergeMixin
@@ -68,6 +69,7 @@ __all__ = [
     "JoinMixin",
     "ArrayMixin",
     "JSONMixin",
+    "UUIDMixin",
     "ExplainMixin",
     "GraphMixin",
     "GraphTableMixin",

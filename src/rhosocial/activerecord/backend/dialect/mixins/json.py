@@ -156,10 +156,30 @@ class JSONMixin:
             Tuple of (SQL string, parameters tuple) for the expression.
 
         Raises:
-            UnsupportedFeatureError: If arrow mode is requested but arrow
-                operators are not supported.
+            UnsupportedFeatureError: If the dialect declares no JSON support
+                at all, or if arrow mode is requested but arrow operators are
+                not supported.
         """
         from ...expression.advanced_functions import JSONPathMode
+
+        # The function-based fallback below emits JSON_EXTRACT /
+        # JSON_UNQUOTE(JSON_EXTRACT(...)). That is MySQL's syntax, and this
+        # generic implementation is inherited by every dialect that does not
+        # override it — Oracle, Snowflake, BigQuery and Firebird among them,
+        # none of which have those functions. Rather than hand them SQL their
+        # server will reject, refuse here and let the dialect opt in by
+        # implementing `format_json_function_expression` for its own syntax
+        # (JSON_VALUE / GET_PATH / ...). A dialect with no JSON support must
+        # say so through `supports_json_type`.
+        self.check_feature_support(
+            "supports_json_type",
+            "JSON path access",
+            suggestion=(
+                f"{self.name} declares no JSON support. Override "
+                f"supports_json_type() and format_json_function_expression() "
+                f"if it can navigate JSON documents."
+            ),
+        )
 
         mode: JSONPathMode = getattr(expr, "mode", JSONPathMode.AUTO)
 

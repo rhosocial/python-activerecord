@@ -1,0 +1,298 @@
+# tests/rhosocial/activerecord_test/feature/query/test_typed_columns.py
+"""Type-narrowed column expressions.
+
+The column a model field resolves to depends on the field's Python
+annotation, so a numeric field offers arithmetic and no ``.like()``, a JSON
+field offers path access, and so on. These tests pin the dispatch table, the
+narrowing it produces, and the guarantees that make it safe to rely on.
+
+No database is involved — every assertion is on the expression tree or the
+SQL a dialect produces from it — so no provider fixture is required.
+"""
+
+# tests/rhosocial/activerecord_test/feature/query/test_typed_columns.py
+import datetime
+import decimal
+import uuid
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
+
+import pytest
+
+from rhosocial.activerecord.backend.expression import (
+    ArrayColumn,
+    BinaryColumn,
+    BooleanColumn,
+    Column,
+    ColumnBase,
+    DateTimeColumn,
+    JSONColumn,
+    NumericColumn,
+    StringColumn,
+    UUIDColumn,
+    build_json_path,
+)
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.base.column_dispatch import (
+    build_column,
+    column_class_for,
+    strip_annotation,
+)
+from rhosocial.activerecord.base.field_proxy import FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
+
+def sqlite_dialect():
+    """A version-adapted SQLite dialect.
+
+    ``supports_json_*`` and ``supports_data_type_*`` read ``self.version``, so
+    the dialect must be adapted before any rendering; 3.46 satisfies every
+    gate these tests exercise (JSON arrows need 3.38).
+    """
+    dialect = SQLiteDialect()
+    dialect._version = (3, 46, 1)
+    return dialect
+
+
+# ---------------------------------------------------------------------------
+# Dispatch: annotation -> column class
+# ---------------------------------------------------------------------------
+
+_DISPATCH = [
+    (str, StringColumn),
+    (int, NumericColumn),
+    (float, NumericColumn),
+    (bool, BooleanColumn),
+    (bytes, ColumnBase),
+    (dict, JSONColumn),
+    (list, ArrayColumn),
+    (decimal.Decimal, NumericColumn),
+    (datetime.datetime, DateTimeColumn),
+    (datetime.date, DateTimeColumn),
+    (datetime.timedelta, NumericColumn),
+    (uuid.UUID, UUIDColumn),
+]
+
+
+@pytest.mark.parametrize("annotation, expected", _DISPATCH, ids=lambda v: getattr(v, "__name__", str(v)))
+def test_dispatch_by_annotation(annotation, expected):
+    assert column_class_for(annotation) is expected
+
+
+@pytest.mark.parametrize(
+    "annotation, expected",
+    [
+        (Optional[str], StringColumn),
+        (Optional[dict], JSONColumn),
+        (List[int], Column),          # a parameterised container is not classifiable
+        (Dict[str, int], Column),
+        (Union[int, str], Column),    # genuinely ambiguous
+        (Any, Column),
+    ],
+    ids=lambda v: str(v),
+)
+def test_unclassifiable_annotations_fall_back(annotation, expected):
+    """A wrong guess is worse than no narrowing, so these fall back."""
+    assert column_class_for(annotation) is expected
+
+
+def test_optional_and_annotated_are_stripped():
+    from typing import Annotated
+
+    assert strip_annotation(Optional[dict]) is dict
+    assert strip_annotation(Annotated[str, "some-marker"]) is str
+    assert strip_annotation(Optional[Annotated[str, "m"]]) is str
+
+
+# ---------------------------------------------------------------------------
+# Narrowing: each family offers only what its value type supports
+# ---------------------------------------------------------------------------
+
+
+def test_string_column_has_like_but_no_arithmetic():
+    col = build_column(sqlite_dialect(), "name", str)
+    assert isinstance(col, StringColumn)
+    assert hasattr(col, "like") and hasattr(col, "ilike")
+    assert not hasattr(col, "__add__")
+
+
+def test_numeric_column_has_arithmetic_but_no_like():
+    col = build_column(sqlite_dialect(), "age", int)
+    assert isinstance(col, NumericColumn)
+    assert hasattr(col, "__add__") and hasattr(col, "__mul__")
+    assert not hasattr(col, "like")
+
+
+def test_json_column_has_path_access_only():
+    col = build_column(sqlite_dialect(), "settings", dict)
+    assert isinstance(col, JSONColumn)
+    assert hasattr(col, "json_path") and hasattr(col, "json_value")
+    assert not hasattr(col, "like")
+    assert not hasattr(col, "__add__")
+
+
+def test_uuid_column_offers_no_uuid_specific_operator():
+    """Portable SQL has none, so a UUID column is just a value column."""
+    col = build_column(sqlite_dialect(), "uid", uuid.UUID)
+    assert isinstance(col, UUIDColumn)
+    assert not hasattr(col, "like")
+    assert not hasattr(col, "__add__")
+    assert not hasattr(col, "json_path")
+
+
+def test_permissive_column_keeps_every_operation():
+    """The hand-built ``Column`` is the escape hatch and must not narrow."""
+    col = Column(sqlite_dialect(), "anything")
+    assert hasattr(col, "like")
+    assert hasattr(col, "__add__")
+    assert hasattr(col, "json_path")
+    assert col.value_type is None
+
+
+# ---------------------------------------------------------------------------
+# Rendering: unchanged SQL, and a common format_column
+# ---------------------------------------------------------------------------
+
+_RENDER_CLASSES = [
+    Column, StringColumn, NumericColumn, DateTimeColumn, BooleanColumn,
+    BinaryColumn, UUIDColumn, JSONColumn, ArrayColumn,
+]
+
+
+@pytest.mark.parametrize("column_class", _RENDER_CLASSES, ids=lambda c: c.__name__)
+def test_every_column_class_renders_identically(column_class):
+    """Narrowing changed the API, not the SQL."""
+    dialect = sqlite_dialect()
+    col = column_class(dialect, "settings", table="t", schema_name="s")
+    assert col.to_sql() == ('"s"."t"."settings"', ())
+
+
+@pytest.mark.parametrize("column_class", _RENDER_CLASSES, ids=lambda c: c.__name__)
+def test_every_column_class_is_a_column_base(column_class):
+    """The 8 isinstance() consumers test for ColumnBase, so all must match."""
+    assert isinstance(column_class(sqlite_dialect(), "x"), ColumnBase)
+
+
+@pytest.mark.parametrize("column_class", _RENDER_CLASSES, ids=lambda c: c.__name__)
+def test_qualified_and_aliased_rendering(column_class):
+    dialect = sqlite_dialect()
+    assert column_class(dialect, "c").to_sql() == ('"c"', ())
+    assert column_class(dialect, "c", table="t").to_sql() == ('"t"."c"', ())
+    assert column_class(dialect, "c", alias="a").to_sql() == ('"c" AS "a"', ())
+
+
+# ---------------------------------------------------------------------------
+# JSON path building
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "keys, expected",
+    [
+        ((), "$"),
+        (("a",), "$.a"),
+        (("a", "b"), "$.a.b"),
+        (("tags", 0), "$.tags[0]"),
+        (("a", 0, "b"), "$.a[0].b"),
+        (("tags", "[0]"), "$.tags[0]"),
+    ],
+    ids=lambda v: str(v),
+)
+def test_build_json_path(keys, expected):
+    assert build_json_path(*keys) == expected
+
+
+def test_string_zero_is_a_key_not_an_index():
+    """``"0"`` names a key; only an int is an index.
+
+    ``$.tags.0`` is a key literally named ``0`` and matches nothing, so the
+    distinction is carried by the type rather than the spelling.
+    """
+    assert build_json_path("tags", "0") == "$.tags.0"
+    assert build_json_path("tags", 0) == "$.tags[0]"
+
+
+def test_bool_is_rejected_as_a_path_segment():
+    """bool is an int subclass; silently treating True as index 1 is a trap."""
+    with pytest.raises(TypeError, match="bool"):
+        build_json_path("a", True)
+
+
+def test_json_path_renders_bracket_for_integer_index():
+    dialect = sqlite_dialect()
+    col = build_column(dialect, "settings", dict)
+    assert col.json_path("tags", 0).to_sql() == ('"settings"->>\'$.tags[0]\'', ())
+
+
+def test_json_path_chains_without_renesting_the_path():
+    """Chaining accumulates; it must not re-anchor the second path at ``$``."""
+    dialect = sqlite_dialect()
+    col = build_column(dialect, "settings", dict)
+    assert col.json_value("a").json_value("b").to_sql() == (
+        '"settings"->\'$.a\'->\'$.b\'',
+        (),
+    )
+
+
+def test_json_path_alias_lands_on_the_outermost_form():
+    dialect = sqlite_dialect()
+    col = build_column(dialect, "settings", dict)
+    assert col.as_("j").json_path("a").to_sql() == ('"settings"->>\'$.a\' AS "j"', ())
+
+
+# ---------------------------------------------------------------------------
+# End to end through FieldProxy
+# ---------------------------------------------------------------------------
+
+
+def _model(dialect):
+    class Widget(ActiveRecord):
+        __table_name__ = "typed_widget"
+        __primary_key__: ClassVar[str] = "id"
+        c: ClassVar[FieldProxy] = FieldProxy()
+
+        id: int
+        name: str
+        qty: int
+        price: decimal.Decimal
+        created: datetime.datetime
+        settings: dict
+        tags: list
+        uid: uuid.UUID
+        flag: bool
+        meta: Any
+
+    Widget.__backend__ = type("B", (), {"dialect": dialect})()
+    return Widget
+
+
+@pytest.mark.parametrize(
+    "field, expected",
+    [
+        ("id", NumericColumn),
+        ("name", StringColumn),
+        ("qty", NumericColumn),
+        ("price", NumericColumn),
+        ("created", DateTimeColumn),
+        ("settings", JSONColumn),
+        ("tags", ArrayColumn),
+        ("uid", UUIDColumn),
+        ("flag", BooleanColumn),
+        ("meta", Column),          # Any -> permissive
+    ],
+)
+def test_field_proxy_returns_the_matching_class(field, expected):
+    Widget = _model(sqlite_dialect())
+    assert type(getattr(Widget.c, field)) is expected
+
+
+def test_field_proxy_query_uses_narrowed_operations():
+    dialect = sqlite_dialect()
+    Widget = _model(dialect)
+    sql, params = Widget.query().where(Widget.c.settings.json_path("lang") == "en").to_sql()
+    assert sql == """SELECT * FROM "typed_widget" WHERE "typed_widget"."settings"->>'$.lang' = ?"""
+    assert params == ("en",)
+
+
+def test_field_proxy_unknown_field_still_raises_attribute_error():
+    Widget = _model(sqlite_dialect())
+    with pytest.raises(AttributeError, match="does not exist on model"):
+        Widget.c.no_such_field

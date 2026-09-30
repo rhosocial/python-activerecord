@@ -2,7 +2,7 @@
 """Module providing UUID functionality."""
 
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 from pydantic import Field
 
 from ..interface.update import IDataPreparationBehavior
@@ -12,6 +12,18 @@ class UUIDMixin(IDataPreparationBehavior):
     """Adds UUID primary key support.
 
     Automatically generates UUIDs for new records.
+
+    Generation happens in Python, not in the database. That is deliberate: it
+    keeps the value available before the INSERT is built, so a model can use
+    its own primary key in the same transaction without a round trip, and it
+    works unchanged on backends with no UUID function (SQLite has none). A
+    model that would rather let the database generate the value can render
+    :class:`~...expression.uuid.UUIDGenerationExpression` into a column default
+    instead — the two approaches are independent.
+
+    The field is annotated ``uuid.UUID`` and left to normal type inference for
+    its column type; see :class:`~...expression.types.UUIDType` for how a
+    backend declares explicit UUID storage instead.
     """
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4)

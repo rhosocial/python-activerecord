@@ -15,7 +15,7 @@ Supports:
 
 from typing import TYPE_CHECKING
 
-from ..backend.expression.core import Column
+from .column_dispatch import build_column
 
 if TYPE_CHECKING:
     from ..backend.dialect.base import SQLDialectBase
@@ -196,8 +196,19 @@ class FieldProxy:
                 # The backend dialect decides how to format schema references.
                 schema_name = None if self._table_alias else self._model_class.schema_name()
 
-                # Create column expression object using the real dialect
+                # Create column expression object using the real dialect.
+                # The class comes from the field's Python annotation, so a
+                # numeric field offers arithmetic and no `.like()`, a JSON
+                # field offers path access, and so on. An annotation that
+                # cannot be classified yields the permissive `Column`.
                 backend = self._model_class.backend()
                 dialect: "SQLDialectBase" = backend.dialect
-                return Column(dialect, column_name, table=table_name, schema_name=schema_name)
+                annotation = self._model_class.model_fields[field_name].annotation
+                return build_column(
+                    dialect,
+                    column_name,
+                    annotation,
+                    table=table_name,
+                    schema_name=schema_name,
+                )
         return _FieldAccessor(owner, self._table_alias)

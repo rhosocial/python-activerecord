@@ -104,4 +104,6 @@ __all__ = [
     # json
     "JsonType",
     "JsonBType",
+    # uuid
+    "UUIDType",
 ]

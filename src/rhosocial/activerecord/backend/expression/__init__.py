@@ -20,7 +20,13 @@ from .bases import (
     is_sql_query_and_params,
 )
 from .executable import Executable
-from .mixins import AliasableMixin
+from .mixins import (
+    AliasableMixin,
+    ArrayMixin,
+    DateTimeMixin,
+    JSONAccessorMixin,
+    build_json_path,
+)
 from .literals import (
     Identifier,
 )
@@ -31,6 +37,22 @@ from .operators import (
     RawSQLExpression,
     RawSQLPredicate,
     BinaryArithmeticExpression,
+)
+from .column_types import (
+    ColumnBase,
+    StringColumn,
+    NumericColumn,
+    DateTimeColumn,
+    BooleanColumn,
+    BinaryColumn,
+    UUIDColumn,
+    JSONColumn,
+    ArrayColumn,
+)
+from .uuid import (
+    UUIDGenerationExpression,
+    UUIDConstantExpression,
+    UUIDCastExpression,
 )
 from .core import (
     Column,
@@ -422,6 +444,10 @@ __all__ = [
     "Executable",
     # Mixins
     "AliasableMixin",
+    "ArrayMixin",
+    "DateTimeMixin",
+    "JSONAccessorMixin",
+    "build_json_path",
     # Literals
     "Identifier",
     # Operators
@@ -433,6 +459,20 @@ __all__ = [
     "BinaryArithmeticExpression",
     # Core expressions
     "Column",
+    # UUID value expressions
+    "UUIDGenerationExpression",
+    "UUIDConstantExpression",
+    "UUIDCastExpression",
+    # Type-narrowed column expressions
+    "ColumnBase",
+    "StringColumn",
+    "NumericColumn",
+    "DateTimeColumn",
+    "BooleanColumn",
+    "BinaryColumn",
+    "UUIDColumn",
+    "JSONColumn",
+    "ArrayColumn",
     "FunctionCall",
     "Subquery",
     "TableExpression",

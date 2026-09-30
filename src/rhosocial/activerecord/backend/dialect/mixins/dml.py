@@ -92,7 +92,8 @@ class DMLMixin:
             UnsupportedFeatureError: If a requested RETURNING feature is not
                 supported by this dialect.
         """
-        from ...expression.core import Column, Subquery, WildcardExpression
+        from ...expression.column_types import ColumnBase
+        from ...expression.core import Subquery, WildcardExpression
         from ...expression.aggregates import AggregateFunctionCall
         from ...expression.operators import RawSQLExpression
 
@@ -114,7 +115,7 @@ class DMLMixin:
                         "This dialect does not support '*' in a RETURNING clause; "
                         "list the columns explicitly.",
                     )
-            elif isinstance(expr, Column):
+            elif isinstance(expr, ColumnBase):
                 if expr.table and expr.table.upper() in ("OLD", "NEW"):
                     if not self.supports_returning_old_new():
                         raise UnsupportedFeatureError(

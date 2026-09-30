@@ -9,7 +9,13 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union, get_origin,
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
 from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
-from ..backend.expression import ComparisonPredicate, Column, Literal, SQLPredicate
+from ..backend.expression import (
+    Column,
+    ColumnBase,
+    ComparisonPredicate,
+    Literal,
+    SQLPredicate,
+)
 from ..backend.expression.bases import is_sql_query_and_params
 from ..backend.options import DeleteOptions, UpdateOptions
 from ..backend.options import InsertOptions
@@ -414,7 +420,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     @classmethod
     def find_one(
         cls: Type["BaseActiveRecord"],
-        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        condition: Union[Any, Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
         derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
@@ -427,7 +433,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 query = query.where(cls._build_pk_where_predicate(condition))
             else:
                 for key, value in condition.items():
-                    if isinstance(key, Column):
+                    if isinstance(key, ColumnBase):
                         query = query.where(key == value)
                     elif isinstance(key, str):
                         query = query.where(getattr(cls.c, key) == value)
@@ -461,7 +467,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     def find_all(
         cls: Type["BaseActiveRecord"],
         condition: Optional[
-            Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
+            Union[Any, List[Any], Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]]
         ] = None,
         *,
         derived: Union[bool, str, list, dict] = False,
@@ -478,7 +484,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 query = query.where(cls._build_pk_where_predicate(condition))
             else:
                 for key, value in condition.items():
-                    if isinstance(key, Column):
+                    if isinstance(key, ColumnBase):
                         query = query.where(key == value)
                     elif isinstance(key, str):
                         query = query.where(getattr(cls.c, key) == value)
@@ -524,7 +530,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     @classmethod
     def find_one_or_fail(
         cls: Type["BaseActiveRecord"],
-        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        condition: Union[Any, Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
         derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
@@ -1092,7 +1098,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     @classmethod
     async def find_one(
         cls: Type["AsyncBaseActiveRecord"],
-        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        condition: Union[Any, Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
         derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
@@ -1105,7 +1111,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 query = query.where(cls._build_pk_where_predicate(condition))
             else:
                 for key, value in condition.items():
-                    if isinstance(key, Column):
+                    if isinstance(key, ColumnBase):
                         query = query.where(key == value)
                     elif isinstance(key, str):
                         query = query.where(getattr(cls.c, key) == value)
@@ -1139,7 +1145,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     async def find_all(
         cls: Type["AsyncBaseActiveRecord"],
         condition: Optional[
-            Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
+            Union[Any, List[Any], Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]]
         ] = None,
         *,
         derived: Union[bool, str, list, dict] = False,
@@ -1156,7 +1162,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 query = query.where(cls._build_pk_where_predicate(condition))
             else:
                 for key, value in condition.items():
-                    if isinstance(key, Column):
+                    if isinstance(key, ColumnBase):
                         query = query.where(key == value)
                     elif isinstance(key, str):
                         query = query.where(getattr(cls.c, key) == value)
@@ -1202,7 +1208,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     @classmethod
     async def find_one_or_fail(
         cls: Type["AsyncBaseActiveRecord"],
-        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        condition: Union[Any, Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
         derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,

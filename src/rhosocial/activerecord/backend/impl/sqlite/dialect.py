@@ -15,6 +15,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     FilterClauseSupport,
     WindowFunctionSupport,
     JSONSupport,
+    UUIDSupport,
     ReturningSupport,
     AdvancedGroupingSupport,
     ArraySupport,
@@ -60,6 +61,9 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 
     WindowFunctionMixin,
     JSONMixin,
+    # SQLite has no UUID-generating function; UUIDMixin reports honest
+    # absence so UUIDGenerationExpression raises with a Python-side hint.
+    UUIDMixin,
 
     ArrayMixin,
     ExplainMixin,
@@ -154,6 +158,7 @@ class SQLiteDialect(
 
     WindowFunctionMixin,
     JSONMixin,
+    UUIDMixin,
     # Include mixins for features that SQLite does NOT support but need the methods to exist
 
     ArrayMixin,
@@ -218,6 +223,7 @@ class SQLiteDialect(
     FilterClauseSupport,
     WindowFunctionSupport,
     JSONSupport,
+    UUIDSupport,
     ReturningSupport,
     AdvancedGroupingSupport,
     ArraySupport,
