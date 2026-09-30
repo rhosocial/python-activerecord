@@ -172,4 +172,105 @@ EXAMPLES_META = {
         "dialect_protocols": [],
         "priority": 10,
     },
+
+    "cli/named_connection_demo.py": {
+        "title": "CLI — named-connection Subcommand",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "cli/named_procedure_demo.py": {
+        "title": "CLI — named-procedure Subcommand",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "cli/named_query_demo.py": {
+        "title": "CLI — named-expression Subcommand",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "concurrency.py": {
+        "title": "ConcurrencyAware Protocol",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "extensions/fts3_4_basic.py": {
+        "title": "FTS3/FTS4 Full-Text Search (deprecated)",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "extensions/fts5_basic.py": {
+        "title": "FTS5 Full-Text Search",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "extensions/version_353_features.py": {
+        "title": "SQLite 3.53.0 Feature Detection",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_connections/file.py": {
+        "title": "Named Connection — File-Based Database",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_connections/memory.py": {
+        "title": "Named Connection — In-Memory Database",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_expressions/order_clauses.py": {
+        "title": "Named Expressions — Clause Builders (WHERE / JOIN / GROUP BY / ORDER BY / LIMIT)",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_expressions/order_ddl.py": {
+        "title": "Named Expressions — DDL Builders",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_expressions/order_dml.py": {
+        "title": "Named Expressions — DML Builders",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_expressions/order_expressions.py": {
+        "title": "Named Expressions — Order Queries",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_expressions/order_version_compare.py": {
+        "title": "Named Expressions — Version-Dependent (json_array_insert, SQLite 3.53+)",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_migrations/expressions.py": {
+        "title": "Named Expressions — DDL Builders for Migrations",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_migrations/migrations.py": {
+        "title": "Named Migrations — Versioned Schema Changes",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_procedure_graph/monthly_report.py": {
+        "title": "Named Procedure Graph — Monthly Sales Report",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_procedure_graph/q.py": {
+        "title": "Named Expressions — Queries Supporting monthly_report_graph",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_procedures/diagram_demo.py": {
+        "title": "Named Procedure — Static and Instance Diagrams",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
+    "named_procedures/order_workflow.py": {
+        "title": "Named Procedure — Order Processing Workflow",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
 }
