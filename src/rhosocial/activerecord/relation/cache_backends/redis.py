@@ -28,6 +28,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _is_addressable(cls) -> bool:
+    """Whether a primary key can address a single row of this class.
+
+    ``addressable()`` is the model's own answer, but the cache accepts any object
+    that quacks like a model, and a duck-typed stand-in has no such method.
+    Requiring it broke callers that worked before, so fall back to the
+    primary-key-value check the callers already perform.
+    """
+    probe = getattr(cls, "addressable", None)
+    if probe is None:
+        return True
+    return bool(probe())
+
+
 @dataclass
 class RedisConfig:
     """Connection configuration for RedisCache.
@@ -123,7 +137,7 @@ class RedisCache:
 
     def _make_key(self, instance: Any, relation_name: str) -> str:
         cls = type(instance)
-        if not cls.addressable():
+        if not _is_addressable(cls):
             raise UnaddressableRecordError(cls.__name__, f"Caching relation '{relation_name}'")
         pk_val = getattr(instance, instance.primary_key(), None)
         if pk_val is None:
@@ -216,7 +230,7 @@ class RedisCache:
     def invalidate_instance(self, instance: Any):
         """Delete all cached relations for an instance."""
         cls = type(instance)
-        if not cls.addressable():
+        if not _is_addressable(cls):
             raise UnaddressableRecordError(cls.__name__, "Invalidating cached relations")
         pattern = f"{self._prefix}{cls.__name__}:{getattr(instance, instance.primary_key(), '*')}:*"
         self._delete_pattern(pattern)

@@ -19,9 +19,15 @@ They diverge whenever a field renames its column, which ``test_renamed_
 generated_column_is_excluded_from_both_views`` pins down.
 """
 
-from typing import Annotated, ClassVar, Optional
+import sys
+from typing import ClassVar, Optional
 
 import pytest
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:  # Annotated landed in 3.9; the project supports 3.8
+    from typing_extensions import Annotated
 
 from rhosocial.activerecord.backend.expression.core import Column
 from rhosocial.activerecord.backend.expression.statements import (
