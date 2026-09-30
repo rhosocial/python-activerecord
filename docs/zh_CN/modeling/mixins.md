@@ -262,6 +262,35 @@ class Article(OptimisticLockMixin, ActiveRecord):
 
 > 💡 **AI提示词示例**: "如何处理多人同时编辑同一篇文章的情况？乐观锁的工作原理是什么？"
 
+### ReadOnlyMixin
+
+拒绝通过框架写入：`save()`、`delete()`、`bulk_create()`、`bulk_update()`、
+`bulk_delete()`、`update_all()`、`delete_all()` 全部在准备 SQL 之前抛出 `ReadOnlyError`。
+读取、关联与聚合不受影响。
+
+```python
+from rhosocial.activerecord.field import ReadOnlyMixin
+
+class UserAnalytics(ReadOnlyMixin, ActiveRecord):
+    """users 表在分析副本上的只读视图。"""
+    __table_name__ = "users"
+    id: Optional[int] = None
+    name: str
+
+UserAnalytics.query().count()                  # ✅
+UserAnalytics(name="x").save()                 # ❌ ReadOnlyError
+```
+
+设置 `__read_only__ = False` 可退出。`ReadOnlyError` 是 `DatabaseError` 的子类。
+
+与上面的混入类不同，它**没有异步变体**：`read_only()` 是一个零 IO 的类方法，
+因此同一个混入类同时服务 `ActiveRecord` 与 `AsyncActiveRecord`。
+
+> 💡 与写入型行为的混入类（`SoftDeleteMixin`、`TimestampMixin`、`OptimisticLockMixin`）
+> 组合会在**类定义时**抛出 `TypeError`——那些事件处理器在只读模型上永远不会被执行。
+
+详见 [只读模型](readonly_models.md)。
+
 ## 自定义 Mixin
 
 你可以轻松创建自己的 Mixin。Mixin 只是一个继承自 `ActiveRecord` (或其基类) 的类。

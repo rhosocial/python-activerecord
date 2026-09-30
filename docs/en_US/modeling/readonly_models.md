@@ -1,190 +1,228 @@
-# Read-Only Analytics Models
+# Read-Only Models
 
-In data analytics, reporting, and read-replica scenarios, you often want model classes
-that **can query but must never write**.  This guide shows how to define, configure, and
-use read-only models safely.
+Some relations must never be written: a query runs against a replica, a report reads a
+data warehouse, an audit trail is append-only. `ReadOnlyMixin` declares that, and the
+framework enforces it on every write path it owns.
 
 > 💡 **AI Prompt:** "I want a model class that connects to our analytics database and
-> raises an error if anyone accidentally tries to write to it.  How do I do that?"
+> raises an error if anyone accidentally tries to write to it. How do I do that?"
 
 ---
 
-## 1. Why Read-Only Models
+## 1. Declaring a Read-Only Model
 
-| Use Case | Description |
-| --- | --- |
-| **Read replica** | Queries run on a replica; writes go to the primary only |
-| **Analytics / BI** | Reports query a data warehouse that must not be modified |
-| **Multi-tenant audit** | One tenant's model may read another tenant's data but never write |
-| **Historical snapshots** | Immutable archive tables -- reads allowed, no mutations |
-
----
-
-## 2. Declaring a Read-Only Model
-
-Add a `__readonly__` class attribute and override `save()` and `delete()` to raise an
-error immediately:
+Mix `ReadOnlyMixin` into any model:
 
 ```python
 from typing import Optional
+from rhosocial.activerecord.field import ReadOnlyMixin
 from rhosocial.activerecord.model import ActiveRecord
 
-class ReadOnlyMixin:
-    """Mix into any ActiveRecord subclass to make it read-only."""
-
-    __readonly__: bool = True
-
-    def save(self, *args, **kwargs):
-        raise TypeError(
-            f"{type(self).__name__} is a read-only model and cannot be saved. "
-            "Use the corresponding writable model class instead."
-        )
-
-    def delete(self, *args, **kwargs):
-        raise TypeError(
-            f"{type(self).__name__} is a read-only model and cannot be deleted."
-        )
-
-    @classmethod
-    def bulk_create(cls, *args, **kwargs):
-        raise TypeError(f"{cls.__name__} is a read-only model.")
-```
-
-Apply it to any model:
-
-```python
 class UserAnalytics(ReadOnlyMixin, ActiveRecord):
     """Read-only view of the users table on the analytics replica."""
     __table_name__ = "users"
     id: Optional[int] = None
     name: str
     email: str
-    created_at: Optional[str] = None
 ```
+
+That is the whole declaration. `__read_only__` is set to `True` and the framework refuses
+writes before preparing any SQL:
+
+```python
+# ✅ Reads work normally
+analysts = UserAnalytics.query().where(UserAnalytics.c.name == "Alice").all()
+count = UserAnalytics.query().count()
+
+# ❌ Refused -- no statement is ever sent
+UserAnalytics(name="Alice", email="alice@example.com").save()
+# ReadOnlyError: save is not allowed on read-only model 'UserAnalytics'. ...
+```
+
+`ReadOnlyError` subclasses `DatabaseError`, so existing `except DatabaseError` handlers
+catch it too.
+
+### What is blocked
+
+| Blocked | Available |
+| --- | --- |
+| `save()`, `delete()` | `query()`, `all()`, `one()`, `where()`, `order_by()`, `group_by()` |
+| `bulk_create()`, `bulk_update()`, `bulk_delete()` | `count()`, `exists()`, `aggregate()`, `avg()`, `sum_()`, `max_()`, `min_()` |
+| `update_all()`, `delete_all()` | `with_()` eager loading, relations, `find_all()` |
+
+Reads are untouched. So are the fields the model declares — `ReadOnlyMixin` is
+*semantics only*, following the same convention as `SoftDeleteMixin` and `TimestampMixin`.
+
+### Escaping the gate
+
+Set `__read_only__ = False` to write anyway:
+
+```python
+class Maintenance(ReadOnlyMixin, ActiveRecord):
+    __table_name__ = "users"
+    __read_only__ = False   # escape hatch, for scripts that must write
+```
+
+---
+
+## 2. Why the Decision Lives in the Model
+
+`ReadOnlyMixin` implements `IReadOnlyBehavior`, one of four behaviour interfaces in
+`interface/update.py` alongside `IUpdateBehavior`, `IDeleteBehavior` and
+`IDataPreparationBehavior`:
+
+```python
+class ReadOnlyMixin(IReadOnlyBehavior):
+    __read_only__: ClassVar[bool] = True
+
+    @classmethod
+    def read_only(cls) -> bool:
+        return bool(getattr(cls, "__read_only__", False))
+```
+
+The framework asks `read_only()` and acts on the **returned value**, not on the type:
+
+```python
+@classmethod
+def refuse_read_only(cls, operation: str) -> None:
+    read_only = getattr(cls, "read_only", None)
+    if callable(read_only) and read_only():
+        raise ReadOnlyError(cls.__name__, operation)
+```
+
+Membership in `IReadOnlyBehavior` only says a `read_only` method exists — a model can
+satisfy the interface and still be writable. Testing the type instead of the value would
+refuse those models, so it is deliberately not done. The same reasoning makes `read_only()`
+return `bool` rather than `None`: a `None` return invites `is None` being used as a type
+test.
+
+**The feature is opt-in.** A model that does not mix the interface in does not even answer
+`read_only()`, so existing behaviour is unchanged — there is no cost for models that never
+asked for this.
+
+**One implementation serves sync and async.** `read_only()` is a zero-I/O classmethod, and
+the `field/` convention is that an async twin is needed only when a method issues SQL
+(`SoftDeleteMixin` has one for `restore()`). `AsyncActiveRecord` models mix in the same
+`ReadOnlyMixin`.
+
+Any class can implement `IReadOnlyBehavior` alone — a plain dataclass, a non-ActiveRecord
+domain object — and get the same declaration.
 
 ---
 
 ## 3. Connecting to a Read Replica
 
-Configure the read-only model against a separate backend -- typically a read replica or
-analytics database:
+Configure the read-only model against a separate backend:
 
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # Primary database -- writable models
-primary_config = SQLiteConnectionConfig(database="primary.db")
-User.configure(primary_config, SQLiteBackend)
+User.configure(SQLiteConnectionConfig(database="primary.db"), SQLiteBackend)
 
 # Analytics replica -- read-only models
-analytics_config = SQLiteConnectionConfig(database="analytics_replica.db")
-UserAnalytics.configure(analytics_config, SQLiteBackend)
-```
-
-Queries run against the replica; any accidental write raises `TypeError` before reaching
-the database:
-
-```python
-# ✅ Safe: read operations work normally
-analysts = UserAnalytics.query().where(UserAnalytics.c.created_at >= "2024-01-01").all()
-
-# ✅ Safe: aggregations
-count = UserAnalytics.query().count()
-
-# ❌ Blocked immediately -- no database call is made
-user = UserAnalytics(name="Alice", email="alice@example.com")
-user.save()  # Raises: TypeError: UserAnalytics is a read-only model and cannot be saved.
+UserAnalytics.configure(SQLiteConnectionConfig(database="analytics.db"), SQLiteBackend)
 ```
 
 ---
 
 ## 4. Combining with the Shared Field Mixin Pattern
 
-The most maintainable approach is to combine `ReadOnlyMixin` with the [shared field
-mixin](best_practices.md#8-multiple-independent-connections) pattern: define fields
-once, share them between the writable model and its read-only analytics counterpart.
+Define fields once and share them between the writable model and its read-only
+counterpart:
 
 ```python
 from pydantic import BaseModel
 
-# Shared field definition
 class UserFields(BaseModel):
     id: Optional[int] = None
     name: str
     email: str
-    created_at: Optional[str] = None
 
-# Writable business model -- primary database
 class User(UserFields, ActiveRecord):
     __table_name__ = "users"
 
-# Read-only analytics model -- analytics replica
 class UserAnalytics(ReadOnlyMixin, UserFields, ActiveRecord):
     __table_name__ = "users"
 
-# Configure independently
 User.configure(primary_config, SQLiteBackend)
 UserAnalytics.configure(analytics_config, SQLiteBackend)
 ```
 
-Field definitions live in one place (`UserFields`).  Both models stay in sync
-automatically when fields are added or changed.
+Field definitions live in one place. Both models stay in sync when fields change.
 
 ---
 
-## 5. Derived / Computed Fields
+## 5. Keyless Models Are a Separate Axis
 
-Analytics models often need metrics derived from stored data.  Use `@property` for
-values that should not be persisted:
+Read-only and "has a primary key" are independent. A read replica usually keeps its keys,
+and a keyless relation can still be writable:
 
 ```python
-from datetime import datetime
+class AuditLog(ActiveRecord):          # keyless, but writable (append-only table)
+    __primary_key__ = None
+    event: str
 
-class UserAnalytics(ReadOnlyMixin, UserFields, ActiveRecord):
-    __table_name__ = "users"
-    signup_days_ago: Optional[int] = None  # populated by DB query / annotation
-
-    @property
-    def is_new_user(self) -> bool:
-        """True if the user signed up within the last 30 days."""
-        return (self.signup_days_ago or 0) <= 30
-
-    @property
-    def tier(self) -> str:
-        """Classify users by signup age."""
-        days = self.signup_days_ago or 0
-        if days <= 30:
-            return "new"
-        if days <= 365:
-            return "regular"
-        return "veteran"
+class EventView(ReadOnlyMixin, ActiveRecord):
+    __primary_key__ = None             # keyless *and* read-only
+    event: str
 ```
 
-`@property` fields are computed in Python and never stored in the database, making them
-safe to add without schema changes.
+See [Keyless Models](keyless_models.md) for what `__primary_key__ = None` means and which
+APPs it rules out.
 
 ---
 
-## 6. Read-Only Model Checklist
+## 6. Limits Worth Knowing
 
-- [ ] `ReadOnlyMixin` (or equivalent) overrides `save()`, `delete()`, and `bulk_create()`
-- [ ] Read-only model configured against a replica / analytics backend, not the primary
-- [ ] Field definitions shared via a `BaseModel` mixin to avoid duplication
-- [ ] Computed metrics expressed as `@property`, not stored columns
-- [ ] Unit tests verify that `save()` and `delete()` raise `TypeError`
+**This guards the framework's write paths, not the database.** `backend.expression` is
+publicly exported, so anyone can build and execute an UPDATE by hand:
+
+```python
+from rhosocial.activerecord.backend.expression import UpdateExpression
+
+UpdateExpression(dialect, table="users", data={"name": "x"}, where=...).to_sql()
+```
+
+The real guarantee is database credentials — grant the account `SELECT` only. Use the
+mixin to prevent accidents, and privileges to enforce policy.
+
+**Combining with a write-behaviour mixin is rejected.** `SoftDeleteMixin`,
+`TimestampMixin` and `OptimisticLockMixin` register `BEFORE_INSERT` / `BEFORE_UPDATE` /
+`BEFORE_DELETE` handlers, which could never run on a read-only model because every write is
+refused first. That combination raises `TypeError` when the class is defined:
+
+```python
+class Broken(ReadOnlyMixin, SoftDeleteMixin, ActiveRecord):
+    ...  # TypeError: Broken is read-only but also implements IDeleteBehavior ...
+```
+
+The check runs from `__init_subclass__`, so it fires at class-definition time rather than
+on first instantiation.
+
+---
+
+## Checklist
+
+- [ ] `ReadOnlyMixin` mixed in; no `save()` / `delete()` overrides hand-written
+- [ ] Tests assert `ReadOnlyError`, not a generic exception
+- [ ] Backend configured against a replica if that is the intent
+- [ ] Database account granted read-only privileges — the mixin is not the boundary
+- [ ] No write-behaviour mixin combined with read-only
 
 ---
 
 ## Runnable Example
 
-See [`docs/examples/chapter_03_modeling/readonly_models.py`](../../../examples/chapter_03_modeling/readonly_models.py)
-for a self-contained script that demonstrates all four patterns above.
+See [`docs/examples/chapter_03_modeling/readonly_models.py`](../../examples/chapter_03_modeling/readonly_models.py)
+for a self-contained script.
 
 ---
 
 ## See Also
 
-- [Multiple Independent Connections](best_practices.md#8-multiple-independent-connections) — separating connections with subclass vs. mixin patterns
-- [Batch Processing](batch_processing.md) — efficiently reading large datasets from analytics databases
-- [Mixins](mixins.md) — built-in mixins and patterns for composing model behaviour
+- [Keyless Models](keyless_models.md) — `__primary_key__ = None` and what it rules out
+- [Views as Queries](views_as_queries.md) — expressing a database view without a model
+- [Mixins](mixins.md) — the other built-in mixins
+- [Batch Processing](batch_processing.md) — efficiently reading large datasets
