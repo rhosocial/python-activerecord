@@ -232,6 +232,65 @@ def _returns_literal_true(func: Any) -> bool:
     )
 
 
+def _return_signature(func: Any) -> Optional[str]:
+    """The value a function returns, as a comparable string, or None.
+
+    A bare ``return <literal>`` is normalised so two implementations of the same
+    capability with the same default compare equal, which is what makes a
+    redundant override detectable. A comparison such as
+    ``return self.version >= (8, 0, 16)`` yields a per-dialect signature and so
+    is never reported as redundant.
+
+    Only a body that is a single return of a constant, a name, an attribute or a
+    comparison is normalised. Anything with real logic returns None and counts as
+    a genuine difference.
+    """
+    try:
+        source = textwrap.dedent(inspect.getsource(func))
+    except (OSError, TypeError):
+        return None
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None
+    # The source is a whole def, so the statements live one level down.
+    if len(tree.body) == 1 and isinstance(tree.body[0], (ast.FunctionDef, ast.AsyncFunctionDef)):
+        statements = tree.body[0].body
+    else:
+        statements = tree.body
+    body = [
+        node
+        for node in statements
+        if not (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        )
+    ]
+    if len(body) != 1 or not isinstance(body[0], ast.Return) or body[0].value is None:
+        return None
+    value = body[0].value
+    if isinstance(value, ast.Constant):
+        return "const:{!r}".format(value.value)
+    if isinstance(value, ast.Name):
+        return "name:{}".format(value.id)
+    if isinstance(value, (ast.Compare, ast.Attribute)):
+        return "{}:{}".format(type(value).__name__.lower(), ast.unparse(value))
+    return None
+
+
+def _resolve_callable(owner: Any, name: str) -> Any:
+    """Fetch a method off a class, unwrapping staticmethod and property."""
+    value = vars(owner).get(name)
+    if value is None:
+        return None
+    if isinstance(value, property):
+        value = value.fget
+    if isinstance(value, staticmethod):
+        value = value.__func__
+    return value if callable(value) else None
+
+
 # ── Model ────────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -375,6 +434,57 @@ class DialectProfile:
                 if not callable(func) or not _returns_literal_true(func):
                     continue
                 found.append("{}.{}".format(base.__name__, name))
+        return sorted(found)
+
+    def redundant_overrides(self) -> List[str]:
+        """Backend overrides that reproduce the core default they shadow.
+
+        The layering rule is that a backend reuses a core mixin's implementation
+        wherever the core behaviour already fits, and overrides only what its
+        database actually does differently. Overriding a method to return the
+        same value the core mixin already returns breaks both halves of that:
+        the reuse is lost and the override reads as a per-backend diff when it
+        records none.
+
+        Detection walks the MRO. For each backend implementation class, a method
+        is redundant when a class further along the MRO defines the same name from
+        the core mixin package and the two bodies return the same thing. MRO order
+        is what makes the shadowed core implementation the one that would have run.
+
+        This is reported as a review item rather than a defect. A backend may still
+        override a core default to document an intent, and a value computed at
+        runtime never matches a literal default, so those stay silent by design.
+        """
+        found: List[str] = []
+        core_indices = [
+            index
+            for index, base in enumerate(self._mro)
+            if getattr(base, "__module__", "").startswith(CORE_MIXIN_PREFIX)
+        ]
+        if not core_indices:
+            return found
+        last_core = core_indices[-1]
+        for index, base in enumerate(self._mro[:last_core]):
+            module = getattr(base, "__module__", "")
+            if module.startswith(CORE_MIXIN_PREFIX):
+                continue
+            for name in vars(base):
+                override = _resolve_callable(base, name)
+                if override is None:
+                    continue
+                signature = _return_signature(override)
+                if signature is None:
+                    continue
+                for later in self._mro[index + 1:]:
+                    if not getattr(later, "__module__", "").startswith(CORE_MIXIN_PREFIX):
+                        continue
+                    shadowed = _resolve_callable(later, name)
+                    if shadowed is None:
+                        continue
+                    if _return_signature(shadowed) == signature:
+                        found.append("{}.{} shadows {}".format(
+                            base.__name__, name, later.__name__))
+                    break
         return sorted(found)
 
     def protocol_overlap(self) -> Dict[str, List[str]]:
@@ -602,6 +712,9 @@ def summarise(profiles: Sequence[DialectProfile]) -> Dict[str, Any]:
             len(p.untriaged_capability_bits()) for p in profiles
         ),
         "protocol_overlap": sum(len(p.protocol_overlap()) for p in profiles),
+        "redundant_overrides": sum(
+            len(p.redundant_overrides()) for p in profiles
+        ),
         "protocols_without_members": sum(
             len(p.protocols_without_members()) for p in profiles
         ),
@@ -620,13 +733,14 @@ def render_report(profiles: Sequence[DialectProfile], failures: Sequence[Tuple[s
     out.append("")
 
     out.append(
-        "{:<24} {:>5} {:>5} {:>9} {:>9} {:>8} {:>7} {:>7}".format(
-            "dialect", "mro", "prot", "declared", "provided", "missing", "untri", "overlap"
+        "{:<24} {:>5} {:>5} {:>9} {:>9} {:>8} {:>7} {:>7} {:>7}".format(
+            "dialect", "mro", "prot", "declared", "provided", "missing", "untri",
+            "overlap", "redund"
         )
     )
     for p in profiles:
         out.append(
-            "{:<24} {:>5} {:>5} {:>9} {:>9} {:>8} {:>7} {:>7}".format(
+            "{:<24} {:>5} {:>5} {:>9} {:>9} {:>8} {:>7} {:>7} {:>7}".format(
                 p.label,
                 p.mro_length,
                 len(p.protocols),
@@ -635,6 +749,7 @@ def render_report(profiles: Sequence[DialectProfile], failures: Sequence[Tuple[s
                 len(p.stubbed_methods()),
                 len(p.untriaged_capability_bits()),
                 len(p.protocol_overlap()),
+                len(p.redundant_overrides()),
             )
         )
     out.append("")
@@ -705,6 +820,21 @@ def render_report(profiles: Sequence[DialectProfile], failures: Sequence[Tuple[s
             )))
         else:
             out.append("  {:<24} NONE FOUND - coverage unverified".format(p.label))
+    out.append("")
+
+    out.append("Redundant overrides (backend repeats the core default it shadows)")
+    out.append("Reuse lost for no behavioural difference; an override should read as a diff.")
+    any_redundant = False
+    for p in profiles:
+        entries = p.redundant_overrides()
+        if not entries:
+            continue
+        any_redundant = True
+        out.append("  {} ({} method(s))".format(p.label, len(entries)))
+        for entry in entries:
+            out.append("     ! {}".format(entry))
+    if not any_redundant:
+        out.append("  none")
     out.append("")
 
     out.append("Implemented but undeclared (protocol-shaped methods with no protocol)")

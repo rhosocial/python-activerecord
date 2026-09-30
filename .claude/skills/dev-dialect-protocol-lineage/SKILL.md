@@ -42,9 +42,38 @@ it. That is the defect class this tool exists to find.
 | `stubbed_methods` | The winning implementation of a declared method is an ``...`` stub. ``hasattr`` is True and ``isinstance(dialect, Proto)`` holds, so conformance tests pass; calling it returns ``None``. | Review. The failure mode conformance testing structurally cannot see. |
 | `protocol_overlap` | Two protocols in one MRO declare the same name, so MRO order silently decides the meaning. | Review. The conformance tests assert against this too. |
 | `untriaged_capability_bits` | A `supports_*` bit whose winning implementation is a *core* mixin returning a hardcoded `True`, which no backend class overrides. | **Prompt, not a defect.** See the warning below. |
+| `redundant_overrides` | A backend class overrides a core mixin method to return what the core already returns. | **Review.** Breaks the reuse rule; see below. |
 | `implemented_but_undeclared` | A mixin provides a `format_*` / `supports_*` method no protocol declares. Usually dead code. | Informational. |
 | `protocols_without_members` | A protocol declaring nothing, so it documents rather than contracts. | Review. |
 | conformance-test coverage | Whether the repository that *defines* the dialect ships protocol conformance tests. | Missing coverage is a finding, not a pass. |
+
+### `redundant_overrides`: the reuse rule made checkable
+
+The layering rule is that a backend reuses a core mixin's implementation wherever the core
+behaviour already fits, and overrides only what its database actually does differently.
+`redundant_overrides` finds the cases where that is not what happened: the backend class
+shadows a core mixin method and returns the same value the core already returns.
+
+Detection walks the MRO. For each backend implementation class, a method is redundant when a
+class further along the MRO defines the same name from `backend/dialect/mixins` and the two
+bodies return the same thing. MRO order is what identifies the shadowed implementation as the
+one that would otherwise have run.
+
+Current state: **280 across 11 dialects**, 206 of them in real backends and 37 on
+`DummyDialect`, which is a test fixture and excluded from merge gates. The largest are sqlite
+48, clickhouse 44, firebird 39, oracle 39. Typical members are capability bits whose core
+default is already `False`, such as `supports_add_column_if_not_exists` shadowing
+`DDLColumnMixin`.
+
+Only bodies that are a single `return` of a constant, a name, an attribute or a comparison are
+normalised. Anything with real logic returns no signature and is never reported, and a value
+computed at runtime differs per dialect by construction. So a backend that deliberately
+restates a default to document intent is not visible here — read the section as "provably
+identical", not "all overrides".
+
+> An earlier attempt compared `supports_X` against `format_X` and reported capability claims
+> with no renderer, which produced 86-237 false positives and was abandoned. Do not reintroduce
+> name-based feature pairing.
 
 ### Why `untriaged_capability_bits` is deliberately narrow
 
@@ -106,6 +135,7 @@ invisible gap is the entire problem. Verified to parse against Mermaid 11.
 ```
 declared_but_absent : 0
 stubbed_methods     : 0 - 64 per dialect
+redundant_overrides : 7 - 48 per dialect (280 total, 37 of them on the dummy fixture)
 ```
 
 ### Correction: an earlier version of this skill was wrong
@@ -135,9 +165,11 @@ The hazard is uniform even where the intent is benign: a caller gets `None` rath
 
 ## 6. Using it as a gate
 
-`declared_but_unimplemented` is the blocking signal. `protocol_overlap` and
-`untriaged_capability_bits` are review items, not gates. Conformance-test absence is a gap
-in verification and should be treated as a hold for a new backend.
+`declared_but_unimplemented` is the blocking signal. `protocol_overlap`,
+`untriaged_capability_bits` and `redundant_overrides` are review items, not gates:
+`redundant_overrides` is a code-reuse finding rather than a correctness one, so treat a rise
+as a diff to read and a long-standing non-zero count as the baseline. Conformance-test absence
+is a gap in verification and should be treated as a hold for a new backend.
 
 `dev-merge-evaluation` lists this as check **F3** and holds the branch on any non-zero
 finding.
@@ -157,5 +189,9 @@ finding.
   results; import failures are reported rather than hidden, but must be read.
 - **Overlap and undeclared counts are large by nature** (hundreds). They are for
   exploration and regression diffing, not pass/fail.
+- **`redundant_overrides` needs the source.** It reads method bodies to compare returns, so a
+  method defined in C or attached dynamically is invisible rather than reported clean. The
+  comparison is also value-based: two bodies that reach the same result by different routes are
+  not detected, and a body with real logic is never reported.
 - **Conformance tests are located, never executed.** Only the backend's own CI, against a
   real database, settles callability.
