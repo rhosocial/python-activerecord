@@ -23,11 +23,17 @@ Create a new feature for rhosocial-activerecord following the project's strict s
 - Share SQL schema files between sync/async tests
 
 ### 4. Documentation
-- Create changelog.d/{issue}.{type}.md fragment
 - Update relevant documentation
+
+### 5. Changelog — NOT during feature work
+
+Do **not** create `changelog.d/` fragments while building a feature. Fragments are
+written at the last moment before opening the PR that will be merged, once the
+change set is final; see `.claude/version_control.md` §4. If a feature is abandoned,
+there is nothing to clean up because nothing was written.
 
 Ask the user:
 1. What is the feature name (snake_case)?
 2. What category does it belong to?
 3. Does it need async API?
-4. What issue number should be referenced?
+4. What issue number should be referenced? (needed only at PR time)
