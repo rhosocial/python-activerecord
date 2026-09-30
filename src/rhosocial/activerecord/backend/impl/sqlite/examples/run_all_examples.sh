@@ -31,7 +31,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # running a script by path guarantees.
 REPO_ROOT=""
 _probe="$SCRIPT_DIR"
-for _ in 1 2 3 4 5 6 7 8; do
+for _ in $(seq 1 12); do
     if [ -d "$_probe/src/rhosocial" ]; then
         REPO_ROOT="$(cd "$_probe" && pwd)"
         break

@@ -36,7 +36,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # too, for 3.11+, but it cannot be relied on because the project supports 3.8.
 REPO_ROOT=""
 _probe="$SCRIPT_DIR"
-for _ in 1 2 3 4 5 6 7 8; do
+for _ in $(seq 1 12); do
     if [ -d "$_probe/src/rhosocial" ]; then
         REPO_ROOT="$(cd "$_probe" && pwd)"
         break

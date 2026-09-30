@@ -20,7 +20,7 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.types import IntegerType, RealType, TextType
 
 
-def _pk_column(name: str):
+def _pk_column(dialect, name: str):
     """Integer PRIMARY KEY column definition."""
     return ColumnDefinition(dialect, 
         name=name,
@@ -31,7 +31,7 @@ def _pk_column(name: str):
     )
 
 
-def _integer_column(name: str, default: int = None, not_null: bool = False):
+def _integer_column(dialect, name: str, default: int = None, not_null: bool = False):
     """Integer column definition with optional DEFAULT / NOT NULL."""
     constraints = []
     if not_null:
@@ -43,7 +43,7 @@ def _integer_column(name: str, default: int = None, not_null: bool = False):
     return ColumnDefinition(dialect, name=name, data_type=IntegerType(dialect), constraints=constraints)
 
 
-def _text_column(name: str, default: str = None, not_null: bool = False):
+def _text_column(dialect, name: str, default: str = None, not_null: bool = False):
     """Text column definition with optional DEFAULT / NOT NULL."""
     constraints = []
     if not_null:
@@ -55,7 +55,7 @@ def _text_column(name: str, default: str = None, not_null: bool = False):
     return ColumnDefinition(dialect, name=name, data_type=TextType(dialect), constraints=constraints)
 
 
-def _real_column(name: str, default: float = None):
+def _real_column(dialect, name: str, default: float = None):
     """REAL column definition with optional DEFAULT."""
     constraints = []
     if default is not None:
@@ -78,11 +78,11 @@ def create_orders_table(dialect):
         dialect,
         table="orders",
         columns=[
-            _pk_column("id"),
-            _integer_column("user_id", not_null=True),
-            _text_column("status", default="pending"),
-            _real_column("amount", default=0.0),
-            _text_column("created_at", default="CURRENT_TIMESTAMP"),
+            _pk_column(dialect, "id"),
+            _integer_column(dialect, "user_id", not_null=True),
+            _text_column(dialect, "status", default="pending"),
+            _real_column(dialect, "amount", default=0.0),
+            _text_column(dialect, "created_at", default="CURRENT_TIMESTAMP"),
         ],
         if_not_exists=True,
     )
@@ -101,9 +101,9 @@ def create_inventory_table(dialect):
         dialect,
         table="inventory",
         columns=[
-            _pk_column("id"),
-            _integer_column("order_id", not_null=True),
-            _integer_column("available", default=0),
+            _pk_column(dialect, "id"),
+            _integer_column(dialect, "order_id", not_null=True),
+            _integer_column(dialect, "available", default=0),
         ],
         if_not_exists=True,
     )
@@ -124,7 +124,7 @@ def add_amount_column(dialect):
         actions=[
             AddColumn(
                 dialect,
-                column=_real_column("amount", default=0.0),
+                column=_real_column(dialect, "amount", default=0.0),
             ),
         ],
     )
