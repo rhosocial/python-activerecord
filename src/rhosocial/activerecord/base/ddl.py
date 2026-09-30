@@ -6,6 +6,7 @@ from __future__ import annotations
 import types
 import typing
 from dataclasses import dataclass
+from enum import Enum
 from typing import (
     Any,
     Callable,
@@ -29,8 +30,10 @@ try:
 except ImportError:  # Python 3.8
     from typing_extensions import Annotated
 
+from rhosocial.activerecord.backend.expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression, DropIndexExpression
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause
+from rhosocial.activerecord.backend.expression.statements.ddl_view import ViewOptions
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     ColumnConstraint,
     ColumnConstraintType,
@@ -64,6 +67,32 @@ DDLGeneratedColumn = Union[
     GeneratedColumnExpression,
     Callable[["SQLDialectBase"], GeneratedColumnExpression],
 ]
+
+
+class ObjectDeclaration(Enum):
+    """Which kind of database object a :class:`DDLSource` describes.
+
+    A declaration, never a runtime probe: the DDL layer selects the statement
+    to build from this value and then applies the dialect's capability gates.
+    Whether a database *actually* holds a view of that name is a question for
+    introspection, which model metadata deliberately does not ask.
+
+    ``TABLE``
+        The default. Anything declared through the column/constraint/index
+        methods below.
+    ``VIEW``
+        A plain view -- a stored query with no entity behind it. Prefer
+        expressing those as an encapsulated query rather than a model; this
+        member exists so a non-model :class:`DDLSource` can declare one for
+        migration purposes.
+    ``MATERIALIZED_VIEW``
+        A stored result set with a refresh cycle. Unlike a view this *is* an
+        entity, so a model may map one.
+    """
+
+    TABLE = "table"
+    VIEW = "view"
+    MATERIALIZED_VIEW = "materialized_view"
 
 PEP604_UNION_TYPE = getattr(types, "UnionType", None)
 MARKER_REGISTRY: Dict[Type[Any], Tuple[str, bool]] = {
@@ -404,6 +433,20 @@ class DDLSource(Protocol):
     def table_tablespace(self) -> Optional[str]:
         ...
 
+    def object_type(self) -> ObjectDeclaration:
+        ...
+
+    def view_options(self) -> Optional[ViewOptions]:
+        ...
+
+    def view_definition(
+        self,
+    ) -> Optional[Union[str, Callable[["SQLDialectBase"], BaseExpression]]]:
+        ...
+
+    def view_dependencies(self) -> Optional[Tuple[str, ...]]:
+        ...
+
 
 class DDLSourceMixin:
     """Provide overridable DDL parameter defaults for ActiveRecord models.
@@ -487,6 +530,46 @@ class DDLSourceMixin:
 
     @classmethod
     def table_tablespace(cls) -> Optional[str]:
+        return None
+
+    # ------------------------------------------------------------------
+    # Object kind (table vs. view vs. materialized view)
+    #
+    # A declaration, not a probe: no introspection happens here. The DDL layer
+    # reads object_type() to choose which statement to build, then applies the
+    # dialect's capability gates. Model metadata stays free of I/O, which is
+    # what lets it be resolved at import time.
+    #
+    # view_definition() takes a callable for the same reason column types do:
+    # annotations are evaluated before a dialect exists, so a definition that
+    # mentions columns must be built once the deriver supplies the dialect.
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def object_type(cls) -> ObjectDeclaration:
+        """Which kind of object this source describes. Defaults to a table."""
+        return ObjectDeclaration.TABLE
+
+    @classmethod
+    def view_options(cls) -> Optional[ViewOptions]:
+        """Dialect-neutral view creation options, or None for the defaults."""
+        return None
+
+    @classmethod
+    def view_definition(
+        cls,
+    ) -> Optional[Union[str, Callable[["SQLDialectBase"], BaseExpression]]]:
+        """The query behind a view, as SQL text or a dialect-bound factory."""
+        return None
+
+    @classmethod
+    def view_dependencies(cls) -> Optional[Tuple[str, ...]]:
+        """Names this object reads from, for cache invalidation.
+
+        Only meaningful for a view or materialized view: a materialized view
+        holds a snapshot of its sources, so invalidating a relation cache keyed
+        on it means invalidating on the sources instead.
+        """
         return None
 
     @classmethod

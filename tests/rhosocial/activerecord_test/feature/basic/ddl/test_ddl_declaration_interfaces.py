@@ -10,7 +10,9 @@ except ImportError:
 
 import pytest
 
+from rhosocial.activerecord.backend.expression import QueryExpression
 from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
     PartitionClause,
     PartitionStrategy,
@@ -21,9 +23,14 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     TableConstraint,
     TableConstraintType,
 )
+from rhosocial.activerecord.backend.expression.statements.ddl_view import (
+    ViewCheckOption,
+    ViewOptions,
+)
 from rhosocial.activerecord.backend.expression.types import DataType
 from rhosocial.activerecord.base import (
     CharacterSetAttribute,
+    DDLSourceMixin,
     CollationAttribute,
     ColumnAttribute,
     ColumnOptions,
@@ -31,6 +38,7 @@ from rhosocial.activerecord.base import (
     DDLFieldMetadata,
     DDLSource,
     IdentityAttribute,
+    ObjectDeclaration,
     UseColumnAttributes,
     UseComment,
     UseConstraint,
@@ -307,6 +315,158 @@ def test_default_table_interfaces_are_empty_or_none():
     assert Plain.table_inherits() is None
     assert Plain.table_tablespace() is None
     assert Plain.create_table_statement_classes() is None
+
+
+# ---------------------------------------------------------------------------
+# Object kind: table vs. view vs. materialized view
+#
+# object_type() is a declaration, never a probe. Nothing here asks the database
+# what the object actually is; the DDL layer reads the value to choose a
+# statement and then applies the dialect's capability gates.
+# ---------------------------------------------------------------------------
+
+
+class MaterializedSummary(ActiveRecord):
+    __table_name__ = "order_summary"
+    id: Optional[int] = None
+
+    @classmethod
+    def object_type(cls):
+        return ObjectDeclaration.MATERIALIZED_VIEW
+
+    @classmethod
+    def view_dependencies(cls):
+        return ("orders",)
+
+    @classmethod
+    def view_options(cls):
+        return ViewOptions(check_option=ViewCheckOption.LOCAL)
+
+
+class ViewDDLSource(DDLSourceMixin):
+    """A view declared with no model behind it.
+
+    Satisfying DDLSource needs the four identity methods a model would
+    normally supply -- table_name, schema_name, primary_key_columns and
+    is_composite_pk -- on top of everything DDLSourceMixin provides. That is
+    the whole cost of a non-model declaration source, and it is the reason a
+    plain view is expressible here at all.
+    """
+
+    @classmethod
+    def table_name(cls):
+        return "revenue_by_customer"
+
+    @classmethod
+    def schema_name(cls):
+        return None
+
+    @classmethod
+    def primary_key_columns(cls):
+        return ()
+
+    @classmethod
+    def is_composite_pk(cls):
+        return False
+
+    @classmethod
+    def object_type(cls):
+        return ObjectDeclaration.VIEW
+
+    @classmethod
+    def view_options(cls):
+        return ViewOptions(check_option=ViewCheckOption.LOCAL)
+
+    @classmethod
+    def view_definition(cls):
+        return lambda dialect: QueryExpression(
+            dialect,
+            select=[Column(dialect, "name")],
+            **{},
+        )
+
+    @classmethod
+    def view_dependencies(cls):
+        return ("orders", "customers")
+
+
+def test_object_type_defaults_to_table():
+    assert Plain.object_type() == ObjectDeclaration.TABLE
+
+
+def test_default_view_declarations_are_none():
+    assert Plain.view_options() is None
+    assert Plain.view_definition() is None
+    assert Plain.view_dependencies() is None
+
+
+def test_a_model_can_declare_a_materialized_view():
+    assert MaterializedSummary.object_type() == ObjectDeclaration.MATERIALIZED_VIEW
+    assert MaterializedSummary.view_dependencies() == ("orders",)
+    assert MaterializedSummary.view_options().check_option == ViewCheckOption.LOCAL
+
+
+def test_a_model_can_declare_a_plain_view():
+    """The value is a declaration; nothing verifies it against the database."""
+
+    class PlainView(MaterializedSummary):
+        __table_name__ = "revenue_by_customer"
+
+        @classmethod
+        def object_type(cls):
+            return ObjectDeclaration.VIEW
+
+    assert PlainView.object_type() == ObjectDeclaration.VIEW
+
+
+def test_object_type_is_not_a_probe():
+    """Declaring MATERIALIZED_VIEW does not require a connection or a table."""
+    assert MaterializedSummary.backend is not None
+    assert MaterializedSummary.object_type() == ObjectDeclaration.MATERIALIZED_VIEW
+
+
+def test_a_non_model_ddl_source_can_declare_a_view():
+    assert isinstance(ViewDDLSource, DDLSource)
+    assert ViewDDLSource.object_type() == ObjectDeclaration.VIEW
+    assert ViewDDLSource.view_dependencies() == ("orders", "customers")
+    assert ViewDDLSource.view_options().check_option == ViewCheckOption.LOCAL
+
+
+def test_view_definition_is_a_dialect_bound_factory():
+    """Not called at class-definition time -- a dialect does not exist yet."""
+    factory = ViewDDLSource.view_definition()
+    assert callable(factory)
+    expression = factory(DummyDialect())
+    assert expression.to_sql()[0].startswith("SELECT")
+
+
+def test_the_four_identity_methods_are_the_whole_cost_of_no_model():
+    """What DDLSourceMixin alone does not provide, spelled out.
+
+    Worth pinning: it is the reason a non-model declaration source is a
+    handful of methods rather than a subclassing exercise.
+    """
+    members = [
+        name
+        for name in dir(DDLSource)
+        if not name.startswith("_") and callable(getattr(DDLSource, name, None))
+    ]
+    missing = sorted(name for name in members if not hasattr(DDLSourceMixin, name))
+    assert missing == ["is_composite_pk", "primary_key_columns", "schema_name", "table_name"]
+
+
+def test_object_type_does_not_conflict_with_introspection_table_type():
+    """A DDL declaration enum, distinct from the introspection enum.
+
+    ObjectDeclaration is a *declaration* about what the developer intends;
+    TableType is an observation of what the database holds. Keeping them apart
+    stops a declaration from being mistaken for a reading of the catalog.
+    """
+    from rhosocial.activerecord.backend.introspection.types import TableType
+
+    assert ObjectDeclaration is not TableType
+    assert ObjectDeclaration.MATERIALIZED_VIEW.value == "materialized_view"
+    assert not hasattr(TableType, "MATERIALIZED_VIEW")
 
 
 def test_unhandled_annotation_requires_explicit_handler():
