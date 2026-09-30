@@ -105,6 +105,7 @@ examples/
 ├── cli_commands.sh  # Runner: CLI subcommand demos
 ├── concurrency.py  # ConcurrencyAware protocol usage
 ├── conftest.py  # Example metadata (title / dialect_protocols / priority)
+├── run_all_examples.sh         # Runner: executes every example, for CI
 └── run_executable_examples.sh  # Runner: executes example groups by name
 ```
 
@@ -191,6 +192,23 @@ Modes: `all`, `query`, `introspect`, `status`, `named-expression`,
 `named-procedure`, `named-procedure-graph`, `named-migration`,
 `named-connection`. The `cli/*_demo.py` scripts each spawn several CLI
 subprocesses and take roughly 25-30 seconds, so budget for that if you run them.
+
+### Checking every example
+
+`run_all_examples.sh` executes all 55 example modules and reports which ones
+failed. Nothing in the test suite runs them, so this is the only thing that
+notices an example drifting out of step with the API:
+
+```bash
+bash src/rhosocial/activerecord/backend/impl/sqlite/examples/run_all_examples.sh
+
+# Skip the slow cli/*_demo.py scripts, or filter to a subtree
+bash .../run_all_examples.sh --fast
+bash .../run_all_examples.sh query/
+```
+
+It exits non-zero if anything failed and prints the cause. CI runs it on every
+push, which is what keeps this directory honest.
 
 ## For LLM Context
 
