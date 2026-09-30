@@ -14,20 +14,28 @@ abstraction layer. Source lives in `src/rhosocial/activerecord/`.
 
 ## Iron rules (do not skip)
 
-1. **Run tests with `PYTHONPATH=src`** (tests are not on the module path). Never run tests in
+1. **Never open a pull request, issue, or any other GitHub item.** Opening one is a
+   human action, taken only on an explicit human instruction that names it. Silence is
+   not permission: finishing the work, the branch looking ready, CI being green, and a
+   merge looking like the obvious next step are all reasons to *stop and report*, never
+   reasons to open one. Committing and pushing to an existing branch are fine. This
+   overrides any workflow, skill, or convention in this repository that appears to
+   assume the agent drives the PR — including the changelog-fragment rule below, which
+   is written on the assumption that a human opens the PR.
+2. **Run tests with `PYTHONPATH=src`** (tests are not on the module path). Never run tests in
    parallel.
-2. **Never run the whole suite locally.** No `pytest tests/`; target the directories your
+3. **Never run the whole suite locally.** No `pytest tests/`; target the directories your
    change touches. Anything whose wait exceeds **3 minutes** needs a different approach —
    narrower selection, or state what you could not verify and let CI cover it (`.claude/testing.md` §4).
-3. **No line exceeds 120 chars**; ruff config in `pyproject.toml` (`[tool.ruff.lint]`, ignore=B024).
-4. **Expressions never concatenate SQL** — always delegate to `self.dialect.format_*()`.
-5. **Sync/async must be functionally equivalent** — same features, same method names.
-6. **Commits follow Conventional Commits** with a scope (see Rules Index → dev-release-workflow);
+4. **No line exceeds 120 chars**; ruff config in `pyproject.toml` (`[tool.ruff.lint]`, ignore=B024).
+5. **Expressions never concatenate SQL** — always delegate to `self.dialect.format_*()`.
+6. **Sync/async must be functionally equivalent** — same features, same method names.
+7. **Commits follow Conventional Commits** with a scope (see Rules Index → dev-release-workflow);
    version lives in `pyproject.toml` only.
-7. **No `changelog.d/` fragment until the PR.** Fragments are written immediately before
-   opening the `feature/*` / `fix/*` PR that will be merged — never during feature work
-   (`.claude/version_control.md` §4).
-8. **Show full, unfiltered pytest output** — no grep/head/tail on test results.
+8. **No `changelog.d/` fragment until a PR exists.** Fragments are written only once a human
+   has opened the `feature/*` / `fix/*` PR and told you the number, and never during feature
+   work (`.claude/version_control.md` §4).
+9. **Show full, unfiltered pytest output** — no grep/head/tail on test results.
 
 ## Repository map
 

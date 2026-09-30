@@ -107,13 +107,34 @@ English by default. Non-English messages MUST include an English translation + r
 - Squash related commits; one logical change per commit; no `.claude/tmp/` files or secrets in
   the message; write `wip:` for in-progress pushes.
 
+## 3.5 Pull Requests and Issues — Human-Only
+
+**An agent must never open a pull request, an issue, or any other GitHub item.**
+
+- The only trigger is an explicit human instruction that names the action. If the
+  human has not asked for it, it does not happen — not as a "helpful extra", not as the
+  obvious next step, not because the branch is finished and green.
+- Committing and pushing to a branch the human already has is allowed and is not
+  covered by this rule.
+- **Finishing the work is not a request to open a PR.** Report completion and stop.
+- Rationale: a PR is a review request directed at other people. Opening one spends
+  their attention and puts a demand on their queue, so it is the human's call whether
+  and when to make that demand. An agent that opens PRs unprompted turns every
+  completed task into an interruption.
+- This rule outranks any workflow, skill, or convention in this repository that reads
+  as though the agent drives the pull-request flow. Where such text exists, read it as
+  describing what a *human* does once they have decided to open the PR.
+- Applies across every repository in the organisation, not just this one.
+
 ## 4. Changelog (Towncrier)
 
 - **Fragment dir**: `changelog.d/` (`<issue>.added.md/.fixed.md/.security.md`, etc.).
-- **Timing**: fragments are written at the last moment before opening the
-  `feature/*` / `fix/*` PR that is decided to merge — not while building the
-  feature, and not per commit. Feature work stays fragment-free; an abandoned
-  feature therefore has nothing to clean up.
+- **Timing**: fragments are written **only after a human has opened the
+  `feature/*` / `fix/*` PR and stated its number** — never while building the
+  feature, and never per commit. Feature work stays fragment-free; an abandoned
+  feature therefore has nothing to clean up. A fragment is named for a PR that
+  actually exists, so an agent that has not been told a PR number has nothing to
+  name a fragment after (§3.5).
 - Build with `towncrier build --version X.Y.Z --yes` before merging to `main`.
 - `CHANGELOG.md` is generated from fragments; fragment files are removed after build.
 - **Exemptions** from fragment requirement: changes only to `tests/`, `docs/`, `.github/`;

@@ -320,7 +320,9 @@ backends into a release line costs more than a delayed merge.
 
 **After the verdict**, in order:
 
-1. Open the PR on GitHub (feature branch → release branch) — the PR number is now assigned.
+1. **A human opens the PR** (feature branch → release branch) — the PR number is then
+   assigned. Do not open it yourself; see `.claude/version_control.md` §3.5. Stop here
+   and report the verdict, then wait to be told the PR number.
 2. Write the changelog fragments per the E1 fragment plan, named by the **actual PR number**
    (`changelog.d/<PR-N>.{added|changed|fixed|...}.md`), commit and push.
 3. Confirm CI (including the Changelog Fragment Check) is green on the PR.

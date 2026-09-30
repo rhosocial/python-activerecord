@@ -28,9 +28,9 @@ Create a new feature for rhosocial-activerecord following the project's strict s
 ### 5. Changelog — NOT during feature work
 
 Do **not** create `changelog.d/` fragments while building a feature. Fragments are
-written at the last moment before opening the PR that will be merged, once the
-change set is final; see `.claude/version_control.md` §4. If a feature is abandoned,
-there is nothing to clean up because nothing was written.
+written only after a human has opened the PR and stated its number; see
+`.claude/version_control.md` §4. If a feature is abandoned, there is nothing to clean
+up because nothing was written.
 
 Ask the user:
 1. What is the feature name (snake_case)?
