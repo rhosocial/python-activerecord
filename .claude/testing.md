@@ -84,6 +84,23 @@ pytest tests/rhosocial/activerecord_test/feature/query/
 pytest tests/benchmark/
 ```
 
+### CRITICAL: no whole-suite local runs
+
+**Do not run `pytest tests/` (or otherwise collect the entire suite) locally.** It takes
+far longer than it is worth. Anything whose wait exceeds **3 minutes** needs a different
+approach, not more patience:
+
+| Instead of | Do |
+|---|---|
+| `pytest tests/` | run only the directories your change touches |
+| `pytest tests/` after an edit deep in `base/` | that module's own tests, plus one dependent feature dir |
+| re-running a suite to "confirm nothing broke" | run the affected dirs; CI runs the whole suite |
+| `--lf` / bisecting over the full suite | `-k` on the test names or directories concerned |
+
+The directory list above is the intended granularity. If a change seems to require a
+full-suite run to validate, that is a signal the change is broader than expected — split it,
+or state explicitly what you could not verify locally and let CI cover it.
+
 ## 5. Parallel Test Execution
 
 CI runs the suite in parallel with `pytest-xdist` (`-n auto`/`-n 8 --dist=loadgroup`) loading the

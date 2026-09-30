@@ -16,12 +16,18 @@ abstraction layer. Source lives in `src/rhosocial/activerecord/`.
 
 1. **Run tests with `PYTHONPATH=src`** (tests are not on the module path). Never run tests in
    parallel.
-2. **No line exceeds 120 chars**; ruff config in `pyproject.toml` (`[tool.ruff.lint]`, ignore=B024).
-3. **Expressions never concatenate SQL** — always delegate to `self.dialect.format_*()`.
-4. **Sync/async must be functionally equivalent** — same features, same method names.
-5. **Commits follow Conventional Commits** with a scope (see Rules Index → dev-release-workflow);
+2. **Never run the whole suite locally.** No `pytest tests/`; target the directories your
+   change touches. Anything whose wait exceeds **3 minutes** needs a different approach —
+   narrower selection, or state what you could not verify and let CI cover it (`.claude/testing.md` §4).
+3. **No line exceeds 120 chars**; ruff config in `pyproject.toml` (`[tool.ruff.lint]`, ignore=B024).
+4. **Expressions never concatenate SQL** — always delegate to `self.dialect.format_*()`.
+5. **Sync/async must be functionally equivalent** — same features, same method names.
+6. **Commits follow Conventional Commits** with a scope (see Rules Index → dev-release-workflow);
    version lives in `pyproject.toml` only.
-6. **Show full, unfiltered pytest output** — no grep/head/tail on test results.
+7. **No `changelog.d/` fragment until the PR.** Fragments are written immediately before
+   opening the `feature/*` / `fix/*` PR that will be merged — never during feature work
+   (`.claude/version_control.md` §4).
+8. **Show full, unfiltered pytest output** — no grep/head/tail on test results.
 
 ## Repository map
 
