@@ -166,20 +166,31 @@ class JSONMixin:
         # JSON_UNQUOTE(JSON_EXTRACT(...)). That is MySQL's syntax, and this
         # generic implementation is inherited by every dialect that does not
         # override it — Oracle, Snowflake, BigQuery and Firebird among them,
-        # none of which have those functions. Rather than hand them SQL their
-        # server will reject, refuse here and let the dialect opt in by
-        # implementing `format_json_function_expression` for its own syntax
-        # (JSON_VALUE / GET_PATH / ...). A dialect with no JSON support must
-        # say so through `supports_json_type`.
-        self.check_feature_support(
-            "supports_json_type",
-            "JSON path access",
-            suggestion=(
-                f"{self.name} declares no JSON support. Override "
-                f"supports_json_type() and format_json_function_expression() "
-                f"if it can navigate JSON documents."
-            ),
+        # none of which have those functions. Handing them SQL their server
+        # will reject is worse than refusing.
+        #
+        # The question is whether this dialect can navigate a JSON path at
+        # all, which is not the same as supports_json_type(): that probe is
+        # about JSON *storage* and answers a DDL question. A dialect may well
+        # navigate `col->'k'` on a column typed as text, so requiring
+        # supports_json_type() here would refuse dialects that can in fact
+        # render. Two routes count, and a dialect needs at least one:
+        # arrow operators, or its own function-based formatter.
+        arrow = self.supports_json_arrow_operators()
+        own_function_syntax = (
+            type(self).format_json_function_expression
+            is not JSONMixin.format_json_function_expression
         )
+        if not (arrow or own_function_syntax):
+            raise UnsupportedFeatureError(
+                self.name,
+                "JSON path access",
+                f"{self.name} can neither render JSON arrow operators nor "
+                f"declare its own JSON function syntax. Override "
+                f"supports_json_arrow_operators(), or implement "
+                f"format_json_function_expression() for this backend's own "
+                f"functions (JSON_VALUE / GET_PATH / ...).",
+            )
 
         mode: JSONPathMode = getattr(expr, "mode", JSONPathMode.AUTO)
 
