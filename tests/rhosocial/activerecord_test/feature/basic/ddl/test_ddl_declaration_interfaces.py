@@ -459,14 +459,18 @@ def test_object_type_does_not_conflict_with_introspection_table_type():
     """A DDL declaration enum, distinct from the introspection enum.
 
     ObjectDeclaration is a *declaration* about what the developer intends;
-    TableType is an observation of what the database holds. Keeping them apart
-    stops a declaration from being mistaken for a reading of the catalog.
+    TableType is an observation of what the database holds. Both need a
+    MATERIALIZED_VIEW member, and they spell their values differently, which is
+    the point: collapsing them would let a declaration be mistaken for a
+    reading of the catalog, and the introspection enum has to keep matching what
+    the catalog reports.
     """
     from rhosocial.activerecord.backend.introspection.types import TableType
 
     assert ObjectDeclaration is not TableType
-    assert ObjectDeclaration.MATERIALIZED_VIEW.value == "materialized_view"
-    assert not hasattr(TableType, "MATERIALIZED_VIEW")
+    assert "MATERIALIZED_VIEW" in {member.name for member in ObjectDeclaration}
+    assert "MATERIALIZED_VIEW" in {member.name for member in TableType}
+    assert ObjectDeclaration.MATERIALIZED_VIEW.value != TableType.MATERIALIZED_VIEW.value
 
 
 def test_unhandled_annotation_requires_explicit_handler():

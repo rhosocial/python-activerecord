@@ -32,10 +32,17 @@ class IntrospectionScope(Enum):
 
 
 class TableType(Enum):
-    """Table type enumeration."""
+    """Table type enumeration.
+
+    An observation of what the catalog holds, unlike
+    :class:`~rhosocial.activerecord.base.ddl.ObjectDeclaration` which records
+    what a ``DDLSource`` declares. Keeping them apart stops a declaration being
+    mistaken for a reading of the database.
+    """
 
     BASE_TABLE = "BASE_TABLE"
     VIEW = "VIEW"
+    MATERIALIZED_VIEW = "MATERIALIZED_VIEW"
     SYSTEM_TABLE = "SYSTEM_TABLE"
     TEMPORARY = "TEMPORARY"
     EXTERNAL = "EXTERNAL"

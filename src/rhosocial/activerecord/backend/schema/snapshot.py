@@ -323,6 +323,19 @@ class SchemaSnapshot:
         return _from_plain(cls, data)
 
 
+# Relation kinds that are not tables. A view is a stored query and a
+# materialized view a stored result set; neither carries the constraints,
+# indexes or foreign keys that SchemaSnapshot records, so admitting them as
+# tables produced schema-diff noise, a wrong ERD, and phantom DROPs for objects
+# no migration ever created.
+NON_TABLE_TYPES = frozenset({TableType.VIEW, TableType.MATERIALIZED_VIEW})
+
+
+def is_relation_table(table_type: "Optional[TableType]") -> bool:
+    """Whether an introspected relation should be treated as a table."""
+    return table_type not in NON_TABLE_TYPES
+
+
 # ---------------------------------------------------------------------------
 # Builders
 # ---------------------------------------------------------------------------
@@ -351,6 +364,8 @@ class SyncSchemaSnapshotBuilder:
         table_list = self._introspector.list_tables(schema=schema, include_system=include_system)
         tables: Dict[str, "TableInfo"] = {}
         for tbl in table_list:
+            if not is_relation_table(tbl.table_type):
+                continue
             full = self._introspector.get_table_info(tbl.name, schema=schema)
             if full is not None:
                 tables[tbl.name] = full
@@ -386,6 +401,8 @@ class AsyncSchemaSnapshotBuilder:
         table_list = await self._introspector.list_tables(schema=schema, include_system=include_system)
         tables: Dict[str, "TableInfo"] = {}
         for tbl in table_list:
+            if not is_relation_table(tbl.table_type):
+                continue
             full = await self._introspector.get_table_info(tbl.name, schema=schema)
             if full is not None:
                 tables[tbl.name] = full
