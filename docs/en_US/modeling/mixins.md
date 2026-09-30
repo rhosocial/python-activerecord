@@ -262,6 +262,37 @@ class Article(OptimisticLockMixin, ActiveRecord):
 
 > 💡 **AI Prompt Example**: "How do I handle multiple people editing the same article? How does optimistic locking work?"
 
+### ReadOnlyMixin
+
+Refuses writes through the framework: `save()`, `delete()`, `bulk_create()`,
+`bulk_update()`, `bulk_delete()`, `update_all()` and `delete_all()` all raise
+`ReadOnlyError` before any statement is prepared. Reads, relations and aggregation are
+untouched.
+
+```python
+from rhosocial.activerecord.field import ReadOnlyMixin
+
+class UserAnalytics(ReadOnlyMixin, ActiveRecord):
+    """Read-only view of the users table on the analytics replica."""
+    __table_name__ = "users"
+    id: Optional[int] = None
+    name: str
+
+UserAnalytics.query().count()                  # ✅
+UserAnalytics(name="x").save()                 # ❌ ReadOnlyError
+```
+
+Set `__read_only__ = False` to opt back out. `ReadOnlyError` subclasses `DatabaseError`.
+
+Unlike the mixins above, there is **no async variant**: `read_only()` is a zero-I/O
+classmethod, so the same mixin serves `ActiveRecord` and `AsyncActiveRecord`.
+
+> 💡 Combining it with a write-behaviour mixin (`SoftDeleteMixin`, `TimestampMixin`,
+> `OptimisticLockMixin`) raises `TypeError` at class-definition time — those event
+> handlers could never run on a read-only model.
+
+See [Read-Only Models](readonly_models.md).
+
 ## Custom Mixins
 
 You can easily create your own Mixins. A Mixin is just a class inheriting from `ActiveRecord` (or its base).

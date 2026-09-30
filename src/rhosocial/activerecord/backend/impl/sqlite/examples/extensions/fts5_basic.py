@@ -26,6 +26,10 @@ from rhosocial.activerecord.backend.schema import StatementType
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 ddl_opts = ExecutionOptions(stmt_type=StatementType.DDL)
 dml_opts = ExecutionOptions(stmt_type=StatementType.INSERT)
 

@@ -110,6 +110,10 @@ English by default. Non-English messages MUST include an English translation + r
 ## 4. Changelog (Towncrier)
 
 - **Fragment dir**: `changelog.d/` (`<issue>.added.md/.fixed.md/.security.md`, etc.).
+- **Timing**: fragments are written at the last moment before opening the
+  `feature/*` / `fix/*` PR that is decided to merge — not while building the
+  feature, and not per commit. Feature work stays fragment-free; an abandoned
+  feature therefore has nothing to clean up.
 - Build with `towncrier build --version X.Y.Z --yes` before merging to `main`.
 - `CHANGELOG.md` is generated from fragments; fragment files are removed after build.
 - **Exemptions** from fragment requirement: changes only to `tests/`, `docs/`, `.github/`;

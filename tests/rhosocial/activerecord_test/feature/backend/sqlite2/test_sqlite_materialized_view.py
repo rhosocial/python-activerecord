@@ -132,9 +132,16 @@ class TestSQLiteRegularViewSupport:
         """SQLite supports DROP VIEW."""
         assert sqlite_dialect.supports_drop_view()
 
-    def test_supports_or_replace_view_true(self, sqlite_dialect: SQLiteDialect):
-        """SQLite supports CREATE VIEW IF NOT EXISTS (similar to OR REPLACE)."""
-        assert sqlite_dialect.supports_or_replace_view()
+    def test_supports_or_replace_view_false(self, sqlite_dialect: SQLiteDialect):
+        """SQLite has no CREATE OR REPLACE VIEW.
+
+        IF NOT EXISTS is not "similar to" OR REPLACE -- it is the opposite: it
+        keeps the existing definition rather than replacing it. Reporting True
+        here is what let replace=True render as a statement that silently did
+        nothing.
+        """
+        assert sqlite_dialect.supports_or_replace_view() is False
+        assert sqlite_dialect.supports_create_or_replace_view() is False
 
     def test_supports_temporary_view_true(self, sqlite_dialect: SQLiteDialect):
         """SQLite supports TEMPORARY views."""
@@ -176,14 +183,42 @@ class TestSQLiteRegularViewSupport:
         assert 'CREATE TEMPORARY VIEW "temp_session_view"' in sql
 
     def test_create_view_if_not_exists(self, sqlite_dialect: SQLiteDialect):
-        """Test CREATE VIEW IF NOT EXISTS works (SQLite style)."""
+        """CREATE VIEW IF NOT EXISTS works and is the opt-in form."""
+        query = QueryExpression(
+            sqlite_dialect, select=[Column(sqlite_dialect, "id")], from_=TableExpression(sqlite_dialect, "products")
+        )
+        create_view = CreateViewExpression(
+            sqlite_dialect, view_name="product_view", query=query, if_not_exists=True
+        )
+        sql, params = create_view.to_sql()
+
+        assert 'CREATE VIEW IF NOT EXISTS "product_view"' in sql
+
+    def test_create_or_replace_view_is_refused(self, sqlite_dialect: SQLiteDialect):
+        """SQLite has no CREATE OR REPLACE VIEW, so replace=True is refused.
+
+        This used to render CREATE VIEW IF NOT EXISTS for replace=True, which
+        SQLite accepts and which silently leaves an existing view's definition
+        untouched -- the caller was told the definition had been replaced when
+        it had not been. Verified against SQLite 3.46, where the real clause is
+        a syntax error:
+
+            CREATE OR REPLACE VIEW v AS SELECT 1
+            -- OperationalError: near "OR": syntax error
+        """
         query = QueryExpression(
             sqlite_dialect, select=[Column(sqlite_dialect, "id")], from_=TableExpression(sqlite_dialect, "products")
         )
         create_view = CreateViewExpression(sqlite_dialect, view_name="product_view", query=query, replace=True)
-        sql, params = create_view.to_sql()
 
-        assert 'CREATE VIEW IF NOT EXISTS "product_view"' in sql
+        with pytest.raises(UnsupportedFeatureError, match="CREATE OR REPLACE VIEW"):
+            create_view.to_sql()
+
+    def test_sqlite_does_not_claim_or_replace_support(self, sqlite_dialect: SQLiteDialect):
+        """Both probes are False, so no caller can be misled into asking."""
+        assert sqlite_dialect.supports_or_replace_view() is False
+        assert sqlite_dialect.supports_create_or_replace_view() is False
+        assert sqlite_dialect.supports_if_not_exists_view() is True
 
     def test_drop_view(self, sqlite_dialect: SQLiteDialect):
         """Test DROP VIEW works."""

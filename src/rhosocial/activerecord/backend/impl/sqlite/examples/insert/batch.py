@@ -14,6 +14,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import CreateTableExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
@@ -21,13 +25,14 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -35,12 +40,12 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(dialect, 
             "name",
-            TextType(),
+            TextType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition(dialect, "email", TextType()),
+        ColumnDefinition(dialect, "email", TextType(dialect)),
     ],
     if_not_exists=True,
 )
@@ -58,7 +63,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     QueryExpression,
 )
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 insert_expr = InsertExpression(
     dialect=dialect,

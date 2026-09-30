@@ -42,7 +42,9 @@
 * [Model Serialization](modeling/serialization.md)
 * [Custom Types](modeling/custom_types.md)
 * [Best Practices](modeling/best_practices.md)
-* [Readonly Models](modeling/readonly_models.md)
+* [Read-Only Models](modeling/readonly_models.md)
+* [Keyless Models](modeling/keyless_models.md)
+* [Views as Queries](modeling/views_as_queries.md)
 * [Bulk Operations (Model Layer)](modeling/bulk_operations.md)
 * [Batch Processing (Backend Layer)](modeling/batch_processing.md)
 * [Concurrency](modeling/concurrency.md)
@@ -118,6 +120,7 @@
 
 * [Named Expressions](backend/named_expression.md)
 * [Named Connection](backend/named_connection.md)
+* [Named Migration](backend/named_migration.md)
 
 ### Expression System
 

@@ -10,19 +10,20 @@ ActiveRecord models.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-
-config = SQLiteConnectionConfig(database=":memory:")
-backend = SQLiteBackend(config)
-dialect = backend.dialect
-
+# NOTE: nothing below connects to a database at import time. The named
+# expressions in this module are resolved by FQN, so the CLI imports this file
+# just to answer --list or --describe -- and a module-level connection would make
+# reading a docstring open a database and run DDL. main() does the setup; see the
+# bottom of the file.
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
-    ValuesSource,
+    Column,
     ColumnConstraint,
     ColumnConstraintType,
+    CreateTableExpression,
+    InsertExpression,
+    QueryExpression,
+    TableExpression,
+    ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
@@ -32,18 +33,11 @@ from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
     IntegerType,
     TextType,
 )
+from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
+from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
 
 
-def _column(name: str, type_name: str):
-    """Build a ColumnDefinition from a compact 'name TYPE [PRIMARY KEY]' spec."""
-    data_type = IntegerType() if type_name == "INTEGER" else TextType()
-    constraints = []
-    if "PRIMARY KEY" in type_name:
-        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY))
-    return ColumnDefinition(dialect, name=name, data_type=data_type, constraints=constraints)
-
-
-tables = [
+TABLES = [
     ("orders", [("id", "INTEGER PRIMARY KEY"), ("status", "TEXT"), ("user_id", "INTEGER")]),
     ("inventory", [("id", "INTEGER PRIMARY KEY"), ("order_id", "INTEGER"), ("available", "INTEGER")]),
     ("notifications", [("id", "INTEGER PRIMARY KEY"), ("user_id", "INTEGER"), ("type", "TEXT")]),
@@ -54,35 +48,49 @@ tables = [
     ("order_records", [("id", "INTEGER PRIMARY KEY"), ("order_id", "INTEGER"), ("created_at", "TEXT")]),
 ]
 
-for table_name, columns in tables:
-    create = CreateTableExpression(
-        dialect=dialect,
-        table=table_name,
-        columns=[_column(name, type_name) for name, type_name in columns],
-        if_not_exists=True,
-    )
-    sql, params = create.to_sql()
-    backend.execute(sql, params)
+def _column(dialect, name: str, type_name: str):
+    """Build a ColumnDefinition from a compact 'name TYPE [PRIMARY KEY]' spec."""
+    data_type = IntegerType(dialect) if type_name == "INTEGER" else TextType(dialect)
+    constraints = []
+    if "PRIMARY KEY" in type_name:
+        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY))
+    return ColumnDefinition(dialect, name=name, data_type=data_type, constraints=constraints)
 
-# Insert sample data
-for table, data in [
-    ("orders", [(1, "pending", 100)]),
-    ("inventory", [(1, 1, 10)]),
-]:
-    for row in data:
-        insert = InsertExpression(
+
+SAMPLE_ROWS = {
+    "orders": [(1, "pending", 100)],
+    "inventory": [(1, 1, 10)],
+}
+
+
+def prepare_database(backend) -> None:
+    """Create the tables and insert the sample rows. Called from main() only."""
+    dialect = backend.dialect
+    for table_name, columns in TABLES:
+        create = CreateTableExpression(
             dialect=dialect,
-            into=table,
-            columns=[name for name, _ in tables[[t for t, _ in tables].index(table)][1]],
-            source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+            table=table_name,
+            columns=[_column(dialect, name, type_name) for name, type_name in columns],
+            if_not_exists=True,
         )
-        sql, params = insert.to_sql()
+        sql, params = create.to_sql()
         backend.execute(sql, params)
+
+    for table, rows in SAMPLE_ROWS.items():
+        names = [name for name, _ in TABLES[[t for t, _ in TABLES].index(table)][1]]
+        for row in rows:
+            insert = InsertExpression(
+                dialect=dialect,
+                into=table,
+                columns=names,
+                source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+            )
+            sql, params = insert.to_sql()
+            backend.execute(sql, params)
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression, TableExpression  # noqa: E402
 
 
 def get_order(dialect, order_id: int):
@@ -165,32 +173,40 @@ def confirm_inventory(dialect, order_id: int):
     )
 
 
-# Demo: Generate SQL for a named query
-if __name__ == "__main__":
-    print("=== Named Query Examples ===\n")
-
-    query = get_order(dialect, order_id=1)
-    sql, params = query.to_sql()
-    print(f"get_order SQL: {sql}")
-    print(f"Params: {params}\n")
-
-    query = check_inventory(dialect, order_id=1)
-    sql, params = query.to_sql()
-    print(f"check_inventory SQL: {sql}")
-    print(f"Params: {params}\n")
-
-    query = reserve_inventory(dialect, order_id=1)
-    sql, params = query.to_sql()
-    print(f"reserve_inventory SQL: {sql}")
-    print(f"Params: {params}\n")
-
 # ============================================================
 # SECTION: Execution (run the expression)
 # ============================================================
-from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
-from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
+def main() -> None:
+    """Connect, prepare the sample data, then render and run a few queries."""
+    # Imported here rather than at module scope: SQLiteBackend drags in the whole
+    # dialect stack, and resolving this module's named expressions needs none of
+    # it. Keeping it at module level made `import` cost ~3.5s for a file whose
+    # exports are pure expression builders.
+    from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
-if __name__ == "__main__":
+    config = SQLiteConnectionConfig(database=":memory:")
+    backend = SQLiteBackend(config)
+
+    # Version-gated features (RETURNING, JSON1, math functions) read the dialect
+    # version, which is only known after the server has been inspected.
+    backend.introspect_and_adapt()
+    dialect = backend.dialect
+
+    prepare_database(backend)
+
+    print("=== Named Expression Examples ===\n")
+
+    for name, kwargs in (
+        ("get_order", {"order_id": 1}),
+        ("check_inventory", {"order_id": 1}),
+        ("reserve_inventory", {"order_id": 1}),
+    ):
+        query = globals()[name](dialect, **kwargs)
+        sql, params = query.to_sql()
+        print(f"{name} SQL: {sql}")
+        print(f"Params: {params}\n")
+
     query = get_order(dialect, order_id=1)
     sql, params = query.to_sql()
     options = ExecutionOptions(stmt_type=StatementType.DQL)
@@ -201,3 +217,7 @@ if __name__ == "__main__":
     # SECTION: Teardown (necessary for execution, reference only)
     # ============================================================
     backend.disconnect()
+
+
+if __name__ == "__main__":
+    main()

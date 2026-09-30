@@ -35,6 +35,24 @@ class ValidationError(DatabaseError):
     pass
 
 
+class ReadOnlyError(DatabaseError):
+    """A write was attempted on a read-only model.
+
+    Raised before any statement is issued, so a refused write leaves the
+    database untouched. Carries the operation name and the model so callers
+    can report which write was refused.
+    """
+
+    def __init__(self, model_name: str, operation: str):
+        self.model_name = model_name
+        self.operation = operation
+        super().__init__(
+            f"{operation} is not allowed on read-only model '{model_name}'. "
+            f"{model_name} declares __read_only__ = True (ReadOnlyMixin); the framework "
+            f"refuses framework-level writes for it."
+        )
+
+
 class LockError(DatabaseError):
     """Lock error"""
 
@@ -69,6 +87,30 @@ class RecordNotFound(DatabaseError):
     """Record not found"""
 
     pass
+
+
+class UnaddressableRecordError(DatabaseError):
+    """A keyless model was asked for single-row access by primary key.
+
+    ``__primary_key__ = None`` declares a relation with no single-row identity,
+    so ``find_one(pk)``, ``find_all([pk])``, and updating or deleting by primary
+    key are not expressible. Raised in place of the incidental failures such
+    ``getattr(instance, None)`` would otherwise produce, which surface as a
+    bare ``TypeError: attribute name must be string, not 'NoneType'``.
+
+    Selecting a row by some other criterion stays available: use
+    ``where(...).one()``.
+    """
+
+    def __init__(self, model_name: str, operation: str):
+        self.model_name = model_name
+        self.operation = operation
+        super().__init__(
+            f"{operation} needs a primary key, but '{model_name}' declares "
+            f"__primary_key__ = None and so has no single-row identity. "
+            f"Select with {model_name}.query().where(...).one() instead, or declare "
+            f"a primary key if the relation really has one."
+        )
 
 
 class BulkOperationError(DatabaseError):

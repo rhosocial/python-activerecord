@@ -251,7 +251,12 @@ class TestSQLiteViewExecution:
         assert len(result.data) == 3
 
     def test_create_view_if_not_exists(self, sqlite_backend):
-        """Test CREATE VIEW IF NOT EXISTS (SQLite's OR REPLACE equivalent)."""
+        """CREATE VIEW IF NOT EXISTS against a real database.
+
+        SQLite has no CREATE OR REPLACE VIEW, so if_not_exists is the opt-in
+        for "leave an existing view alone". replace=True is refused rather than
+        silently downgraded to this, which used to look like it had worked.
+        """
         dialect = sqlite_backend.dialect
 
         query = QueryExpression(dialect, select=[Column(dialect, "id")], from_=TableExpression(dialect, "users"))
@@ -262,18 +267,38 @@ class TestSQLiteViewExecution:
         sql, params = create_view.to_sql()
         sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
-        # Try to create again with IF NOT EXISTS
-        create_view2 = CreateViewExpression(
-            dialect,
-            view_name="test_view",
-            query=query,
-            replace=True,  # This generates IF NOT EXISTS in SQLite
-        )
+        # Create again with IF NOT EXISTS -- accepted, definition left alone
+        create_view2 = CreateViewExpression(dialect, view_name="test_view", query=query, if_not_exists=True)
 
         sql, params = create_view2.to_sql()
-
-        # Should not raise error
         sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+        # replace=True is refused: SQLite rejects the OR REPLACE clause
+        create_view3 = CreateViewExpression(dialect, view_name="test_view", query=query, replace=True)
+
+        with pytest.raises(UnsupportedFeatureError, match="CREATE OR REPLACE VIEW"):
+            create_view3.to_sql()
+
+    def test_replace_view_never_reaches_the_database_as_a_no_op(self, sqlite_backend):
+        """The old rendering was accepted by SQLite and changed nothing."""
+        dialect = sqlite_backend.dialect
+        query = QueryExpression(dialect, select=[Column(dialect, "id")], from_=TableExpression(dialect, "users"))
+
+        original = CreateViewExpression(dialect, view_name="kept_view", query=query)
+        sql, params = original.to_sql()
+        sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+        # A different definition, requested as a replacement
+        other = QueryExpression(dialect, select=[Column(dialect, "email")], from_=TableExpression(dialect, "users"))
+        replacement = CreateViewExpression(dialect, view_name="kept_view", query=other, replace=True)
+
+        with pytest.raises(UnsupportedFeatureError):
+            replacement.to_sql()
+
+        # The original definition is still what the view holds
+        cursor = sqlite_backend.connection.cursor()
+        columns = [row[1] for row in cursor.execute("PRAGMA table_info(kept_view)").fetchall()]
+        assert "id" in columns
 
     def test_drop_view(self, sqlite_backend):
         """Test DROP VIEW executes successfully."""

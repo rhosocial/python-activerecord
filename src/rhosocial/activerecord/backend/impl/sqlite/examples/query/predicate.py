@@ -15,6 +15,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
@@ -29,11 +33,11 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="products",
+    table="products",
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -41,14 +45,14 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(dialect, 
             "name",
-            TextType(),
+            TextType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition(dialect, "price", FloatType()),
-        ColumnDefinition(dialect, "category", TextType()),
-        ColumnDefinition(dialect, "description", TextType()),
+        ColumnDefinition(dialect, "price", FloatType(dialect)),
+        ColumnDefinition(dialect, "category", TextType(dialect)),
+        ColumnDefinition(dialect, "description", TextType(dialect)),
     ],
     if_not_exists=True,
 )
@@ -62,6 +66,7 @@ products_data = [
     ("Orange", 2.0, "Fruit", "Sweet orange"),
     ("Broccoli", 1.2, "Vegetable", None),
 ]
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 for row in products_data:
     insert_expr = InsertExpression(
         dialect=dialect,
@@ -81,7 +86,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     Column,
     WhereClause,
 )
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
     LikePredicate,
     InPredicate,

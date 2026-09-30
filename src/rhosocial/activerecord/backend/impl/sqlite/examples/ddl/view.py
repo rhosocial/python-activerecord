@@ -20,6 +20,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
@@ -35,8 +39,8 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table="users",
     columns=[
-        ColumnDefinition(dialect, "id", IntegerType()),
-        ColumnDefinition(dialect, "name", TextType()),
+        ColumnDefinition(dialect, "id", IntegerType(dialect)),
+        ColumnDefinition(dialect, "name", TextType(dialect)),
     ],
     if_not_exists=True,
 )
@@ -103,16 +107,31 @@ result = backend.execute(
 print(f"View result: {result.data}")
 
 # ============================================================
-# SECTION: CREATE OR REPLACE VIEW
+# SECTION: REPLACING A VIEW
 # ============================================================
-view_expr_replace = CreateViewExpression(
+# SQLite has no CREATE OR REPLACE VIEW -- it rejects the OR REPLACE clause as a
+# syntax error. Asking for replace=True here raises UnsupportedFeatureError
+# rather than quietly emitting CREATE VIEW IF NOT EXISTS, which would leave the
+# old definition in place and report success.
+#
+# Dialects that do support it (PostgreSQL, MySQL, ClickHouse) can use
+# replace=True directly. On SQLite, drop first and then create:
+drop_existing = DropViewExpression(
+    dialect=dialect,
+    view_name="user_names",
+    if_exists=True,
+)
+sql, params = drop_existing.to_sql()
+print(f"DROP VIEW IF EXISTS SQL: {sql}")
+backend.execute(sql, params, options=options)
+
+view_expr_recreated = CreateViewExpression(
     dialect=dialect,
     view_name="user_names",
     query=query,
-    replace=True,
 )
-sql, params = view_expr_replace.to_sql()
-print(f"CREATE OR REPLACE VIEW SQL: {sql}")
+sql, params = view_expr_recreated.to_sql()
+print(f"CREATE VIEW SQL: {sql}")
 backend.execute(sql, params, options=options)
 
 # ============================================================
@@ -139,5 +158,7 @@ backend.disconnect()
 # ============================================================
 # Key points:
 # 1. Use CreateViewExpression to create views
-# 2. Use replace=True to replace existing view
+# 2. To change an existing view, check the capability: replace=True works on
+#    dialects that support CREATE OR REPLACE VIEW, but SQLite requires
+#    DropViewExpression(if_exists=True) followed by CreateViewExpression
 # 3. Use DropViewExpression to drop views

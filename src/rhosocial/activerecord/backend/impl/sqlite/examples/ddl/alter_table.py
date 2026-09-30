@@ -17,6 +17,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
@@ -29,13 +33,17 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    AlterTableExpression,
+    ColumnDefinition,
+)
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -43,7 +51,7 @@ create_table = CreateTableExpression(
         ),
         ColumnDefinition(dialect, 
             "name",
-            TextType(),
+            TextType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
@@ -66,10 +74,6 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    AlterTableExpression,
-    ColumnDefinition,
-)
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # noqa: E402
     AddColumn,
     RenameObject,
@@ -80,7 +84,7 @@ add_col_action = AddColumn(
     dialect=dialect,
     column=ColumnDefinition(dialect, 
         name="email",
-        data_type=TextType(),
+        data_type=TextType(dialect),
     ),
 )
 

@@ -8,7 +8,13 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union, get_origin,
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
-from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
+from ..backend.errors import (
+    DatabaseError,
+    ReadOnlyError,
+    UnaddressableRecordError,
+    RecordNotFound,
+    ValidationError as DBValidationError,
+)
 from ..backend.expression import ComparisonPredicate, Column, Literal, SQLPredicate
 from ..backend.expression.bases import is_sql_query_and_params
 from ..backend.options import DeleteOptions, UpdateOptions
@@ -24,6 +30,32 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     """
     Core ActiveRecord implementation providing the fundamental ORM functionality.
     """
+
+    @classmethod
+    def refuse_read_only(cls, operation: str) -> None:
+        """Refuse ``operation`` if this model declares itself read-only.
+
+        The single write gate. Every framework write path calls this before
+        issuing anything, so a refused write never reaches the database. The
+        decision is delegated to ``read_only()`` -- the model answers, and a
+        model that does not implement the read-only behaviour is unaffected,
+        which keeps the feature opt-in.
+
+        Reads the *value* returned by ``read_only()`` rather than testing
+        ``isinstance(model, IReadOnlyBehavior)``: membership in the protocol
+        only says a ``read_only`` method exists, not that the model is
+        read-only, so a type test would refuse writable models that merely
+        implement the interface.
+
+        Args:
+            operation: Name of the refused write, for the error message.
+
+        Raises:
+            ReadOnlyError: If the model is read-only.
+        """
+        read_only = getattr(cls, "read_only", None)
+        if callable(read_only) and read_only():
+            raise ReadOnlyError(cls.__name__, operation)
 
     @classmethod
     def configure(
@@ -129,8 +161,14 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
 
         Single-column PK returns a scalar value.
         Composite PK returns a dict {column_name: value, ...}.
+
+        Raises:
+            UnaddressableRecordError: If the model declares no primary key, so
+                there is no identity to read.
         """
         cls = self.__class__
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "Reading the primary key value")
         cols = cls.primary_key_columns()
         fields = cls.primary_key_fields()
         if not cls.is_composite_pk():
@@ -146,7 +184,13 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
 
         The dict keys may be column names or Python field names — field names are
         transparently mapped to column names when a direct column-name lookup fails.
+
+        Raises:
+            UnaddressableRecordError: If the model declares no primary key, so
+                there is no column to match on.
         """
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "Building a primary key predicate")
         dialect = cls.backend().dialect
         columns = cls.primary_key_columns()
 
@@ -195,6 +239,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
         """
+        self.refuse_read_only("insert")
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
         generated = self.__class__.get_generated_columns()
@@ -223,7 +268,10 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             returning_columns=returning_columns,
         )
         result = self.backend().insert(insert_options)
-        if self.__class__.__pk_auto_generated__:
+        # A keyless model has nothing for the database to generate, so there is
+        # nothing to read back either. Without the addressable() guard the loop
+        # below iterates an empty column list and indexes it.
+        if self.__class__.__pk_auto_generated__ and self.__class__.addressable():
             pk_columns = self.primary_key_columns()
             pk_retrieved = False
             for col in pk_columns:
@@ -286,6 +334,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         Returns:
             The result object from the backend update operation
         """
+        self.refuse_read_only("update")
         self.log(
             logging.INFO,
             f"Starting update operation for {self.__class__.__name__} record: "
@@ -383,7 +432,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
         pk_fields = set(self.__class__.primary_key_fields())
-        generated = set(self.__class__.get_generated_columns())
+        generated = set(self.__class__.get_generated_field_names())
         if is_new:
             if self.__class__.__pk_auto_generated__:
                 data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
@@ -446,6 +495,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             sql, params = condition
             query = query.where(sql, params)
         elif not cls.is_composite_pk():
+            if not cls.addressable():
+                raise UnaddressableRecordError(cls.__name__, "find_one")
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name) == condition)
@@ -506,6 +557,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                     combined = combined | p
                 query = query.where(combined)
             else:
+                if not cls.addressable():
+                    raise UnaddressableRecordError(cls.__name__, "find_all")
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
                 query = query.where(Column(dialect, pk_field_name).in_(condition))
@@ -560,7 +613,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             DatabaseError: If there are issues connecting to or executing against
                           the database
             ValidationError: If the model fails validation before saving
+            ReadOnlyError: If the model is read-only
         """
+        self.refuse_read_only("save")
         if not self.backend():
             raise DatabaseError("No backend configured")
         try:
@@ -599,7 +654,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             DatabaseError: If there are issues connecting to or executing against
                           the database
             ValueError: If the record doesn't have a valid primary key value
+            ReadOnlyError: If the model is read-only
         """
+        self.refuse_read_only("delete")
         if not self.backend():
             raise DatabaseError("No backend configured")
         if self.is_new_record:
@@ -686,6 +743,37 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     Core Async ActiveRecord implementation providing the fundamental ORM functionality.
     """
 
+    # Mirrors BaseActiveRecord.refuse_read_only. The two base classes are
+    # independent (the async one does not inherit from the sync one), so the
+    # gate is declared on both. One implementation serves both model families:
+    # ReadOnlyMixin.read_only is a zero-I/O classmethod, so the same mixin gates
+    # sync and async writes and needs no async variant.
+    @classmethod
+    def refuse_read_only(cls, operation: str) -> None:
+        """Refuse ``operation`` if this model declares itself read-only.
+
+        The single write gate. Every framework write path calls this before
+        issuing anything, so a refused write never reaches the database. The
+        decision is delegated to ``read_only()`` -- the model answers, and a
+        model that does not implement the read-only behaviour is unaffected,
+        which keeps the feature opt-in.
+
+        Reads the *value* returned by ``read_only()`` rather than testing
+        ``isinstance(model, IReadOnlyBehavior)``: membership in the protocol
+        only says a ``read_only`` method exists, not that the model is
+        read-only, so a type test would refuse writable models that merely
+        implement the interface.
+
+        Args:
+            operation: Name of the refused write, for the error message.
+
+        Raises:
+            ReadOnlyError: If the model is read-only.
+        """
+        read_only = getattr(cls, "read_only", None)
+        if callable(read_only) and read_only():
+            raise ReadOnlyError(cls.__name__, operation)
+
     async def _trigger_event(self, event: ModelEvent, **kwargs) -> None:
         """Trigger event asynchronously, awaiting coroutine handlers.
 
@@ -718,6 +806,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
 
     def _get_pk_value(self) -> Any:
         cls = self.__class__
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "Reading the primary key value")
         cols = cls.primary_key_columns()
         fields = cls.primary_key_fields()
         if not cls.is_composite_pk():
@@ -726,6 +816,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
 
     @classmethod
     def _build_pk_where_predicate(cls, pk_value: Any) -> "SQLPredicate":
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "Building a primary key predicate")
         dialect = cls.backend().dialect
         columns = cls.primary_key_columns()
 
@@ -873,6 +965,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
         """
+        self.refuse_read_only("insert")
         self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
         generated = self.__class__.get_generated_columns()
@@ -901,7 +994,10 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             returning_columns=returning_columns,
         )
         result = await self.backend().insert(insert_options)
-        if self.__class__.__pk_auto_generated__:
+        # A keyless model has nothing for the database to generate, so there is
+        # nothing to read back either. Without the addressable() guard the loop
+        # below iterates an empty column list and indexes it.
+        if self.__class__.__pk_auto_generated__ and self.__class__.addressable():
             pk_columns = self.primary_key_columns()
             pk_retrieved = False
             for col in pk_columns:
@@ -964,6 +1060,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         Returns:
             The result object from the backend update operation
         """
+        self.refuse_read_only("update")
         self.log(
             logging.INFO,
             f"Starting update operation for {self.__class__.__name__} record: "
@@ -1061,7 +1158,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
         pk_fields = set(self.__class__.primary_key_fields())
-        generated = set(self.__class__.get_generated_columns())
+        generated = set(self.__class__.get_generated_field_names())
         if is_new:
             if self.__class__.__pk_auto_generated__:
                 data = self.model_dump(exclude=pk_fields if pk_fields & set(self.__class__.model_fields) else set())
@@ -1124,6 +1221,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             sql, params = condition
             query = query.where(sql, params)
         elif not cls.is_composite_pk():
+            if not cls.addressable():
+                raise UnaddressableRecordError(cls.__name__, "find_one")
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name) == condition)
@@ -1184,6 +1283,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                     combined = combined | p
                 query = query.where(combined)
             else:
+                if not cls.addressable():
+                    raise UnaddressableRecordError(cls.__name__, "find_all")
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
                 query = query.where(Column(dialect, pk_field_name).in_(condition))
@@ -1238,7 +1339,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             DatabaseError: If there are issues connecting to or executing against
                           the database
             ValidationError: If the model fails validation before saving
+            ReadOnlyError: If the model is read-only
         """
+        self.refuse_read_only("save")
         if not self.backend():
             raise DatabaseError("No backend configured")
         try:
@@ -1277,7 +1380,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             DatabaseError: If there are issues connecting to or executing against
                           the database
             ValueError: If the record doesn't have a valid primary key value
+            ReadOnlyError: If the model is read-only
         """
+        self.refuse_read_only("delete")
         if not self.backend():
             raise DatabaseError("No backend configured")
         if self.is_new_record:

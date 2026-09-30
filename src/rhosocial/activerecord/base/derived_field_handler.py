@@ -74,28 +74,38 @@ class DerivedFieldHandler:
             return None
         inner = args[0]
 
+        # Markers on the annotation itself, independent of which form supplied
+        # the DerivedField. Collected first so a class-level assignment does not
+        # silently drop a UseColumn/UseAdapter written on the annotation.
+        found_column: Optional[UseColumn] = None
+        found_adapter: Optional[UseAdapter] = None
+        if hasattr(inner, "__metadata__"):
+            for meta in inner.__metadata__:
+                if isinstance(meta, UseColumn):
+                    found_column = meta
+                elif isinstance(meta, UseAdapter):
+                    found_adapter = meta
+
         # Form A: ClassVar[DerivedField] with class-level assignment
         val = vars(owner).get(field_name)
         if isinstance(val, DerivedField):
             df = copy(val)
             df.field_name = field_name
             df._source_id = id(val)
+            if found_column is not None:
+                df.column_name = found_column.column_name
+            if found_adapter is not None:
+                df.adapter = found_adapter.adapter
             return df
 
         # Form B: ClassVar[Annotated[T, DerivedField(...), UseColumn(...), UseAdapter(...)]]
         if hasattr(inner, "__metadata__") and hasattr(inner, "__args__"):
             base_type = inner.__args__[0] if inner.__args__ else Any
             found_df: Optional[DerivedField] = None
-            found_column: Optional[UseColumn] = None
-            found_adapter: Optional[UseAdapter] = None
 
             for meta in inner.__metadata__:
                 if isinstance(meta, DerivedField):
                     found_df = meta
-                elif isinstance(meta, UseColumn):
-                    found_column = meta
-                elif isinstance(meta, UseAdapter):
-                    found_adapter = meta
 
             if found_df is not None:
                 df = copy(found_df)

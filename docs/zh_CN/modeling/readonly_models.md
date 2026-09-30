@@ -1,182 +1,215 @@
-# 只读分析模型 (Read-Only Analytics Models)
+# 只读模型
 
-在数据分析、报表和只读副本场景中，往往需要**只能查询、绝对不能写入**的模型类。
-本文介绍如何安全地定义、配置和使用只读模型。
+有些关系永远不允许写入：查询跑在只读副本上、报表读取数据仓库、审计日志只允许追加。
+`ReadOnlyMixin` 用来声明这一点，框架会在自己掌握的所有写入路径上强制执行。
 
-> 💡 **AI 提示词：** "我想要一个连接分析数据库的模型类，一旦有人不小心尝试写入就立即报错。
-> 怎么做？"
-
----
-
-## 1. 为什么需要只读模型
-
-| 使用场景 | 说明 |
-| --- | --- |
-| **只读副本** | 查询走副本，写入只能到主库 |
-| **数据分析 / BI** | 报表查询数据仓库，不允许修改 |
-| **多租户审计** | 某租户的模型可以读取另一租户的数据，但不能写入 |
-| **历史快照** | 归档表只读，不允许任何变更 |
+> 💡 **AI 提示语：** "我需要一个连接分析数据库的模型类，如果有人不小心尝试写入就报错。该怎么做？"
 
 ---
 
-## 2. 声明只读模型
+## 1. 声明只读模型
 
-添加 `__readonly__` 类属性，并覆盖 `save()` 和 `delete()` 使其立即报错：
+把 `ReadOnlyMixin` 混入任意模型：
 
 ```python
 from typing import Optional
+from rhosocial.activerecord.field import ReadOnlyMixin
 from rhosocial.activerecord.model import ActiveRecord
 
-class ReadOnlyMixin:
-    """混入任意 ActiveRecord 子类，使其成为只读模型。"""
-
-    __readonly__: bool = True
-
-    def save(self, *args, **kwargs):
-        raise TypeError(
-            f"{type(self).__name__} 是只读模型，不能保存。"
-            "请使用对应的可写模型类。"
-        )
-
-    def delete(self, *args, **kwargs):
-        raise TypeError(
-            f"{type(self).__name__} 是只读模型，不能删除。"
-        )
-
-    @classmethod
-    def bulk_create(cls, *args, **kwargs):
-        raise TypeError(f"{cls.__name__} 是只读模型。")
-```
-
-应用到任意模型：
-
-```python
 class UserAnalytics(ReadOnlyMixin, ActiveRecord):
-    """只读视图——连接分析副本上的 users 表。"""
+    """users 表在分析副本上的只读视图。"""
     __table_name__ = "users"
     id: Optional[int] = None
     name: str
     email: str
-    created_at: Optional[str] = None
+```
+
+声明到此为止。`__read_only__` 被置为 `True`，框架在准备任何 SQL 之前就拒绝写入：
+
+```python
+# ✅ 读取照常工作
+analysts = UserAnalytics.query().where(UserAnalytics.c.name == "Alice").all()
+count = UserAnalytics.query().count()
+
+# ❌ 被拒绝——不会发出任何语句
+UserAnalytics(name="Alice", email="alice@example.com").save()
+# ReadOnlyError: save is not allowed on read-only model 'UserAnalytics'. ...
+```
+
+`ReadOnlyError` 是 `DatabaseError` 的子类，因此已有的 `except DatabaseError`
+也能捕获它。
+
+### 被拦截的范围
+
+| 被拦截 | 可用 |
+| --- | --- |
+| `save()`、`delete()` | `query()`、`all()`、`one()`、`where()`、`order_by()`、`group_by()` |
+| `bulk_create()`、`bulk_update()`、`bulk_delete()` | `count()`、`exists()`、`aggregate()`、`avg()`、`sum_()`、`max_()`、`min_()` |
+| `update_all()`、`delete_all()` | `with_()` 预加载、关联、`find_all()` |
+
+读取不受影响。模型自己声明的字段也不受影响——`ReadOnlyMixin` 只是*语义*，
+与 `SoftDeleteMixin`、`TimestampMixin` 的约定一致。
+
+### 退出这个门禁
+
+设置 `__read_only__ = False` 即可写入：
+
+```python
+class Maintenance(ReadOnlyMixin, ActiveRecord):
+    __table_name__ = "users"
+    __read_only__ = False   # 逃生口，供确实需要写入的脚本使用
 ```
 
 ---
 
-## 3. 连接只读副本
+## 2. 为什么判断放在模型上
 
-将只读模型配置到独立的后端——通常是只读副本或分析数据库：
+`ReadOnlyMixin` 实现了 `IReadOnlyBehavior`，它是 `interface/update.py` 中四个行为接口之一，
+与 `IUpdateBehavior`、`IDeleteBehavior`、`IDataPreparationBehavior` 并列：
+
+```python
+class ReadOnlyMixin(IReadOnlyBehavior):
+    __read_only__: ClassVar[bool] = True
+
+    @classmethod
+    def read_only(cls) -> bool:
+        return bool(getattr(cls, "__read_only__", False))
+```
+
+框架询问 `read_only()` 并依据**返回值**行动，而不是依据类型：
+
+```python
+@classmethod
+def refuse_read_only(cls, operation: str) -> None:
+    read_only = getattr(cls, "read_only", None)
+    if callable(read_only) and read_only():
+        raise ReadOnlyError(cls.__name__, operation)
+```
+
+属于 `IReadOnlyBehavior` 只说明存在一个 `read_only` 方法——模型可以满足该接口却依然可写。
+若改为判断类型，这些模型会被误拦，所以刻意不这样做。同样的理由让 `read_only()`
+返回 `bool` 而不是 `None`：`None` 会诱导人用 `is None` 当类型判断。
+
+**这个特性是可选的。** 没有混入该接口的模型连 `read_only()` 都不会回答，
+因此既有行为完全不变——没有为不需要它的模型付出任何代价。
+
+**一份实现同时服务同步与异步。** `read_only()` 是零 IO 的类方法，而 `field/` 的约定是
+只有当方法会发出 SQL 时才需要异步版本（`SoftDeleteMixin` 为 `restore()` 提供了）。
+`AsyncActiveRecord` 模型混入同一个 `ReadOnlyMixin`。
+
+任何类都可以单独实现 `IReadOnlyBehavior`——普通 dataclass、非 ActiveRecord 的领域对象——
+从而获得同样的声明能力。
+
+---
+
+## 3. 连接到只读副本
+
+把只读模型配置到独立的后端：
 
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 # 主库——可写模型
-primary_config = SQLiteConnectionConfig(database="primary.db")
-User.configure(primary_config, SQLiteBackend)
+User.configure(SQLiteConnectionConfig(database="primary.db"), SQLiteBackend)
 
 # 分析副本——只读模型
-analytics_config = SQLiteConnectionConfig(database="analytics_replica.db")
-UserAnalytics.configure(analytics_config, SQLiteBackend)
-```
-
-查询走副本；任何意外写入操作会在到达数据库之前立即抛出 `TypeError`：
-
-```python
-# ✅ 安全：读操作正常工作
-analysts = UserAnalytics.query().where(UserAnalytics.c.created_at >= "2024-01-01").all()
-
-# ✅ 安全：聚合查询
-count = UserAnalytics.query().count()
-
-# ❌ 立即阻断——不会产生任何数据库调用
-user = UserAnalytics(name="Alice", email="alice@example.com")
-user.save()  # 抛出：TypeError: UserAnalytics 是只读模型，不能保存。
+UserAnalytics.configure(SQLiteConnectionConfig(database="analytics.db"), SQLiteBackend)
 ```
 
 ---
 
-## 4. 与共享字段 Mixin 模式结合
+## 4. 与共享字段混入类模式结合
 
-最易维护的方式是将 `ReadOnlyMixin` 与[共享字段 Mixin](best_practices.md#8-多个独立连接-multiple-independent-connections) 模式结合：
-字段定义一处，由可写模型和只读分析模型共享。
+字段只定义一次，在可写模型与只读副本之间共享：
 
 ```python
 from pydantic import BaseModel
 
-# 共享字段定义
 class UserFields(BaseModel):
     id: Optional[int] = None
     name: str
     email: str
-    created_at: Optional[str] = None
 
-# 可写业务模型——主库
 class User(UserFields, ActiveRecord):
     __table_name__ = "users"
 
-# 只读分析模型——分析副本
 class UserAnalytics(ReadOnlyMixin, UserFields, ActiveRecord):
     __table_name__ = "users"
 
-# 各自独立配置
 User.configure(primary_config, SQLiteBackend)
 UserAnalytics.configure(analytics_config, SQLiteBackend)
 ```
 
-字段定义集中在 `UserFields` 一处。添加或修改字段时，两个模型自动保持同步。
+字段集中在一处，字段变更时两个模型自动保持同步。
 
 ---
 
-## 5. 派生 / 计算字段
+## 5. 无主键是另一个维度
 
-分析模型通常需要从存储数据派生出指标。对不需要入库的值使用 `@property`：
+只读与"是否有主键"互相独立。只读副本通常保留主键，无主键的关系也依然可以写入：
 
 ```python
-from datetime import datetime
+class AuditLog(ActiveRecord):          # 无主键，但可写（只追加表）
+    __primary_key__ = None
+    event: str
 
-class UserAnalytics(ReadOnlyMixin, UserFields, ActiveRecord):
-    __table_name__ = "users"
-    signup_days_ago: Optional[int] = None  # 由数据库查询或注解填充
-
-    @property
-    def is_new_user(self) -> bool:
-        """注册不超过 30 天的用户视为新用户。"""
-        return (self.signup_days_ago or 0) <= 30
-
-    @property
-    def tier(self) -> str:
-        """按注册时长对用户分层。"""
-        days = self.signup_days_ago or 0
-        if days <= 30:
-            return "new"
-        if days <= 365:
-            return "regular"
-        return "veteran"
+class EventView(ReadOnlyMixin, ActiveRecord):
+    __primary_key__ = None             # 既无主键，又只读
+    event: str
 ```
 
-`@property` 字段在 Python 中计算，永远不会存入数据库，无需任何 Schema 变更即可添加。
+`__primary_key__ = None` 的含义以及被排除的 API 见 [无主键模型](keyless_models.md)。
 
 ---
 
-## 6. 只读模型检查清单
+## 6. 值得知道的边界
 
-- [ ] `ReadOnlyMixin`（或等价实现）覆盖了 `save()`、`delete()` 和 `bulk_create()`
-- [ ] 只读模型配置到副本 / 分析后端，而非主库
-- [ ] 字段定义通过 `BaseModel` Mixin 共享，避免重复
-- [ ] 计算指标通过 `@property` 表达，而非存储列
-- [ ] 单元测试验证 `save()` 和 `delete()` 会抛出 `TypeError`
+**它守护的是框架的写入路径，而不是数据库。** `backend.expression` 是公开导出的，
+任何人都可以手工构造并执行一条 UPDATE：
+
+```python
+from rhosocial.activerecord.backend.expression import UpdateExpression
+
+UpdateExpression(dialect, table="users", data={"name": "x"}, where=...).to_sql()
+```
+
+真正的保障是数据库凭据——只给账号授予 `SELECT`。用混入类防止手滑，
+用权限来强制策略。
+
+**与写入型行为的混入类组合会被拒绝。** `SoftDeleteMixin`、`TimestampMixin`、
+`OptimisticLockMixin` 会注册 `BEFORE_INSERT` / `BEFORE_UPDATE` / `BEFORE_DELETE` 处理器，
+而在只读模型上它们永远不会被执行，因为写入总是先被拒绝。该组合在**类定义时**
+抛出 `TypeError`：
+
+```python
+class Broken(ReadOnlyMixin, SoftDeleteMixin, ActiveRecord):
+    ...  # TypeError: Broken is read-only but also implements IDeleteBehavior ...
+```
+
+检查从 `__init_subclass__` 触发，因此在类定义时就会报错，而不是等到首次实例化。
+
+---
+
+## 检查清单
+
+- [ ] 混入 `ReadOnlyMixin`，而不是手写 `save()` / `delete()` 覆写
+- [ ] 测试断言 `ReadOnlyError`，而不是笼统的异常
+- [ ] 若意图是只读副本，后端配置指向副本
+- [ ] 数据库账号仅授予只读权限——混入类不是边界
+- [ ] 没有与写入型行为的混入类组合
 
 ---
 
 ## 可运行示例
 
-参见 [`docs/examples/chapter_03_modeling/readonly_models.py`](../../../examples/chapter_03_modeling/readonly_models.py)，
-该脚本自包含，完整演示了上述四种模式。
+见 [`docs/examples/chapter_03_modeling/readonly_models.py`](../../examples/chapter_03_modeling/readonly_models.py)。
 
 ---
 
-## 另请参阅
+## 相关文档
 
-- [多个独立连接](best_practices.md#8-多个独立连接-multiple-independent-connections) — 子类继承 vs. Mixin 模式的连接分离方案
-- [大批量数据处理](batch_processing.md) — 从分析数据库高效读取大型数据集
-- [Mixins](mixins.md) — 内置 Mixin 及模型行为组合模式
+- [无主键模型](keyless_models.md) —— `__primary_key__ = None` 及其影响
+- [把视图写成查询](views_as_queries.md) —— 用封装查询表达数据库视图
+- [Mixin](mixins.md) —— 其他内置混入类
+- [批量处理](batch_processing.md) —— 高效读取大数据集

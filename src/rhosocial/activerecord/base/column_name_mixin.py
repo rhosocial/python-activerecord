@@ -302,8 +302,14 @@ This allows a model to define a field like `creation_date: ... UseColumn("create
 
     @classmethod
     def primary_key_fields(cls) -> Tuple[str, ...]:
-        """Always return a tuple of primary key field names."""
+        """Primary key field names, as a tuple.
+
+        Empty for a keyless model (``__primary_key__ = None``), matching
+        :meth:`IActiveRecord.primary_key_columns`.
+        """
         result = cls.primary_key_field()
+        if result is None:
+            return ()
         return result if isinstance(result, tuple) else (result,)
 
     @classmethod

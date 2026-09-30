@@ -121,6 +121,83 @@ The table below describes the default `DDLSourceMixin` implementation. A custom 
 | `table_constraints()` | `Sequence[TableConstraint]` | Shallow copy of explicit constraints; a composite primary key is reused or completed according to the source rules. |
 | `table_inherits()` | `Optional[List[str]]` | `None` by default; an override is returned unchanged. |
 | `table_tablespace()` | `Optional[str]` | `None` by default; an override is returned unchanged. |
+| `object_type()` | `ObjectDeclaration` | `TABLE` by default. Declares which kind of object this source describes. |
+| `view_options()` | `Optional[ViewOptions]` | `None` by default; an override is returned unchanged. |
+| `view_definition()` | `None`, `str`, or `Callable[[dialect], BaseExpression]` | `None` by default. A factory is not called at declaration time, because no dialect exists yet. |
+| `view_dependencies()` | `Optional[Tuple[str, ...]]` | `None` by default; names the objects this one reads from. |
+
+### Object kind: table, view, or materialized view
+
+`object_type()` declares **which kind of object this source describes**. It is a
+declaration, never a probe — nothing asks the database what the object actually is:
+
+```python
+class OrderSummary(ActiveRecord):
+    __table_name__ = "order_summary"
+    id: Optional[int] = None
+
+    @classmethod
+    def object_type(cls):
+        return ObjectDeclaration.MATERIALIZED_VIEW
+
+    @classmethod
+    def view_dependencies(cls):
+        return ("orders",)          # sources to invalidate caches on
+```
+
+The DDL layer reads the value to choose between the create-table, create-view and
+create-materialized-view statements, then applies the dialect's capability gates. Because
+it never performs I/O, model metadata stays resolvable at import time.
+
+Keeping it declarative is what lets the three dimensions stay independent. A model may
+be read-only, keyless, and a materialized view — or any other combination — and each is
+declared where it belongs:
+
+| Declaration | Where it lives | Applies to |
+|---|---|---|
+| `object_type()` | `DDLSource` | what the object is |
+| `__read_only__` | the model | whether writes are refused |
+| `__primary_key__` | the model | whether a row can be addressed by key |
+
+`ObjectDeclaration` is distinct from `introspection.TableType` on purpose: the first is
+what the developer intends, the second an observation of what the catalog holds.
+
+#### Views without a model
+
+A plain view is only a stored query, so the recommended way to express one is an
+encapsulated `ActiveQuery` — see [Views as Queries](views_as_queries.md). But a
+declaration source can still describe one with no model behind it, which is what
+`DDLSource` is *structurally* typed for:
+
+```python
+class RevenueByCustomer(DDLSourceMixin):
+    @classmethod
+    def table_name(cls):
+        return "revenue_by_customer"
+
+    @classmethod
+    def schema_name(cls):
+        return None
+
+    @classmethod
+    def primary_key_columns(cls):
+        return ()
+
+    @classmethod
+    def is_composite_pk(cls):
+        return False
+
+    @classmethod
+    def object_type(cls):
+        return ObjectDeclaration.VIEW
+
+    @classmethod
+    def view_dependencies(cls):
+        return ("orders", "customers")
+```
+
+Those four identity methods are the entire cost: `DDLSourceMixin` provides the other 24
+protocol members, and a model would have supplied exactly these four.
 
 ### `column_constraints()` composition
 

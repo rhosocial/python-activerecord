@@ -121,6 +121,80 @@ class Report(ActiveRecord):
 | `table_constraints()` | `Sequence[TableConstraint]` | 显式表约束的浅副本；复合主键按规则补充或复用显式定义。 |
 | `table_inherits()` | `Optional[List[str]]` | 默认 `None`；覆盖方法的结果原样返回。 |
 | `table_tablespace()` | `Optional[str]` | 默认 `None`；覆盖方法的结果原样返回。 |
+| `object_type()` | `ObjectDeclaration` | 默认 `TABLE`。声明该 source 描述的是哪一类对象。 |
+| `view_options()` | `Optional[ViewOptions]` | 默认 `None`；覆盖方法的结果原样返回。 |
+| `view_definition()` | `None`、`str` 或 `Callable[[dialect], BaseExpression]` | 默认 `None`。工厂函数在声明期不会被调用，因为那时还没有方言。 |
+| `view_dependencies()` | `Optional[Tuple[str, ...]]` | 默认 `None`；声明该对象读取了哪些对象。 |
+
+### 对象种类：表、视图或物化视图
+
+`object_type()` 声明 **该 source 描述的是哪一类对象**。它是声明，不是探测——
+框架不会去询问数据库里实际存在什么：
+
+```python
+class OrderSummary(ActiveRecord):
+    __table_name__ = "order_summary"
+    id: Optional[int] = None
+
+    @classmethod
+    def object_type(cls):
+        return ObjectDeclaration.MATERIALIZED_VIEW
+
+    @classmethod
+    def view_dependencies(cls):
+        return ("orders",)          # 缓存失效时依据的来源
+```
+
+DDL 层读取该值，在建表、建视图与建物化视图语句之间选择，然后套用方言的能力门禁。
+由于它从不产生 IO，模型元数据依然可以在导入期解析。
+
+保持声明式，正是三个维度能彼此独立的原因。一个模型可以同时是只读的、无主键的、
+物化视图，或任意其他组合，每个维度都声明在它该在的地方：
+
+| 声明 | 位置 | 含义 |
+|---|---|---|
+| `object_type()` | `DDLSource` | 对象是什么 |
+| `__read_only__` | 模型 | 是否拒绝写入 |
+| `__primary_key__` | 模型 | 能否按主键定位到一行 |
+
+`ObjectDeclaration` 与 `introspection.TableType` 刻意分开：前者是开发者的**意图**，
+后者是对系统目录的**观察**。
+
+#### 没有模型的视图
+
+普通视图本质上只是一个存储的查询，因此推荐的做法是封装一个 `ActiveQuery`——
+见 [把视图写成查询](views_as_queries.md)。但声明 source 仍可在没有模型的情况下描述视图，
+这正是 `DDLSource` 被**结构化**类型化的用意：
+
+```python
+class RevenueByCustomer(DDLSourceMixin):
+    @classmethod
+    def table_name(cls):
+        return "revenue_by_customer"
+
+    @classmethod
+    def schema_name(cls):
+        return None
+
+    @classmethod
+    def primary_key_columns(cls):
+        return ()
+
+    @classmethod
+    def is_composite_pk(cls):
+        return False
+
+    @classmethod
+    def object_type(cls):
+        return ObjectDeclaration.VIEW
+
+    @classmethod
+    def view_dependencies(cls):
+        return ("orders", "customers")
+```
+
+代价就是这四个身份方法：`DDLSourceMixin` 提供了协议其余 24 个成员，
+而模型恰好会提供这四个。
 
 ### `column_constraints()` 的组合规则
 

@@ -1595,7 +1595,30 @@ class ViewSupport(Protocol):
         ...  # pragma: no cover
 
     def supports_or_replace_view(self) -> bool:
-        """Whether CREATE OR REPLACE VIEW is supported."""
+        """Whether CREATE OR REPLACE VIEW is supported.
+
+        Superseded by :meth:`supports_create_or_replace_view`, which is the
+        name ``format_create_view_statement`` actually gates on. Declared here
+        as well because backends override it; the two are kept consistent by
+        ``ViewMixin``, which derives one from the other.
+        """
+        ...  # pragma: no cover
+
+    def supports_create_or_replace_view(self) -> bool:
+        """Whether CREATE OR REPLACE VIEW is supported.
+
+        The name the generic renderer gates on. Previously undeclared on this
+        protocol while being the method the formatter calls, so a capability
+        scan of the protocol saw a contract the renderer did not follow.
+        """
+        ...  # pragma: no cover
+
+    def supports_if_not_exists_view(self) -> bool:
+        """Whether CREATE VIEW IF NOT EXISTS is supported.
+
+        Also read by ``format_create_view_statement`` and previously
+        undeclared here, for the same reason.
+        """
         ...  # pragma: no cover
 
     def supports_temporary_view(self) -> bool:

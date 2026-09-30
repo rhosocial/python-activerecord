@@ -45,7 +45,7 @@ create_view = CreateViewExpression(
         ],
         from_=TableExpression(dialect, "users")
     ),
-    columns=["user_id", "full_name", "contact_email"]
+    column_aliases=["user_id", "full_name", "contact_email"]
 )
 sql, params = create_view.to_sql()
 # sql: 'CREATE VIEW "user_details" ("user_id", "full_name", "contact_email") AS SELECT ...'
@@ -58,7 +58,7 @@ create_view = CreateViewExpression(
     dialect,
     view_name="user_summary",
     query=query,
-    or_replace=True
+    replace=True
 )
 sql, params = create_view.to_sql()
 # sql: 'CREATE OR REPLACE VIEW "user_summary" AS ...'
@@ -100,6 +100,12 @@ sql, params = drop_view.to_sql()
 # sql: 'DROP VIEW IF EXISTS "old_view"'
 ```
 
+> **`replace=True` 并非普遍可用。** 请先检查
+> `dialect.supports_create_or_replace_view()`。SQLite 完全没有
+> `CREATE OR REPLACE VIEW`——该子句在那里是语法错误——请求它会抛出
+> `UnsupportedFeatureError`，而不是被静默降级。若要保留既有定义，请改用
+> `if_not_exists=True`。
+
 ## 执行视图 DDL
 
 ```python
@@ -108,7 +114,7 @@ create_table = CreateTableExpression(dialect, "users", user_columns)
 backend.execute(create_table.to_sql())
 
 # 创建视图
-create_view = CreateViewExpression(dialect, "user_summary", view_query)
+create_view = CreateViewExpression(dialect, view_name="user_summary", query=view_query)
 backend.execute(create_view.to_sql())
 
 # 内省：列出视图
@@ -121,4 +127,4 @@ for v in views:
 
 ## 示例代码
 
-完整示例：[docs/examples/chapter_03_modeling/ddl_views.py](../../../examples/chapter_03_modeling/ddl_views.py)
+完整示例：[docs/examples/chapter_03_modeling/ddl_views.py](../../examples/chapter_03_modeling/ddl_views.py)

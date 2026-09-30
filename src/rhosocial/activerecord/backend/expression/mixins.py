@@ -27,7 +27,7 @@ ensuring consistent SQL generation across the expression tree.
 """
 
 import copy
-from typing import Any, Optional, Union, List, TYPE_CHECKING, TypeVar
+from typing import Any, Optional, Union, List, Tuple, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression, SQLPredicate
@@ -310,12 +310,20 @@ class ComparisonMixin:
 
         return IsBooleanPredicate(self._dialect, self, value=False, is_not=True)
 
-    def in_(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
+    def in_(self: "SQLValueExpression", values: Union[List[Any], Tuple[Any, ...], Any]) -> "SQLPredicate":
         """
-        Generate an IN predicate for this expression with a list of values.
+        Generate an IN predicate for this expression with a list of values or a subquery.
+
+        Three input shapes are accepted, dispatched in this order:
+
+        1. an object exposing ``to_query_expression()`` (e.g. ``ActiveQuery``) —
+           rendered as an IN subquery
+        2. an object exposing ``to_sql()`` (e.g. ``Subquery``) — passed through
+        3. a list or tuple — bound as an IN value list
 
         Args:
-            values: List of values to check for inclusion
+            values: List of values to check for inclusion, an expression, or a query
+                object (``to_query_expression``) to use as a subquery
 
         Returns:
             SQLPredicate representing the IN check
@@ -323,38 +331,46 @@ class ComparisonMixin:
         Example:
             >>> col = Column(dialect, "status")
             >>> predicate = col.in_(["active", "pending"])  # Generates: "status IN (?, ?)"
+            >>> predicate = col.in_(query)                   # "status IN (SELECT ...)"
         """
         from .core import Literal
         from .predicates import InPredicate
 
         to_query_expression = getattr(values, "to_query_expression", None)
         if callable(to_query_expression):
-            # An ActiveQuery-like object: render as an IN subquery.
+            # An ActiveQuery-like object: render as an IN subquery. The dialect
+            # must be bound here -- a Subquery built with None raises on to_sql().
             from .core import Subquery
 
-            return InPredicate(self._dialect, self, Subquery(None, to_query_expression()))
+            return InPredicate(self._dialect, self, Subquery(self._dialect, to_query_expression()))
         if hasattr(values, "to_sql"):
             # Already an expression (e.g. Subquery): pass through.
             return InPredicate(self._dialect, self, values)
 
         return InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
 
-    def not_in(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
+    def not_in(self: "SQLValueExpression", values: Union[List[Any], Tuple[Any, ...], Any]) -> "SQLPredicate":
         """
-        Generate a NOT IN predicate for this expression with a list of values.
+        Generate a NOT IN predicate for this expression with a list of values or a subquery.
+
+        Delegates the value/expression/subquery dispatch to :meth:`in_` and negates the
+        result, so both members accept exactly the same three input shapes.
 
         Args:
-            values: List of values to check for exclusion
+            values: List of values to check for exclusion, an expression, or a query
+                object (``to_query_expression``) to use as a subquery
 
         Returns:
             SQLPredicate representing the NOT IN check
-        """
-        from .core import Literal
-        from .predicates import InPredicate, LogicalPredicate
 
-        return LogicalPredicate(
-            self._dialect, "NOT", InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
-        )
+        Example:
+            >>> col = Column(dialect, "status")
+            >>> predicate = col.not_in(["active", "pending"])  # "NOT (status IN (?, ?))"
+            >>> predicate = col.not_in(query)                   # "NOT (status IN (SELECT ...))"
+        """
+        from .predicates import LogicalPredicate
+
+        return LogicalPredicate(self._dialect, "NOT", self.in_(values))
 
     def between(self: "SQLValueExpression", low: Any, high: Any) -> "SQLPredicate":
         """

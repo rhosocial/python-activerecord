@@ -221,6 +221,38 @@ jobs:
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 
+  examples:
+    name: Run SQLite examples
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v6
+
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    # The examples are executable documentation, and nothing else runs them.
+    # They drifted silently for long enough that 44 of 55 were broken at once,
+    # each calling a constructor or keyword argument that no longer existed.
+    # Regressions here are invisible to the test suite, so they are run here.
+    #
+    # The three cli/*_demo.py scripts each spawn several CLI subprocesses and
+    # dominate the runtime, so this runs them serially and nothing else. Expect
+    # roughly three minutes.
+    - name: Execute every example
+      run: |
+        bash src/rhosocial/activerecord/backend/impl/sqlite/examples/run_all_examples.sh
+
   test-other-versions:
     name: Run tests with Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest

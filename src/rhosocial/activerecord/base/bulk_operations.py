@@ -41,6 +41,7 @@ class BulkOperationsMixin:
             BulkValidationError: If any record fails validation.
             DatabaseError: On database errors.
         """
+        cls.refuse_read_only("bulk_create")
         if not records:
             return records
 
@@ -159,6 +160,7 @@ class BulkOperationsMixin:
             BulkValidationError: If any record fails validation.
             ValueError: If fields list is empty or contains invalid field names.
         """
+        cls.refuse_read_only("bulk_update")
         if not records:
             return 0
 
@@ -256,6 +258,7 @@ class BulkOperationsMixin:
         Raises:
             BulkStateError: If any record is a new record.
         """
+        cls.refuse_read_only("bulk_delete")
         if not records:
             return 0
 
@@ -370,6 +373,7 @@ class AsyncBulkOperationsMixin:
             BulkValidationError: If any record fails validation.
             DatabaseError: On database errors.
         """
+        cls.refuse_read_only("bulk_create")
         if not records:
             return records
 
@@ -486,6 +490,7 @@ class AsyncBulkOperationsMixin:
             BulkValidationError: If any record fails validation.
             ValueError: If fields list is empty or contains invalid field names.
         """
+        cls.refuse_read_only("bulk_update")
         if not records:
             return 0
 
@@ -582,6 +587,7 @@ class AsyncBulkOperationsMixin:
         Raises:
             BulkStateError: If any record is a new record.
         """
+        cls.refuse_read_only("bulk_delete")
         if not records:
             return 0
 

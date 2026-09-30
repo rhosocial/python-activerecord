@@ -14,6 +14,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
@@ -26,19 +30,20 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="documents",
+    table="documents",
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(dialect, "data", TextType()),
+        ColumnDefinition(dialect, "data", TextType(dialect)),
     ],
     if_not_exists=True,
 )
@@ -51,6 +56,7 @@ insert_data = [
     {"name": "Alice", "age": 30, "tags": ["a", "b"]},
     {"name": "Bob", "age": 25, "tags": ["c"]},
 ]
+from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal  # noqa: E402
 for data in insert_data:
     insert_expr = InsertExpression(
         dialect=dialect,
@@ -69,8 +75,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     TableExpression,
     Column,
 )
-from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 query = QueryExpression(
     dialect=dialect,

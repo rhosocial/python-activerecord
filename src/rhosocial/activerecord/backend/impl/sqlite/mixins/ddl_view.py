@@ -22,6 +22,11 @@ _SUGGESTION_MATERIALIZED_VIEW_ALT = (
     "SQLite does not support materialized views. Consider using regular views "
     "or creating tables to store precomputed results."
 )
+_SUGGESTION_OR_REPLACE_VIEW = (
+    "SQLite has no CREATE OR REPLACE VIEW; it rejects the OR REPLACE clause with a "
+    "syntax error. Drop the view first (DROP VIEW IF EXISTS) and then create it, "
+    "or use if_not_exists=True to keep any existing definition."
+)
 
 
 class SQLiteViewMixin:
@@ -36,12 +41,23 @@ class SQLiteViewMixin:
         return True
 
     def supports_or_replace_view(self) -> bool:
-        """SQLite supports CREATE OR REPLACE VIEW."""
-        return True
+        """SQLite has no CREATE OR REPLACE VIEW.
+
+        The clause is a syntax error there, verified against SQLite 3.46:
+
+            CREATE OR REPLACE VIEW v AS SELECT 1
+            -- OperationalError: near "OR": syntax error
+
+        This used to report True, which combined with the formatter below to
+        turn replace=True into a silent no-op: the statement was rendered as
+        CREATE VIEW IF NOT EXISTS, so an existing view kept its old definition
+        and the caller was told the definition had been replaced.
+        """
+        return False
 
     def supports_create_or_replace_view(self) -> bool:
-        """SQLite supports CREATE OR REPLACE VIEW."""
-        return True
+        """SQLite has no CREATE OR REPLACE VIEW. See supports_or_replace_view."""
+        return False
 
     def supports_if_not_exists_view(self) -> bool:
         """SQLite supports CREATE VIEW IF NOT EXISTS."""
@@ -80,13 +96,23 @@ class SQLiteViewMixin:
         return False
 
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
-        """Format CREATE VIEW statement for SQLite."""
+        """Format CREATE VIEW statement for SQLite.
+
+        Raises:
+            UnsupportedFeatureError: If ``replace`` is requested, because SQLite
+                has no CREATE OR REPLACE VIEW. It previously rendered
+                ``CREATE VIEW IF NOT EXISTS``, which SQLite accepts and which
+                silently leaves an existing view's definition untouched -- so
+                ``replace=True`` appeared to succeed while doing nothing.
+        """
+        if expr.replace and not self.supports_create_or_replace_view():
+            raise UnsupportedFeatureError(
+                self.name, "CREATE OR REPLACE VIEW", _SUGGESTION_OR_REPLACE_VIEW
+            )
         parts = ["CREATE"]
         if expr.temporary:
             parts.append("TEMPORARY")
-        if expr.replace and self.supports_create_or_replace_view():
-            parts.append("VIEW IF NOT EXISTS")
-        elif expr.if_not_exists and self.supports_if_not_exists_view():
+        if expr.if_not_exists and self.supports_if_not_exists_view():
             parts.append("VIEW IF NOT EXISTS")
         else:
             parts.append("VIEW")

@@ -19,6 +19,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
@@ -32,20 +36,21 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 create_table = CreateTableExpression(
     dialect=dialect,
     table="articles",
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(dialect, "title", TextType()),
-        ColumnDefinition(dialect, "author", TextType()),
+        ColumnDefinition(dialect, "title", TextType(dialect)),
+        ColumnDefinition(dialect, "author", TextType(dialect)),
     ],
     if_not_exists=True,
 )
@@ -84,7 +89,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     OrderByClause,
 )
 from rhosocial.activerecord.backend.expression.core import Column, WildcardExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 # 1. Basic LIMIT - get first N rows
 query_limit = QueryExpression(

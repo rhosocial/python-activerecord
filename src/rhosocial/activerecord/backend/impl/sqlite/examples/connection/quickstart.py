@@ -38,6 +38,10 @@ backend = SQLiteBackend(connection_config=config)
 backend.connect()
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
 
@@ -56,7 +60,7 @@ def create_demo_tables():
         columns=[
             ColumnDefinition(dialect, 
                 "id",
-                IntegerType(),
+                IntegerType(dialect),
                 constraints=[
                     ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
                     ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -64,10 +68,10 @@ def create_demo_tables():
             ),
             ColumnDefinition(dialect, 
                 "name",
-                TextType(),
+                TextType(dialect),
                 constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
             ),
-            ColumnDefinition(dialect, "status", TextType()),
+            ColumnDefinition(dialect, "status", TextType(dialect)),
         ],
         if_not_exists=True,
     )
@@ -79,7 +83,7 @@ def create_demo_tables():
         columns=[
             ColumnDefinition(dialect, 
                 "id",
-                IntegerType(),
+                IntegerType(dialect),
                 constraints=[
                     ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
                     ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -87,7 +91,7 @@ def create_demo_tables():
             ),
             ColumnDefinition(dialect, 
                 "message",
-                TextType(),
+                TextType(dialect),
                 constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
             ),
         ],

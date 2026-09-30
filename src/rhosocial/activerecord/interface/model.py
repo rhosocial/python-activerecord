@@ -12,7 +12,7 @@ from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callab
 from .base import ModelEvent
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
-from ..backend.errors import DatabaseError, RecordNotFound
+from ..backend.errors import DatabaseError, RecordNotFound, UnaddressableRecordError
 from ..types import PrimaryKeyDef
 
 
@@ -153,7 +153,8 @@ class ActiveRecordBase(BaseModel, ABC):
         """Get the primary key definition.
 
         Single-column primary keys return a str, composite primary keys return
-        a tuple of column names.
+        a tuple of column names. ``None`` declares a keyless model: the relation
+        has no single-row identity. See :meth:`addressable`.
 
         Example:
             @classmethod
@@ -163,25 +164,78 @@ class ActiveRecordBase(BaseModel, ABC):
         return cls.__primary_key__
 
     @classmethod
+    def addressable(cls) -> bool:
+        """Whether a single row can be addressed by primary key.
+
+        The single decision point for "can this model be looked up or updated by
+        identity". False for ``__primary_key__ = None``, which is how a
+        keyless relation declares that it has no unique single-row key --
+        an insert-only log table, or an aggregate projection.
+
+        A False answer does not make the model unusable: ``all()``,
+        ``where()``, ``order_by()``, ``group_by()``, aggregation, counting,
+        ``pluck`` and every relation keep working, because none of them needs
+        identity. What is unavailable is ``find_one(pk)``, ``find_all([pk])``,
+        and updating or deleting by primary key. Use ``where(...).one()`` to
+        select a row when that is well defined by some other criterion.
+
+        Orthogonal to read-only-ness: a keyless table may be writable, and a
+        read-only table may well have an auto-generated key.
+        """
+        return cls.__primary_key__ is not None
+
+    @classmethod
     def is_composite_pk(cls) -> bool:
         """Check if the model uses a composite primary key."""
         return isinstance(cls.__primary_key__, tuple)
 
     @classmethod
     def primary_key_columns(cls) -> Tuple[str, ...]:
-        """Always return a tuple of primary key column names."""
+        """Primary key column names, as a tuple.
+
+        Empty for a keyless model (``__primary_key__ = None``). Never contains
+        ``None``: callers can iterate the result unconditionally.
+        """
         pk = cls.__primary_key__
+        if pk is None:
+            return ()
         return pk if isinstance(pk, tuple) else (pk,)
+
+    @classmethod
+    def get_generated_field_names(cls) -> Tuple[str, ...]:
+        """Field names backed by generated (computed) expressions.
+
+        Generated columns are computed by the database and must be excluded
+        from INSERT/UPDATE payloads. This is the field-keyed view, for the
+        call sites that hold a ``model_dump()`` result; see
+        :meth:`get_generated_columns` for the column-keyed view.
+
+        Derived from the DDL declaration (``UseGeneratedColumn`` /
+        ``DDLSourceMixin.generated_column``) rather than a separate cache, so
+        declaring a generated column is enough to exclude it.
+        """
+        generated = getattr(cls, "columns_generated", None)
+        if not callable(generated):
+            return ()
+        return tuple(field for field, spec in generated().items() if spec is not None)
 
     @classmethod
     def get_generated_columns(cls) -> Tuple[str, ...]:
         """Column names backed by generated (computed) expressions.
 
         Generated columns are computed by the database and must be excluded
-        from INSERT/UPDATE column lists. Populated by the DDL derivation
-        (``GeneratedColumnSpec``) via ``__table_generated_columns__``.
+        from INSERT/UPDATE column lists. This is the column-keyed view, for
+        the call sites that hold an already-mapped payload; see
+        :meth:`get_generated_field_names` for the field-keyed view.
+
+        The two differ whenever a field renames its column, so both are
+        needed: filtering a mapped payload by field name would silently miss
+        every renamed generated column.
         """
-        return tuple(getattr(cls, "__table_generated_columns__", ()) or ())
+        column_name = getattr(cls, "column_name", None)
+        if not callable(column_name):
+            return tuple(cls.get_generated_field_names())
+        return tuple(column_name(field) for field in cls.get_generated_field_names())
 
     @classmethod
     def backend(cls) -> Union[StorageBackend, AsyncStorageBackend]:
@@ -287,7 +341,7 @@ class ActiveRecordBase(BaseModel, ABC):
             # Include all fields for new records
             data = self.model_dump()
         # Generated columns are database-computed: never insert/update them.
-        generated = set(self.__class__.get_generated_columns())
+        generated = set(self.__class__.get_generated_field_names())
         if generated:
             data = {k: v for k, v in data.items() if k not in generated}
         return data
@@ -339,8 +393,14 @@ class ActiveRecordBase(BaseModel, ABC):
 
     @classmethod
     def primary_key_fields(cls) -> Tuple[str, ...]:
-        """Always return a tuple of primary key field names."""
+        """Primary key field names, as a tuple.
+
+        Empty for a keyless model (``__primary_key__ = None``), matching
+        :meth:`primary_key_columns`.
+        """
         result = cls.primary_key_field()
+        if result is None:
+            return ()
         return result if isinstance(result, tuple) else (result,)
 
     @property
@@ -348,10 +408,19 @@ class ActiveRecordBase(BaseModel, ABC):
         """
         Check if this is a new record that hasn't been saved to the database yet.
 
+        For an addressable model this is decided by the primary key: a record
+        whose key is unset has never been inserted.
+
+        A keyless model (``__primary_key__ = None``) has no identity to inspect,
+        so the provenance flag decides instead: a row loaded from the database
+        is not new, anything constructed in Python is.
+
         Returns:
             bool: True if this is a new record that hasn't been saved to the database,
                   False if this record already exists in the database
         """
+        if not self.__class__.addressable():
+            return not self._is_from_db
         for field in self.__class__.primary_key_fields():
             if getattr(self, field, None) is None:
                 return True
@@ -597,8 +666,15 @@ class IActiveRecord(ActiveRecordBase):
         pass
 
     def refresh(self) -> None:
-        """Reload record from database"""
+        """Reload record from database by primary key.
+
+        Raises:
+            UnaddressableRecordError: If the model declares no primary key;
+                reloading needs to know which row this instance is.
+        """
         cls = self.__class__
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "refresh")
         if cls.is_composite_pk():
             pk_value = self._get_pk_value()
             if any(v is None for v in pk_value.values()):
@@ -822,8 +898,15 @@ class IAsyncActiveRecord(ActiveRecordBase):
         pass
 
     async def refresh(self) -> None:
-        """Reload record from database asynchronously"""
+        """Reload record from database asynchronously.
+
+        Raises:
+            UnaddressableRecordError: If the model declares no primary key;
+                reloading needs to know which row this instance is.
+        """
         cls = self.__class__
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "refresh")
         if cls.is_composite_pk():
             pk_value = self._get_pk_value()
             if any(v is None for v in pk_value.values()):

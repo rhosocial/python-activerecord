@@ -50,7 +50,7 @@ def where_example(dialect, status: str = "active"):
 def join_example(dialect, user_id: int = 1):
     """SELECT with JOIN.
 
-    Demonstrates JoinClause and JoinType building blocks.
+    Demonstrates the JoinClause building block.
 
     Args:
         dialect: SQL dialect instance.

@@ -12,6 +12,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
@@ -34,23 +38,23 @@ from rhosocial.activerecord.backend.expression.types import FloatType, IntegerTy
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="accounts",
+    table="accounts",
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
-            TextType(),
+            TextType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
         ),
-        ColumnDefinition(dialect, "balance", FloatType()),
+        ColumnDefinition(dialect, "balance", FloatType(dialect)),
     ],
     if_not_exists=True,
 )

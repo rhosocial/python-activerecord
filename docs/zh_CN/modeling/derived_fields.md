@@ -91,23 +91,25 @@ metadata: ClassVar[Annotated[str, DerivedField(
 
 ```python
 # 加载所有推导字段
-products = Product.find_all(derived=True).all()
+products = Product.find_all(derived=True)
 for p in products:
     print(f"{p.name}: ¥{p.price} -> ¥{p.discount_price}")
 
 # 加载指定的推导字段
-products = Product.find_all(derived=["discount_price"]).all()
+products = Product.find_all(derived=["discount_price"])
 
 # 使用自定义别名和表达式
 products = Product.find_all(derived={
     "total": lambda d: d.c.price * d.c.quantity
-}).all()
+})
 ```
 
-在 `ActiveQuery` 中也支持：
+`derived` 是模型类方法 `find_one`、`find_all`、`find_one_or_fail`（及其异步版本）的
+关键字参数。**它不是** `ActiveQuery.all()` / `one()` 的参数——这两个方法不接收任何参数，
+因为它们本来就会投影所有列：
 
 ```python
-products = Product.query().where(Product.c.price > 100).all(derived=True)
+products = Product.query().where(Product.c.price > 100).all()
 ```
 
 ## 注意事项
@@ -115,5 +117,5 @@ products = Product.query().where(Product.c.price > 100).all(derived=True)
 1. **只读**：推导字段不可赋值，尝试赋值会被忽略。
 2. **不验证**：推导字段不经过 Pydantic 验证器。
 3. **不跟踪**：推导字段不会出现在脏字段跟踪中。
-4. **列名冲突**：推导字段名不能与数据库列名冲突，否则会抛出 `ValueError`。
+4. **列名冲突**：推导字段的 `UseColumn` 名称不能与普通字段的列名冲突，否则在类定义时抛出 `TypeError`。
 5. **性能**：推导字段在每次查询时都会生成 SQL 表达式，频繁使用需注意数据库端计算开销。
