@@ -39,6 +39,10 @@ backend = SQLiteBackend(config)
 backend.connect()
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
 
@@ -78,21 +82,22 @@ def fetch_balances():
     return execute_expression(query, dql_options).data
 
 
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 create_table = CreateTableExpression(
     dialect=dialect,
     table="accounts",
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
         ),
         ColumnDefinition(dialect, 
             "name",
-            TextType(),
+            TextType(dialect),
             constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
         ),
-        ColumnDefinition(dialect, "balance", FloatType()),
+        ColumnDefinition(dialect, "balance", FloatType(dialect)),
     ],
     if_not_exists=True,
 )
@@ -133,7 +138,6 @@ print(f"After IMMEDIATE transaction: {fetch_balances()}")
 # - BEGIN EXCLUSIVE: exclusive lock only for this transaction
 # - PRAGMA locking_mode=EXCLUSIVE: persistent lock across all transactions
 from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 
 exclusive_begin = BeginTransactionExpression(dialect).begin_type("EXCLUSIVE")
 sql, params = exclusive_begin.to_sql()

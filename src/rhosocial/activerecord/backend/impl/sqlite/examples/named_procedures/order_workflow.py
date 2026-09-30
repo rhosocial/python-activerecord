@@ -20,6 +20,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
@@ -39,7 +43,7 @@ from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
 
 def _column(name: str, type_name: str):
     """Build a ColumnDefinition from a compact 'name TYPE [PRIMARY KEY]' spec."""
-    data_type = IntegerType() if type_name == "INTEGER" else TextType()
+    data_type = IntegerType(dialect) if type_name == "INTEGER" else TextType(dialect)
     constraints = []
     if "PRIMARY KEY" in type_name:
         constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY))

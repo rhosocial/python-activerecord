@@ -14,6 +14,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
@@ -28,13 +32,14 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     TableConstraintType,
 )
 
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 users_table = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
@@ -42,7 +47,7 @@ users_table = CreateTableExpression(
         ),
         ColumnDefinition(dialect, 
             "name",
-            TextType(),
+            TextType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
             ],
@@ -55,18 +60,18 @@ backend.execute(sql, params)
 
 orders_table = CreateTableExpression(
     dialect=dialect,
-    table_name="orders",
+    table="orders",
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[
                 ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
                 ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True),
             ],
         ),
-        ColumnDefinition(dialect, "user_id", IntegerType()),
-        ColumnDefinition(dialect, "amount", FloatType()),
+        ColumnDefinition(dialect, "user_id", IntegerType(dialect)),
+        ColumnDefinition(dialect, "amount", FloatType(dialect)),
     ],
     table_constraints=[
         TableConstraint(dialect, 
@@ -117,7 +122,6 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     JoinClause,
 )
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 
 join_expr = JoinClause(
     dialect=dialect,

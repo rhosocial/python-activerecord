@@ -24,7 +24,7 @@ def _pk_column(name: str):
     """Integer PRIMARY KEY column definition."""
     return ColumnDefinition(dialect, 
         name=name,
-        data_type=IntegerType(),
+        data_type=IntegerType(dialect),
         constraints=[
             ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY),
         ],
@@ -40,7 +40,7 @@ def _integer_column(name: str, default: int = None, not_null: bool = False):
         constraints.append(
             ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
         )
-    return ColumnDefinition(dialect, name=name, data_type=IntegerType(), constraints=constraints)
+    return ColumnDefinition(dialect, name=name, data_type=IntegerType(dialect), constraints=constraints)
 
 
 def _text_column(name: str, default: str = None, not_null: bool = False):
@@ -52,7 +52,7 @@ def _text_column(name: str, default: str = None, not_null: bool = False):
         constraints.append(
             ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
         )
-    return ColumnDefinition(dialect, name=name, data_type=TextType(), constraints=constraints)
+    return ColumnDefinition(dialect, name=name, data_type=TextType(dialect), constraints=constraints)
 
 
 def _real_column(name: str, default: float = None):
@@ -62,7 +62,7 @@ def _real_column(name: str, default: float = None):
         constraints.append(
             ColumnConstraint(dialect, constraint_type=ColumnConstraintType.DEFAULT, default_value=default)
         )
-    return ColumnDefinition(dialect, name=name, data_type=RealType(), constraints=constraints)
+    return ColumnDefinition(dialect, name=name, data_type=RealType(dialect), constraints=constraints)
 
 
 def create_orders_table(dialect):

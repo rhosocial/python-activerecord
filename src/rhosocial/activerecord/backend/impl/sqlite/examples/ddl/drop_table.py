@@ -16,16 +16,21 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import CreateTableExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
 
+from rhosocial.activerecord.backend.expression.types import IntegerType
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     columns=[
-        ColumnDefinition(dialect, "id", IntegerType()),
+        ColumnDefinition(dialect, "id", IntegerType(dialect)),
     ],
     if_not_exists=True,
 )
@@ -37,7 +42,6 @@ backend.execute(sql, params)
 # SECTION: DROP TABLE (using DropTableExpression)
 # ============================================================
 from rhosocial.activerecord.backend.expression import DropTableExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType
 
 drop_expr = DropTableExpression(
     dialect=dialect,

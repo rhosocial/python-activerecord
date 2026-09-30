@@ -13,6 +13,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
@@ -29,7 +33,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (  # 
 columns = [
     ColumnDefinition(dialect, 
         name="id",
-        data_type=IntegerType(),
+        data_type=IntegerType(dialect),
         constraints=[
             ColumnConstraint(dialect, 
                 constraint_type=ColumnConstraintType.PRIMARY_KEY,
@@ -39,21 +43,21 @@ columns = [
     ),
     ColumnDefinition(dialect, 
         name="name",
-        data_type=TextType(),
+        data_type=TextType(dialect),
         constraints=[
             ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL),
         ],
     ),
     ColumnDefinition(dialect, 
         name="email",
-        data_type=TextType(),
+        data_type=TextType(dialect),
         constraints=[
             ColumnConstraint(dialect, constraint_type=ColumnConstraintType.UNIQUE),
         ],
     ),
     ColumnDefinition(dialect, 
         name="created_at",
-        data_type=TimestampType(),
+        data_type=TimestampType(dialect),
     ),
 ]
 
@@ -66,7 +70,7 @@ indexes = [
 
 create_expr = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     columns=columns,
     indexes=indexes,
     if_not_exists=True,

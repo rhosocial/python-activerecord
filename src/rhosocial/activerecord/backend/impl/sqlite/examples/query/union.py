@@ -19,6 +19,10 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
@@ -34,8 +38,8 @@ create_table = CreateTableExpression(
     dialect=dialect,
     table="users",
     columns=[
-        ColumnDefinition(dialect, "id", IntegerType()),
-        ColumnDefinition(dialect, "name", TextType()),
+        ColumnDefinition(dialect, "id", IntegerType(dialect)),
+        ColumnDefinition(dialect, "name", TextType(dialect)),
     ],
     if_not_exists=True,
 )

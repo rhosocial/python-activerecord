@@ -42,6 +42,10 @@ backend = SQLiteBackend(config)
 backend.connect()
 dialect = backend.dialect
 
+
+# Version-gated features (RETURNING, JSON1, math functions) read the
+# dialect version, which is only known after the server is inspected.
+backend.introspect_and_adapt()
 dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
 
@@ -51,15 +55,15 @@ create_table = CreateTableExpression(
     columns=[
         ColumnDefinition(dialect, 
             "id",
-            IntegerType(),
+            IntegerType(dialect),
             constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
         ),
         ColumnDefinition(dialect, 
             "name",
-            TextType(),
+            TextType(dialect),
             constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
         ),
-        ColumnDefinition(dialect, "balance", FloatType()),
+        ColumnDefinition(dialect, "balance", FloatType(dialect)),
     ],
     if_not_exists=True,
 )
