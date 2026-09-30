@@ -40,6 +40,10 @@ src/rhosocial/activerecord/
 ├── field/              # TimestampMixin, SoftDeleteMixin, UUIDMixin, ...
 ├── query/              # ActiveQuery and query mixins (Aggregate/Base/Join/Relational/Range)
 ├── backend/            # backend abstraction: base, dialect, type_adapter, expression/, impl/
+│   ├── named_expression/  # addressable layers: named-expression / -procedure /
+│   │                      #   -procedure-graph, resolved by FQN (see .claude/architecture.md)
+│   ├── named_connection/  # named-connection: FQN -> BaseConfig subclass
+│   ├── migration/         # named-migration: versioned up()/down() + MigrationRecordStore
 │   └── impl/           # sqlite, dummy, ... (mysql/postgres live in separate packages)
 ├── interface/          # IActiveRecord, backend interfaces/protocols
 └── ...
@@ -87,8 +91,8 @@ policy; skills are loaded on demand when a matching task starts.
 
 `user-getting-started`, `user-modeling-guide`, `user-activerecord-pattern`,
 `user-query-advanced`, `user-relationships`, `user-enterprise-features`,
-`user-performance-tuning`, `user-testing-guide`, `user-troubleshooting` — for application
-developers using the library.
+`user-named-backend-commands`, `user-performance-tuning`, `user-testing-guide`,
+`user-troubleshooting` — for application developers using the library.
 
 ## Test Execution
 

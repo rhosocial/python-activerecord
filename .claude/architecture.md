@@ -64,6 +64,52 @@ implementations**, decided by the *breadth* of the feature's base:
    "Override Discipline (Generic-First)"). Overriding is the correctness escape hatch; it is not a
    reason to avoid lifting broadly-shared features to the core.
 
+#### Named-* Subsystem (Addressable Layers Above the Dialect)
+
+Above the expression/dialect pair sits a family of **addressable** layers: instead of a
+caller constructing an expression inline, a **fully qualified Python name** (FQN) is
+resolved to a callable, class, or graph and executed by name. This is the only place in
+the codebase where behaviour is discovered by reflection rather than by import.
+
+Five layers, in increasing scope:
+
+| Layer | Resolves to | Lives in |
+|---|---|---|
+| `named-connection` | callable returning a `BaseConfig` subclass | `backend/named_connection/` |
+| `named-expression` | function, first parameter named `dialect` | `backend/named_expression/` |
+| `named-procedure` | `Procedure` subclass implementing `run(ctx)` | `named_expression/procedure.py` |
+| `named-procedure-graph` | callable returning a `ProcedureGraph` | `named_expression/graph_resolver.py` |
+| `named-migration` | `NamedMigration` subclass with `up()`/`down()` | `backend/migration/` |
+
+Each layer also has an `Async` form with identical names and behaviour.
+
+Three properties hold across all five, and each is a deliberate design decision rather
+than an implementation detail:
+
+1. **First parameter must be named `dialect`.** Resolution is by keyword, so a callable
+   whose first argument is named something else is rejected rather than being passed a
+   dialect positionally. This keeps a named expression a normal function that can also be
+   called directly from Python without the CLI.
+2. **FQN-only addressing.** Short names are never accepted. A short name is ambiguous the
+   moment two modules define the same class, and a runner that guesses between them will
+   eventually apply the wrong one. `resolver.py` splits on the final `.` and imports the
+   module path; there is no search path.
+3. **`allowed_modules` is an allowlist checked *before* import.** When supplied, a name
+   outside it raises `NamedExpressionModuleNotAllowedError` from the string alone, so a
+   disallowed module is never loaded into the process. `None` preserves unrestricted
+   behaviour, which is why callers that accept FQNs from outside the process (the CLI, the
+   devtools MCP) must pass one.
+
+Only `named-migration` is **stateful**: the rest are pure descriptions of SQL, while a
+migration additionally records what has already been applied (`MigrationRecordStore`) and
+resolves ordering through `dependencies`. That statefulness is what makes
+`down()` meaningful and what distinguishes this layer from the four above it.
+
+Consequence worth knowing: because resolution is by FQN string, a typo in a name is a
+runtime error, not an import error, and static analysis cannot see it. This is the main
+reason `named-*` examples are executed by CI
+(`examples/run_all_examples.sh`) rather than only being linted.
+
 ### 3. Model Layer
 
 The model layer provides the implementation of the Active Record pattern.
