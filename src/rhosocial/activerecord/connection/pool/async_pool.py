@@ -21,6 +21,22 @@ from rhosocial.activerecord.logging import get_logger as _get_framework_logger
 logger = _get_framework_logger("rhosocial.activerecord.connection.pool.async_pool")
 
 
+class _PermitState:
+    """Tracks whether a semaphore permit has been handed off to a backend.
+
+    A permit acquired by :meth:`AsyncBackendPool.acquire` must be returned
+    exactly once: either by :meth:`AsyncBackendPool.release` (once ownership
+    transferred to the returned backend) or by ``acquire`` itself on any other
+    exit path -- including ``CancelledError``, which is a ``BaseException`` and
+    therefore invisible to ``except Exception``.
+    """
+
+    __slots__ = ("handed_off",)
+
+    def __init__(self) -> None:
+        self.handed_off = False
+
+
 class AsyncBackendPool:
     """Asynchronous connection pool.
 
@@ -394,10 +410,29 @@ class AsyncBackendPool:
                 f"in_use={self._stats.current_in_use}"
             )
 
+        # From here on this call owns a semaphore permit. Every exit path must
+        # either hand the permit to the returned backend (``release()`` will
+        # return it) or give it back here. ``permit_handed_off`` tracks that so
+        # the permit is returned exactly once, including on BaseException
+        # (CancelledError) which is what previously leaked permits and bricked
+        # the pool when clients disconnected mid-``connect()``.
+        permit_state = _PermitState()
+        try:
+            return await self._acquire_loop(timeout, permit_state)
+        except BaseException:
+            if not permit_state.handed_off:
+                self._semaphore.release()
+            raise
+
+    async def _acquire_loop(self, timeout: Optional[float], permit_state: "_PermitState") -> Any:
+        """Body of :meth:`acquire`, executed while holding a semaphore permit.
+
+        The caller owns the permit and is responsible for releasing it unless it
+        is handed off to the backend returned from this loop.
+        """
         while True:
             async with self._lock:
                 if self._closed:
-                    self._semaphore.release()
                     raise RuntimeError("Pool is closed")
 
                 if self._available:
@@ -409,17 +444,12 @@ class AsyncBackendPool:
                     is_new_backend = True
 
             if pooled is None:
-                try:
-                    should_connect = self._is_persistent or (
-                        not self._is_persistent and self.config.auto_connect_on_acquire
-                    )
-                    pooled = await self._create_backend(connect=should_connect)
-                except Exception:
-                    self._semaphore.release()
-                    raise
+                should_connect = self._is_persistent or (
+                    not self._is_persistent and self.config.auto_connect_on_acquire
+                )
+                pooled = await self._create_backend(connect=should_connect)
 
                 if pooled is None:
-                    self._semaphore.release()
                     raise RuntimeError("Failed to acquire connection")
 
             try:
@@ -428,7 +458,6 @@ class AsyncBackendPool:
                         if not await self._reconnect_backend(pooled):
                             await self._destroy_backend(pooled)
                             if is_new_backend:
-                                self._semaphore.release()
                                 raise RuntimeError("Failed to validate new connection")
                             continue
 
@@ -443,7 +472,6 @@ class AsyncBackendPool:
                 if not self._is_persistent and is_new_backend and self.config.validate_on_borrow:
                     if not await self._validate_backend(pooled):
                         await self._destroy_backend(pooled)
-                        self._semaphore.release()
                         raise RuntimeError("Failed to validate new connection")
             except Exception as e:
                 if not isinstance(e, RuntimeError):
@@ -451,14 +479,12 @@ class AsyncBackendPool:
                     await self._destroy_backend(pooled)
                     logger.error(f"Failed to prepare acquired backend: {e}")
                 if is_new_backend:
-                    self._semaphore.release()
                     raise
                 continue
 
             async with self._lock:
                 if self._closed:
                     await self._destroy_backend(pooled)
-                    self._semaphore.release()
                     raise RuntimeError("Pool is closed")
 
                 pooled.mark_used()
@@ -466,6 +492,8 @@ class AsyncBackendPool:
                 self._stats.current_in_use += 1
                 self._stats.total_acquired += 1
                 self._stats.last_acquired_at = datetime.now()
+                # Permit now belongs to the returned backend; ``release()`` returns it.
+                permit_state.handed_off = True
                 return pooled.backend
 
     async def release(self, backend: Any) -> None:

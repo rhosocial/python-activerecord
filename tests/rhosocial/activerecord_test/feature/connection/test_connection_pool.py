@@ -39,6 +39,7 @@ process exit across **all** Python versions.  The root cause was a two-part bug:
 """
 
 from datetime import datetime, timedelta
+import asyncio
 import io
 import logging
 import sys
@@ -3259,3 +3260,143 @@ class TestHealthCheckConnectionMode:
             assert health["connection_mode"] == expected_mode
         finally:
             await pool.close(timeout=0.1)
+
+
+class TestAsyncPermitAccounting:
+    """Tests that the semaphore permit taken by ``acquire()`` is always returned.
+
+    .. rubric:: Cancelled acquire permanently leaked permits (Fixed)
+
+    ``acquire()`` took a semaphore permit before entering its retry loop, but
+    every internal ``except Exception`` handler ignored ``asyncio.CancelledError``
+    -- which inherits from ``BaseException``, not ``Exception`` -- and therefore
+    never returned the permit.
+
+    The observable production symptom was a pool reporting
+    ``available=0, in_use=0`` while ``acquire()`` still raised
+    ``TimeoutError: Failed to acquire connection within 30.0 seconds``: no
+    connection was borrowed or idle, yet every permit was gone.
+
+    This is reachable in normal operation whenever a caller is cancelled while
+    the pool is still establishing a connection -- for example an HTTP client
+    disconnecting mid-``connect()``, which is exactly what uvicorn does to
+    in-flight MCP requests. Each cancellation permanently burned one permit
+    until the pool was bricked and required a restart, even though the database
+    itself had recovered.
+
+    The fix routes permit ownership through :class:`_PermitState` so the permit
+    is released on *any* exit path, including ``BaseException``.
+    """
+
+    class _GateBackend:
+        """Backend whose ``connect()`` blocks until explicitly released."""
+
+        instances = 0
+        gate: asyncio.Event
+
+        def __init__(self) -> None:
+            type(self).instances += 1
+
+        async def connect(self) -> None:
+            await type(self).gate.wait()
+
+        async def introspect_and_adapt(self) -> None:
+            return None
+
+        async def disconnect(self) -> None:
+            return None
+
+        @classmethod
+        def reset(cls) -> None:
+            cls.instances = 0
+            cls.gate = asyncio.Event()
+
+    @pytest.fixture
+    def gate_backend(self):
+        self._GateBackend.reset()
+        return self._GateBackend
+
+    @pytest.mark.asyncio
+    async def test_cancelled_acquire_returns_permit(self, gate_backend):
+        """A permit consumed by a cancelled acquire() must be returned."""
+        config = PoolConfig(
+            min_size=0,
+            max_size=3,
+            timeout=5.0,
+            validate_on_borrow=False,
+            backend_factory=gate_backend,
+        )
+        pool = await AsyncBackendPool.create(config)
+        try:
+            assert pool._semaphore._value == 3
+
+            for _ in range(3):
+                task = asyncio.create_task(pool.acquire(timeout=5.0))
+                await asyncio.sleep(0.05)  # let it park inside connect()
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
+            # Three cancellations must not consume three permits.
+            assert pool._semaphore._value == 3
+        finally:
+            await pool.close(timeout=0.1, force=True)
+
+    @pytest.mark.asyncio
+    async def test_pool_recovers_after_cancelled_acquires(self, gate_backend):
+        """The pool must serve requests again once permits are returned."""
+        config = PoolConfig(
+            min_size=0,
+            max_size=2,
+            timeout=5.0,
+            validate_on_borrow=False,
+            backend_factory=gate_backend,
+        )
+        pool = await AsyncBackendPool.create(config)
+        try:
+            for _ in range(2):
+                task = asyncio.create_task(pool.acquire(timeout=5.0))
+                await asyncio.sleep(0.05)
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
+            # A healthy pool can immediately serve a fresh request.
+            gate_backend.gate.set()
+            backend = await pool.acquire(timeout=1.0)
+            assert backend is not None
+            await pool.release(backend)
+
+            stats = pool.get_stats()
+            assert stats.total_acquired == 1
+            assert stats.total_timeouts == 0
+        finally:
+            await pool.close(timeout=0.1, force=True)
+
+    @pytest.mark.asyncio
+    async def test_uncancelled_acquire_still_hands_permit_to_release(self, gate_backend):
+        """The happy path must hand the permit over exactly once.
+
+        Guards against over-correcting the cancellation fix and releasing the
+        permit twice, which would let the pool exceed ``max_size``.
+        """
+        config = PoolConfig(
+            min_size=0,
+            max_size=2,
+            timeout=5.0,
+            validate_on_borrow=False,
+            backend_factory=gate_backend,
+        )
+        pool = await AsyncBackendPool.create(config)
+        try:
+            gate_backend.gate.set()
+
+            backend_a = await pool.acquire(timeout=1.0)
+            backend_b = await pool.acquire(timeout=1.0)
+            # max_size=2 must still be enforced.
+            assert pool._semaphore._value == 0
+
+            await pool.release(backend_a)
+            assert pool._semaphore._value == 1
+            await pool.release(backend_b)
+            assert pool._semaphore._value == 2
+        finally:
+            await pool.close(timeout=0.1, force=True)
