@@ -17,6 +17,7 @@ On older versions, it will show the features as unsupported.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
+from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions, StatementType
@@ -35,13 +36,21 @@ print(f"SQLite library version: {sqlite3.sqlite_version}")
 print(f"SQLite version info: {sqlite3.sqlite_version_info}")
 print()
 
-print(f"Initial dialect version: {backend._dialect.version}")
+# Before adaptation the dialect has no version at all: it is a guess about the
+# server that has not been checked. Reading it raises DialectNotAdaptedException
+# rather than returning something plausible, so nothing downstream can act on a
+# capability that may not exist.
+try:
+    backend.dialect.version
+    print("Unexpected: unadapted dialect reported a version")
+except DialectNotAdaptedException as exc:
+    print(f"Before adaptation, dialect.version raises: {type(exc).__name__}")
 print()
 
 backend.connect()
 backend.introspect_and_adapt()
 
-dialect = backend._dialect
+dialect = backend.dialect
 print(f"Adapted dialect version: {dialect.version}")
 print()
 

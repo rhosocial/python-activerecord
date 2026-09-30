@@ -107,17 +107,16 @@ query1 = QueryExpression(
         Literal(dialect, "Alice"),
     ),
 )
-explain_scan = ExplainExpression(
-    dialect=dialect,
-    statement=query1,
-    options=ExplainOptions(type=ExplainType.QUERY_PLAN),
-)
-sql, params = explain_scan.to_sql()
+# Use backend.explain() rather than rendering EXPLAIN yourself and running it
+# through backend.execute(). EXPLAIN output does not come back as rows on the
+# normal QueryResult -- result.data is None -- so the plan has to be read from
+# the dedicated result type.
 print("1. Table SCAN (no index on name):")
-print(f"SQL: {sql}")
-result = backend.execute(sql, params)
-for row in result.data:
-    print(f"  {row}")
+plan = backend.explain(query1, ExplainOptions(type=ExplainType.QUERY_PLAN))
+print(f"SQL: {plan.sql}")
+for row in plan.rows:
+    print(f"  {row.detail}")
+print(f"  full scan: {plan.is_full_scan}, index used: {plan.is_index_used}")
 
 # 2. EXPLAIN QUERY PLAN for index search (email has index)
 query2 = QueryExpression(
@@ -131,17 +130,12 @@ query2 = QueryExpression(
         Literal(dialect, "alice@example.com"),
     ),
 )
-explain_search = ExplainExpression(
-    dialect=dialect,
-    statement=query2,
-    options=ExplainOptions(type=ExplainType.QUERY_PLAN),
-)
-sql, params = explain_search.to_sql()
 print("\n2. Index SEARCH (using idx_users_email):")
-print(f"SQL: {sql}")
-result = backend.execute(sql, params)
-for row in result.data:
-    print(f"  {row}")
+plan = backend.explain(query2, ExplainOptions(type=ExplainType.QUERY_PLAN))
+print(f"SQL: {plan.sql}")
+for row in plan.rows:
+    print(f"  {row.detail}")
+print(f"  full scan: {plan.is_full_scan}, index used: {plan.is_index_used}")
 
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
@@ -152,7 +146,9 @@ backend.disconnect()
 # SECTION: Summary
 # ============================================================
 # Key points:
-# 1. Use ExplainType.QUERY_PLAN for SQLite query plan analysis
+# 1. Call backend.explain(expr, ExplainOptions(type=ExplainType.QUERY_PLAN));
+#    do not render EXPLAIN and run it through backend.execute(), which returns
+#    no rows for it
 # 2. "SCAN" = full table scan, "SEARCH" = index used
 # 3. "USING INDEX" shows which index is being used
 # 4. Query plan helps identify performance bottlenecks

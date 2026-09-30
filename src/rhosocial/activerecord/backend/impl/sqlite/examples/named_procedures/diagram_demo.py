@@ -34,7 +34,16 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import ColumnDefinition  # noqa: E402
+from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
+    FloatType,
+    IntegerType,
+    TextType,
+)
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
+    ColumnConstraint,
+    ColumnConstraintType,
+    ColumnDefinition,
+)
 
 # Create tables
 tables = [
@@ -45,11 +54,35 @@ tables = [
     ("order_records", ["id INTEGER PRIMARY KEY", "order_id INTEGER", "created_at TEXT"]),
 ]
 
+SQL_TYPE_BY_NAME = {
+    "INTEGER": lambda d: IntegerType(d),
+    "REAL": lambda d: FloatType(d),
+    "TEXT": lambda d: TextType(d),
+}
+
+
+def _column(spec: str) -> ColumnDefinition:
+    """Build a ColumnDefinition from a compact 'name TYPE [PRIMARY KEY]' spec.
+
+    The type must be an instance, not the spelling used in the spec: passing the
+    string through gives "data_type must be a DataType instance, got str" at
+    render time.
+    """
+    name, type_name, *rest = spec.split()
+    data_type = SQL_TYPE_BY_NAME[type_name](dialect)
+    constraints = []
+    if "PRIMARY KEY" in rest:
+        constraints.append(
+            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)
+        )
+    return ColumnDefinition(dialect, name=name, data_type=data_type, constraints=constraints)
+
+
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
         table=table_name,
-        columns=[ColumnDefinition(dialect, c.split()[0], c.split()[1]) for c in columns],
+        columns=[_column(c) for c in columns],
         if_not_exists=True,
     )
     sql, params = create.to_sql()

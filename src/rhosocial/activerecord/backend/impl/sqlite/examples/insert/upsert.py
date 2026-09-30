@@ -35,6 +35,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.dml import (  # noqa:
 )
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
+    InsertExpression,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,

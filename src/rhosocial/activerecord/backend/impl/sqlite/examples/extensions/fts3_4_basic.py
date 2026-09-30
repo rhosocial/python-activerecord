@@ -39,6 +39,8 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     FunctionCall,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
+from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteMatchPredicate,  # noqa: E402
     CreateVirtualTableExpression,  # noqa: E402
@@ -100,14 +102,17 @@ offsets_query = QueryExpression(
     dialect=dialect,
     select=[
         Column(dialect, "title", table="documents"),
-        FunctionCall(dialect, "offsets", [Column(dialect, "documents")]).as_("offsets"),
+        # FunctionCall takes its arguments as *args, not as a list. Passing a list
+        # gives one argument that has no to_sql(), which surfaces as
+        # "'list' object has no attribute 'to_sql'" at render time.
+        FunctionCall(dialect, "offsets", Column(dialect, "documents")).as_("offsets"),
     ],
     from_=TableExpression(dialect, "documents"),
     where=offsets_pred,
 )
 sql, params = offsets_query.to_sql()
 
-result = backend.execute(sql, params)
+result = backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DQL))
 print(f"Search with offsets for 'database': {len(result.data) if result.data else 0} rows")
 for row in result.data or []:
     print(f"  {row}")

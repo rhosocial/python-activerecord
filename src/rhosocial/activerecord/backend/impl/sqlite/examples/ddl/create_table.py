@@ -21,13 +21,11 @@ backend.introspect_and_adapt()
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    CreateIndexExpression,
     CreateTableExpression,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (  # noqa: E402
-    IndexDefinition,
 )
 
 columns = [
@@ -61,18 +59,10 @@ columns = [
     ),
 ]
 
-indexes = [
-    IndexDefinition(dialect, 
-        name="idx_users_email",
-        columns=["email"],
-    ),
-]
-
 create_expr = CreateTableExpression(
     dialect=dialect,
     table="users",
     columns=columns,
-    indexes=indexes,
     if_not_exists=True,
 )
 
@@ -85,6 +75,24 @@ print(f"Params: {params}")
 # ============================================================
 result = backend.execute(sql, params)
 print("Table created: users")
+
+# ============================================================
+# SECTION: Adding an index
+# ============================================================
+# SQLite does not accept index definitions inside CREATE TABLE. Other dialects
+# take them via CreateTableExpression(indexes=[...]) and the
+# UnsupportedFeatureError says as much; on SQLite, create the index separately.
+create_index_expr = CreateIndexExpression(
+    dialect=dialect,
+    index_name="idx_users_email",
+    table_name="users",
+    columns=["email"],
+    if_not_exists=True,
+)
+sql, params = create_index_expr.to_sql()
+print(f"Index SQL: {sql}")
+backend.execute(sql, params)
+print("Index created: idx_users_email")
 
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)

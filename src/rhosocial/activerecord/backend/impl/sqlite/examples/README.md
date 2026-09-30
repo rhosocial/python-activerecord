@@ -152,13 +152,45 @@ Each example file follows this structure:
 ## Running Examples
 
 ```bash
-# Run a specific example
-python -m rhosocial.activerecord.backend.impl.sqlite.examples.ddl.create_table
-
-# Run from the examples directory
-cd examples
-python -m ddl.create_table
+# Run a specific example (from the repository root)
+PYTHONPATH=src python -m rhosocial.activerecord.backend.impl.sqlite.examples.ddl.create_table
 ```
+
+Prefer the `-m` form. This directory contains a package called `types/`, which
+shadows the standard library module of the same name as soon as the working
+directory lands on `sys.path` — and running a script by path puts *its own
+directory* there. `concurrency.py` sits in this directory, so it has to be run
+as a module:
+
+```bash
+# Works
+PYTHONPATH=src python -m rhosocial.activerecord.backend.impl.sqlite.examples.concurrency
+
+# Fails inside runpy with: module 'types' has no attribute 'ModuleType'
+PYTHONPATH=src python .../examples/concurrency.py
+```
+
+The error names neither the cause nor the file responsible, so prefer `-m`
+throughout. Scripts in subdirectories are unaffected, since only their own
+directory is added — but `-m` is the habit worth keeping.
+
+### Batch runner
+
+`run_executable_examples.sh` runs the CLI-facing groups. It finds the repository
+root by walking up, honours `DEMO_VENV_PYTHON` (default `python3`), and removes
+its temporary databases on exit:
+
+```bash
+bash src/rhosocial/activerecord/backend/impl/sqlite/examples/run_executable_examples.sh
+
+# Or a single group
+bash .../run_executable_examples.sh named-migration
+```
+
+Modes: `all`, `query`, `introspect`, `status`, `named-expression`,
+`named-procedure`, `named-procedure-graph`, `named-migration`,
+`named-connection`. The `cli/*_demo.py` scripts each spawn several CLI
+subprocesses and take roughly 25-30 seconds, so budget for that if you run them.
 
 ## For LLM Context
 

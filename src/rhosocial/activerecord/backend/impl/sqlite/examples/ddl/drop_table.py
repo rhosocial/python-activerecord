@@ -45,7 +45,7 @@ from rhosocial.activerecord.backend.expression import DropTableExpression  # noq
 
 drop_expr = DropTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
 )
 sql, params = drop_expr.to_sql()
 print(f"DROP TABLE SQL: {sql}")
@@ -55,7 +55,7 @@ backend.execute(sql, params)
 # Already deleted, use IF EXISTS
 drop_expr_exists = DropTableExpression(
     dialect=dialect,
-    table_name="users",
+    table="users",
     if_exists=True,
 )
 sql, params = drop_expr_exists.to_sql()
