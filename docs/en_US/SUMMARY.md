@@ -120,6 +120,7 @@
 
 * [Named Expressions](backend/named_expression.md)
 * [Named Connection](backend/named_connection.md)
+* [Named Migration](backend/named_migration.md)
 
 ### Expression System
 
