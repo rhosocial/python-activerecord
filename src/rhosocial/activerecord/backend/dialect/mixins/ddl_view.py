@@ -35,12 +35,19 @@ class ViewMixin:
         return True
 
     def supports_or_replace_view(self) -> bool:
-        """Whether CREATE OR REPLACE VIEW is supported (defaults to False)."""
+        """Whether CREATE OR REPLACE VIEW is supported (defaults to False).
+
+        The legacy spelling, and the only one some backends (MariaDB, Firebird)
+        declare. ``format_create_view_statement`` gates on
+        :meth:`supports_create_or_replace_view` instead, so that one derives
+        from here -- a backend overriding only this name keeps its answer
+        rather than silently falling back to the default.
+        """
         return False
 
     def supports_create_or_replace_view(self) -> bool:
         """Whether CREATE OR REPLACE VIEW is supported (defaults to False)."""
-        return False
+        return self.supports_or_replace_view()
 
     def supports_if_not_exists_view(self) -> bool:
         """Whether CREATE VIEW IF NOT EXISTS is supported (defaults to False)."""
