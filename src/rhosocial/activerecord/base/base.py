@@ -11,6 +11,7 @@ from ..backend.config import ConnectionConfig
 from ..backend.errors import (
     DatabaseError,
     ReadOnlyError,
+    UnaddressableRecordError,
     RecordNotFound,
     ValidationError as DBValidationError,
 )
@@ -160,8 +161,14 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
 
         Single-column PK returns a scalar value.
         Composite PK returns a dict {column_name: value, ...}.
+
+        Raises:
+            UnaddressableRecordError: If the model declares no primary key, so
+                there is no identity to read.
         """
         cls = self.__class__
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "Reading the primary key value")
         cols = cls.primary_key_columns()
         fields = cls.primary_key_fields()
         if not cls.is_composite_pk():
@@ -177,7 +184,13 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
 
         The dict keys may be column names or Python field names — field names are
         transparently mapped to column names when a direct column-name lookup fails.
+
+        Raises:
+            UnaddressableRecordError: If the model declares no primary key, so
+                there is no column to match on.
         """
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "Building a primary key predicate")
         dialect = cls.backend().dialect
         columns = cls.primary_key_columns()
 
@@ -255,7 +268,10 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             returning_columns=returning_columns,
         )
         result = self.backend().insert(insert_options)
-        if self.__class__.__pk_auto_generated__:
+        # A keyless model has nothing for the database to generate, so there is
+        # nothing to read back either. Without the addressable() guard the loop
+        # below iterates an empty column list and indexes it.
+        if self.__class__.__pk_auto_generated__ and self.__class__.addressable():
             pk_columns = self.primary_key_columns()
             pk_retrieved = False
             for col in pk_columns:
@@ -479,6 +495,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             sql, params = condition
             query = query.where(sql, params)
         elif not cls.is_composite_pk():
+            if not cls.addressable():
+                raise UnaddressableRecordError(cls.__name__, "find_one")
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name) == condition)
@@ -539,6 +557,8 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                     combined = combined | p
                 query = query.where(combined)
             else:
+                if not cls.addressable():
+                    raise UnaddressableRecordError(cls.__name__, "find_all")
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
                 query = query.where(Column(dialect, pk_field_name).in_(condition))
@@ -786,6 +806,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
 
     def _get_pk_value(self) -> Any:
         cls = self.__class__
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "Reading the primary key value")
         cols = cls.primary_key_columns()
         fields = cls.primary_key_fields()
         if not cls.is_composite_pk():
@@ -794,6 +816,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
 
     @classmethod
     def _build_pk_where_predicate(cls, pk_value: Any) -> "SQLPredicate":
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "Building a primary key predicate")
         dialect = cls.backend().dialect
         columns = cls.primary_key_columns()
 
@@ -970,7 +994,10 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             returning_columns=returning_columns,
         )
         result = await self.backend().insert(insert_options)
-        if self.__class__.__pk_auto_generated__:
+        # A keyless model has nothing for the database to generate, so there is
+        # nothing to read back either. Without the addressable() guard the loop
+        # below iterates an empty column list and indexes it.
+        if self.__class__.__pk_auto_generated__ and self.__class__.addressable():
             pk_columns = self.primary_key_columns()
             pk_retrieved = False
             for col in pk_columns:
@@ -1194,6 +1221,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             sql, params = condition
             query = query.where(sql, params)
         elif not cls.is_composite_pk():
+            if not cls.addressable():
+                raise UnaddressableRecordError(cls.__name__, "find_one")
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name) == condition)
@@ -1254,6 +1283,8 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                     combined = combined | p
                 query = query.where(combined)
             else:
+                if not cls.addressable():
+                    raise UnaddressableRecordError(cls.__name__, "find_all")
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
                 query = query.where(Column(dialect, pk_field_name).in_(condition))

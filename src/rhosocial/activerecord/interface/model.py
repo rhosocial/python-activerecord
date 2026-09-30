@@ -12,7 +12,7 @@ from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callab
 from .base import ModelEvent
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
-from ..backend.errors import DatabaseError, RecordNotFound
+from ..backend.errors import DatabaseError, RecordNotFound, UnaddressableRecordError
 from ..types import PrimaryKeyDef
 
 
@@ -153,7 +153,8 @@ class ActiveRecordBase(BaseModel, ABC):
         """Get the primary key definition.
 
         Single-column primary keys return a str, composite primary keys return
-        a tuple of column names.
+        a tuple of column names. ``None`` declares a keyless model: the relation
+        has no single-row identity. See :meth:`addressable`.
 
         Example:
             @classmethod
@@ -163,14 +164,41 @@ class ActiveRecordBase(BaseModel, ABC):
         return cls.__primary_key__
 
     @classmethod
+    def addressable(cls) -> bool:
+        """Whether a single row can be addressed by primary key.
+
+        The single decision point for "can this model be looked up or updated by
+        identity". False for ``__primary_key__ = None``, which is how a
+        keyless relation declares that it has no unique single-row key --
+        an insert-only log table, or an aggregate projection.
+
+        A False answer does not make the model unusable: ``all()``,
+        ``where()``, ``order_by()``, ``group_by()``, aggregation, counting,
+        ``pluck`` and every relation keep working, because none of them needs
+        identity. What is unavailable is ``find_one(pk)``, ``find_all([pk])``,
+        and updating or deleting by primary key. Use ``where(...).one()`` to
+        select a row when that is well defined by some other criterion.
+
+        Orthogonal to read-only-ness: a keyless table may be writable, and a
+        read-only table may well have an auto-generated key.
+        """
+        return cls.__primary_key__ is not None
+
+    @classmethod
     def is_composite_pk(cls) -> bool:
         """Check if the model uses a composite primary key."""
         return isinstance(cls.__primary_key__, tuple)
 
     @classmethod
     def primary_key_columns(cls) -> Tuple[str, ...]:
-        """Always return a tuple of primary key column names."""
+        """Primary key column names, as a tuple.
+
+        Empty for a keyless model (``__primary_key__ = None``). Never contains
+        ``None``: callers can iterate the result unconditionally.
+        """
         pk = cls.__primary_key__
+        if pk is None:
+            return ()
         return pk if isinstance(pk, tuple) else (pk,)
 
     @classmethod
@@ -365,8 +393,14 @@ class ActiveRecordBase(BaseModel, ABC):
 
     @classmethod
     def primary_key_fields(cls) -> Tuple[str, ...]:
-        """Always return a tuple of primary key field names."""
+        """Primary key field names, as a tuple.
+
+        Empty for a keyless model (``__primary_key__ = None``), matching
+        :meth:`primary_key_columns`.
+        """
         result = cls.primary_key_field()
+        if result is None:
+            return ()
         return result if isinstance(result, tuple) else (result,)
 
     @property
@@ -374,10 +408,19 @@ class ActiveRecordBase(BaseModel, ABC):
         """
         Check if this is a new record that hasn't been saved to the database yet.
 
+        For an addressable model this is decided by the primary key: a record
+        whose key is unset has never been inserted.
+
+        A keyless model (``__primary_key__ = None``) has no identity to inspect,
+        so the provenance flag decides instead: a row loaded from the database
+        is not new, anything constructed in Python is.
+
         Returns:
             bool: True if this is a new record that hasn't been saved to the database,
                   False if this record already exists in the database
         """
+        if not self.__class__.addressable():
+            return not self._is_from_db
         for field in self.__class__.primary_key_fields():
             if getattr(self, field, None) is None:
                 return True
@@ -623,8 +666,15 @@ class IActiveRecord(ActiveRecordBase):
         pass
 
     def refresh(self) -> None:
-        """Reload record from database"""
+        """Reload record from database by primary key.
+
+        Raises:
+            UnaddressableRecordError: If the model declares no primary key;
+                reloading needs to know which row this instance is.
+        """
         cls = self.__class__
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "refresh")
         if cls.is_composite_pk():
             pk_value = self._get_pk_value()
             if any(v is None for v in pk_value.values()):
@@ -848,8 +898,15 @@ class IAsyncActiveRecord(ActiveRecordBase):
         pass
 
     async def refresh(self) -> None:
-        """Reload record from database asynchronously"""
+        """Reload record from database asynchronously.
+
+        Raises:
+            UnaddressableRecordError: If the model declares no primary key;
+                reloading needs to know which row this instance is.
+        """
         cls = self.__class__
+        if not cls.addressable():
+            raise UnaddressableRecordError(cls.__name__, "refresh")
         if cls.is_composite_pk():
             pk_value = self._get_pk_value()
             if any(v is None for v in pk_value.values()):
