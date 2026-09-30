@@ -21,6 +21,7 @@ from pydantic import Field
 from ..interface import ModelEvent
 from ..interface.update import IUpdateBehavior
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
+from .field_config import FieldConfigValidationHandler
 
 
 class TimestampMixin(IUpdateBehavior):
@@ -34,16 +35,22 @@ class TimestampMixin(IUpdateBehavior):
     __created_at_field__: ClassVar[str] = "created_at"
     __updated_at_field__: ClassVar[str] = "updated_at"
 
+    _feature_handlers = [FieldConfigValidationHandler]
+
     def __init__(self, **data):
         super().__init__(**data)
-        self.__class__._validate_timestamp_config()
         # Use separate events for INSERT and UPDATE operations
         self.on(ModelEvent.BEFORE_INSERT, self._set_timestamps_on_insert)
         self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
 
     @classmethod
-    def _validate_timestamp_config(cls) -> None:
-        """Fail fast when the configured field names do not exist."""
+    def _validate_model_config(cls) -> None:
+        """Fail fast when the configured field names do not exist.
+
+        Invoked by :class:`FieldConfigValidationHandler` from the metaclass,
+        so it runs once at class definition — see that module for why this
+        cannot live in ``__init__``.
+        """
         for knob in ("__created_at_field__", "__updated_at_field__"):
             field_name = getattr(cls, knob)
             if field_name not in cls.model_fields:
