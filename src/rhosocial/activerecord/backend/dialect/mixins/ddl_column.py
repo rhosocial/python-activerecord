@@ -153,6 +153,14 @@ class DDLColumnMixin:
             A ``(sql, params)`` tuple. Column references never carry bind
             parameters, so ``params`` is always empty.
         """
+        if expr.schema_name and not expr.table:
+            # Silently dropping the schema would resolve the column against
+            # whatever namespace the connection happens to search first.
+            raise ValueError(
+                f"{self.name}: cannot qualify column {expr.name!r} with schema "
+                f"{expr.schema_name!r} because no table was given; a column "
+                "reference needs a table (or an alias) to be schema-qualified"
+            )
         if expr.schema_name and expr.table:
             col_sql = (
                 f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."

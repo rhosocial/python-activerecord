@@ -117,11 +117,25 @@ class ActiveRecordBase(BaseModel, ABC):
         Schema namespaces:
             On databases that support schemas (PostgreSQL, SQL Server, ...),
             every statement generated for the model uses qualified references:
-            ``"tenant"."users"`` on PostgreSQL, ``[tenant].[users]`` on SQL
+            ``"tenant"."users"`` on PostgreSQL, ``[tenant].[users]` on SQL
             Server. Leave ``__schema_name__`` unset to resolve through the
             connection's default schema / search_path. Joins across schemas
-            work naturally because each model's columns carry their own full
-            qualifiers.
+            work naturally because each side qualifies its own range.
+
+            Column qualification follows the range. An unaliased range may be
+            referenced two-part (``"users"."id"``) or three-part
+            (``"tenant"."users"."id"``); both resolve to the same range.
+            An **aliased** range must be referenced by its alias alone
+            (``"u"."id"``) -- PostgreSQL rejects a schema-qualified reference
+            to an aliased range -- so ``FieldProxy`` drops the schema as soon
+            as a table alias is in effect.
+
+            .. note::
+               DDL statements are not covered. ``__schema_name__`` selects the
+               read/write namespace; it does not influence ``CREATE TABLE``,
+               ``ALTER TABLE``, ``CREATE INDEX`` or friends, which take their
+               own (or no) schema argument. Keep migration DDL in sync by
+               hand. See ``docs/modeling/schema_namespace.md``.
 
         Qualifier binding:
             Like ``table_name()``, this is captured when column expressions

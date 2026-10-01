@@ -16,6 +16,33 @@ if TYPE_CHECKING:
     from .expression import BaseExpression
 
 
+class _SchemaNameValidation:
+    """Rejects an empty or non-string ``schema_name`` at construction time.
+
+    Every DML path funnels through ``if options.schema_name:`` before building
+    a ``TableExpression``, so a blank value would silently degrade a qualified
+    statement into an unqualified one. Validating here fails loudly and covers
+    all five option classes at once.
+    """
+
+    schema_name: Optional[str]
+
+    def __post_init__(self) -> None:
+        value = self.schema_name
+        if value is None:
+            return
+        if not isinstance(value, str):
+            raise ValueError(
+                f"{type(self).__name__}.schema_name must be a string or None, "
+                f"not {type(value).__name__}"
+            )
+        if not value.strip():
+            raise ValueError(
+                f"{type(self).__name__}.schema_name must be a non-empty string; "
+                "use None for an unqualified statement"
+            )
+
+
 @dataclass
 class ExecutionOptions:
     """
@@ -43,7 +70,7 @@ class ExecutionOptions:
 
 
 @dataclass
-class InsertOptions:
+class InsertOptions(_SchemaNameValidation):
     """Encapsulates all options for a high-level `insert` operation."""
 
     # The name of the table to insert into.
@@ -66,7 +93,7 @@ class InsertOptions:
 
 
 @dataclass
-class UpdateOptions:
+class UpdateOptions(_SchemaNameValidation):
     """Encapsulates all options for a high-level `update` operation."""
 
     # The name of the table to update.
@@ -92,7 +119,7 @@ class UpdateOptions:
 
 
 @dataclass
-class BulkInsertOptions:
+class BulkInsertOptions(_SchemaNameValidation):
     """Encapsulates all options for a high-level `bulk_insert` operation."""
 
     # The name of the table to insert into.
@@ -117,7 +144,7 @@ class BulkInsertOptions:
 
 
 @dataclass
-class BulkUpdateOptions:
+class BulkUpdateOptions(_SchemaNameValidation):
     """Encapsulates all options for a high-level `bulk_update` operation using CASE WHEN."""
 
     # The name of the table to update.
@@ -140,7 +167,7 @@ class BulkUpdateOptions:
 
 
 @dataclass
-class DeleteOptions:
+class DeleteOptions(_SchemaNameValidation):
     """Encapsulates all options for a `delete` operation."""
 
     # The name of the table to delete from.

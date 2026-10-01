@@ -25,6 +25,7 @@
   - 带列别名的视图和 OR REPLACE
   - 视图内省
 - **[DDLSource 声明收集 (DDLSource Declarations)](ddl_source.md)**
+- **[Schema 命名空间](schema_namespace.md)**
   - `DDLSource` 协议与 `DDLSourceMixin`
   - 模型声明、字段标记和后端表达式的收集规则
   - 返回接口、顺序、错误边界和后端接入

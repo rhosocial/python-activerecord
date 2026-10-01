@@ -98,9 +98,15 @@ class SoftDeleteMixin(IDeleteBehavior):
         Pure computation shared by sync ``restore`` and async
         :meth:`AsyncSoftDeleteMixin.restore`; no I/O is performed here so the
         two execution models never mix.
+
+        The predicate columns carry the model's table and schema qualifiers so
+        that a schema-qualified model cannot match a same-named table in
+        another namespace.
         """
         backend = self.backend()
         dialect = backend.dialect
+        table = self.table_name()
+        schema_name = self.schema_name()
 
         if self.is_composite_pk():
             pk_cols = self.primary_key_columns()
@@ -108,11 +114,15 @@ class SoftDeleteMixin(IDeleteBehavior):
             for col in pk_cols:
                 pk_value = getattr(self, self._get_field_name(col))
                 if pk_value is not None:
-                    col_expr = Column(dialect, col)
+                    col_expr = Column(
+                        dialect, col, table=table, schema_name=schema_name
+                    )
                     pred = ComparisonPredicate(dialect, "=", col_expr, Literal(dialect, pk_value))
                     condition_expr = pred if condition_expr is None else condition_expr & pred
         else:
-            pk_column = Column(dialect, self.primary_key())
+            pk_column = Column(
+                dialect, self.primary_key(), table=table, schema_name=schema_name
+            )
             pk_value = getattr(self, self.primary_key())
             condition_expr = pk_column == pk_value
 
@@ -131,6 +141,7 @@ class SoftDeleteMixin(IDeleteBehavior):
             table=self.table_name(),
             data={self._deleted_at_column(): None},
             where=condition_expr,
+            schema_name=self.schema_name(),
         )
 
         result = self.backend().update(update_options)
@@ -163,6 +174,7 @@ class AsyncSoftDeleteMixin(SoftDeleteMixin):
             table=self.table_name(),
             data={self._deleted_at_column(): None},
             where=condition_expr,
+            schema_name=self.schema_name(),
         )
 
         result = await self.backend().update(update_options)

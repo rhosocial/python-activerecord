@@ -18,6 +18,29 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
+def _validate_schema_name(value: Optional[str], owner: str) -> Optional[str]:
+    """Validate an optional schema identifier.
+
+    ``None`` means "no schema" and is always valid. An empty or non-string
+    value is always a mistake: ``format_table`` treats any falsy
+    ``schema_name`` as "no schema", so ``""`` would silently degrade a
+    qualified reference to a bare one instead of failing loudly.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(
+            f"{owner}.schema_name must be a string or None, "
+            f"not {type(value).__name__}"
+        )
+    if not value.strip():
+        raise ValueError(
+            f"{owner}.schema_name must be a non-empty string; "
+            "use None for an unqualified reference"
+        )
+    return value
+
+
 class Literal(
     AliasableMixin,
     ArithmeticMixin,
@@ -99,7 +122,7 @@ class Column(
         self.name = name
         self.table = table
         self.alias = alias
-        self.schema_name = schema_name
+        self.schema_name = _validate_schema_name(schema_name, type(self).__name__)
 
 
 class FunctionCall(
@@ -269,7 +292,7 @@ class TableExpression(AliasableMixin, BaseExpression):
         self.alias_need_quote = alias_need_quote
         self.schema_need_quote = schema_need_quote
         self.name = name
-        self.schema_name = schema_name
+        self.schema_name = _validate_schema_name(schema_name, type(self).__name__)
         self.alias = alias
         self.temporal_options = temporal_options or {}
 

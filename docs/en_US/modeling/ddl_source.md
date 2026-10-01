@@ -41,7 +41,7 @@ The current implementation does not infer a `DataType` from a plain Python annot
 | Declaration | Reading method | Notes |
 |-------------|----------------|-------|
 | `__table_name__` | `table_name()` | Must be a string; missing or invalid values raise `ValueError`. |
-| `__schema_name__` | `schema_name()` | Returned unchanged; `None` when unset. |
+| `__schema_name__` | `schema_name()` | Returned unchanged; `None` when unset. **Affects DML/DQL only** -- no DDL statement consumes it (see [Schema Namespaces](schema_namespace.md)). |
 | `__primary_key__` | `primary_key_columns()` | A string becomes a one-item tuple; a tuple is returned unchanged. |
 | `__primary_key__` | `is_composite_pk()` | Only a tuple denotes a composite primary key. |
 | `__table_indexes__` | `table_indexes()` | Returns a shallow list copy; index objects are not copied. |

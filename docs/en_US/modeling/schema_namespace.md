@@ -1,0 +1,214 @@
+# Schema Namespaces
+
+> How to bind a model to a database schema, and what decides whether the
+> schema shows up in the SQL that gets executed.
+
+Schemas are the closest thing most databases have to a namespace. PostgreSQL,
+SQL Server and Oracle treat them as a first-class part of an object's name;
+MySQL/MariaDB call the same thing a "database"; BigQuery calls it a "dataset";
+Snowflake nests it inside a database. This guide covers declaring a schema on a
+model and — just as importantly — what that declaration does *not* cover.
+
+## 1. Declaring a schema
+
+A model declares its schema with the `__schema_name__` class attribute. It is
+optional and defaults to `None`, which means "resolve through the connection's
+default".
+
+```python
+from typing import ClassVar, Optional
+from rhosocial.activerecord.base.field_proxy import FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
+
+class User(ActiveRecord):
+    __table_name__ = "users"
+    __schema_name__ = "app"          # -> "app"."users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+
+    id: Optional[int] = None
+    name: str
+```
+
+`schema_name()` is the only reader of that attribute, and it may be overridden
+for dynamic namespaces. Four patterns, in rough order of how often they fit:
+
+```python
+# 1) Static — the common case. Every statement for this model is qualified.
+class User(ActiveRecord):
+    __table_name__ = "users"
+    __schema_name__ = "app"
+
+# 2) Template base — share one namespace across several models.
+class AppModel(ActiveRecord):
+    __schema_name__ = "app"
+
+class User(AppModel):
+    __table_name__ = "users"
+
+class Order(AppModel):
+    __table_name__ = "orders"
+
+# 3) Dynamic — multi-tenancy. One class per namespace, chosen at call time.
+class Order(ActiveRecord):
+    __table_name__ = "orders"
+
+    @classmethod
+    def schema_name(cls) -> str:
+        return f"tenant_{current_tenant_id()}"
+
+# 4) Configuration-driven.
+class User(ActiveRecord):
+    __schema_name__ = settings.db_schema
+```
+
+`__table_name__` and `__schema_name__` are separate on purpose. Do **not** fold
+them together:
+
+```python
+__table_name__ = "app.users"   # WRONG
+```
+
+The identifier is quoted as a single unit, so this renders `FROM "app.users"` —
+one identifier containing a dot, not a qualified reference. PostgreSQL then
+reports `relation "app.users" does not exist`. Use `__schema_name__`, or pass a
+`(schema, table)` tuple where a tuple is accepted.
+
+## 2. What decides whether the schema appears in the SQL
+
+There is exactly one decision chain, and no configuration knob in it:
+
+```
+__schema_name__  ->  schema_name()  ->  TableExpression.schema_name
+                                          / Column.schema_name
+                                      ->  format_table() / format_column()
+```
+
+You supply two inputs; everything else follows:
+
+1. whether `schema_name()` returns a string or `None`;
+2. whether a table alias is in effect.
+
+The rendered forms:
+
+| Range in `FROM` | Column reference | PostgreSQL |
+|---|---|---|
+| `"users"` (no schema) | `"users"."id"` | valid |
+| `"ar_crm"."users"` | `"ar_crm"."users"."id"` | valid |
+| `"ar_crm"."users"` | `"users"."id"` | valid |
+| `"ar_crm"."users" AS "u"` | `"u"."id"` | valid |
+| `"ar_crm"."users" AS "u"` | `"ar_crm"."users"."id"` | **error** |
+| `"ar_crm"."users" AS "u"` | `"users"."id"` | **error** |
+
+Read that as: an **unaliased** range may be referenced either way, while an
+**aliased** range must be referenced by its alias alone. "Always two-part" is
+therefore not a self-consistent rule — it is wrong exactly when an alias is
+present.
+
+The suppression for aliased ranges happens when the column expression is
+*constructed*, not when it is rendered: `FieldProxy` sets `schema_name` to
+`None` as soon as a table alias is in effect. Building a `Column` by hand and
+bypassing `FieldProxy` skips that guard, so a hand-built
+`Column(dialect, "id", table="u", schema_name="ar_crm")` renders the
+three-part form that PostgreSQL rejects.
+
+### Three things you do not control
+
+* **`search_path`.** Applied at connect time as a libpq parameter, so it is
+  fixed for the life of the connection and cannot be changed per query or per
+  transaction. Unqualified names resolve through it.
+* **The connection's `default_schema` setting.** It has never affected
+  generated SQL. A model without `__schema_name__` resolves through
+  `search_path`; use that instead.
+* **The alias.** Once set, the schema is dropped from column references by
+  design.
+
+## 3. Anti-patterns
+
+```python
+__table_name__ = "app.users"   # WRONG: renders FROM "app.users"
+__schema_name__ = ""          # WRONG: treated as "no schema", or rejected
+```
+
+`__schema_name__ = ""` deserves emphasis. An empty schema is a mistake, not a
+way to say "unqualified" — that is what `None` means. Empty strings are now
+rejected outright, and a non-string value is rejected too. The same applies to
+`TableExpression(schema_name=...)` and to every `*Options` DML object.
+
+## 4. DDL is not covered
+
+> **`__schema_name__` selects the read/write namespace. It does not influence
+> DDL.** Keep migration DDL in sync by hand.
+
+| Statement | Picks up the model's schema? | How to qualify it |
+|---|---|---|
+| `CREATE TABLE` | no | pass `TableExpression(dialect, "users", schema_name="app")` |
+| `DROP TABLE` | no | same |
+| `ALTER TABLE` | no | not supported by the expression |
+| `CREATE INDEX` / `DROP INDEX` | no | not supported by the expression |
+| `TRUNCATE` | no | has its own `schema=` field |
+| `CREATE` / `ALTER VIEW` | no | not supported by the expression |
+| `SELECT` / `INSERT` / `UPDATE` / `DELETE` | **yes** | automatic |
+
+So a model pointing at `app.users` and a migration creating `public.users` will
+not agree, and you get a "relation does not exist" error rather than a subtle
+mistake. If you generate DDL from models, check the schema yourself.
+
+## 5. Qualifier binding
+
+`Model.c.field` snapshots `table_name()` and `schema_name()` **when the
+expression is built**, not when it is executed:
+
+```python
+condition = Order.c.total > 100     # bound to the current schema
+Order.__schema_name__ = "tenant_b"  # too late for `condition`
+condition = Order.c.total > 100     # rebuild to pick up the new schema
+```
+
+The same applies to `table_name()`. For tenant-style switching, rebuild
+conditions after switching, or use one model class per namespace.
+
+## 6. Backend support matrix
+
+| Backend | `supports_schema()` | Namespace semantics |
+|---|---|---|
+| PostgreSQL | yes | native schema |
+| SQL Server | yes | native schema (`[schema].[table]`) |
+| Oracle | yes | native schema |
+| MariaDB | yes | **schema is a database synonym** |
+| BigQuery | yes | **dataset**, never schema-qualified columns |
+| Snowflake | yes | **three-level** `database.schema.table` |
+| SQLite, MySQL, ClickHouse, Firebird | no | no schema layer |
+
+The substitute rows matter: on MariaDB a "schema" *is* the database, and on
+Snowflake it sits inside one. `format_column` on BigQuery, MariaDB's MySQL
+sibling and ClickHouse deliberately ignores `schema_name` and warns if a
+table-less column carries one, so a single model definition can still target
+both PostgreSQL and those backends.
+
+## 7. Recommended layering
+
+Let `search_path` carry the common case and reserve `__schema_name__` for the
+exception:
+
+```python
+config = PostgresConnectionConfig(
+    ...,
+    search_path="app,public",   # ordinary tables resolve unqualified
+)
+```
+
+* **Single schema** — do not set `__schema_name__` at all. Unqualified names
+  plus `search_path` keep DML, DDL and introspection consistent with each other,
+  and avoid three-part column references entirely.
+* **Several schemas** — set `__schema_name__` only on the models that deviate
+  from `search_path`. The smaller the exceptional surface, the less chance of
+  hitting the anti-patterns above.
+* **Cross-schema joins** — each side qualifies its own range, so this works
+  without extra configuration:
+
+  ```python
+  Order.query().join(
+      Customer, on=Order.c.customer_id == Customer.c.id
+  ).select(Order.c.id, Customer.c.name)
+  # SELECT ... FROM "shop"."orders" JOIN "crm"."customers" ON ...
+  ```

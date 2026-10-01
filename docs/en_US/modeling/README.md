@@ -25,6 +25,7 @@ This chapter details how to define powerful data models.
   - View with column aliases and OR REPLACE
   - Introspection for views
 - **[DDLSource Declarations](ddl_source.md)**
+- **[Schema Namespaces](schema_namespace.md)**
   - The `DDLSource` protocol and `DDLSourceMixin`
   - Collection rules for model declarations, field markers, and backend expressions
   - Return interfaces, ordering, error boundaries, and backend integration

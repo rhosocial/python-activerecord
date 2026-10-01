@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/query/async_join.py
 """AsyncJoinQueryMixin implementation for building async JOIN clauses using a chained expression model."""
 
-from typing import List, Union, Type, Optional, Iterable
+from typing import List, Union, Type, Optional, Iterable, Tuple
 
 from ..interface import IAsyncQuery, IAsyncActiveRecord
 from ..backend.expression import SQLPredicate, TableExpression, RawSQLPredicate, JoinExpression
@@ -24,12 +24,30 @@ class AsyncJoinQueryMixin:
     join_clause: Optional[JoinExpression]
 
     def _resolve_right_table(
-        self, right: Union[str, Type["IAsyncActiveRecord"], TableExpression], alias: Optional[str]
+        self,
+        right: Union[str, Tuple[str, str], Type["IAsyncActiveRecord"], TableExpression],
+        alias: Optional[str],
     ) -> Union[TableExpression, JoinExpression]:
-        """Helper method to resolve the right-hand side of a join into a TableExpression."""
+        """Helper method to resolve the right-hand side of a join into a TableExpression.
+
+        Accepts a bare table name, a ``(schema_name, table_name)`` pair, a
+        model class, or a pre-built expression. The tuple form mirrors
+        ``_normalize_table_reference`` so schema-qualified joins can be
+        written without constructing a ``TableExpression`` by hand.
+        """
         dialect = self.backend().dialect
         if isinstance(right, str):
             return TableExpression(dialect, right, alias=alias)
+        if isinstance(right, tuple):
+            if len(right) != 2:
+                raise TypeError(
+                    "tuple join target must be (schema_name, table_name), "
+                    f"got a {len(right)}-element tuple"
+                )
+            schema_name, table_name = right
+            return TableExpression(
+                dialect, table_name, schema_name=schema_name, alias=alias
+            )
         # Check if it's an async model class (an actual class object, not an instance)
         if isinstance(right, type) and issubclass(right, IAsyncActiveRecord):
             table_name = right.table_name()

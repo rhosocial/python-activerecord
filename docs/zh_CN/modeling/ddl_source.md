@@ -41,7 +41,7 @@ assert isinstance(User, DDLSource)
 | 声明 | 读取接口 | 说明 |
 |------|----------|------|
 | `__table_name__` | `table_name()` | 必须是字符串；未设置或类型错误会抛出 `ValueError`。 |
-| `__schema_name__` | `schema_name()` | 原样返回；未设置时为 `None`。 |
+| `__schema_name__` | `schema_name()` | 原样返回；未设置时为 `None`。**仅影响 DML/DQL** —— 没有任何 DDL 语句消费它（参见 [Schema 命名空间](schema_namespace.md)）。 |
 | `__primary_key__` | `primary_key_columns()` | 字符串规范化为单元素 tuple，tuple 原样返回。 |
 | `__primary_key__` | `is_composite_pk()` | 只有 tuple 才表示复合主键。 |
 | `__table_indexes__` | `table_indexes()` | 返回列表的浅拷贝，索引对象本身不复制。 |

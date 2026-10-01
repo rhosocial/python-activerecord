@@ -96,14 +96,3 @@ class StorageBackendBase(ABC):
         """
         return 1  # Conservative default: connections cannot be shared across threads
 
-    def get_default_schema(self) -> Optional[str]:
-        """Get the default schema name for this backend.
-
-        Returns None by default. Backends that support schema-qualified
-        table names (e.g., PostgreSQL) can override this to return
-        a configured default schema.
-
-        Returns:
-            Optional[str]: Default schema name, or None if not configured
-        """
-        return None
