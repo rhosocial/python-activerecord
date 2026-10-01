@@ -124,24 +124,34 @@ __schema_name__ = ""          # 错误：被当作"无 schema"，或直接报错
 写法 —— 后者用 `None` 表示。空字符串现已被显式拒绝，非字符串值同样如此。
 `TableExpression(schema_name=...)` 以及所有 DML 的 `*Options` 对象都遵循此规则。
 
-## 4. DDL 不在覆盖范围内
+## 4. DDL 有自己的 schema 参数
 
-> **`__schema_name__` 决定的是读写命名空间，它不影响 DDL。**
-> 迁移脚本中的 DDL 需要手工保持一致。
+> **`__schema_name__` 决定的是读写命名空间，DDL 语句不读取它** —— 但凡是
+> 指向命名空间内对象的语句，都接受自己的 `schema_name`，迁移 DDL 不必再手工拼接。
 
 | 语句 | 是否采用模型的 schema | 如何限定 |
 |---|---|---|
-| `CREATE TABLE` | 否 | 传 `TableExpression(dialect, "users", schema_name="app")` |
-| `DROP TABLE` | 否 | 同上 |
-| `ALTER TABLE` | 否 | 表达式不支持 |
-| `CREATE INDEX` / `DROP INDEX` | 否 | 表达式不支持 |
+| `CREATE TABLE` / `DROP TABLE` | 否 | 传 `TableExpression(dialect, "users", schema_name="app")` |
+| `CREATE` / `ALTER` / `DROP` / `REFRESH` VIEW（含物化视图） | 否 | `schema_name="app"` |
+| `CREATE` / `ALTER` / `DROP` TYPE | 否 | `schema_name="app"` |
+| `CREATE` / `DROP` INDEX（含全文索引） | 否 | `schema_name="app"` |
+| `CREATE` / `ALTER` / `DROP` SEQUENCE | 否 | `schema_name="app"` |
+| `CREATE` / `ALTER` / `DROP` DOMAIN | 否 | `schema_name="app"` |
+| `CREATE` / `DROP` FUNCTION | 否 | `schema_name="app"` |
+| `CREATE` / `DROP` TRIGGER | 否 | `schema_name="app"` |
 | `TRUNCATE` | 否 | 有独立的 `schema=` 字段 |
-| `CREATE` / `ALTER VIEW` | 否 | 表达式不支持 |
 | `SELECT` / `INSERT` / `UPDATE` / `DELETE` | **是** | 自动 |
 
-因此，指向 `app.users` 的模型与创建 `public.users` 的迁移不会一致，
-你会得到"relation does not exist"而不是某种隐蔽的错误。如果从模型生成 DDL，
-请自行检查 schema。
+`schema_name` 默认为 `None`，含义是"不限定"—— 与表达式层其他地方一致。
+传 `""` 会被拒绝：空串是笔误，而不是表示"不限定"的方式。
+
+指向 `app.users` 的模型与创建 `public.users` 的迁移仍不会自动一致：
+构造 DDL 时不会读取 `__schema_name__`，所以迁移必须自己写明它要的 schema。
+现在可以直接写，而不必手工拼接限定名。
+
+在不支持命名空间的后端上，传入 schema 会抛 `UnsupportedFeatureError`，
+而不是被悄悄丢弃。实际遇到的典型是 SQLite：它没有 schema 层，
+限定名会变成服务器拒绝的形式。
 
 ## 5. 限定符的绑定时机
 

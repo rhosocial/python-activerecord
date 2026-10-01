@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_domain.py
 """Domain DDL expression nodes."""
 
+from ..core import _validate_schema_name
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
@@ -192,6 +193,7 @@ class CreateDomainExpression(BaseExpression):
         nullability: DomainNullability = DomainNullability.UNSPECIFIED,
         checks: Optional[Sequence[DomainCheckConstraint]] = None,
         collation: Optional[str] = None,
+        schema_name: Optional[str] = None,
     ) -> None:
         super().__init__(dialect)
         _validate_name(domain_name, "domain_name")
@@ -233,6 +235,9 @@ class CreateDomainExpression(BaseExpression):
                 )
             normalized_checks.append(check)
         self.domain_name = domain_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.data_type = data_type
         self.default = default
         self.nullability = nullability
@@ -260,6 +265,7 @@ class AlterDomainExpression(BaseExpression):
         dialect: "SQLDialectBase",
         domain_name: str,
         actions: Sequence[DomainAlterAction],
+        schema_name: Optional[str] = None,
     ) -> None:
         super().__init__(dialect)
         _validate_name(domain_name, "domain_name")
@@ -272,6 +278,9 @@ class AlterDomainExpression(BaseExpression):
                     f"actions must contain DomainAlterAction instances, got {type(action).__name__}"
                 )
         self.domain_name = domain_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.actions = action_list
 
     @property
@@ -290,10 +299,14 @@ class DropDomainExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         domain_name: str,
+        schema_name: Optional[str] = None,
     ) -> None:
         super().__init__(dialect)
         _validate_name(domain_name, "domain_name")
         self.domain_name = domain_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
 
     @property
     def name(self) -> str:

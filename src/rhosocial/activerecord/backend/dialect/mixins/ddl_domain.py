@@ -108,7 +108,7 @@ class DomainMixin:
         type_sql, type_params = expr.data_type.to_sql()
         parts = [
             "CREATE DOMAIN",
-            self.format_identifier(expr.domain_name),
+            TableExpression(self, expr.domain_name, schema_name=expr.schema_name).to_sql()[0],
             "AS",
             type_sql,
         ]
@@ -175,7 +175,7 @@ class DomainMixin:
             action_parts.append(action_sql)
             action_params.extend(params)
         return (
-            f"ALTER DOMAIN {self.format_identifier(expr.domain_name)} "
+            f"ALTER DOMAIN {TableExpression(self, expr.domain_name, schema_name=expr.schema_name).to_sql()[0]} "
             f"{', '.join(action_parts)}",
             tuple(action_params),
         )
@@ -187,7 +187,7 @@ class DomainMixin:
         """Format a standard DROP DOMAIN statement."""
         if not self.supports_domains() or not self.supports_drop_domain():
             raise UnsupportedFeatureError(self.name, "DROP DOMAIN")
-        return f"DROP DOMAIN {self.format_identifier(expr.domain_name)}", ()
+        return f"DROP DOMAIN {TableExpression(self, expr.domain_name, schema_name=expr.schema_name).to_sql()[0]}", ()
 
     def format_domain_value_expression(
         self,

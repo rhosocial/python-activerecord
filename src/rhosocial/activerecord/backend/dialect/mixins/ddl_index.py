@@ -245,9 +245,9 @@ class IndexMixin:
                     f"{self.name} does not support CREATE INDEX IF NOT EXISTS."
                 )
             parts.append("IF NOT EXISTS")
-        parts.append(self.format_identifier(expr.index_name))
+        parts.append(TableExpression(self, expr.index_name, schema_name=expr.schema_name).to_sql()[0])
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0])
 
         cols_str = ", ".join(self.format_identifier(c) for c in expr.columns)
         parts.append(f"({cols_str})")
@@ -287,9 +287,9 @@ class IndexMixin:
                     f"{self.name} does not support DROP INDEX IF EXISTS."
                 )
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.index_name))
+        parts.append(TableExpression(self, expr.index_name, schema_name=expr.schema_name).to_sql()[0])
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0])
 
         return " ".join(parts), ()
 
@@ -334,9 +334,9 @@ class IndexMixin:
                     f"{self.name} does not support CREATE INDEX IF NOT EXISTS."
                 )
             parts.append("IF NOT EXISTS")
-        parts.append(self.format_identifier(expr.index_name))
+        parts.append(TableExpression(self, expr.index_name, schema_name=expr.schema_name).to_sql()[0])
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0])
 
         if expr.index_type:
             if not self.supports_index_type():
@@ -415,8 +415,8 @@ class IndexMixin:
                     f"{self.name} does not support DROP INDEX IF EXISTS."
                 )
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.index_name))
+        parts.append(TableExpression(self, expr.index_name, schema_name=expr.schema_name).to_sql()[0])
         if expr.table_name and self.supports_drop_index_on_table():
             parts.append("ON")
-            parts.append(self.format_identifier(expr.table_name))
+            parts.append(TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0])
         return " ".join(parts), ()

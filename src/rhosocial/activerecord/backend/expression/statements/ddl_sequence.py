@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_sequence.py
 """Sequence DDL statement expressions."""
 
+from ..core import _validate_schema_name
 from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
@@ -61,9 +62,13 @@ class CreateSequenceExpression(BaseExpression):
         cache: Optional[int] = None,
         order: bool = False,
         owned_by: Optional[str] = None,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.sequence_name = sequence_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.if_not_exists = if_not_exists
         self.start = start
         self.increment = increment
@@ -109,9 +114,13 @@ class DropSequenceExpression(BaseExpression):
         dialect: "SQLDialectBase",
         sequence_name: str,
         if_exists: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.sequence_name = sequence_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.if_exists = if_exists
 
     @property
@@ -167,9 +176,13 @@ class AlterSequenceExpression(BaseExpression):
         cache: Optional[int] = None,
         order: Optional[bool] = None,
         owned_by: Optional[str] = None,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.sequence_name = sequence_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.restart = restart
         self.start = start
         self.increment = increment

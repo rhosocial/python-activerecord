@@ -182,7 +182,7 @@ class FunctionMixin:
                 )
             parts.insert(1, "OR REPLACE")
 
-        parts.append(self.format_identifier(expr.function_name))
+        parts.append(TableExpression(self, expr.function_name, schema_name=expr.schema_name).to_sql()[0])
 
         if expr.parameters:
             if not self.supports_function_parameters():
@@ -248,7 +248,7 @@ class FunctionMixin:
                 )
             parts.append("IF EXISTS")
 
-        parts.append(self.format_identifier(expr.function_name))
+        parts.append(TableExpression(self, expr.function_name, schema_name=expr.schema_name).to_sql()[0])
 
         if expr.parameters:
             param_types = ", ".join(expr.parameters)

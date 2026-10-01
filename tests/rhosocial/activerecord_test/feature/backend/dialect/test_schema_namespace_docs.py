@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dialect/test_schema_namespace_docs.py
 """
-Documentation/behaviour cross-checks for the schema-namespace guide (L5).
+Documentation/behaviour cross-checks for the schema-namespace guide.
 
 The guide in ``docs/{en_US,zh_CN}/modeling/schema_namespace.md`` is the primary
 user-facing deliverable of the schema-qualification work, and it is easy for it
@@ -11,9 +11,14 @@ table or a wrong claim fails the build instead of misleading a reader.
 
 They also lock the two boundaries that are easy to overstate:
 
-* ``__schema_name__`` affects DML/DQL only -- no DDL statement consumes it.
 * An unaliased range may be referenced two-part *or* three-part; an aliased
   range must use the alias alone.
+
+The DDL boundary has moved: it used to be asserted that no DDL statement
+consumed a schema, which left index, sequence, domain, function and trigger
+names qualified only by hand. This now requires the opposite -- every
+statement naming a schema-bearing object accepts ``schema_name``, defaulting
+to None.
 """
 
 import re
@@ -22,15 +27,6 @@ from pathlib import Path
 import pytest
 
 from rhosocial.activerecord.backend.expression.core import Column, TableExpression
-from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
-    AlterTableExpression,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_index import (
-    CreateIndexExpression,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    CreateTableExpression,
-)
 from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
     TruncateExpression,
 )
@@ -55,11 +51,11 @@ def _doc(path: Path) -> str:
 
 
 # --------------------------------------------------------------------------
-# T-40  the rendering table must match the dialect
+# The guide's rendering table must match what the dialect actually produces
 # --------------------------------------------------------------------------
 
 class TestRenderingTableMatchesBehaviour:
-    """T-40 -- every FROM/Column row in the guide is verified against output."""
+    """Every FROM/Column row in the guide is verified against real output."""
 
     def test_t40_table_expression_rows(self, dialect):
         assert TableExpression(dialect, TABLE).to_sql()[0] == '"users"'
@@ -92,38 +88,109 @@ class TestRenderingTableMatchesBehaviour:
 
 
 # --------------------------------------------------------------------------
-# T-41  the DDL capability table must match the expression signatures
+# Every named-object DDL statement must be able to carry a schema
 # --------------------------------------------------------------------------
 
-class TestDdlCapabilityTableMatchesSignatures:
-    """T-41 -- the guide may not claim DDL schema support that does not exist."""
+#: DDL statements that name a schema-bearing object through their own
+#: ``schema_name`` parameter. This used to assert the opposite -- that no DDL
+#: statement took a schema -- which left index, sequence, domain, function and
+#: trigger names qualified only by hand and silently unqualified when a dialect
+#: had no namespace to put them in.
+#:
+#: Table statements are deliberately absent: ``CreateTableExpression`` and
+#: friends take ``table: Union[str, TableExpression]``, and ``TruncateExpression``
+#: names the field ``schema``. Both qualify, and are covered below.
+NAMED_OBJECT_DDL = [
+    ("ddl_view", "CreateViewExpression"),
+    ("ddl_view", "DropViewExpression"),
+    ("ddl_view", "CreateMaterializedViewExpression"),
+    ("ddl_view", "DropMaterializedViewExpression"),
+    ("ddl_view", "RefreshMaterializedViewExpression"),
+    ("ddl_type", "CreateTypeExpression"),
+    ("ddl_type", "AlterTypeExpression"),
+    ("ddl_type", "DropTypeExpression"),
+    ("ddl_index", "CreateIndexExpression"),
+    ("ddl_index", "DropIndexExpression"),
+    ("ddl_index", "CreateFulltextIndexExpression"),
+    ("ddl_index", "DropFulltextIndexExpression"),
+    ("ddl_sequence", "CreateSequenceExpression"),
+    ("ddl_sequence", "DropSequenceExpression"),
+    ("ddl_sequence", "AlterSequenceExpression"),
+    ("ddl_domain", "CreateDomainExpression"),
+    ("ddl_domain", "DropDomainExpression"),
+    ("ddl_domain", "AlterDomainExpression"),
+    ("ddl_function", "CreateFunctionExpression"),
+    ("ddl_function", "DropFunctionExpression"),
+    ("ddl_trigger", "CreateTriggerExpression"),
+    ("ddl_trigger", "DropTriggerExpression"),
+]
 
-    @pytest.mark.parametrize(
-        "expression_class", [CreateTableExpression, AlterTableExpression,
-                             CreateIndexExpression]
-    )
-    def test_t41_no_schema_parameter_on_ddl_statements(self, expression_class):
+#: Table statements qualify through a TableExpression rather than a scalar.
+TABLE_OBJECT_DDL = [
+    ("ddl_table", "CreateTableExpression"),
+    ("ddl_table", "CreateTableAsExpression"),
+    ("ddl_table", "CreateTableCloneExpression"),
+    ("ddl_table", "CreateTableFromTemplateExpression"),
+    ("ddl_table", "CreateTableLikeExpression"),
+    ("ddl_table", "DropTableExpression"),
+]
+
+
+class TestDdlStatementsAcceptSchema:
+    """A named-object DDL statement must be able to name its schema."""
+
+    @pytest.mark.parametrize("module_name,class_name", NAMED_OBJECT_DDL,
+                             ids=[c for _, c in NAMED_OBJECT_DDL])
+    def test_t41_ddl_statement_accepts_schema_name(self, module_name, class_name):
+        import importlib
         import inspect
 
-        params = inspect.signature(expression_class.__init__).parameters
-        assert "schema" not in params, (
-            f"{expression_class.__name__} now accepts a schema parameter; the "
-            "guide's DDL capability table must be updated"
+        module = importlib.import_module(
+            f"rhosocial.activerecord.backend.expression.statements.{module_name}"
         )
-        assert "schema_name" not in params, (
-            f"{expression_class.__name__} now accepts schema_name; the guide's "
-            "DDL capability table must be updated"
+        cls = getattr(module, class_name)
+        params = inspect.signature(cls.__init__).parameters
+        assert "schema_name" in params, (
+            f"{class_name} names a schema-bearing object but takes no "
+            f"schema_name, so callers cannot qualify it"
+        )
+        assert params["schema_name"].default is None, (
+            f"{class_name} defaults schema_name to something other than None; "
+            f"None is what means 'unqualified'"
         )
 
-    def test_t41_truncate_has_its_own_schema_field(self):
-        """``TruncateExpression`` is the one DDL statement with a schema knob.
+    @pytest.mark.parametrize("module_name,class_name", TABLE_OBJECT_DDL,
+                             ids=[c for _, c in TABLE_OBJECT_DDL])
+    def test_t41_table_statement_qualifies_via_table_expression(
+        self, module_name, class_name, dialect
+    ):
+        """Table DDL qualifies through a TableExpression, not a scalar field.
 
-        It is *not* fed from the model, which is why the guide lists it
-        separately rather than claiming DDL support.
+        The name may be given as a bare string, which is unqualified, or as a
+        TableExpression, which may carry a schema. Either way the statement
+        formatter resolves it, so a schema supplied here is never dropped.
         """
+        import importlib
         import inspect
 
-        assert "schema" in inspect.signature(TruncateExpression.__init__).parameters
+        module = importlib.import_module(
+            f"rhosocial.activerecord.backend.expression.statements.{module_name}"
+        )
+        cls = getattr(module, class_name)
+        params = inspect.signature(cls.__init__).parameters
+        assert "table" in params, f"{class_name} no longer takes a table"
+        # A qualified reference reaches the statement as a TableExpression and
+        # must render qualified.
+        ref = TableExpression(dialect, TABLE, schema_name=SCHEMA)
+        assert ref.to_sql()[0] == f'"{SCHEMA}"."{TABLE}"'
+
+    def test_t41_truncate_keeps_its_own_schema_field(self):
+        """``TruncateExpression`` names the field ``schema``, and qualifies."""
+        import inspect
+
+        params = inspect.signature(TruncateExpression.__init__).parameters
+        assert "schema" in params
+        assert params["schema"].default is None
 
     def test_t41_create_table_only_carries_schema_via_table_expression(self, dialect):
         """``CreateTableExpression`` can still be schema-qualified -- by hand."""
@@ -138,7 +205,7 @@ class TestDdlCapabilityTableMatchesSignatures:
 
 
 # --------------------------------------------------------------------------
-# T-42  both locales exist and cover the same sections
+# Both locales must exist and cover the same sections
 # --------------------------------------------------------------------------
 
 class TestBothLocalesPresent:
@@ -159,7 +226,7 @@ class TestBothLocalesPresent:
 
 
 # --------------------------------------------------------------------------
-# T-43  ddl_source.md must state the DML-only boundary
+# ddl_source.md must state the schema boundary accurately
 # --------------------------------------------------------------------------
 
 class TestDdlSourceDocBoundary:
@@ -173,7 +240,7 @@ class TestDdlSourceDocBoundary:
 
 
 # --------------------------------------------------------------------------
-# T-44  no unqualified absolute claims
+# No unqualified absolute claims
 # --------------------------------------------------------------------------
 
 class TestNoAbsoluteClaims:
@@ -201,7 +268,7 @@ class TestNoAbsoluteClaims:
 
 
 # --------------------------------------------------------------------------
-# T-45  backend matrix must list every schema-capable backend
+# The backend matrix must list every schema-capable backend
 # --------------------------------------------------------------------------
 
 class TestBackendMatrixIsComplete:

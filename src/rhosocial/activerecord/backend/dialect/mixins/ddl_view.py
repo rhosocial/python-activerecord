@@ -306,12 +306,9 @@ class TruncateMixin:
                 self.name, "TRUNCATE CASCADE",
                 f"{self.name} does not support TRUNCATE with CASCADE."
             )
-        table_sql = self.format_identifier(expr.table_name)
-        if getattr(expr, "schema", None):
-            table_sql = (
-                f"{self.format_identifier(expr.schema)}."
-                f"{table_sql}"
-            )
+        table_sql = TableExpression(
+            self, expr.table_name, schema_name=expr.schema
+        ).to_sql()[0]
         sql = f"TRUNCATE TABLE {table_sql}"
         if expr.restart_identity:
             sql += " RESTART IDENTITY"

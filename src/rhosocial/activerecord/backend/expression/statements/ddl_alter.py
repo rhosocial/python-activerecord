@@ -49,6 +49,7 @@ from enum import Enum
 from typing import Any, List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..core import _validate_schema_name
 from .ddl_table import (
     ColumnConstraintType,
     ColumnDefinition,
@@ -606,6 +607,7 @@ class AlterTableExpression(BaseExpression):
         dialect: "SQLDialectBase",
         table_name: str,
         actions: List[AlterTableAction],
+        schema_name: Optional[str] = None,
     ) -> None:
         """
         Initialize an ALTER TABLE expression with the specified modifications per SQL standard.
@@ -621,6 +623,7 @@ class AlterTableExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.table_name: str = table_name
+        self.schema_name = _validate_schema_name(schema_name, type(self).__name__)
         # Validate all actions are AlterTableAction instances (dialect already bound)
         for action in actions:
             if not isinstance(action, AlterTableAction):

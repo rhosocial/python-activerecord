@@ -134,24 +134,39 @@ way to say "unqualified" — that is what `None` means. Empty strings are now
 rejected outright, and a non-string value is rejected too. The same applies to
 `TableExpression(schema_name=...)` and to every `*Options` DML object.
 
-## 4. DDL is not covered
+## 4. DDL takes a schema of its own
 
-> **`__schema_name__` selects the read/write namespace. It does not influence
-> DDL.** Keep migration DDL in sync by hand.
+> **`__schema_name__` selects the read/write namespace. DDL statements do not
+> read it** -- but every statement that names a schema-bearing object accepts a
+> `schema_name` of its own, so migration DDL no longer has to be qualified by
+> hand.
 
 | Statement | Picks up the model's schema? | How to qualify it |
 |---|---|---|
-| `CREATE TABLE` | no | pass `TableExpression(dialect, "users", schema_name="app")` |
-| `DROP TABLE` | no | same |
-| `ALTER TABLE` | no | not supported by the expression |
-| `CREATE INDEX` / `DROP INDEX` | no | not supported by the expression |
+| `CREATE TABLE` / `DROP TABLE` | no | pass `TableExpression(dialect, "users", schema_name="app")` |
+| `CREATE` / `ALTER` / `DROP` / `REFRESH` VIEW, incl. materialized | no | `schema_name="app"` |
+| `CREATE` / `ALTER` / `DROP` TYPE | no | `schema_name="app"` |
+| `CREATE` / `DROP` INDEX, incl. full-text | no | `schema_name="app"` |
+| `CREATE` / `ALTER` / `DROP` SEQUENCE | no | `schema_name="app"` |
+| `CREATE` / `ALTER` / `DROP` DOMAIN | no | `schema_name="app"` |
+| `CREATE` / `DROP` FUNCTION | no | `schema_name="app"` |
+| `CREATE` / `DROP` TRIGGER | no | `schema_name="app"` |
 | `TRUNCATE` | no | has its own `schema=` field |
-| `CREATE` / `ALTER VIEW` | no | not supported by the expression |
 | `SELECT` / `INSERT` / `UPDATE` / `DELETE` | **yes** | automatic |
 
-So a model pointing at `app.users` and a migration creating `public.users` will
-not agree, and you get a "relation does not exist" error rather than a subtle
-mistake. If you generate DDL from models, check the schema yourself.
+`schema_name` defaults to `None`, which means unqualified -- the same default
+as everywhere else in the expression layer. Passing `""` is rejected, because an
+empty string is a mistake rather than a way of saying "unqualified".
+
+A model pointing at `app.users` and a migration creating `public.users` still do
+not agree automatically: `__schema_name__` is not consulted when DDL is built,
+so a migration has to name the schema it means. It can now say so directly
+rather than assembling a qualified name by hand.
+
+On a backend without namespaces, supplying a schema raises
+`UnsupportedFeatureError` rather than quietly dropping it. SQLite is the case
+in practice: it has no schema layer, so a qualified name would reach the server
+as something it rejects.
 
 ## 5. Qualifier binding
 

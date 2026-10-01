@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dialect/test_schema_not_silently_ignored.py
 """
-Schema must never be silently dropped (C20).
+A schema that was supplied must never be silently dropped.
 
 The rule these tests lock down: a dialect that cannot express a namespace must
 *raise* when one is supplied, never quietly render an unqualified name. A
@@ -14,9 +14,9 @@ Two directions are covered:
   mixin implements the statement formatters itself, so it is the place a
   dropped ``schema_name`` actually hides. Both CREATE and DROP VIEW are driven
   through the real formatter, not a stub.
-- A source scan (T-20) fails the build if any future formatter renders a
-  schema-bearing object name through ``format_identifier`` alone, which is the
-  shape that drops it.
+- A source scan fails the build if any formatter renders a schema-bearing
+  object name through ``format_identifier`` alone, which is the shape that
+  drops it.
 """
 import ast
 from pathlib import Path
@@ -90,7 +90,7 @@ class TestSQLiteRejectsSchema:
 
 
 class TestNoFormatterDropsSchema:
-    """T-20: a formatter must not render a schema-bearing name unqualified.
+    """A formatter must not render a schema-bearing name unqualified.
 
     ``format_identifier(name)`` on its own cannot express a namespace, so a
     statement formatter that carries a ``schema_name`` and renders its object

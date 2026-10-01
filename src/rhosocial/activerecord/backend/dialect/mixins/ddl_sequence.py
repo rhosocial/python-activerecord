@@ -107,7 +107,7 @@ class SequenceMixin:
                     f"{self.name} does not support CREATE SEQUENCE IF NOT EXISTS."
                 )
             parts.append("IF NOT EXISTS")
-        parts.append(self.format_identifier(expr.sequence_name))
+        parts.append(TableExpression(self, expr.sequence_name, schema_name=expr.schema_name).to_sql()[0])
 
         if expr.start is not None:
             parts.append(f"START WITH {expr.start}")
@@ -173,7 +173,7 @@ class SequenceMixin:
                     f"{self.name} does not support DROP SEQUENCE IF EXISTS."
                 )
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.sequence_name))
+        parts.append(TableExpression(self, expr.sequence_name, schema_name=expr.schema_name).to_sql()[0])
         return " ".join(parts), ()
 
     def format_alter_sequence_statement(self, expr: "AlterSequenceExpression") -> Tuple[str, tuple]:
@@ -188,7 +188,7 @@ class SequenceMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
         """
         from ..exceptions import UnsupportedFeatureError
-        parts = [f"ALTER SEQUENCE {self.format_identifier(expr.sequence_name)}"]
+        parts = [f"ALTER SEQUENCE {TableExpression(self, expr.sequence_name, schema_name=expr.schema_name).to_sql()[0]}"]
 
         if expr.restart is not None:
             parts.append(f"RESTART WITH {expr.restart}")

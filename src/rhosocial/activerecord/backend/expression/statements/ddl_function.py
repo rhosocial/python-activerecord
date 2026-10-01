@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_function.py
 """Function DDL statement expressions."""
 
+from ..core import _validate_schema_name
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
@@ -40,9 +41,13 @@ class CreateFunctionExpression(BaseExpression):
         body: str = "",
         language: str = "plpgsql",
         or_replace: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.function_name = function_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.parameters = parameters or []
         self.returns = returns
         self.body = body
@@ -78,9 +83,13 @@ class DropFunctionExpression(BaseExpression):
         if_exists: bool = False,
         parameters: Optional[List[str]] = None,
         cascade: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.function_name = function_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.if_exists = if_exists
         self.parameters = parameters
         self.cascade = cascade

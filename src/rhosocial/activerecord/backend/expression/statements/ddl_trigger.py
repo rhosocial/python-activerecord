@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_trigger.py
 """Trigger DDL statement expressions."""
 
+from ..core import _validate_schema_name
 from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 
@@ -80,9 +81,13 @@ class CreateTriggerExpression(BaseExpression):
         update_columns: Optional[List[str]] = None,
         referencing: Optional[str] = None,
         if_not_exists: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.trigger_name = trigger_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.table_name = table_name
         self.timing = timing
         self.events = events
@@ -121,9 +126,13 @@ class DropTriggerExpression(BaseExpression):
         trigger_name: str,
         table_name: Optional[str] = None,
         if_exists: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.trigger_name = trigger_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.table_name = table_name
         self.if_exists = if_exists
 

@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_index.py
 """Index DDL statement expressions."""
 
+from ..core import _validate_schema_name
 from typing import List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate
@@ -80,9 +81,13 @@ class CreateIndexExpression(BaseExpression):
         include: Optional[List[str]] = None,
         tablespace: Optional[str] = None,
         concurrent: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.index_name = index_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.table_name = table_name
         self.columns = columns
         self.unique = unique
@@ -137,9 +142,13 @@ class DropIndexExpression(BaseExpression):
         table_name: Optional[str] = None,
         if_exists: bool = False,
         concurrent: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.index_name = index_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.table_name = table_name
         self.if_exists = if_exists
         self.concurrent = concurrent
@@ -202,9 +211,13 @@ class CreateFulltextIndexExpression(BaseExpression):
         columns: List[str],
         parser: Optional[str] = None,
         if_not_exists: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.index_name = index_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.table_name = table_name
         self.columns = columns
         self.parser = parser
@@ -248,9 +261,13 @@ class DropFulltextIndexExpression(BaseExpression):
         index_name: str,
         table_name: str,
         if_exists: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.index_name = index_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.table_name = table_name
         self.if_exists = if_exists
 
