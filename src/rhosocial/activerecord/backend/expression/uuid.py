@@ -24,11 +24,38 @@ back to generating one in Python, which is what ``UUIDMixin`` does today.
 
 from typing import Any, Optional, TYPE_CHECKING
 
+from ..dialect.exceptions import UnsupportedFeatureError
 from .bases import SQLValueExpression
 from .mixins import AliasableMixin, ComparisonMixin, TypeCastingMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
+
+
+def _require(dialect, probe: str, feature: str, alternative: str) -> None:
+    """Refuse early when *dialect* cannot render this UUID operation.
+
+    The alternative to refusing is an ``AttributeError`` about a missing
+    formatting method, raised deep inside rendering and naming neither the
+    feature nor the way out. A dialect that does not implement UUID at all has
+    no probe to answer, which is the same answer as answering False.
+
+    Args:
+        dialect: The dialect about to render the expression.
+        probe: Name of the capability probe for this operation.
+        feature: Human-readable name of what was asked for.
+        alternative: What to do instead.
+
+    Raises:
+        UnsupportedFeatureError: If the dialect does not support the feature.
+    """
+    if getattr(dialect, probe, False):
+        return
+    raise UnsupportedFeatureError(
+        dialect_name=type(dialect).__name__,
+        feature_name=feature,
+        suggestion=alternative,
+    )
 
 
 class UUIDGenerationExpression(
@@ -57,6 +84,13 @@ class UUIDGenerationExpression(
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
+        _require(
+            dialect,
+            "supports_uuid_generation",
+            "generate a UUID in SQL",
+            "Generate the value in Python with uuid.uuid4() and store it as a "
+            "string.",
+        )
         self.alias = alias
 
     @property
@@ -88,6 +122,13 @@ class UUIDConstantExpression(
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
+        _require(
+            dialect,
+            "supports_uuid_constant",
+            "render UUID constants in SQL",
+            "Write the literal yourself: '00000000-0000-0000-0000-000000000000' "
+            "for nil and all f's for max.",
+        )
         normalised = str(which).lower()
         if normalised not in self._KINDS:
             raise ValueError(
@@ -124,6 +165,12 @@ class UUIDCastExpression(
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
+        _require(
+            dialect,
+            "supports_uuid_cast",
+            "cast text to a UUID in SQL",
+            "Parse it in Python with uuid.UUID() and store the result.",
+        )
         self.expression = expression
         self.alias = alias
 
