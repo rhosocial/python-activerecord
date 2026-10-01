@@ -79,7 +79,7 @@ from rhosocial.activerecord.backend.expression import (
     cube,  # Added grouping functions
     concat_op,  # Added string concatenation operator function
 )
-from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
+from rhosocial.activerecord.backend.expression import StringValueExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -235,7 +235,9 @@ class TestStringFunctionFactories:
         """Test TRIM function with default direction."""
         func = trim(dummy_dialect, "name")
         sql, params = func.to_sql()
-        assert isinstance(func, RawSQLExpression)
+        # Typed as a string value, not a raw node: the result carries the
+        # string surface, which is the point of typing the factories.
+        assert isinstance(func, StringValueExpression)
         assert "TRIM(BOTH FROM" in sql
 
     def test_trim_function_with_chars(self, dummy_dialect: DummyDialect):

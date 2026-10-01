@@ -153,12 +153,22 @@ def test_numeric_result_is_not_a_string_value(dialect, name, factory):
     assert not isinstance(result, StringValueExpression)
 
 
-@pytest.mark.parametrize("method", ["length", "ascii", "strpos", "position"])
-def test_string_column_does_not_offer_numeric_result_methods(name, method):
-    """These would return a number, so they are not string value operations."""
-    assert not hasattr(name, method), (
-        f"StringColumn.{method}() would return a number but sits on the string surface"
-    )
+@pytest.mark.parametrize(
+    "method, args",
+    [("length", ()), ("ascii", ()), ("strpos", ("x",)), ("position", ("x",))],
+)
+def test_string_column_offers_them_but_the_result_is_not_a_string(name, method, args):
+    """A legal string operation whose *result* is a number.
+
+    ``LENGTH(s) LIKE '3'`` is still a type error, but it is caught by the
+    result's type rather than by hiding the method. Hiding it would be wrong:
+    these are well-defined on every backend, and ``strpos`` and ``position``
+    differ in availability, so "does a string offer it" is not the same
+    question as "is the answer a string".
+    """
+    assert hasattr(name, method), f"StringColumn lost a legal operation {method}()"
+    result = getattr(name, method)(*args)
+    assert not isinstance(result, StringValueExpression)
 
 
 # ---------------------------------------------------------------------------

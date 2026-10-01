@@ -16,7 +16,7 @@ standard operator, and a dialect that declares a function gets one.
 # tests/rhosocial/activerecord_test/feature/query/test_string_concatenation_operator.py
 import pytest
 
-from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression import StringColumn
 from rhosocial.activerecord.backend.expression import functions as string_functions
 from rhosocial.activerecord.backend.expression.operators import (
     BinaryExpression,
@@ -35,7 +35,16 @@ def dialect():
 
 @pytest.fixture
 def operands(dialect):
-    return Column(dialect, "a", table="t"), Column(dialect, "b", table="t")
+    """Two string columns.
+
+    StringColumn rather than Column: the point of the round trip is that the
+    result is still a string, and a bare Column carries no string surface to
+    lose.
+    """
+    return (
+        StringColumn(dialect, "a", table="t"),
+        StringColumn(dialect, "b", table="t"),
+    )
 
 
 # ---------------------------------------------------------------------------
