@@ -52,6 +52,17 @@ class ExpressionMixin(FunctionCallMixin):
         Returns:
             A ``(sql, params)`` tuple; ``params`` is empty.
         """
+        if expr.schema_name and not expr.table:
+            # Same reasoning as format_column: dropping the schema here would
+            # widen the query to whatever namespace the connection resolves
+            # first, which is a different table than the caller named. A
+            # wildcard cannot be qualified by a schema alone in any dialect
+            # that supports schemas, so this is always a caller mistake.
+            raise ValueError(
+                f"{self.name}: cannot qualify wildcard with schema "
+                f"{expr.schema_name!r} because no table was given; a wildcard "
+                "needs a table (or an alias) to be schema-qualified"
+            )
         if expr.schema_name and expr.table:
             wildcard_sql = (
                 f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."

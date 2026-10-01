@@ -354,3 +354,81 @@ class TestSchemaValidation:
         """T-20/C7: ``schema_name=""`` is a mistake, not "no schema"."""
         with pytest.raises((TypeError, ValueError)):
             _update_sql(backend, table=TABLE, schema_name="", where=None)
+
+
+class TestRemainingSchemaValidationGaps:
+    """T-22..T-26 -- the other schema-bearing expressions, which had none.
+
+    ``Column`` rejected an empty schema and a schema without a table, but the
+    sibling expressions did not, so ``schema_name=""`` quietly dropped the
+    qualification and produced a query against a different table than the
+    caller asked for. These pin the same contract across all of them.
+    """
+
+    def test_t22_wildcard_rejects_empty_schema(self, dialect):
+        from rhosocial.activerecord.backend.expression.core import WildcardExpression
+
+        with pytest.raises((TypeError, ValueError)):
+            WildcardExpression(dialect, table=TABLE, schema_name="")
+
+    def test_t23_wildcard_rejects_schema_without_table(self, dialect):
+        """A schema-qualified wildcard is a wider query, not a narrower one."""
+        from rhosocial.activerecord.backend.expression.core import WildcardExpression
+
+        expr = WildcardExpression(dialect, schema_name=SCHEMA)
+        with pytest.raises(ValueError, match="no table"):
+            expr.to_sql()
+
+    def test_t24_qualified_identifier_rejects_empty_schema(self, dialect):
+        from rhosocial.activerecord.backend.expression.core import (
+            QualifiedIdentifierExpression,
+        )
+
+        with pytest.raises((TypeError, ValueError)):
+            QualifiedIdentifierExpression(dialect, schema="", name=TABLE)
+
+    def test_t25_create_schema_rejects_empty_name(self, dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_schema import (
+            CreateSchemaExpression,
+        )
+
+        if not dialect.supports_create_schema():
+            pytest.skip("dialect has no CREATE SCHEMA")
+        with pytest.raises((TypeError, ValueError)):
+            CreateSchemaExpression(dialect, "")
+
+    def test_t26_drop_schema_rejects_empty_name(self, dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_schema import (
+            DropSchemaExpression,
+        )
+
+        if not dialect.supports_drop_schema():
+            pytest.skip("dialect has no DROP SCHEMA")
+        with pytest.raises((TypeError, ValueError)):
+            DropSchemaExpression(dialect, "")
+
+    @pytest.mark.parametrize("blank", ["", "   "])
+    def test_t27_schema_ddl_rejects_whitespace_name(self, dialect, blank):
+        from rhosocial.activerecord.backend.expression.statements.ddl_schema import (
+            CreateSchemaExpression,
+        )
+
+        if not dialect.supports_create_schema():
+            pytest.skip("dialect has no CREATE SCHEMA")
+        with pytest.raises((TypeError, ValueError)):
+            CreateSchemaExpression(dialect, blank)
+
+    def test_t28_unqualified_forms_still_render(self, dialect):
+        """The fix must not narrow what already worked: None stays None."""
+        from rhosocial.activerecord.backend.expression.core import (
+            QualifiedIdentifierExpression,
+            WildcardExpression,
+        )
+
+        assert WildcardExpression(dialect).to_sql()[0] == "*"
+        assert WildcardExpression(dialect, table=TABLE).to_sql()[0] == f'"{TABLE}".*'
+        assert (
+            WildcardExpression(dialect, table=TABLE, schema_name=SCHEMA).to_sql()[0]
+            == f'"{SCHEMA}"."{TABLE}".*'
+        )
+        assert QualifiedIdentifierExpression(dialect, name=TABLE).to_sql()[0] == f'"{TABLE}"'

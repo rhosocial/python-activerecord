@@ -9,6 +9,27 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
+def _validate_required_schema_name(value, owner: str) -> str:
+    """Validate the schema name of a statement that cannot do without one.
+
+    ``CREATE SCHEMA`` / ``DROP SCHEMA`` take a required name, so unlike the
+    reference expressions there is no "unqualified" form to express. Both
+    ``None`` and ``""`` used to render, producing ``CREATE SCHEMA ""`` and a
+    statement the server rejects with a message that points at the server
+    rather than at the argument.
+    """
+    if not isinstance(value, str):
+        raise ValueError(
+            f"{owner}.schema_name must be a string, not {type(value).__name__}"
+        )
+    if not value.strip():
+        raise ValueError(
+            f"{owner}.schema_name must be a non-empty string; this statement "
+            "requires a schema and has no unqualified form"
+        )
+    return value
+
+
 class CreateSchemaExpression(BaseExpression):
 
     @property
@@ -54,7 +75,7 @@ class CreateSchemaExpression(BaseExpression):
         authorization: Optional[str] = None,
     ):
         super().__init__(dialect)
-        self.schema_name = schema_name
+        self.schema_name = _validate_required_schema_name(schema_name, type(self).__name__)
         self.if_not_exists = if_not_exists
         self.authorization = authorization
 
@@ -103,7 +124,7 @@ class DropSchemaExpression(BaseExpression):
         cascade: bool = False,
     ):
         super().__init__(dialect)
-        self.schema_name = schema_name
+        self.schema_name = _validate_required_schema_name(schema_name, type(self).__name__)
         self.if_exists = if_exists
         self.cascade = cascade
 

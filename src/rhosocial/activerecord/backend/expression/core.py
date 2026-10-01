@@ -320,7 +320,12 @@ class QualifiedIdentifierExpression(BaseExpression):
         super().__init__(dialect)
         self.name_need_quote = name_need_quote
         self.schema_need_quote = schema_need_quote
-        self.schema = schema
+        # The field is named ``schema`` here rather than ``schema_name``, but
+        # it means the same thing and carries the same contract: None is
+        # "unqualified", and an empty string is a mistake rather than a way to
+        # spell unqualified. Without the check it rendered as a bare name,
+        # quietly dropping the qualification the caller asked for.
+        self.schema = _validate_schema_name(schema, type(self).__name__)
         self.name = name
 
 
@@ -348,7 +353,7 @@ class WildcardExpression(SQLValueExpression):
         self.table_need_quote = table_need_quote
         self.schema_need_quote = schema_need_quote
         self.table = table
-        self.schema_name = schema_name
+        self.schema_name = _validate_schema_name(schema_name, type(self).__name__)
 
 
 
