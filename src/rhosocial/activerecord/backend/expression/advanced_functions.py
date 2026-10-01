@@ -13,7 +13,7 @@ from .mixins import (
     ArithmeticMixin,
     ComparisonMixin,
     JSONAccessorMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
 )
 from .query_parts import OrderByClause
@@ -243,7 +243,7 @@ class JSONExpression(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
     JSONAccessorMixin,
     SQLValueExpression,

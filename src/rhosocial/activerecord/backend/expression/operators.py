@@ -14,7 +14,7 @@ from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
 )
 
@@ -66,7 +66,7 @@ class UnaryExpression(BaseExpression):
         self.pos = pos
 
 
-class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringMixin, SQLValueExpression):
+class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, SQLValueExpression):
     """Represents a raw SQL expression string that is directly embedded.
 
     Note: This class should be used with caution. It bypasses the normal expression

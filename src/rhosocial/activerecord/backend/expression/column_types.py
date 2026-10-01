@@ -34,7 +34,8 @@ from .mixins import (
     ComparisonMixin,
     DateTimeMixin,
     JSONAccessorMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
     TypeCastingMixin,
 )
 
@@ -99,7 +100,7 @@ class ColumnBase(
         return f"<{type(self).__name__} {''.join(parts)}>"
 
 
-class StringColumn(StringMixin, ColumnBase):
+class StringColumn(StringValueMixin, StringPatternPredicateMixin, ColumnBase):
     """A column holding text: comparison, ``LIKE`` / ``ILIKE``, casting.
 
     Not available: arithmetic. ``LIKE`` against a numeric column is a

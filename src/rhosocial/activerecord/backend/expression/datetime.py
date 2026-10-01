@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
-from .mixins import AliasableMixin, ArithmeticMixin, ComparisonMixin, StringMixin, TypeCastingMixin
+from .mixins import AliasableMixin, ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, TypeCastingMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -128,7 +128,7 @@ class _TemporalValueExpression(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):

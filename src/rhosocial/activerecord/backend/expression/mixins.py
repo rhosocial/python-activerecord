@@ -582,18 +582,173 @@ class LogicalMixin:
         return LogicalPredicate(self._dialect, "NOT", self)
 
 
-class StringMixin:
-    """
-    Provides string-specific operations like LIKE and ILIKE for SQL expressions.
+class StringValueMixin:
+    """String **value** operations: each returns a new string-valued expression.
 
-    This mixin adds string pattern matching capabilities to expressions, enabling
-    SQL LIKE and ILIKE operations for pattern matching.
+    Distinct from :class:`StringPatternPredicateMixin`, which answers questions
+    about a string instead of deriving one. These operations derive, so they
+    chain: ``col.upper().substr(0, 3).length()`` stays a string until the last
+    step, which is numeric.
+
+    The SQL itself comes from :mod:`...expression.functions.string`, where all
+    of these already existed as free functions; this mixin only makes them
+    reachable from a column and gives the result a string type so the next call
+    in the chain is available. Result types are honest about SQL semantics:
+    ``length``, ``ascii``, ``strpos``, ``octet_length`` and ``bit_length``
+    return numbers, and they are not on this mixin.
+
+    Example:
+        >>> col.upper().substr(0, 3)      # SUBSTR(UPPER("name"), 1, 3)
+        >>> col.length() > 5              # LENGTH("name") > ?
+    """
+
+    def _string_op(self, factory_name: str, *args, **kwargs):
+        """Call a string factory and tag the result as a string value.
+
+        Args:
+            factory_name: Name of the function in ``functions.string``.
+            args: Positional arguments forwarded to the factory.
+            kwargs: Keyword arguments forwarded to the factory.
+
+        Returns:
+            A :class:`~...expression.core.StringValueExpression`.
+        """
+        from . import functions as _functions
+
+        factory = getattr(_functions, factory_name)
+        return factory(self._dialect, self, *args, **kwargs)
+
+    # --- case ---
+
+    def upper(self) -> "StringValueMixin":
+        """Upper-case the string. ``UPPER(col)``"""
+        return self._string_op("upper")
+
+    def lower(self) -> "StringValueMixin":
+        """Lower-case the string. ``LOWER(col)``"""
+        return self._string_op("lower")
+
+    def initcap(self) -> "StringValueMixin":
+        """Capitalise the first letter of each word. ``INITCAP(col)``"""
+        return self._string_op("initcap")
+
+    def reverse(self) -> "StringValueMixin":
+        """Reverse the string. ``REVERSE(col)``"""
+        return self._string_op("reverse")
+
+    def translate(self, from_chars: str, to_chars: str) -> "StringValueMixin":
+        """Replace characters pairwise. ``TRANSLATE(col, from, to)``"""
+        return self._string_op("translate", from_chars, to_chars)
+
+    # --- slicing and padding ---
+
+    def substr(self, start: int, length: Optional[int] = None) -> "StringValueMixin":
+        """Substring, 1-based. ``SUBSTRING(col FROM start [FOR length])``"""
+        return self._string_op("substring", start, length)
+
+    def left(self, n: int) -> "StringValueMixin":
+        """First *n* characters. ``LEFT(col, n)``"""
+        return self._string_op("left", n)
+
+    def right(self, n: int) -> "StringValueMixin":
+        """Last *n* characters. ``RIGHT(col, n)``"""
+        return self._string_op("right", n)
+
+    def lpad(self, length: int, pad: Optional[str] = None) -> "StringValueMixin":
+        """Left-pad to *length*. ``LPAD(col, length [, pad])``"""
+        return self._string_op("lpad", length, pad)
+
+    def rpad(self, length: int, pad: Optional[str] = None) -> "StringValueMixin":
+        """Right-pad to *length*. ``RPAD(col, length [, pad])``"""
+        return self._string_op("rpad", length, pad)
+
+    def repeat(self, count: int) -> "StringValueMixin":
+        """Repeat the string *count* times. ``REPEAT(col, count)``"""
+        return self._string_op("repeat", count)
+
+    def overlay(self, replacement: str, start: int, length: Optional[int] = None) -> "StringValueMixin":
+        """Overwrite a span. ``OVERLAY(col PLACING replacement FROM start [FOR length])``"""
+        return self._string_op("overlay", replacement, start, length)
+
+    # --- search and replace ---
+
+    def replace(self, pattern: str, replacement: str) -> "StringValueMixin":
+        """Replace every occurrence. ``REPLACE(col, pattern, replacement)``"""
+        return self._string_op("replace", pattern, replacement)
+
+    def position(self, substring: str) -> "StringValueMixin":
+        """Position of *substring* within the string.
+
+        Note: the factory returns a number, not a string, so the result is a
+        plain value expression rather than a chainable string.
+        """
+        from .functions import string as _string
+
+        return _string.position(self._dialect, substring, self)
+
+    # --- whitespace ---
+
+    def trim(self, chars: Optional[str] = None, direction: str = "BOTH") -> "StringValueMixin":
+        """Trim whitespace or *chars*. ``TRIM([direction] [chars] FROM col)``
+
+        Args:
+            chars: Characters to trim; ``None`` trims spaces.
+            direction: One of ``BOTH`` (default), ``LEADING``, ``TRAILING``.
+        """
+        return self._string_op("trim", chars=chars, direction=direction)
+
+    # --- combination ---
+
+    def concat(self, *others) -> "StringValueMixin":
+        """Concatenate with other values. ``CONCAT(col, ...)``
+
+        Note: SQL ``||`` is not used. Its meaning is dialect-dependent — it is
+        logical OR by default in MySQL — so the portable function is the only
+        spelling offered here.
+        """
+        from .functions import string as _string
+        from .core import Literal
+
+        operands = [self]
+        for other in others:
+            operands.append(other if hasattr(other, "to_sql") else Literal(self._dialect, other))
+        return _string.concat(self._dialect, *operands)
+
+    def coalesce(self, *others) -> "StringValueMixin":
+        """First non-null value. ``COALESCE(col, ...)``"""
+        from .functions import string as _string
+        from .core import Literal
+
+        operands = [self]
+        for other in others:
+            operands.append(other if hasattr(other, "to_sql") else Literal(self._dialect, other))
+        return _string.coalesce(self._dialect, *operands)
+
+
+class StringPatternPredicateMixin:
+    """Pattern-matching **predicates** on a string-valued expression.
+
+    This is a predicate surface, not a set of value operations: ``like`` and
+    ``ilike`` produce no new value, they answer a yes/no question about the
+    operand. In SQL they are not functions either — ``LIKE`` sits in the
+    predicate grammar beside ``=`` and ``<``, and appears wherever a boolean is
+    legal: a SELECT list, ``CASE WHEN``, ``JOIN ... ON``, a ``CHECK``
+    constraint, a partial-index predicate. It is therefore not something a
+    *column* owns.
+
+    The previous class was named ``StringMixin`` and held only these two
+    methods, so a class called ``StringColumn`` offered no string operations at
+    all — it offered the ability to be LIKE-matched. String *value* operations
+    live in :class:`StringValueMixin`.
+
+    Crossing into a predicate ends the value chain: the result is a boolean and
+    can be combined with ``&`` / ``|`` / ``~``, but it never becomes a string
+    again.
 
     Example:
         >>> col = Column(dialect, "name")
-        >>> # Pattern matching
-        >>> starts_with_a = col.like("A%")  # Generates: "name LIKE ?" with params ("A%",)
-        >>> contains_substring = col.ilike("%hello%")  # Generates: "name ILIKE ?" with params ("%hello%",)
+        >>> starts_with_a = col.like("A%")   # "name LIKE ?"   params ("A%",)
+        >>> both = col.like("A%") & (col.ilike("%x%") | col.like("B%"))
     """
 
     def like(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":

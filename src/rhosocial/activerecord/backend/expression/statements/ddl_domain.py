@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate, SQLValueExpression
-from ..mixins import ComparisonMixin, StringMixin, TypeCastingMixin
+from ..mixins import ComparisonMixin, StringPatternPredicateMixin, TypeCastingMixin
 from ..types import DataType
 from .ddl_table import DefaultValueClause
 
@@ -35,7 +35,7 @@ class DomainNullability(Enum):
 
 class DomainValueExpression(
     ComparisonMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):

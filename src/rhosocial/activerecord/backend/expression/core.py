@@ -12,7 +12,8 @@ from .mixins import (
     ArithmeticMixin,
     ComparisonMixin,
     JSONAccessorMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
     TypeCastingMixin,
 )
 
@@ -24,7 +25,7 @@ class Literal(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -62,7 +63,7 @@ class Literal(
 
 class Column(
     ArithmeticMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
     JSONAccessorMixin,
     ColumnBase,
 ):
@@ -113,11 +114,72 @@ class Column(
         )
 
 
+class StringValueExpression(
+    AliasableMixin,
+    ComparisonMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
+):
+    """A string-valued expression that is not a column reference.
+
+    This is what makes the string value operations chain. ``col.upper()``
+    returns one of these rather than a bare ``FunctionCall``, so the next
+    operation in the chain is available: ``col.upper().substr(0, 3)`` is
+    ``SUBSTRING(UPPER("name"), 1, 3)`` and the result is still a string.
+
+    It is deliberately **not** a :class:`StringColumn`. A column names a field
+    and ``format_column`` reads ``name`` / ``table`` / ``schema_name``; a
+    derived value has none of those, so claiming to be a column would be a lie
+    about the object. What it shares with a string column is the *value type*,
+    which is what decides which operations are offered.
+
+    The class mirrors :class:`~...expression.advanced_functions.JSONExpression`,
+    which plays the same role for the JSON family.
+    """
+
+    def __init__(self, dialect: "SQLDialectBase", call: "FunctionCall"):
+        super().__init__(dialect)
+        self.call = call
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_function_call"
+
+    def to_sql(self):
+        """Render the wrapped function call.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        return self.call.to_sql()
+
+    def __getattr__(self, name):
+        """Forward unknown attributes to the wrapped call.
+
+        Function calls carry dialect-level state that renderers and callers
+        read (``niladic``, and whatever a backend attaches). Delegating keeps
+        this wrapper transparent instead of a second, drifting copy.
+
+        Args:
+            name: Attribute name not found on this wrapper.
+
+        Returns:
+            The attribute from the wrapped function call.
+        """
+        if name == "call":
+            raise AttributeError(name)
+        return getattr(self.__dict__["call"], name)
+
+
+
 class FunctionCall(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -158,7 +220,7 @@ class CastExpression(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    StringMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
