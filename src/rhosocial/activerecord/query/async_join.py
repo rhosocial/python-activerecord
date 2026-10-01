@@ -5,6 +5,7 @@ from typing import List, Union, Type, Optional, Iterable, Tuple
 
 from ..interface import IAsyncQuery, IAsyncActiveRecord
 from ..backend.expression import SQLPredicate, TableExpression, RawSQLPredicate, JoinExpression
+from ..backend.expression.core import Column
 from .utils import convert_qmark_placeholder
 
 
@@ -78,6 +79,53 @@ class AsyncJoinQueryMixin:
             return on
         raise TypeError(f"Unsupported type for 'on' condition: {type(on)}")
 
+    def _check_alias_condition(
+        self,
+        right_table: TableExpression,
+        condition: Optional[SQLPredicate],
+    ) -> None:
+        """Reject an aliased schema-qualified range the ON clause cannot address.
+
+        An aliased range is only referenceable by its alias, so once ``AS x`` is
+        emitted every column naming that range must say ``x``. A caller who
+        writes ``join(Other, on=A.c.id == Other.c.id, alias="o")`` builds the
+        condition *before* the alias exists, so the reference still carries the
+        schema and the server rejects the statement -- on PostgreSQL with
+        "Perhaps you meant to reference the table alias", which never mentions
+        how the framework expects it to be written.
+
+        Detected here so the error arrives before execution and can name the
+        fix. Silently rewriting the caller's condition is worse than failing:
+        the same ``Other.c`` accessor means a qualified reference in one join
+        and an aliased one in the next, and quietly changing it would make the
+        two indistinguishable at the call site.
+        """
+        if condition is None or not right_table.alias or not right_table.schema_name:
+            return
+        schema_name = right_table.schema_name
+        table_name = right_table.name
+
+        def mentions(node) -> bool:
+            if isinstance(node, Column):
+                return node.schema_name == schema_name and node.table == table_name
+            for attr in ("left", "right", "operand", "expression", "value"):
+                child = getattr(node, attr, None)
+                if child is None or isinstance(child, (str, int, float, bool)):
+                    continue
+                if hasattr(child, "to_sql") and mentions(child):
+                    return True
+            return False
+
+        if mentions(condition):
+            raise ValueError(
+                f"cannot join {schema_name}.{table_name} with alias "
+                f"{right_table.alias!r} using a condition that still refers to "
+                f"{schema_name}.{table_name}: an aliased range can only be "
+                f"addressed by its alias. Build the condition from "
+                f"{table_name}.c.with_table_alias({right_table.alias!r}) so the "
+                "reference and the alias agree."
+            )
+
     def _perform_join(
         self,
         join_type: str,
@@ -92,6 +140,7 @@ class AsyncJoinQueryMixin:
         dialect = self.backend().dialect
         right_table = self._resolve_right_table(right, alias)
         condition = self._resolve_on_condition(on, on_params)
+        self._check_alias_condition(right_table, condition)
 
         if self.join_clause is None:
             # First join. The left table is the main model's table.

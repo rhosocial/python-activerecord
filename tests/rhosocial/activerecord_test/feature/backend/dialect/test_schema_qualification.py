@@ -432,3 +432,94 @@ class TestRemainingSchemaValidationGaps:
             == f'"{SCHEMA}"."{TABLE}".*'
         )
         assert QualifiedIdentifierExpression(dialect, name=TABLE).to_sql()[0] == f'"{TABLE}"'
+
+
+class TestAliasedRangeNeedsAnAliasReference:
+    """T-29..T-31 -- an aliased range cannot be addressed by its schema.
+
+    ``join(..., alias=...)`` emits ``AS x``, after which the only legal way to
+    name that range is ``x``. A condition built from ``Other.c.id`` was
+    resolved before the alias existed, so it still carried the schema and the
+    statement was rejected by the server rather than by the framework. On
+    PostgreSQL the hint names the alias but not the accessor that produces it.
+    """
+
+    @staticmethod
+    def _models():
+        from typing import ClassVar, Optional
+
+        from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend
+        from rhosocial.activerecord.base.field_proxy import FieldProxy
+        from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
+
+        class Scoped(ActiveRecord):
+            __table_name__ = "orders"
+            __schema_name__ = SCHEMA
+            c: ClassVar[FieldProxy] = FieldProxy()
+            id: Optional[int] = None
+
+        class Other(ActiveRecord):
+            __table_name__ = "customers"
+            __schema_name__ = "other_schema"
+            c: ClassVar[FieldProxy] = FieldProxy()
+            id: Optional[int] = None
+
+        class Plain(ActiveRecord):
+            __table_name__ = "plain_table"
+            c: ClassVar[FieldProxy] = FieldProxy()
+            id: Optional[int] = None
+
+        class AsyncScoped(AsyncActiveRecord):
+            __table_name__ = "orders"
+            __schema_name__ = SCHEMA
+            c: ClassVar[FieldProxy] = FieldProxy()
+            id: Optional[int] = None
+
+        class AsyncOther(AsyncActiveRecord):
+            __table_name__ = "customers"
+            __schema_name__ = "other_schema"
+            c: ClassVar[FieldProxy] = FieldProxy()
+            id: Optional[int] = None
+
+        for m in (Scoped, Other, Plain, AsyncScoped, AsyncOther):
+            m.__backend__ = DummyBackend()
+            m.__backend_class__ = DummyBackend
+        return Scoped, Other, Plain, AsyncScoped, AsyncOther
+
+    def test_t29_alias_with_qualified_condition_is_rejected(self):
+        Scoped, Other, _, _, _ = self._models()
+        with pytest.raises(ValueError, match="aliased range"):
+            Scoped.query().join(Other, on=Scoped.c.id == Other.c.id, alias="x")
+
+    def test_t30_alias_with_matching_accessor_is_accepted(self):
+        Scoped, Other, _, _, _ = self._models()
+        aliased = Other.c.with_table_alias("x")
+        sql, _ = (
+            Scoped.query()
+            .join(Other, on=Scoped.c.id == aliased.id, alias="x")
+            .select(Scoped.c.id, aliased.id)
+            .to_sql()
+        )
+        assert '"other_schema"."customers" AS "x"' in sql
+        assert '"x"."id"' in sql
+        assert '"other_schema"."customers"."id"' not in sql
+
+    def test_t31_unaliased_join_is_unchanged(self):
+        """No alias means the qualified reference is correct; must not raise."""
+        Scoped, Other, _, _, _ = self._models()
+        sql, _ = Scoped.query().join(Other, on=Scoped.c.id == Other.c.id).to_sql()
+        assert f'"{SCHEMA}"."orders" JOIN "other_schema"."customers"' in sql
+        assert '"other_schema"."customers"."id"' in sql
+
+    def test_t32_alias_on_an_unqualified_table_is_not_flagged(self):
+        """A table with no schema has nothing to contradict the alias."""
+        Scoped, _, Plain, _, _ = self._models()
+        sql, _ = Scoped.query().join(Plain, on=Scoped.c.id == Plain.c.id, alias="p").to_sql()
+        assert '"plain_table" AS "p"' in sql
+
+    def test_t33_async_mirror_raises_too(self):
+        _, _, _, AsyncScoped, AsyncOther = self._models()
+        with pytest.raises(ValueError, match="aliased range"):
+            AsyncScoped.query().join(
+                AsyncOther, on=AsyncScoped.c.id == AsyncOther.c.id, alias="x"
+            )
