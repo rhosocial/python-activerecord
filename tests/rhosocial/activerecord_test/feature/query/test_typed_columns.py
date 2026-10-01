@@ -62,7 +62,7 @@ _DISPATCH = [
     (int, NumericColumn),
     (float, NumericColumn),
     (bool, BooleanColumn),
-    (bytes, ColumnBase),
+    (bytes, BinaryColumn),
     (dict, JSONColumn),
     (list, ArrayColumn),
     (decimal.Decimal, NumericColumn),

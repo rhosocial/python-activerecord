@@ -73,7 +73,7 @@ def test_unknown_is_none_rather_than_guessed(columns):
 
 def test_a_bare_function_call_has_no_family(dialect, columns):
     """It says nothing about what a database would return."""
-    call = FunctionCall(dialect, "MY_FUNC", [columns["string"]])
+    call = FunctionCall(dialect, "MY_FUNC", columns["string"])
     assert value_type_of(call) is None
 
 
@@ -179,7 +179,7 @@ def test_sign_is_always_a_whole_number(dialect, columns):
 
 
 def test_wrap_as_returns_a_typed_expression(dialect, columns):
-    call = FunctionCall(dialect, "MY_FUNC", [columns["string"]])
+    call = FunctionCall(dialect, "MY_FUNC", columns["string"])
     wrapped = wrap_as(dialect, call, NUMERIC)
     assert value_type_of(wrapped) == NUMERIC
     assert wrapped.to_sql() == call.to_sql()
@@ -187,12 +187,12 @@ def test_wrap_as_returns_a_typed_expression(dialect, columns):
 
 def test_wrap_as_passes_through_an_unknown_family(dialect, columns):
     """Safe to apply to every factory: an unmodelled family changes nothing."""
-    call = FunctionCall(dialect, "MY_FUNC", [columns["string"]])
+    call = FunctionCall(dialect, "MY_FUNC", columns["string"])
     assert wrap_as(dialect, call, None) is call
 
 
 def test_wrap_as_passes_through_a_family_with_no_wrapper_yet(dialect, columns):
     """XML and window families are not modelled yet; they degrade, not break."""
-    call = FunctionCall(dialect, "MY_FUNC", [columns["string"]])
+    call = FunctionCall(dialect, "MY_FUNC", columns["string"])
     assert wrap_as(dialect, call, "xml") is call
     assert wrap_as(dialect, call, "window") is call

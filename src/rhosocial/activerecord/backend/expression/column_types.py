@@ -90,6 +90,11 @@ class ColumnBase(
         value_family: Optional[str] = None,
     ):
         super().__init__(dialect)
+        # get_params() resolves a constructor parameter to `_name` or `name`,
+        # so the value has to live under the private spelling. Storing it
+        # unconditionally keeps the round trip working for the default case
+        # too; the parameter is part of the signature either way.
+        self._value_family = value_family
         if value_family is not None:
             # Instance attribute shadows the class default, which is how one
             # class can serve two families: NumericColumn is INTEGER for an

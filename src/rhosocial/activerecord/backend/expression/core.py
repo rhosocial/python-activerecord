@@ -166,9 +166,15 @@ class NumericValueExpression(
         Returns:
             The attribute from the wrapped function call.
         """
-        if name == "call":
+        # `call` is looked up through __dict__ rather than getattr so a
+        # miss cannot recurse back into this method, and a not-yet-assigned
+        # `call` has to surface as AttributeError. A KeyError here would be
+        # reported as a broken attribute rather than a missing one, which is
+        # what makes hasattr() and copy/deepcopy misbehave.
+        call = self.__dict__.get("call")
+        if call is None:
             raise AttributeError(name)
-        return getattr(self.__dict__["call"], name)
+        return getattr(call, name)
 
 
 
@@ -221,9 +227,15 @@ class IntegerValueExpression(
         Returns:
             The attribute from the wrapped function call.
         """
-        if name == "call":
+        # `call` is looked up through __dict__ rather than getattr so a
+        # miss cannot recurse back into this method, and a not-yet-assigned
+        # `call` has to surface as AttributeError. A KeyError here would be
+        # reported as a broken attribute rather than a missing one, which is
+        # what makes hasattr() and copy/deepcopy misbehave.
+        call = self.__dict__.get("call")
+        if call is None:
             raise AttributeError(name)
-        return getattr(self.__dict__["call"], name)
+        return getattr(call, name)
 
 
 
@@ -285,9 +297,15 @@ class StringValueExpression(
         Returns:
             The attribute from the wrapped function call.
         """
-        if name == "call":
+        # `call` is looked up through __dict__ rather than getattr so a
+        # miss cannot recurse back into this method, and a not-yet-assigned
+        # `call` has to surface as AttributeError. A KeyError here would be
+        # reported as a broken attribute rather than a missing one, which is
+        # what makes hasattr() and copy/deepcopy misbehave.
+        call = self.__dict__.get("call")
+        if call is None:
             raise AttributeError(name)
-        return getattr(self.__dict__["call"], name)
+        return getattr(call, name)
 
 
 

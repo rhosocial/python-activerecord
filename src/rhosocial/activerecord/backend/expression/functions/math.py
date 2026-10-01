@@ -61,7 +61,7 @@ def round_(
             FunctionCall(dialect, "ROUND", target_expr, decimals_expr),
             value_type_of(target_expr),
         )
-    return FunctionCall(dialect, "ROUND", target_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "ROUND", target_expr), value_type_of(target_expr))
 
 
 def ceil(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -195,7 +195,7 @@ def log(
     if base is not None:
         base_expr = _convert_to_expression(dialect, base, handle_numeric_literals=True)
         return wrap_as(dialect, FunctionCall(dialect, "LOG", target_expr, base_expr), NUMERIC)
-    return FunctionCall(dialect, "LOG", target_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "LOG", target_expr), NUMERIC)
 
 
 def sin(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "NumericValueExpression":
@@ -334,4 +334,8 @@ def truncate(
             FunctionCall(dialect, "TRUNCATE", target_expr, precision_expr),
             value_type_of(target_expr),
         )
-    return FunctionCall(dialect, "TRUNCATE", target_expr)
+    return wrap_as(
+        dialect,
+        FunctionCall(dialect, "TRUNCATE", target_expr),
+        value_type_of(target_expr),
+    )

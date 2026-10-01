@@ -105,7 +105,7 @@ def substring(
     if length is not None:
         length_expr = length if isinstance(length, BaseExpression) else Literal(dialect, length)
         return StringValueExpression(dialect, FunctionCall(dialect, "SUBSTRING", target_expr, start_expr, length_expr))
-    return FunctionCall(dialect, "SUBSTRING", target_expr, start_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "SUBSTRING", target_expr, start_expr))
 
 
 def trim(
@@ -314,7 +314,7 @@ def lpad(
     if pad is not None:
         pad_expr = Literal(dialect, pad)
         return StringValueExpression(dialect, FunctionCall(dialect, "LPAD", target_expr, length_expr, pad_expr))
-    return FunctionCall(dialect, "LPAD", target_expr, length_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "LPAD", target_expr, length_expr))
 
 
 def rpad(
@@ -343,7 +343,7 @@ def rpad(
     if pad is not None:
         pad_expr = Literal(dialect, pad)
         return StringValueExpression(dialect, FunctionCall(dialect, "RPAD", target_expr, length_expr, pad_expr))
-    return FunctionCall(dialect, "RPAD", target_expr, length_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "RPAD", target_expr, length_expr))
 
 
 def reverse(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -449,7 +449,7 @@ def chr_(dialect: "SQLDialectBase", code: Union[int, "BaseExpression"]) -> "Func
         A FunctionCall instance representing the CHR function
     """
     code_expr = code if isinstance(code, BaseExpression) else Literal(dialect, code)
-    return FunctionCall(dialect, "CHR", code_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "CHR", code_expr))
 
 
 def ascii(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "IntegerValueExpression":
@@ -646,4 +646,4 @@ def space(dialect: "SQLDialectBase", count: int) -> "FunctionCall":
     Returns:
         A FunctionCall instance representing the SPACE function
     """
-    return FunctionCall(dialect, "SPACE", Literal(dialect, count))
+    return StringValueExpression(dialect, FunctionCall(dialect, "SPACE", Literal(dialect, count)))

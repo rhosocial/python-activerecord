@@ -76,12 +76,26 @@ def test_the_whole_string_surface_offers_them(name):
 # ---------------------------------------------------------------------------
 
 
+#: How many arguments each string operation *requires*, so the parametrized
+#: test can call them all the same way. `substr` also takes an optional length
+#: and `trim` optional characters and a direction; passing the minimum is
+#: enough to reach the return, which is what is under test here.
+_REQUIRED_ARGS = {
+    "upper": 0, "lower": 0, "trim": 0, "initcap": 0,
+    "substr": 1, "left": 1, "right": 1, "concat": 1,
+    "replace": 2,
+}
+
+
+def _call(name, method):
+    return getattr(name, method)(*(["x"] * _REQUIRED_ARGS[method]))
+
+
 @pytest.mark.parametrize(
     "method", ["upper", "lower", "substr", "trim", "concat", "replace", "left", "initcap"]
 )
 def test_string_result_keeps_the_string_surface(name, method):
-    result = getattr(name, method)("x") if method in ("substr", "replace", "left") else getattr(name, method)()
-    assert isinstance(result, StringValueExpression)
+    assert isinstance(_call(name, method), StringValueExpression)
 
 
 @pytest.mark.parametrize(
