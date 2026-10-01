@@ -714,6 +714,27 @@ class StringValueMixin:
             operands.append(other if hasattr(other, "to_sql") else Literal(self._dialect, other))
         return _string.concat(self._dialect, *operands)
 
+    def concat_using_operator(self, *others) -> "StringValueMixin":
+        """Concatenate using whatever spelling this dialect uses for ``||``.
+
+        The operator is resolved by the dialect, not baked in: MySQL, MariaDB
+        and SQL Server read a literal ``||`` as logical OR, and BigQuery does
+        not accept it as concatenation, so those render ``CONCAT(a, b)`` while
+        the rest emit ``a || b``. Either way the *intent* is concatenation.
+
+        Prefer :meth:`concat` unless the operator form is specifically wanted;
+        it renders the same thing but reads more clearly at the call site.
+        """
+        from .functions import string as _string
+        from .core import Literal
+
+        operands = [self]
+        for other in others:
+            operands.append(
+                other if hasattr(other, "to_sql") else Literal(self._dialect, other)
+            )
+        return _string.concat_op(self._dialect, *operands)
+
     def coalesce(self, *others) -> "StringValueMixin":
         """First non-null value. ``COALESCE(col, ...)``"""
         from .functions import string as _string

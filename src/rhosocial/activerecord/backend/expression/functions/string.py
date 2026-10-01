@@ -5,7 +5,7 @@ from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..core import FunctionCall, Literal, StringValueExpression
-from ..operators import BinaryExpression, RawSQLExpression
+from ..operators import BinaryExpression, RawSQLExpression, StringConcatExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -417,11 +417,11 @@ def concat_op(
     target_exprs = [e if isinstance(e, BaseExpression) else Literal(dialect, e) for e in exprs]
 
     # Start with the first two expressions
-    result = BinaryExpression(dialect, "||", target_exprs[0], target_exprs[1])
+    result = StringConcatExpression(dialect, target_exprs[0], target_exprs[1])
 
-    # Chain additional expressions using the || operator
+    # Chain additional expressions
     for i in range(2, len(target_exprs)):
-        result = BinaryExpression(dialect, "||", result, target_exprs[i])
+        result = StringConcatExpression(dialect, result, target_exprs[i])
 
     return result
 
