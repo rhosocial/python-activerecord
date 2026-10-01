@@ -27,6 +27,16 @@ other. See ``expression/types/__init__.py`` for the DDL-side boundary.
 from typing import Optional, TYPE_CHECKING
 
 from .bases import SQLValueExpression
+from .value_types import (
+    ARRAY,
+    BINARY,
+    BOOLEAN,
+    DATETIME,
+    JSON,
+    NUMERIC,
+    STRING,
+    UUID,
+)
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -59,6 +69,10 @@ class ColumnBase(
     Because it renders through the same ``format_column`` as before, adding
     this layer required no dialect change and no change to the SQL produced
     for a plain column reference.
+
+    ``value_family`` narrows the declared family per instance, which is what
+    lets an ``int`` field be INTEGER while a ``float`` field on the same class
+    is NUMERIC.
     """
 
     def __init__(
@@ -73,8 +87,17 @@ class ColumnBase(
         schema_need_quote: bool = True,
         table_need_quote: bool = True,
         value_type: Optional[str] = None,
+        value_family: Optional[str] = None,
     ):
         super().__init__(dialect)
+        if value_family is not None:
+            # Instance attribute shadows the class default, which is how one
+            # class can serve two families: NumericColumn is INTEGER for an
+            # `int` annotation and NUMERIC for `float`, because SQL really does
+            # round a whole number to a whole number. Without this the family
+            # would be whatever the class declares, and "integer in, integer
+            # out" could not be expressed.
+            self.VALUE_FAMILY = value_family
         self.name_need_quote = name_need_quote
         self.alias_need_quote = alias_need_quote
         self.schema_need_quote = schema_need_quote
@@ -101,6 +124,8 @@ class ColumnBase(
 
 
 class StringColumn(StringValueMixin, StringPatternPredicateMixin, ColumnBase):
+
+    VALUE_FAMILY = STRING
     """A column holding text: comparison, ``LIKE`` / ``ILIKE``, casting.
 
     Not available: arithmetic. ``LIKE`` against a numeric column is a
@@ -109,6 +134,8 @@ class StringColumn(StringValueMixin, StringPatternPredicateMixin, ColumnBase):
 
 
 class NumericColumn(ArithmeticMixin, ColumnBase):
+
+    VALUE_FAMILY = NUMERIC
     """A column holding a number: comparison and arithmetic.
 
     Not available: ``LIKE`` / ``ILIKE``.
@@ -116,6 +143,8 @@ class NumericColumn(ArithmeticMixin, ColumnBase):
 
 
 class DateTimeColumn(ArithmeticMixin, DateTimeMixin, ColumnBase):
+
+    VALUE_FAMILY = DATETIME
     """A column holding a date/time.
 
     Adds the temporal surface — :meth:`~...mixins.DateTimeMixin.date_trunc`,
@@ -128,14 +157,20 @@ class DateTimeColumn(ArithmeticMixin, DateTimeMixin, ColumnBase):
 
 
 class BooleanColumn(ColumnBase):
+
+    VALUE_FAMILY = BOOLEAN
     """A column holding a truth value: comparison, casting, collation."""
 
 
 class BinaryColumn(ColumnBase):
+
+    VALUE_FAMILY = BINARY
     """A column holding raw bytes: comparison, casting, collation."""
 
 
 class UUIDColumn(ColumnBase):
+
+    VALUE_FAMILY = UUID
     """A column holding a UUID.
 
     Carries no UUID-specific operator, because portable SQL has none — a UUID
@@ -147,6 +182,8 @@ class UUIDColumn(ColumnBase):
 
 
 class JSONColumn(JSONAccessorMixin, ColumnBase):
+
+    VALUE_FAMILY = JSON
     """A column holding JSON: comparison, casting, and path access.
 
     Adds :meth:`~...mixins.JSONAccessorMixin.json_path` (scalar, terminal)
@@ -158,6 +195,8 @@ class JSONColumn(JSONAccessorMixin, ColumnBase):
 
 
 class ArrayColumn(ArrayMixin, ColumnBase):
+
+    VALUE_FAMILY = ARRAY
     """A column holding an array: :meth:`~...mixins.ArrayMixin.array_length`
     and :meth:`~...mixins.ArrayMixin.unnest`."""
 

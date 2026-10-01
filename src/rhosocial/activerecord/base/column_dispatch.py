@@ -23,6 +23,7 @@ import typing
 import uuid
 from typing import Any, Dict, Optional, Type
 
+from ..backend.expression.value_types import INTEGER
 from ..backend.expression.column_types import (
     ArrayColumn,
     BinaryColumn,
@@ -113,6 +114,32 @@ def column_class_for(annotation: Any) -> Type[ColumnBase]:
     return Column
 
 
+#: Annotations that mean a whole number even though their column class is
+#: shared with the fractional ones. ``ABS(int)`` is an int in SQL, so the
+#: family has to be narrower than the class or "integer in, integer out"
+#: cannot be expressed.
+_WHOLE_NUMBER_ANNOTATIONS = (int,)
+
+
+def family_for(annotation: Any) -> Optional[str]:
+    """Return the value family *annotation* implies, or ``None``.
+
+    Only annotations that *narrow* their column class are listed. Everything
+    else takes the family its class declares, so a new annotation cannot
+    accidentally claim a family it does not have.
+
+    Args:
+        annotation: A field's Python annotation, already stripped.
+
+    Returns:
+        One of the families in
+        :mod:`...backend.expression.value_types`, or ``None``.
+    """
+    if annotation in _WHOLE_NUMBER_ANNOTATIONS:
+        return INTEGER
+    return None
+
+
 def build_column(
     dialect: Any,
     column_name: str,
@@ -139,6 +166,7 @@ def build_column(
         table=table,
         schema_name=schema_name,
         value_type=value_type,
+        value_family=family_for(strip_annotation(annotation)),
     )
 
 

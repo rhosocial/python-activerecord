@@ -7,11 +7,13 @@ from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression, is_sql_query_and_params
 from .column_types import ColumnBase
+from .value_types import INTEGER, NUMERIC, STRING
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     IntegerValueMixin,
+    NumericValueMixin,
     JSONAccessorMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
@@ -115,6 +117,61 @@ class Column(
         )
 
 
+class NumericValueExpression(
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    NumericValueMixin,
+    StringPatternPredicateMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
+):
+    """A fractional-valued expression that is not a column reference.
+
+    The result of ``sqrt``, ``log``, ``abs`` on a fractional operand, ``avg``,
+    ``percent_rank`` and the other math functions. Carries arithmetic, so
+    numeric expressions compose, and the pattern predicates, because any value
+    can be compared or matched.
+
+    ``ceil``, ``floor`` and ``truncate`` do *not* land here when the operand is
+    integral — a whole number rounded to a whole number is an integer, and
+    saying otherwise would offer ``bit_length`` on the result of ``ceil``.
+    """
+
+    VALUE_FAMILY = NUMERIC
+
+    def __init__(self, dialect: "SQLDialectBase", call: "FunctionCall"):
+        super().__init__(dialect)
+        self.call = call
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_function_call"
+
+    def to_sql(self):
+        """Render the wrapped function call.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        return self.call.to_sql()
+
+    def __getattr__(self, name):
+        """Forward unknown attributes to the wrapped call.
+
+        Args:
+            name: Attribute name not found on this wrapper.
+
+        Returns:
+            The attribute from the wrapped function call.
+        """
+        if name == "call":
+            raise AttributeError(name)
+        return getattr(self.__dict__["call"], name)
+
+
+
 class IntegerValueExpression(
     AliasableMixin,
     ArithmeticMixin,
@@ -124,6 +181,8 @@ class IntegerValueExpression(
     TypeCastingMixin,
     SQLValueExpression,
 ):
+
+    VALUE_FAMILY = INTEGER
     """An integer-valued expression that is not a column reference.
 
     Returned by the string operations whose result is a number — ``length``,
@@ -177,6 +236,8 @@ class StringValueExpression(
     TypeCastingMixin,
     SQLValueExpression,
 ):
+
+    VALUE_FAMILY = STRING
     """A string-valued expression that is not a column reference.
 
     This is what makes the string value operations chain. ``col.upper()``

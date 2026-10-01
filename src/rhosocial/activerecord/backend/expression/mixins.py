@@ -582,6 +582,20 @@ class LogicalMixin:
         return LogicalPredicate(self._dialect, "NOT", self)
 
 
+class NumericValueMixin:
+    """Operations on a **fractional**-valued expression.
+
+    Distinct from :class:`IntegerValueMixin` because ``ceil``/``floor``/
+    ``truncate`` of a whole number is a whole number, while ``sqrt``/``log``/
+    ``abs`` of one may not be. SQL makes the same distinction: a backend
+    returns ``numeric`` for ``ABS(numeric)`` and ``double precision`` for
+    ``ABS(double precision)``, so the family depends on the operand.
+
+    Which one applies is decided per factory, not here — see
+    :func:`...functions.math.abs_`, which preserves the operand's family. This
+    mixin holds the operations whose result is fractional regardless.
+    """
+
 class IntegerValueMixin:
     """Operations on an **integer**-valued expression.
 
