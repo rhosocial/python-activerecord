@@ -182,7 +182,7 @@ condition = Order.c.total > 100     # 需重建才能取到新 schema
 | BigQuery | 是 | dataset；列引用永不带 schema | `` `app.users` `` |
 | MariaDB | 是 | **database** —— `schema` 是 `database` 的同义词，`CREATE SCHEMA` / `SHOW SCHEMAS` 可用且列的就是 database | `` `app`.`users` `` |
 | MySQL | 是 | **database** —— 同 MariaDB 的同义关系 | `` `app`.`users` `` |
-| ClickHouse | 否 | **database** —— 没有 schema 层；`CREATE SCHEMA` / `SHOW SCHEMAS` 是语法错误，也没有 `currentSchema()` 函数 | `` `app`.`users` `` |
+| ClickHouse | 是 | **database** —— 没有独立的 schema 层，`CREATE SCHEMA` 是语法错误，但 `schema_name` 仍被接受并当作 database 使用 | `` `app`.`users` `` |
 | SQLite、Firebird | 否 | 无命名空间层 | 拒绝 |
 
 由此得出三点，也正是同一份模型定义不能被假定在任何后端上含义相同的原因：
@@ -190,10 +190,11 @@ condition = Order.c.total > 100     # 需重建才能取到新 schema
 - **只有 Snowflake 有自己独立的 schema 层。** 它的完全限定名是
   `<database>.<schema>.<object>`，所以在它上面单给一个 `schema_name`
   并不能定位对象。
-- **MySQL 与 MariaDB 把这个值当 database 用**，`schema` 与 `database` 是同
-  一回事。ClickHouse 是同样的概念去掉了这个词：它根本没有 `CREATE SCHEMA`，
-  并且因为不存在独立的 schema 层而报告 `supports_schema() == False`，但
-  `schema_name` 仍被接受，并被当作 database 使用。
+- **MySQL、MariaDB 与 ClickHouse 都把该值视为 database。** 对 MySQL 与 MariaDB，
+  `schema` 与 `database` 是同一个词，因此 `CREATE SCHEMA` 与 `SHOW SCHEMAS`
+  都能用，列出来的就是 database。ClickHouse 是同样的概念去掉了这个词：它根本
+  没有 `CREATE SCHEMA`，但 `schema_name` 仍被接受并被当作 database 使用，因此
+  `supports_schema()` 为 `True` —— 没有独立的 schema 层，但这个值可用。
 - **该值原样透传。** 这里不会拿它和连接做校验，所以一个与会话当前命名空间
   不同的 `schema_name`，会指向另一个对象，或者什么都不指向。
 

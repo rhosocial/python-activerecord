@@ -205,14 +205,14 @@ Three things follow, and they are the reason a single model definition cannot
 be assumed to mean the same thing everywhere:
 
 - **Snowflake is the only one with a real schema layer of its own.** Its fully
-  qualified name is `<database>.<schema>.<object>`, so a `schema_name` alone
-  does not identify an object there.
-- **MySQL and MariaDB treat the value as a database**, where `schema` and
-  `database` are the same thing; `CREATE SCHEMA` and `SHOW SCHEMAS` are accepted
-  and list databases. ClickHouse is the same idea with the word removed: it has
-  no `CREATE SCHEMA` at all, and it reports `supports_schema() == False` because
-  there is no distinct schema layer, even though a `schema_name` is still
-  accepted and used as the database.
+qualified name is `<database>.<schema>.<object>`, so a `schema_name` alone
+does not identify an object there.
+- **MySQL, MariaDB and ClickHouse treat the value as a database.** For MySQL
+and MariaDB `schema` and `database` are the same word, so `CREATE SCHEMA` and
+`SHOW SCHEMAS` are accepted and list databases. ClickHouse is the same idea
+with the word removed: it has no `CREATE SCHEMA` at all, yet a `schema_name`
+is still accepted and used as the database, so `supports_schema()` is `True`
+-- there is no distinct schema layer, but the value is usable.
 - **The value is passed through as given.** Nothing here checks it against the
   connection, so a `schema_name` naming a different namespace than the session's
   current one addresses a different object — or none.
