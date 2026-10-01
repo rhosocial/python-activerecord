@@ -122,6 +122,14 @@ class UUIDConstantExpression(
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
+        # Argument validation first: a typo is a bug in the calling code, and
+        # reporting "this dialect cannot render constants" instead would hide
+        # it behind an environment limit the caller cannot change.
+        normalised = str(which).lower()
+        if normalised not in self._KINDS:
+            raise ValueError(
+                f"which must be one of {self._KINDS}, got {which!r}"
+            )
         _require(
             dialect,
             "supports_uuid_constant",
@@ -129,11 +137,6 @@ class UUIDConstantExpression(
             "Write the literal yourself: '00000000-0000-0000-0000-000000000000' "
             "for nil and all f's for max.",
         )
-        normalised = str(which).lower()
-        if normalised not in self._KINDS:
-            raise ValueError(
-                f"which must be one of {self._KINDS}, got {which!r}"
-            )
         self.which = normalised
         self.alias = alias
 
