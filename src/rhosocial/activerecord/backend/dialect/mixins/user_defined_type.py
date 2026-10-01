@@ -89,6 +89,8 @@ class UserDefinedTypeMixin:
         expr: "CreateTypeExpression",
     ) -> Tuple[str, tuple]:
         """Format a CREATE TYPE statement."""
+        from ...expression.core import TableExpression
+
         if not self.supports_type_objects() or not self.supports_create_type():
             raise UnsupportedFeatureError(self.name, "CREATE TYPE")
         if expr.if_not_exists and not self.supports_create_type_if_not_exists():
@@ -101,13 +103,9 @@ class UserDefinedTypeMixin:
                 f"TYPE definition {expr.definition.definition_kind}",
             )
         definition_sql, definition_params = expr.definition.to_sql()
-        if expr.schema_name is None:
-            name_sql = self.format_identifier(expr.type_name)
-        else:
-            name_sql = (
-                f"{self.format_identifier(expr.schema_name)}."
-                f"{self.format_identifier(expr.type_name)}"
-            )
+        name_sql = TableExpression(
+            self, expr.type_name, schema_name=expr.schema_name
+        ).to_sql()[0]
         parts = ["CREATE"]
         if expr.or_replace:
             parts.append("OR REPLACE")
@@ -122,6 +120,8 @@ class UserDefinedTypeMixin:
         expr: "AlterTypeExpression",
     ) -> Tuple[str, tuple]:
         """Format an ALTER TYPE statement."""
+        from ...expression.core import TableExpression
+
         if not self.supports_type_objects() or not self.supports_alter_type():
             raise UnsupportedFeatureError(self.name, "ALTER TYPE")
         if expr.if_exists and not self.supports_alter_type_if_exists():
@@ -139,13 +139,9 @@ class UserDefinedTypeMixin:
             action_sql, params = action.to_sql()
             action_parts.append(action_sql)
             action_params.extend(params)
-        if expr.schema_name is None:
-            name_sql = self.format_identifier(expr.type_name)
-        else:
-            name_sql = (
-                f"{self.format_identifier(expr.schema_name)}."
-                f"{self.format_identifier(expr.type_name)}"
-            )
+        name_sql = TableExpression(
+            self, expr.type_name, schema_name=expr.schema_name
+        ).to_sql()[0]
         parts = ["ALTER TYPE"]
         if expr.if_exists:
             parts.append("IF EXISTS")
@@ -158,17 +154,15 @@ class UserDefinedTypeMixin:
         expr: "DropTypeExpression",
     ) -> Tuple[str, tuple]:
         """Format a DROP TYPE statement."""
+        from ...expression.core import TableExpression
+
         if not self.supports_type_objects() or not self.supports_drop_type():
             raise UnsupportedFeatureError(self.name, "DROP TYPE")
         if expr.if_exists and not self.supports_drop_type_if_exists():
             raise UnsupportedFeatureError(self.name, "DROP TYPE IF EXISTS")
-        if expr.schema_name is None:
-            name_sql = self.format_identifier(expr.type_name)
-        else:
-            name_sql = (
-                f"{self.format_identifier(expr.schema_name)}."
-                f"{self.format_identifier(expr.type_name)}"
-            )
+        name_sql = TableExpression(
+            self, expr.type_name, schema_name=expr.schema_name
+        ).to_sql()[0]
         parts = ["DROP TYPE"]
         if expr.if_exists:
             parts.append("IF EXISTS")

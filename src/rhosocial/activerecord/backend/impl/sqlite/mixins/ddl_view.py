@@ -81,6 +81,8 @@ class SQLiteViewMixin:
 
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """Format CREATE VIEW statement for SQLite."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
         parts = ["CREATE"]
         if expr.temporary:
             parts.append("TEMPORARY")
@@ -90,7 +92,9 @@ class SQLiteViewMixin:
             parts.append("VIEW IF NOT EXISTS")
         else:
             parts.append("VIEW")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(
+            TableExpression(self, expr.view_name, schema_name=expr.schema_name).to_sql()[0]
+        )
 
         if expr.column_aliases:
             cols = ", ".join(self.format_identifier(c) for c in expr.column_aliases)
@@ -113,10 +117,14 @@ class SQLiteViewMixin:
 
     def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
         """Format DROP VIEW statement for SQLite."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
         parts = ["DROP VIEW"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(
+            TableExpression(self, expr.view_name, schema_name=expr.schema_name).to_sql()[0]
+        )
         return " ".join(parts), ()
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:

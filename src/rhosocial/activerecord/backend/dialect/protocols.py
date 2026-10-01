@@ -1630,23 +1630,6 @@ class ViewSupport(Protocol):
         """Whether DROP VIEW CASCADE is supported."""
         ...  # pragma: no cover
 
-    def format_view_name(self, expr: "BaseExpression") -> str:
-        """Format the name of a view or materialized view reference.
-
-        A view reference carries an optional ``schema_name`` alongside its
-        name, and this renders both, so a statement formatter does not have to
-        re-derive the qualification: ``"app"."v_users"`` when a schema is
-        given, ``"v_users"`` when it is not.
-
-        Declared here rather than left to each formatter, because a backend
-        that overrides ``format_create_view_statement`` would otherwise have to
-        reimplement the qualification and could get it wrong -- the same
-        mistake SQL Server had with a three-part column reference. Backends
-        receive the default from ``ViewMixin``; override only to change the
-        quoting or the qualification style.
-        """
-        ...  # pragma: no cover
-
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """Format CREATE VIEW statement."""
         ...  # pragma: no cover

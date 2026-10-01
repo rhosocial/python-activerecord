@@ -78,27 +78,6 @@ class ViewMixin:
         """Whether DROP VIEW CASCADE is supported (defaults to False)."""
         return False
 
-    def format_view_name(self, expr) -> str:
-        """Render a view reference, qualified only when a schema was given.
-
-        Part of the ``ViewSupport`` protocol, so a backend overriding the
-        statement formatters uses this rather than re-deriving the
-        qualification.
-        """
-        from ..exceptions import UnsupportedFeatureError
-
-        name = self.format_identifier(expr.view_name)
-        schema_name = getattr(expr, "schema_name", None)
-        if not schema_name:
-            return name
-        if not self.supports_schema():
-            raise UnsupportedFeatureError(
-                self.name, "schema-qualified view reference",
-                f"{self.name} has no namespace to qualify into, so "
-                f"schema_name={schema_name!r} cannot be used."
-            )
-        return f"{self.format_identifier(schema_name)}.{name}"
-
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """Format a CREATE VIEW statement.
 
@@ -109,7 +88,9 @@ class ViewMixin:
             A ``(sql, params)`` tuple where ``params`` holds the parameters
             collected from the view's query.
         """
+        from ...expression.core import TableExpression
         from ...expression.statements import ViewCheckOption
+        from ...expression.core import TableExpression
         from ..exceptions import UnsupportedFeatureError
         replace_part = ""
         if expr.replace:
@@ -130,7 +111,7 @@ class ViewMixin:
             if_not_exists_part = "IF NOT EXISTS "
         sql_parts = [
             f"CREATE {replace_part}{temporary_part}VIEW {if_not_exists_part}"
-            f"{self.format_view_name(expr)}"
+            f"{TableExpression(self, expr.view_name, schema_name=expr.schema_name).to_sql()[0]}"
         ]
         all_params: List[Any] = []
         if expr.column_aliases:
@@ -164,6 +145,7 @@ class ViewMixin:
             UnsupportedFeatureError: If the dialect does not support
                 IF EXISTS or CASCADE for DROP VIEW.
         """
+        from ...expression.core import TableExpression
         from ..exceptions import UnsupportedFeatureError
         if expr.if_exists and not self.supports_if_exists_view():
             raise UnsupportedFeatureError(
@@ -177,7 +159,7 @@ class ViewMixin:
             )
         if_exists_part = "IF EXISTS " if expr.if_exists else ""
         cascade_part = " CASCADE" if expr.cascade else ""
-        sql = f"DROP VIEW {if_exists_part}{self.format_view_name(expr)}{cascade_part}"
+        sql = f"DROP VIEW {if_exists_part}{TableExpression(self, expr.view_name, schema_name=expr.schema_name).to_sql()[0]}{cascade_part}"
         return sql.strip(), ()
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
@@ -194,11 +176,12 @@ class ViewMixin:
             UnsupportedFeatureError: If the dialect does not support
                 materialized views.
         """
+        from ...expression.core import TableExpression
         if not self.supports_materialized_view():
             raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW")
 
         parts = ["CREATE MATERIALIZED VIEW"]
-        parts.append(self.format_view_name(expr))
+        parts.append(TableExpression(self, expr.view_name, schema_name=expr.schema_name).to_sql()[0])
 
         if expr.column_aliases:
             cols = ", ".join(self.format_identifier(c) for c in expr.column_aliases)
@@ -235,13 +218,14 @@ class ViewMixin:
             UnsupportedFeatureError: If the dialect does not support
                 materialized views.
         """
+        from ...expression.core import TableExpression
         if not self.supports_materialized_view():
             raise UnsupportedFeatureError(self.name, "DROP MATERIALIZED VIEW")
 
         parts = ["DROP MATERIALIZED VIEW"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_view_name(expr))
+        parts.append(TableExpression(self, expr.view_name, schema_name=expr.schema_name).to_sql()[0])
         if expr.cascade:
             parts.append("CASCADE")
         return " ".join(parts), ()
@@ -261,13 +245,14 @@ class ViewMixin:
             UnsupportedFeatureError: If the dialect does not support refreshing
                 materialized views.
         """
+        from ...expression.core import TableExpression
         if not self.supports_refresh_materialized_view():
             raise UnsupportedFeatureError(self.name, "REFRESH MATERIALIZED VIEW")
 
         parts = ["REFRESH MATERIALIZED VIEW"]
         if expr.concurrent:
             parts.append("CONCURRENTLY")
-        parts.append(self.format_view_name(expr))
+        parts.append(TableExpression(self, expr.view_name, schema_name=expr.schema_name).to_sql()[0])
         if expr.with_data is not None:
             parts.append("WITH DATA" if expr.with_data else "WITH NO DATA")
         return " ".join(parts), ()
@@ -309,6 +294,7 @@ class TruncateMixin:
             UnsupportedFeatureError: If the dialect does not support
                 RESTART IDENTITY or CASCADE for TRUNCATE.
         """
+        from ...expression.core import TableExpression
         from ..exceptions import UnsupportedFeatureError
         if expr.restart_identity and not self.supports_truncate_restart_identity():
             raise UnsupportedFeatureError(
