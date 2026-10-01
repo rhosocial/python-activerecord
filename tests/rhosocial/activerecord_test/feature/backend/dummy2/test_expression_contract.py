@@ -38,6 +38,9 @@ KNOWN_NON_AUTO_CONSTRUCTIBLE = {
     "statements.ddl_domain.AlterDomainExpression": "requires at least one concrete DomainAlterAction",
     "statements.ddl_alter.AlterConstraint": "requires a non-empty constraint name",
     "statements.ddl_alter.ValidateConstraint": "requires a non-empty constraint name",
+    "expression.uuid.UUIDConstantExpression": "requires `which` to name a "
+        "constant kind ('nil' / 'max'); __init__ rejects anything else, and a "
+        "heuristic filler has no way to guess a valid one",
 }
 
 
