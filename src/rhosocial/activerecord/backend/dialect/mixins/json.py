@@ -162,6 +162,24 @@ class JSONMixin:
         """
         from ...expression.advanced_functions import JSONPathMode
 
+        # A dialect that declares no JSON support must not be handed JSON SQL.
+        # The docstring below has always promised this refusal and the code did
+        # not keep it: rendering went straight through to the function-based
+        # fallback, which is MySQL's shape, so a dialect reporting
+        # supports_json_type() == False would still answer with JSON_EXTRACT —
+        # SQL its server has no function for. Refusing is the honest answer,
+        # and it is what the probe exists to say.
+        if not self.supports_json_type():
+            raise UnsupportedFeatureError(
+                dialect_name=type(self).__name__,
+                feature_name="JSON path expressions",
+                suggestion=(
+                    "This dialect declares no JSON support. Store the value as "
+                    "text and parse it in Python, or use a backend that "
+                    "declares supports_json_type()."
+                ),
+            )
+
         # Dispatch note: the function-based fallback below emits JSON_EXTRACT /
         # JSON_UNQUOTE(JSON_EXTRACT(...)), which is MySQL's shape. It is
         # nonetheless the documented default for any dialect without arrow
