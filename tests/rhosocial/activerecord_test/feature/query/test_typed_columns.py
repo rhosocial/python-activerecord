@@ -13,6 +13,7 @@ SQL a dialect produces from it — so no provider fixture is required.
 # tests/rhosocial/activerecord_test/feature/query/test_typed_columns.py
 import datetime
 import decimal
+import typing
 import uuid
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
@@ -95,7 +96,11 @@ def test_unclassifiable_annotations_fall_back(annotation, expected):
 
 
 def test_optional_and_annotated_are_stripped():
-    from typing import Annotated
+    # typing.Annotated arrived in 3.9 and this project supports 3.8, so the
+    # alias is built the way the runtime marks one on every version.
+    Annotated = getattr(typing, "Annotated", None)
+    if Annotated is None:
+        pytest.skip("typing.Annotated requires Python 3.9+")
 
     assert strip_annotation(Optional[dict]) is dict
     assert strip_annotation(Annotated[str, "some-marker"]) is str
