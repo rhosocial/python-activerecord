@@ -3,6 +3,7 @@
 Core SQL expression components like columns, literals, function calls, and subqueries.
 """
 
+import copy
 from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression, is_sql_query_and_params
@@ -155,6 +156,15 @@ class NumericValueExpression(
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
+        # as_() sets the alias on this wrapper, but the rendering happens in
+        # the wrapped call, which has its own alias and knows nothing about
+        # this one. Handing the alias down is what keeps `length().as_("n")`
+        # from silently rendering as a bare LENGTH(x).
+        alias = self.__dict__.get("alias")
+        if alias and getattr(self.call, "alias", None) != alias:
+            call = copy.copy(self.call)
+            call.alias = alias
+            return call.to_sql()
         return self.call.to_sql()
 
     def __getattr__(self, name):
@@ -216,6 +226,15 @@ class IntegerValueExpression(
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
+        # as_() sets the alias on this wrapper, but the rendering happens in
+        # the wrapped call, which has its own alias and knows nothing about
+        # this one. Handing the alias down is what keeps `length().as_("n")`
+        # from silently rendering as a bare LENGTH(x).
+        alias = self.__dict__.get("alias")
+        if alias and getattr(self.call, "alias", None) != alias:
+            call = copy.copy(self.call)
+            call.alias = alias
+            return call.to_sql()
         return self.call.to_sql()
 
     def __getattr__(self, name):
@@ -282,6 +301,15 @@ class StringValueExpression(
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
+        # as_() sets the alias on this wrapper, but the rendering happens in
+        # the wrapped call, which has its own alias and knows nothing about
+        # this one. Handing the alias down is what keeps `length().as_("n")`
+        # from silently rendering as a bare LENGTH(x).
+        alias = self.__dict__.get("alias")
+        if alias and getattr(self.call, "alias", None) != alias:
+            call = copy.copy(self.call)
+            call.alias = alias
+            return call.to_sql()
         return self.call.to_sql()
 
     def __getattr__(self, name):
