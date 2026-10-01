@@ -11,6 +11,7 @@ from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
 )
 
@@ -23,6 +24,7 @@ class AggregateFunctionCall(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -44,6 +46,7 @@ class AggregateFunctionCall(
         is_distinct: bool = False,
         alias: Optional[str] = None,
         filter_predicate: Optional["SQLPredicate"] = None,
+        family: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.func_name = func_name
@@ -51,6 +54,16 @@ class AggregateFunctionCall(
         self.is_distinct = is_distinct
         self.alias = alias
         self.filter_predicate: Optional["SQLPredicate"] = filter_predicate
+        # get_params() resolves a constructor parameter to `_name` or `name`,
+        # so the value has to live under the private spelling even when it is
+        # None. The parameter is in the signature either way.
+        self._family = family
+        if family is not None:
+            # One class serves every aggregate, and they do not agree on what
+            # they answer with: COUNT is a count, MIN keeps the input's family,
+            # AVG widens a whole number to a fraction. Declaring it per
+            # instance is what lets the class stay shared.
+            self.VALUE_FAMILY = family
 
     def filter(self, predicate: "SQLPredicate") -> "AggregateFunctionCall":
         """

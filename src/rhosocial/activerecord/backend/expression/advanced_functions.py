@@ -212,6 +212,7 @@ class WindowFunctionCall(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
+    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -226,12 +227,21 @@ class WindowFunctionCall(
         args: Optional[List[Union["BaseExpression", Any]]] = None,
         window_spec: Optional[Union[WindowSpecification, str]] = None,
         alias: Optional[str] = None,
+        family: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.function_name = function_name
         self.args = args or []
         self.window_spec = window_spec
         self.alias = alias
+        # Stored under the private spelling for get_params(), which resolves a
+        # constructor parameter to `_name` or `name`.
+        self._family = family
+        if family is not None:
+            # ROW_NUMBER counts rows while LAG hands back a value from an
+            # earlier row, and those are not the same kind of thing even
+            # though both are window calls.
+            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:

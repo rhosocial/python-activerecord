@@ -5,6 +5,7 @@ from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
+from ..value_types import INTEGER, NUMERIC, value_type_of
 from ..core import Column, WildcardExpression
 from ..operators import RawSQLExpression
 
@@ -46,7 +47,7 @@ def count(
         target_expr = expr
     else:
         target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "COUNT", target_expr, is_distinct=is_distinct, alias=alias)
+    return AggregateFunctionCall(dialect, "COUNT", target_expr, is_distinct=is_distinct, alias=alias, family=INTEGER)
 
 
 def sum_(
@@ -73,7 +74,14 @@ def sum_(
         An AggregateFunctionCall instance representing the SUM function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "SUM", target_expr, is_distinct=is_distinct, alias=alias)
+    return AggregateFunctionCall(
+        dialect,
+        "SUM",
+        target_expr,
+        is_distinct=is_distinct,
+        alias=alias,
+        family=value_type_of(target_expr),
+    )
 
 
 def avg(
@@ -100,7 +108,7 @@ def avg(
         An AggregateFunctionCall instance representing the AVG function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "AVG", target_expr, is_distinct=is_distinct, alias=alias)
+    return AggregateFunctionCall(dialect, "AVG", target_expr, is_distinct=is_distinct, alias=alias, family=NUMERIC)
 
 
 def min_(
@@ -123,7 +131,7 @@ def min_(
         An AggregateFunctionCall instance representing the MIN function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "MIN", target_expr, alias=alias)
+    return AggregateFunctionCall(dialect, "MIN", target_expr, alias=alias, family=value_type_of(target_expr))
 
 
 def max_(
@@ -146,4 +154,4 @@ def max_(
         An AggregateFunctionCall instance representing the MAX function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "MAX", target_expr, alias=alias)
+    return AggregateFunctionCall(dialect, "MAX", target_expr, alias=alias, family=value_type_of(target_expr))

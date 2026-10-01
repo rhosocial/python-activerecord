@@ -5,6 +5,7 @@ from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
+from ..value_types import ARRAY
 from ..core import Column, FunctionCall, Literal
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -19,7 +20,7 @@ def array_agg(
 ) -> "AggregateFunctionCall":
     """Creates an ARRAY_AGG aggregate function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "ARRAY_AGG", target_expr, is_distinct=is_distinct, alias=alias)
+    return AggregateFunctionCall(dialect, "ARRAY_AGG", target_expr, is_distinct=is_distinct, alias=alias, family=ARRAY)
 
 
 def unnest(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":

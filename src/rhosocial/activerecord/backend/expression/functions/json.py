@@ -5,6 +5,7 @@ from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
+from ..value_types import JSON
 from ..core import Column, FunctionCall, Literal
 from ..advanced_functions import JSONExpression
 
@@ -104,7 +105,7 @@ def json_objectagg(
     """Creates a JSON_OBJECTAGG aggregate function call."""
     key_target = key_expr if isinstance(key_expr, BaseExpression) else Column(dialect, key_expr)
     value_target = value_expr if isinstance(value_expr, BaseExpression) else Column(dialect, value_expr)
-    return AggregateFunctionCall(dialect, "JSON_OBJECTAGG", key_target, value_target)
+    return AggregateFunctionCall(dialect, "JSON_OBJECTAGG", key_target, value_target, family=JSON)
 
 
 def json_arrayagg(
@@ -115,4 +116,11 @@ def json_arrayagg(
 ) -> "AggregateFunctionCall":
     """Creates a JSON_ARRAYAGG aggregate function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "JSON_ARRAYAGG", target_expr, is_distinct=is_distinct, alias=alias)
+    return AggregateFunctionCall(
+        dialect,
+        "JSON_ARRAYAGG",
+        target_expr,
+        is_distinct=is_distinct,
+        alias=alias,
+        family=JSON,
+    )
