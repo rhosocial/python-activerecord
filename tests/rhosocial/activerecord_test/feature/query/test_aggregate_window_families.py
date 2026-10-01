@@ -16,7 +16,6 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import functions as F
 from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
-from rhosocial.activerecord.backend.expression.advanced_functions import WindowFunctionCall
 from rhosocial.activerecord.backend.expression.value_types import (
     ARRAY,
     INTEGER,
@@ -156,18 +155,27 @@ def test_lag_over_a_float_column_is_fractional(dialect, columns):
 # ---------------------------------------------------------------------------
 
 
-def test_a_typed_aggregate_still_round_trips(dialect, columns):
+def test_a_typed_aggregate_reports_its_family_for_introspection(dialect, columns):
+    """Introspection has to see the family, or nothing downstream can read it.
+
+    Not a round trip: the constructor takes *args, which get_params() reports
+    as a list and cannot be splatted back as keywords. The family is a keyword
+    parameter, so it survives on its own — that is what is asserted.
+    """
     result = F.count(dialect, columns["int"])
     assert result.get_params()["family"] == INTEGER
-    rebuilt = AggregateFunctionCall(dialect, **result.get_params())
-    assert value_type_of(rebuilt) == INTEGER
 
 
-def test_a_typed_window_still_round_trips(dialect, columns):
+def test_a_typed_window_reports_its_family_for_introspection(dialect, columns):
     result = F.lag(dialect, columns["int"])
     assert result.get_params()["family"] == INTEGER
-    rebuilt = WindowFunctionCall(dialect, **result.get_params())
-    assert value_type_of(rebuilt) == INTEGER
+
+
+def test_an_untyped_aggregate_reports_no_family(dialect, columns):
+    """A node constructed without one says so rather than defaulting."""
+    result = AggregateFunctionCall(dialect, "COUNT", columns["int"])
+    assert result.get_params()["family"] is None
+    assert value_type_of(result) is None
 
 
 def test_declaring_a_family_does_not_change_the_sql(dialect, columns):

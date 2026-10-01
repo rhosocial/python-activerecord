@@ -82,6 +82,7 @@ class Literal(
 class Column(
     ArithmeticMixin,
     StringPatternPredicateMixin,
+    JSONAccessorMixin,
     ColumnBase,
 ):
     """A column reference whose value type is not known.
@@ -164,6 +165,10 @@ class DateTimeValueExpression(
     ):
         super().__init__(dialect)
         self.call = call
+        # get_params() resolves a constructor parameter to `_name` or `name`,
+        # so the value has to live under the private spelling even when it is
+        # None. The parameter is in the signature either way.
+        self._family = family
         if family is not None:
             self.VALUE_FAMILY = family
 
@@ -225,6 +230,10 @@ class JSONValueExpression(
     ):
         super().__init__(dialect)
         self.call = call
+        # get_params() resolves a constructor parameter to `_name` or `name`,
+        # so the value has to live under the private spelling even when it is
+        # None. The parameter is in the signature either way.
+        self._family = family
         if family is not None:
             self.VALUE_FAMILY = family
 
@@ -285,6 +294,10 @@ ArrayMixin,
     ):
         super().__init__(dialect)
         self.call = call
+        # get_params() resolves a constructor parameter to `_name` or `name`,
+        # so the value has to live under the private spelling even when it is
+        # None. The parameter is in the signature either way.
+        self._family = family
         if family is not None:
             self.VALUE_FAMILY = family
 
@@ -345,6 +358,10 @@ LogicalMixin,
     ):
         super().__init__(dialect)
         self.call = call
+        # get_params() resolves a constructor parameter to `_name` or `name`,
+        # so the value has to live under the private spelling even when it is
+        # None. The parameter is in the signature either way.
+        self._family = family
         if family is not None:
             self.VALUE_FAMILY = family
 
@@ -404,6 +421,10 @@ class BinaryValueExpression(
     ):
         super().__init__(dialect)
         self.call = call
+        # get_params() resolves a constructor parameter to `_name` or `name`,
+        # so the value has to live under the private spelling even when it is
+        # None. The parameter is in the signature either way.
+        self._family = family
         if family is not None:
             self.VALUE_FAMILY = family
 
@@ -463,6 +484,10 @@ class UUIDValueExpression(
     ):
         super().__init__(dialect)
         self.call = call
+        # get_params() resolves a constructor parameter to `_name` or `name`,
+        # so the value has to live under the private spelling even when it is
+        # None. The parameter is in the signature either way.
+        self._family = family
         if family is not None:
             self.VALUE_FAMILY = family
 
