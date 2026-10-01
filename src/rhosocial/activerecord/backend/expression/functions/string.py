@@ -4,7 +4,12 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..core import FunctionCall, Literal, StringValueExpression
+from ..core import (
+    FunctionCall,
+    IntegerValueExpression,
+    Literal,
+    StringValueExpression,
+)
 from ..operators import BinaryExpression, RawSQLExpression, StringConcatExpression
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -51,7 +56,7 @@ def coalesce(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) ->
     return StringValueExpression(dialect, FunctionCall(dialect, "COALESCE", *target_exprs))
 
 
-def length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "IntegerValueExpression":
     """
     Creates a LENGTH scalar function call.
 
@@ -68,7 +73,7 @@ def length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fu
         A FunctionCall instance representing the LENGTH function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "LENGTH", target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "LENGTH", target_expr))
 
 
 def substring(
@@ -363,7 +368,7 @@ def reverse(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "F
 
 def strpos(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], substring: Union[str, "BaseExpression"]
-) -> "FunctionCall":
+) -> "IntegerValueExpression":
     """
     Creates a STRPOS scalar function call (position of substring).
 
@@ -383,7 +388,7 @@ def strpos(
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     substr_expr = substring if isinstance(substring, BaseExpression) else Literal(dialect, substring)
-    return FunctionCall(dialect, "STRPOS", target_expr, substr_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "STRPOS", target_expr, substr_expr))
 
 
 def concat_op(
@@ -447,7 +452,7 @@ def chr_(dialect: "SQLDialectBase", code: Union[int, "BaseExpression"]) -> "Func
     return FunctionCall(dialect, "CHR", code_expr)
 
 
-def ascii(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def ascii(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "IntegerValueExpression":
     """
     Creates an ASCII function call.
 
@@ -465,10 +470,10 @@ def ascii(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fun
         A FunctionCall instance representing the ASCII function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "ASCII", target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "ASCII", target_expr))
 
 
-def octet_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def octet_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "IntegerValueExpression":
     """
     Creates an OCTET_LENGTH function call.
 
@@ -486,10 +491,10 @@ def octet_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) 
         A FunctionCall instance representing the OCTET_LENGTH function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "OCTET_LENGTH", target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "OCTET_LENGTH", target_expr))
 
 
-def bit_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def bit_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "IntegerValueExpression":
     """
     Creates a BIT_LENGTH function call.
 
@@ -507,12 +512,12 @@ def bit_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) ->
         A FunctionCall instance representing the BIT_LENGTH function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "BIT_LENGTH", target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "BIT_LENGTH", target_expr))
 
 
 def position(
     dialect: "SQLDialectBase", substring: Union[str, "BaseExpression"], expr: Union[str, "BaseExpression"]
-) -> "FunctionCall":
+) -> "IntegerValueExpression":
     """
     Creates a POSITION function call.
 
@@ -532,7 +537,7 @@ def position(
     """
     substr_expr = substring if isinstance(substring, BaseExpression) else Literal(dialect, substring)
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "POSITION", substr_expr, target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "POSITION", substr_expr, target_expr))
 
 
 def overlay(

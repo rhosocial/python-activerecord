@@ -11,6 +11,7 @@ from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
+    IntegerValueMixin,
     JSONAccessorMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
@@ -114,9 +115,63 @@ class Column(
         )
 
 
+class IntegerValueExpression(
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    IntegerValueMixin,
+    StringPatternPredicateMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
+):
+    """An integer-valued expression that is not a column reference.
+
+    Returned by the string operations whose result is a number — ``length``,
+    ``ascii``, ``strpos``, ``position``, ``octet_length``, ``bit_length`` — so
+    that ``col.length() > 5`` reads naturally and ``col.length().upper()``
+    fails, which it should: there is no such thing as an upper-cased length.
+
+    It carries :class:`ArithmeticMixin`, so integer arithmetic is available
+    and stays an integer. It carries the pattern predicates because any value
+    can be compared or matched, not because a number is text.
+    """
+
+    def __init__(self, dialect: "SQLDialectBase", call: "FunctionCall"):
+        super().__init__(dialect)
+        self.call = call
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_function_call"
+
+    def to_sql(self):
+        """Render the wrapped function call.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        return self.call.to_sql()
+
+    def __getattr__(self, name):
+        """Forward unknown attributes to the wrapped call.
+
+        Args:
+            name: Attribute name not found on this wrapper.
+
+        Returns:
+            The attribute from the wrapped function call.
+        """
+        if name == "call":
+            raise AttributeError(name)
+        return getattr(self.__dict__["call"], name)
+
+
+
 class StringValueExpression(
     AliasableMixin,
     ComparisonMixin,
+    IntegerValueMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
     TypeCastingMixin,

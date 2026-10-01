@@ -24,6 +24,7 @@ from .mixins import (
     AliasableMixin,
     ArrayMixin,
     DateTimeMixin,
+    IntegerValueMixin,
     JSONAccessorMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
@@ -59,6 +60,7 @@ from .uuid import (
 from .core import (
     Column,
     FunctionCall,
+    IntegerValueExpression,
     StringValueExpression,
     Subquery,
     TableExpression,
@@ -450,6 +452,7 @@ __all__ = [
     "ArrayMixin",
     "StringPatternPredicateMixin",
     "StringValueMixin",
+    "IntegerValueMixin",
     "DateTimeMixin",
     "JSONAccessorMixin",
     "build_json_path",
@@ -483,6 +486,7 @@ __all__ = [
     "TableExpression",
     "Literal",
     "StringValueExpression",
+    "IntegerValueExpression",
     "WildcardExpression",
     "QualifiedIdentifierExpression",
     # Collation expressions

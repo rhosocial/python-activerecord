@@ -31,7 +31,7 @@ from typing import Any, Optional, Union, List, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression, SQLPredicate
-    from .core import CastExpression, FunctionCall
+    from .core import CastExpression, FunctionCall, IntegerValueExpression
     from .datetime import (
         DatePartExpression,
         DateTimeAddExpression,
@@ -582,6 +582,62 @@ class LogicalMixin:
         return LogicalPredicate(self._dialect, "NOT", self)
 
 
+class IntegerValueMixin:
+    """Operations on an **integer**-valued expression.
+
+    Separate from :class:`StringValueMixin` because these *return* an integer
+    rather than accept one. ``"name".length()`` is a legal string operation
+    whose result is a number, and that number must not carry string
+    operations — ``LENGTH(name).upper()`` is a type error in every backend.
+    Putting the result in its own family is what makes the rule checkable
+    instead of a convention.
+
+    Members are the SQL integer functions that read a value and produce a
+    count or a code. Arithmetic is on :class:`ArithmeticMixin`, which the
+    integer value expression also carries.
+    """
+
+    if TYPE_CHECKING:  # pragma: no cover
+        from .core import IntegerValueExpression
+
+    def length(self) -> "IntegerValueExpression":
+        """Number of characters. ``LENGTH(expr)``"""
+        from .functions import string as _string
+
+        return _string.length(self._dialect, self)
+
+    def ascii(self) -> "IntegerValueExpression":
+        """Code of the first character. ``ASCII(expr)``"""
+        from .functions import string as _string
+
+        return _string.ascii(self._dialect, self)
+
+    def octet_length(self) -> "IntegerValueExpression":
+        """Length in bytes. ``OCTET_LENGTH(expr)``"""
+        from .functions import string as _string
+
+        return _string.octet_length(self._dialect, self)
+
+    def bit_length(self) -> "IntegerValueExpression":
+        """Length in bits. ``BIT_LENGTH(expr)``"""
+        from .functions import string as _string
+
+        return _string.bit_length(self._dialect, self)
+
+    def strpos(self, substring: str) -> "IntegerValueExpression":
+        """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``"""
+        from .functions import string as _string
+
+        return _string.strpos(self._dialect, self, substring)
+
+    def position(self, substring: str) -> "IntegerValueExpression":
+        """1-based position of *substring*. ``POSITION(substring IN expr)``"""
+        from .functions import string as _string
+
+        return _string.position(self._dialect, substring, self)
+
+
+
 class StringValueMixin:
     """String **value** operations: each returns a new string-valued expression.
 
@@ -676,15 +732,50 @@ class StringValueMixin:
         """Replace every occurrence. ``REPLACE(col, pattern, replacement)``"""
         return self._string_op("replace", pattern, replacement)
 
-    def position(self, substring: str) -> "StringValueMixin":
+    def position(self, substring: str) -> "IntegerValueExpression":
         """Position of *substring* within the string.
 
-        Note: the factory returns a number, not a string, so the result is a
-        plain value expression rather than a chainable string.
+        A legal string operation whose result is a number, so the result is an
+        integer value and carries integer operations, not string ones.
         """
-        from .functions import string as _string
+        return self._integer_op("position", substring)
 
-        return _string.position(self._dialect, substring, self)
+    # --- operations that read a string and produce a number ---
+
+    def _integer_op(self, factory_name: str, *args):
+        """Call a string factory whose result is an integer.
+
+        Args:
+            factory_name: Name of the function in ``functions.string``.
+            args: Positional arguments forwarded to the factory.
+
+        Returns:
+            An :class:`IntegerValueExpression`.
+        """
+        from . import functions as _functions
+
+        factory = getattr(_functions, factory_name)
+        return factory(self._dialect, self, *args)
+
+    def length(self) -> "IntegerValueExpression":
+        """Number of characters. ``LENGTH(expr)``"""
+        return self._integer_op("length")
+
+    def ascii(self) -> "IntegerValueExpression":
+        """Code of the first character. ``ASCII(expr)``"""
+        return self._integer_op("ascii")
+
+    def octet_length(self) -> "IntegerValueExpression":
+        """Length in bytes. ``OCTET_LENGTH(expr)``"""
+        return self._integer_op("octet_length")
+
+    def bit_length(self) -> "IntegerValueExpression":
+        """Length in bits. ``BIT_LENGTH(expr)``"""
+        return self._integer_op("bit_length")
+
+    def strpos(self, substring: str) -> "IntegerValueExpression":
+        """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``"""
+        return self._integer_op("strpos", substring)
 
     # --- whitespace ---
 
