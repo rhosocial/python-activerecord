@@ -76,8 +76,24 @@ class TableMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the table reference.
+
+        Raises:
+            UnsupportedFeatureError: If a ``schema_name`` was given on a backend
+                that cannot qualify into a namespace.
         """
+        from ..exceptions import UnsupportedFeatureError
+
         if expr.schema_name:
+            if not self.supports_schema():
+                raise UnsupportedFeatureError(
+                    self.name, "schema-qualified table reference",
+                    f"{self.name} has no namespace to qualify into, so "
+                    f"schema_name={expr.schema_name!r} cannot be used. Rendered "
+                    f"as-is it would reach the server as "
+                    f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
+                    f"{self.format_identifier(expr.name, expr.name_need_quote)}"
+                    ", which this backend would reject."
+                )
             table_sql = (
                 f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
                 f"{self.format_identifier(expr.name, expr.name_need_quote)}"

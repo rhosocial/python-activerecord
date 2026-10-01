@@ -1008,6 +1008,14 @@ class DummyDialect(
     # endregion
 
     # region Schema DDL Support
+    def supports_schema(self) -> bool:
+        # The dummy dialect exists to exercise the generic expression path, and
+        # schema qualification is part of that path: a renderer refuses a
+        # schema_name when this is False, which would make every offline
+        # SQL-generation test for qualification unrunnable. It deliberately
+        # does not model any real backend's namespace semantics.
+        return True
+
     def supports_create_schema(self) -> bool:
         return True
 

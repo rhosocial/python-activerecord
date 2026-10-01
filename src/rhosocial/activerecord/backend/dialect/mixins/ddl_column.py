@@ -153,6 +153,14 @@ class DDLColumnMixin:
             A ``(sql, params)`` tuple. Column references never carry bind
             parameters, so ``params`` is always empty.
         """
+        from ..exceptions import UnsupportedFeatureError
+
+        if expr.schema_name and not self.supports_schema():
+            raise UnsupportedFeatureError(
+                self.name, "schema-qualified column reference",
+                f"{self.name} has no namespace to qualify into, so "
+                f"schema_name={expr.schema_name!r} cannot be used."
+            )
         if expr.schema_name and not expr.table:
             # Silently dropping the schema would resolve the column against
             # whatever namespace the connection happens to search first.

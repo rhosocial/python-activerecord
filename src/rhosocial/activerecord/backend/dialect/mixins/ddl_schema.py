@@ -12,25 +12,29 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class SchemaMixin:
-    """Mixin adding support for schema (namespace) DDL statements."""
+    """Mixin adding support for schema (namespace) qualification and DDL."""
 
     def supports_schema(self) -> bool:
-        """Whether the database models named schema namespaces at all.
+        """Whether a schema qualifier can be rendered and used on this backend.
 
-        Umbrella switch over the granular ``supports_*_schema`` flags below.
-        Backends without namespaces (SQLite, Firebird) keep this False;
-        PostgreSQL, SQL Server, Oracle, Snowflake and MySQL-family databases
-        (where a schema is a database) return True.
-        """
-        return False
+        True means a ``schema_name`` given to an expression is accepted and
+        reaches the server as a qualifier. What it *names* is defined by each
+        backend and is not implied by this flag:
 
-    def supports_schema(self) -> bool:
-        """Whether the database models named schema namespaces at all.
+        - PostgreSQL, SQL Server, Oracle -- a schema inside the current database
+        - Snowflake -- a schema, which belongs to a database, so a fully
+          qualified name is ``database.schema.object``
+        - BigQuery -- a dataset
+        - MySQL, MariaDB, ClickHouse -- a database; MySQL and MariaDB spell it
+          ``schema`` as a synonym for ``database``, and ClickHouse has no schema
+          concept in the language at all
 
-        Umbrella switch over the granular ``supports_*_schema`` flags below.
-        Backends without namespaces (SQLite, Firebird) keep this False;
-        PostgreSQL, SQL Server, Oracle, Snowflake and MySQL-family databases
-        (where a schema is a database) return True.
+        False means the backend has no namespace layer to qualify into (SQLite,
+        Firebird), and a ``schema_name`` is rejected rather than rendered into
+        SQL the server would reject.
+
+        This is not an umbrella switch over the ``supports_*_schema`` flags
+        below, which are about DDL statements rather than qualification.
         """
         return False
 

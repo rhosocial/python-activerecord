@@ -523,3 +523,130 @@ class TestAliasedRangeNeedsAnAliasReference:
             AsyncScoped.query().join(
                 AsyncOther, on=AsyncScoped.c.id == AsyncOther.c.id, alias="x"
             )
+
+
+class TestViewSchemaQualification:
+    """T-34..T-37 -- views take a schema like every other object.
+
+    Views were the one object with no schema parameter at all, so the only way
+    to name a view in another namespace was to write "app"."v_users" into
+    view_name -- which is quoted as a single identifier containing a dot, and
+    the server then reports that it does not exist. Both states every other
+    object has were unavailable: you could not say which namespace a view was
+    in, at all.
+    """
+
+    @staticmethod
+    def _classes():
+        from rhosocial.activerecord.backend.expression.statements.ddl_view import (
+            CreateMaterializedViewExpression,
+            CreateViewExpression,
+            DropMaterializedViewExpression,
+            DropViewExpression,
+            RefreshMaterializedViewExpression,
+        )
+        return (
+            CreateViewExpression,
+            DropViewExpression,
+            CreateMaterializedViewExpression,
+            DropMaterializedViewExpression,
+            RefreshMaterializedViewExpression,
+        )
+
+    def test_t34_view_expressions_accept_schema_name(self, dialect):
+        for cls in self._classes():
+            assert "schema_name" in inspect.signature(cls.__init__).parameters, (
+                f"{cls.__name__} has no schema_name parameter"
+            )
+
+    @pytest.mark.parametrize(
+        "cls_name", ["DropViewExpression", "DropMaterializedViewExpression",
+                     "RefreshMaterializedViewExpression"]
+    )
+    def test_t35_unqualified_view_is_unchanged(self, dialect, cls_name):
+        """No schema means the bare name, exactly as before."""
+        from rhosocial.activerecord.backend.expression.statements import ddl_view
+
+        cls = getattr(ddl_view, cls_name)
+        sql = cls(dialect, view_name="v_users").to_sql()[0]
+        assert '"v_users"' in sql
+        assert '"app"."v_users"' not in sql
+
+    def test_t36_qualified_view_renders_schema(self, dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_view import (
+            DropViewExpression,
+        )
+
+        sql = DropViewExpression(
+            dialect, view_name="v_users", schema_name="app"
+        ).to_sql()[0]
+        assert '"app"."v_users"' in sql
+
+    def test_t37_view_rejects_empty_schema(self, dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_view import (
+            DropViewExpression,
+        )
+
+        with pytest.raises((TypeError, ValueError)):
+            DropViewExpression(dialect, view_name="v_users", schema_name="")
+
+
+class TestUnsupportedBackendRejectsSchema:
+    """A backend with no namespace layer must refuse a schema, not render one.
+
+    SQLite reported ``supports_schema() == False`` while still rendering
+    ``"app"."users"``, which is not valid SQLite: the error surfaced from the
+    server as "no such table: app.users" rather than from the call that made the
+    mistake. The renderers now refuse.
+    """
+
+    def test_t38_sqlite_supports_schema_is_false(self):
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        assert SQLiteDialect().supports_schema() is False
+
+    def test_t39_table_expression_rejected(self):
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        with pytest.raises(UnsupportedFeatureError):
+            TableExpression(SQLiteDialect(), TABLE, schema_name=SCHEMA).to_sql()
+
+    def test_t40_column_rejected(self):
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+        from rhosocial.activerecord.backend.expression.core import Column
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        with pytest.raises(UnsupportedFeatureError):
+            Column(SQLiteDialect(), "id", table=TABLE, schema_name=SCHEMA).to_sql()
+
+    def test_t41_wildcard_rejected(self):
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+        from rhosocial.activerecord.backend.expression.core import WildcardExpression
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        with pytest.raises(UnsupportedFeatureError):
+            WildcardExpression(
+                SQLiteDialect(), table=TABLE, schema_name=SCHEMA
+            ).to_sql()
+
+    def test_t42_unqualified_still_renders(self):
+        """The refusal must not narrow what already worked."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+        d = SQLiteDialect()
+        assert TableExpression(d, TABLE).to_sql()[0] == f'"{TABLE}"'
+
+    def test_t43_dummy_dialect_accepts_schema(self):
+        """The test double exists to exercise the generic path, so it must allow it."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+        d = DummyDialect()
+        assert d.supports_schema() is True
+        assert (
+            TableExpression(d, TABLE, schema_name=SCHEMA).to_sql()[0]
+            == f'"{SCHEMA}"."{TABLE}"'
+        )
