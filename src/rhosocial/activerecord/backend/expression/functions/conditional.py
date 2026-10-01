@@ -4,6 +4,7 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..value_types import common_family, value_type_of, wrap_as
 from ..core import FunctionCall, Literal
 from ..advanced_functions import CaseExpression
 
@@ -52,7 +53,7 @@ def nullif(
     """
     value_expr = value if isinstance(value, BaseExpression) else Literal(dialect, value)
     null_expr = null_value if isinstance(null_value, BaseExpression) else Literal(dialect, null_value)
-    return FunctionCall(dialect, "NULLIF", value_expr, null_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "NULLIF", value_expr, null_expr), value_type_of(value_expr))
 
 
 def greatest(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -74,7 +75,7 @@ def greatest(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) ->
         A FunctionCall instance representing the GREATEST function
     """
     target_exprs = [e if isinstance(e, BaseExpression) else Literal(dialect, e) for e in exprs]
-    return FunctionCall(dialect, "GREATEST", *target_exprs)
+    return wrap_as(dialect, FunctionCall(dialect, "GREATEST", *target_exprs), common_family(target_exprs))
 
 
 def least(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -96,4 +97,4 @@ def least(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "F
         A FunctionCall instance representing the LEAST function
     """
     target_exprs = [e if isinstance(e, BaseExpression) else Literal(dialect, e) for e in exprs]
-    return FunctionCall(dialect, "LEAST", *target_exprs)
+    return wrap_as(dialect, FunctionCall(dialect, "LEAST", *target_exprs), common_family(target_exprs))

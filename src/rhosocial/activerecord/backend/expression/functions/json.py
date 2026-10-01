@@ -5,7 +5,7 @@ from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
-from ..value_types import JSON
+from ..value_types import JSON, wrap_as
 from ..core import Column, FunctionCall, Literal
 from ..advanced_functions import JSONExpression
 
@@ -51,6 +51,11 @@ def json_extract_text(dialect: "SQLDialectBase", column: Union[str, "BaseExpress
         A JSONExpression instance representing the JSON extract text operation
     """
     target_column = column if isinstance(column, BaseExpression) else Column(dialect, column)
+    # Not wrapped: the wrapper forwards unknown attributes to the node it
+    # holds, so wrapping a JSONExpression in a string value would hand back
+    # the JSON accessors it was meant to hide. The family says string, which
+    # is what propagation reads; the accessors stay because this node class
+    # serves both arrow directions and cannot drop them per instance.
     return JSONExpression(dialect, target_column, path, operation="->>")
 
 
@@ -74,7 +79,7 @@ def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: Union[str, "B
     processed_args = []
     for arg in key_value_pairs:
         processed_args.append(arg if isinstance(arg, BaseExpression) else Literal(dialect, arg))
-    return FunctionCall(dialect, "JSON_BUILD_OBJECT", *processed_args)
+    return wrap_as(dialect, FunctionCall(dialect, "JSON_BUILD_OBJECT", *processed_args), JSON)
 
 
 def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -94,7 +99,7 @@ def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "BaseExpress
         A FunctionCall instance representing the JSON_ARRAY_ELEMENTS function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return FunctionCall(dialect, "JSON_ARRAY_ELEMENTS", target_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "JSON_ARRAY_ELEMENTS", target_expr), JSON)
 
 
 def json_objectagg(

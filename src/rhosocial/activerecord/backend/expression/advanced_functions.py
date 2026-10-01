@@ -8,6 +8,7 @@ from typing import Any, List, Optional, Union, TYPE_CHECKING
 
 from .bases import BaseExpression, SQLPredicate, SQLValueExpression
 from .core import Column, Subquery
+from .value_types import JSON, STRING, common_family
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -55,12 +56,24 @@ class CaseExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         cases: Optional[list] = None,
         else_result: Optional["BaseExpression"] = None,
         alias: Optional[str] = None,
+        family: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.value = value
         self.cases = cases or []
         self.else_result = else_result
         self.alias = alias
+        # Stored under the private spelling for get_params().
+        self._family = family
+        if family is None:
+            # A CASE answers with whatever its branches answer with, so the
+            # branches decide it. The factory cannot: it is handed a list
+            # rather than the individual results.
+            family = common_family(
+                [result for _condition, result in self.cases] + [self.else_result]
+            )
+        if family is not None:
+            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:
@@ -288,6 +301,11 @@ class JSONExpression(
         self.operation = operation
         self.alias = alias
         self.mode = JSONPathMode.from_value(mode)
+        # `->` hands back a document, `->>` hands back text. One class serves
+        # both, so the operation is what decides the family, and the result
+        # is chained accordingly: json->'a'->>'b' is legal, the reverse
+        # narrowing a document to a string and back is not.
+        self.VALUE_FAMILY = STRING if operation == "->>" else JSON
 
     @property
     def format_method(self) -> str:

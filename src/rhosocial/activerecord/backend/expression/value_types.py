@@ -77,6 +77,99 @@ def value_type_of(expr: Any) -> Optional[str]:
     return family if family in FAMILIES else None
 
 
+def common_family(exprs: Any) -> Optional[str]:
+    """Return the family every expression in *exprs* agrees on, or ``None``.
+
+    For an operation over several values of one kind — GREATEST, LEAST,
+    COALESCE, a CASE — the result is that kind. When the inputs disagree the
+    answer is unknown rather than the first one seen or the widest, because
+    either of those would hand back a surface the database does not promise:
+    GREATEST of an integer and a string is legal SQL and is neither.
+
+    Args:
+        exprs: An iterable of expression nodes, or a single node.
+
+    Returns:
+        The shared family, or ``None`` if there is not exactly one.
+    """
+    if isinstance(exprs, (list, tuple)):
+        families = {value_type_of(e) for e in exprs}
+    else:
+        families = {value_type_of(exprs)}
+    families.discard(None)
+    return families.pop() if len(families) == 1 else None
+
+
+#: Leading keywords of SQL type names, mapped to the family a cast to them
+#: produces. Matched as a prefix of the upper-cased name with any length or
+#: precision stripped, so ``VARCHAR(255)``, ``character varying`` and
+#: ``NVARCHAR2`` all land on a string.
+_SQL_TYPE_FAMILIES = (
+    ("BOOL", BOOLEAN),
+    ("BIT", BINARY),
+    ("VARCHAR", STRING),
+    ("CHARACTER", STRING),
+    ("CHAR", STRING),
+    ("TEXT", STRING),
+    ("STRING", STRING),
+    ("CLOB", STRING),
+    ("ENUM", STRING),
+    ("SET", STRING),
+    ("TINYINT", INTEGER),
+    ("SMALLINT", INTEGER),
+    ("MEDIUMINT", INTEGER),
+    ("INT", INTEGER),
+    ("SERIAL", INTEGER),
+    ("BIGINT", INTEGER),
+    ("NUMBER", NUMERIC),
+    ("NUMERIC", NUMERIC),
+    ("DECIMAL", NUMERIC),
+    ("DEC", NUMERIC),
+    ("FLOAT", NUMERIC),
+    ("DOUBLE", NUMERIC),
+    ("REAL", NUMERIC),
+    ("MONEY", NUMERIC),
+    ("DATE", DATETIME),
+    ("TIME", DATETIME),
+    ("JSON", JSON),
+    ("XML", XML),
+    ("BLOB", BINARY),
+    ("BYTEA", BINARY),
+    ("BINARY", BINARY),
+    ("RAW", BINARY),
+    ("IMAGE", BINARY),
+    ("UUID", UUID),
+    ("UNIQUEIDENTIFIER", UUID),
+)
+
+
+def family_for_sql_type(sql_type: Any) -> Optional[str]:
+    """Return the family a cast to *sql_type* produces, or ``None``.
+
+    A cast states its result in the target type, so this is how ``CAST(x AS
+    JSON)`` knows it is a document. An unrecognised name gives ``None`` rather
+    than a guess: the alternative is offering JSON navigation on a type nobody
+    has heard of.
+
+    Args:
+        sql_type: A SQL type name, with or without a length or precision.
+
+    Returns:
+        One of :data:`FAMILIES`, or ``None``.
+    """
+    if not isinstance(sql_type, str):
+        return None
+    name = sql_type.split("(")[0].strip().upper()
+    for prefix, family in _SQL_TYPE_FAMILIES:
+        if name.startswith(prefix):
+            return family
+    # SQL Server and Oracle prefix a Unicode type with N: NVARCHAR2 is a
+    # string, NCHAR is a string, and nothing else in the table starts with N.
+    if name.startswith("N") and name[1:]:
+        return family_for_sql_type(name[1:])
+    return None
+
+
 def wrap_as(dialect: Any, call: Any, family: Optional[str]) -> Any:
     """Wrap a rendered call in the value expression for *family*.
 
@@ -115,10 +208,15 @@ def _wrapper_registry() -> Dict[str, Any]:
     global _WRAPPERS
     if _WRAPPERS is None:
         from .core import (
+            ArrayValueExpression,
+            BinaryValueExpression,
+            BooleanValueExpression,
             DateTimeValueExpression,
             IntegerValueExpression,
+            JSONValueExpression,
             NumericValueExpression,
             StringValueExpression,
+            UUIDValueExpression,
         )
 
         _WRAPPERS = {
@@ -129,6 +227,11 @@ def _wrapper_registry() -> Dict[str, Any]:
             DATE: DateTimeValueExpression,
             TIME: DateTimeValueExpression,
             INTERVAL: DateTimeValueExpression,
+            JSON: JSONValueExpression,
+            ARRAY: ArrayValueExpression,
+            BOOLEAN: BooleanValueExpression,
+            BINARY: BinaryValueExpression,
+            UUID: UUIDValueExpression,
         }
     return _WRAPPERS
 
@@ -139,5 +242,5 @@ _WRAPPERS: Optional[Dict[str, Any]] = None
 __all__ = [
     "ARRAY", "BINARY", "BOOLEAN", "DATETIME", "DATE", "FAMILIES", "INTEGER",
     "INTERVAL", "JSON", "NUMERIC", "STRING", "TIME", "UUID", "XML",
-    "value_type_of", "wrap_as",
+    "common_family", "family_for_sql_type", "value_type_of", "wrap_as",
 ]

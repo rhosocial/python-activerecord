@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/xml.py
 """SQL/XML expression constructors."""
 
+from .value_types import XML
 from enum import Enum
 from typing import Optional, Sequence, TYPE_CHECKING
 
@@ -62,6 +63,7 @@ class XMLTableColumnOption(str, Enum):
 
 
 class XMLParseExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLPARSE expression constructor."""
 
     def __init__(
@@ -83,6 +85,7 @@ class XMLParseExpression(SQLValueExpression):
 
 
 class XMLSerializeExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLSERIALIZE expression constructor."""
 
     def __init__(
@@ -114,6 +117,7 @@ class XMLAttribute:
 
 
 class XMLAttributesExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLATTRIBUTES clause."""
 
     def __init__(
@@ -131,6 +135,7 @@ class XMLAttributesExpression(SQLValueExpression):
 
 
 class XMLElementExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLELEMENT expression constructor."""
 
     def __init__(
@@ -160,6 +165,7 @@ class XMLForestItem:
 
 
 class XMLForestExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLFOREST expression constructor."""
 
     def __init__(
@@ -177,6 +183,7 @@ class XMLForestExpression(SQLValueExpression):
 
 
 class XMLConcatExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLCONCAT expression constructor."""
 
     def __init__(self, dialect: "SQLDialectBase", parts: Sequence[BaseExpression]):
@@ -190,6 +197,7 @@ class XMLConcatExpression(SQLValueExpression):
 
 
 class XMLCommentExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLCOMMENT expression constructor."""
 
     def __init__(self, dialect: "SQLDialectBase", content: BaseExpression):
@@ -203,6 +211,7 @@ class XMLCommentExpression(SQLValueExpression):
 
 
 class XMLPIExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLPI expression constructor."""
 
     def __init__(
@@ -222,6 +231,7 @@ class XMLPIExpression(SQLValueExpression):
 
 
 class XMLRootExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLROOT expression constructor."""
 
     def __init__(
@@ -243,6 +253,7 @@ class XMLRootExpression(SQLValueExpression):
 
 
 class XMLAggExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLAGG aggregate expression."""
 
     def __init__(
@@ -262,6 +273,7 @@ class XMLAggExpression(SQLValueExpression):
 
 
 class XMLQueryExpression(SQLValueExpression):
+    VALUE_FAMILY = XML
     """Represents a SQL/XML XMLQUERY expression."""
 
     def __init__(

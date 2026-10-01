@@ -4,6 +4,7 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLValueExpression
+from ..value_types import DATETIME, NUMERIC, STRING, wrap_as
 from ..core import Column, FunctionCall, Literal
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -61,8 +62,8 @@ def to_char(
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return FunctionCall(dialect, "TO_CHAR", target_expr, format_expr)
-    return FunctionCall(dialect, "TO_CHAR", target_expr)
+        return wrap_as(dialect, FunctionCall(dialect, "TO_CHAR", target_expr, format_expr), STRING)
+    return wrap_as(dialect, FunctionCall(dialect, "TO_CHAR", target_expr), STRING)
 
 
 def to_number(
@@ -89,8 +90,8 @@ def to_number(
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return FunctionCall(dialect, "TO_NUMBER", target_expr, format_expr)
-    return FunctionCall(dialect, "TO_NUMBER", target_expr)
+        return wrap_as(dialect, FunctionCall(dialect, "TO_NUMBER", target_expr, format_expr), NUMERIC)
+    return wrap_as(dialect, FunctionCall(dialect, "TO_NUMBER", target_expr), NUMERIC)
 
 
 def to_date(
@@ -117,5 +118,5 @@ def to_date(
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return FunctionCall(dialect, "TO_DATE", target_expr, format_expr)
-    return FunctionCall(dialect, "TO_DATE", target_expr)
+        return wrap_as(dialect, FunctionCall(dialect, "TO_DATE", target_expr, format_expr), DATETIME)
+    return wrap_as(dialect, FunctionCall(dialect, "TO_DATE", target_expr), DATETIME)

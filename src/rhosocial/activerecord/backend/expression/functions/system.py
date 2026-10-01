@@ -3,6 +3,7 @@
 
 from typing import TYPE_CHECKING
 
+from ..value_types import STRING, wrap_as
 from ..core import FunctionCall
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -22,7 +23,7 @@ def current_user(dialect: "SQLDialectBase") -> "FunctionCall":
     Returns:
         A FunctionCall instance representing the CURRENT_USER value function
     """
-    return FunctionCall(dialect, "CURRENT_USER", niladic=True)
+    return wrap_as(dialect, FunctionCall(dialect, "CURRENT_USER", niladic=True), STRING)
 
 
 def session_user(dialect: "SQLDialectBase") -> "FunctionCall":
@@ -38,7 +39,7 @@ def session_user(dialect: "SQLDialectBase") -> "FunctionCall":
     Returns:
         A FunctionCall instance representing the SESSION_USER value function
     """
-    return FunctionCall(dialect, "SESSION_USER", niladic=True)
+    return wrap_as(dialect, FunctionCall(dialect, "SESSION_USER", niladic=True), STRING)
 
 
 def system_user(dialect: "SQLDialectBase") -> "FunctionCall":
@@ -54,4 +55,4 @@ def system_user(dialect: "SQLDialectBase") -> "FunctionCall":
     Returns:
         A FunctionCall instance representing the SYSTEM_USER value function
     """
-    return FunctionCall(dialect, "SYSTEM_USER", niladic=True)
+    return wrap_as(dialect, FunctionCall(dialect, "SYSTEM_USER", niladic=True), STRING)
