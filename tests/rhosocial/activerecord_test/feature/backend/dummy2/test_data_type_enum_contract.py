@@ -112,7 +112,7 @@ def test_the_refusal_names_the_substitute(dialect):
     """Otherwise the caller is told it is unsupported and nothing else, which
     is the same as not knowing."""
     with pytest.raises(TypeError) as excinfo:
-        Suggester(dialect).format_data_type(EnumType(dialect, ["a"]))
+        Suggester().format_data_type(EnumType(dialect, ["a"]))
     message = str(excinfo.value)
     assert "VarCharType" in message, message
     assert "how this backend stores the same meaning" in message, message
@@ -130,4 +130,4 @@ def test_a_type_the_dialect_renders_is_not_rejected(dialect):
     """The advice path must not swallow types the dialect does handle."""
     from rhosocial.activerecord.backend.expression.types import VarCharType
 
-    assert Suggester(dialect).format_data_type(VarCharType(dialect, 10))[0]
+    assert Suggester().format_data_type(VarCharType(dialect, 10))[0]
