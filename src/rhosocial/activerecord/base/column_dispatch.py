@@ -70,7 +70,12 @@ def strip_annotation(annotation: Any) -> Any:
     constraints, not the Python value, and reading them here would couple this
     module to the DDL layer.
     """
-    while typing.get_origin(annotation) is typing.Annotated:
+    # `typing.get_origin(Annotated[...])` returns the `Annotated` special form
+    # on 3.9+, but on 3.8 `typing` has no `Annotated` attribute at all, so the
+    # identity check raises AttributeError. The presence of `__metadata__` is
+    # how the runtime marks an annotated alias on every supported version, so
+    # that is what this tests.
+    while hasattr(annotation, "__metadata__"):
         annotation = typing.get_args(annotation)[0]
 
     origin = typing.get_origin(annotation)
