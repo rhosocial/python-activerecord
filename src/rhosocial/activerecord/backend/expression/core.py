@@ -10,7 +10,7 @@ from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression, is_sql
 from .column_types import ColumnBase
 from .value_types import (
     ARRAY,
-    family_for_sql_type,
+    family_for_data_type,
     BINARY,
     BOOLEAN,
     DATETIME,
@@ -37,6 +37,7 @@ from .mixins import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
+    from .types._base import DataType
 
 
 class Literal(
@@ -818,18 +819,33 @@ class CastExpression(
         self,
         dialect: "SQLDialectBase",
         expression: "SQLValueExpression",
-        target_type: str,
+        target_type: "DataType",
         *,
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
+        from .types._base import DataType as _DataType
+
+        if not isinstance(target_type, _DataType):
+            # The type position of CAST(expr AS type) is a grammar production,
+            # not an expression, so no bound parameter can be used there and a
+            # free-form string would be rendered straight into the statement.
+            # Requiring a DataType makes that impossible by construction rather
+            # than by validating a string that someone else can widen later.
+            raise TypeError(
+                f"cast() takes a DataType instance, not "
+                f"{type(target_type).__name__}. Use IntegerType(dialect) rather "
+                f"than a string: the type position cannot be bound, so a string "
+                f"is rendered into the SQL. A user-defined type is a DataType "
+                f"subclass, registered so dialects can render it."
+            )
         self.expression = expression
         self.target_type = target_type
         self.alias = alias
-        # A cast states its result in the target type, so that is where the
-        # family comes from. An unrecognised target leaves it unknown rather
-        # than guessed.
-        family = family_for_sql_type(target_type)
+        # The family travels with the type, so a cast cannot disagree with the
+        # type it casts to. An unrecognised type leaves it unknown rather than
+        # guessed.
+        family = family_for_data_type(target_type)
         if family is not None:
             self.VALUE_FAMILY = family
 

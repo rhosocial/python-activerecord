@@ -8,10 +8,17 @@ from ._base import DataType
 
 
 class CustomType(DataType):
-    """Fallback for unrecognised or backend-specific type strings.
+    """A type name the framework has no class for.
 
-    Preserves the raw SQL type string verbatim so round-trips stay
-    lossless even when the framework does not know the type.
+    Kept because a backend may have types and extensions the framework does not
+    model, and refusing them would make those unreachable. The raw name is
+    validated rather than preserved verbatim: a type name lands in a position
+    that cannot take a bound parameter, so an unvalidated string here is an
+    injection. The grammar permits any identifier-shaped name, so a user-defined
+    type still passes without being registered.
+
+    For a type used often enough to deserve a class, subclass DataType instead —
+    then the name is rendered through the dialect and cannot be wrong.
     """
 
     name = "custom"
@@ -21,7 +28,12 @@ class CustomType(DataType):
     def __init__(self, dialect=None, raw: str = "",
                  ):
         super().__init__(dialect)
-        self.raw = raw
+        # Validated here rather than in each dialect's formatter: six of the
+        # ten backends rendered data_type.raw unchecked, and the four that
+        # refused did so only because they happened to lack the formatter.
+        from ..type_name import validate_type_name
+
+        self.raw = validate_type_name(raw)
 
     def _type_params(self) -> tuple:
         return (self.raw,)

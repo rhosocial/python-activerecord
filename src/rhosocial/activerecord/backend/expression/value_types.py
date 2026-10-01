@@ -100,74 +100,46 @@ def common_family(exprs: Any) -> Optional[str]:
     return families.pop() if len(families) == 1 else None
 
 
-#: Leading keywords of SQL type names, mapped to the family a cast to them
-#: produces. Matched as a prefix of the upper-cased name with any length or
-#: precision stripped, so ``VARCHAR(255)``, ``character varying`` and
-#: ``NVARCHAR2`` all land on a string.
-_SQL_TYPE_FAMILIES = (
-    ("BOOL", BOOLEAN),
-    ("BIT", BINARY),
-    ("VARCHAR", STRING),
-    ("CHARACTER", STRING),
-    ("CHAR", STRING),
-    ("TEXT", STRING),
-    ("STRING", STRING),
-    ("CLOB", STRING),
-    ("ENUM", STRING),
-    ("SET", STRING),
-    ("TINYINT", INTEGER),
-    ("SMALLINT", INTEGER),
-    ("MEDIUMINT", INTEGER),
-    ("INT", INTEGER),
-    ("SERIAL", INTEGER),
-    ("BIGINT", INTEGER),
-    ("NUMBER", NUMERIC),
-    ("NUMERIC", NUMERIC),
-    ("DECIMAL", NUMERIC),
-    ("DEC", NUMERIC),
-    ("FLOAT", NUMERIC),
-    ("DOUBLE", NUMERIC),
-    ("REAL", NUMERIC),
-    ("MONEY", NUMERIC),
-    ("DATE", DATETIME),
-    ("TIME", DATETIME),
-    ("JSON", JSON),
-    ("XML", XML),
-    ("BLOB", BINARY),
-    ("BYTEA", BINARY),
-    ("BINARY", BINARY),
-    ("RAW", BINARY),
-    ("IMAGE", BINARY),
-    ("UUID", UUID),
-    ("UNIQUEIDENTIFIER", UUID),
-)
+def family_for_data_type(data_type: Any) -> Optional[str]:
+    """Return the value family a cast to *data_type* produces.
+
+    Keyed on the type object's own ``name`` rather than on a rendered string,
+    so the family travels with the type and a cast cannot disagree with it. An
+    unrecognised type leaves the family unknown rather than guessed.
+
+    Args:
+        data_type: A :class:`DataType` instance.
+
+    Returns:
+        One of :data:`FAMILIES`, or ``None``.
+    """
+    name = getattr(data_type, "name", None)
+    if not isinstance(name, str):
+        return None
+    from .type_name import family_for_sql_type_name
+
+    return family_for_sql_type_name(name)
+
+
 
 
 def family_for_sql_type(sql_type: Any) -> Optional[str]:
-    """Return the family a cast to *sql_type* produces, or ``None``.
+    """Return the value family a SQL type name belongs to, or ``None``.
 
-    A cast states its result in the target type, so this is how ``CAST(x AS
-    JSON)`` knows it is a document. An unrecognised name gives ``None`` rather
-    than a guess: the alternative is offering JSON navigation on a type nobody
-    has heard of.
+    Kept for callers that hold a name rather than a type. The mapping lives in
+    :mod:`...expression.type_name` beside the grammar that decides whether a
+    name is renderable at all, because both answer the same question from the
+    same input.
 
     Args:
         sql_type: A SQL type name, with or without a length or precision.
 
     Returns:
-        One of :data:`FAMILIES`, or ``None``.
+        One of :data:`FAMILIES`, or ``None`` when unrecognised.
     """
-    if not isinstance(sql_type, str):
-        return None
-    name = sql_type.split("(")[0].strip().upper()
-    for prefix, family in _SQL_TYPE_FAMILIES:
-        if name.startswith(prefix):
-            return family
-    # SQL Server and Oracle prefix a Unicode type with N: NVARCHAR2 is a
-    # string, NCHAR is a string, and nothing else in the table starts with N.
-    if name.startswith("N") and name[1:]:
-        return family_for_sql_type(name[1:])
-    return None
+    from .type_name import family_for_sql_type_name
+
+    return family_for_sql_type_name(sql_type)
 
 
 def wrap_as(dialect: Any, call: Any, family: Optional[str]) -> Any:
