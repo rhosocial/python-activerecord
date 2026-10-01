@@ -25,6 +25,7 @@ from typing import Any, Dict, Optional, Type
 
 from ..backend.expression.column_types import (
     ArrayColumn,
+    BinaryColumn,
     BooleanColumn,
     ColumnBase,
     DateTimeColumn,
@@ -42,8 +43,8 @@ _BY_NAME: Dict[str, Type[ColumnBase]] = {
     "int": NumericColumn,
     "float": NumericColumn,
     "bool": BooleanColumn,
-    "bytes": ColumnBase,
-    "bytearray": ColumnBase,
+    "bytes": BinaryColumn,
+    "bytearray": BinaryColumn,
     "dict": JSONColumn,
     "list": ArrayColumn,
     "tuple": ArrayColumn,

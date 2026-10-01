@@ -412,6 +412,38 @@ class SQLiteDialect(
         """SQLite supports -> and ->> operators from version 3.38.0+."""
         return self.version >= (3, 38, 0)
 
+    def format_json_function_expression(self, expr) -> Tuple[str, tuple]:
+        """Render a JSON path access with SQLite's own JSON1 functions.
+
+        Without this, ``JSONPathMode.FUNCTION`` fell through to the core
+        default, which emits MySQL's ``JSON_UNQUOTE(JSON_EXTRACT(...))``.
+        SQLite has ``json_extract`` but has no ``JSON_UNQUOTE`` at all, so
+        FUNCTION mode produced SQL the server rejects.
+
+        Args:
+            expr: The JSONExpression node.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression import bases
+
+        if isinstance(expr.column, bases.BaseExpression):
+            col_sql, col_params = expr.column.to_sql()
+        else:
+            col_sql, col_params = self.format_identifier(str(expr.column)), ()
+
+        escaped_path = self._escape_sql_string(expr.path)
+        # json_extract returns SQL NULL for a missing path and a
+        # JSON-quoted string for text, so it stands in for ->> without a
+        # separate unquote step — SQLite has no JSON_UNQUOTE to call.
+        sql = f"json_extract({col_sql}, '{escaped_path}')"
+        params = col_params
+
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, params
+
     def get_json_access_operator(self) -> str:
         """SQLite uses '->' for JSON access."""
         return "->"
