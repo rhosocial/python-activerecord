@@ -38,6 +38,15 @@ class _BaseTestDialect(SQLDialectBase, JSONMixin, JSONSupport, ExpressionMixin):
 
     name = "test"
 
+    def supports_json_type(self) -> bool:
+        """These stand-ins exist to exercise JSON *dispatch*, so they have JSON.
+
+        Inheriting the core's False made every test here fail once the
+        dispatcher started believing that probe: the dispatch under test was
+        never reached, because the refusal came first.
+        """
+        return True
+
 
 class ArrowSupportedDialect(_BaseTestDialect):
     """Dialect that supports JSON arrow operators (-> and ->>)."""
