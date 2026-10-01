@@ -38,8 +38,14 @@ def dialect():
 
 @pytest.fixture
 def no_json_dialect(dialect):
-    """A dialect that declares no JSON type, from the real SQLite one."""
-    dialect.supports_json_type = lambda: False
+    """A dialect whose server can read no JSON path, from the real SQLite one.
+
+    The gate is supports_json_path, so that is what has to be turned off. It
+    used to be supports_json_type, which was wrong: MySQL 5.7.0 reads a path
+    through JSON_EXTRACT and has no native JSON type until 5.7.8, so gating on
+    the type refused queries the server answers.
+    """
+    dialect.supports_json_path = lambda: False
     return dialect
 
 
@@ -96,6 +102,17 @@ def test_every_mode_renders_on_a_dialect_that_has_json(dialect, mode):
     assert sql, f"mode={mode} rendered nothing"
 
 
+def test_a_path_capable_dialect_can_have_no_json_type(dialect):
+    """The two probes answer different questions and must be able to disagree.
+
+    MySQL between 5.7.0 and 5.7.8 is exactly this: JSON_EXTRACT reads a path,
+    and there is no JSON column type to store the document in.
+    """
+    dialect.supports_json_type = lambda: False
+    sql, _ = _expr(dialect).to_sql()
+    assert "json_extract" in sql.lower(), sql
+
+
 def test_the_probe_is_not_consulted_twice(no_json_dialect):
     """A dialect that answers the probe is enough; the renderer is never asked."""
     calls = []
@@ -104,7 +121,7 @@ def test_the_probe_is_not_consulted_twice(no_json_dialect):
         calls.append(1)
         return False
 
-    no_json_dialect.supports_json_type = probe
+    no_json_dialect.supports_json_path = probe
     with pytest.raises(UnsupportedFeatureError):
         _expr(no_json_dialect).to_sql()
     assert calls, "the probe was never consulted"

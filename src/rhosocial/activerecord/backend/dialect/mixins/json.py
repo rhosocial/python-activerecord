@@ -25,6 +25,25 @@ class JSONMixin:
         """Whether JSON type is supported. Defaults to False."""
         return False
 
+    def supports_json_path(self) -> bool:
+        """Whether a JSON path can be rendered at all.
+
+        Separate from :meth:`supports_json_type` on purpose. A dialect can
+        have the functions that read a path without having a native JSON type
+        — MySQL 5.7.0 has JSON_EXTRACT, and the JSON *type* arrived in 5.7.8 —
+        and it can have a JSON type with no way to read a path, which is
+        Firebird's situation with JSON_ARRAY and JSON_OBJECT.
+
+        Conflating the two makes a backend refuse a query its server would
+        have answered, and the refusal looks like a missing feature rather
+        than a wrong gate.
+
+        Defaults to True because a dialect that says nothing is expected to
+        render paths; a dialect whose server has no such function should
+        override this to False and refuse with a suggestion.
+        """
+        return True
+
     def supports_json_arrow_operators(self) -> bool:
         """Whether JSON arrow operators (-> and ->>) are supported.
 
@@ -162,21 +181,26 @@ class JSONMixin:
         """
         from ...expression.advanced_functions import JSONPathMode
 
-        # A dialect that declares no JSON support must not be handed JSON SQL.
-        # The docstring below has always promised this refusal and the code did
-        # not keep it: rendering went straight through to the function-based
-        # fallback, which is MySQL's shape, so a dialect reporting
-        # supports_json_type() == False would still answer with JSON_EXTRACT —
-        # SQL its server has no function for. Refusing is the honest answer,
-        # and it is what the probe exists to say.
-        if not self.supports_json_type():
+        # A dialect whose server has no way to read a JSON path must not be
+        # handed JSON SQL. The docstring below has always promised this
+        # refusal and the code did not keep it: rendering went straight to the
+        # function-based fallback, which is MySQL's shape, so Snowflake and
+        # BigQuery answered a JSON path with JSON_EXTRACT — a function neither
+        # has.
+        #
+        # The gate is supports_json_path, not supports_json_type: those are two
+        # capabilities, and MySQL 5.7.0 reads paths through JSON_EXTRACT while
+        # having no native JSON type until 5.7.8. Gating on the type would
+        # refuse queries the server answers.
+        if not self.supports_json_path():
             raise UnsupportedFeatureError(
                 dialect_name=type(self).__name__,
                 feature_name="JSON path expressions",
                 suggestion=(
-                    "This dialect declares no JSON support. Store the value as "
-                    "text and parse it in Python, or use a backend that "
-                    "declares supports_json_type()."
+                    "This dialect has no function for reading a JSON path on "
+                    "this server version. Store the value as text and parse it "
+                    "in Python, or use a backend that declares "
+                    "supports_json_path()."
                 ),
             )
 
