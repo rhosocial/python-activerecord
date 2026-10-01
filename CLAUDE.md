@@ -94,6 +94,7 @@ policy; skills are loaded on demand when a matching task starts.
 | `dev-expression-dialect` | Expression-Dialect separation, SQL generation rules, adding dialect protocols |
 | `dev-protocol-design` | Designing Protocols, runtime_checkable, feature detection |
 | `dev-sync-async-parity` | Keeping sync/async APIs equivalent, parity testing |
+| `dev-raw-sql-audit` | Auditing `RawSQLExpression`/`RawSQLPredicate` usage — production constructions, subclassing, dead imports |
 
 ### User skills (`.claude/skills/user-*`)
 
