@@ -95,4 +95,3 @@ class StorageBackendBase(ABC):
             actually thread-safe at the connection level.
         """
         return 1  # Conservative default: connections cannot be shared across threads
-
