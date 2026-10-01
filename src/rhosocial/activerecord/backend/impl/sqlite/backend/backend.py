@@ -409,6 +409,23 @@ class SQLiteBackend(
             result.affected_rows = len(result.data)
         return result
 
+    def get_current_schema(self) -> Optional[str]:
+        """Raise: SQLite has no schema layer to read a current schema from.
+
+        An unqualified reference in SQLite always resolves against the database
+        file itself, and a name can be qualified with an attached database --
+        neither of which is a session-level schema. There is no value to return
+        and substituting ``main`` would be a guess.
+        """
+        from ....expression.functions import current_schema_unsupported
+
+        return current_schema_unsupported(
+            self.dialect,
+            "SQLite has no schema namespace: a qualified name refers to an "
+            "attached database and an unqualified one always resolves against "
+            "the database file. Open the intended database instead.",
+        )
+
     def get_server_version(self) -> Tuple[int, int, int]:
         """Get SQLite version.
 

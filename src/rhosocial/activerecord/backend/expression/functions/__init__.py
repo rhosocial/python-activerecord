@@ -106,7 +106,12 @@ from .type_conversion import cast, to_char, to_number, to_date
 from .grouping import grouping_sets, rollup, cube
 
 # System information function factories
-from .system import current_user, session_user, system_user
+from .system import (
+    current_schema_unsupported,
+    current_user,
+    session_user,
+    system_user,
+)
 
 # SQL/XML expression factories
 from .xml import (
@@ -229,6 +234,7 @@ __all__ = [
     # System
     "current_user",
     "session_user",
+    "current_schema_unsupported",
     "system_user",
     # SQL/XML
     "xmlagg",

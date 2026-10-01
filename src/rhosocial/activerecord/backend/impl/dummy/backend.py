@@ -68,6 +68,21 @@ class DummyBackend(StorageBackend):
         # Return a dummy version, as this backend doesn't connect to a real server.
         return (0, 0, 0)  # Indicates a dummy/mock version
 
+    def get_current_schema(self) -> Optional[str]:
+        """Raise: this backend has no server to ask.
+
+        DummyBackend does not connect to anything, so there is no session state
+        to read. A placeholder name would be a guess about a namespace that
+        does not exist.
+        """
+        from ....expression.functions import current_schema_unsupported
+
+        return current_schema_unsupported(
+            self.dialect,
+            "DummyBackend does not connect to a server, so it has no session "
+            "state to read. Pass schema_name explicitly instead.",
+        )
+
     def introspect_and_adapt(self) -> None:
         """Introspect backend and adapt backend instance.
 
@@ -127,6 +142,21 @@ class AsyncDummyBackend(AsyncStorageBackend):
 
     async def get_server_version(self) -> Tuple[int, int, int]:
         return (0, 0, 0)
+
+    async def get_current_schema(self) -> Optional[str]:
+        """Raise: this backend has no server to ask.
+
+        AsyncDummyBackend does not connect to anything, so there is no session
+        state to read. A placeholder name would be a guess about a namespace
+        that does not exist.
+        """
+        from ....expression.functions import current_schema_unsupported
+
+        return current_schema_unsupported(
+            self.dialect,
+            "AsyncDummyBackend does not connect to a server, so it has no "
+            "session state to read. Pass schema_name explicitly instead.",
+        )
 
     async def introspect_and_adapt(self) -> None:
         """Introspect backend and adapt backend instance.

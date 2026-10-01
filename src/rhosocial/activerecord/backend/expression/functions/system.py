@@ -3,10 +3,29 @@
 
 from typing import TYPE_CHECKING
 
+from ...dialect.exceptions import UnsupportedFeatureError
 from ..core import FunctionCall
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+
+
+def current_schema_unsupported(dialect: "SQLDialectBase", reason: str) -> None:
+    """Reject a current-schema query for a backend that has no such concept.
+
+    A backend whose SQL has no session-level namespace -- SQLite has no schema
+    layer at all, BigQuery binds a dataset per query rather than as session
+    state -- cannot answer this. Rather than substitute a default namespace,
+    which would be a guess, this raises so the caller passes one explicitly.
+
+    Args:
+        dialect: The SQL dialect instance
+        reason: Why this dialect has no current schema, phrased for the user
+
+    Raises:
+        UnsupportedFeatureError: Always.
+    """
+    raise UnsupportedFeatureError(dialect.name, "reading the current schema", reason)
 
 
 def current_user(dialect: "SQLDialectBase") -> "FunctionCall":
