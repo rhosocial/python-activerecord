@@ -36,10 +36,27 @@ class DataTypeMixin:
         if formatter is None:
             raise TypeError(
                 f"{type(self).__name__} does not support the generic type "
-                f"{name!r} (no format_data_type_{name}). Use a type this "
-                f"backend supports."
+                f"{name!r} (no format_data_type_{name})."
+                + self._suggested_type_advice(name)
             )
         return cast(SQLQueryAndParams, formatter(data_type))
+
+    def _suggested_type_advice(self, name: str) -> str:
+        """Name this dialect's substitute for *name*, if it declares one.
+
+        A backend that cannot render a generic type says what to use instead
+        through ``suggested_data_types()``, and that is the only place the
+        answer is written down. Without it in the message the caller is told
+        the type is unsupported and nothing else, which is the same as not
+        knowing.
+        """
+        substitute = self.suggested_data_types().get(name)
+        if substitute is None:
+            return " Use a type this backend supports."
+        return (
+            f" It suggests {substitute.__name__} instead, which is how this "
+            f"backend stores the same meaning."
+        )
 
     def supports_data_types(self) -> Dict[str, type]:
         """Return the generic type names and concrete classes this dialect renders."""

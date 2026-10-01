@@ -422,8 +422,10 @@ class DummyDialect(
         return True
 
     def format_data_type_enum(self, data_type: EnumType) -> Tuple[str, tuple]:
-        values = ",".join(f"'{value}'" for value in data_type.values)
-        return f"ENUM({values}), "[: -2] + "" if False else f"ENUM({values})", ()
+        # format_literal rather than an f-string of quotes: it is the dialect's
+        # own escaping, so a value containing a quote survives.
+        values = ",".join(self.format_literal(value) for value in data_type.values)
+        return f"ENUM({values})", ()
 
     def supports_data_type_float(self) -> bool:
         return True
