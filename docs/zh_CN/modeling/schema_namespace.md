@@ -159,20 +159,33 @@ condition = Order.c.total > 100     # 需重建才能取到新 schema
 
 ## 6. 后端支持矩阵
 
-| 后端 | `supports_schema()` | 命名空间语义 |
-|---|---|---|
-| PostgreSQL | 是 | 原生 schema |
-| SQL Server | 是 | 原生 schema（`[schema].[table]`） |
-| Oracle | 是 | 原生 schema |
-| MariaDB | 是 | **schema 即 database 的同义词** |
-| BigQuery | 是 | **dataset**，列引用永不带 schema |
-| Snowflake | 是 | **三级** `database.schema.table` |
-| SQLite、MySQL、ClickHouse、Firebird | 否 | 无 schema 层 |
+`schema_name` 具体指向什么，由各后端自己定义。**它们都接受这个参数，但对它的解释
+并不一致。** 下表记录的是各后端的实际做法。本指南中出现的 `"app"."users"`
+一律是 PostgreSQL / SQL Server / Oracle 的写法。
 
-"替代维度"这几行很关键：在 MariaDB 上 schema *就是* database，在 Snowflake 上
-它还嵌在 database 之内。BigQuery 以及 MariaDB 的 MySQL 同族和 ClickHouse 的
-`format_column` 会刻意忽略 `schema_name`，并在无表列携带 schema 时发出警告，
-从而使同一份模型定义仍可同时面向 PostgreSQL 与这些后端。
+| 后端 | `supports_schema()` | `schema_name` 指向 | 渲染为 |
+|---|---|---|---|
+| PostgreSQL | 是 | 当前 database 内的 schema | `"app"."users"` |
+| SQL Server | 是 | 当前 database 内的 schema | `[app].[users]` |
+| Oracle | 是 | schema，即属主用户 | `"APP"."USERS"`（折为大写） |
+| Snowflake | 是 | schema，**隶属于** database —— 是独立一层，不是 database 本身 | 需配合 `CURRENT_DATABASE()` 才能完全限定 |
+| BigQuery | 是 | dataset；列引用永不带 schema | `` `app.users` `` |
+| MariaDB | 是 | **database** —— `schema` 是 `database` 的同义词，`CREATE SCHEMA` / `SHOW SCHEMAS` 可用且列的就是 database | `` `app`.`users` `` |
+| MySQL | 是 | **database** —— 同 MariaDB 的同义关系 | `` `app`.`users` `` |
+| ClickHouse | 否 | **database** —— 没有 schema 层；`CREATE SCHEMA` / `SHOW SCHEMAS` 是语法错误，也没有 `currentSchema()` 函数 | `` `app`.`users` `` |
+| SQLite、Firebird | 否 | 无命名空间层 | 拒绝 |
+
+由此得出三点，也正是同一份模型定义不能被假定在任何后端上含义相同的原因：
+
+- **只有 Snowflake 有自己独立的 schema 层。** 它的完全限定名是
+  `<database>.<schema>.<object>`，所以在它上面单给一个 `schema_name`
+  并不能定位对象。
+- **MySQL 与 MariaDB 把这个值当 database 用**，`schema` 与 `database` 是同
+  一回事。ClickHouse 是同样的概念去掉了这个词：它根本没有 `CREATE SCHEMA`，
+  并且因为不存在独立的 schema 层而报告 `supports_schema() == False`，但
+  `schema_name` 仍被接受，并被当作 database 使用。
+- **该值原样透传。** 这里不会拿它和连接做校验，所以一个与会话当前命名空间
+  不同的 `schema_name`，会指向另一个对象，或者什么都不指向。
 
 ## 7. 推荐的分层方式
 

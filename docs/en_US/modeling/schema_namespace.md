@@ -169,21 +169,38 @@ conditions after switching, or use one model class per namespace.
 
 ## 6. Backend support matrix
 
-| Backend | `supports_schema()` | Namespace semantics |
-|---|---|---|
-| PostgreSQL | yes | native schema |
-| SQL Server | yes | native schema (`[schema].[table]`) |
-| Oracle | yes | native schema |
-| MariaDB | yes | **schema is a database synonym** |
-| BigQuery | yes | **dataset**, never schema-qualified columns |
-| Snowflake | yes | **three-level** `database.schema.table` |
-| SQLite, MySQL, ClickHouse, Firebird | no | no schema layer |
+What a `schema_name` means is defined by each backend. All of them accept the
+parameter; they do not agree on what it names. The table records what each one
+does with it. Everything in this guide that shows `"app"."users"` is the
+PostgreSQL / SQL Server / Oracle spelling.
 
-The substitute rows matter: on MariaDB a "schema" *is* the database, and on
-Snowflake it sits inside one. `format_column` on BigQuery, MariaDB's MySQL
-sibling and ClickHouse deliberately ignores `schema_name` and warns if a
-table-less column carries one, so a single model definition can still target
-both PostgreSQL and those backends.
+| Backend | `supports_schema()` | What `schema_name` names | Renders as |
+|---|---|---|---|
+| PostgreSQL | yes | a schema inside the current database | `"app"."users"` |
+| SQL Server | yes | a schema inside the current database | `[app].[users]` |
+| Oracle | yes | a schema, which is the owning user | `"APP"."USERS"` (folded upper) |
+| Snowflake | yes | a schema, which **belongs to** a database — a distinct level, not the database itself | needs `CURRENT_DATABASE()` to be fully qualified |
+| BigQuery | yes | a dataset; columns are never schema-qualified | `` `app.users` `` |
+| MariaDB | yes | **a database** — `schema` is a synonym for `database`; `CREATE SCHEMA` and `SHOW SCHEMAS` are accepted and list databases | `` `app`.`users` `` |
+| MySQL | yes | **a database** — same synonymy as MariaDB | `` `app`.`users` `` |
+| ClickHouse | no | **a database** — there is no schema level; `CREATE SCHEMA` and `SHOW SCHEMAS` are syntax errors, and no `currentSchema()` function exists | `` `app`.`users` `` |
+| SQLite, Firebird | no | no namespace layer | rejected |
+
+Three things follow, and they are the reason a single model definition cannot
+be assumed to mean the same thing everywhere:
+
+- **Snowflake is the only one with a real schema layer of its own.** Its fully
+  qualified name is `<database>.<schema>.<object>`, so a `schema_name` alone
+  does not identify an object there.
+- **MySQL and MariaDB treat the value as a database**, where `schema` and
+  `database` are the same thing; `CREATE SCHEMA` and `SHOW SCHEMAS` are accepted
+  and list databases. ClickHouse is the same idea with the word removed: it has
+  no `CREATE SCHEMA` at all, and it reports `supports_schema() == False` because
+  there is no distinct schema layer, even though a `schema_name` is still
+  accepted and used as the database.
+- **The value is passed through as given.** Nothing here checks it against the
+  connection, so a `schema_name` naming a different namespace than the session's
+  current one addresses a different object — or none.
 
 ## 7. Recommended layering
 

@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..core import _validate_schema_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -112,9 +113,13 @@ class CreateViewExpression(BaseExpression):
         temporary: bool = False,  # CREATE TEMPORARY VIEW (some DBs)
         if_not_exists: bool = False,  # CREATE VIEW IF NOT EXISTS
         options: Optional[ViewOptions] = None,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.view_name = view_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.query = query
         self.column_aliases = column_aliases or []
         self.replace = replace  # Whether to use CREATE OR REPLACE semantics
@@ -164,9 +169,13 @@ class DropViewExpression(BaseExpression):
         view_name: str,
         if_exists: bool = False,  # DROP VIEW IF EXISTS
         cascade: bool = False,
+        schema_name: Optional[str] = None,
     ):  # DROP VIEW ... CASCADE (drops dependent objects)
         super().__init__(dialect)
         self.view_name = view_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.if_exists = if_exists
         self.cascade = cascade
 
@@ -235,9 +244,13 @@ class CreateMaterializedViewExpression(BaseExpression):
         tablespace: Optional[str] = None,
         with_data: bool = True,  # Whether to populate immediately
         storage_options: Optional[Dict[str, Any]] = None,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.view_name = view_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.query = query
         self.column_aliases = column_aliases or []
         self.tablespace = tablespace
@@ -287,9 +300,13 @@ class DropMaterializedViewExpression(BaseExpression):
         view_name: str,
         if_exists: bool = False,
         cascade: bool = False,
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.view_name = view_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.if_exists = if_exists
         self.cascade = cascade
 
@@ -339,9 +356,13 @@ class RefreshMaterializedViewExpression(BaseExpression):
         view_name: str,
         concurrent: bool = False,  # Refresh concurrently (PostgreSQL)
         with_data: Optional[bool] = None,  # WITH DATA or WITH NO DATA
+        schema_name: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.view_name = view_name
+        self.schema_name = _validate_schema_name(
+            schema_name, type(self).__name__
+        )
         self.concurrent = concurrent
         self.with_data = with_data
 

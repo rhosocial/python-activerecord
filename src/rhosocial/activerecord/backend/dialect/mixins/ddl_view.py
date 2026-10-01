@@ -78,6 +78,30 @@ class ViewMixin:
         """Whether DROP VIEW CASCADE is supported (defaults to False)."""
         return False
 
+    def _format_view_name(self, expr) -> str:
+        """Render a view reference, qualified only when a schema was given.
+
+        Views were the one object with no schema parameter at all, so
+        ``"app"."v_users"`` was quoted as a single identifier and the server
+        reported that it did not exist. Now the same two states every other
+        object has are available: a schema renders as ``schema.view``, and no
+        schema renders as the bare name, leaving resolution to the connection
+        exactly as an unqualified table reference does.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        name = self.format_identifier(expr.view_name)
+        schema_name = getattr(expr, "schema_name", None)
+        if not schema_name:
+            return name
+        if not self.supports_schema():
+            raise UnsupportedFeatureError(
+                self.name, "schema-qualified view reference",
+                f"{self.name} has no namespace to qualify into, so "
+                f"schema_name={schema_name!r} cannot be used."
+            )
+        return f"{self.format_identifier(schema_name)}.{name}"
+
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """Format a CREATE VIEW statement.
 
@@ -109,7 +133,7 @@ class ViewMixin:
             if_not_exists_part = "IF NOT EXISTS "
         sql_parts = [
             f"CREATE {replace_part}{temporary_part}VIEW {if_not_exists_part}"
-            f"{self.format_identifier(expr.view_name)}"
+            f"{self._format_view_name(expr)}"
         ]
         all_params: List[Any] = []
         if expr.column_aliases:
@@ -156,7 +180,7 @@ class ViewMixin:
             )
         if_exists_part = "IF EXISTS " if expr.if_exists else ""
         cascade_part = " CASCADE" if expr.cascade else ""
-        sql = f"DROP VIEW {if_exists_part}{self.format_identifier(expr.view_name)}{cascade_part}"
+        sql = f"DROP VIEW {if_exists_part}{self._format_view_name(expr)}{cascade_part}"
         return sql.strip(), ()
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
@@ -177,7 +201,7 @@ class ViewMixin:
             raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW")
 
         parts = ["CREATE MATERIALIZED VIEW"]
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(self._format_view_name(expr))
 
         if expr.column_aliases:
             cols = ", ".join(self.format_identifier(c) for c in expr.column_aliases)
@@ -220,7 +244,7 @@ class ViewMixin:
         parts = ["DROP MATERIALIZED VIEW"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(self._format_view_name(expr))
         if expr.cascade:
             parts.append("CASCADE")
         return " ".join(parts), ()
@@ -246,7 +270,7 @@ class ViewMixin:
         parts = ["REFRESH MATERIALIZED VIEW"]
         if expr.concurrent:
             parts.append("CONCURRENTLY")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(self._format_view_name(expr))
         if expr.with_data is not None:
             parts.append("WITH DATA" if expr.with_data else "WITH NO DATA")
         return " ".join(parts), ()
