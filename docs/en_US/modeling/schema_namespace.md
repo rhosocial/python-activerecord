@@ -144,9 +144,10 @@ rejected outright, and a non-string value is rejected too. The same applies to
 | Statement | Picks up the model's schema? | How to qualify it |
 |---|---|---|
 | `CREATE TABLE` / `DROP TABLE` | no | pass `TableExpression(dialect, "users", schema_name="app")` |
+| `ALTER TABLE` | no | `schema_name="app"` |
 | `CREATE` / `ALTER` / `DROP` / `REFRESH` VIEW, incl. materialized | no | `schema_name="app"` |
 | `CREATE` / `ALTER` / `DROP` TYPE | no | `schema_name="app"` |
-| `CREATE` / `DROP` INDEX, incl. full-text | no | `schema_name="app"` |
+| `CREATE INDEX` / `DROP INDEX`, incl. full-text | no | `schema_name="app"` |
 | `CREATE` / `ALTER` / `DROP` SEQUENCE | no | `schema_name="app"` |
 | `CREATE` / `ALTER` / `DROP` DOMAIN | no | `schema_name="app"` |
 | `CREATE` / `DROP` FUNCTION | no | `schema_name="app"` |

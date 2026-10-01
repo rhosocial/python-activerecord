@@ -5,6 +5,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from ..exceptions import UnsupportedFeatureError
 from ...expression.bases import ToSQLProtocol
 
+from ...expression.core import TableExpression
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
         CreateIndexExpression,

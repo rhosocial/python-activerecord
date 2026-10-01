@@ -6,6 +6,7 @@ from typing import Tuple, Type, TYPE_CHECKING
 from ...expression.statements.ddl_domain import DomainNullability
 from ..exceptions import UnsupportedFeatureError
 
+from ...expression.core import TableExpression
 if TYPE_CHECKING:
     from ...expression.statements.ddl_domain import (
         AlterDomainExpression,

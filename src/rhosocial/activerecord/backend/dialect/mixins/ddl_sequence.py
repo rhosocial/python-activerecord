@@ -2,6 +2,7 @@
 """Dialect mixin for sequence DDL support (CREATE/DROP/ALTER SEQUENCE)."""
 from typing import Tuple, TYPE_CHECKING
 
+from ...expression.core import TableExpression
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
         CreateSequenceExpression,

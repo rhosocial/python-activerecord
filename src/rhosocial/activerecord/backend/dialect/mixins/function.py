@@ -8,6 +8,7 @@ function *DDL* (``CREATE FUNCTION`` / ``DROP FUNCTION``).
 import re
 from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 
+from ...expression.core import TableExpression
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression import bases
     from ...expression.statements import (

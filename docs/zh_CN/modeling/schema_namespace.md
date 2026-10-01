@@ -132,9 +132,10 @@ __schema_name__ = ""          # 错误：被当作"无 schema"，或直接报错
 | 语句 | 是否采用模型的 schema | 如何限定 |
 |---|---|---|
 | `CREATE TABLE` / `DROP TABLE` | 否 | 传 `TableExpression(dialect, "users", schema_name="app")` |
+| `ALTER TABLE` | 否 | `schema_name="app"` |
 | `CREATE` / `ALTER` / `DROP` / `REFRESH` VIEW（含物化视图） | 否 | `schema_name="app"` |
 | `CREATE` / `ALTER` / `DROP` TYPE | 否 | `schema_name="app"` |
-| `CREATE` / `DROP` INDEX（含全文索引） | 否 | `schema_name="app"` |
+| `CREATE INDEX` / `DROP INDEX`（含全文索引） | 否 | `schema_name="app"` |
 | `CREATE` / `ALTER` / `DROP` SEQUENCE | 否 | `schema_name="app"` |
 | `CREATE` / `ALTER` / `DROP` DOMAIN | 否 | `schema_name="app"` |
 | `CREATE` / `DROP` FUNCTION | 否 | `schema_name="app"` |
