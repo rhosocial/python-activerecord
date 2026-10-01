@@ -4,6 +4,7 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..value_types import DATE, DATETIME, INTEGER, TIME, wrap_as
 from ..core import Column, FunctionCall, Literal
 from ..datetime import (
     DatePartExpression,
@@ -30,7 +31,7 @@ def now(dialect: "SQLDialectBase") -> "FunctionCall":
     Returns:
         A FunctionCall instance representing the NOW function
     """
-    return FunctionCall(dialect, "NOW")
+    return wrap_as(dialect, FunctionCall(dialect, "NOW"), DATETIME)
 
 
 def current_date(dialect: "SQLDialectBase") -> "FunctionCall":
@@ -46,7 +47,7 @@ def current_date(dialect: "SQLDialectBase") -> "FunctionCall":
     Returns:
         A FunctionCall instance representing the CURRENT_DATE value function
     """
-    return FunctionCall(dialect, "CURRENT_DATE", niladic=True)
+    return wrap_as(dialect, FunctionCall(dialect, "CURRENT_DATE", niladic=True), DATE)
 
 
 def current_time(dialect: "SQLDialectBase") -> "FunctionCall":
@@ -62,7 +63,7 @@ def current_time(dialect: "SQLDialectBase") -> "FunctionCall":
     Returns:
         A FunctionCall instance representing the CURRENT_TIME value function
     """
-    return FunctionCall(dialect, "CURRENT_TIME", niladic=True)
+    return wrap_as(dialect, FunctionCall(dialect, "CURRENT_TIME", niladic=True), TIME)
 
 
 def year(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -82,7 +83,7 @@ def year(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Func
         A FunctionCall instance representing the YEAR function
     """
     target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
-    return FunctionCall(dialect, "YEAR", target_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "YEAR", target_expr), INTEGER)
 
 
 def month(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -103,7 +104,7 @@ def month(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fun
         A FunctionCall instance representing the MONTH function
     """
     target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
-    return FunctionCall(dialect, "MONTH", target_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "MONTH", target_expr), INTEGER)
 
 
 def day(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -123,7 +124,7 @@ def day(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Funct
         A FunctionCall instance representing the DAY function
     """
     target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
-    return FunctionCall(dialect, "DAY", target_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "DAY", target_expr), INTEGER)
 
 
 def hour(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -143,7 +144,7 @@ def hour(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Func
         A FunctionCall instance representing the HOUR function
     """
     target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
-    return FunctionCall(dialect, "HOUR", target_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "HOUR", target_expr), INTEGER)
 
 
 def minute(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -163,7 +164,7 @@ def minute(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fu
         A FunctionCall instance representing the MINUTE function
     """
     target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
-    return FunctionCall(dialect, "MINUTE", target_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "MINUTE", target_expr), INTEGER)
 
 
 def second(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -184,7 +185,7 @@ def second(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fu
         A FunctionCall instance representing the SECOND function
     """
     target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
-    return FunctionCall(dialect, "SECOND", target_expr)
+    return wrap_as(dialect, FunctionCall(dialect, "SECOND", target_expr), INTEGER)
 
 
 def date_part(dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpression"]) -> "DatePartExpression":
@@ -220,7 +221,7 @@ def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None
     """
     if precision is not None:
         return FunctionCall(dialect, "CURRENT_TIMESTAMP", Literal(dialect, precision))
-    return FunctionCall(dialect, "CURRENT_TIMESTAMP", niladic=True)
+    return wrap_as(dialect, FunctionCall(dialect, "CURRENT_TIMESTAMP", niladic=True), DATETIME)
 
 
 def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "FunctionCall":
@@ -244,7 +245,7 @@ def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -
     """
     if precision is not None:
         return FunctionCall(dialect, "LOCALTIMESTAMP", Literal(dialect, precision))
-    return FunctionCall(dialect, "LOCALTIMESTAMP", niladic=True)
+    return wrap_as(dialect, FunctionCall(dialect, "LOCALTIMESTAMP", niladic=True), DATETIME)
 
 
 def extract(dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpression"]) -> "ExtractExpression":

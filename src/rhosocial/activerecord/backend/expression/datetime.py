@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, Dict, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
+from .value_types import DATETIME, INTEGER, INTERVAL, NUMERIC
 from .mixins import AliasableMixin, ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, TypeCastingMixin
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -136,6 +137,7 @@ class _TemporalValueExpression(
 
 
 class ExtractExpression(_TemporalValueExpression):
+    VALUE_FAMILY = NUMERIC
     """Represents extraction of a datetime field from an expression."""
 
     def __init__(
@@ -157,6 +159,7 @@ class ExtractExpression(_TemporalValueExpression):
 
 
 class DatePartExpression(_TemporalValueExpression):
+    VALUE_FAMILY = NUMERIC
     """Represents backend-specific date part extraction."""
 
     def __init__(
@@ -178,6 +181,7 @@ class DatePartExpression(_TemporalValueExpression):
 
 
 class DateTruncExpression(_TemporalValueExpression):
+    VALUE_FAMILY = DATETIME
     """Represents truncating a datetime expression to a field."""
 
     def __init__(
@@ -199,6 +203,7 @@ class DateTruncExpression(_TemporalValueExpression):
 
 
 class IntervalExpression(_TemporalValueExpression):
+    VALUE_FAMILY = INTERVAL
     """Represents a structured interval value."""
 
     def __init__(
@@ -220,6 +225,7 @@ class IntervalExpression(_TemporalValueExpression):
 
 
 class DateTimeAddExpression(_TemporalValueExpression):
+    VALUE_FAMILY = DATETIME
     """Represents adding an interval to a datetime expression."""
 
     def __init__(
@@ -241,6 +247,7 @@ class DateTimeAddExpression(_TemporalValueExpression):
 
 
 class DateTimeSubtractExpression(_TemporalValueExpression):
+    VALUE_FAMILY = DATETIME
     """Represents subtracting an interval from a datetime expression."""
 
     def __init__(
@@ -262,6 +269,7 @@ class DateTimeSubtractExpression(_TemporalValueExpression):
 
 
 class DateTimeDiffExpression(_TemporalValueExpression):
+    VALUE_FAMILY = INTEGER
     """Represents the difference between two datetime expressions."""
 
     def __init__(

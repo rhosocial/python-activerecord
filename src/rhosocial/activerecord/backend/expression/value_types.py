@@ -97,7 +97,13 @@ def wrap_as(dialect: Any, call: Any, family: Optional[str]) -> Any:
     wrapper = _wrapper_registry().get(family)
     if wrapper is None:
         return call
-    return wrapper(dialect, call)
+    # The family is passed as well as looked up: one class can serve several
+    # families, as DateTimeValueExpression does for a date, a time, a
+    # timestamp and a span, which offer the same operations.
+    try:
+        return wrapper(dialect, call, family)
+    except TypeError:
+        return wrapper(dialect, call)
 
 
 def _wrapper_registry() -> Dict[str, Any]:
@@ -109,6 +115,7 @@ def _wrapper_registry() -> Dict[str, Any]:
     global _WRAPPERS
     if _WRAPPERS is None:
         from .core import (
+            DateTimeValueExpression,
             IntegerValueExpression,
             NumericValueExpression,
             StringValueExpression,
@@ -118,6 +125,10 @@ def _wrapper_registry() -> Dict[str, Any]:
             STRING: StringValueExpression,
             INTEGER: IntegerValueExpression,
             NUMERIC: NumericValueExpression,
+            DATETIME: DateTimeValueExpression,
+            DATE: DateTimeValueExpression,
+            TIME: DateTimeValueExpression,
+            INTERVAL: DateTimeValueExpression,
         }
     return _WRAPPERS
 

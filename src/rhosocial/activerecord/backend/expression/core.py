@@ -8,11 +8,12 @@ from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression, is_sql_query_and_params
 from .column_types import ColumnBase
-from .value_types import INTEGER, NUMERIC, STRING
+from .value_types import DATETIME, INTEGER, NUMERIC, STRING
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
+    DateTimeMixin,
     IntegerValueMixin,
     NumericValueMixin,
     JSONAccessorMixin,
@@ -118,10 +119,80 @@ class Column(
         )
 
 
+class DateTimeValueExpression(
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    DateTimeMixin,
+    StringPatternPredicateMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
+):
+    """A temporal value that is not a column reference.
+
+    Covers the result of ``now``, ``current_date``, ``current_time``,
+    ``current_timestamp`` and ``localtimestamp``, which are plain function
+    calls with no node class of their own.
+
+    One class serves four families because they offer the same surface: a
+    date, a time, a timestamp and a span all support date_add, date_sub,
+    date_diff, date_part and extract, and none of them supports ``upper``.
+    The family is still reported, because it is what decides what a result
+    *propagates* — a timestamp added to an interval stays a timestamp, while
+    the interval itself is a span.
+    """
+
+    VALUE_FAMILY = DATETIME
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        call: "FunctionCall",
+        family: Optional[str] = None,
+    ):
+        super().__init__(dialect)
+        self.call = call
+        if family is not None:
+            self.VALUE_FAMILY = family
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_function_call"
+
+    def to_sql(self):
+        """Render the wrapped function call.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        alias = self.__dict__.get("alias")
+        if alias and getattr(self.call, "alias", None) != alias:
+            call = copy.copy(self.call)
+            call.alias = alias
+            return call.to_sql()
+        return self.call.to_sql()
+
+    def __getattr__(self, name):
+        """Forward unknown attributes to the wrapped call.
+
+        Args:
+            name: Attribute name not found on this wrapper.
+
+        Returns:
+            The attribute from the wrapped function call.
+        """
+        call = self.__dict__.get("call")
+        if call is None:
+            raise AttributeError(name)
+        return getattr(call, name)
+
+
 class NumericValueExpression(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
+    DateTimeMixin,
     NumericValueMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
