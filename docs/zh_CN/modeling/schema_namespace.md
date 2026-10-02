@@ -98,8 +98,9 @@ PostgreSQL 不接受的三段式。
 
 - **`search_path`** —— 建连时作为 libpq 参数下发，整个连接生命周期内固定，
   没法按查询或按事务切换。不带限定的名字按它解析。
-- **连接的 `default_schema` 配置** —— 从来没有影响过生成的 SQL。不设
-  `__schema_name__` 的模型按 `search_path` 解析，想改这个行为请用 `search_path`。
+- **连接的 `default_schema` 配置** —— 已废弃，不起作用：它从来没有影响过生成的
+  SQL。不设 `__schema_name__` 的模型一律按 `search_path` 解析。要改行为请设
+  `search_path`。
 - **别名** —— 一旦设了别名，schema 会按设计从列引用里丢掉。
 
 ## 3. 别这么写

@@ -116,9 +116,9 @@ three-part form that PostgreSQL rejects.
 * **`search_path`.** Applied at connect time as a libpq parameter, so it is
   fixed for the life of the connection and cannot be changed per query or per
   transaction. Unqualified names resolve through it.
-* **The connection's `default_schema` setting.** It has never affected
-  generated SQL. A model without `__schema_name__` resolves through
-  `search_path`; use that instead.
+* **The connection's `default_schema` setting.** Deprecated and inert: it has
+  never affected generated SQL, and a model without `__schema_name__`
+  resolves through `search_path` regardless. Set `search_path` instead.
 * **The alias.** Once set, the schema is dropped from column references by
   design.
 
