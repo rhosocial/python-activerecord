@@ -57,14 +57,14 @@ def _doc(path: Path) -> str:
 class TestRenderingTableMatchesBehaviour:
     """Every FROM/Column row in the guide is verified against real output."""
 
-    def test_t40_table_expression_rows(self, dialect):
+    def test_table_expression_rows(self, dialect):
         assert TableExpression(dialect, TABLE).to_sql()[0] == '"users"'
         assert (
             TableExpression(dialect, TABLE, schema_name=SCHEMA).to_sql()[0]
             == '"ar_crm"."users"'
         )
 
-    def test_t40_column_rows(self, dialect):
+    def test_column_rows(self, dialect):
         # schema + table, no alias -> three parts
         assert (
             Column(dialect, "id", table=TABLE, schema_name=SCHEMA).to_sql()[0]
@@ -75,12 +75,12 @@ class TestRenderingTableMatchesBehaviour:
             Column(dialect, "id", table="u", schema_name=None).to_sql()[0] == '"u"."id"'
         )
 
-    def test_t40_guide_contains_the_verified_forms(self):
+    def test_guide_contains_the_verified_forms(self):
         text = _doc(DOC_EN)
         for expected in ('"users"', '"ar_crm"."users"', '"ar_crm"."users"."id"', '"u"."id"'):
             assert expected in text, f"guide omits the verified form {expected!r}"
 
-    def test_t40_guide_states_empty_string_is_not_allowed(self):
+    def test_guide_states_empty_string_is_not_allowed(self):
         text = _doc(DOC_EN)
         assert "__schema_name__ = \"\"" in text, (
             "the guide must show the empty-string anti-pattern, which now raises"
@@ -141,7 +141,7 @@ class TestDdlStatementsAcceptSchema:
 
     @pytest.mark.parametrize("module_name,class_name", NAMED_OBJECT_DDL,
                              ids=[c for _, c in NAMED_OBJECT_DDL])
-    def test_t41_ddl_statement_accepts_schema_name(self, module_name, class_name):
+    def test_ddl_statement_accepts_schema_name(self, module_name, class_name):
         import importlib
         import inspect
 
@@ -161,7 +161,7 @@ class TestDdlStatementsAcceptSchema:
 
     @pytest.mark.parametrize("module_name,class_name", TABLE_OBJECT_DDL,
                              ids=[c for _, c in TABLE_OBJECT_DDL])
-    def test_t41_table_statement_qualifies_via_table_expression(
+    def test_table_statement_qualifies_via_table_expression(
         self, module_name, class_name, dialect
     ):
         """Table DDL qualifies through a TableExpression, not a scalar field.
@@ -184,7 +184,7 @@ class TestDdlStatementsAcceptSchema:
         ref = TableExpression(dialect, TABLE, schema_name=SCHEMA)
         assert ref.to_sql()[0] == f'"{SCHEMA}"."{TABLE}"'
 
-    def test_t41_truncate_names_the_field_schema_name(self):
+    def test_truncate_names_the_field_schema_name(self):
         """``TruncateExpression`` uses ``schema_name`` like every other statement.
 
         It used to be the one object statement carrying the namespace in a field
@@ -203,12 +203,12 @@ class TestDdlStatementsAcceptSchema:
             "defect the rename fixes"
         )
 
-    def test_t41_create_table_only_carries_schema_via_table_expression(self, dialect):
+    def test_create_table_only_carries_schema_via_table_expression(self, dialect):
         """``CreateTableExpression`` can still be schema-qualified -- by hand."""
         ref = TableExpression(dialect, TABLE, schema_name=SCHEMA)
         assert ref.to_sql()[0] == '"ar_crm"."users"'
 
-    def test_t41_guide_documents_the_ddl_boundary(self):
+    def test_guide_documents_the_ddl_boundary(self):
         for path in (DOC_EN, DOC_ZH):
             text = _doc(path)
             assert "ALTER TABLE" in text, f"{path.name} omits the DDL boundary"
@@ -220,17 +220,17 @@ class TestDdlStatementsAcceptSchema:
 # --------------------------------------------------------------------------
 
 class TestBothLocalesPresent:
-    def test_t42_files_exist(self):
+    def test_files_exist(self):
         _doc(DOC_EN)
         _doc(DOC_ZH)
 
-    def test_t42_same_numbered_sections(self):
+    def test_same_numbered_sections(self):
         en = re.findall(r"^## (\d+)\.", _doc(DOC_EN), re.M)
         zh = re.findall(r"^## (\d+)\.", _doc(DOC_ZH), re.M)
         assert en, "English guide has no numbered sections"
         assert en == zh, f"section mismatch: en={en} zh={zh}"
 
-    def test_t42_zh_is_not_an_english_copy(self):
+    def test_zh_is_not_an_english_copy(self):
         zh = _doc(DOC_ZH)
         # A cheap but effective check: the Chinese guide must contain CJK.
         assert re.search(r"[\u4e00-\u9fff]", zh), "zh_CN guide has no Chinese content"
@@ -242,7 +242,7 @@ class TestBothLocalesPresent:
 
 class TestDdlSourceDocBoundary:
     @pytest.mark.parametrize("locale", ["en_US", "zh_CN"])
-    def test_t43_ddl_source_states_ml_only(self, locale):
+    def test_ddl_source_states_ml_only(self, locale):
         path = REPO_ROOT / "docs" / locale / "modeling" / "ddl_source.md"
         text = _doc(path)
         assert re.search(r"DML|DQL|SELECT|INSERT", text), (
@@ -258,7 +258,7 @@ class TestNoAbsoluteClaims:
     """The guide must not overstate: DDL does *not* pick the schema up."""
 
     @pytest.mark.parametrize("path", [DOC_EN, DOC_ZH], ids=["en", "zh"])
-    def test_t44_avoids_overstatement(self, path):
+    def test_avoids_overstatement(self, path):
         text = _doc(path)
         forbidden = [
             "schema applies to all statements",
@@ -271,7 +271,7 @@ class TestNoAbsoluteClaims:
                 f"{path.name} contains an unqualified claim: {phrase!r}"
             )
 
-    def test_t44_explicitly_states_ddl_is_manual(self):
+    def test_explicitly_states_ddl_is_manual(self):
         text = _doc(DOC_EN)
         assert re.search(r"DDL.{0,120}(not|never|manual|independently)", text, re.I | re.S), (
             "the guide must explicitly say DDL schema selection is independent"
@@ -294,14 +294,14 @@ class TestBackendMatrixIsComplete:
     )
 
     @pytest.mark.parametrize("backend", SCHEMA_BACKENDS)
-    def test_t45_matrix_lists_backend(self, backend):
+    def test_matrix_lists_backend(self, backend):
         text = _doc(DOC_EN).lower()
         # Tolerate the "SQL Server" / "sqlserver" spelling difference.
         assert backend.lower() in text or backend.lower().replace("sql", "sql ") in text, (
             f"{backend} declares supports_schema() but the guide's matrix omits it"
         )
 
-    def test_t45_distinguishes_native_from_substitute(self):
+    def test_distinguishes_native_from_substitute(self):
         text = _doc(DOC_EN)
         # mariadb's "schema" is a database synonym; snowflake is three-level.
         assert re.search(r"mariadb", text, re.I)
