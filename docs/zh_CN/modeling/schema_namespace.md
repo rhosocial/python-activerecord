@@ -150,10 +150,82 @@ __schema_name__ = ""          # 错误：空串是笔误，"不加限定"请用 
 模型指向 `app.users`、迁移却建了 `public.users`，这两边不会自动对齐：迁移得自己
 写明要哪个 schema。现在能直接写，不必再手工拼限定名。
 
-后端不支持命名空间时，传入 schema 会抛 `UnsupportedFeatureError`，不会悄悄
+后端不支持命名空间时，传入 schema 会抛 `UnsupportedFeatureError`，不会静默
 丢掉。SQLite 是最常见的一种：它没有 schema 层，限定名发过去服务器会拒。
 
-## 5. 限定符什么时候定下来
+## 5. 各类查询分别怎么处理 schema
+
+`__schema_name__` 只被 `schema_name()` 这一个方法读取,模型构造出的每个查询都会
+把它带下去。所以 schema 天然跟着模型走,不需要每种查询类型各自处理。真正有差别
+的是生成出来的 SQL 长什么样 —— 在读一条生成语句之前,这一点值得先知道。
+
+下面的例子都是 PostgreSQL 的渲染结果,是实测出来的,不是示意。
+
+### ActiveQuery —— 读写都带 schema
+
+模型的 `query()` 会限定它构造的每一个表范围,`SELECT`、`INSERT`、`UPDATE`、
+`DELETE` 都一样:
+
+```python
+ShopOrder.query().select(ShopOrder.c.id).to_sql()[0]
+# SELECT "shop"."orders"."id" FROM "shop"."orders"
+```
+
+注意列是三段的:范围没有别名,所以 schema 一直限定到列。一旦用了别名,列上的
+schema 就会被去掉 —— 因为别名已经足以标识这个范围:
+
+```python
+# FROM "shop"."orders" AS "o"
+# SELECT "o"."id"          # 而不是 "shop"."orders"."id"
+```
+
+这不是简化。给已取别名的范围再加 schema 限定,在 PostgreSQL 和 SQL Server 上
+都是语法错误。
+
+### join —— 两侧各自限定
+
+不需要额外配置。两侧模型各带各的命名空间,一条语句里可以跨两个:
+
+```python
+Order.query().join(Customer, on=Order.c.customer_id == Customer.c.id)
+# FROM "shop"."orders" JOIN "crm"."customers"
+#   ON "shop"."orders"."customer_id" = "crm"."customers"."id"
+```
+
+### SetOperationQuery —— 自己不带 schema
+
+`UNION` / `INTERSECT` / `EXCEPT` 是把两个查询合起来,并不指名某个对象,所以没有
+东西需要限定。各个分支保留自己的:
+
+```python
+# SELECT ... FROM "shop"."orders"
+# UNION
+# SELECT ... FROM "crm"."customers"
+```
+
+一条语句里出现两个命名空间在 PostgreSQL 上是合法的,所以两个绑定 schema 的模型
+做 `UNION` 不需要特殊处理。
+
+### CTEQuery —— CTE 的名字不在命名空间里
+
+CTE 是给这条查询用的名字,不是数据库里的对象,所以永远不加限定 —— 加了等于去
+某个 schema 里找一张叫 `recent_orders` 的表,会失败:
+
+```python
+# WITH recent_orders AS (SELECT "shop"."orders"."id" FROM "shop"."orders")
+# SELECT "recent_orders"."id" FROM "recent_orders"
+```
+
+里面的 `SELECT` 仍然带着模型的 schema,只有 CTE 自身的名字是裸的。
+
+### 软删除 —— restore() 同样带
+
+`restore()` 会对模型的范围重新构造一条 `UPDATE`,所以它的限定方式和 `delete()`
+一致。如果 restore 漏掉 schema,就会把默认 schema 里那张同名的表的
+`deleted_at` 清掉,而本该恢复的那一行仍然是软删除状态 —— 这是一个跨命名空间的
+写操作,任何只读的断言都发现不了。
+
+## 6. 限定符什么时候定下来
 
 `Model.c.field` 在**构造表达式的那一刻**就把 `table_name()` 和 `schema_name()`
 快照了，不是执行的时候：
@@ -167,7 +239,7 @@ condition = Order.c.total > 100     # 重新构造才能拿到新 schema
 `table_name()` 也一样。切租户的时候，请切完再重建条件表达式；或者每个租户用一个
 独立的模型类。
 
-## 6. 各后端的差异
+## 7. 各后端的差异
 
 `schema_name` 具体指什么，每个后端自己定义。都接受这个参数，但解释不一样。
 下表是各后端的实际情况；本文里的 `"app"."users"` 是 PostgreSQL / SQL Server /
@@ -183,7 +255,7 @@ Oracle 的写法。
 | MariaDB | 是 | **database**：`schema` 是 `database` 的同义词 | `` `app`.`users` `` |
 | MySQL | 是 | **database**：和 MariaDB 一样 | `` `app`.`users` `` |
 | ClickHouse | 是 | **database**：没有独立的 schema 层，`CREATE SCHEMA` 是语法错误，但 `schema_name` 照样能用 | `` `app`.`users` `` |
-| SQLite、Firebird | 否 | 没有命名空间这一层 | 拒绝 |
+| SQLite(内置)、Firebird | 否 | 没有命名空间这一层 | 拒绝 |
 
 三点值得注意，也正是同一份模型定义不能想当然认为在哪儿都一样的原因：
 
@@ -197,7 +269,38 @@ Oracle 的写法。
 - **框架不校验这个值。** 不会拿它和连接去对，所以一个和会话当前命名空间不一样的
   `schema_name`，要么指向另一个对象，要么哪儿都指不到。
 
-## 7. 怎么分层比较省事
+## 8. SQLite,以及这份指南为什么用 PostgreSQL 来说
+
+本包内置的后端是 SQLite,而 **SQLite 没有 schema 层** —— 不是弱,是没有。未限定
+的名字解析到数据库文件本身;带限定的名字指的是一个**附加数据库**,完全是另一套
+机制。
+
+所以在内置后端上,`__schema_name__` 是个错误:
+
+```python
+class User(ActiveRecord):
+    __schema_name__ = "app"      # 在 SQLite 上会报错
+```
+
+它报错而不是被忽略,原因正在这里。一个静默丢弃 schema 的模型,会在每一条查询上
+去读写默认 schema,而生成的 SQL 里没有任何迹象能看出这一点 —— 正是这份指南整体
+要防的那种失败。在没有命名空间的后端上,**根本不要传 schema**:让
+`__schema_name__` 留空,由连接去决定。
+
+那么这份文档还有个诚实的问题:既然内置后端一个都用不上,为什么通篇是
+`"app"."users"`?
+
+因为这里其余的 SQL 表面是照着 PostgreSQL 长出来的。通用表达式层以 PostgreSQL
+方言为基准 —— 通用 `TRUNCATE` 带着 `RESTART IDENTITY` 和 `CASCADE`,因为
+PostgreSQL 有这两个选项;没有的方言会明确拒绝,而不是默默忽略。schema 限定也是
+同一回事:参考写法、关于三段引用与别名的规则,以及模型与 DDL 不一致时的行为,
+都来自 PostgreSQL。
+
+把下面的例子当作 PostgreSQL 的写法,再查 §7 看你的后端对同一个模型会怎样。
+与方言无关的部分 —— schema 从哪来、什么时候被读取、DDL 为什么得自己带 —— 在哪
+里都成立。
+
+## 9. 怎么分层比较省事
 
 让 `search_path` 管常规情况，`__schema_name__` 只留给例外：
 

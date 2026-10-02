@@ -186,7 +186,86 @@ On a backend without namespaces, supplying a schema raises
 in practice: it has no schema layer, so a qualified name would reach the server
 as something it rejects.
 
-## 5. Qualifier binding
+## 5. What each kind of query does with the schema
+
+`__schema_name__` is read in one place — `schema_name()` — and every query the
+model builds passes it down. So the schema follows the model without each query
+type having to know about it. What differs is the *shape* of the SQL, which is
+worth knowing before you read a generated statement.
+
+The examples below are PostgreSQL's rendering, measured rather than
+illustrative.
+
+### ActiveQuery — DML carries the schema
+
+A model's `query()` qualifies every range it builds, which covers `SELECT`,
+`INSERT`, `UPDATE` and `DELETE` alike:
+
+```python
+ShopOrder.query().select(ShopOrder.c.id).to_sql()[0]
+# SELECT "shop"."orders"."id" FROM "shop"."orders"
+```
+
+Note the column is three-part: the range is unaliased, so the schema qualifies
+it all the way through. Once an alias is in play the schema is dropped from the
+column, because the alias already identifies the range:
+
+```python
+# FROM "shop"."orders" AS "o"
+# SELECT "o"."id"        <- not "shop"."orders"."id"
+```
+
+This is not a simplification. A schema-qualified reference to an aliased range
+is a syntax error on PostgreSQL and SQL Server.
+
+### Joins — each side qualifies its own range
+
+No additional configuration is required. Each model contributes its own
+namespace, so a single statement may span two:
+
+```python
+Order.query().join(Customer, on=Order.c.customer_id == Customer.c.id)
+# FROM "shop"."orders" JOIN "crm"."customers"
+#   ON "shop"."orders"."customer_id" = "crm"."customers"."id"
+```
+
+### SetOperationQuery — no schema of its own
+
+`UNION`, `INTERSECT` and `EXCEPT` combine queries rather than naming an object,
+so there is nothing for them to qualify. Each branch retains its own:
+
+```python
+# SELECT ... FROM "shop"."orders"
+# UNION
+# SELECT ... FROM "crm"."customers"
+```
+
+One statement spanning two namespaces is legal on PostgreSQL, so a `UNION` over
+two schema-bound models needs no special handling.
+
+### CTEQuery — the CTE name is not in a namespace
+
+A CTE is named for the rest of the query, not for the database, so its name is
+never qualified — qualifying it would look for a table called `recent_orders` in
+that schema and fail:
+
+```python
+# WITH recent_orders AS (SELECT "shop"."orders"."id" FROM "shop"."orders")
+# SELECT "recent_orders"."id" FROM "recent_orders"
+```
+
+The inner `SELECT` still carries the model's schema; only the CTE's own name is
+bare.
+
+### Soft delete — restore carries it too
+
+`restore()` rebuilds an `UPDATE` against the model's range, so it qualifies the
+same way `delete()` does. A restore that dropped the schema would clear
+`deleted_at` on the same-named table in the default schema and leave the
+intended row soft-deleted — a cross-namespace write that no read-only assertion
+would catch.
+
+## 6. Qualifier binding
 
 `Model.c.field` snapshots `table_name()` and `schema_name()` **when the
 expression is built**, not when it is executed:
@@ -200,7 +279,7 @@ condition = Order.c.total > 100     # rebuild to pick up the new schema
 The same applies to `table_name()`. For tenant-style switching, rebuild
 conditions after switching, or use one model class per namespace.
 
-## 6. Backend support matrix
+## 7. Backend support matrix
 
 What a `schema_name` means is defined by each backend. All of them accept the
 parameter; they do not agree on what it names. The table records what each one
@@ -216,8 +295,8 @@ PostgreSQL / SQL Server / Oracle spelling.
 | BigQuery | yes | a dataset; columns are never schema-qualified | `` `app.users` `` |
 | MariaDB | yes | **a database** — `schema` is a synonym for `database`; `CREATE SCHEMA` and `SHOW SCHEMAS` are accepted and list databases | `` `app`.`users` `` |
 | MySQL | yes | **a database** — same synonymy as MariaDB | `` `app`.`users` `` |
-| ClickHouse | no | **a database** — there is no schema level; `CREATE SCHEMA` and `SHOW SCHEMAS` are syntax errors, and no `currentSchema()` function exists | `` `app`.`users` `` |
-| SQLite, Firebird | no | no namespace layer | rejected |
+| ClickHouse | yes | **a database** — there is no schema level; `CREATE SCHEMA` and `SHOW SCHEMAS` are syntax errors, and no `currentSchema()` function exists | `` `app`.`users` `` |
+| SQLite (the built-in), Firebird | no | no namespace layer | **refused** — see §8 |
 
 Three things follow, and they are the reason a single model definition cannot
 be assumed to mean the same thing everywhere:
@@ -231,11 +310,51 @@ and MariaDB `schema` and `database` are the same word, so `CREATE SCHEMA` and
 with the word removed: it has no `CREATE SCHEMA` at all, yet a `schema_name`
 is still accepted and used as the database, so `supports_schema()` is `True`
 -- there is no distinct schema layer, but the value is usable.
-- **The value is passed through as given.** Nothing here checks it against the
-  connection, so a `schema_name` naming a different namespace than the session's
-  current one addresses a different object — or none.
+- **The value is checked, but not against the connection.** A `schema_name`
+  must be `None` or a non-empty string, and the dialect must be able to express
+  a namespace at all; both are enforced while the statement is rendered (§7).
+  What is *not* checked is whether the namespace exists or whether it is the one
+  the session is using, so a `schema_name` naming a different namespace addresses
+  a different object — or none.
 
-## 7. Recommended layering
+## 8. SQLite, and why this guide is written in PostgreSQL's dialect
+
+The backend this package ships with is SQLite, and **SQLite has no schema
+layer** — not a weak one, none. An unqualified name resolves against the
+database file; a qualified one names an *attached* database, which is a
+different mechanism entirely.
+
+So on the built-in backend, `__schema_name__` is a mistake:
+
+```python
+class User(ActiveRecord):
+    __schema_name__ = "app"      # on SQLite this raises
+```
+
+It raises rather than being ignored, and that is deliberate. A model that
+silently lost its schema would read and write the default schema instead, on
+every query, with nothing in the generated SQL to indicate it — the failure
+mode this guide is arranged to prevent. On a backend without a namespace, **do
+not pass a schema at all**: leave `__schema_name__` unset and let the connection
+determine the namespace.
+
+This raises a reasonable question about this document: if the built-in backend
+can make no use of any of it, why do the examples throughout use
+`"app"."users"`?
+
+Because the rest of the SQL surface here is written to PostgreSQL. PostgreSQL is
+the dialect the core expression layer is shaped around — the generic `TRUNCATE`
+carries `RESTART IDENTITY` and `CASCADE` because PostgreSQL has them, and a
+dialect that does not rejects them rather than ignoring them. Schema
+qualification is the same story: the reference spelling, the reference rules
+about three-part references and aliases, and the reference behaviour when a
+model and its DDL disagree all come from PostgreSQL.
+
+Read the examples below as PostgreSQL's rendering, and consult §7 for the
+behaviour of your own backend with the same model. The parts that are *not* dialect-specific — where a schema
+comes from, when it is read, that DDL needs its own — hold everywhere.
+
+## 9. Recommended layering
 
 Let `search_path` carry the common case and reserve `__schema_name__` for the
 exception:
