@@ -7,7 +7,7 @@ This module provides expression classes for CREATE/DROP virtual table operations
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLQueryAndParams
+from rhosocial.activerecord.backend.expression.bases import BaseExpression, SQLQueryAndParams
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase

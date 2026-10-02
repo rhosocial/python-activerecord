@@ -8,7 +8,7 @@ ColumnInfoExpression with SQLite-specific parameters.
 
 from typing import Optional, TYPE_CHECKING
 
-from ....expression.introspection import ColumnInfoExpression
+from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase

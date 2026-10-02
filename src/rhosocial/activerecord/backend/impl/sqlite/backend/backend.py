@@ -417,7 +417,7 @@ class SQLiteBackend(
         neither of which is a session-level schema. There is no value to return
         and substituting ``main`` would be a guess.
         """
-        from ....expression.functions import current_schema_unsupported
+        from rhosocial.activerecord.backend.expression.functions import current_schema_unsupported
 
         return current_schema_unsupported(
             self.dialect,

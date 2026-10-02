@@ -10,7 +10,7 @@ For FTS5 MATCH predicates, use SQLiteMatchPredicate from the predicates module.
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLPredicate, SQLValueExpression, SQLQueryAndParams
+from rhosocial.activerecord.backend.expression.bases import BaseExpression, SQLPredicate, SQLValueExpression, SQLQueryAndParams
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase

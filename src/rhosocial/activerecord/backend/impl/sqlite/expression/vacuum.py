@@ -7,7 +7,7 @@ This module provides SQLiteVacuumExpression and SQLiteAnalyzeExpression.
 
 from typing import Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLQueryAndParams
+from rhosocial.activerecord.backend.expression.bases import BaseExpression, SQLQueryAndParams
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase

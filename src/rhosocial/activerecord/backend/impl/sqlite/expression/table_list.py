@@ -8,7 +8,7 @@ TableListExpression with SQLite-specific parameters.
 
 from typing import Optional, TYPE_CHECKING
 
-from ....expression.introspection import TableListExpression
+from rhosocial.activerecord.backend.expression.introspection import TableListExpression
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase

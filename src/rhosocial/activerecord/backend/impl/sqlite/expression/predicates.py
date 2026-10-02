@@ -8,11 +8,11 @@ predicate for full-text search operations.
 
 from typing import List, Optional, TYPE_CHECKING
 
-from ....expression.bases import SQLPredicate
+from rhosocial.activerecord.backend.expression.bases import SQLPredicate
 
 if TYPE_CHECKING:
     from .....backend.dialect.base import SQLDialectBase
-    from ....expression.bases import SQLQueryAndParams
+    from rhosocial.activerecord.backend.expression.bases import SQLQueryAndParams
 
 
 class SQLiteMatchPredicate(SQLPredicate):
