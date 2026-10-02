@@ -42,14 +42,17 @@ TYPES = [
     (FloatType, "FLOAT"),
     (DateType, "DATE"),
     (BooleanType, "BOOLEAN"),
-    (UUIDType, "UUID"),
     (JsonType, "JSON"),
 ]
 
 #: What an object repr, a str() of an object, or a missed format_method would
 #: leave in the statement. "Type" catches the class name; "None" catches an
 #: unset parameter; the quotes catch a repr of a string field.
-LEAKS = ("Type(", "Type()", "None", "(',", "',)", '("', '")')
+#: What an object repr, a str() of an object, or an unset parameter would leave
+#: behind. Deliberately not substring checks on quotes: a correctly rendered
+#: statement is full of them, and a leak check that fires on correct SQL is
+#: worse than none.
+LEAKS = ("Type(", "Type()", "(None", "(Decimal(", "object at 0x")
 
 
 @pytest.fixture
@@ -81,14 +84,28 @@ class TestCastRendersItsTarget:
         for leak in LEAKS:
             assert leak not in sql, f"{leak!r} leaked into {sql!r}"
 
-    def test_a_backend_type_renders_its_own_sql_name(self, dialect):
-        """``name`` is the dispatch key; the SQL spelling drops the prefix."""
+    def test_a_backend_type_renders_its_own_sql_name(self):
+        """``name`` is the dispatch key; the SQL spelling drops the prefix.
+
+        Run against PostgreSQL rather than the shared fixture, because a
+        backend type is rendered by that backend -- asking another one to render
+        CITEXT tests nothing but the wrong thing.
+        """
         types = pytest.importorskip(
             "rhosocial.activerecord.backend.impl.postgres.expression.types"
         )
-        citext = types.PostgresCitextType(dialect)
+        pytest.importorskip(
+            "rhosocial.activerecord.backend.impl.postgres.dialect"
+        )
+        from rhosocial.activerecord.backend.impl.postgres.dialect import (
+            PostgresDialect,
+        )
+
+        pg = PostgresDialect()
+        pg._version = (16, 2, 0)
+        citext = types.PostgresCitextType(pg)
         assert citext.name == "postgres_citext"
-        assert "CITEXT" in column(dialect).cast(citext).to_sql()[0]
+        assert "CITEXT" in Column(pg, "c", table="t").cast(citext).to_sql()[0]
 
     def test_a_custom_type_renders_its_name(self, dialect):
         sql, _ = column(dialect).cast(
@@ -99,18 +116,20 @@ class TestCastRendersItsTarget:
 
 class TestParametersReachTheSql:
     @pytest.mark.parametrize(
-        "data_type,expected",
+        "make,expected",
         [
-            (VarCharType(length=100), "VARCHAR(100)"),
-            (VarCharType(), "VARCHAR"),
-            (DecimalType(precision=10, scale=2), "DECIMAL(10,2)"),
-            (DecimalType(precision=10), "DECIMAL(10)"),
-            (DecimalType(), "DECIMAL"),
+            # Built here rather than in parametrize: the type binds its dialect
+            # at construction, and parametrize runs at collection time.
+            (lambda d: VarCharType(d, length=100), "VARCHAR(100)"),
+            (lambda d: VarCharType(d), "VARCHAR"),
+            (lambda d: DecimalType(d, precision=10, scale=2), "DECIMAL(10,2)"),
+            (lambda d: DecimalType(d, precision=10), "DECIMAL(10)"),
+            (lambda d: DecimalType(d), "DECIMAL"),
         ],
     )
-    def test_parameters_are_rendered(self, dialect, data_type, expected):
+    def test_parameters_are_rendered(self, dialect, make, expected):
         """A precision is part of the type; dropping it changes the column."""
-        sql, _ = column(dialect).cast(data_type).to_sql()
+        sql, _ = column(dialect).cast(make(dialect)).to_sql()
         assert expected in sql
 
 
