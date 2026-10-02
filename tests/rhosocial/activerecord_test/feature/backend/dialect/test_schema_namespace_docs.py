@@ -184,13 +184,24 @@ class TestDdlStatementsAcceptSchema:
         ref = TableExpression(dialect, TABLE, schema_name=SCHEMA)
         assert ref.to_sql()[0] == f'"{SCHEMA}"."{TABLE}"'
 
-    def test_t41_truncate_keeps_its_own_schema_field(self):
-        """``TruncateExpression`` names the field ``schema``, and qualifies."""
+    def test_t41_truncate_names_the_field_schema_name(self):
+        """``TruncateExpression`` uses ``schema_name`` like every other statement.
+
+        It used to be the one object statement carrying the namespace in a field
+        called ``schema``, and it did not validate it -- an empty string was
+        caught during rendering by the TableExpression the formatter built, so
+        the error named that object rather than the one the caller constructed.
+        """
         import inspect
 
         params = inspect.signature(TruncateExpression.__init__).parameters
-        assert "schema" in params
-        assert params["schema"].default is None
+        assert "schema_name" in params
+        assert params["schema_name"].default is None
+        assert "schema" not in params, (
+            "the old name must be gone rather than kept as an alias: an alias "
+            "would be accepted and ignored, which is the silent version of the "
+            "defect the rename fixes"
+        )
 
     def test_t41_create_table_only_carries_schema_via_table_expression(self, dialect):
         """``CreateTableExpression`` can still be schema-qualified -- by hand."""
