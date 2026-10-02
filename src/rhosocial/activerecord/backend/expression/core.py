@@ -446,7 +446,6 @@ class NumericValueExpression(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    DateTimeMixin,
     NumericValueMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
