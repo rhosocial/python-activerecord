@@ -274,7 +274,7 @@ class JSONValueExpression(
 class ArrayValueExpression(
     AliasableMixin,
     ComparisonMixin,
-ArrayMixin,
+    ArrayMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
