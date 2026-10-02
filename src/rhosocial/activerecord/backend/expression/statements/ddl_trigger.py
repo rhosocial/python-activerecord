@@ -106,11 +106,6 @@ class CreateTriggerExpression(BaseExpression):
         self.referencing = referencing
         self.if_not_exists = if_not_exists
 
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_trigger_statement"
-
 
 class DropTriggerExpression(BaseExpression):
     """
@@ -151,8 +146,3 @@ class DropTriggerExpression(BaseExpression):
         )
         self.table_name = table_name
         self.if_exists = if_exists
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_trigger_statement"

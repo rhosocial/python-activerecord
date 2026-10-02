@@ -106,11 +106,6 @@ class CreateIndexExpression(BaseExpression):
         self.tablespace = tablespace
         self.concurrent = concurrent
 
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_index_statement"
-
 
 class DropIndexExpression(BaseExpression):
     """
@@ -168,11 +163,6 @@ class DropIndexExpression(BaseExpression):
         self.table_name = table_name
         self.if_exists = if_exists
         self.concurrent = concurrent
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_index_statement"
 
 
 class CreateFulltextIndexExpression(BaseExpression):
@@ -247,11 +237,6 @@ class CreateFulltextIndexExpression(BaseExpression):
         self.parser = parser
         self.if_not_exists = if_not_exists
 
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_fulltext_index_statement"
-
 
 class DropFulltextIndexExpression(BaseExpression):
     """
@@ -302,8 +287,3 @@ class DropFulltextIndexExpression(BaseExpression):
         )
         self.table_name = table_name
         self.if_exists = if_exists
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_fulltext_index_statement"

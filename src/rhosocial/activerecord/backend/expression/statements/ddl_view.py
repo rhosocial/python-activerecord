@@ -134,11 +134,6 @@ class CreateViewExpression(BaseExpression):
         self.if_not_exists = if_not_exists  # Whether to use IF NOT EXISTS
         self.options = options or ViewOptions()
 
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_view_statement"
-
 
 class DropViewExpression(BaseExpression):
     """
@@ -192,11 +187,6 @@ class DropViewExpression(BaseExpression):
         )
         self.if_exists = if_exists
         self.cascade = cascade
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_view_statement"
 
 
 class CreateMaterializedViewExpression(BaseExpression):
@@ -278,11 +268,6 @@ class CreateMaterializedViewExpression(BaseExpression):
         self.with_data = with_data
         self.storage_options = storage_options or {}
 
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_materialized_view_statement"
-
 
 class DropMaterializedViewExpression(BaseExpression):
     """
@@ -337,11 +322,6 @@ class DropMaterializedViewExpression(BaseExpression):
         )
         self.if_exists = if_exists
         self.cascade = cascade
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_materialized_view_statement"
 
 
 class RefreshMaterializedViewExpression(BaseExpression):
@@ -400,8 +380,3 @@ class RefreshMaterializedViewExpression(BaseExpression):
         )
         self.concurrent = concurrent
         self.with_data = with_data
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_refresh_materialized_view_statement"

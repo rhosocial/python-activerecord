@@ -61,11 +61,6 @@ class CreateFunctionExpression(BaseExpression):
         self.language = language
         self.or_replace = or_replace
 
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_function_statement"
-
 
 class DropFunctionExpression(BaseExpression):
     """SQL/PSM standard DROP FUNCTION statement.
@@ -107,8 +102,3 @@ class DropFunctionExpression(BaseExpression):
         self.if_exists = if_exists
         self.parameters = parameters
         self.cascade = cascade
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_function_statement"

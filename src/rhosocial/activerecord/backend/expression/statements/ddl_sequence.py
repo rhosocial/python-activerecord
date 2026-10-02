@@ -86,11 +86,6 @@ class CreateSequenceExpression(BaseExpression):
         self.order = order
         self.owned_by = owned_by
 
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_sequence_statement"
-
 
 class DropSequenceExpression(BaseExpression):
     """
@@ -136,11 +131,6 @@ class DropSequenceExpression(BaseExpression):
             schema_name, type(self).__name__
         )
         self.if_exists = if_exists
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_sequence_statement"
 
 
 class AlterSequenceExpression(BaseExpression):
@@ -213,8 +203,3 @@ class AlterSequenceExpression(BaseExpression):
         self.cache = cache
         self.order = order
         self.owned_by = owned_by
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_alter_sequence_statement"
