@@ -9,9 +9,14 @@ from ..core import Column, FunctionCall, Literal
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+    from ..types._base import DataType
 
 
-def cast(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], target_type: str) -> "SQLValueExpression":
+def cast(
+    dialect: "SQLDialectBase",
+    expr: Union[str, "BaseExpression"],
+    target_type: "DataType",
+) -> "SQLValueExpression":
     """
     Creates a type cast around an expression.
 
@@ -20,17 +25,23 @@ def cast(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], target_t
     exactly this node.
 
     Usage rules:
-    - To generate CAST(column AS type), pass a Column object: cast(dialect, Column(dialect, "column_name"), "INTEGER")
-    - To generate CAST("col" AS type), pass a string: cast(dialect, "column_name", "INTEGER")
+    - To generate CAST(column AS type), pass a Column object and a type:
+      cast(dialect, Column(dialect, "column_name"), IntegerType(dialect))
+    - To generate CAST("col" AS type), pass the column name as a string.
 
     Args:
         dialect: The SQL dialect instance
         expr: The expression to cast. If a string is passed, it's treated as a column name.
               If a BaseExpression is passed, it's used as-is.
-        target_type: The target data type to cast to.
+        target_type: The type to cast to, as a DataType instance. A string is
+            refused: the type position of a cast cannot take a bound
+            parameter, so a string there is SQL code rather than SQL data.
 
     Returns:
         A new CastExpression node wrapping the given expression
+
+    Raises:
+        TypeError: If target_type is not a DataType.
     """
     from ..core import CastExpression, Column
 

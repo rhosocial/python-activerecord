@@ -31,6 +31,7 @@ from rhosocial.activerecord.backend.expression.value_types import (
     value_type_of,
     wrap_as,
 )
+from rhosocial.activerecord.backend.expression.types import VarCharType, JsonType, CustomType
 
 
 @pytest.fixture
@@ -184,9 +185,9 @@ def test_an_unknown_sql_type_is_not_guessed():
 
 
 def test_cast_takes_its_family_from_the_target_type(dialect, columns):
-    assert value_type_of(F.cast(dialect, columns["int"], "VARCHAR(10)")) == STRING
-    assert value_type_of(F.cast(dialect, columns["int"], "JSON")) == JSON
-    assert value_type_of(F.cast(dialect, columns["int"], "GEOMETRY")) is None
+    assert value_type_of(F.cast(dialect, columns["int"], VarCharType(dialect, length=10))) == STRING
+    assert value_type_of(F.cast(dialect, columns["int"], JsonType(dialect))) == JSON
+    assert value_type_of(F.cast(dialect, columns["int"], CustomType(dialect, raw="GEOMETRY"))) is None
 
 
 # ---------------------------------------------------------------------------
