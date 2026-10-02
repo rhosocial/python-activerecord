@@ -47,6 +47,7 @@ Usage::
 from ._base import DataType
 from .array import ArrayType
 from .custom import CustomType
+from ..type_name import InvalidTypeNameError
 from .enum_ import EnumType
 from .integer import TinyIntType, SmallIntType, IntType, IntegerType, BigIntType
 from .numeric import FloatType, RealType, DoubleType, DecimalType
@@ -80,6 +81,7 @@ __all__ = [
     "RealType",
     "DoubleType",
     "DecimalType",
+    "InvalidTypeNameError",
     # string
     "CharType",
     "VarCharType",

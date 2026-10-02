@@ -120,14 +120,13 @@ class ExpressionMixin(FunctionCallMixin):
 
         ``CAST(expr AS type)`` is a unary tree node; the wrapped expression
         renders through its own ``to_sql()`` and the target through
-        :meth:`~...data_type.DataTypeMixin.format_data_type`.
+        its own ``to_sql()``.
         """
         expr_sql, params = expr.expression.to_sql()
-        # The target renders through format_data_type, so a backend's own
-        # spelling and escaping apply. Nothing here formats the type as a
-        # string: the type position cannot take a bound parameter, which is
-        # why it holds a DataType rather than text.
-        type_sql, _ = self.format_data_type(expr.target_type)
+        # The target is an expression, so it renders itself and this
+        # concatenates. Interpolating it would have produced
+        # `col::IntegerType()` instead of `col::INTEGER`.
+        type_sql, _ = expr.target_type.to_sql()
         sql = f"CAST({expr_sql} AS {type_sql})"
         if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
