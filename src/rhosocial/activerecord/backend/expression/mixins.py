@@ -27,9 +27,18 @@ ensuring consistent SQL generation across the expression tree.
 """
 
 import copy
-from typing import Any, Optional, Union, List, TYPE_CHECKING, TypeVar
+from typing import (
+    Any,
+    Optional,
+    Protocol,
+    Union,
+    List,
+    TYPE_CHECKING,
+    TypeVar,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ..dialect import SQLDialectBase
     from .bases import BaseExpression, SQLValueExpression, SQLPredicate
     # Annotations only. The classes themselves are imported inside the methods
     # that need them, because core imports this module.
@@ -56,6 +65,25 @@ if TYPE_CHECKING:  # pragma: no cover
     from .advanced_functions import JSONExpression
 
 T = TypeVar("T")
+_ResultT = TypeVar("_ResultT")
+
+
+class _ValueExpression(Protocol[_ResultT]):
+    """How a value expression class is built, as far as ``_retype`` cares.
+
+    Not ``type[BaseExpression]``: the value classes are built from a dialect
+    and the call they wrap, while ``BaseExpression`` takes only a dialect, so
+    bounding to it makes the two-argument construction an error. What every
+    ``as_*`` method needs is exactly this.
+
+    The wrapped node is typed loosely on purpose. A mixin cannot say what class
+    it is mixed into, so naming FunctionCall here would need ``self`` annotated
+    as one, which mypy only allows if this class subclasses it. The return type
+    is what the chain is checked against, and that is exact; the node being
+    passed is the one already in hand.
+    """
+
+    def __call__(self, dialect: "SQLDialectBase", call: Any) -> _ResultT: ...
 
 
 class AliasableMixin:
@@ -626,46 +654,61 @@ class ResultTypeMixin:
     never reaches this mixin.
     """
 
-    def _retype(self, family: str, cls) -> "BaseExpression":
-        """Re-wrap this expression as the value class for *family*.
+    if TYPE_CHECKING:
+        from ..dialect import SQLDialectBase
+        from .core import FunctionCall
+
+        #: Declared here because a mixin is not a BaseExpression, so the
+        #: attribute arrives with the class it is mixed into. ``dialect``
+        #: rather than ``_dialect``: reading it validates that one is bound.
+        dialect: "SQLDialectBase"
+
+    def _retype(self, cls: _ValueExpression[_ResultT]) -> _ResultT:
+        """Re-wrap this expression as a value expression of *cls*.
 
         Only the Python class changes. The node, and therefore the SQL, is left
         exactly as it was -- the statement was already correct; what was missing
         was the knowledge of what it yields.
 
+        Generic in the class rather than returning BaseExpression, so the
+        declared return type of each ``as_*`` method is the class it names.
+        Returning the base type would leave the checker unable to tell that
+        ``as_text()`` is text, which is the whole point of the method.
+
+        Returns the class it is given, not a base type, so each ``as_*`` method
+        declares what the chain continues as.
+
         Args:
-            family: The value family being claimed. Named so the call site
-                reads as a statement about the type rather than a lookup.
             cls: The expression class that carries those operations.
 
         Returns:
             A value expression of *cls*.
         """
-        return cls(self._dialect, self)
+        return cls(self.dialect, self)
 
     def as_text(self) -> "StringValueExpression":
         """This yields text, whatever the data turns out to be."""
         from .core import StringValueExpression
 
-        return self._retype("string", StringValueExpression)
+        return self._retype(StringValueExpression)
 
     def as_number(self) -> "NumericValueExpression":
         """This yields a fractional number."""
         from .core import NumericValueExpression
 
-        return self._retype("numeric", NumericValueExpression)
+        return self._retype(NumericValueExpression)
 
     def as_integer(self) -> "IntegerValueExpression":
         """This yields a whole number."""
         from .core import IntegerValueExpression
 
-        return self._retype("integer", IntegerValueExpression)
+        return self._retype(IntegerValueExpression)
 
     def as_datetime(self) -> "DateTimeValueExpression":
         """This yields a date or a time."""
         from .core import DateTimeValueExpression
 
-        return self._retype("datetime", DateTimeValueExpression)
+        return self._retype(DateTimeValueExpression)
 
     def as_boolean(self) -> "BooleanValueExpression":
         """This yields a truth value.
@@ -676,31 +719,31 @@ class ResultTypeMixin:
         """
         from .core import BooleanValueExpression
 
-        return self._retype("boolean", BooleanValueExpression)
+        return self._retype(BooleanValueExpression)
 
     def as_array(self) -> "ArrayValueExpression":
         """This yields a sequence."""
         from .core import ArrayValueExpression
 
-        return self._retype("array", ArrayValueExpression)
+        return self._retype(ArrayValueExpression)
 
     def as_json(self) -> "JSONValueExpression":
         """This yields a JSON document."""
         from .core import JSONValueExpression
 
-        return self._retype("json", JSONValueExpression)
+        return self._retype(JSONValueExpression)
 
     def as_uuid(self) -> "UUIDValueExpression":
         """This yields a UUID."""
         from .core import UUIDValueExpression
 
-        return self._retype("uuid", UUIDValueExpression)
+        return self._retype(UUIDValueExpression)
 
     def as_binary(self) -> "BinaryValueExpression":
         """This yields bytes."""
         from .core import BinaryValueExpression
 
-        return self._retype("binary", BinaryValueExpression)
+        return self._retype(BinaryValueExpression)
 
 
 class NumericValueMixin:
@@ -818,6 +861,7 @@ class NumericValueMixin:
         """Tangent. ``TAN(col)``"""
         return self._numeric_op("tan")
 
+
 class IntegerValueMixin:
     """Operations on an **integer**-valued expression.
 
@@ -871,7 +915,6 @@ class IntegerValueMixin:
         from .functions import string as _string
 
         return _string.position(self._dialect, substring, self)
-
 
 
 class StringValueMixin:

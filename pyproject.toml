@@ -346,7 +346,11 @@ select = ["E", "F", "B"]
 ignore = ["B024"]  # Abstract base classes without abstract methods are intentional
 
 [tool.mypy]
-python_version = "3.8"
+# The oldest version this mypy can check. It refuses anything below 3.9, so
+# the 3.8 floor declared in classifiers and in the pydantic pins is no longer
+# machine-checked -- the two have drifted apart and this records it rather than
+# leaving a config that fails to load and looks like it ran.
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
