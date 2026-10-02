@@ -1,6 +1,9 @@
 # src/rhosocial/activerecord/backend/base/__init__.py
 from abc import ABC, abstractmethod
 
+from typing import Optional
+
+from ..dialect.exceptions import UnsupportedFeatureError
 from .base import StorageBackendBase
 from .connection import AsyncConnectionMixin, ConnectionMixin
 from .execution import AsyncExecutionMixin, ExecutionMixin
@@ -51,6 +54,32 @@ class StorageBackend(
     @abstractmethod
     def introspect_and_adapt(self) -> None: ...
 
+    def get_current_schema(self) -> Optional[str]:
+        """Return the namespace an unqualified name resolves against.
+
+        A backend that can ask the server overrides this -- ``current_schema()``
+        on PostgreSQL, ``SCHEMA_NAME()`` on SQL Server,
+        ``SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')`` on Oracle, and the database
+        itself where there is no schema namespace of its own (MySQL, MariaDB,
+        ClickHouse, Snowflake).
+
+        Raises:
+            UnsupportedFeatureError: The backend has no server-side notion to
+                report, which is the case for SQLite and BigQuery. Default rather
+                than abstract because that answer is legitimate: a backend
+                without a namespace does not have to invent a method to say so,
+                and requiring one would break every backend outside this
+                repository for no gain.
+        """
+        raise UnsupportedFeatureError(
+            dialect_name=self.dialect.name,
+            feature_name="get_current_schema",
+            suggestion=(
+                "The server has no namespace to report; qualify names "
+                "explicitly instead."
+            ),
+        )
+
 
 class AsyncStorageBackend(
     StorageBackendBase,
@@ -84,6 +113,26 @@ class AsyncStorageBackend(
     async def get_server_version(self) -> tuple: ...
     @abstractmethod
     async def introspect_and_adapt(self) -> None: ...
+
+    async def get_current_schema(self) -> Optional[str]:
+        """Return the namespace an unqualified name resolves against.
+
+        The async counterpart of :meth:`StorageBackend.get_current_schema`, with
+        the same default: a backend that cannot ask the server inherits the
+        error instead of having to provide one.
+
+        Raises:
+            UnsupportedFeatureError: The backend has no server-side notion to
+                report.
+        """
+        raise UnsupportedFeatureError(
+            dialect_name=self.dialect.name,
+            feature_name="get_current_schema",
+            suggestion=(
+                "The server has no namespace to report; qualify names "
+                "explicitly instead."
+            ),
+        )
 
 
 __all__ = [
