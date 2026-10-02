@@ -307,7 +307,7 @@ class TruncateMixin:
                 f"{self.name} does not support TRUNCATE with CASCADE."
             )
         table_sql = TableExpression(
-            self, expr.table_name, schema_name=expr.schema
+            self, expr.table_name, schema_name=expr.schema_name
         ).to_sql()[0]
         sql = f"TRUNCATE TABLE {table_sql}"
         if expr.restart_identity:

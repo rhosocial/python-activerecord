@@ -215,3 +215,59 @@ class TestNoFormatterDropsSchema:
         dialect = SQLiteDialect()
         with pytest.raises(UnsupportedFeatureError):
             dialect.format_table(TableExpression(dialect, "orders", schema_name=SCHEMA))
+
+
+class TestTruncateQualifiesLikeEverythingElse:
+    """TRUNCATE was the last statement carrying its schema under another name.
+
+    It took ``schema`` where every other object took ``schema_name``, and stored
+    it without validating -- so an empty string was caught only during rendering,
+    by the TableExpression the formatter built, and the error named that object
+    rather than the one the caller had constructed.
+    """
+
+    @pytest.fixture
+    def dialect(self):
+        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
+        # SQLite refuses TRUNCATE outright, so the generic rendering path is
+        # exercised through the dummy dialect, which supports it.
+        return DummyDialect()
+
+    def test_carries_schema_name(self, dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
+            TruncateExpression,
+        )
+
+        assert TruncateExpression(dialect, "orders", schema_name=SCHEMA).to_sql()[0] == (
+            f'TRUNCATE TABLE "{SCHEMA}"."orders"'
+        )
+
+    def test_rejects_the_empty_string_at_construction(self, dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
+            TruncateExpression,
+        )
+
+        with pytest.raises(ValueError) as exc:
+            TruncateExpression(dialect, "orders", schema_name="")
+        assert "TruncateExpression" in str(exc.value), (
+            "the error must name the expression the caller built, not the "
+            f"TableExpression the formatter built: {exc.value}"
+        )
+
+    def test_the_old_parameter_name_is_gone(self, dialect):
+        """A clean break rather than a silent alias.
+
+        Accepting ``schema`` as a deprecated alias would mean a caller who kept
+        using it gets no error at all -- which is the failure this branch is
+        about. A TypeError is the honest outcome for a renamed keyword.
+        """
+        import inspect
+
+        from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
+            TruncateExpression,
+        )
+
+        assert "schema" not in inspect.signature(TruncateExpression.__init__).parameters
+        with pytest.raises(TypeError):
+            TruncateExpression(dialect, "orders", schema="app")

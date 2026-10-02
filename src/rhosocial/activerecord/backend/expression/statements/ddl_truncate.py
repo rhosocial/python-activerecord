@@ -4,6 +4,7 @@
 from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..core import _validate_schema_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -46,7 +47,7 @@ class TruncateExpression(BaseExpression):
         table_name: str,
         restart_identity: bool = False,  # RESTART IDENTITY option (PostgreSQL)
         cascade: bool = False,  # CASCADE option (PostgreSQL)
-        schema: Optional[str] = None,
+        schema_name: Optional[str] = None,
     ):
         """
         Initialize a TRUNCATE expression with the specified parameters.
@@ -56,12 +57,16 @@ class TruncateExpression(BaseExpression):
             table_name: Name of the table to truncate
             restart_identity: Whether to restart identity counters (PostgreSQL-specific)
             cascade: Whether to truncate dependent tables as well (PostgreSQL-specific)
+            schema_name: Namespace to qualify the table with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
         """
         super().__init__(dialect)
         self.table_name = table_name
         self.restart_identity = restart_identity  # For PostgreSQL-style RESTART IDENTITY
         self.cascade = cascade  # For PostgreSQL-style CASCADE
-        self.schema = schema
+        self.schema_name = _validate_schema_name(schema_name, type(self).__name__)
 
     @property
     def format_method(self) -> str:
