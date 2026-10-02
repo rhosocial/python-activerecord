@@ -938,12 +938,12 @@ class TypeCastingMixin:
 
     Example:
     >>> col = Column(dialect, "price")
-    >>> expr = col.cast("INTEGER")
+    >>> expr = col.cast(IntegerType(col.dialect))
     >>> # Generates: CAST("price" AS INTEGER)
     >>> # PostgreSQL generates: "price"::INTEGER
     >>>
     >>> # Chained conversions (each cast nests the previous node)
-    >>> expr3 = col.cast("money").cast("numeric").cast("float8")
+    >>> expr3 = col.cast(MoneyType(col.dialect)).cast(NumericType(col.dialect))
     >>> # Generates: CAST(CAST(CAST("price" AS money) AS numeric) AS float8)
     >>> # PostgreSQL generates: "price"::money::numeric::float8
     """
@@ -969,7 +969,7 @@ class TypeCastingMixin:
 
         # Alias decorates the outermost rendered form: wrapping an aliased
         # expression in a CAST moves the alias onto the CAST node, so
-        # `col.cast("INTEGER").as_("v")` and `col.as_("v").cast("INTEGER")`
+        # `col.cast(IntType(...)).as_("v")` and `col.as_("v").cast(IntType(...))`
         # both render `CAST(col AS INTEGER) AS v`. The original expression
         # is only mutated when it is itself a temporary copy (the as_()
         # convention returns copies), so shared nodes stay untouched.

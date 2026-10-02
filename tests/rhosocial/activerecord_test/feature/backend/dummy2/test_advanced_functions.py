@@ -15,6 +15,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
 )
 from rhosocial.activerecord.backend.expression.core import Subquery
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType
 
 
 class TestCaseExpression:
@@ -82,7 +83,7 @@ class TestCastExpression:
     def test_cast_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic CAST expression functionality."""
         col = Column(dummy_dialect, "id")
-        expr = col.cast("INTEGER")
+        expr = col.cast(IntegerType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
@@ -90,7 +91,7 @@ class TestCastExpression:
     def test_cast_expression_with_literal(self, dummy_dialect: DummyDialect):
         """Test CAST expression with literal value."""
         literal = Literal(dummy_dialect, "123")
-        expr = literal.cast("INTEGER")
+        expr = literal.cast(IntegerType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql

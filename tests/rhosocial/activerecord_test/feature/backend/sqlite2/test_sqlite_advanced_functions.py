@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
 )
 from rhosocial.activerecord.backend.expression.core import Subquery
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType
 
 
 class TestCaseExpression:
@@ -73,7 +74,7 @@ class TestCastMethod:
     def test_cast_method_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic CAST via cast() method."""
         col = Column(sqlite_dialect_3_8_0, "price")
-        cast_expr = col.cast("INTEGER")
+        cast_expr = col.cast(IntegerType(self.dialect))
         sql, params = cast_expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql

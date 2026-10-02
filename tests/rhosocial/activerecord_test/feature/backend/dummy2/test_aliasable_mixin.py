@@ -16,6 +16,11 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
 )
 from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import (
+    CustomType,
+    DecimalType,
+    TextType,
+)
 
 
 class TestAliasableMixin:
@@ -87,7 +92,7 @@ class TestAliasableMixin:
 
     def test_cast_expression_alias_initialization(self, dummy_dialect: DummyDialect):
         """Test cast() method with alias specified during initialization."""
-        cast = Column(dummy_dialect, "id", alias="id_text").cast("TEXT")
+        cast = Column(dummy_dialect, "id", alias="id_text").cast(TextType(dummy_dialect))
         assert cast.alias == "id_text"
         sql, params = cast.to_sql()
         assert sql == 'CAST("id" AS TEXT) AS "id_text"'
@@ -95,7 +100,7 @@ class TestAliasableMixin:
 
     def test_cast_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
         """Test cast() method with alias specified using as_() method."""
-        cast = Column(dummy_dialect, "id").as_("id_text").cast("TEXT")
+        cast = Column(dummy_dialect, "id").as_("id_text").cast(TextType(dummy_dialect))
         assert cast.alias == "id_text"
         sql, params = cast.to_sql()
         assert sql == 'CAST("id" AS TEXT) AS "id_text"'
@@ -239,7 +244,7 @@ class TestAliasNonContamination:
         assert a is not b
 
     def test_chained_as_then_cast_keeps_alias(self, dummy_dialect: DummyDialect):
-        cast = Column(dummy_dialect, "id").as_("id_text").cast("TEXT")
+        cast = Column(dummy_dialect, "id").as_("id_text").cast(TextType(dummy_dialect))
         assert cast.alias == "id_text"
         assert cast.to_sql()[0] == 'CAST("id" AS TEXT) AS "id_text"'
 
@@ -290,7 +295,7 @@ class TestAliasNonContamination:
         # identically, and the original column stays untouched.
         col = Column(dummy_dialect, "id")
         aliased = col.as_("id_text")
-        casted = aliased.cast("TEXT")
+        casted = aliased.cast(TextType(self.dialect))
         assert casted.to_sql()[0] == 'CAST("id" AS TEXT) AS "id_text"'
         assert col.to_sql()[0] == '"id"'
         assert col.alias is None
@@ -301,9 +306,9 @@ class TestAliasNonContamination:
     def test_cast_on_original_does_not_leak_to_aliased_copy(
         self, dummy_dialect: DummyDialect
     ):
-        col = Column(dummy_dialect, "amount").cast("MONEY")
+        col = Column(dummy_dialect, "amount").cast(CustomType(dummy_dialect, raw='MONEY'))
         aliased = col.as_("m")
-        deeper = aliased.cast("NUMERIC")
+        deeper = aliased.cast(DecimalType(self.dialect))
         # as_() hoists the alias off the inner node onto the new cast; the
         # later cast wraps that aliased node, alias moving outward again.
         assert aliased.to_sql()[0] == 'CAST("amount" AS MONEY)'

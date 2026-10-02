@@ -21,6 +21,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import DecimalType
 
 
 class TestAdvancedFunctionWindow:
@@ -92,7 +93,7 @@ class TestAdvancedFunctionWindow:
     def test_cast_method_on_arithmetic_result(self, dummy_dialect: DummyDialect):
         """Tests cast() method on arithmetic expression result (applied to operand)."""
         col = Column(dummy_dialect, "value")
-        casted = col.cast("DECIMAL(10,2)")
+        casted = col.cast(DecimalType(dummy_dialect, precision=10, scale=2))
         sql, params = casted.to_sql()
         assert sql == 'CAST("value" AS DECIMAL(10,2))'
         assert params == ()

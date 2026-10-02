@@ -17,6 +17,10 @@ from rhosocial.activerecord.backend.expression import (
     ArrayExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import (
+    DateType,
+    IntegerType,
+)
 
 
 class TestAdvancedExpressions:
@@ -61,7 +65,7 @@ class TestAdvancedExpressions:
     def test_cast_column(self, dummy_dialect: DummyDialect):
         """Tests cast() method on Column."""
         col = Column(dummy_dialect, "price")
-        cast_expr = col.cast("INTEGER")
+        cast_expr = col.cast(IntegerType(dummy_dialect))
         sql, params = cast_expr.to_sql()
         assert sql == 'CAST("price" AS INTEGER)'
         assert params == ()
@@ -69,7 +73,7 @@ class TestAdvancedExpressions:
     def test_cast_literal(self, dummy_dialect: DummyDialect):
         """Tests cast() method on Literal."""
         lit = Literal(dummy_dialect, "2023-01-01")
-        cast_expr = lit.cast("DATE")
+        cast_expr = lit.cast(DateType(dummy_dialect))
         sql, params = cast_expr.to_sql()
         assert sql == "CAST(? AS DATE)"
         assert params == ("2023-01-01",)

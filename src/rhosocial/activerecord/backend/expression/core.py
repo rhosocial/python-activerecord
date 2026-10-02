@@ -802,11 +802,11 @@ class CastExpression(
     ``format_cast_expression``.
 
     Chained ``cast()`` calls therefore nest like any other expression —
-    ``expr.cast("A").cast("B")`` renders ``CAST(CAST(expr AS A) AS B)``.
+    ``expr.cast(A).cast(B)`` renders ``CAST(CAST(expr AS A) AS B)``.
     When the wrapped expression carries an alias, ``cast()`` hoists the
     alias onto the new node (the alias decorates the outermost rendered
-    form), so ``col.cast("INTEGER").as_("v")`` and
-    ``col.as_("v").cast("INTEGER")`` both render
+    form), so ``col.cast(IntegerType(dialect)).as_("v")`` and
+    ``col.as_("v").cast(IntegerType(dialect))`` both render
     ``CAST(col AS INTEGER) AS v``.
     """
 

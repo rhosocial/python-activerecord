@@ -9,6 +9,7 @@ from rhosocial.activerecord.backend.expression import (
     AllExpression,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import RealType
 
 
 class TestAdvancedFunctionWindow:
@@ -49,7 +50,7 @@ class TestAdvancedFunctionWindow:
     def test_cast_method(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests cast() method."""
         col = Column(sqlite_dialect_3_8_0, "price")
-        cast_expr = col.cast("REAL")
+        cast_expr = col.cast(RealType(self.dialect))
         sql, params = cast_expr.to_sql()
         assert "CAST" in sql.upper()
         assert params == ()

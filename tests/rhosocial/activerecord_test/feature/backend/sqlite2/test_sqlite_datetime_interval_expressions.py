@@ -21,6 +21,7 @@ from rhosocial.activerecord.backend.expression.functions import (
     interval,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import TextType
 
 
 class TestSQLiteDateTimeIntervalExpressions:
@@ -228,7 +229,7 @@ class TestSQLiteDateTimeIntervalExpressions:
     def test_alias_and_cast(self, sqlite_dialect_3_8_0: SQLiteDialect):
         expr = (
             extract(sqlite_dialect_3_8_0, "year", Column(sqlite_dialect_3_8_0, "created_at"))
-            .cast("TEXT")
+            .cast(TextType(self.dialect))
             .as_("created_year")
         )
 

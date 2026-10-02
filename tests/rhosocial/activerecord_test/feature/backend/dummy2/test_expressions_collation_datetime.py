@@ -38,6 +38,7 @@ from rhosocial.activerecord.backend.expression.datetime import (
     validate_interval_value,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import TextType
 
 
 class DummyCollation(Enum):
@@ -78,7 +79,7 @@ class TestCollateExpression:
         assert params == ()
 
     def test_collate_with_cast(self, dialect):
-        expr = Column(dialect, "name").collate("NOCASE").cast("TEXT")
+        expr = Column(dialect, "name").collate("NOCASE").cast(TextType(dialect))
         sql, params = expr.to_sql()
         assert "COLLATE NOCASE" in sql
         assert params == ()
