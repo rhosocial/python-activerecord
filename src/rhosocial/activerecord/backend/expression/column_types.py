@@ -40,6 +40,7 @@ from .value_types import (
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
+    NumericValueMixin,
     ArrayMixin,
     ComparisonMixin,
     DateTimeMixin,
@@ -138,7 +139,7 @@ class StringColumn(StringValueMixin, StringPatternPredicateMixin, ColumnBase):
     """
 
 
-class NumericColumn(ArithmeticMixin, ColumnBase):
+class NumericColumn(ArithmeticMixin, NumericValueMixin, ColumnBase):
 
     VALUE_FAMILY = NUMERIC
     """A column holding a number: comparison and arithmetic.

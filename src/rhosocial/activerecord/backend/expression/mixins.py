@@ -30,7 +30,7 @@ import copy
 from typing import Any, Optional, Union, List, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .bases import SQLValueExpression, SQLPredicate
+    from .bases import BaseExpression, SQLValueExpression, SQLPredicate
     from .core import CastExpression, FunctionCall, IntegerValueExpression
     from .datetime import (
         DatePartExpression,
@@ -594,7 +594,108 @@ class NumericValueMixin:
     Which one applies is decided per factory, not here — see
     :func:`...functions.math.abs_`, which preserves the operand's family. This
     mixin holds the operations whose result is fractional regardless.
+
+    The SQL already existed as free functions in
+    :mod:`...expression.functions.math`; this mixin makes them reachable from
+    a numeric column. Each factory already tags its result with the right
+    family, so ``col.sqrt()`` is a number and ``col.sign()`` is an integer
+    without this mixin having to restate either.
+
+    Example:
+        >>> col.abs()                  # ABS("price")
+        >>> col.round(2)               # ROUND("price", 2)
+        >>> col.power(2)               # POWER("price", 2)
+        >>> col.mod(3)                 # MOD("price", 3)
     """
+
+    def _numeric_op(self, factory_name: str, *args, **kwargs):
+        """Call a math factory, which tags its own result type.
+
+        Args:
+            factory_name: Name of the function in ``functions.math``.
+            args: Positional arguments forwarded to the factory.
+            kwargs: Keyword arguments forwarded to the factory.
+
+        Returns:
+            A numeric- or integer-valued expression, depending on what the
+            operation returns.
+        """
+        from . import functions as _functions
+
+        factory = getattr(_functions, factory_name)
+        return factory(self._dialect, self, *args, **kwargs)
+
+    # --- sign-preserving ---
+
+    def abs(self) -> "NumericValueMixin":
+        """Absolute value. ``ABS(col)``
+
+        Keeps the operand's family: absolute value of an integer is an
+        integer, and of a double is a double.
+        """
+        return self._numeric_op("abs_")
+
+    def sign(self) -> "IntegerValueMixin":
+        """Sign of the value: -1, 0 or 1. ``SIGN(col)``"""
+        return self._numeric_op("sign")
+
+    # --- rounding ---
+
+    def round(self, decimals: Optional[int] = None) -> "NumericValueMixin":
+        """Round to *decimals* places, or to a whole number. ``ROUND(col[, n])``"""
+        return self._numeric_op("round_", decimals)
+
+    def ceil(self) -> "IntegerValueMixin":
+        """Smallest integer not below the value. ``CEIL(col)``"""
+        return self._numeric_op("ceil")
+
+    def floor(self) -> "IntegerValueMixin":
+        """Largest integer not above the value. ``FLOOR(col)``"""
+        return self._numeric_op("floor")
+
+    def truncate(self, precision: Optional[int] = None) -> "NumericValueMixin":
+        """Truncate toward zero. ``TRUNCATE(col[, n])``
+
+        Not the same as ``round`` for a negative value: truncation drops the
+        digits, rounding moves them.
+        """
+        return self._numeric_op("truncate", precision)
+
+    # --- roots, powers, logarithms ---
+
+    def sqrt(self) -> "NumericValueMixin":
+        """Square root. ``SQRT(col)``"""
+        return self._numeric_op("sqrt")
+
+    def power(self, exponent: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
+        """Raise to *exponent*. ``POWER(col, n)``"""
+        return self._numeric_op("power", exponent)
+
+    def exp(self) -> "NumericValueMixin":
+        """e raised to the power of the value. ``EXP(col)``"""
+        return self._numeric_op("exp")
+
+    def log(self, base: Optional[Union[int, float, "BaseExpression"]] = None) -> "NumericValueMixin":
+        """Natural logarithm, or logarithm to *base*. ``LOG(col[, base])``"""
+        return self._numeric_op("log", base)
+
+    def mod(self, divisor: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
+        """Remainder of division by *divisor*. ``MOD(col, n)``"""
+        return self._numeric_op("mod", divisor)
+
+    # --- trigonometry ---
+
+    def sin(self) -> "NumericValueMixin":
+        """Sine. ``SIN(col)``"""
+        return self._numeric_op("sin")
+
+    def cos(self) -> "NumericValueMixin":
+        """Cosine. ``COS(col)``"""
+        return self._numeric_op("cos")
+
+    def tan(self) -> "NumericValueMixin":
+        """Tangent. ``TAN(col)``"""
+        return self._numeric_op("tan")
 
 class IntegerValueMixin:
     """Operations on an **integer**-valued expression.

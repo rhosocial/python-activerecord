@@ -15,6 +15,7 @@ from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
+    NumericValueMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
     TypeCastingMixin,
@@ -160,7 +161,8 @@ class RawSQLPredicate(SQLPredicate):
 
 
 class BinaryArithmeticExpression(
-    AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValueExpression
+    AliasableMixin, ArithmeticMixin, NumericValueMixin, ComparisonMixin,
+    TypeCastingMixin, SQLValueExpression
 ):
     """Represents a binary arithmetic operation."""
 
