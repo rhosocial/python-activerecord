@@ -57,7 +57,11 @@ class TestProtocolAndImplementationPair:
         assert isinstance(plain, SchemaSupport)
 
     def test_the_method_is_part_of_the_protocol(self):
-        assert "validate_schema_name" in SchemaSupport.__protocol_attrs__
+        # Checked through the public surface on purpose. Protocol internals
+        # differ across the versions this suite runs on -- __protocol_attrs__
+        # only exists from 3.12 -- so asserting on them would fail on 3.8 to
+        # 3.11 for a reason that has nothing to do with the dialect.
+        assert hasattr(SchemaSupport, "validate_schema_name")
         assert hasattr(SchemaMixin, "validate_schema_name")
 
     def test_returns_true_rather_than_false(self, namespaced):
