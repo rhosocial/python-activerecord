@@ -31,7 +31,20 @@ from typing import Any, Optional, Union, List, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import BaseExpression, SQLValueExpression, SQLPredicate
-    from .core import CastExpression, FunctionCall, IntegerValueExpression
+    # Annotations only. The classes themselves are imported inside the methods
+    # that need them, because core imports this module.
+    from .core import (
+        ArrayValueExpression,
+        BinaryValueExpression,
+        BooleanValueExpression,
+        DateTimeValueExpression,
+        IntegerValueExpression,
+        JSONValueExpression,
+        NumericValueExpression,
+        StringValueExpression,
+        UUIDValueExpression,
+    )
+    from .core import CastExpression, FunctionCall
     from .datetime import (
         DatePartExpression,
         DateTimeAddExpression,
@@ -580,6 +593,114 @@ class LogicalMixin:
         from .predicates import LogicalPredicate
 
         return LogicalPredicate(self._dialect, "NOT", self)
+
+
+class ResultTypeMixin:
+    """Stating a result type that the source cannot settle.
+
+    Most operations know what they yield and say so by returning the matching
+    expression class: ``sqrt`` of a numeric is a numeric, and it returns one.
+    A few cannot, and the standard gives the example itself -- ``NULLIF(x, y)``
+    yields ``x`` when the two differ and NULL when they do not, so whether the
+    result is a string or an integer depends on the data.
+
+    For those, the caller states it. Each method here is one statement, and
+    each has a return type a checker can read, so the next call in the chain is
+    checked too::
+
+        NULLIF(name, blank).as_text().upper()   # fine
+        NULLIF(name, blank).as_text().sqrt()    # error: text has no sqrt
+
+    The alternative -- a ``result_type=`` keyword -- reads as if it did the same
+    thing and does not. It is a claim rather than a type: the declared return
+    stays ``FunctionCall``, the checker learns nothing, and the wrong
+    continuation is still unchecked when the server rejects it minutes later.
+
+    A method rather than a free function for three reasons. The dialect is
+    already on the node, so there is nothing to pass. Chaining reads as one
+    expression instead of an argument in the middle of one. And ``dir()`` finds
+    it, so the way to say it is discoverable rather than something to be told.
+
+    This is mixed into the nodes whose result type genuinely is not in the
+    source. Anything that knows its own result type returns the class for it and
+    never reaches this mixin.
+    """
+
+    def _retype(self, family: str, cls) -> "BaseExpression":
+        """Re-wrap this expression as the value class for *family*.
+
+        Only the Python class changes. The node, and therefore the SQL, is left
+        exactly as it was -- the statement was already correct; what was missing
+        was the knowledge of what it yields.
+
+        Args:
+            family: The value family being claimed. Named so the call site
+                reads as a statement about the type rather than a lookup.
+            cls: The expression class that carries those operations.
+
+        Returns:
+            A value expression of *cls*.
+        """
+        return cls(self._dialect, self)
+
+    def as_text(self) -> "StringValueExpression":
+        """This yields text, whatever the data turns out to be."""
+        from .core import StringValueExpression
+
+        return self._retype("string", StringValueExpression)
+
+    def as_number(self) -> "NumericValueExpression":
+        """This yields a fractional number."""
+        from .core import NumericValueExpression
+
+        return self._retype("numeric", NumericValueExpression)
+
+    def as_integer(self) -> "IntegerValueExpression":
+        """This yields a whole number."""
+        from .core import IntegerValueExpression
+
+        return self._retype("integer", IntegerValueExpression)
+
+    def as_datetime(self) -> "DateTimeValueExpression":
+        """This yields a date or a time."""
+        from .core import DateTimeValueExpression
+
+        return self._retype("datetime", DateTimeValueExpression)
+
+    def as_boolean(self) -> "BooleanValueExpression":
+        """This yields a truth value.
+
+        This names the value, not a projection. SQL Server has no boolean scalar
+        type at all, so a predicate cannot appear in a select list there; where
+        one is needed, the dialect has to produce a zero-or-one column.
+        """
+        from .core import BooleanValueExpression
+
+        return self._retype("boolean", BooleanValueExpression)
+
+    def as_array(self) -> "ArrayValueExpression":
+        """This yields a sequence."""
+        from .core import ArrayValueExpression
+
+        return self._retype("array", ArrayValueExpression)
+
+    def as_json(self) -> "JSONValueExpression":
+        """This yields a JSON document."""
+        from .core import JSONValueExpression
+
+        return self._retype("json", JSONValueExpression)
+
+    def as_uuid(self) -> "UUIDValueExpression":
+        """This yields a UUID."""
+        from .core import UUIDValueExpression
+
+        return self._retype("uuid", UUIDValueExpression)
+
+    def as_binary(self) -> "BinaryValueExpression":
+        """This yields bytes."""
+        from .core import BinaryValueExpression
+
+        return self._retype("binary", BinaryValueExpression)
 
 
 class NumericValueMixin:

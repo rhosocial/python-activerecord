@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/functions/json.py
 """JSON function factories."""
 
-from typing import Union, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
@@ -13,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def json_extract(dialect: "SQLDialectBase", column: Union[str, "BaseExpression"], path: str) -> "JSONExpression":
+def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONExpression":
     """
     Creates a JSON extract operation (e.g., column->path).
 
@@ -22,8 +22,8 @@ def json_extract(dialect: "SQLDialectBase", column: Union[str, "BaseExpression"]
 
     Args:
         dialect: The SQL dialect instance
-        column: The JSON column to extract from. If a string is passed, it's treated as a column name.
-                If a BaseExpression is passed, it's used as-is.
+        column: The JSON column to extract from, as an expression. A bare string is no
+                longer part of the contract; it is still coerced to a column at runtime.
         path: The JSON path to extract.
 
     Returns:
@@ -33,7 +33,7 @@ def json_extract(dialect: "SQLDialectBase", column: Union[str, "BaseExpression"]
     return JSONExpression(dialect, target_column, path, operation="->")
 
 
-def json_extract_text(dialect: "SQLDialectBase", column: Union[str, "BaseExpression"], path: str) -> "JSONExpression":
+def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONExpression":
     """
     Creates a JSON extract text operation (e.g., column->>path).
 
@@ -43,8 +43,8 @@ def json_extract_text(dialect: "SQLDialectBase", column: Union[str, "BaseExpress
 
     Args:
         dialect: The SQL dialect instance
-        column: The JSON column to extract from. If a string is passed, it's treated as a column name.
-                If a BaseExpression is passed, it's used as-is.
+        column: The JSON column to extract from, as an expression. A bare string is no
+                longer part of the contract; it is still coerced to a column at runtime.
         path: The JSON path to extract as text.
 
     Returns:
@@ -59,7 +59,7 @@ def json_extract_text(dialect: "SQLDialectBase", column: Union[str, "BaseExpress
     return JSONExpression(dialect, target_column, path, operation="->>")
 
 
-def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: Union[str, "BaseExpression"]) -> "FunctionCall":
+def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpression") -> "FunctionCall":
     """
     Creates a JSON_BUILD_OBJECT function call.
 
@@ -70,7 +70,8 @@ def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: Union[str, "B
     Args:
         dialect: The SQL dialect instance
         *key_value_pairs: Alternating sequence of key-value expressions.
-            Keys and values can be strings (literal) or BaseExpression.
+            Keys and values are expressions. A bare string is no longer part of the
+            contract; it is still bound as a literal at runtime.
 
     Returns:
         A FunctionCall instance representing the JSON_BUILD_OBJECT function
@@ -82,7 +83,7 @@ def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: Union[str, "B
     return wrap_as(dialect, FunctionCall(dialect, "JSON_BUILD_OBJECT", *processed_args), JSON)
 
 
-def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
     """
     Creates a JSON_ARRAY_ELEMENTS function call.
 
@@ -92,8 +93,8 @@ def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "BaseExpress
 
     Args:
         dialect: The SQL dialect instance
-        expr: The JSON array expression. If a string is passed, it's treated as a column name.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The JSON array expression, as an expression. A bare string is no longer part
+              of the contract; it is still coerced to a column at runtime.
 
     Returns:
         A FunctionCall instance representing the JSON_ARRAY_ELEMENTS function
@@ -104,8 +105,8 @@ def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "BaseExpress
 
 def json_objectagg(
     dialect: "SQLDialectBase",
-    key_expr: Union[str, "BaseExpression"],
-    value_expr: Union[str, "BaseExpression"],
+    key_expr: "BaseExpression",
+    value_expr: "BaseExpression",
 ) -> "AggregateFunctionCall":
     """Creates a JSON_OBJECTAGG aggregate function call."""
     key_target = key_expr if isinstance(key_expr, BaseExpression) else Column(dialect, key_expr)
@@ -115,7 +116,7 @@ def json_objectagg(
 
 def json_arrayagg(
     dialect: "SQLDialectBase",
-    expr: Union[str, "BaseExpression"],
+    expr: "BaseExpression",
     is_distinct: bool = False,
     alias: Optional[str] = None,
 ) -> "AggregateFunctionCall":

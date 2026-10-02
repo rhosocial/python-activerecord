@@ -209,6 +209,13 @@ Issues = "https://github.com/rhosocial/python-activerecord/issues"
 where = ["src"]
 namespaces = true
 
+[tool.setuptools.package-data]
+# PEP 561 marker. Without this file shipped, a type checker treats the
+# installed package as untyped and skips it entirely -- so the annotations
+# would be invisible to every consumer even though they are all present.
+# Inline types, not stub files: the annotations live in the .py files.
+rhosocial = ["py.typed"]
+
 
 
 # Build configuration

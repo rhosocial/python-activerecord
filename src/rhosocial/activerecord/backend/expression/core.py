@@ -30,6 +30,7 @@ from .mixins import (
     JSONAccessorMixin,
     LogicalMixin,
     NumericValueMixin,
+    ResultTypeMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
     TypeCastingMixin,
@@ -191,20 +192,6 @@ class DateTimeValueExpression(
             return call.to_sql()
         return self.call.to_sql()
 
-    def __getattr__(self, name):
-        """Forward unknown attributes to the wrapped call.
-
-        Args:
-            name: Attribute name not found on this wrapper.
-
-        Returns:
-            The attribute from the wrapped function call.
-        """
-        call = self.__dict__.get("call")
-        if call is None:
-            raise AttributeError(name)
-        return getattr(call, name)
-
 
 class JSONValueExpression(
     AliasableMixin,
@@ -256,20 +243,6 @@ class JSONValueExpression(
             return call.to_sql()
         return self.call.to_sql()
 
-    def __getattr__(self, name):
-        """Forward unknown attributes to the wrapped call.
-
-        Args:
-            name: Attribute name not found on this wrapper.
-
-        Returns:
-            The attribute from the wrapped function call.
-        """
-        call = self.__dict__.get("call")
-        if call is None:
-            raise AttributeError(name)
-        return getattr(call, name)
-
 
 class ArrayValueExpression(
     AliasableMixin,
@@ -319,20 +292,6 @@ class ArrayValueExpression(
             call.alias = alias
             return call.to_sql()
         return self.call.to_sql()
-
-    def __getattr__(self, name):
-        """Forward unknown attributes to the wrapped call.
-
-        Args:
-            name: Attribute name not found on this wrapper.
-
-        Returns:
-            The attribute from the wrapped function call.
-        """
-        call = self.__dict__.get("call")
-        if call is None:
-            raise AttributeError(name)
-        return getattr(call, name)
 
 
 class BooleanValueExpression(
@@ -384,20 +343,6 @@ LogicalMixin,
             return call.to_sql()
         return self.call.to_sql()
 
-    def __getattr__(self, name):
-        """Forward unknown attributes to the wrapped call.
-
-        Args:
-            name: Attribute name not found on this wrapper.
-
-        Returns:
-            The attribute from the wrapped function call.
-        """
-        call = self.__dict__.get("call")
-        if call is None:
-            raise AttributeError(name)
-        return getattr(call, name)
-
 
 class BinaryValueExpression(
     AliasableMixin,
@@ -447,20 +392,6 @@ class BinaryValueExpression(
             return call.to_sql()
         return self.call.to_sql()
 
-    def __getattr__(self, name):
-        """Forward unknown attributes to the wrapped call.
-
-        Args:
-            name: Attribute name not found on this wrapper.
-
-        Returns:
-            The attribute from the wrapped function call.
-        """
-        call = self.__dict__.get("call")
-        if call is None:
-            raise AttributeError(name)
-        return getattr(call, name)
-
 
 class UUIDValueExpression(
     AliasableMixin,
@@ -509,20 +440,6 @@ class UUIDValueExpression(
             call.alias = alias
             return call.to_sql()
         return self.call.to_sql()
-
-    def __getattr__(self, name):
-        """Forward unknown attributes to the wrapped call.
-
-        Args:
-            name: Attribute name not found on this wrapper.
-
-        Returns:
-            The attribute from the wrapped function call.
-        """
-        call = self.__dict__.get("call")
-        if call is None:
-            raise AttributeError(name)
-        return getattr(call, name)
 
 
 class NumericValueExpression(
@@ -575,27 +492,6 @@ class NumericValueExpression(
             return call.to_sql()
         return self.call.to_sql()
 
-    def __getattr__(self, name):
-        """Forward unknown attributes to the wrapped call.
-
-        Args:
-            name: Attribute name not found on this wrapper.
-
-        Returns:
-            The attribute from the wrapped function call.
-        """
-        # `call` is looked up through __dict__ rather than getattr so a
-        # miss cannot recurse back into this method, and a not-yet-assigned
-        # `call` has to surface as AttributeError. A KeyError here would be
-        # reported as a broken attribute rather than a missing one, which is
-        # what makes hasattr() and copy/deepcopy misbehave.
-        call = self.__dict__.get("call")
-        if call is None:
-            raise AttributeError(name)
-        return getattr(call, name)
-
-
-
 class IntegerValueExpression(
     AliasableMixin,
     ArithmeticMixin,
@@ -644,27 +540,6 @@ class IntegerValueExpression(
             call.alias = alias
             return call.to_sql()
         return self.call.to_sql()
-
-    def __getattr__(self, name):
-        """Forward unknown attributes to the wrapped call.
-
-        Args:
-            name: Attribute name not found on this wrapper.
-
-        Returns:
-            The attribute from the wrapped function call.
-        """
-        # `call` is looked up through __dict__ rather than getattr so a
-        # miss cannot recurse back into this method, and a not-yet-assigned
-        # `call` has to surface as AttributeError. A KeyError here would be
-        # reported as a broken attribute rather than a missing one, which is
-        # what makes hasattr() and copy/deepcopy misbehave.
-        call = self.__dict__.get("call")
-        if call is None:
-            raise AttributeError(name)
-        return getattr(call, name)
-
-
 
 class StringValueExpression(
     AliasableMixin,
@@ -720,40 +595,22 @@ class StringValueExpression(
             return call.to_sql()
         return self.call.to_sql()
 
-    def __getattr__(self, name):
-        """Forward unknown attributes to the wrapped call.
-
-        Function calls carry dialect-level state that renderers and callers
-        read (``niladic``, and whatever a backend attaches). Delegating keeps
-        this wrapper transparent instead of a second, drifting copy.
-
-        Args:
-            name: Attribute name not found on this wrapper.
-
-        Returns:
-            The attribute from the wrapped function call.
-        """
-        # `call` is looked up through __dict__ rather than getattr so a
-        # miss cannot recurse back into this method, and a not-yet-assigned
-        # `call` has to surface as AttributeError. A KeyError here would be
-        # reported as a broken attribute rather than a missing one, which is
-        # what makes hasattr() and copy/deepcopy misbehave.
-        call = self.__dict__.get("call")
-        if call is None:
-            raise AttributeError(name)
-        return getattr(call, name)
-
-
-
 class FunctionCall(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
+    ResultTypeMixin,
     SQLValueExpression,
 ):
     """Represents a scalar SQL function call, such as LOWER, CONCAT, etc.
+
+    Carries :class:`ResultTypeMixin` because this is the node that does *not*
+    know what it yields. Most functions state their own result by returning the
+    matching value class; the ones that cannot -- ``NULLIF`` and the
+    ``COALESCE``-shaped family -- come back as this, and the caller says what
+    they produce with ``.as_text()`` and friends.
 
     When niladic=True and no arguments are provided, the function call
     generates SQL without parentheses (e.g., CURRENT_TIMESTAMP instead of
