@@ -6,14 +6,13 @@ from typing import Union, Optional, TYPE_CHECKING
 from ..bases import BaseExpression
 from ..value_types import INTEGER, NUMERIC, value_type_of, wrap_as
 from ..core import FunctionCall, Literal
-from ._utils import _convert_to_expression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..core import IntegerValueExpression, NumericValueExpression
     from ...dialect import SQLDialectBase
 
 
-def abs_(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def abs_(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
     """
     Creates an ABS scalar function call.
 
@@ -30,12 +29,12 @@ def abs_(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Func
     Returns:
         A FunctionCall instance representing the ABS function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     return wrap_as(dialect, FunctionCall(dialect, "ABS", target_expr), value_type_of(target_expr))
 
 
 def round_(
-    dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], decimals: Optional[int] = None
+    dialect: "SQLDialectBase", expr: "BaseExpression", decimals: Optional[int] = None
 ) -> "FunctionCall":
     """
     Creates a ROUND scalar function call.
@@ -53,7 +52,7 @@ def round_(
     Returns:
         A FunctionCall instance representing the ROUND function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     if decimals is not None:
         decimals_expr = Literal(dialect, decimals)
         return wrap_as(
@@ -64,7 +63,7 @@ def round_(
     return wrap_as(dialect, FunctionCall(dialect, "ROUND", target_expr), value_type_of(target_expr))
 
 
-def ceil(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def ceil(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
     """
     Creates a CEIL scalar function call.
 
@@ -80,11 +79,11 @@ def ceil(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Func
     Returns:
         A FunctionCall instance representing the CEIL function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     return wrap_as(dialect, FunctionCall(dialect, "CEIL", target_expr), value_type_of(target_expr))
 
 
-def floor(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def floor(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
     """
     Creates a FLOOR scalar function call.
 
@@ -100,11 +99,11 @@ def floor(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fun
     Returns:
         A FunctionCall instance representing the FLOOR function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     return wrap_as(dialect, FunctionCall(dialect, "FLOOR", target_expr), value_type_of(target_expr))
 
 
-def sqrt(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "NumericValueExpression":
+def sqrt(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
     """
     Creates a SQRT scalar function call.
 
@@ -120,12 +119,12 @@ def sqrt(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Nume
     Returns:
         A FunctionCall instance representing the SQRT function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     return wrap_as(dialect, FunctionCall(dialect, "SQRT", target_expr), NUMERIC)
 
 
 def power(
-    dialect: "SQLDialectBase", base: Union[str, "BaseExpression"], exponent: Union[str, "BaseExpression"]
+    dialect: "SQLDialectBase", base: "BaseExpression", exponent: "BaseExpression"
 ) -> "NumericValueExpression":
     """
     Creates a POWER scalar function call.
@@ -145,12 +144,12 @@ def power(
     Returns:
         A FunctionCall instance representing the POWER function
     """
-    base_expr = _convert_to_expression(dialect, base, handle_numeric_literals=True)
-    exp_expr = _convert_to_expression(dialect, exponent, handle_numeric_literals=True)
+    base_expr = base
+    exp_expr = exponent
     return wrap_as(dialect, FunctionCall(dialect, "POWER", base_expr, exp_expr), NUMERIC)
 
 
-def exp(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "NumericValueExpression":
+def exp(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
     """
     Creates an EXP scalar function call.
 
@@ -166,14 +165,14 @@ def exp(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Numer
     Returns:
         A FunctionCall instance representing the EXP function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     return wrap_as(dialect, FunctionCall(dialect, "EXP", target_expr), NUMERIC)
 
 
 def log(
     dialect: "SQLDialectBase",
-    expr: Union[str, "BaseExpression"],
-    base: Optional[Union[str, "BaseExpression"]] = None,
+    expr: "BaseExpression",
+    base: Optional["BaseExpression"] = None,
 ) -> "NumericValueExpression":
     """
     Creates a LOG scalar function call.
@@ -191,14 +190,14 @@ def log(
     Returns:
         A FunctionCall instance representing the LOG function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     if base is not None:
-        base_expr = _convert_to_expression(dialect, base, handle_numeric_literals=True)
+        base_expr = base
         return wrap_as(dialect, FunctionCall(dialect, "LOG", target_expr, base_expr), NUMERIC)
     return wrap_as(dialect, FunctionCall(dialect, "LOG", target_expr), NUMERIC)
 
 
-def sin(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "NumericValueExpression":
+def sin(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
     """
     Creates a SIN scalar function call.
 
@@ -214,11 +213,11 @@ def sin(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Numer
     Returns:
         A FunctionCall instance representing the SIN function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     return wrap_as(dialect, FunctionCall(dialect, "SIN", target_expr), NUMERIC)
 
 
-def cos(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "NumericValueExpression":
+def cos(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
     """
     Creates a COS scalar function call.
 
@@ -234,11 +233,11 @@ def cos(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Numer
     Returns:
         A FunctionCall instance representing the COS function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     return wrap_as(dialect, FunctionCall(dialect, "COS", target_expr), NUMERIC)
 
 
-def tan(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "NumericValueExpression":
+def tan(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
     """
     Creates a TAN scalar function call.
 
@@ -254,14 +253,14 @@ def tan(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Numer
     Returns:
         A FunctionCall instance representing the TAN function
     """
-    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
+    target_expr = expr
     return wrap_as(dialect, FunctionCall(dialect, "TAN", target_expr), NUMERIC)
 
 
 def mod(
     dialect: "SQLDialectBase",
-    dividend: Union[int, float, "BaseExpression"],
-    divisor: Union[int, float, "BaseExpression"],
+    dividend: "BaseExpression",
+    divisor: "BaseExpression",
 ) -> "NumericValueExpression":
     """
     Creates a MOD function call (modulo operation).
@@ -280,12 +279,12 @@ def mod(
     Returns:
         A FunctionCall instance representing the MOD function
     """
-    dividend_expr = dividend if isinstance(dividend, BaseExpression) else Literal(dialect, dividend)
-    divisor_expr = divisor if isinstance(divisor, BaseExpression) else Literal(dialect, divisor)
+    dividend_expr = dividend
+    divisor_expr = divisor
     return wrap_as(dialect, FunctionCall(dialect, "MOD", dividend_expr, divisor_expr), NUMERIC)
 
 
-def sign(dialect: "SQLDialectBase", expr: Union[int, float, "BaseExpression"]) -> "IntegerValueExpression":
+def sign(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
     """
     Creates a SIGN function call.
 
@@ -302,12 +301,12 @@ def sign(dialect: "SQLDialectBase", expr: Union[int, float, "BaseExpression"]) -
     Returns:
         A FunctionCall instance representing the SIGN function
     """
-    target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
+    target_expr = expr
     return wrap_as(dialect, FunctionCall(dialect, "SIGN", target_expr), INTEGER)
 
 
 def truncate(
-    dialect: "SQLDialectBase", expr: Union[int, float, "BaseExpression"], precision: Optional[int] = None
+    dialect: "SQLDialectBase", expr: "BaseExpression", precision: Optional[int] = None
 ) -> "FunctionCall":
     """
     Creates a TRUNCATE function call.
@@ -326,7 +325,7 @@ def truncate(
     Returns:
         A FunctionCall instance representing the TRUNCATE function
     """
-    target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
+    target_expr = expr
     if precision is not None:
         precision_expr = Literal(dialect, precision)
         return wrap_as(

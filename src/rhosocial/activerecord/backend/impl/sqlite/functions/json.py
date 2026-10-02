@@ -21,39 +21,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLiteDialect
 
 
-def _convert_to_expression(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    handle_numeric_literals: bool = True,
-) -> "bases.BaseExpression":
-    """
-    Helper function to convert an input value to an appropriate BaseExpression.
-
-    Args:
-        dialect: The SQL dialect instance
-        expr: The expression to convert
-        handle_numeric_literals: Whether to treat numeric values as literals
-
-    Returns:
-        A BaseExpression instance
-    """
-    if isinstance(expr, bases.BaseExpression):
-        return expr
-    elif isinstance(expr, (int, float)):
-        # Numeric values: convert to Literal if handle_numeric_literals is True
-        if handle_numeric_literals:
-            return core.Literal(dialect, expr)
-        return core.Column(dialect, str(expr))
-    elif isinstance(expr, str):
-        # Strings: always convert to Literal for JSON functions
-        return core.Literal(dialect, expr)
-    else:
-        return core.Column(dialect, expr)
-
-
 def json(
     dialect: "SQLiteDialect",
-    value: Union[str, "bases.BaseExpression"],
+    value: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """
     Creates a JSON function call.
@@ -73,7 +43,7 @@ def json(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, value)
+    val_expr = value
     return core.FunctionCall(dialect, "JSON", val_expr)
 
 
@@ -136,9 +106,9 @@ def json_object(
 
 def json_extract(
     dialect: "SQLiteDialect",
-    json_doc: Union[str, "bases.BaseExpression"],
-    path: str,
-    *paths: str,
+    json_doc: "bases.BaseExpression",
+    path: "bases.BaseExpression",
+    *paths: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """
     Creates a JSON_EXTRACT function call.
@@ -160,17 +130,17 @@ def json_extract(
 
     Version: SQLite 3.38.0+
     """
-    doc_expr = _convert_to_expression(dialect, json_doc)
-    path_expr = core.Literal(dialect, path)
+    doc_expr = json_doc
+    path_expr = path
     args = [doc_expr, path_expr]
     for p in paths:
-        args.append(core.Literal(dialect, p))
+        args.append(p)
     return core.FunctionCall(dialect, "JSON_EXTRACT", *args)
 
 
 def json_type(
     dialect: "SQLiteDialect",
-    json_val: Union[str, "bases.BaseExpression"],
+    json_val: "bases.BaseExpression",
     path: Optional[str] = None,
 ) -> "core.FunctionCall":
     """
@@ -191,16 +161,16 @@ def json_type(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, json_val)
+    val_expr = json_val
     if path is not None:
-        path_expr = core.Literal(dialect, path)
+        path_expr = path
         return core.FunctionCall(dialect, "JSON_TYPE", val_expr, path_expr)
     return core.FunctionCall(dialect, "JSON_TYPE", val_expr)
 
 
 def json_valid(
     dialect: "SQLiteDialect",
-    json_val: Union[str, "bases.BaseExpression"],
+    json_val: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """
     Creates a JSON_VALID function call.
@@ -219,13 +189,13 @@ def json_valid(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, json_val)
+    val_expr = json_val
     return core.FunctionCall(dialect, "JSON_VALID", val_expr)
 
 
 def json_quote(
     dialect: "SQLiteDialect",
-    value: Union[str, "bases.BaseExpression"],
+    value: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """
     Creates a JSON_QUOTE function call.
@@ -244,15 +214,15 @@ def json_quote(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, value)
+    val_expr = value
     return core.FunctionCall(dialect, "JSON_QUOTE", val_expr)
 
 
 def json_remove(
     dialect: "SQLiteDialect",
-    json_doc: Union[str, "bases.BaseExpression"],
-    path: str,
-    *paths: str,
+    json_doc: "bases.BaseExpression",
+    path: "bases.BaseExpression",
+    *paths: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """
     Creates a JSON_REMOVE function call.
@@ -273,18 +243,18 @@ def json_remove(
 
     Version: SQLite 3.38.0+
     """
-    doc_expr = _convert_to_expression(dialect, json_doc)
-    path_expr = core.Literal(dialect, path)
+    doc_expr = json_doc
+    path_expr = path
     args = [doc_expr, path_expr]
     for p in paths:
-        args.append(core.Literal(dialect, p))
+        args.append(p)
     return core.FunctionCall(dialect, "JSON_REMOVE", *args)
 
 
 def json_set(
     dialect: "SQLiteDialect",
-    json_doc: Union[str, "bases.BaseExpression"],
-    path: str,
+    json_doc: "bases.BaseExpression",
+    path: "bases.BaseExpression",
     value: Any,
     *path_values: Any,
 ) -> "core.FunctionCall":
@@ -308,8 +278,8 @@ def json_set(
 
     Version: SQLite 3.38.0+
     """
-    doc_expr = _convert_to_expression(dialect, json_doc)
-    path_expr = core.Literal(dialect, path)
+    doc_expr = json_doc
+    path_expr = path
     val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     args = [doc_expr, path_expr, val_expr]
     for i in range(0, len(path_values), 2):
@@ -322,8 +292,8 @@ def json_set(
 
 def json_insert(
     dialect: "SQLiteDialect",
-    json_doc: Union[str, "bases.BaseExpression"],
-    path: str,
+    json_doc: "bases.BaseExpression",
+    path: "bases.BaseExpression",
     value: Any,
     *path_values: Any,
 ) -> "core.FunctionCall":
@@ -347,8 +317,8 @@ def json_insert(
 
     Version: SQLite 3.38.0+
     """
-    doc_expr = _convert_to_expression(dialect, json_doc)
-    path_expr = core.Literal(dialect, path)
+    doc_expr = json_doc
+    path_expr = path
     val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     args = [doc_expr, path_expr, val_expr]
     for i in range(0, len(path_values), 2):
@@ -361,8 +331,8 @@ def json_insert(
 
 def json_replace(
     dialect: "SQLiteDialect",
-    json_doc: Union[str, "bases.BaseExpression"],
-    path: str,
+    json_doc: "bases.BaseExpression",
+    path: "bases.BaseExpression",
     value: Any,
     *path_values: Any,
 ) -> "core.FunctionCall":
@@ -386,8 +356,8 @@ def json_replace(
 
     Version: SQLite 3.38.0+
     """
-    doc_expr = _convert_to_expression(dialect, json_doc)
-    path_expr = core.Literal(dialect, path)
+    doc_expr = json_doc
+    path_expr = path
     val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
     args = [doc_expr, path_expr, val_expr]
     for i in range(0, len(path_values), 2):
@@ -400,8 +370,8 @@ def json_replace(
 
 def json_patch(
     dialect: "SQLiteDialect",
-    json_doc: Union[str, "bases.BaseExpression"],
-    patch: Union[str, "bases.BaseExpression"],
+    json_doc: "bases.BaseExpression",
+    patch: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """
     Creates a JSON_PATCH function call.
@@ -421,14 +391,14 @@ def json_patch(
 
     Version: SQLite 3.38.0+
     """
-    doc_expr = _convert_to_expression(dialect, json_doc)
-    patch_expr = _convert_to_expression(dialect, patch)
+    doc_expr = json_doc
+    patch_expr = patch
     return core.FunctionCall(dialect, "JSON_PATCH", doc_expr, patch_expr)
 
 
 def json_array_length(
     dialect: "SQLiteDialect",
-    json_val: Union[str, "bases.BaseExpression"],
+    json_val: "bases.BaseExpression",
     path: Optional[str] = None,
 ) -> "core.FunctionCall":
     """
@@ -450,16 +420,16 @@ def json_array_length(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, json_val)
+    val_expr = json_val
     if path is not None:
-        path_expr = core.Literal(dialect, path)
+        path_expr = path
         return core.FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr, path_expr)
     return core.FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr)
 
 
 def json_array_unpack(
     dialect: "SQLiteDialect",
-    json_val: Union[str, "bases.BaseExpression"],
+    json_val: "bases.BaseExpression",
     path: Optional[str] = None,
 ) -> "core.FunctionCall":
     """
@@ -481,9 +451,9 @@ def json_array_unpack(
     Version: SQLite 3.38.0+
     """
     # SQLite doesn't have JSON_UNPACK, this would typically be used with json_each
-    val_expr = _convert_to_expression(dialect, json_val)
+    val_expr = json_val
     if path is not None:
-        path_expr = core.Literal(dialect, path)
+        path_expr = path
         return core.FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr, path_expr)
     return core.FunctionCall(dialect, "JSON_ARRAY_LENGTH", val_expr)
 
@@ -518,8 +488,8 @@ def json_object_pack(
 
 def json_object_retrieve(
     dialect: "SQLiteDialect",
-    json_val: Union[str, "bases.BaseExpression"],
-    path: str,
+    json_val: "bases.BaseExpression",
+    path: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """
     Creates a JSON_EXTRACT function call for retrieving a single value.
@@ -539,14 +509,14 @@ def json_object_retrieve(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, json_val)
-    path_expr = core.Literal(dialect, path)
+    val_expr = json_val
+    path_expr = path
     return core.FunctionCall(dialect, "JSON_EXTRACT", val_expr, path_expr)
 
 
 def json_object_length(
     dialect: "SQLiteDialect",
-    json_val: Union[str, "bases.BaseExpression"],
+    json_val: "bases.BaseExpression",
     path: Optional[str] = None,
 ) -> "core.FunctionCall":
     """
@@ -567,16 +537,16 @@ def json_object_length(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, json_val)
+    val_expr = json_val
     if path is not None:
-        path_expr = core.Literal(dialect, path)
+        path_expr = path
         return core.FunctionCall(dialect, "JSON_OBJECT_LENGTH", val_expr, path_expr)
     return core.FunctionCall(dialect, "JSON_OBJECT_LENGTH", val_expr)
 
 
 def json_object_keys(
     dialect: "SQLiteDialect",
-    json_val: Union[str, "bases.BaseExpression"],
+    json_val: "bases.BaseExpression",
     path: Optional[str] = None,
 ) -> "core.FunctionCall":
     """
@@ -597,16 +567,16 @@ def json_object_keys(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, json_val)
+    val_expr = json_val
     if path is not None:
-        path_expr = core.Literal(dialect, path)
+        path_expr = path
         return core.FunctionCall(dialect, "JSON_OBJECT_KEYS", val_expr, path_expr)
     return core.FunctionCall(dialect, "JSON_OBJECT_KEYS", val_expr)
 
 
 def json_tree(
     dialect: "SQLiteDialect",
-    json_val: Union[str, "bases.BaseExpression"],
+    json_val: "bases.BaseExpression",
     path: Optional[str] = None,
 ) -> "core.FunctionCall":
     """
@@ -628,16 +598,16 @@ def json_tree(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, json_val)
+    val_expr = json_val
     if path is not None:
-        path_expr = core.Literal(dialect, path)
+        path_expr = path
         return core.FunctionCall(dialect, "JSON_TREE", val_expr, path_expr)
     return core.FunctionCall(dialect, "JSON_TREE", val_expr)
 
 
 def json_each(
     dialect: "SQLiteDialect",
-    json_val: Union[str, "bases.BaseExpression"],
+    json_val: "bases.BaseExpression",
     path: Optional[str] = None,
 ) -> "core.FunctionCall":
     """Creates a JSON_EACH function call.
@@ -659,16 +629,16 @@ def json_each(
 
     Version: SQLite 3.38.0+
     """
-    val_expr = _convert_to_expression(dialect, json_val)
+    val_expr = json_val
     if path is not None:
-        path_expr = core.Literal(dialect, path)
+        path_expr = path
         return core.FunctionCall(dialect, "JSON_EACH", val_expr, path_expr)
     return core.FunctionCall(dialect, "JSON_EACH", val_expr)
 
 
 def json_array_insert(
     dialect: "SQLiteDialect",
-    json_array: Union[str, "bases.BaseExpression"],
+    json_array: "bases.BaseExpression",
     value: Any,
     position: Optional[int] = None,
 ) -> "core.FunctionCall":
@@ -695,7 +665,7 @@ def json_array_insert(
 
     Version: SQLite 3.53.0+
     """
-    arr_expr = _convert_to_expression(dialect, json_array)
+    arr_expr = json_array
     val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
 
     if position is not None:
@@ -707,7 +677,7 @@ def json_array_insert(
 
 def jsonb_array_insert(
     dialect: "SQLiteDialect",
-    jsonb_array: Union[str, "bases.BaseExpression"],
+    jsonb_array: "bases.BaseExpression",
     value: Any,
     position: Optional[int] = None,
 ) -> "core.FunctionCall":
@@ -734,7 +704,7 @@ def jsonb_array_insert(
 
     Version: SQLite 3.53.0+
     """
-    arr_expr = _convert_to_expression(dialect, jsonb_array)
+    arr_expr = jsonb_array
     val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
 
     if position is not None:
