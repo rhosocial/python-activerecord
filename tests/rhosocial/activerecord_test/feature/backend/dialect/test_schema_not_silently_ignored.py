@@ -25,6 +25,11 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.core import TableExpression
+from rhosocial.activerecord.backend.expression.statements import TriggerEvent, TriggerTiming
+from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
+    CreateTriggerExpression,
+    DropTriggerExpression,
+)
 from rhosocial.activerecord.backend.expression.statements.ddl_view import (
     CreateViewExpression,
     DropViewExpression,
@@ -87,6 +92,62 @@ class TestSQLiteRejectsSchema:
         query = QueryExpression(dialect=dialect, select=[TableExpression(dialect, "orders")])
         sql, _ = CreateViewExpression(dialect, "v_users", query).to_sql()
         assert sql.startswith('CREATE VIEW "v_users"')
+
+    def test_create_trigger_with_schema_raises(self, dialect):
+        """The trigger formatter is SQLite's own, so it needed the same fix.
+
+        A trigger names three things -- itself, the table it is on, and the
+        function it calls -- and every other backend qualifies all three from
+        the one ``schema_name``. This mixin rendered all three with bare
+        ``format_identifier``, so ``schema_name`` was accepted by the expression,
+        stored, and then went nowhere: SQLite emitted a statement that looked
+        unqualified because it was unqualified.
+        """
+        expr = CreateTriggerExpression(
+            dialect,
+            "trg_orders_ai",
+            timing=TriggerTiming.AFTER,
+            events=[TriggerEvent.INSERT],
+            table_name="orders",
+            function_name="fn_orders_ai",
+            schema_name=SCHEMA,
+        )
+        with pytest.raises(UnsupportedFeatureError) as exc:
+            expr.to_sql()
+        assert "schema" in str(exc.value).lower()
+
+    def test_drop_trigger_with_schema_raises(self, dialect):
+        expr = DropTriggerExpression(dialect, "trg_orders_ai", schema_name=SCHEMA)
+        with pytest.raises(UnsupportedFeatureError) as exc:
+            expr.to_sql()
+        assert "schema" in str(exc.value).lower()
+
+    def test_create_trigger_without_schema_renders(self, dialect):
+        """The unqualified form must come out exactly as it did before.
+
+        Routing the names through TableExpression was the fix, not a rewrite:
+        a SQLite trigger that omits the schema has to render byte for byte as
+        before, or the change fixed the drop and introduced one.
+        """
+        expr = CreateTriggerExpression(
+            dialect,
+            "trg_orders_ai",
+            timing=TriggerTiming.AFTER,
+            events=[TriggerEvent.INSERT],
+            table_name="orders",
+            function_name="fn_orders_ai",
+        )
+        sql, params = expr.to_sql()
+        assert sql == (
+            'CREATE TRIGGER "trg_orders_ai" AFTER INSERT ON "orders" '
+            'FOR EACH ROW BEGIN SELECT "fn_orders_ai"(); END'
+        )
+        assert params == ()
+
+    def test_drop_trigger_without_schema_renders(self, dialect):
+        sql, params = DropTriggerExpression(dialect, "trg_orders_ai").to_sql()
+        assert sql == 'DROP TRIGGER "trg_orders_ai"'
+        assert params == ()
 
 
 class TestNoFormatterDropsSchema:

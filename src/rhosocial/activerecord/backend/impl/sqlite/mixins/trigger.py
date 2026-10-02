@@ -53,6 +53,7 @@ class SQLiteTriggerMixin:
         self, expr: "CreateTriggerExpression"
     ) -> "Tuple[str, tuple]":
         """Format CREATE TRIGGER statement for SQLite."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
         from rhosocial.activerecord.backend.expression.statements import TriggerLevel
 
         parts = ["CREATE TRIGGER"]
@@ -60,7 +61,7 @@ class SQLiteTriggerMixin:
         if expr.if_not_exists:
             parts.append("IF NOT EXISTS")
 
-        parts.append(self.format_identifier(expr.trigger_name))
+        parts.append(TableExpression(self, expr.trigger_name, schema_name=expr.schema_name).to_sql()[0])
         parts.append(expr.timing.value)
 
         if expr.update_columns:
@@ -71,7 +72,7 @@ class SQLiteTriggerMixin:
         parts.append(events_str)
 
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0])
 
         if expr.level == TriggerLevel.ROW:
             parts.append("FOR EACH ROW")
@@ -83,19 +84,23 @@ class SQLiteTriggerMixin:
             all_params.extend(cond_params)
 
         parts.append("BEGIN")
-        parts.append(f"SELECT {self.format_identifier(expr.function_name)}();")
+        parts.append(
+            f"SELECT {TableExpression(self, expr.function_name, schema_name=expr.schema_name).to_sql()[0]}();"
+        )
         parts.append("END")
 
         return " ".join(parts), tuple(all_params)
 
     def format_drop_trigger_statement(self, expr: "DropTriggerExpression") -> "Tuple[str, tuple]":
         """Format DROP TRIGGER statement for SQLite."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
         parts = ["DROP TRIGGER"]
 
         if expr.if_exists:
             parts.append("IF EXISTS")
 
-        parts.append(self.format_identifier(expr.trigger_name))
+        parts.append(TableExpression(self, expr.trigger_name, schema_name=expr.schema_name).to_sql()[0])
 
         return " ".join(parts), ()
 
