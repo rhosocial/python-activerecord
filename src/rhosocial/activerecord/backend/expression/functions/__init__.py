@@ -107,7 +107,6 @@ from .grouping import grouping_sets, rollup, cube
 
 # System information function factories
 from .system import (
-    current_schema_unsupported,
     current_user,
     session_user,
     system_user,
@@ -234,7 +233,6 @@ __all__ = [
     # System
     "current_user",
     "session_user",
-    "current_schema_unsupported",
     "system_user",
     # SQL/XML
     "xmlagg",

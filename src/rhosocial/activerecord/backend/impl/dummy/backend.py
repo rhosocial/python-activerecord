@@ -12,6 +12,7 @@ from rhosocial.activerecord.backend.dialect import SQLDialectBase
 from rhosocial.activerecord.backend.errors import DatabaseError
 from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 from rhosocial.activerecord.backend.transaction import TransactionManager, AsyncTransactionManager
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 from .dialect import DummyDialect
 
@@ -75,10 +76,10 @@ class DummyBackend(StorageBackend):
         to read. A placeholder name would be a guess about a namespace that
         does not exist.
         """
-        from ....expression.functions import current_schema_unsupported
 
-        return current_schema_unsupported(
-            self.dialect,
+        raise UnsupportedFeatureError(
+            self.dialect.name,
+            "reading the current schema",
             "DummyBackend does not connect to a server, so it has no session "
             "state to read. Pass schema_name explicitly instead.",
         )
@@ -150,10 +151,10 @@ class AsyncDummyBackend(AsyncStorageBackend):
         state to read. A placeholder name would be a guess about a namespace
         that does not exist.
         """
-        from ....expression.functions import current_schema_unsupported
 
-        return current_schema_unsupported(
-            self.dialect,
+        raise UnsupportedFeatureError(
+            self.dialect.name,
+            "reading the current schema",
             "AsyncDummyBackend does not connect to a server, so it has no "
             "session state to read. Pass schema_name explicitly instead.",
         )

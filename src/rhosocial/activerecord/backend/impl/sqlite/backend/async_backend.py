@@ -25,6 +25,7 @@ from rhosocial.activerecord.backend.explain import AsyncExplainBackendMixin
 from rhosocial.activerecord.backend.introspection.backend_mixin import IntrospectorBackendMixin
 from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions, DeleteOptions
 from rhosocial.activerecord.backend.result import QueryResult
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from ..explain import (
     SQLiteExplainRow,
     SQLiteExplainQueryPlanRow,
@@ -73,7 +74,6 @@ class AsyncSQLiteBackend(
                 delete_on_close=getattr(connection_config, "delete_on_close", False),
                 options=getattr(connection_config, "options", {}),
             )
-
         super().__init__(connection_config=connection_config, logging_config=logging_config)
         self._connection: Optional[aiosqlite.Connection] = None
         self._cursor: Optional[aiosqlite.Cursor] = None
@@ -403,10 +403,10 @@ class AsyncSQLiteBackend(
         neither of which is a session-level schema. There is no value to return
         and substituting ``main`` would be a guess.
         """
-        from rhosocial.activerecord.backend.expression.functions import current_schema_unsupported
 
-        return current_schema_unsupported(
-            self.dialect,
+        raise UnsupportedFeatureError(
+            self.dialect.name,
+            "reading the current schema",
             "SQLite has no schema namespace: a qualified name refers to an "
             "attached database and an unqualified one always resolves against "
             "the database file. Open the intended database instead.",
