@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from typing import Optional, Sequence, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..core import _validate_schema_name
 
 if TYPE_CHECKING:
     from ...dialect import SQLDialectBase
@@ -64,7 +63,7 @@ class CreateTypeExpression(BaseExpression):
         """
         super().__init__(dialect)
         _validate_name(type_name, "type_name")
-        self.schema_name = _validate_schema_name(schema_name, type(self).__name__)
+        self.schema_name = schema_name
         if not isinstance(definition, TypeDefinition):
             raise TypeError(
                 f"definition must be a TypeDefinition instance, got {type(definition).__name__}"
@@ -102,7 +101,7 @@ class AlterTypeExpression(BaseExpression):
         """
         super().__init__(dialect)
         _validate_name(type_name, "type_name")
-        self.schema_name = _validate_schema_name(schema_name, type(self).__name__)
+        self.schema_name = schema_name
         action_list = list(actions or [])
         if not action_list:
             raise ValueError("actions must contain at least one TypeAlterAction")
@@ -140,7 +139,7 @@ class DropTypeExpression(BaseExpression):
         """
         super().__init__(dialect)
         _validate_name(type_name, "type_name")
-        self.schema_name = _validate_schema_name(schema_name, type(self).__name__)
+        self.schema_name = schema_name
         self.type_name = type_name
         self.if_exists = if_exists
 

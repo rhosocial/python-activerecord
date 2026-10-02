@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_domain.py
 """Domain DDL expression nodes."""
 
-from ..core import _validate_schema_name
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
@@ -242,9 +241,7 @@ class CreateDomainExpression(BaseExpression):
                 )
             normalized_checks.append(check)
         self.domain_name = domain_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.data_type = data_type
         self.default = default
         self.nullability = nullability
@@ -292,9 +289,7 @@ class AlterDomainExpression(BaseExpression):
                     f"actions must contain DomainAlterAction instances, got {type(action).__name__}"
                 )
         self.domain_name = domain_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.actions = action_list
 
     @property
@@ -325,9 +320,7 @@ class DropDomainExpression(BaseExpression):
         super().__init__(dialect)
         _validate_name(domain_name, "domain_name")
         self.domain_name = domain_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
 
     @property
     def name(self) -> str:

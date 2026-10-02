@@ -198,13 +198,13 @@ class TestQualifiedIdentifierExpressionIdentifierQuoting:
 
     def test_defaults_all_true(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users")
+        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users")
         assert qi.name_need_quote is True
         assert qi.schema_need_quote is True
 
     def test_all_false(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users",
+        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users",
                                            name_need_quote=False,
                                            schema_need_quote=False)
         assert qi.name_need_quote is False
@@ -212,7 +212,7 @@ class TestQualifiedIdentifierExpressionIdentifierQuoting:
 
     def test_schema_need_quote_independent(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users",
+        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users",
                                            name_need_quote=True,
                                            schema_need_quote=False)
         assert qi.schema_need_quote is False
@@ -443,7 +443,7 @@ class TestFormatMethodDirectPropertyAccess:
 
     def test_format_qualified_identifier_unquoted(self):
         d = DummyDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users",
+        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users",
                                            name_need_quote=False,
                                            schema_need_quote=False)
         sql, params = d.format_qualified_identifier(qi)
@@ -451,7 +451,7 @@ class TestFormatMethodDirectPropertyAccess:
 
     def test_format_qualified_identifier_quoted(self):
         d = DummyDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users",
+        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users",
                                            name_need_quote=True,
                                            schema_need_quote=True)
         sql, params = d.format_qualified_identifier(qi)

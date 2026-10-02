@@ -74,7 +74,7 @@ class TestCoreExpressionBranches:
         assert params == (42,)
 
     def test_qualified_identifier_with_schema(self, dialect):
-        expr = QualifiedIdentifierExpression(dialect, schema="app", name="users")
+        expr = QualifiedIdentifierExpression(dialect, schema_name="app", name="users")
         sql, params = expr.to_sql()
         assert sql == '"app"."users"'
         assert params == ()

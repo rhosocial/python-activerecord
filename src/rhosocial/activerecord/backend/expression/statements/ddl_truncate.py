@@ -4,7 +4,6 @@
 from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..core import _validate_schema_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -66,7 +65,7 @@ class TruncateExpression(BaseExpression):
         self.table_name = table_name
         self.restart_identity = restart_identity  # For PostgreSQL-style RESTART IDENTITY
         self.cascade = cascade  # For PostgreSQL-style CASCADE
-        self.schema_name = _validate_schema_name(schema_name, type(self).__name__)
+        self.schema_name = schema_name
 
     @property
     def format_method(self) -> str:

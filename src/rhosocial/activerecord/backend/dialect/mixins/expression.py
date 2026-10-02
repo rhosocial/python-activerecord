@@ -52,14 +52,7 @@ class ExpressionMixin(FunctionCallMixin):
         Returns:
             A ``(sql, params)`` tuple; ``params`` is empty.
         """
-        from ..exceptions import UnsupportedFeatureError
-
-        if expr.schema_name and not self.supports_schema():
-            raise UnsupportedFeatureError(
-                self.name, "schema-qualified wildcard",
-                f"{self.name} has no namespace to qualify into, so "
-                f"schema_name={expr.schema_name!r} cannot be used."
-            )
+        self.validate_schema_name(expr)
         if expr.schema_name and not expr.table:
             # Same reasoning as format_column: dropping the schema here would
             # widen the query to whatever namespace the connection resolves
@@ -91,9 +84,10 @@ class ExpressionMixin(FunctionCallMixin):
         Returns:
             A ``(sql, params)`` tuple; ``params`` is empty.
         """
-        if expr.schema:
+        self.validate_schema_name(expr)
+        if expr.schema_name:
             return (
-                f"{self.format_identifier(expr.schema, expr.schema_need_quote)}."
+                f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
                 f"{self.format_identifier(expr.name, expr.name_need_quote)}",
                 (),
             )

@@ -11,12 +11,14 @@ import pytest
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, LateralJoinMixin, LateralJoinSupport
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.mixins import DQLMixin, ExpressionMixin, DDLColumnMixin, TableMixin
+from rhosocial.activerecord.backend.dialect.mixins.ddl_schema import SchemaMixin
 from rhosocial.activerecord.backend.expression import Column, QueryExpression, TableExpression, Subquery
 from rhosocial.activerecord.backend.expression.query_sources import LateralExpression, TableFunctionExpression
 
 
 class NoLateralDialect(
-    SQLDialectBase, ExpressionMixin, DDLColumnMixin, TableMixin, DQLMixin, LateralJoinMixin, LateralJoinSupport
+    SQLDialectBase, ExpressionMixin, DDLColumnMixin, SchemaMixin, TableMixin, DQLMixin,
+    LateralJoinMixin, LateralJoinSupport
 ):
     """Dialect that does not support lateral joins and table functions."""
 

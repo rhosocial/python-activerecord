@@ -348,7 +348,7 @@ class TestSchemaValidation:
     def test_t19_table_expression_rejects_non_str_schema(self, dialect):
         """T-19: ``schema_name`` must be a str (or None)."""
         with pytest.raises((TypeError, ValueError)):
-            TableExpression(dialect, TABLE, schema_name=123)
+            TableExpression(dialect, TABLE, schema_name=123).to_sql()
 
     def test_t20_operations_rejects_empty_schema_name(self, backend):
         """T-20/C7: ``schema_name=""`` is a mistake, not "no schema"."""
@@ -369,7 +369,7 @@ class TestRemainingSchemaValidationGaps:
         from rhosocial.activerecord.backend.expression.core import WildcardExpression
 
         with pytest.raises((TypeError, ValueError)):
-            WildcardExpression(dialect, table=TABLE, schema_name="")
+            WildcardExpression(dialect, table=TABLE, schema_name="").to_sql()
 
     def test_t23_wildcard_rejects_schema_without_table(self, dialect):
         """A schema-qualified wildcard is a wider query, not a narrower one."""
@@ -385,7 +385,7 @@ class TestRemainingSchemaValidationGaps:
         )
 
         with pytest.raises((TypeError, ValueError)):
-            QualifiedIdentifierExpression(dialect, schema="", name=TABLE)
+            QualifiedIdentifierExpression(dialect, schema_name="", name=TABLE).to_sql()
 
     def test_t25_create_schema_rejects_empty_name(self, dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_schema import (
@@ -588,7 +588,7 @@ class TestViewSchemaQualification:
         )
 
         with pytest.raises((TypeError, ValueError)):
-            DropViewExpression(dialect, view_name="v_users", schema_name="")
+            DropViewExpression(dialect, view_name="v_users", schema_name="").to_sql()
 
 
 class TestUnsupportedBackendRejectsSchema:

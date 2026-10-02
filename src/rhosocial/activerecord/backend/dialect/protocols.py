@@ -1702,6 +1702,24 @@ class SchemaSupport(Protocol):
         """Whether the database models named schema namespaces at all."""
         ...  # pragma: no cover
 
+    def validate_schema_name(self, expr: object) -> bool:
+        """Accept or reject the namespace an expression carries.
+
+        Called while rendering rather than while constructing. An expression
+        only collects parameters -- at construction its dialect may not be
+        settled and its parameters may still be incomplete -- so strict
+        validation belongs where the statement is whole.
+
+        Returns True once accepted. Raises rather than returning False, so a
+        caller cannot ignore the verdict.
+
+        Raises:
+            ValueError: ``schema_name`` is neither None nor a non-empty string.
+            UnsupportedFeatureError: This dialect has no namespace to qualify
+                into.
+        """
+        ...  # pragma: no cover
+
     def supports_create_schema(self) -> bool:
         """Whether CREATE SCHEMA is supported."""
         ...  # pragma: no cover

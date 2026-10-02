@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_index.py
 """Index DDL statement expressions."""
 
-from ..core import _validate_schema_name
 from typing import List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate
@@ -93,9 +92,7 @@ class CreateIndexExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.index_name = index_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.table_name = table_name
         self.columns = columns
         self.unique = unique
@@ -157,9 +154,7 @@ class DropIndexExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.index_name = index_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.table_name = table_name
         self.if_exists = if_exists
         self.concurrent = concurrent
@@ -229,9 +224,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.index_name = index_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.table_name = table_name
         self.columns = columns
         self.parser = parser
@@ -282,8 +275,6 @@ class DropFulltextIndexExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.index_name = index_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.table_name = table_name
         self.if_exists = if_exists

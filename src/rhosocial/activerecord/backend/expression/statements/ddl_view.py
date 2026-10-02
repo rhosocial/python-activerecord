@@ -6,7 +6,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..core import _validate_schema_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -124,9 +123,7 @@ class CreateViewExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.view_name = view_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.query = query
         self.column_aliases = column_aliases or []
         self.replace = replace  # Whether to use CREATE OR REPLACE semantics
@@ -182,9 +179,7 @@ class DropViewExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.view_name = view_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.if_exists = if_exists
         self.cascade = cascade
 
@@ -259,9 +254,7 @@ class CreateMaterializedViewExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.view_name = view_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.query = query
         self.column_aliases = column_aliases or []
         self.tablespace = tablespace
@@ -317,9 +310,7 @@ class DropMaterializedViewExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.view_name = view_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.if_exists = if_exists
         self.cascade = cascade
 
@@ -375,8 +366,6 @@ class RefreshMaterializedViewExpression(BaseExpression):
         """
         super().__init__(dialect)
         self.view_name = view_name
-        self.schema_name = _validate_schema_name(
-            schema_name, type(self).__name__
-        )
+        self.schema_name = schema_name
         self.concurrent = concurrent
         self.with_data = with_data

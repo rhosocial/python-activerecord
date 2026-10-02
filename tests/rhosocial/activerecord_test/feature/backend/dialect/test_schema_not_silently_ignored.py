@@ -243,16 +243,26 @@ class TestTruncateQualifiesLikeEverythingElse:
             f'TRUNCATE TABLE "{SCHEMA}"."orders"'
         )
 
-    def test_rejects_the_empty_string_at_construction(self, dialect):
+    def test_construction_collects_and_rendering_rejects(self, dialect):
+        """An expression collects parameters; the dialect judges them.
+
+        At construction the parameters may still be incomplete and the dialect
+        may not be settled, so an empty schema is stored rather than refused.
+        Strict validation happens when the statement is rendered -- the first
+        moment the schema is used -- and the error names the expression the
+        caller built, not the TableExpression the formatter built on the way.
+        """
         from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
             TruncateExpression,
         )
 
+        expr = TruncateExpression(dialect, "orders", schema_name="")
+        assert expr.schema_name == "", "construction must not judge the value"
         with pytest.raises(ValueError) as exc:
-            TruncateExpression(dialect, "orders", schema_name="")
-        assert "TruncateExpression" in str(exc.value), (
-            "the error must name the expression the caller built, not the "
-            f"TableExpression the formatter built: {exc.value}"
+            expr.to_sql()
+        assert "schema_name" in str(exc.value), exc.value
+        assert "non-empty" in str(exc.value), (
+            f"the message must say what is wrong and what to do instead: {exc.value}"
         )
 
     def test_the_old_parameter_name_is_gone(self, dialect):

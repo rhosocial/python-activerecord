@@ -38,6 +38,79 @@ class SchemaMixin:
         """
         return False
 
+    def validate_schema_name(self, expr: object) -> bool:
+        """Accept or reject the namespace an expression carries.
+
+        Called while rendering, not while constructing. An expression's
+        parameters may still be incomplete when it is built -- the dialect may
+        not even be settled yet -- so construction only collects them and strict
+        validation happens here, where the statement is known to be whole.
+
+        Every formatter that renders a qualified name routes through this, by
+        way of :meth:`~...mixins.ddl_table.TableDDLMixin.format_table` or
+        :meth:`~...mixins.ddl_column.ColumnDDLMixin.format_column`, so the rules
+        live in one place rather than in each formatter.
+
+        An expression only collects parameters, so it cannot validate them: at
+        construction its dialect may not even be settled and its parameters may
+        still be incomplete. Strict validation belongs here, where the statement
+        is known to be whole.
+
+        Every formatter that renders a qualified name routes through this, by
+        way of :meth:`~...mixins.ddl_table.TableDDLMixin.format_table` or
+        :meth:`~...mixins.ddl_column.ColumnDDLMixin.format_column`, so the rules
+        live in one place rather than in each formatter.
+
+        Three things are rejected, in increasing order of how long they would
+        otherwise go unnoticed:
+
+        - a non-string, which would otherwise reach identifier quoting and fail
+          there -- blaming the identifier rather than the schema;
+        - an empty or blank string, which :meth:`format_table` treats as "no
+          schema", so a caller who asked for ``app.users`` would silently get
+          ``users``, and on a connection whose search path contains ``app`` the
+          statement would run against the other table;
+        - any value on a dialect with no namespace, which would render into SQL
+          the server rejects.
+
+        Args:
+            expr: The expression being rendered, carrying ``schema_name``.
+
+        Returns:
+            True once the namespace is accepted.
+
+        Raises:
+            ValueError: The expression's ``schema_name`` is neither ``None`` nor
+                a non-empty string.
+            UnsupportedFeatureError: This dialect has no namespace to qualify
+                into.
+        """
+        value = expr.schema_name
+        if value is None:
+            return True
+        owner = type(expr).__name__
+        if not isinstance(value, str):
+            raise ValueError(
+                f"{owner}.schema_name must be a string or None, "
+                f"not {type(value).__name__}"
+            )
+        if not value.strip():
+            raise ValueError(
+                f"{owner}.schema_name must be a non-empty string; "
+                "use None for an unqualified reference"
+            )
+        if not self.supports_schema():
+            raise UnsupportedFeatureError(
+                self.name,
+                "a schema-qualified reference",
+                f"{self.name} has no namespace to qualify into, so "
+                f"schema_name={value!r} cannot be used. {owner} would render it "
+                f"as a name this backend rejects.",
+            )
+        return True
+
+
+
     def supports_create_schema(self) -> bool:
         """Whether CREATE SCHEMA is supported.
 
