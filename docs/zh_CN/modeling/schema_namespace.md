@@ -250,8 +250,8 @@ Oracle 的写法。
 | PostgreSQL | 是 | 当前 database 内的 schema | `"app"."users"` |
 | SQL Server | 是 | 当前 database 内的 schema | `[app].[users]` |
 | Oracle | 是 | schema，也就是属主用户 | `"APP"."USERS"`（折为大写） |
-| Snowflake | 是 | schema，**隶属于** database，是独立的一层 | 要配合 `CURRENT_DATABASE()` 才算完全限定 |
-| BigQuery | 是 | dataset；列引用永不带 schema | `` `app.users` `` |
+| Snowflake | 是 | schema，**隶属于** database，是独立的一层 | `"app"."orders"`，缺 database 一级并不完整 |
+| BigQuery | 是 | dataset；列引用永不带 dataset | `` `app`.`orders` `` |
 | MariaDB | 是 | **database**：`schema` 是 `database` 的同义词 | `` `app`.`users` `` |
 | MySQL | 是 | **database**：和 MariaDB 一样 | `` `app`.`users` `` |
 | ClickHouse | 是 | **database**：没有独立的 schema 层，`CREATE SCHEMA` 是语法错误，但 `schema_name` 照样能用 | `` `app`.`users` `` |

@@ -291,8 +291,8 @@ PostgreSQL / SQL Server / Oracle spelling.
 | PostgreSQL | yes | a schema inside the current database | `"app"."users"` |
 | SQL Server | yes | a schema inside the current database | `[app].[users]` |
 | Oracle | yes | a schema, which is the owning user | `"APP"."USERS"` (folded upper) |
-| Snowflake | yes | a schema, which **belongs to** a database — a distinct level, not the database itself | needs `CURRENT_DATABASE()` to be fully qualified |
-| BigQuery | yes | a dataset; columns are never schema-qualified | `` `app.users` `` |
+| Snowflake | yes | a schema, which **belongs to** a database — a distinct level, not the database itself | `"app"."orders"` — incomplete without the database level |
+| BigQuery | yes | a dataset; columns are never dataset-qualified | `` `app`.`orders` `` |
 | MariaDB | yes | **a database** — `schema` is a synonym for `database`; `CREATE SCHEMA` and `SHOW SCHEMAS` are accepted and list databases | `` `app`.`users` `` |
 | MySQL | yes | **a database** — same synonymy as MariaDB | `` `app`.`users` `` |
 | ClickHouse | yes | **a database** — there is no schema level; `CREATE SCHEMA` and `SHOW SCHEMAS` are syntax errors, and no `currentSchema()` function exists | `` `app`.`users` `` |
