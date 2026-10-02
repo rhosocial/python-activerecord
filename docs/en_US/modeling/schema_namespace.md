@@ -134,6 +134,23 @@ way to say "unqualified" — that is what `None` means. Empty strings are now
 rejected outright, and a non-string value is rejected too. The same applies to
 `TableExpression(schema_name=...)` and to every `*Options` DML object.
 
+Why reject rather than treat `""` as absent, when the renderer already treats a
+falsy schema as absent? Because that fallback is the problem. `format_table`
+asks `if expr.schema_name:` and takes the unqualified branch for `""` — so a
+caller who asked for `app.users` would get `users`, with no error, no warning
+and no affected-row count to notice it by. The statement still runs, and on any
+connection whose search path happens to contain `app` it runs against the wrong
+table. An empty string is nearly always how a schema gets lost in the first
+place — an f-string that came out blank, a `config.get(...) or ""`, a missing
+environment variable — and it is exactly the case where the caller is least able
+to tell that the namespace went missing. Failing at construction is cheaper than
+debugging a write that landed in the default schema.
+
+The same reasoning is why the check lives in one place
+(`_validate_schema_name`) rather than in each statement: an empty string has to
+be rejected identically by all 40-odd expressions that accept one, at the moment
+they are built, with a message that names the expression at fault.
+
 ## 4. DDL takes a schema of its own
 
 > **`__schema_name__` selects the read/write namespace. DDL statements do not
