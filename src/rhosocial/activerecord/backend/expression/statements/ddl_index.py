@@ -11,11 +11,6 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class CreateIndexExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_index_statement"
     """
     Represents a CREATE INDEX statement for standalone index creation.
 
@@ -68,6 +63,11 @@ class CreateIndexExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_index_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -83,6 +83,14 @@ class CreateIndexExpression(BaseExpression):
         concurrent: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the index with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError. A table named by the statement is
+                qualified with the same namespace.
+        """
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = _validate_schema_name(
@@ -105,11 +113,6 @@ class CreateIndexExpression(BaseExpression):
 
 
 class DropIndexExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_index_statement"
     """
     Represents a DROP INDEX statement.
 
@@ -135,6 +138,11 @@ class DropIndexExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_index_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -144,6 +152,14 @@ class DropIndexExpression(BaseExpression):
         concurrent: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the index with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError. A table named by the statement is
+                qualified with the same namespace.
+        """
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = _validate_schema_name(
@@ -160,11 +176,6 @@ class DropIndexExpression(BaseExpression):
 
 
 class CreateFulltextIndexExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_fulltext_index_statement"
     """
     Represents a CREATE FULLTEXT INDEX statement.
 
@@ -203,6 +214,11 @@ class CreateFulltextIndexExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_fulltext_index_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -213,6 +229,14 @@ class CreateFulltextIndexExpression(BaseExpression):
         if_not_exists: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the full-text index with, e.g.
+                ``app``. None leaves the name unqualified. An empty string
+                raises ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError. A table named by the statement is
+                qualified with the same namespace.
+        """
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = _validate_schema_name(
@@ -230,11 +254,6 @@ class CreateFulltextIndexExpression(BaseExpression):
 
 
 class DropFulltextIndexExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_fulltext_index_statement"
     """
     Represents a DROP FULLTEXT INDEX statement.
 
@@ -255,6 +274,11 @@ class DropFulltextIndexExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_fulltext_index_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -263,6 +287,14 @@ class DropFulltextIndexExpression(BaseExpression):
         if_exists: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the full-text index with, e.g.
+                ``app``. None leaves the name unqualified. An empty string
+                raises ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError. A table named by the statement is
+                qualified with the same namespace.
+        """
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = _validate_schema_name(

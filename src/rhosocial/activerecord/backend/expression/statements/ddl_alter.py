@@ -616,10 +616,16 @@ class AlterTableExpression(BaseExpression):
             dialect: The SQL dialect instance that determines query generation rules
             table_name: Name of the table to alter
             actions: List of actions to perform on the table (per SQL standard)
+            schema_name: Namespace to qualify the table with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
 
         Raises:
             ValueError: If required parameters are missing or invalid
             TypeError: If any action is not an AlterTableAction instance
+            UnsupportedFeatureError: If ``schema_name`` is given on a dialect
+                with no namespace
         """
         super().__init__(dialect)
         self.table_name: str = table_name

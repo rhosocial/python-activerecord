@@ -11,11 +11,6 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class CreateFunctionExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_function_statement"
     """SQL/PSM standard CREATE FUNCTION statement.
 
     Examples:
@@ -32,6 +27,11 @@ class CreateFunctionExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_function_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -43,6 +43,13 @@ class CreateFunctionExpression(BaseExpression):
         or_replace: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the function with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.function_name = function_name
         self.schema_name = _validate_schema_name(
@@ -61,11 +68,6 @@ class CreateFunctionExpression(BaseExpression):
 
 
 class DropFunctionExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_function_statement"
     """SQL/PSM standard DROP FUNCTION statement.
 
     Examples:
@@ -76,6 +78,11 @@ class DropFunctionExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_function_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -85,6 +92,13 @@ class DropFunctionExpression(BaseExpression):
         cascade: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the function with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.function_name = function_name
         self.schema_name = _validate_schema_name(

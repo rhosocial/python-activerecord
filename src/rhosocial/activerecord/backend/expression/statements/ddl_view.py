@@ -54,11 +54,6 @@ class ViewOptions:
 
 
 class CreateViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_view_statement"
     """
     Represents a CREATE VIEW statement supporting full SQL standard features and extensions.
 
@@ -103,6 +98,11 @@ class CreateViewExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_view_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -115,6 +115,13 @@ class CreateViewExpression(BaseExpression):
         options: Optional[ViewOptions] = None,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the view with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.view_name = view_name
         self.schema_name = _validate_schema_name(
@@ -134,11 +141,6 @@ class CreateViewExpression(BaseExpression):
 
 
 class DropViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_view_statement"
     """
     Represents a DROP VIEW statement supporting standard and extended features.
 
@@ -163,6 +165,11 @@ class DropViewExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_view_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -171,6 +178,13 @@ class DropViewExpression(BaseExpression):
         cascade: bool = False,
         schema_name: Optional[str] = None,
     ):  # DROP VIEW ... CASCADE (drops dependent objects)
+        """
+        Args:
+            schema_name: Namespace to qualify the view with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.view_name = view_name
         self.schema_name = _validate_schema_name(
@@ -186,11 +200,6 @@ class DropViewExpression(BaseExpression):
 
 
 class CreateMaterializedViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_materialized_view_statement"
     """
     Represents a CREATE MATERIALIZED VIEW statement.
 
@@ -235,6 +244,11 @@ class CreateMaterializedViewExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_materialized_view_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -246,6 +260,13 @@ class CreateMaterializedViewExpression(BaseExpression):
         storage_options: Optional[Dict[str, Any]] = None,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the materialized view with,
+                e.g. ``app``. None leaves the name unqualified. An empty
+                string raises ValueError, and a dialect with no namespace
+                raises UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.view_name = view_name
         self.schema_name = _validate_schema_name(
@@ -264,11 +285,6 @@ class CreateMaterializedViewExpression(BaseExpression):
 
 
 class DropMaterializedViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_materialized_view_statement"
     """
     Represents a DROP MATERIALIZED VIEW statement.
 
@@ -294,6 +310,11 @@ class DropMaterializedViewExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_materialized_view_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -302,6 +323,13 @@ class DropMaterializedViewExpression(BaseExpression):
         cascade: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the materialized view with,
+                e.g. ``app``. None leaves the name unqualified. An empty
+                string raises ValueError, and a dialect with no namespace
+                raises UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.view_name = view_name
         self.schema_name = _validate_schema_name(
@@ -317,11 +345,6 @@ class DropMaterializedViewExpression(BaseExpression):
 
 
 class RefreshMaterializedViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_refresh_materialized_view_statement"
     """
     Represents a REFRESH MATERIALIZED VIEW statement.
 
@@ -350,6 +373,11 @@ class RefreshMaterializedViewExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_refresh_materialized_view_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -358,6 +386,13 @@ class RefreshMaterializedViewExpression(BaseExpression):
         with_data: Optional[bool] = None,  # WITH DATA or WITH NO DATA
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the materialized view with,
+                e.g. ``app``. None leaves the name unqualified. An empty
+                string raises ValueError, and a dialect with no namespace
+                raises UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.view_name = view_name
         self.schema_name = _validate_schema_name(

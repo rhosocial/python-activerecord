@@ -11,11 +11,6 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class CreateSequenceExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_sequence_statement"
     """
     Represents a CREATE SEQUENCE statement.
 
@@ -49,6 +44,11 @@ class CreateSequenceExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_sequence_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -64,6 +64,13 @@ class CreateSequenceExpression(BaseExpression):
         owned_by: Optional[str] = None,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the sequence with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.sequence_name = sequence_name
         self.schema_name = _validate_schema_name(
@@ -86,11 +93,6 @@ class CreateSequenceExpression(BaseExpression):
 
 
 class DropSequenceExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_sequence_statement"
     """
     Represents a DROP SEQUENCE statement.
 
@@ -109,6 +111,11 @@ class DropSequenceExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_sequence_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -116,6 +123,13 @@ class DropSequenceExpression(BaseExpression):
         if_exists: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the sequence with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.sequence_name = sequence_name
         self.schema_name = _validate_schema_name(
@@ -130,11 +144,6 @@ class DropSequenceExpression(BaseExpression):
 
 
 class AlterSequenceExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_alter_sequence_statement"
     """
     Represents an ALTER SEQUENCE statement.
 
@@ -163,6 +172,11 @@ class AlterSequenceExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_alter_sequence_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -178,6 +192,13 @@ class AlterSequenceExpression(BaseExpression):
         owned_by: Optional[str] = None,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the sequence with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.sequence_name = sequence_name
         self.schema_name = _validate_schema_name(

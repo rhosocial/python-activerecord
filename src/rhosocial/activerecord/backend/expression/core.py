@@ -114,6 +114,14 @@ class Column(
         schema_need_quote: bool = True,
         table_need_quote: bool = True,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the table with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError. The qualifier belongs to the table;
+                a column reference carries no schema of its own.
+        """
         super().__init__(dialect)
         self.name_need_quote = name_need_quote
         self.alias_need_quote = alias_need_quote
@@ -287,6 +295,13 @@ class TableExpression(AliasableMixin, BaseExpression):
         alias_need_quote: bool = True,
         schema_need_quote: bool = True,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the table with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.name_need_quote = name_need_quote
         self.alias_need_quote = alias_need_quote
@@ -349,6 +364,13 @@ class WildcardExpression(SQLValueExpression):
         table_need_quote: bool = True,
         schema_need_quote: bool = True,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the table with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.table_need_quote = table_need_quote
         self.schema_need_quote = schema_need_quote

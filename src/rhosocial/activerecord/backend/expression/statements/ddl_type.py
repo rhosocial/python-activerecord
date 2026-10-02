@@ -54,6 +54,13 @@ class CreateTypeExpression(BaseExpression):
         if_not_exists: bool = False,
         or_replace: bool = False,
     ) -> None:
+        """
+        Args:
+            schema_name: Namespace to qualify the type with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         _validate_name(type_name, "type_name")
         if schema_name is not None:
@@ -87,6 +94,13 @@ class AlterTypeExpression(BaseExpression):
         schema_name: Optional[str] = None,
         if_exists: bool = False,
     ) -> None:
+        """
+        Args:
+            schema_name: Namespace to qualify the type with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         _validate_name(type_name, "type_name")
         if schema_name is not None:
@@ -120,6 +134,13 @@ class DropTypeExpression(BaseExpression):
         schema_name: Optional[str] = None,
         if_exists: bool = False,
     ) -> None:
+        """
+        Args:
+            schema_name: Namespace to qualify the type with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         _validate_name(type_name, "type_name")
         if schema_name is not None:

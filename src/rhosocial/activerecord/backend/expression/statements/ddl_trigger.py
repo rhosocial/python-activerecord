@@ -36,12 +36,8 @@ class TriggerLevel(Enum):
 
 
 class CreateTriggerExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_trigger_statement"
-    """SQL:1999 standard CREATE TRIGGER statement.
+    """
+    SQL:1999 standard CREATE TRIGGER statement.
 
     Examples:
         # Basic trigger
@@ -68,6 +64,11 @@ class CreateTriggerExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_create_trigger_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -83,6 +84,13 @@ class CreateTriggerExpression(BaseExpression):
         if_not_exists: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the trigger with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.trigger_name = trigger_name
         self.schema_name = _validate_schema_name(
@@ -105,12 +113,8 @@ class CreateTriggerExpression(BaseExpression):
 
 
 class DropTriggerExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_trigger_statement"
-    """SQL:1999 standard DROP TRIGGER statement.
+    """
+    SQL:1999 standard DROP TRIGGER statement.
 
     Examples:
         drop_trigger = DropTriggerExpression(
@@ -120,6 +124,11 @@ class DropTriggerExpression(BaseExpression):
         )
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_drop_trigger_statement"
+
     def __init__(
         self,
         dialect: "SQLDialectBase",
@@ -128,6 +137,13 @@ class DropTriggerExpression(BaseExpression):
         if_exists: bool = False,
         schema_name: Optional[str] = None,
     ):
+        """
+        Args:
+            schema_name: Namespace to qualify the trigger with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         self.trigger_name = trigger_name
         self.schema_name = _validate_schema_name(

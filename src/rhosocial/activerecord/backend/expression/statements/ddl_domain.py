@@ -195,6 +195,13 @@ class CreateDomainExpression(BaseExpression):
         collation: Optional[str] = None,
         schema_name: Optional[str] = None,
     ) -> None:
+        """
+        Args:
+            schema_name: Namespace to qualify the domain with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         _validate_name(domain_name, "domain_name")
         if not isinstance(data_type, DataType):
@@ -267,6 +274,13 @@ class AlterDomainExpression(BaseExpression):
         actions: Sequence[DomainAlterAction],
         schema_name: Optional[str] = None,
     ) -> None:
+        """
+        Args:
+            schema_name: Namespace to qualify the domain with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         _validate_name(domain_name, "domain_name")
         action_list = list(actions or [])
@@ -301,6 +315,13 @@ class DropDomainExpression(BaseExpression):
         domain_name: str,
         schema_name: Optional[str] = None,
     ) -> None:
+        """
+        Args:
+            schema_name: Namespace to qualify the domain with, e.g. ``app``.
+                None leaves the name unqualified. An empty string raises
+                ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
+        """
         super().__init__(dialect)
         _validate_name(domain_name, "domain_name")
         self.domain_name = domain_name
