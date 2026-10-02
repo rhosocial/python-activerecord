@@ -82,9 +82,16 @@ class TableMixin:
             UnsupportedFeatureError: This dialect cannot qualify into a
                 namespace.
         """
-        self.validate_schema_name(expr)
+        from ..protocols import SchemaSupport
 
-        if expr.schema_name:
+        # A dialect that does not implement SchemaSupport has no namespaces to
+        # talk about, so it neither validates nor renders one: whatever the
+        # expression carries is not its business. A dialect that does implement
+        # it is held to the value, and says no when it cannot express it.
+        if isinstance(self, SchemaSupport):
+            self.validate_schema_name(expr)
+        qualify = isinstance(self, SchemaSupport) and bool(expr.schema_name)
+        if qualify:
             table_sql = (
                 f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
                 f"{self.format_identifier(expr.name, expr.name_need_quote)}"

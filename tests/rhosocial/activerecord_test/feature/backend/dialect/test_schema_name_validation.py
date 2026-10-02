@@ -154,3 +154,76 @@ class TestConstructionDoesNotJudge:
     def test_a_dialect_without_namespaces_still_accepts_construction(self, plain):
         expr = TableExpression(plain, "users", schema_name="app")
         assert expr.schema_name == "app"
+
+
+class TestTheProtocolDecidesWhetherThereIsAnythingToJudge:
+    """Three kinds of dialect, and only two of them have an opinion.
+
+    ``SchemaSupport`` is an independent capability: a dialect mixes it in when
+    it has namespaces to talk about, and the formatting functions check for it
+    before validating. A dialect that does not mix it in is not being asked
+    about schemas at all, so whatever the expression carries is none of its
+    business -- it renders, and the schema is simply not part of the output.
+    """
+
+    @staticmethod
+    def _dialect_without_schema_support():
+        """A dialect that renders names but has no namespace concept.
+
+        Built from the mixins a minimal dialect needs and pointedly not including
+        SchemaMixin, which is the whole point: ``isinstance(self, SchemaSupport)``
+        is False, so no validation runs.
+        """
+        from rhosocial.activerecord.backend.dialect import SQLDialectBase
+        from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin
+        from rhosocial.activerecord.backend.dialect.mixins.ddl_table import TableMixin
+
+        class NoNamespaceDialect(SQLDialectBase, ExpressionMixin, TableMixin):
+            def supports_schema(self) -> bool:
+                return False
+
+        return NoNamespaceDialect()
+
+    def test_a_dialect_without_the_protocol_is_not_asked(self):
+        from rhosocial.activerecord.backend.dialect.protocols import SchemaSupport
+
+        dialect = self._dialect_without_schema_support()
+        assert not isinstance(dialect, SchemaSupport), (
+            "this dialect must not implement SchemaSupport, or the case below "
+            "is not testing what it claims to"
+        )
+
+    @pytest.mark.parametrize("value", ["", "   ", 123, "app"])
+    def test_it_renders_whatever_the_expression_carries(self, value):
+        """No validation, and no refusal either -- just no opinion.
+
+        This is the deliberate difference from SQLite below. Both refuse to
+        render a qualified reference, but for different reasons: this dialect has
+        no concept of namespaces to validate, SQLite has the concept and answers
+        no.
+        """
+        dialect = self._dialect_without_schema_support()
+        expr = TableExpression(dialect, "users", schema_name=value)
+        assert dialect.supports_schema() is False
+        assert expr.to_sql()[0] == '"users"', (
+            "a dialect that never claimed namespaces must not start refusing "
+            "them halfway through rendering"
+        )
+
+    def test_sqlite_has_the_protocol_and_says_no(self, plain):
+        """The other case: capability present, switch off.
+
+        SQLite implements SchemaSupport, so schema parameters are validated --
+        and the answer is a refusal. This is what makes the two cases above and
+        here different rather than two spellings of "unsupported".
+        """
+        from rhosocial.activerecord.backend.dialect.protocols import SchemaSupport
+
+        assert isinstance(plain, SchemaSupport)
+        assert plain.supports_schema() is False
+        with pytest.raises(UnsupportedFeatureError):
+            TableExpression(plain, "users", schema_name="app").to_sql()
+
+    def test_sqlite_rejects_even_a_punny_value(self, plain):
+        with pytest.raises(ValueError):
+            TableExpression(plain, "users", schema_name="").to_sql()

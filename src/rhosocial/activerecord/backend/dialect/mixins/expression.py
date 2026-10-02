@@ -52,8 +52,12 @@ class ExpressionMixin(FunctionCallMixin):
         Returns:
             A ``(sql, params)`` tuple; ``params`` is empty.
         """
-        self.validate_schema_name(expr)
-        if expr.schema_name and not expr.table:
+        from ..protocols import SchemaSupport
+
+        if isinstance(self, SchemaSupport):
+            self.validate_schema_name(expr)
+        schema_name = expr.schema_name if isinstance(self, SchemaSupport) else None
+        if schema_name and not expr.table:
             # Same reasoning as format_column: dropping the schema here would
             # widen the query to whatever namespace the connection resolves
             # first, which is a different table than the caller named. A
@@ -61,12 +65,12 @@ class ExpressionMixin(FunctionCallMixin):
             # that supports schemas, so this is always a caller mistake.
             raise ValueError(
                 f"{self.name}: cannot qualify wildcard with schema "
-                f"{expr.schema_name!r} because no table was given; a wildcard "
+                f"{schema_name!r} because no table was given; a wildcard "
                 "needs a table (or an alias) to be schema-qualified"
             )
-        if expr.schema_name and expr.table:
+        if schema_name and expr.table:
             wildcard_sql = (
-                f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
+                f"{self.format_identifier(schema_name, expr.schema_need_quote)}."
                 f"{self.format_identifier(expr.table, expr.table_need_quote)}.*"
             )
         elif expr.table:
@@ -84,10 +88,14 @@ class ExpressionMixin(FunctionCallMixin):
         Returns:
             A ``(sql, params)`` tuple; ``params`` is empty.
         """
-        self.validate_schema_name(expr)
-        if expr.schema_name:
+        from ..protocols import SchemaSupport
+
+        if isinstance(self, SchemaSupport):
+            self.validate_schema_name(expr)
+        schema_name = expr.schema_name if isinstance(self, SchemaSupport) else None
+        if schema_name:
             return (
-                f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
+                f"{self.format_identifier(schema_name, expr.schema_need_quote)}."
                 f"{self.format_identifier(expr.name, expr.name_need_quote)}",
                 (),
             )

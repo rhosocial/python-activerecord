@@ -155,8 +155,14 @@ class DDLColumnMixin:
         """
         from ..exceptions import UnsupportedFeatureError
 
-        self.validate_schema_name(expr)
-        if expr.schema_name and not expr.table:
+        from ..protocols import SchemaSupport
+
+        # Same rule as format_table: no SchemaSupport means no namespaces here,
+        # so the schema is neither validated nor rendered.
+        if isinstance(self, SchemaSupport):
+            self.validate_schema_name(expr)
+        schema_name = expr.schema_name if isinstance(self, SchemaSupport) else None
+        if schema_name and not expr.table:
             # Silently dropping the schema would resolve the column against
             # whatever namespace the connection happens to search first.
             raise ValueError(
@@ -164,9 +170,9 @@ class DDLColumnMixin:
                 f"{expr.schema_name!r} because no table was given; a column "
                 "reference needs a table (or an alias) to be schema-qualified"
             )
-        if expr.schema_name and expr.table:
+        if schema_name and expr.table:
             col_sql = (
-                f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
+                f"{self.format_identifier(schema_name, expr.schema_need_quote)}."
                 f"{self.format_identifier(expr.table, expr.table_need_quote)}."
                 f"{self.format_identifier(expr.name, expr.name_need_quote)}"
             )

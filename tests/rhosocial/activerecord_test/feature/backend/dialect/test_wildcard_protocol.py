@@ -8,10 +8,9 @@ the format_wildcard method works correctly while other features remain unsupport
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, WildcardSupport
 from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin
-from rhosocial.activerecord.backend.dialect.mixins.ddl_schema import SchemaMixin
 
 
-class WildcardOnlyDialect(SQLDialectBase, ExpressionMixin, SchemaMixin, WildcardSupport):
+class WildcardOnlyDialect(SQLDialectBase, ExpressionMixin, WildcardSupport):
     """Dialect that only supports wildcard expressions."""
 
     pass
