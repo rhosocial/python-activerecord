@@ -4,7 +4,8 @@
 from typing import Union, Optional, Any, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..value_types import INTEGER, value_type_of
+from ..column_types import family_of_result
+from ..value_types import INTEGER
 from ..core import Column, Literal
 from ..advanced_functions import WindowFunctionCall
 
@@ -55,7 +56,7 @@ def lag(
     args = [target_expr, Literal(dialect, offset)]
     if default is not None:
         args.append(Literal(dialect, default))
-    return WindowFunctionCall(dialect, "LAG", args=args, alias=alias, family=value_type_of(target_expr))
+    return WindowFunctionCall(dialect, "LAG", args=args, alias=alias, family=family_of_result(target_expr))
 
 
 def lead(
@@ -87,7 +88,7 @@ def lead(
     args = [target_expr, Literal(dialect, offset)]
     if default is not None:
         args.append(Literal(dialect, default))
-    return WindowFunctionCall(dialect, "LEAD", args=args, alias=alias, family=value_type_of(target_expr))
+    return WindowFunctionCall(dialect, "LEAD", args=args, alias=alias, family=family_of_result(target_expr))
 
 
 def first_value(
@@ -110,7 +111,7 @@ def first_value(
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     return WindowFunctionCall(
-        dialect, "FIRST_VALUE", args=[target_expr], alias=alias, family=value_type_of(target_expr)
+        dialect, "FIRST_VALUE", args=[target_expr], alias=alias, family=family_of_result(target_expr)
     )
 
 
@@ -133,7 +134,9 @@ def last_value(
         A WindowFunctionCall instance representing the LAST_VALUE function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return WindowFunctionCall(dialect, "LAST_VALUE", args=[target_expr], alias=alias, family=value_type_of(target_expr))
+    return WindowFunctionCall(
+        dialect, "LAST_VALUE", args=[target_expr], alias=alias,
+        family=family_of_result(target_expr))
 
 
 def nth_value(
@@ -158,5 +161,5 @@ def nth_value(
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     n_expr = Literal(dialect, n)
     return WindowFunctionCall(
-        dialect, "NTH_VALUE", args=[target_expr, n_expr], alias=alias, family=value_type_of(target_expr)
+        dialect, "NTH_VALUE", args=[target_expr, n_expr], alias=alias, family=family_of_result(target_expr)
     )

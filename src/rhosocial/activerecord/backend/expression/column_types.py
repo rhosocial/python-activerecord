@@ -24,6 +24,8 @@ business (``DataType`` / ``format_data_type_*``), and the two never read each
 other. See ``expression/types/__init__.py`` for the DDL-side boundary.
 """
 
+import sys
+
 from typing import Optional, TYPE_CHECKING
 
 from .bases import SQLValueExpression
@@ -230,6 +232,61 @@ class ArrayColumn(ArrayMixin, ColumnBase):
     and :meth:`~...mixins.ArrayMixin.unnest`."""
 
 
+
+#: Column class name -> the result class an operation over that column hands
+#: back. A reduction keeps what it was given (MIN of an integer is an integer),
+#: and NULLIF returns the value it tests, so both need to know this without
+#: reading an attribute off the instance. Keyed by name so the table can be
+#: written before :mod:`core` is importable -- core imports ColumnBase from
+#: here, so importing it at module level would close a cycle. Resolved lazily,
+#: once, by :func:`result_class_of`.
+_RESULT_CLASS_NAMES = {
+    "IntegerColumn": "IntegerValueExpression",
+    "NumericColumn": "NumericValueExpression",
+    "StringColumn": "StringValueExpression",
+    "DateTimeColumn": "DateTimeValueExpression",
+    "JSONColumn": "JSONValueExpression",
+    "ArrayColumn": "ArrayValueExpression",
+    "BooleanColumn": "BooleanValueExpression",
+}
+
+_RESULT_CLASS_OF: dict = {}
+
+
+def result_class_of(expr: object) -> Optional[type]:
+    """The result class an operation over *expr* gives back, or None.
+
+    None is a real answer: a ``Literal`` and a hand-written ``Column`` say
+    nothing about what a database would hand back, so neither does an operation
+    over them. ``SQLValueExpression`` would be a guess.
+
+    Subclasses resolve through the MRO, so a backend that narrows a column class
+    is still recognised.
+    """
+    if not _RESULT_CLASS_OF:
+        from . import core
+
+        _RESULT_CLASS_OF.update(
+            {getattr(sys.modules[__name__], col): getattr(core, res)
+             for col, res in _RESULT_CLASS_NAMES.items()}
+        )
+    for klass in type(expr).__mro__:
+        if klass in _RESULT_CLASS_OF:
+            return _RESULT_CLASS_OF[klass]
+    return None
+
+
+def family_of_result(expr: object) -> Optional[str]:
+    """The family an operation over *expr* propagates, or None if unknown.
+
+    For the same reason as :func:`result_class_of`, and read off the result
+    class rather than off *expr*: the column and its result agree on the family,
+    so the answer comes from the type rather than from construction-time state.
+    """
+    result = result_class_of(expr)
+    return getattr(result, "VALUE_FAMILY", None) if result is not None else None
+
+
 __all__ = [
     "ColumnBase",
     "StringColumn",
@@ -240,4 +297,6 @@ __all__ = [
     "UUIDColumn",
     "JSONColumn",
     "ArrayColumn",
+    "result_class_of",
+    "family_of_result",
 ]

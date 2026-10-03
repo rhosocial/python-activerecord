@@ -5,7 +5,8 @@ from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
-from ..value_types import INTEGER, NUMERIC, value_type_of
+from ..column_types import family_of_result
+from ..value_types import INTEGER, NUMERIC
 from ..core import Column, WildcardExpression
 from ..operators import RawSQLExpression
 
@@ -80,7 +81,7 @@ def sum_(
         target_expr,
         is_distinct=is_distinct,
         alias=alias,
-        family=value_type_of(target_expr),
+        family=family_of_result(target_expr),
     )
 
 
@@ -131,7 +132,7 @@ def min_(
         An AggregateFunctionCall instance representing the MIN function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "MIN", target_expr, alias=alias, family=value_type_of(target_expr))
+    return AggregateFunctionCall(dialect, "MIN", target_expr, alias=alias, family=family_of_result(target_expr))
 
 
 def max_(
@@ -154,4 +155,4 @@ def max_(
         An AggregateFunctionCall instance representing the MAX function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "MAX", target_expr, alias=alias, family=value_type_of(target_expr))
+    return AggregateFunctionCall(dialect, "MAX", target_expr, alias=alias, family=family_of_result(target_expr))

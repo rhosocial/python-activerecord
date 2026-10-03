@@ -8,7 +8,8 @@ from typing import Any, List, Optional, Union, TYPE_CHECKING
 
 from .bases import BaseExpression, SQLPredicate, SQLValueExpression
 from .core import Column, Subquery
-from .value_types import JSON, STRING, common_family
+from .column_types import result_class_of
+from .value_types import JSON, STRING
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -69,9 +70,12 @@ class CaseExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
             # A CASE answers with whatever its branches answer with, so the
             # branches decide it. The factory cannot: it is handed a list
             # rather than the individual results.
-            family = common_family(
-                [result for _condition, result in self.cases] + [self.else_result]
-            )
+            branches = [result for _condition, result in self.cases] + [self.else_result]
+            # A branch that declares nothing is not a contradiction: what
+            # matters is that the branches that do declare a kind agree.
+            classes = {result_class_of(result) for result in branches}
+            classes.discard(None)
+            family = classes.pop().VALUE_FAMILY if len(classes) == 1 else None
         if family is not None:
             self.VALUE_FAMILY = family
 

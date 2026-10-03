@@ -4,7 +4,7 @@
 from typing import Any, Union, Optional, TYPE_CHECKING, overload
 
 from ..bases import BaseExpression, SQLValueExpression
-from ..column_types import IntegerColumn, NumericColumn
+from ..column_types import IntegerColumn, NumericColumn, result_class_of
 from ..core import FunctionCall, IntegerValueExpression, Literal, NumericValueExpression
 from ..advanced_functions import CaseExpression
 
@@ -29,30 +29,6 @@ def case(
     return CaseExpression(dialect, value=value, alias=alias)
 
 
-#: Column class -> the result class an operation over it hands back.
-_RESULT_OF = {
-    "IntegerColumn": "IntegerValueExpression",
-    "NumericColumn": "NumericValueExpression",
-    "StringColumn": "StringValueExpression",
-    "DateTimeColumn": "DateTimeValueExpression",
-    "JSONColumn": "JSONValueExpression",
-    "ArrayColumn": "ArrayValueExpression",
-    "BooleanColumn": "BooleanValueExpression",
-}
-
-
-def _result_class(expr: object) -> Optional[type]:
-    """The result class an expression of this kind carries, or None if unknown.
-
-    Read off the class rather than off a family attribute, so the answer comes
-    from the type the caller wrote rather than from state set at construction.
-    """
-    from .. import core
-
-    name = _RESULT_OF.get(type(expr).__name__)
-    return getattr(core, name) if name else None
-
-
 def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQLValueExpression":
     """Give GREATEST/LEAST the type of its arguments when they agree on one.
 
@@ -63,7 +39,7 @@ def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQ
     argument or the widest, either of which would promise a surface the
     database does not.
     """
-    classes = {_result_class(e) for e in exprs}
+    classes = {result_class_of(e) for e in exprs}
     if len(classes) == 1 and None not in classes:
         return classes.pop()(dialect, call)
     return call
@@ -116,7 +92,7 @@ def nullif(
     value_expr = value if isinstance(value, BaseExpression) else Literal(dialect, value)
     null_expr = null_value if isinstance(null_value, BaseExpression) else Literal(dialect, null_value)
     call = FunctionCall(dialect, "NULLIF", value_expr, null_expr)
-    result = _result_class(value_expr)
+    result = result_class_of(value_expr)
     if result is not None:
         return result(dialect, call)
     return call
