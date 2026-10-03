@@ -796,6 +796,7 @@ class DDLSourceMixin:
         )
 
 
+    @classmethod
     def ddl_field_names(cls) -> Tuple[str, ...]:
         cls._validate_ddl_annotations()
         derived = getattr(cls, "__derived_fields__", {}) or {}

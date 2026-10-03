@@ -39,7 +39,7 @@ dialect = backend.dialect
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name=TableExpression(dialect, "users"),
+    table=TableExpression(dialect, "users"),
     columns=[
         ColumnDefinition(dialect, 
             "id",

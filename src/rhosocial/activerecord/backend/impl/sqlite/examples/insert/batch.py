@@ -23,7 +23,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name=TableExpression(dialect, "users"),
+    table=TableExpression(dialect, "users"),
     columns=[
         ColumnDefinition(dialect, 
             "id",

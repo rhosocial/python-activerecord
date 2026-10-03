@@ -67,7 +67,7 @@ indexes = [
 
 create_expr = CreateTableExpression(
     dialect=dialect,
-    table_name=TableExpression(dialect, "users"),
+    table=TableExpression(dialect, "users"),
     columns=columns,
     indexes=indexes,
     if_not_exists=True,

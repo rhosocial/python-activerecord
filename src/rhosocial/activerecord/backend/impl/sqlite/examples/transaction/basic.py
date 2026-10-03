@@ -35,7 +35,7 @@ from rhosocial.activerecord.backend.expression.types import FloatType, IntegerTy
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name=TableExpression(dialect, "accounts"),
+    table=TableExpression(dialect, "accounts"),
     columns=[
         ColumnDefinition(dialect, 
             "id",
