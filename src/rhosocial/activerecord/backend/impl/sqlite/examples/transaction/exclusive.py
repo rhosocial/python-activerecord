@@ -53,7 +53,7 @@ def execute_expression(expression, options=None):
 def update_balance(name, amount):
     return UpdateExpression(
         dialect=dialect,
-        table="accounts",
+        table=TableExpression(dialect, "accounts"),
         assignments={
             "balance": Literal(dialect, amount),
         },

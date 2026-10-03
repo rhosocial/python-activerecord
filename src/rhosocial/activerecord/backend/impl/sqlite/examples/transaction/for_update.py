@@ -203,7 +203,7 @@ else:
         # Update within the same transaction
         update_expr = UpdateExpression(
             dialect=dialect,
-            table="accounts",
+            table=TableExpression(dialect, "accounts"),
             assignments={"balance": Literal(dialect, 950)},
             where=WhereClause(
                 dialect,

@@ -22,13 +22,13 @@ class TestUpdateStatements:
     def test_update_empty_assignments_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that UpdateExpression raises ValueError for empty assignments."""
         with pytest.raises(ValueError, match="Assignments cannot be empty for an UPDATE statement."):
-            UpdateExpression(dummy_dialect, table="users", assignments={})
+            UpdateExpression(dummy_dialect, table=TableExpression(dummy_dialect, "users"), assignments={})
 
     @pytest.mark.parametrize(
         "table_param, assignments_param, where_param, returning_param, expected_sql, expected_params, test_id",
         [
             pytest.param(
-                "users",
+                TableExpression(None, "users"),
                 {"name": Literal(None, "Jane Doe")},
                 None,
                 None,
@@ -48,7 +48,7 @@ class TestUpdateStatements:
                 id="basic_update_table_expr",
             ),
             pytest.param(
-                "orders",
+                TableExpression(None, "orders"),
                 {"status": Literal(None, "shipped"), "updated_at": RawSQLExpression(None, "CURRENT_TIMESTAMP")},
                 Column(None, "id") == Literal(None, 1),
                 None,
@@ -58,7 +58,7 @@ class TestUpdateStatements:
                 id="update_with_where",
             ),
             pytest.param(
-                "items",
+                TableExpression(None, "items"),
                 {"quantity": Column(None, "quantity") + Literal(None, 1)},
                 None,
                 [Column(None, "id"), Column(None, "quantity")],
@@ -336,7 +336,11 @@ class TestUpdateStatements:
 
         update_expr = UpdateExpression(
             dummy_dialect,
-            table="users" if test_id not in ["from_join_expr"] else "user_data",  # Target table for the update
+            table=TableExpression(
+                dummy_dialect,
+                # Target table for the update
+                "users" if test_id not in ["from_join_expr"] else "user_data",
+            ),
             assignments=dialect_assignments,
             from_=dialect_from_param,
             where=where_clause_param,
@@ -359,7 +363,11 @@ class TestUpdateStatements:
 
         with pytest.raises(TypeError, match=r"Unsupported FROM source type: <class 'int'>"):
             update_expr = UpdateExpression(
-                dummy_dialect, table="users", assignments=assignments, from_=unsupported_source, where=where
+                dummy_dialect,
+                table=TableExpression(dummy_dialect, "users"),
+                assignments=assignments,
+                from_=unsupported_source,
+                where=where,
             )
             update_expr.to_sql()
 
@@ -422,7 +430,7 @@ class TestUpdateStatements:
 
         update_expr = UpdateExpression(
             dummy_dialect,
-            table="users",
+            table=TableExpression(dummy_dialect, "users"),
             assignments={"status": Literal(dummy_dialect, "active")},
             where=WhereClause(dummy_dialect, condition=like_condition),
         )
@@ -444,7 +452,7 @@ class TestUpdateStatements:
 
         update_expr = UpdateExpression(
             dummy_dialect,
-            table="users",
+            table=TableExpression(dummy_dialect, "users"),
             assignments={"last_updated": Literal(dummy_dialect, "2023-01-01")},
             where=WhereClause(dummy_dialect, condition=combined_condition),
         )
@@ -462,7 +470,9 @@ class TestUpdateStatements:
     def test_update_expression_invalid_assignments_type(self, dummy_dialect: DummyDialect):
         """Tests that UpdateExpression raises TypeError for invalid assignments parameter type."""
         update_expr = UpdateExpression(
-            dummy_dialect, table="users", assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={"name": Literal(dummy_dialect, "test")},
         )
         # Manually assign invalid type to trigger validation error
         update_expr.assignments = "invalid"  # Invalid type - should be dict
@@ -473,7 +483,9 @@ class TestUpdateStatements:
     def test_update_expression_invalid_from_type(self, dummy_dialect: DummyDialect):
         """Tests that UpdateExpression raises TypeError for invalid from_ parameter type."""
         update_expr = UpdateExpression(
-            dummy_dialect, table="users", assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={"name": Literal(dummy_dialect, "test")},
         )
         # Manually assign invalid type to trigger validation error
         update_expr.from_ = 456  # Invalid type
@@ -487,7 +499,9 @@ class TestUpdateStatements:
     def test_update_expression_invalid_where_type(self, dummy_dialect: DummyDialect):
         """Tests that UpdateExpression raises TypeError for invalid where parameter type."""
         update_expr = UpdateExpression(
-            dummy_dialect, table="users", assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={"name": Literal(dummy_dialect, "test")},
         )
         # Manually assign invalid type to trigger validation error
         update_expr.where = 789  # Invalid type - should be WhereClause or SQLPredicate
@@ -498,7 +512,9 @@ class TestUpdateStatements:
     def test_update_expression_invalid_returning_type(self, dummy_dialect: DummyDialect):
         """Tests that UpdateExpression raises TypeError for invalid returning parameter type."""
         update_expr = UpdateExpression(
-            dummy_dialect, table="users", assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={"name": Literal(dummy_dialect, "test")},
         )
         # Manually assign invalid type to trigger validation error
         update_expr.returning = 999  # Invalid type - should be ReturningClause
@@ -509,7 +525,9 @@ class TestUpdateStatements:
     def test_update_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
         """Tests that UpdateExpression.validate with strict=False skips validation."""
         update_expr = UpdateExpression(
-            dummy_dialect, table="users", assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={"name": Literal(dummy_dialect, "test")},
         )
         # Manually assign invalid type that would normally cause an error
         update_expr.where = 999  # Invalid type - should be WhereClause or SQLPredicate
@@ -520,7 +538,7 @@ class TestUpdateStatements:
         # Also test with valid parameters and strict=False
         update_expr_valid = UpdateExpression(
             dummy_dialect,
-            table="products",
+            table=TableExpression(dummy_dialect, "products"),
             assignments={"price": Literal(dummy_dialect, 19.99)},
             where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"),
         )
@@ -536,7 +554,9 @@ class TestUpdateStatements:
         3. The type name check 'from_type_name not in valid_type_names' occurs
         """
         update_expr = UpdateExpression(
-            dummy_dialect, table="users", assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={"name": Literal(dummy_dialect, "test")},
         )
 
         # Create a mock object that is not in valid_types, not a list, and has a type name not in valid_type_names
@@ -566,7 +586,9 @@ class TestUpdateStatements:
         """
         # Create an update expression with valid parameters
         update_expr = UpdateExpression(
-            dummy_dialect, table="users", assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={"name": Literal(dummy_dialect, "test")},
         )
 
         # Create a mock SetOperationExpression-like class that has a name in valid_type_names
@@ -587,7 +609,7 @@ class TestUpdateStatements:
         """
         update_expr = UpdateExpression(
             dummy_dialect,
-            table="users",
+            table=TableExpression(dummy_dialect, "users"),
             assignments={"name": Literal(dummy_dialect, "test")},
             from_=None,  # Set from_ to None
         )
@@ -603,7 +625,9 @@ class TestUpdateStatements:
         2. isinstance(self.from_, valid_types) is True (so AND expression short-circuits)
         """
         update_expr = UpdateExpression(
-            dummy_dialect, table="users", assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={"name": Literal(dummy_dialect, "test")},
         )
 
         # Change from_ to a valid type (str)
@@ -620,7 +644,9 @@ class TestUpdateStatements:
         2. isinstance(self.from_, valid_types) is False AND isinstance(self.from_, list) is True
         """
         update_expr = UpdateExpression(
-            dummy_dialect, table="users", assignments={"name": Literal(dummy_dialect, "test")}
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={"name": Literal(dummy_dialect, "test")},
         )
 
         # Change from_ to a list (which is valid)

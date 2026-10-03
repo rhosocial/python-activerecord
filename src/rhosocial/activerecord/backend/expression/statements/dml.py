@@ -72,7 +72,7 @@ class MergeExpression(BaseExpression):
         # Simple merge: update if exists, insert if not
         merge = MergeExpression(
             dialect,
-            target_table="products",
+            target_table=TableExpression(dialect, "products"),
             source=ValuesSource(dialect, [[1, "Product A", 19.99]], "new_products", ["id", "name", "price"]),
             on_condition=Column(dialect, "id", "tgt") == Column(dialect, "id", "src"),
             when_matched=[
@@ -100,7 +100,7 @@ class MergeExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        target_table: Union[str, "TableExpression"],
+        target_table: "TableExpression",
         source: Union[
             "Subquery", "TableExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"
         ],
@@ -110,9 +110,11 @@ class MergeExpression(BaseExpression):
         when_not_matched_by_source: Optional[List[MergeAction]] = None,
     ):  # WHEN NOT MATCHED BY SOURCE THEN ... (not supported by all DBs)
         super().__init__(dialect)
-        self.target_table = (
-            target_table if isinstance(target_table, TableExpression) else TableExpression(dialect, str(target_table))
-        )
+        if not isinstance(target_table, TableExpression):
+            raise TypeError(
+                f"target_table must be a TableExpression, got {type(target_table).__name__}"
+            )
+        self.target_table = target_table
         self.source = source
         self.on_condition = on_condition
         self.when_matched = when_matched or []
@@ -337,7 +339,7 @@ class UpdateExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         assignments: Dict[str, "BaseExpression"],
         *,  # Enforce keyword-only arguments for optional parameters
         from_: Optional[
@@ -371,8 +373,12 @@ class UpdateExpression(BaseExpression):
         if not assignments:
             raise ValueError("Assignments cannot be empty for an UPDATE statement.")
 
-        # Normalize the target table to a TableExpression
-        self.table = table if isinstance(table, TableExpression) else TableExpression(dialect, str(table))
+        # The target table must already carry its namespace
+        if not isinstance(table, TableExpression):
+            raise TypeError(
+                f"table must be a TableExpression, got {type(table).__name__}"
+            )
+        self.table = table
         self.assignments = assignments
         self.from_ = from_
 
@@ -401,8 +407,8 @@ class UpdateExpression(BaseExpression):
         if not strict:
             return
 
-        # Note: The table parameter is normalized in the constructor to always be a TableExpression,
-        # so we don't need to validate its type here.
+        # Note: The table parameter is enforced to be a TableExpression in the
+        # constructor, so we don't need to validate its type here.
 
         # Validate assignments parameter
         if not isinstance(self.assignments, dict):

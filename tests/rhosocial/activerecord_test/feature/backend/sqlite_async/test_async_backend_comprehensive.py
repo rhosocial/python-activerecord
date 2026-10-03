@@ -1170,6 +1170,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ReturningClause,
     UpdateExpression,
     DeleteExpression,
+    TableExpression,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect  # noqa: E402
 
@@ -1273,7 +1274,7 @@ class TestAsyncReturning:
         # Update with RETURNING
         update_expr = UpdateExpression(
             dialect=dialect,
-            table="users",
+            table=TableExpression(dialect, "users"),
             assignments={"name": Literal(dialect, "Updated"), "email": Literal(dialect, "new@example.com")},
             where=Column(dialect, "id") == Literal(dialect, 1),
             returning=ReturningClause(
@@ -1401,7 +1402,7 @@ class TestAsyncReturning:
         # Update multiple rows with RETURNING
         update_expr = UpdateExpression(
             dialect=dialect,
-            table="users",
+            table=TableExpression(dialect, "users"),
             assignments={"active": Literal(dialect, 0)},
             where=Column(dialect, "active") == Literal(dialect, 1),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name")]),

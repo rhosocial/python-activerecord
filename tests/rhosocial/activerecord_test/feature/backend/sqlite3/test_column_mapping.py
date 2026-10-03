@@ -351,11 +351,11 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
         returning_expressions = [ExprColumn(backend.dialect, col) for col in update_options.returning_columns]
         returning_clause = BaseReturningClause(backend.dialect, returning_expressions)
 
-    from rhosocial.activerecord.backend.expression import UpdateExpression
+    from rhosocial.activerecord.backend.expression import TableExpression, UpdateExpression
 
     update_expr = UpdateExpression(
         dialect=backend.dialect,
-        table=update_options.table,
+        table=TableExpression(backend.dialect, update_options.table),
         assignments=assignments,
         where=update_options.where,
         returning=returning_clause,

@@ -230,3 +230,89 @@ class TestTheProtocolDecidesWhetherThereIsAnythingToJudge:
     def test_sqlite_rejects_even_a_punny_value(self, plain):
         with pytest.raises(ValueError):
             TableExpression(plain, "users", schema_name="").to_sql()
+
+
+class TestTableOnlyExpressionsRejectBareNames:
+    """Statements that name a table take a TableExpression and nothing else.
+
+    The namespace rides on that one object, so a bare string has nowhere to
+    put it. Each of these statements used to accept a string alongside a
+    parallel schema_name; they now refuse the string outright rather than
+    silently dropping a qualification the caller cannot express.
+    """
+
+    @staticmethod
+    def _statements(dialect):
+        from rhosocial.activerecord.backend.expression.core import Literal
+        from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
+            AlterTableExpression,
+            DropColumn,
+        )
+        from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
+            TruncateExpression,
+        )
+        from rhosocial.activerecord.backend.expression.statements.dml import (
+            UpdateExpression,
+        )
+
+        return [
+            (AlterTableExpression, "table",
+             {"actions": [DropColumn(dialect, "legacy")]}),
+            (TruncateExpression, "table", {}),
+            (UpdateExpression, "table", {"assignments": {"name": Literal(dialect, "x")}}),
+        ]
+
+    def test_bare_string_is_rejected(self, namespaced):
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
+        for cls, param, extra in self._statements(namespaced):
+            with pytest.raises(TypeError, match="must be a TableExpression"):
+                cls(namespaced, **{param: "orders"}, **extra)
+            # The same call is accepted once a TableExpression is supplied.
+            # Rendering is not asserted here: this dialect is SQLite, whose
+            # DDL surface differs, and the rendered SQL is covered elsewhere.
+            built = cls(
+                namespaced,
+                **{param: TableExpression(namespaced, "orders")},
+                **extra,
+            )
+            assert isinstance(getattr(built, param), TableExpression)
+
+    def test_namespace_rides_on_the_table(self, namespaced):
+        """A qualified table is the only way to say which namespace."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+        from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
+            TruncateExpression,
+        )
+
+        plain_table = TruncateExpression(
+            namespaced, TableExpression(namespaced, "orders")
+        )
+        qualified = TruncateExpression(
+            namespaced, TableExpression(namespaced, "orders", schema_name="app")
+        )
+        assert plain_table.table.schema_name is None
+        assert qualified.table.schema_name == "app"
+        # An empty namespace is still the caller's mistake, and it is caught
+        # while rendering rather than at construction.
+        blank = TruncateExpression(
+            namespaced, TableExpression(namespaced, "orders", schema_name="")
+        )
+        assert blank.table.schema_name == ""
+        with pytest.raises(ValueError, match="non-empty string"):
+            blank.table.to_sql()
+
+    def test_merge_expression_rejects_bare_string(self, namespaced):
+        from rhosocial.activerecord.backend.expression.core import Literal, TableExpression
+        from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+        from rhosocial.activerecord.backend.expression.statements.dml import MergeExpression
+
+        source = TableExpression(namespaced, "orders")
+        condition = ComparisonPredicate(
+            namespaced,
+            "=",
+            Column(namespaced, "id", table="orders"),
+            Literal(namespaced, 1),
+        )
+        with pytest.raises(TypeError, match="target_table must be a TableExpression"):
+            MergeExpression(namespaced, "orders", source, condition)

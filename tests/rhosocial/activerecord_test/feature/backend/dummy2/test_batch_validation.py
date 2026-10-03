@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.expression import (
     InsertExpression,
     UpdateExpression,
     DeleteExpression,
+    TableExpression,
     ValuesSource,
     ComparisonPredicate,
     ReturningClause,
@@ -40,7 +41,7 @@ def _make_update(dialect, table="users", set_col="name", set_val="Bob", pk_val=1
     """Construct a minimal UpdateExpression without RETURNING."""
     return UpdateExpression(
         dialect,
-        table=table,
+        table=TableExpression(dialect, table),
         assignments={set_col: Literal(dialect, set_val)},
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
@@ -135,7 +136,7 @@ class TestBatchDMLReturningConflict:
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
         expr = UpdateExpression(
             dummy_dialect,
-            table="users",
+            table=TableExpression(dummy_dialect, "users"),
             assignments={"name": Literal(dummy_dialect, "Bob")},
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
             returning=clause,
@@ -211,7 +212,7 @@ class TestBatchDMLTemplateValidation:
         # Different WHERE column
         expr_b = UpdateExpression(
             dummy_dialect,
-            table="users",
+            table=TableExpression(dummy_dialect, "users"),
             assignments={"name": Literal(dummy_dialect, "B")},
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "email"), Literal(dummy_dialect, "x")),
         )

@@ -13,6 +13,7 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     UpdateExpression,
     DeleteExpression,
+    TableExpression,
 )
 from rhosocial.activerecord.backend.expression.statements import InsertExpression, ReturningClause, ValuesSource
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -47,7 +48,7 @@ class TestSQLiteDateTimeFunctions:
 
         update_expr = UpdateExpression(
             sqlite_dialect_3_8_0,
-            table="users",
+            table=TableExpression(sqlite_dialect_3_8_0, "users"),
             assignments={"updated_at": raw_timestamp, "username": Literal(sqlite_dialect_3_8_0, "updated_john")},
             where=Column(sqlite_dialect_3_8_0, "id") == Literal(sqlite_dialect_3_8_0, 1),
         )
@@ -137,7 +138,7 @@ class TestSQLiteDateTimeFunctions:
 
             update_expr = UpdateExpression(
                 sqlite_dialect_3_8_0,
-                table="users",
+                table=TableExpression(sqlite_dialect_3_8_0, "users"),
                 assignments={"updated_at": raw_timestamp, "status": Literal(sqlite_dialect_3_8_0, "active")},
                 where=Column(sqlite_dialect_3_8_0, "id") == Literal(sqlite_dialect_3_8_0, 1),
                 returning=ReturningClause(

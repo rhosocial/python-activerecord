@@ -86,7 +86,7 @@ dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 with backend.transaction():
     update_expr = UpdateExpression(
         dialect=dialect,
-        table="accounts",
+        table=TableExpression(dialect, "accounts"),
         assignments={"balance": Literal(dialect, 50)},
         where=WhereClause(
             dialect,

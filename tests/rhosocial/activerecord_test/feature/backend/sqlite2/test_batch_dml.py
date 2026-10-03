@@ -24,6 +24,7 @@ from rhosocial.activerecord.backend.expression import (
     DeleteExpression,
     ValuesSource,
     ComparisonPredicate,
+    TableExpression,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -98,7 +99,7 @@ def _make_update_expr(dialect, pk_val, new_name):
     """Build an UpdateExpression: SET name=? WHERE id=?"""
     return UpdateExpression(
         dialect,
-        table="users",
+        table=TableExpression(dialect, "users"),
         assignments={"name": Literal(dialect, new_name)},
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )

@@ -15,6 +15,7 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     WhereClause,
     ReturningClause,
+    TableExpression,
 )
 
 
@@ -77,7 +78,7 @@ def update_order_status(dialect, order_id: int, new_status: str):
     """
     return UpdateExpression(
         dialect,
-        table="orders",
+        table=TableExpression(dialect, "orders"),
         assignments={"status": Literal(dialect, new_status)},
         where=WhereClause(
             dialect,
