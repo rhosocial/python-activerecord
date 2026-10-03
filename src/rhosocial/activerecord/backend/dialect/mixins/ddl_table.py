@@ -755,7 +755,6 @@ class TableMixin:
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
         """
-        from ...expression.core import TableExpression
 
         all_params: List[Any] = []
         action_parts = []
