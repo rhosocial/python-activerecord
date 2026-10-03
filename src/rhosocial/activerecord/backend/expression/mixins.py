@@ -823,11 +823,11 @@ class NumericValueMixin:
         """Round to *decimals* places, or to a whole number. ``ROUND(col[, n])``"""
         return self._numeric_op("round_", decimals)
 
-    def ceil(self) -> "IntegerValueMixin":
+    def ceil(self) -> "NumericValueMixin":
         """Smallest integer not below the value. ``CEIL(col)``"""
         return self._numeric_op("ceil")
 
-    def floor(self) -> "IntegerValueMixin":
+    def floor(self) -> "NumericValueMixin":
         """Largest integer not above the value. ``FLOOR(col)``"""
         return self._numeric_op("floor")
 
@@ -874,6 +874,55 @@ class NumericValueMixin:
     def tan(self) -> "NumericValueMixin":
         """Tangent. ``TAN(col)``"""
         return self._numeric_op("tan")
+
+
+class WholeNumberResultMixin:
+    """The operations whose result is a whole number when the input is one.
+
+    SQL keeps the distinction and so does this: ``CEIL`` of a whole number is a
+    whole number, ``SQRT`` of one generally is not. ``NumericValueMixin``
+    declares those five as fractional because that is right for a float column,
+    and a float column and an int column shared one mixin -- so the narrow case
+    could only be expressed by reading an attribute back at run time.
+
+    ``IntegerColumn`` mixes this in ahead of ``NumericValueMixin``, so on an
+    integer column these win and declare the integer result, and on a float
+    column the fractional declarations stand. Same method names, different
+    declared return, chosen by the class rather than by inspection.
+    """
+
+    if TYPE_CHECKING:  # pragma: no cover
+        from .core import IntegerValueExpression
+
+    def abs(self) -> "IntegerValueExpression":
+        """ABS of a whole number is a whole number."""
+        from .functions import math as _math
+
+        return _math.abs_(self._dialect, self)
+
+    def round(self, decimals: Optional[int] = None) -> "IntegerValueExpression":
+        """ROUND of a whole number is a whole number."""
+        from .functions import math as _math
+
+        return _math.round_(self._dialect, self, decimals)
+
+    def ceil(self) -> "IntegerValueExpression":
+        """CEIL of a whole number is that number."""
+        from .functions import math as _math
+
+        return _math.ceil(self._dialect, self)
+
+    def floor(self) -> "IntegerValueExpression":
+        """FLOOR of a whole number is that number."""
+        from .functions import math as _math
+
+        return _math.floor(self._dialect, self)
+
+    def truncate(self, precision: Optional[int] = None) -> "IntegerValueExpression":
+        """TRUNCATE of a whole number is a whole number."""
+        from .functions import math as _math
+
+        return _math.truncate(self._dialect, self, precision)
 
 
 class IntegerValueMixin:

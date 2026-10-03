@@ -42,6 +42,7 @@ from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     NumericValueMixin,
+    WholeNumberResultMixin,
     ArrayMixin,
     ComparisonMixin,
     DateTimeMixin,
@@ -149,7 +150,8 @@ class NumericColumn(ArithmeticMixin, NumericValueMixin, ColumnBase):
     """
 
 
-class IntegerColumn(ArithmeticMixin, NumericValueMixin, ColumnBase):
+class IntegerColumn(ArithmeticMixin, WholeNumberResultMixin,
+                  NumericValueMixin, ColumnBase):
     """A column holding a whole number.
 
     Separate from :class:`NumericColumn` because SQL keeps the two apart in the
