@@ -74,3 +74,23 @@ Two failures of this kind, both mine:
 A check that has not been shown to fail on a known defect has not been shown
 to work. Break the thing on purpose, watch the checker catch it, then put it
 back.
+
+## Run the directory, not the files you edited
+
+The check that would have caught the last regression was not run, because the
+edit was in a file and the error was in the argument that file passes to another:
+
+```python
+Case("macaddr8", lambda d: PostgresMacAddr8Type(d, type_name="..."), ...)
+```
+
+Every case raised `TypeError` on a keyword the type constructor does not take,
+and all eleven PostgreSQL versions went red — including 18, which is far past
+every version floor involved. That asymmetry is the tell: a version problem
+cannot affect a server eight versions above the boundary it is about.
+
+Two files were edited and two files were tested, so the failure lived in neither.
+The tests that would have caught it were in the same directory.
+
+A signature error has no version to it. When CI is red across every version at
+once, suspect an argument or an import before suspecting a gate.

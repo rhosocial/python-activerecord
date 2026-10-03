@@ -18,3 +18,9 @@ Two rules decide most of the rest:
 2. **A backend is entirely static.** An IDE and a type checker give a definite
    answer. Nothing is worked out at run time, and nothing is left for the
    caller to assert in a form a checker cannot read.
+
+A third applies to the checks themselves, and it is the one most often skipped:
+**a check that was not run cannot have passed.** The defects CI found in one
+afternoon — four version gates that could not say no, an argument inserted into
+the wrong call — were all in files that had been edited and not tested. Run the
+directory.
