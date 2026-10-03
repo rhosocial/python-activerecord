@@ -1861,6 +1861,19 @@ class IndexSupport(Protocol):
         """Whether DROP INDEX is supported."""
         ...  # pragma: no cover
 
+    def supports_index_schema_qualification(self) -> bool:
+        """Whether an index name may carry a namespace of its own.
+
+        Most dialects spell the index name schema-qualified and place it in
+        the namespace given to the statement. MySQL and MariaDB do not: an
+        index belongs to its table, and their grammar rejects a qualified
+        index name. A dialect that answers False must be given the index
+        namespace through the table instead, and asking it to qualify the
+        index raises UnsupportedFeatureError rather than emitting SQL the
+        server will not accept.
+        """
+        ...  # pragma: no cover
+
     def preferred_create_index_statement(self) -> Optional[Type["CreateIndexExpression"]]:
         """The backend's preferred CREATE INDEX statement class (§5.12)."""
         ...  # pragma: no cover

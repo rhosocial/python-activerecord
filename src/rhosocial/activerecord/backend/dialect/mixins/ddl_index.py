@@ -58,6 +58,15 @@ class IndexMixin:
         """
         return True
 
+    def supports_index_schema_qualification(self) -> bool:
+        """Whether the index name itself may be namespace-qualified.
+
+        True here: the index name is rendered with the statement's
+        ``schema_name``. A dialect whose grammar forbids that answers False
+        and rejects a qualified index name instead.
+        """
+        return True
+
     def supports_index_if_not_exists(self) -> bool:
         """Whether CREATE INDEX IF NOT EXISTS is supported.
 
@@ -246,6 +255,13 @@ class IndexMixin:
                     f"{self.name} does not support CREATE INDEX IF NOT EXISTS."
                 )
             parts.append("IF NOT EXISTS")
+        if expr.schema_name and not self.supports_index_schema_qualification():
+            raise UnsupportedFeatureError(
+                self.name, "a namespace-qualified index name",
+                f"{self.name} places an index in the namespace of its table and "
+                f"rejects a qualified index name. Qualify the table instead by "
+                f"passing it as a TableExpression with schema_name set.",
+            )
         parts.append(TableExpression(self, expr.index_name, schema_name=expr.schema_name).to_sql()[0])
         parts.append("ON")
         parts.append(expr.table.to_sql()[0])
@@ -288,6 +304,13 @@ class IndexMixin:
                     f"{self.name} does not support DROP INDEX IF EXISTS."
                 )
             parts.append("IF EXISTS")
+        if expr.schema_name and not self.supports_index_schema_qualification():
+            raise UnsupportedFeatureError(
+                self.name, "a namespace-qualified index name",
+                f"{self.name} places an index in the namespace of its table and "
+                f"rejects a qualified index name. Qualify the table instead by "
+                f"passing it as a TableExpression with schema_name set.",
+            )
         parts.append(TableExpression(self, expr.index_name, schema_name=expr.schema_name).to_sql()[0])
         parts.append("ON")
         parts.append(expr.table.to_sql()[0])
@@ -335,6 +358,13 @@ class IndexMixin:
                     f"{self.name} does not support CREATE INDEX IF NOT EXISTS."
                 )
             parts.append("IF NOT EXISTS")
+        if expr.schema_name and not self.supports_index_schema_qualification():
+            raise UnsupportedFeatureError(
+                self.name, "a namespace-qualified index name",
+                f"{self.name} places an index in the namespace of its table and "
+                f"rejects a qualified index name. Qualify the table instead by "
+                f"passing it as a TableExpression with schema_name set.",
+            )
         parts.append(TableExpression(self, expr.index_name, schema_name=expr.schema_name).to_sql()[0])
         parts.append("ON")
         parts.append(expr.table.to_sql()[0])
@@ -416,6 +446,13 @@ class IndexMixin:
                     f"{self.name} does not support DROP INDEX IF EXISTS."
                 )
             parts.append("IF EXISTS")
+        if expr.schema_name and not self.supports_index_schema_qualification():
+            raise UnsupportedFeatureError(
+                self.name, "a namespace-qualified index name",
+                f"{self.name} places an index in the namespace of its table and "
+                f"rejects a qualified index name. Qualify the table instead by "
+                f"passing it as a TableExpression with schema_name set.",
+            )
         parts.append(TableExpression(self, expr.index_name, schema_name=expr.schema_name).to_sql()[0])
         if expr.table is not None and self.supports_drop_index_on_table():
             parts.append("ON")
