@@ -70,6 +70,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     AlterTableExpression,
     ColumnDefinition,
 )
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # noqa: E402
     AddColumn,
     RenameObject,
@@ -86,7 +87,7 @@ add_col_action = AddColumn(
 
 add_col_expr = AlterTableExpression(
     dialect=dialect,
-    table_name="users",
+    table=TableExpression(dialect, "users"),
     actions=[add_col_action],
 )
 
@@ -105,7 +106,7 @@ rename_action = RenameObject(
 
 rename_expr = AlterTableExpression(
     dialect=dialect,
-    table_name="users",
+    table=TableExpression(dialect, "users"),
     actions=[rename_action],
 )
 

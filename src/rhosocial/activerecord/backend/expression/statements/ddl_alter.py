@@ -48,6 +48,7 @@ Carrying the qualifiers:
 from enum import Enum
 from typing import Any, List, Optional, Union, TYPE_CHECKING
 
+from ..core import TableExpression
 from ..bases import BaseExpression
 from .ddl_table import (
     ColumnConstraintType,
@@ -547,21 +548,21 @@ class AlterTableExpression(BaseExpression):
         # Add column
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="users",
+            table=TableExpression(dialect, "users"),
             actions=[AddColumn(dialect, column=ColumnDefinition(dialect, "email", "VARCHAR(100)"))]
         )
 
         # Drop column
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="products",
+            table=TableExpression(dialect, "products"),
             actions=[DropColumn(dialect, column_name="description")]
         )
 
         # Multiple actions in one statement
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="orders",
+            table=TableExpression(dialect, "orders"),
             actions=[
                 AddColumn(dialect, column=ColumnDefinition(dialect, "status", "VARCHAR(20)")),
                 RenameObject(dialect, old_name="id", new_name="order_id")
@@ -571,7 +572,7 @@ class AlterTableExpression(BaseExpression):
         # Add constraint
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="users",
+            table=TableExpression(dialect, "users"),
             actions=[
                 AddTableConstraint(
                     dialect,
@@ -586,7 +587,7 @@ class AlterTableExpression(BaseExpression):
         # Alter column properties
         alter_expr = AlterTableExpression(
             dialect,
-            table_name="products",
+            table=TableExpression(dialect, "products"),
             actions=[
                 AlterColumn(
                     dialect,
@@ -598,37 +599,35 @@ class AlterTableExpression(BaseExpression):
         )
     """
 
-    table_name: str
+    table: "TableExpression"
     actions: List[AlterTableAction]
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: "TableExpression",
         actions: List[AlterTableAction],
-        schema_name: Optional[str] = None,
     ) -> None:
         """
         Initialize an ALTER TABLE expression with the specified modifications per SQL standard.
 
         Args:
             dialect: The SQL dialect instance that determines query generation rules
-            table_name: Name of the table to alter
+            table: The table to alter, as a TableExpression carrying its
+                optional namespace.
             actions: List of actions to perform on the table (per SQL standard)
-            schema_name: Namespace to qualify the table with, e.g. ``app``.
-                None leaves the name unqualified. An empty string raises
-                ValueError, and a dialect with no namespace raises
-                UnsupportedFeatureError.
 
         Raises:
             ValueError: If required parameters are missing or invalid
-            TypeError: If any action is not an AlterTableAction instance
-            UnsupportedFeatureError: If ``schema_name`` is given on a dialect
-                with no namespace
+            TypeError: If ``table`` is not a TableExpression, or any action is
+                not an AlterTableAction instance
         """
         super().__init__(dialect)
-        self.table_name: str = table_name
-        self.schema_name = schema_name
+        if not isinstance(table, TableExpression):
+            raise TypeError(
+                f"table must be a TableExpression, got {type(table).__name__}"
+            )
+        self.table = table
         # Validate all actions are AlterTableAction instances (dialect already bound)
         for action in actions:
             if not isinstance(action, AlterTableAction):

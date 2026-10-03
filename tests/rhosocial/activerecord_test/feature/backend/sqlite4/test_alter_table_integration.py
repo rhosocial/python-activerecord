@@ -30,6 +30,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_table import (
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.introspection.types import ColumnNullable
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
 
 
@@ -69,7 +70,7 @@ class TestAlterTableAddColumn:
         )
         alter_expr = AlterTableExpression(
             backend_with_users.dialect,
-            table_name="users",
+            table=TableExpression(backend_with_users.dialect, "users"),
             actions=[add_action],
         )
         backend_with_users.execute(*alter_expr.to_sql())
@@ -90,7 +91,7 @@ class TestAlterTableAddColumn:
         )
         alter_expr = AlterTableExpression(
             backend_with_users.dialect,
-            table_name="users",
+            table=TableExpression(backend_with_users.dialect, "users"),
             actions=[add_action],
         )
         backend_with_users.execute(*alter_expr.to_sql())
@@ -119,7 +120,7 @@ class TestAlterTableDropColumn:
         )
         alter_add = AlterTableExpression(
             backend_with_users.dialect,
-            table_name="users",
+            table=TableExpression(backend_with_users.dialect, "users"),
             actions=[add_action],
         )
         backend_with_users.execute(*alter_add.to_sql())
@@ -135,7 +136,7 @@ class TestAlterTableDropColumn:
         )
         alter_drop = AlterTableExpression(
             backend_with_users.dialect,
-            table_name="users",
+            table=TableExpression(backend_with_users.dialect, "users"),
             actions=[drop_action],
         )
         backend_with_users.execute(*alter_drop.to_sql())
@@ -157,7 +158,7 @@ class TestAlterTableRenameColumn:
         )
         alter_expr = AlterTableExpression(
             backend_with_users.dialect,
-            table_name="users",
+            table=TableExpression(backend_with_users.dialect, "users"),
             actions=[rename_action],
         )
         backend_with_users.execute(*alter_expr.to_sql())
@@ -193,7 +194,7 @@ class TestAlterTableAddConstraint:
         )
         alter_add = AlterTableExpression(
             backend_with_users.dialect,
-            table_name="users",
+            table=TableExpression(backend_with_users.dialect, "users"),
             actions=[add_action],
         )
         backend_with_users.execute(*alter_add.to_sql())
@@ -216,7 +217,7 @@ class TestAlterTableAddConstraint:
         )
         alter_constraint = AlterTableExpression(
             backend_with_users.dialect,
-            table_name="users",
+            table=TableExpression(backend_with_users.dialect, "users"),
             actions=[add_constraint],
         )
         backend_with_users.execute(*alter_constraint.to_sql())

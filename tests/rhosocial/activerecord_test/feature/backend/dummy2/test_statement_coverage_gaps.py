@@ -131,7 +131,7 @@ class TestAlterTableModifyChangeColumn:
         action = ModifyColumn(dummy_dialect, column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,
-            table_name="users",
+            table=TableExpression(dummy_dialect, "users"),
             actions=[action],
         )
         with patch.object(dummy_dialect, "format_modify_column_action", return_value=("MODIFY name VARCHAR(255)", ())):
@@ -145,7 +145,7 @@ class TestAlterTableModifyChangeColumn:
         action = ChangeColumn(dummy_dialect, old_name="old_name", column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,
-            table_name="users",
+            table=TableExpression(dummy_dialect, "users"),
             actions=[action],
         )
         with patch.object(

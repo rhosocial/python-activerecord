@@ -120,7 +120,7 @@ def add_amount_column(dialect):
     """
     return AlterTableExpression(
         dialect,
-        table_name="orders",
+        table=TableExpression(dialect, "orders"),
         actions=[
             AddColumn(
                 dialect,

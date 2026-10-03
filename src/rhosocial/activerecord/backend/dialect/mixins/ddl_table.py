@@ -765,15 +765,15 @@ class TableMixin:
             all_params.extend(action_params)
 
         if not action_parts:
-            return f"ALTER TABLE {TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0]}", ()
+            return f"ALTER TABLE {expr.table.to_sql()[0]}", ()
 
         if self.supports_multi_action_alter_table():
             combined = ", ".join(action_parts)
-            return f"ALTER TABLE {TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0]} {combined}", tuple(all_params)
+            return f"ALTER TABLE {expr.table.to_sql()[0]} {combined}", tuple(all_params)
 
         stmts = []
         for part in action_parts:
-            stmts.append(f"ALTER TABLE {TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0]} {part}")
+            stmts.append(f"ALTER TABLE {expr.table.to_sql()[0]} {part}")
         return "; ".join(stmts), tuple(all_params)
 
 
