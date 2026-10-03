@@ -8,6 +8,7 @@ Demonstrates index creation and management:
 5. Drop index
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression  # noqa: E402
 from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
@@ -61,7 +62,7 @@ def main():
         ColumnDefinition("status", VarCharType(20)),
     ]
 
-    create_products = CreateTableExpression(dialect=dialect, table_name="products", columns=product_columns)
+    create_products = CreateTableExpression(dialect=dialect, table=TableExpression(dialect, "products"), columns=product_columns)
 
     sql_str, params_str = create_products.to_sql()
     backend.execute(sql_str, params_str)
@@ -70,7 +71,7 @@ def main():
     # ============================================================
     # Example 1: Create basic index
     # ============================================================
-    create_idx = CreateIndexExpression(dialect, index_name="idx_products_name", table_name="products", columns=["name"])
+    create_idx = CreateIndexExpression(dialect, index_name="idx_products_name", table=TableExpression(dialect, "products"), columns=["name"])
 
     sql, params = create_idx.to_sql()
     print("=== Create Basic Index ===")
@@ -86,7 +87,7 @@ def main():
     create_unique_idx = CreateIndexExpression(
         dialect,
         index_name="idx_products_category_name",
-        table_name="products",
+        table=TableExpression(dialect, "products"),
         columns=["category", "name"],
         unique=True,
     )
@@ -105,7 +106,7 @@ def main():
     create_partial_idx = CreateIndexExpression(
         dialect,
         index_name="idx_products_active_price",
-        table_name="products",
+        table=TableExpression(dialect, "products"),
         columns=["price"],
         where=Column(dialect, "status") == Literal(dialect, "active"),
     )
@@ -129,7 +130,7 @@ def main():
     # Showing it for demonstration purposes only.
     print("=== Index Type (not supported in SQLite) ===")
     create_btree_idx = CreateIndexExpression(
-        dialect, index_name="idx_products_category", table_name="products", columns=["category"], index_type="BTREE"
+        dialect, index_name="idx_products_category", table=TableExpression(dialect, "products"), columns=["category"], index_type="BTREE"
     )
     sql, params = create_btree_idx.to_sql()
     print(f"SQL: {sql}")

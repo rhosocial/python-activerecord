@@ -90,7 +90,6 @@ class ViewMixin:
         """
         from ...expression.core import TableExpression
         from ...expression.statements import ViewCheckOption
-        from ...expression.core import TableExpression
         from ..exceptions import UnsupportedFeatureError
         replace_part = ""
         if expr.replace:
@@ -159,7 +158,10 @@ class ViewMixin:
             )
         if_exists_part = "IF EXISTS " if expr.if_exists else ""
         cascade_part = " CASCADE" if expr.cascade else ""
-        sql = f"DROP VIEW {if_exists_part}{TableExpression(self, expr.view_name, schema_name=expr.schema_name).to_sql()[0]}{cascade_part}"
+        view_sql = TableExpression(
+            self, expr.view_name, schema_name=expr.schema_name
+        ).to_sql()[0]
+        sql = f"DROP VIEW {if_exists_part}{view_sql}{cascade_part}"
         return sql.strip(), ()
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:

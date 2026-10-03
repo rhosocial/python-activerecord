@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_truncate.py
 """TRUNCATE statement expression."""
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from ..core import TableExpression
 from ..bases import BaseExpression

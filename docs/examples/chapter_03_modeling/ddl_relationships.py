@@ -109,7 +109,7 @@ def main():
     ]
 
     create_authors = CreateTableExpression(
-        dialect=dialect, table_name="authors", columns=author_columns, if_not_exists=True
+        dialect=dialect, table=TableExpression(dialect, "authors"), columns=author_columns, if_not_exists=True
     )
 
     sql, params = create_authors.to_sql()
@@ -146,7 +146,7 @@ def main():
 
     create_posts = CreateTableExpression(
         dialect=dialect,
-        table_name="posts",
+        table=TableExpression(dialect, "posts"),
         columns=post_columns,
         table_constraints=post_constraints,
         if_not_exists=True,
@@ -177,7 +177,7 @@ def main():
         ),
     ]
 
-    create_tags = CreateTableExpression(dialect=dialect, table_name="tags", columns=tag_columns, if_not_exists=True)
+    create_tags = CreateTableExpression(dialect=dialect, table=TableExpression(dialect, "tags"), columns=tag_columns, if_not_exists=True)
 
     sql, params = create_tags.to_sql()
     print("=== Create Tags Table ===")
@@ -219,7 +219,7 @@ def main():
 
     create_post_tags = CreateTableExpression(
         dialect=dialect,
-        table_name="post_tags",
+        table=TableExpression(dialect, "post_tags"),
         columns=post_tag_columns,
         table_constraints=post_tag_constraints,
         if_not_exists=True,

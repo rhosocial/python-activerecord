@@ -109,7 +109,7 @@ def main():
     create_index = CreateIndexExpression(
         dialect,
         index_name="idx_users_email",
-        table_name="users",
+        table=TableExpression(dialect, "users"),
         columns=["email"]
     )
     sql, params = create_index.to_sql()
@@ -119,7 +119,7 @@ def main():
     create_index = CreateIndexExpression(
         dialect,
         index_name="idx_active_users",
-        table_name="users",
+        table=TableExpression(dialect, "users"),
         columns=["email"],
         unique=True,
         where=Column(dialect, "status") == Literal(dialect, "active")
@@ -131,7 +131,7 @@ def main():
     create_index = CreateIndexExpression(
         dialect,
         index_name="idx_orders_user_date",
-        table_name="orders",
+        table=TableExpression(dialect, "orders"),
         columns=["user_id", "created_at"],
         index_type="BTREE"
     )
@@ -141,7 +141,7 @@ def main():
     create_index = CreateIndexExpression(
         dialect,
         index_name="idx_users_email",
-        table_name="users",
+        table=TableExpression(dialect, "users"),
         columns=["email"],
         include=["id", "name"]
     )
@@ -153,7 +153,7 @@ def main():
         dialect,
         index_name="idx_old_index",
         if_exists=True,
-        table_name="users"
+        table=TableExpression(dialect, "users")
     )
     sql, params = drop_index.to_sql()
     all_passed &= verify_test("DROP INDEX", sql, params, 'DROP INDEX IF EXISTS', ())

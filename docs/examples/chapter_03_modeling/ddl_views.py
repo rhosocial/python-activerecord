@@ -8,6 +8,7 @@ Demonstrates DDL operations for views:
 5. Introspection to verify view creation
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression  # noqa: E402
 from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
@@ -61,7 +62,7 @@ def main():
         ColumnDefinition("status", VarCharType(20)),
     ]
 
-    create_users = CreateTableExpression(dialect=dialect, table_name="users", columns=user_columns)
+    create_users = CreateTableExpression(dialect=dialect, table=TableExpression(dialect, "users"), columns=user_columns)
     sql_str, params_str = create_users.to_sql()
     backend.execute(sql_str, params_str)
     print("Users table created.")

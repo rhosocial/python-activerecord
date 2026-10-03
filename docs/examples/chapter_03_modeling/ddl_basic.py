@@ -9,6 +9,7 @@ Demonstrates DDL operations using expression-based API:
 6. Introspection to verify schema changes
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression  # noqa: E402
 from typing import ClassVar
 from pydantic import Field
 from rhosocial.activerecord.model import ActiveRecord
@@ -95,7 +96,7 @@ def main():
         ColumnDefinition("created_at", TimestampType()),
     ]
 
-    create_users = CreateTableExpression(dialect=dialect, table_name="users", columns=user_columns)
+    create_users = CreateTableExpression(dialect=dialect, table=TableExpression(dialect, "users"), columns=user_columns)
 
     sql, params = create_users.to_sql()
     print("=== Create Users Table ===")
@@ -116,7 +117,7 @@ def main():
     # ============================================================
     create_products = CreateTableExpression(
         dialect=dialect,
-        table_name="products",
+        table=TableExpression(dialect, "products"),
         columns=[
             ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
             ColumnDefinition("name", VarCharType(100)),
@@ -143,7 +144,7 @@ def main():
     # ============================================================
     create_temp = CreateTableExpression(
         dialect=dialect,
-        table_name="temp_sessions",
+        table=TableExpression(dialect, "temp_sessions"),
         columns=[
             ColumnDefinition("session_id", VarCharType(50)),
             ColumnDefinition("data", TextType()),
@@ -169,7 +170,7 @@ def main():
     # ============================================================
     # First create a table to drop
     create_to_drop = CreateTableExpression(
-        dialect=dialect, table_name="old_table", columns=[ColumnDefinition("id", IntegerType())]
+        dialect=dialect, table=TableExpression(dialect, "old_table"), columns=[ColumnDefinition("id", IntegerType())]
     )
     sql_str, params_str = create_to_drop.to_sql()
     backend.execute(sql_str, params_str)
@@ -178,7 +179,7 @@ def main():
     tables = introspector.list_tables()
     print(f"Tables: {[t.name for t in tables]}")
 
-    drop_old = DropTableExpression(dialect, table_name="old_table", if_exists=True)
+    drop_old = DropTableExpression(dialect, table=TableExpression(dialect, "old_table"), if_exists=True)
 
     sql, params = drop_old.to_sql()
     print("\n=== Drop Table ===")
@@ -199,7 +200,7 @@ def main():
     # Example 5: Alter table - Add column
     # ============================================================
     alter_add = AlterTableExpression(
-        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("phone", VarCharType(20)))]
+        dialect, table=TableExpression(dialect, "users"), actions=[AddColumn(dialect, column=ColumnDefinition("phone", VarCharType(20)))]
     )
 
     sql, params = alter_add.to_sql()
@@ -219,7 +220,7 @@ def main():
     # ============================================================
     # First add a column to drop
     alter_add_field = AlterTableExpression(
-        dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("temp_field", TextType()))]
+        dialect, table=TableExpression(dialect, "users"), actions=[AddColumn(dialect, column=ColumnDefinition("temp_field", TextType()))]
     )
     sql_str, params_str = alter_add_field.to_sql()
     backend.execute(sql_str, params_str)
@@ -228,7 +229,7 @@ def main():
     print_table_info(introspector, "users", "users table before dropping temp_field")
 
     alter_drop = AlterTableExpression(
-        dialect, table_name="users", actions=[DropColumn(dialect, column_name="temp_field")]
+        dialect, table=TableExpression(dialect, "users"), actions=[DropColumn(dialect, column_name="temp_field")]
     )
 
     sql, params = alter_drop.to_sql()
