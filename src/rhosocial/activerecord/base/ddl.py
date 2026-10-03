@@ -29,6 +29,7 @@ try:
 except ImportError:  # Python 3.8
     from typing_extensions import Annotated
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression, DropIndexExpression
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
@@ -673,6 +674,128 @@ class DDLSourceMixin:
         return {field: cls.column_options(field) for field in cls._batch_fields(fields)}
 
     @classmethod
+    def build_table_reference(cls, dialect: Any, alias: Optional[str] = None) -> Any:
+        """The table this model names, carrying its namespace.
+
+        Every DDL statement below is reached through this, so a model that
+        declares ``__schema_name__`` places all of its objects in that
+        namespace without each call site repeating it.
+        """
+        return TableExpression(dialect, cls.table_name(), schema_name=cls.schema_name(), alias=alias)
+
+    @classmethod
+    def build_create_table_statement(
+        cls,
+        dialect: Any,
+        columns: Sequence[Any],
+        *,
+        indexes: Optional[Sequence[Any]] = None,
+        table_constraints: Optional[Sequence[Any]] = None,
+        temporary: bool = False,
+        if_not_exists: bool = False,
+    ) -> CreateTableExpression:
+        """Build CREATE TABLE for this model inside its own namespace."""
+        return CreateTableExpression(
+            dialect,
+            cls.build_table_reference(dialect),
+            list(columns),
+            indexes=list(indexes) if indexes is not None else None,
+            table_constraints=(
+                list(table_constraints) if table_constraints is not None else None
+            ),
+            temporary=temporary,
+            if_not_exists=if_not_exists,
+        )
+
+    @classmethod
+    def build_drop_table_statement(
+        cls, dialect: Any, if_exists: bool = False
+    ) -> DropTableExpression:
+        """Build DROP TABLE for this model inside its own namespace."""
+        return DropTableExpression(
+            dialect, cls.build_table_reference(dialect), if_exists=if_exists
+        )
+
+    @classmethod
+    def build_truncate_statement(
+        cls, dialect: Any, restart_identity: bool = False, cascade: bool = False
+    ) -> Any:
+        """Build TRUNCATE for this model inside its own namespace."""
+        from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
+            TruncateExpression,
+        )
+
+        return TruncateExpression(
+            dialect,
+            cls.build_table_reference(dialect),
+            restart_identity=restart_identity,
+            cascade=cascade,
+        )
+
+    @classmethod
+    def build_alter_table_statement(
+        cls, dialect: Any, actions: Sequence[Any]
+    ) -> Any:
+        """Build ALTER TABLE for this model inside its own namespace."""
+        from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
+            AlterTableExpression,
+        )
+
+        return AlterTableExpression(
+            dialect, cls.build_table_reference(dialect), list(actions)
+        )
+
+    @classmethod
+    def build_create_index_statement(
+        cls,
+        dialect: Any,
+        index_name: str,
+        columns: Sequence[Any],
+        *,
+        index_schema_name: Optional[str] = None,
+        **options: Any,
+    ) -> CreateIndexExpression:
+        """Build CREATE INDEX on this model's table.
+
+        The table carries the model's namespace. ``index_schema_name``
+        qualifies the index itself and defaults to the same namespace, which
+        is what a caller almost always wants; pass it explicitly for an
+        index placed elsewhere.
+        """
+        return CreateIndexExpression(
+            dialect,
+            index_name=index_name,
+            table=cls.build_table_reference(dialect),
+            columns=list(columns),
+            schema_name=(
+                cls.schema_name() if index_schema_name is None else index_schema_name
+            ),
+            **options,
+        )
+
+    @classmethod
+    def build_drop_index_statement(
+        cls,
+        dialect: Any,
+        index_name: str,
+        *,
+        index_schema_name: Optional[str] = None,
+        if_exists: bool = False,
+        **options: Any,
+    ) -> DropIndexExpression:
+        """Build DROP INDEX for an index on this model's table."""
+        return DropIndexExpression(
+            dialect,
+            index_name=index_name,
+            table=cls.build_table_reference(dialect),
+            if_exists=if_exists,
+            schema_name=(
+                cls.schema_name() if index_schema_name is None else index_schema_name
+            ),
+            **options,
+        )
+
+
     def ddl_field_names(cls) -> Tuple[str, ...]:
         cls._validate_ddl_annotations()
         derived = getattr(cls, "__derived_fields__", {}) or {}

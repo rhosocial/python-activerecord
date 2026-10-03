@@ -131,11 +131,12 @@ class ActiveRecordBase(BaseModel, ABC):
             as a table alias is in effect.
 
             .. note::
-               DDL statements are not covered. ``__schema_name__`` selects the
-               read/write namespace; it does not influence ``CREATE TABLE``,
-               ``ALTER TABLE``, ``CREATE INDEX`` or friends, which take their
-               own (or no) schema argument. Keep migration DDL in sync by
-               hand. See ``docs/modeling/schema_namespace.md``.
+               DDL reaches this namespace through the ``build_*_statement``
+               factories, which route every statement through
+               ``build_table_reference()``. A statement you assemble by hand
+               does not: pass ``TableExpression(dialect, name,
+               schema_name=...)`` yourself. See
+               ``docs/modeling/schema_namespace.md``.
 
         Qualifier binding:
             Like ``table_name()``, this is captured when column expressions
