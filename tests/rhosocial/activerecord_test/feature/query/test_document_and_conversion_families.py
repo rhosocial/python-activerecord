@@ -12,6 +12,7 @@ answers with their common kind, or with nothing when they disagree.
 import pytest
 
 from rhosocial.activerecord.backend.expression import functions as F, Literal
+from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
 from rhosocial.activerecord.backend.expression.core import (
     ArrayValueExpression,
     JSONValueExpression,
@@ -26,10 +27,8 @@ from rhosocial.activerecord.backend.expression.value_types import (
     NUMERIC,
     STRING,
     XML,
-    common_family,
     family_for_sql_type,
     value_type_of,
-    wrap_as,
 )
 from rhosocial.activerecord.backend.expression.types import VarCharType, JsonType, CustomType
 
@@ -132,21 +131,23 @@ def test_nullif_keeps_the_value_it_tests(dialect, columns):
 
 
 # ---------------------------------------------------------------------------
-# common_family
+# what an operation over several values keeps
 # ---------------------------------------------------------------------------
 
 
-def test_common_family_needs_exactly_one():
-    assert common_family(["a"]) is None  # a plain string declares no family
-    assert common_family([]) is None
+def test_a_consensus_needs_exactly_one(dialect, columns):
+    """A CASE over disagreeing branches is legal SQL that answers with neither
+    kind, so neither surface may be offered."""
+    mixed = CaseExpression(dialect, cases=[(columns["int"], columns["int"])],
+                           else_result=columns["float"])
+    assert value_type_of(mixed) is None
 
 
 def test_an_argument_without_a_family_does_not_break_a_consensus(dialect, columns):
     """A literal says nothing, so it neither agrees nor disagrees."""
-    from rhosocial.activerecord.base.column_dispatch import build_column
-
-    column = build_column(dialect, "i", int)
-    assert common_family([column, 1]) == INTEGER
+    with_literal = CaseExpression(dialect, cases=[(columns["int"], Literal(dialect, 1))],
+                                 else_result=columns["int"])
+    assert value_type_of(with_literal) == INTEGER
 
 
 # ---------------------------------------------------------------------------
@@ -249,14 +250,23 @@ def test_xmlexists_is_a_predicate_not_a_value():
 # ---------------------------------------------------------------------------
 
 
-def test_every_family_but_xml_has_a_typed_expression(dialect):
-    """XML needs no wrapper: its factories all return nodes that declare a
-    family themselves, so there is no bare call left to wrap."""
-    from rhosocial.activerecord.backend.expression import FunctionCall
+def test_every_typed_expression_declares_a_family_from_the_lattice():
+    """Each result class states its own family, and it has to be one the
+    lattice knows -- otherwise it offers operations nothing downstream expects.
 
-    unwrapped = []
-    for family in FAMILIES:
-        wrapped = wrap_as(dialect, FunctionCall(dialect, "F"), family)
-        if type(wrapped).__name__ == "FunctionCall":
-            unwrapped.append(family)
-    assert unwrapped == [XML]
+    This replaced a test that every family but XML had a wrapper in a registry.
+    There is no registry now: a factory constructs the class it means, so there
+    is no table left to be complete."""
+    import inspect
+
+    from rhosocial.activerecord.backend.expression import core
+
+    declared = {
+        name: getattr(cls, "VALUE_FAMILY", None)
+        for name, cls in inspect.getmembers(core, inspect.isclass)
+        if name.endswith("ValueExpression") and name != "SQLValueExpression"
+    }
+    assert declared, "the typed expressions moved"
+    assert {f for f in declared.values() if f not in FAMILIES} == set()
+    # The base declares none on purpose: it is what an unmodelled result is.
+    assert getattr(core.SQLValueExpression, "VALUE_FAMILY", None) is None

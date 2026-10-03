@@ -19,14 +19,16 @@ import uuid
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import Column, FunctionCall
+from rhosocial.activerecord.backend.expression import Column, FunctionCall, Literal
+from rhosocial.activerecord.backend.expression import functions as F
+from rhosocial.activerecord.backend.expression.column_types import family_of_result
+from rhosocial.activerecord.backend.expression.core import NumericValueExpression
 from rhosocial.activerecord.backend.expression import functions as math_functions
 from rhosocial.activerecord.backend.expression.value_types import (
     FAMILIES,
     INTEGER,
     NUMERIC,
     value_type_of,
-    wrap_as,
 )
 
 
@@ -193,25 +195,30 @@ def test_sign_is_always_a_whole_number(dialect, columns):
 
 
 # ---------------------------------------------------------------------------
-# wrap_as degrades instead of breaking
+# an unmodelled kind stays unknown instead of being guessed
 # ---------------------------------------------------------------------------
 
 
-def test_wrap_as_returns_a_typed_expression(dialect, columns):
+def test_a_typed_expression_reports_the_kind_it_was_built_for(dialect, columns):
     call = FunctionCall(dialect, "MY_FUNC", columns["string"])
-    wrapped = wrap_as(dialect, call, NUMERIC)
-    assert value_type_of(wrapped) == NUMERIC
-    assert wrapped.to_sql() == call.to_sql()
+    typed = NumericValueExpression(dialect, call)
+    assert value_type_of(typed) == NUMERIC
+    assert typed.to_sql() == call.to_sql()
 
 
-def test_wrap_as_passes_through_an_unknown_family(dialect, columns):
-    """Safe to apply to every factory: an unmodelled family changes nothing."""
-    call = FunctionCall(dialect, "MY_FUNC", columns["string"])
-    assert wrap_as(dialect, call, None) is call
+def test_an_argument_that_declares_nothing_yields_no_family(dialect, columns):
+    """A literal says nothing about what a database would return, so an
+    operation over one says nothing either -- which is not the same as guessing
+    a default."""
+    assert family_of_result(Literal(dialect, 1)) is None
+    assert family_of_result(Literal(dialect, "s")) is None
 
 
-def test_wrap_as_passes_through_a_family_with_no_wrapper_yet(dialect, columns):
-    """XML and window families are not modelled yet; they degrade, not break."""
-    call = FunctionCall(dialect, "MY_FUNC", columns["string"])
-    assert wrap_as(dialect, call, "xml") is call
-    assert wrap_as(dialect, call, "window") is call
+def test_a_disagreement_yields_no_family(dialect, columns):
+    """GREATEST of an integer and a string is legal SQL and is neither, so the
+    call stays generic rather than promising the first or the widest."""
+    mixed = F.greatest(dialect, columns["int"], columns["string"])
+    assert value_type_of(mixed) is None
+    assert mixed.to_sql() == FunctionCall(
+        dialect, "GREATEST", columns["int"], columns["string"]
+    ).to_sql()

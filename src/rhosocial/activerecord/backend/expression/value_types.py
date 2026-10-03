@@ -15,12 +15,12 @@ that does not declare one is *unknown* rather than wrong.
 
 This module deliberately imports nothing from the rest of the expression
 package. The typed classes import their family constant from here, so a
-module-level import in the other direction would be circular; the class
-registry is therefore resolved lazily inside :func:`wrap_as`.
+module-level import in the other direction would be circular; the typed value
+expressions therefore never import this module's classes back.
 """
 
 # src/rhosocial/activerecord/backend/expression/value_types.py
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 #: A string value. Operations: upper, lower, substr, length (→ integer), …
 STRING = "string"
@@ -77,29 +77,6 @@ def value_type_of(expr: Any) -> Optional[str]:
     return family if family in FAMILIES else None
 
 
-def common_family(exprs: Any) -> Optional[str]:
-    """Return the family every expression in *exprs* agrees on, or ``None``.
-
-    For an operation over several values of one kind — GREATEST, LEAST,
-    COALESCE, a CASE — the result is that kind. When the inputs disagree the
-    answer is unknown rather than the first one seen or the widest, because
-    either of those would hand back a surface the database does not promise:
-    GREATEST of an integer and a string is legal SQL and is neither.
-
-    Args:
-        exprs: An iterable of expression nodes, or a single node.
-
-    Returns:
-        The shared family, or ``None`` if there is not exactly one.
-    """
-    if isinstance(exprs, (list, tuple)):
-        families = {value_type_of(e) for e in exprs}
-    else:
-        families = {value_type_of(exprs)}
-    families.discard(None)
-    return families.pop() if len(families) == 1 else None
-
-
 def family_for_data_type(data_type: Any) -> Optional[str]:
     """Return the value family a cast to *data_type* produces.
 
@@ -142,77 +119,9 @@ def family_for_sql_type(sql_type: Any) -> Optional[str]:
     return family_for_sql_type_name(sql_type)
 
 
-def wrap_as(dialect: Any, call: Any, family: Optional[str]) -> Any:
-    """Wrap a rendered call in the value expression for *family*.
-
-    Args:
-        dialect: The dialect that will render the expression.
-        call: The underlying node, typically a ``FunctionCall``.
-        family: The value family, or ``None`` for a family that has no typed
-            expression yet.
-
-    Returns:
-        A typed value expression, or *call* unchanged when the family is
-        unknown or not yet modelled. Returning the node untouched is what makes
-        this safe to apply to every factory: an unmodelled family degrades to
-        today's behaviour instead of breaking.
-    """
-    if family is None:
-        return call
-    wrapper = _wrapper_registry().get(family)
-    if wrapper is None:
-        return call
-    # The family is passed as well as looked up: one class can serve several
-    # families, as DateTimeValueExpression does for a date, a time, a
-    # timestamp and a span, which offer the same operations.
-    try:
-        return wrapper(dialect, call, family)
-    except TypeError:
-        return wrapper(dialect, call)
-
-
-def _wrapper_registry() -> Dict[str, Any]:
-    """Resolve the family-to-class registry.
-
-    Imported lazily because the typed value expressions live in modules that
-    import this one for their family constants.
-    """
-    global _WRAPPERS
-    if _WRAPPERS is None:
-        from .core import (
-            ArrayValueExpression,
-            BinaryValueExpression,
-            BooleanValueExpression,
-            DateTimeValueExpression,
-            IntegerValueExpression,
-            JSONValueExpression,
-            NumericValueExpression,
-            StringValueExpression,
-            UUIDValueExpression,
-        )
-
-        _WRAPPERS = {
-            STRING: StringValueExpression,
-            INTEGER: IntegerValueExpression,
-            NUMERIC: NumericValueExpression,
-            DATETIME: DateTimeValueExpression,
-            DATE: DateTimeValueExpression,
-            TIME: DateTimeValueExpression,
-            INTERVAL: DateTimeValueExpression,
-            JSON: JSONValueExpression,
-            ARRAY: ArrayValueExpression,
-            BOOLEAN: BooleanValueExpression,
-            BINARY: BinaryValueExpression,
-            UUID: UUIDValueExpression,
-        }
-    return _WRAPPERS
-
-
-_WRAPPERS: Optional[Dict[str, Any]] = None
-
 
 __all__ = [
     "ARRAY", "BINARY", "BOOLEAN", "DATETIME", "DATE", "FAMILIES", "INTEGER",
     "INTERVAL", "JSON", "NUMERIC", "STRING", "TIME", "UUID", "XML",
-    "common_family", "family_for_sql_type", "value_type_of", "wrap_as",
+    "family_for_sql_type", "value_type_of",
 ]

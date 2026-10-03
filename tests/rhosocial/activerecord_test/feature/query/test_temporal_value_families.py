@@ -34,7 +34,6 @@ from rhosocial.activerecord.backend.expression.value_types import (
     NUMERIC,
     TIME,
     value_type_of,
-    wrap_as,
 )
 
 
@@ -177,7 +176,7 @@ def test_one_class_serves_every_temporal_family(dialect, family):
     is still reported because it is what a result propagates."""
     from rhosocial.activerecord.backend.expression import FunctionCall
 
-    wrapped = wrap_as(dialect, FunctionCall(dialect, "SOME_FUNC"), family)
+    wrapped = DateTimeValueExpression(dialect, FunctionCall(dialect, "SOME_FUNC"), family)
     assert isinstance(wrapped, DateTimeValueExpression)
     assert value_type_of(wrapped) == family
     assert hasattr(wrapped, "date_add")
@@ -188,11 +187,11 @@ def test_the_sql_does_not_change_when_a_value_is_wrapped(dialect, timestamp):
     from rhosocial.activerecord.backend.expression import FunctionCall
 
     call = FunctionCall(dialect, "MY_FUNC", timestamp)
-    assert wrap_as(dialect, call, DATETIME).to_sql() == call.to_sql()
+    assert DateTimeValueExpression(dialect, call, DATETIME).to_sql() == call.to_sql()
 
 
 def test_an_alias_survives_wrapping(dialect, timestamp):
     from rhosocial.activerecord.backend.expression import FunctionCall
 
     call = FunctionCall(dialect, "MY_FUNC", timestamp)
-    assert " AS " in wrap_as(dialect, call, DATETIME).as_("when").to_sql()[0]
+    assert " AS " in DateTimeValueExpression(dialect, call, DATETIME).as_("when").to_sql()[0]
