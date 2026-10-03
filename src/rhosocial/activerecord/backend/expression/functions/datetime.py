@@ -4,6 +4,7 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..value_types import DATE, DATETIME, TIME
 from ..core import (
     Column,
     DateTimeValueExpression,
@@ -51,7 +52,7 @@ def current_date(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
     Returns:
         A DateTimeValueExpression wrapping CURRENT_DATE
     """
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_DATE', niladic=True))
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_DATE', niladic=True), family=DATE)
 
 
 def current_time(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
@@ -67,7 +68,7 @@ def current_time(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
     Returns:
         A DateTimeValueExpression wrapping CURRENT_TIME
     """
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIME', niladic=True))
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIME', niladic=True), family=TIME)
 
 
 def year(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
@@ -227,7 +228,7 @@ def current_timestamp(
     """
     if precision is not None:
         return FunctionCall(dialect, "CURRENT_TIMESTAMP", Literal(dialect, precision))
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIMESTAMP', niladic=True))
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIMESTAMP', niladic=True), family=DATETIME)
 
 
 def localtimestamp(
@@ -253,7 +254,7 @@ def localtimestamp(
     """
     if precision is not None:
         return FunctionCall(dialect, "LOCALTIMESTAMP", Literal(dialect, precision))
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'LOCALTIMESTAMP', niladic=True))
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'LOCALTIMESTAMP', niladic=True), family=DATETIME)
 
 
 def extract(dialect: "SQLDialectBase", field: str, expr: "BaseExpression") -> "ExtractExpression":
