@@ -17,6 +17,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.expression.serialization import serialize, deserialize
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -48,7 +49,7 @@ class TestDropTableCascadeCapabilitySwitches:
     def test_dummy_dialect_renders_cascade(self):
         """DummyDialect renders the standard CASCADE token when supported."""
         dialect = DummyDialect()
-        expr = DropTableExpression(dialect, table="users", cascade=True)
+        expr = DropTableExpression(dialect, table=TableExpression(dialect, "users"), cascade=True)
         sql, params = expr.to_sql()
         assert sql.endswith(" CASCADE")
         assert "RESTRICT" not in sql
@@ -57,7 +58,7 @@ class TestDropTableCascadeCapabilitySwitches:
     def test_dummy_dialect_renders_restrict(self):
         """DummyDialect renders the standard RESTRICT token when supported."""
         dialect = DummyDialect()
-        expr = DropTableExpression(dialect, table="users", cascade=False)
+        expr = DropTableExpression(dialect, table=TableExpression(dialect, "users"), cascade=False)
         sql, params = expr.to_sql()
         assert sql.endswith(" RESTRICT")
         assert "CASCADE" not in sql
@@ -66,21 +67,21 @@ class TestDropTableCascadeCapabilitySwitches:
     def test_no_cascade_dialect_rejects_cascade(self):
         """cascade=True raises UnsupportedFeatureError when unsupported."""
         dialect = NoCascadeDialect()
-        expr = DropTableExpression(dialect, table="users", cascade=True)
+        expr = DropTableExpression(dialect, table=TableExpression(dialect, "users"), cascade=True)
         with pytest.raises(UnsupportedFeatureError, match="DROP TABLE ... CASCADE"):
             expr.to_sql()
 
     def test_no_cascade_dialect_rejects_restrict(self):
         """cascade=False raises UnsupportedFeatureError when unsupported."""
         dialect = NoCascadeDialect()
-        expr = DropTableExpression(dialect, table="users", cascade=False)
+        expr = DropTableExpression(dialect, table=TableExpression(dialect, "users"), cascade=False)
         with pytest.raises(UnsupportedFeatureError, match="DROP TABLE ... RESTRICT"):
             expr.to_sql()
 
     def test_cascade_none_always_allowed(self):
         """cascade=None is always allowed, even on dialects that reject keywords."""
         dialect = NoCascadeDialect()
-        expr = DropTableExpression(dialect, table="users", cascade=None)
+        expr = DropTableExpression(dialect, table=TableExpression(dialect, "users"), cascade=None)
         sql, params = expr.to_sql()
         assert "CASCADE" not in sql
         assert "RESTRICT" not in sql
@@ -95,14 +96,14 @@ class TestDropTableCascadeCapabilitySwitches:
         dialect = SQLiteDialect()
         assert dialect.supports_drop_table_cascade() is False
         assert dialect.supports_drop_table_restrict() is False
-        expr = DropTableExpression(dialect, table="users", cascade=True)
+        expr = DropTableExpression(dialect, table=TableExpression(dialect, "users"), cascade=True)
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
 
     def test_real_sqlite_dialect_plain_drop_still_works(self):
         """A plain DROP TABLE on SQLite (cascade=None) renders normally."""
         dialect = SQLiteDialect()
-        expr = DropTableExpression(dialect, table="users", if_exists=True)
+        expr = DropTableExpression(dialect, table=TableExpression(dialect, "users"), if_exists=True)
         sql, params = expr.to_sql()
         assert sql.startswith("DROP TABLE IF EXISTS")
         assert params == ()
@@ -113,7 +114,7 @@ class TestDropTableCascadeSerialization:
 
     def test_cascade_true_serialization_roundtrip(self):
         dialect = DummyDialect()
-        expr = DropTableExpression(dialect, table="users", cascade=True)
+        expr = DropTableExpression(dialect, table=TableExpression(dialect, "users"), cascade=True)
 
         expected_sql, expected_params = expr.to_sql()
 
@@ -128,7 +129,7 @@ class TestDropTableCascadeSerialization:
 
     def test_cascade_false_serialization_roundtrip(self):
         dialect = DummyDialect()
-        expr = DropTableExpression(dialect, table="users", cascade=False)
+        expr = DropTableExpression(dialect, table=TableExpression(dialect, "users"), cascade=False)
 
         expected_sql, expected_params = expr.to_sql()
 

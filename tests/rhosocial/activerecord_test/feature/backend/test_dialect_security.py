@@ -6,6 +6,7 @@ This test module verifies that string escaping and validation
 methods properly sanitize user input to prevent SQL injection.
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 
 from typing import Tuple
@@ -248,7 +249,7 @@ def test_format_partition_method_validation(dialect):
     col_def = ColumnDefinition(dialect, name="id", data_type=IntegerType(dialect))
     expr = CreateTableExpression(
         dialect=dialect,
-        table="test_table",
+        table=TableExpression(dialect, "test_table"),
         columns=[col_def],
         partition=PartitionClause(
             dialect=dialect,

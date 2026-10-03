@@ -6,6 +6,7 @@ These tests verify that all generic expressions (not backend-specific) can be
 serialized to a JSON-compatible dict and restored via deserialization.
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import json
 import warnings
 
@@ -769,7 +770,7 @@ class TestDDLRoundtrip:
         )
 
         col_def = ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)])
-        expr = CreateTableExpression(dummy_dialect, table="users", columns=[col_def])
+        expr = CreateTableExpression(dummy_dialect, table=TableExpression(dummy_dialect, "users"), columns=[col_def])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
 

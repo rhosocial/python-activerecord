@@ -1,6 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/test_generated_columns.py
 """Tests for SQLite generated columns support."""
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.statements import (
@@ -163,7 +164,7 @@ class TestGeneratedColumnsInCreateTable:
             ),
         ]
 
-        create_table = CreateTableExpression(dialect=dialect, table="order_items", columns=columns)
+        create_table = CreateTableExpression(dialect=dialect, table=TableExpression(dialect, "order_items"), columns=columns)
 
         sql, params = create_table.to_sql()
 
@@ -193,7 +194,7 @@ class TestGeneratedColumnsInCreateTable:
             ),
         ]
 
-        create_table = CreateTableExpression(dialect=dialect, table="users", columns=columns)
+        create_table = CreateTableExpression(dialect=dialect, table=TableExpression(dialect, "users"), columns=columns)
 
         sql, params = create_table.to_sql()
 

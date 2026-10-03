@@ -72,7 +72,7 @@ class TestDialectOptionsExpressionTraversal:
         assert restored.to_sql() == expr.to_sql()
 
     def test_drop_table_roundtrip(self, sqlite_dialect):
-        expr = DropTableExpression(sqlite_dialect, table="users", if_exists=True)
+        expr = DropTableExpression(sqlite_dialect, table=TableExpression(sqlite_dialect, "users"), if_exists=True)
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()

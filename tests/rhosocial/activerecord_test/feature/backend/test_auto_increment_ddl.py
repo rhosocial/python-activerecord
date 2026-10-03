@@ -9,6 +9,7 @@ Covers bugs found in rbac cross-backend testing:
 - TimestampType must map to NUMERIC (SQLite affinity).
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
@@ -36,7 +37,7 @@ def _pk():
 
 def _build_table(dialect):
     return CreateTableExpression(
-        dialect=dialect, table="test_tbl",
+        dialect=dialect, table=TableExpression(dialect, "test_tbl"),
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
             ColumnDefinition(dialect, "name", TextType(dialect),
@@ -63,7 +64,7 @@ class TestAutoIncrementDDL:
 
     def test_boolean_default_true(self, dialect):
         expr = CreateTableExpression(
-            dialect=dialect, table="bool_test",
+            dialect=dialect, table=TableExpression(dialect, "bool_test"),
             columns=[
                 ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
                 ColumnDefinition(dialect, "flag", BooleanType(dialect),
@@ -76,7 +77,7 @@ class TestAutoIncrementDDL:
 
     def test_timestamp_type(self, dialect):
         expr = CreateTableExpression(
-            dialect=dialect, table="ts_test",
+            dialect=dialect, table=TableExpression(dialect, "ts_test"),
             columns=[
                 ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
                 ColumnDefinition(dialect, "created_at", TimestampType(dialect=dialect)),

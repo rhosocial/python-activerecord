@@ -6,6 +6,7 @@ and performs combined queries across multiple extension types using the
 expression-dialect system for SQL generation. No raw SQL strings are used.
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import json
 
 import pytest
@@ -101,7 +102,7 @@ class TestGeoDocumentScenario:
         # --- Setup: JSON metadata table ---
         backend.execute(
             *CreateTableExpression(
-                dialect, table="doc_meta",
+                dialect, table=TableExpression(dialect, "doc_meta"),
                 columns=[
                     ColumnDefinition(dialect, "doc_id", SQLiteIntegerType(dialect), constraints=[
                         ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
@@ -426,7 +427,7 @@ class TestSpatialCatalogScenario:
         # --- Main data table ---
         backend.execute(
             *CreateTableExpression(
-                dialect, table="features",
+                dialect, table=TableExpression(dialect, "features"),
                 columns=[
                     ColumnDefinition(dialect, "id", SQLiteIntegerType(dialect), constraints=[
                         ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
@@ -516,7 +517,7 @@ class TestSpatialCatalogScenario:
         # --- Combined FTS5 + spatial + JSON filter via expressions ---
         backend.execute(
             *CreateTableExpression(
-                dialect, table="feature_props",
+                dialect, table=TableExpression(dialect, "feature_props"),
                 columns=[
                     ColumnDefinition(dialect, "feature_id", SQLiteIntegerType(dialect), constraints=[
                         ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)

@@ -536,7 +536,7 @@ class CreateTableExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         columns: List[ColumnDefinition],  # List of column definitions with constraints
         indexes: Optional[List[IndexDefinition]] = None,  # Table indexes
         table_constraints: Optional[List[TableConstraint]] = None,  # Table-level constraints
@@ -550,12 +550,9 @@ class CreateTableExpression(BaseExpression):
         table_options: Optional["CreateTableOptions"] = None,  # CREATE header modifiers
     ):
         super().__init__(dialect)
-        if isinstance(table, str):
-            self.table = TableExpression(dialect, table)
-        elif isinstance(table, TableExpression):
-            self.table = table
-        else:
-            raise TypeError(f"table must be str or TableExpression, got {type(table).__name__}")
+        if not isinstance(table, TableExpression):
+            raise TypeError(f"table must be a TableExpression, got {type(table).__name__}")
+        self.table = table
         self.columns = columns  # List of column definitions with embedded constraints
         self.indexes = indexes or []  # List of indexes to create
         self.table_constraints = table_constraints or []  # List of table-level constraints
@@ -625,7 +622,7 @@ class CreateTableAsExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         as_query: "QueryExpression",
         *,
         columns: Optional[List[ColumnDefinition]] = None,
@@ -678,7 +675,7 @@ class CreateTableLikeExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         like_table: Union[str, "TableExpression", Tuple[str, str]],
         *,
         temporary: bool = False,
@@ -727,7 +724,7 @@ class CreateTableCloneExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         source_table: Union[str, "TableExpression", Tuple[str, str]],
         *,
         mode: CreateTableCloneMode = CreateTableCloneMode.CLONE,
@@ -772,7 +769,7 @@ class CreateTableFromTemplateExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         template: "QueryExpression",
         *,
         temporary: bool = False,
@@ -862,18 +859,15 @@ class DropTableExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         if_exists: bool = False,
         cascade: Optional[bool] = None,
         purge: bool = False,
     ):
         super().__init__(dialect)
-        if isinstance(table, str):
-            self.table = TableExpression(dialect, table)
-        elif isinstance(table, TableExpression):
-            self.table = table
-        else:
-            raise TypeError(f"table must be str or TableExpression, got {type(table).__name__}")
+        if not isinstance(table, TableExpression):
+            raise TypeError(f"table must be a TableExpression, got {type(table).__name__}")
+        self.table = table
         self.if_exists = if_exists
         self.cascade = cascade
         self.purge = purge

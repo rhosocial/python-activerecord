@@ -125,7 +125,7 @@ class TestTableCapabilityGating:
     def _table(self, dummy_dialect: DummyDialect, **kwargs):
         return CreateTableExpression(
             dummy_dialect,
-            table="t",
+            table=TableExpression(dummy_dialect, "t"),
             columns=[ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect))],
             **kwargs,
         )

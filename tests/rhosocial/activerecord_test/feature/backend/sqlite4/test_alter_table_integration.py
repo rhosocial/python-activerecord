@@ -39,7 +39,7 @@ def backend_with_users(sqlite_backend: SQLiteBackend) -> SQLiteBackend:
     """Create a backend with a simple 'users' table for ALTER TABLE tests."""
     create_expr = CreateTableExpression(
         dialect=sqlite_backend.dialect,
-        table="users",
+        table=TableExpression(sqlite_backend.dialect, "users"),
         columns=[
             ColumnDefinition(sqlite_backend.dialect, 
                 "id",

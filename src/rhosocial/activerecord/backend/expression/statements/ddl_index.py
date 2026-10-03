@@ -95,7 +95,7 @@ class CreateIndexExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         index_name: str,
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         columns: List[Union[str, "BaseExpression"]],
         unique: bool = False,
         if_not_exists: bool = False,
@@ -120,7 +120,9 @@ class CreateIndexExpression(BaseExpression):
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = schema_name
-        self.table = table if isinstance(table, TableExpression) else TableExpression(dialect, table)
+        if not isinstance(table, TableExpression):
+            raise TypeError(f"table must be a TableExpression, got {type(table).__name__}")
+        self.table = table
         self.columns = columns
         self.unique = unique
         self.if_not_exists = if_not_exists
@@ -174,7 +176,7 @@ class DropIndexExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         index_name: str,
-        table: Optional[Union[str, "TableExpression"]] = None,
+        table: Optional["TableExpression"] = None,
         if_exists: bool = False,
         concurrent: bool = False,
         schema_name: Optional[str] = None,
@@ -193,9 +195,9 @@ class DropIndexExpression(BaseExpression):
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = schema_name
-        self.table = None if table is None else (
-            table if isinstance(table, TableExpression) else TableExpression(dialect, table)
-        )
+        if table is not None and not isinstance(table, TableExpression):
+            raise TypeError(f"table must be a TableExpression, got {type(table).__name__}")
+        self.table = table
         self.if_exists = if_exists
         self.concurrent = concurrent
 
@@ -248,7 +250,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         index_name: str,
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         columns: List[str],
         parser: Optional[str] = None,
         if_not_exists: bool = False,
@@ -268,7 +270,9 @@ class CreateFulltextIndexExpression(BaseExpression):
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = schema_name
-        self.table = table if isinstance(table, TableExpression) else TableExpression(dialect, table)
+        if not isinstance(table, TableExpression):
+            raise TypeError(f"table must be a TableExpression, got {type(table).__name__}")
+        self.table = table
         self.columns = columns
         self.parser = parser
         self.if_not_exists = if_not_exists
@@ -304,7 +308,7 @@ class DropFulltextIndexExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         index_name: str,
-        table: Union[str, "TableExpression"],
+        table: "TableExpression",
         if_exists: bool = False,
         schema_name: Optional[str] = None,
     ):
@@ -322,5 +326,7 @@ class DropFulltextIndexExpression(BaseExpression):
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = schema_name
-        self.table = table if isinstance(table, TableExpression) else TableExpression(dialect, table)
+        if not isinstance(table, TableExpression):
+            raise TypeError(f"table must be a TableExpression, got {type(table).__name__}")
+        self.table = table
         self.if_exists = if_exists

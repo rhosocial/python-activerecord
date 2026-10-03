@@ -6,6 +6,7 @@ These tests verify that generated SQL statements execute correctly
 against an actual SQLite database.
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
@@ -62,7 +63,7 @@ def sqlite_backend():
         ),
     ]
 
-    create_users = CreateTableExpression(dialect, table="users", columns=users_columns)
+    create_users = CreateTableExpression(dialect, table=TableExpression(dialect, "users"), columns=users_columns)
 
     sql, params = create_users.to_sql()
     backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
@@ -86,7 +87,7 @@ def sqlite_backend():
     )
 
     create_orders = CreateTableExpression(
-        dialect, table="orders", columns=orders_columns, table_constraints=[orders_fk_constraint]
+        dialect, table=TableExpression(dialect, "orders"), columns=orders_columns, table_constraints=[orders_fk_constraint]
     )
 
     sql, params = create_orders.to_sql()

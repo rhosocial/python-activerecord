@@ -98,6 +98,11 @@ class CreateTriggerExpression(BaseExpression):
         super().__init__(dialect)
         self.trigger_name = trigger_name
         self.schema_name = schema_name
+        for label, value in (("table", table), ("function_name", function_name)):
+            if not isinstance(value, TableExpression):
+                raise TypeError(
+                    f"{label} must be a TableExpression, got {type(value).__name__}"
+                )
         self.table = table
         self.function = function_name
         self.timing = timing
@@ -148,5 +153,7 @@ class DropTriggerExpression(BaseExpression):
         super().__init__(dialect)
         self.trigger_name = trigger_name
         self.schema_name = schema_name
+        if table is not None and not isinstance(table, TableExpression):
+            raise TypeError(f"table must be a TableExpression, got {type(table).__name__}")
         self.table = table
         self.if_exists = if_exists

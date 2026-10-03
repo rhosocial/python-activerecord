@@ -20,7 +20,7 @@ class TestCompositePKDDL:
     def test_create_table_dual_pk(self):
         expr = CreateTableExpression(
             dialect=dialect,
-            table="order_items",
+            table=TableExpression(dialect, "order_items"),
             columns=[
                 ColumnDefinition(dialect, "order_id", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
@@ -40,7 +40,7 @@ class TestCompositePKDDL:
     def test_create_table_triple_pk(self):
         expr = CreateTableExpression(
             dialect=dialect,
-            table="store_inventory",
+            table=TableExpression(dialect, "store_inventory"),
             columns=[
                 ColumnDefinition(dialect, "store_id", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
@@ -65,7 +65,7 @@ class TestCompositePKDDL:
     def test_pk_columns_not_null(self):
         expr = CreateTableExpression(
             dialect=dialect,
-            table="t",
+            table=TableExpression(dialect, "t"),
             columns=[
                 ColumnDefinition(dialect, "a", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
