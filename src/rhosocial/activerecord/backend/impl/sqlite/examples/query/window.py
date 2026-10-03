@@ -4,6 +4,7 @@ Window functions: ROW_NUMBER, LAG, LEAD.
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
@@ -29,7 +30,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="sales",
+    table_name=TableExpression(dialect, "sales"),
     columns=[
         ColumnDefinition(dialect, 
             "id",

@@ -11,6 +11,7 @@ This example demonstrates:
 # ============================================================
 # SECTION: Connection Setup
 # ============================================================
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,
@@ -52,7 +53,7 @@ def execute_expression(expression, options=None):
 def create_demo_tables():
     users_table = CreateTableExpression(
         dialect=dialect,
-        table="users",
+        table=TableExpression(dialect, "users"),
         columns=[
             ColumnDefinition(dialect, 
                 "id",
@@ -75,7 +76,7 @@ def create_demo_tables():
 
     logs_table = CreateTableExpression(
         dialect=dialect,
-        table="logs",
+        table=TableExpression(dialect, "logs"),
         columns=[
             ColumnDefinition(dialect, 
                 "id",
@@ -222,10 +223,10 @@ except Exception as error:
 # ============================================================
 # SECTION: Disconnect
 # ============================================================
-drop_logs = DropTableExpression(dialect=dialect, table="logs", if_exists=True)
+drop_logs = DropTableExpression(dialect=dialect, table=TableExpression(dialect, "logs"), if_exists=True)
 execute_expression(drop_logs, ddl_options)
 
-drop_users = DropTableExpression(dialect=dialect, table="users", if_exists=True)
+drop_users = DropTableExpression(dialect=dialect, table=TableExpression(dialect, "users"), if_exists=True)
 execute_expression(drop_users, ddl_options)
 
 backend.disconnect()

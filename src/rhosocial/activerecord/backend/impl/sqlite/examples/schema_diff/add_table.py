@@ -8,6 +8,7 @@ so the default SQLiteSchemaDiffer is sufficient for all comparisons.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
@@ -39,7 +40,7 @@ snapshot_before = builder.build(schema="main")
 
 # Create a new table
 expr = CreateTableExpression(
-    dialect=dialect, table="users", columns=[
+    dialect=dialect, table=TableExpression(dialect, "users"), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
         ColumnDefinition(dialect, "name", TextType(),

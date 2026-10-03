@@ -11,6 +11,7 @@ This example demonstrates:
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
@@ -38,7 +39,7 @@ dialect = backend.dialect
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table_name=TableExpression(dialect, "users"),
     columns=[
         ColumnDefinition(dialect, 
             "id",
@@ -65,7 +66,7 @@ backend.execute(sql, params)
 create_index = CreateIndexExpression(
     dialect=dialect,
     index_name="idx_users_email",
-    table="users",
+    table=TableExpression(dialect, "users"),
     columns=["email"],
     if_not_exists=True,
 )

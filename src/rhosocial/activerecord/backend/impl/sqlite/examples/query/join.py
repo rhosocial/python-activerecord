@@ -5,6 +5,7 @@ JOIN query with multiple tables.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -30,7 +31,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 users_table = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table_name=TableExpression(dialect, "users"),
     columns=[
         ColumnDefinition(dialect, 
             "id",
@@ -55,7 +56,7 @@ backend.execute(sql, params)
 
 orders_table = CreateTableExpression(
     dialect=dialect,
-    table_name="orders",
+    table_name=TableExpression(dialect, "orders"),
     columns=[
         ColumnDefinition(dialect, 
             "id",

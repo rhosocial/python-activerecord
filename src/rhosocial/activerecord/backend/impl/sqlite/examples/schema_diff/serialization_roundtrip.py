@@ -7,6 +7,7 @@ Demonstrates that snapshots can be saved, loaded, and compared across sessions.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import json
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -24,7 +25,7 @@ backend.introspect_and_adapt()
 dialect = backend.dialect
 
 expr = CreateTableExpression(
-    dialect=dialect, table="books", columns=[
+    dialect=dialect, table=TableExpression(dialect, "books"), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
         ColumnDefinition(dialect, "title", TextType(),

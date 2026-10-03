@@ -6,6 +6,7 @@ Each function takes 'dialect' as first parameter and returns
 a BaseExpression that implements Executable.
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,
@@ -76,7 +77,7 @@ def create_orders_table(dialect):
     """
     return CreateTableExpression(
         dialect,
-        table="orders",
+        table=TableExpression(dialect, "orders"),
         columns=[
             _pk_column("id"),
             _integer_column("user_id", not_null=True),
@@ -99,7 +100,7 @@ def create_inventory_table(dialect):
     """
     return CreateTableExpression(
         dialect,
-        table="inventory",
+        table=TableExpression(dialect, "inventory"),
         columns=[
             _pk_column("id"),
             _integer_column("order_id", not_null=True),
@@ -142,7 +143,7 @@ def add_orders_status_index(dialect):
     return CreateIndexExpression(
         dialect,
         index_name="idx_orders_status",
-        table="orders",
+        table=TableExpression(dialect, "orders"),
         columns=["status"],
         if_not_exists=True,
     )

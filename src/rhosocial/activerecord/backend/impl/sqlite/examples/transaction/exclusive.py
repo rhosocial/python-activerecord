@@ -11,6 +11,7 @@ This example demonstrates:
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,
@@ -80,7 +81,7 @@ def fetch_balances():
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table="accounts",
+    table=TableExpression(dialect, "accounts"),
     columns=[
         ColumnDefinition(dialect, 
             "id",
@@ -171,7 +172,7 @@ print(f"Journal mode: {journal_mode}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_table = DropTableExpression(dialect=dialect, table="accounts", if_exists=True)
+drop_table = DropTableExpression(dialect=dialect, table=TableExpression(dialect, "accounts"), if_exists=True)
 execute_expression(drop_table, ddl_options)
 backend.disconnect()
 

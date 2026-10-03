@@ -57,7 +57,7 @@ tables = [
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
-        table=table_name,
+        table=TableExpression(dialect, table_name),
         columns=[_column(name, type_name) for name, type_name in columns],
         if_not_exists=True,
     )

@@ -28,7 +28,7 @@ class CreateIndexExpression(BaseExpression):
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_users_email",
-            table="users",
+            table=TableExpression(dialect, "users"),
             columns=["email"]
         )
 
@@ -54,7 +54,7 @@ class CreateIndexExpression(BaseExpression):
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_users_username",
-            table="users",
+            table=TableExpression(dialect, "users"),
             columns=["username"],
             unique=True
         )
@@ -63,7 +63,7 @@ class CreateIndexExpression(BaseExpression):
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_orders_user_date",
-            table="orders",
+            table=TableExpression(dialect, "orders"),
             columns=["user_id", "created_at"]
         )
 
@@ -71,7 +71,7 @@ class CreateIndexExpression(BaseExpression):
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_active_users",
-            table="users",
+            table=TableExpression(dialect, "users"),
             columns=["email"],
             where=Column(dialect, "status") == Literal(dialect, "active")
         )
@@ -80,7 +80,7 @@ class CreateIndexExpression(BaseExpression):
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_users_name_hash",
-            table="users",
+            table=TableExpression(dialect, "users"),
             columns=["name"],
             index_type="HASH"
         )
@@ -155,7 +155,7 @@ class DropIndexExpression(BaseExpression):
         drop_idx = DropIndexExpression(
             dialect,
             index_name="idx_orders_status",
-            table="orders"
+            table=TableExpression(dialect, "orders")
         )
 
         # Index and table resolved independently
@@ -218,7 +218,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         create_ft = CreateFulltextIndexExpression(
             dialect,
             index_name="idx_articles_content",
-            table="articles",
+            table=TableExpression(dialect, "articles"),
             columns=["title", "content"]
         )
 
@@ -226,7 +226,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         create_ft = CreateFulltextIndexExpression(
             dialect,
             index_name="idx_documents_body",
-            table="documents",
+            table=TableExpression(dialect, "documents"),
             columns=["body"],
             parser="ngram"
         )
@@ -235,7 +235,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         create_ft = CreateFulltextIndexExpression(
             dialect,
             index_name="idx_posts_content",
-            table="posts",
+            table=TableExpression(dialect, "posts"),
             columns=["content"],
             if_not_exists=True
         )
@@ -287,14 +287,14 @@ class DropFulltextIndexExpression(BaseExpression):
         drop_ft = DropFulltextIndexExpression(
             dialect,
             index_name="idx_articles_content",
-            table="articles"
+            table=TableExpression(dialect, "articles")
         )
 
         # Drop with IF EXISTS
         drop_ft = DropFulltextIndexExpression(
             dialect,
             index_name="idx_old_fulltext",
-            table="old_table",
+            table=TableExpression(dialect, "old_table"),
             if_exists=True
         )
     """

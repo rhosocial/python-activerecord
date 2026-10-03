@@ -5,6 +5,7 @@ Schema diff: detect removed and added indexes between two snapshots.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
@@ -22,7 +23,7 @@ backend.introspect_and_adapt()
 dialect = backend.dialect
 
 expr = CreateTableExpression(
-    dialect=dialect, table="products", columns=[
+    dialect=dialect, table=TableExpression(dialect, "products"), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
         ColumnDefinition(dialect, "name", TextType()),

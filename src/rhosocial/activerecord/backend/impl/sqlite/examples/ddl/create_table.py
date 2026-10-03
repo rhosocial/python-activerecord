@@ -4,6 +4,7 @@ Create a table with primary key, auto-increment, and index.
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, TimestampType
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
@@ -66,7 +67,7 @@ indexes = [
 
 create_expr = CreateTableExpression(
     dialect=dialect,
-    table_name="users",
+    table_name=TableExpression(dialect, "users"),
     columns=columns,
     indexes=indexes,
     if_not_exists=True,

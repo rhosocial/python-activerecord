@@ -8,6 +8,7 @@ This example demonstrates:
 4. How to check dialect capability before using FOR UPDATE
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
@@ -47,7 +48,7 @@ ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table="accounts",
+    table=TableExpression(dialect, "accounts"),
     columns=[
         ColumnDefinition(dialect, 
             "id",
@@ -236,7 +237,7 @@ for row in result.data:
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_table = DropTableExpression(dialect=dialect, table="accounts", if_exists=True)
+drop_table = DropTableExpression(dialect=dialect, table=TableExpression(dialect, "accounts"), if_exists=True)
 sql, params = drop_table.to_sql()
 backend.execute(sql, params, options=ddl_options)
 backend.disconnect()

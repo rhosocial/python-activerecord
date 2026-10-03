@@ -5,6 +5,7 @@ Basic transaction control using transaction manager.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
@@ -34,7 +35,7 @@ from rhosocial.activerecord.backend.expression.types import FloatType, IntegerTy
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="accounts",
+    table_name=TableExpression(dialect, "accounts"),
     columns=[
         ColumnDefinition(dialect, 
             "id",

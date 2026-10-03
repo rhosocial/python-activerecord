@@ -13,6 +13,7 @@ Or:
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.named_expression import (
@@ -44,7 +45,7 @@ tables = [
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
-        table=table_name,
+        table=TableExpression(dialect, table_name),
         columns=[ColumnDefinition(dialect, c.split()[0], c.split()[1]) for c in columns],
         if_not_exists=True,
     )

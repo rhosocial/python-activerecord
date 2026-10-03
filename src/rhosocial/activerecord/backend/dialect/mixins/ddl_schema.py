@@ -51,16 +51,6 @@ class SchemaMixin:
         :meth:`~...mixins.ddl_column.ColumnDDLMixin.format_column`, so the rules
         live in one place rather than in each formatter.
 
-        An expression only collects parameters, so it cannot validate them: at
-        construction its dialect may not even be settled and its parameters may
-        still be incomplete. Strict validation belongs here, where the statement
-        is known to be whole.
-
-        Every formatter that renders a qualified name routes through this, by
-        way of :meth:`~...mixins.ddl_table.TableDDLMixin.format_table` or
-        :meth:`~...mixins.ddl_column.ColumnDDLMixin.format_column`, so the rules
-        live in one place rather than in each formatter.
-
         Three things are rejected, in increasing order of how long they would
         otherwise go unnoticed:
 

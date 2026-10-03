@@ -3,6 +3,7 @@ UNION using SetOperationExpression - SQLite.
 
 This example demonstrates:
 1. UNION (distinct)
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 2. UNION ALL
 """
@@ -32,7 +33,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table="users",
+    table=TableExpression(dialect, "users"),
     columns=[
         ColumnDefinition(dialect, "id", IntegerType()),
         ColumnDefinition(dialect, "name", TextType()),
@@ -113,7 +114,7 @@ print(f"UNION ALL result: {result.data}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table="users", if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table=TableExpression(dialect, "users"), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()
