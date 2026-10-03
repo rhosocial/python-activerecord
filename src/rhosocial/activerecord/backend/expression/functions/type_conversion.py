@@ -4,8 +4,14 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLValueExpression
-from ..value_types import DATETIME, NUMERIC, STRING, wrap_as
-from ..core import Column, FunctionCall, Literal
+from ..core import (
+    Column,
+    DateTimeValueExpression,
+    NumericValueExpression,
+    StringValueExpression,
+    FunctionCall,
+    Literal,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -51,7 +57,7 @@ def cast(
 
 def to_char(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], format: Optional[str] = None
-) -> "FunctionCall":
+) -> "StringValueExpression":
     """
     Creates a TO_CHAR function call.
 
@@ -68,18 +74,18 @@ def to_char(
         format: Optional format string for conversion.
 
     Returns:
-        A FunctionCall instance representing the TO_CHAR function
+        A StringValueExpression wrapping TO_CHAR
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return wrap_as(dialect, FunctionCall(dialect, "TO_CHAR", target_expr, format_expr), STRING)
-    return wrap_as(dialect, FunctionCall(dialect, "TO_CHAR", target_expr), STRING)
+        return StringValueExpression(dialect, FunctionCall(dialect, 'TO_CHAR', target_expr, format_expr))
+    return StringValueExpression(dialect, FunctionCall(dialect, 'TO_CHAR', target_expr))
 
 
 def to_number(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], format: Optional[str] = None
-) -> "FunctionCall":
+) -> "NumericValueExpression":
     """
     Creates a TO_NUMBER function call.
 
@@ -96,18 +102,18 @@ def to_number(
         format: Optional format string for conversion.
 
     Returns:
-        A FunctionCall instance representing the TO_NUMBER function
+        A NumericValueExpression wrapping TO_NUMBER
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return wrap_as(dialect, FunctionCall(dialect, "TO_NUMBER", target_expr, format_expr), NUMERIC)
-    return wrap_as(dialect, FunctionCall(dialect, "TO_NUMBER", target_expr), NUMERIC)
+        return NumericValueExpression(dialect, FunctionCall(dialect, 'TO_NUMBER', target_expr, format_expr))
+    return NumericValueExpression(dialect, FunctionCall(dialect, 'TO_NUMBER', target_expr))
 
 
 def to_date(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], format: Optional[str] = None
-) -> "FunctionCall":
+) -> "DateTimeValueExpression":
     """
     Creates a TO_DATE function call.
 
@@ -124,10 +130,10 @@ def to_date(
         format: Optional format string for conversion.
 
     Returns:
-        A FunctionCall instance representing the TO_DATE function
+        A DateTimeValueExpression wrapping TO_DATE
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return wrap_as(dialect, FunctionCall(dialect, "TO_DATE", target_expr, format_expr), DATETIME)
-    return wrap_as(dialect, FunctionCall(dialect, "TO_DATE", target_expr), DATETIME)
+        return DateTimeValueExpression(dialect, FunctionCall(dialect, 'TO_DATE', target_expr, format_expr))
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'TO_DATE', target_expr))
