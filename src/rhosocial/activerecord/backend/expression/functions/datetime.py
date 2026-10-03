@@ -4,8 +4,13 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..value_types import DATE, DATETIME, INTEGER, TIME, wrap_as
-from ..core import Column, FunctionCall, Literal
+from ..core import (
+    Column,
+    DateTimeValueExpression,
+    FunctionCall,
+    IntegerValueExpression,
+    Literal,
+)
 from ..datetime import (
     DatePartExpression,
     DateTimeAddExpression,
@@ -20,7 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def now(dialect: "SQLDialectBase") -> "FunctionCall":
+def now(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
     """
     Creates a NOW scalar function call.
 
@@ -28,12 +33,12 @@ def now(dialect: "SQLDialectBase") -> "FunctionCall":
         dialect: The SQL dialect instance
 
     Returns:
-        A FunctionCall instance representing the NOW function
+        A DateTimeValueExpression wrapping NOW
     """
-    return wrap_as(dialect, FunctionCall(dialect, "NOW"), DATETIME)
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'NOW'))
 
 
-def current_date(dialect: "SQLDialectBase") -> "FunctionCall":
+def current_date(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
     """
     Creates a CURRENT_DATE niladic value function.
 
@@ -44,12 +49,12 @@ def current_date(dialect: "SQLDialectBase") -> "FunctionCall":
         dialect: The SQL dialect instance
 
     Returns:
-        A FunctionCall instance representing the CURRENT_DATE value function
+        A DateTimeValueExpression wrapping CURRENT_DATE
     """
-    return wrap_as(dialect, FunctionCall(dialect, "CURRENT_DATE", niladic=True), DATE)
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_DATE', niladic=True))
 
 
-def current_time(dialect: "SQLDialectBase") -> "FunctionCall":
+def current_time(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
     """
     Creates a CURRENT_TIME niladic value function.
 
@@ -60,12 +65,12 @@ def current_time(dialect: "SQLDialectBase") -> "FunctionCall":
         dialect: The SQL dialect instance
 
     Returns:
-        A FunctionCall instance representing the CURRENT_TIME value function
+        A DateTimeValueExpression wrapping CURRENT_TIME
     """
-    return wrap_as(dialect, FunctionCall(dialect, "CURRENT_TIME", niladic=True), TIME)
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIME', niladic=True))
 
 
-def year(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
+def year(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
     """
     Creates a YEAR scalar function call.
 
@@ -79,13 +84,13 @@ def year(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
               it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
-        A FunctionCall instance representing the YEAR function
+        An IntegerValueExpression wrapping YEAR
     """
     target_expr = expr
-    return wrap_as(dialect, FunctionCall(dialect, "YEAR", target_expr), INTEGER)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, 'YEAR', target_expr))
 
 
-def month(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
+def month(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
     """
     Creates a MONTH scalar function call.
 
@@ -100,13 +105,13 @@ def month(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
               is passed, it's used as-is.
 
     Returns:
-        A FunctionCall instance representing the MONTH function
+        An IntegerValueExpression wrapping MONTH
     """
     target_expr = expr
-    return wrap_as(dialect, FunctionCall(dialect, "MONTH", target_expr), INTEGER)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, 'MONTH', target_expr))
 
 
-def day(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
+def day(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
     """
     Creates a DAY scalar function call.
 
@@ -120,13 +125,13 @@ def day(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
               it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
-        A FunctionCall instance representing the DAY function
+        An IntegerValueExpression wrapping DAY
     """
     target_expr = expr
-    return wrap_as(dialect, FunctionCall(dialect, "DAY", target_expr), INTEGER)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, 'DAY', target_expr))
 
 
-def hour(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
+def hour(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
     """
     Creates an HOUR scalar function call.
 
@@ -140,13 +145,13 @@ def hour(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
               it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
-        A FunctionCall instance representing the HOUR function
+        An IntegerValueExpression wrapping HOUR
     """
     target_expr = expr
-    return wrap_as(dialect, FunctionCall(dialect, "HOUR", target_expr), INTEGER)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, 'HOUR', target_expr))
 
 
-def minute(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
+def minute(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
     """
     Creates a MINUTE scalar function call.
 
@@ -160,13 +165,13 @@ def minute(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
               it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
-        A FunctionCall instance representing the MINUTE function
+        An IntegerValueExpression wrapping MINUTE
     """
     target_expr = expr
-    return wrap_as(dialect, FunctionCall(dialect, "MINUTE", target_expr), INTEGER)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, 'MINUTE', target_expr))
 
 
-def second(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
+def second(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
     """
     Creates a SECOND scalar function call.
 
@@ -181,10 +186,10 @@ def second(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
               If a BaseExpression is passed, it's used as-is.
 
     Returns:
-        A FunctionCall instance representing the SECOND function
+        An IntegerValueExpression wrapping SECOND
     """
     target_expr = expr
-    return wrap_as(dialect, FunctionCall(dialect, "SECOND", target_expr), INTEGER)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, 'SECOND', target_expr))
 
 
 def date_part(dialect: "SQLDialectBase", field: str, expr: "BaseExpression") -> "DatePartExpression":
@@ -199,7 +204,9 @@ def date_trunc(dialect: "SQLDialectBase", field: str, expr: "BaseExpression") ->
     return DateTruncExpression(dialect, field, target_expr)
 
 
-def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "FunctionCall":
+def current_timestamp(
+    dialect: "SQLDialectBase", precision: Optional[int] = None
+) -> "DateTimeValueExpression":
     """
     Creates a CURRENT_TIMESTAMP niladic value function.
 
@@ -216,14 +223,16 @@ def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None
         precision: Optional fractional seconds precision
 
     Returns:
-        A FunctionCall instance representing the CURRENT_TIMESTAMP value function
+        A DateTimeValueExpression wrapping CURRENT_TIMESTAMP
     """
     if precision is not None:
         return FunctionCall(dialect, "CURRENT_TIMESTAMP", Literal(dialect, precision))
-    return wrap_as(dialect, FunctionCall(dialect, "CURRENT_TIMESTAMP", niladic=True), DATETIME)
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIMESTAMP', niladic=True))
 
 
-def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "FunctionCall":
+def localtimestamp(
+    dialect: "SQLDialectBase", precision: Optional[int] = None
+) -> "DateTimeValueExpression":
     """
     Creates a LOCALTIMESTAMP niladic value function.
 
@@ -240,11 +249,11 @@ def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -
         precision: Optional fractional seconds precision
 
     Returns:
-        A FunctionCall instance representing the LOCALTIMESTAMP value function
+        A DateTimeValueExpression wrapping LOCALTIMESTAMP
     """
     if precision is not None:
         return FunctionCall(dialect, "LOCALTIMESTAMP", Literal(dialect, precision))
-    return wrap_as(dialect, FunctionCall(dialect, "LOCALTIMESTAMP", niladic=True), DATETIME)
+    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'LOCALTIMESTAMP', niladic=True))
 
 
 def extract(dialect: "SQLDialectBase", field: str, expr: "BaseExpression") -> "ExtractExpression":
