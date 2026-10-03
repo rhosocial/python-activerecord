@@ -110,13 +110,32 @@ def test_decimal_is_fractional(dialect):
 # ---------------------------------------------------------------------------
 
 
-def test_int_and_float_share_a_column_class(dialect):
-    """They must, or the public API would gain a class for no SQL reason."""
-    from rhosocial.activerecord.backend.expression import NumericColumn
+def test_int_and_float_do_not_share_a_column_class(dialect):
+    """They are two classes, because SQL keeps them apart in the result.
+
+    This used to assert the opposite -- one class for both, on the grounds that
+    a second class would exist for no SQL reason. There is a reason:
+    CEIL of a whole number is a whole number, and CEIL of a fraction is not. With
+    one class the distinction had to live in an instance attribute, which a
+    checker cannot see, so a factory had to read it back at run time to decide
+    what to return.
+
+    As two classes the answer arrives in the return type. build_column(d, "n",
+    int) is IntegerColumn and build_column(d, "n", float) is NumericColumn, and
+    the difference is visible without running anything.
+    """
+    from rhosocial.activerecord.backend.expression import (
+        IntegerColumn,
+        NumericColumn,
+    )
     from rhosocial.activerecord.base.column_dispatch import build_column
 
-    assert type(build_column(dialect, "i", int)) is NumericColumn
+    assert type(build_column(dialect, "i", int)) is IntegerColumn
     assert type(build_column(dialect, "f", float)) is NumericColumn
+    # The two are unrelated enough that a factory can tell them apart with
+    # isinstance and stay readable, which is the whole point of splitting them.
+    assert not issubclass(IntegerColumn, NumericColumn)
+    assert not issubclass(NumericColumn, IntegerColumn)
 
 
 def test_but_they_do_not_share_a_family(columns):

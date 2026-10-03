@@ -15,7 +15,7 @@ import datetime
 import decimal
 import typing
 import uuid
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 import pytest
 
@@ -27,6 +27,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnBase,
     DateTimeColumn,
     JSONColumn,
+    IntegerColumn,
     NumericColumn,
     StringColumn,
     UUIDColumn,
@@ -40,6 +41,7 @@ from rhosocial.activerecord.base.column_dispatch import (
 )
 from rhosocial.activerecord.base.field_proxy import FieldProxy
 from rhosocial.activerecord.model import ActiveRecord
+
 
 def sqlite_dialect():
     """A version-adapted SQLite dialect.
@@ -59,7 +61,7 @@ def sqlite_dialect():
 
 _DISPATCH = [
     (str, StringColumn),
-    (int, NumericColumn),
+    (int, IntegerColumn),
     (float, NumericColumn),
     (bool, BooleanColumn),
     (bytes, BinaryColumn),
@@ -119,9 +121,9 @@ def test_string_column_has_like_but_no_arithmetic():
     assert not hasattr(col, "__add__")
 
 
-def test_numeric_column_has_arithmetic_but_no_like():
+def test_integer_column_has_arithmetic_but_no_like():
     col = build_column(sqlite_dialect(), "age", int)
-    assert isinstance(col, NumericColumn)
+    assert isinstance(col, IntegerColumn)
     assert hasattr(col, "__add__") and hasattr(col, "__mul__")
     assert not hasattr(col, "like")
 
@@ -272,9 +274,9 @@ def _model(dialect):
 @pytest.mark.parametrize(
     "field, expected",
     [
-        ("id", NumericColumn),
+        ("id", IntegerColumn),
         ("name", StringColumn),
-        ("qty", NumericColumn),
+        ("qty", IntegerColumn),
         ("price", NumericColumn),
         ("created", DateTimeColumn),
         ("settings", JSONColumn),

@@ -29,6 +29,7 @@ from typing import Optional, TYPE_CHECKING
 from .bases import SQLValueExpression
 from .value_types import (
     ARRAY,
+    INTEGER,
     BINARY,
     BOOLEAN,
     DATETIME,
@@ -146,6 +147,26 @@ class NumericColumn(ArithmeticMixin, NumericValueMixin, ColumnBase):
 
     Not available: ``LIKE`` / ``ILIKE``.
     """
+
+
+class IntegerColumn(ArithmeticMixin, NumericValueMixin, ColumnBase):
+    """A column holding a whole number.
+
+    Separate from :class:`NumericColumn` because SQL keeps the two apart in the
+    result, not only in the input: ``CEIL`` of a whole number is a whole number,
+    while ``SQRT`` of one is generally not. One column class for both meant the
+    distinction lived in an instance attribute, which a checker cannot see, so
+    ``ceil(int_column)`` and ``ceil(float_column)`` had to be told apart at run
+    time by reading it back.
+
+    As two classes the answer is in the type. ``IntegerColumn`` says what it
+    holds before anything is called, and a factory that has to choose between an
+    integer result and a fractional one can choose with ``isinstance`` and stay
+    readable.
+    """
+
+    VALUE_FAMILY = INTEGER
+    """A whole number, which SQL preserves through CEIL, FLOOR and ABS."""
 
 
 class DateTimeColumn(ArithmeticMixin, DateTimeMixin, ColumnBase):

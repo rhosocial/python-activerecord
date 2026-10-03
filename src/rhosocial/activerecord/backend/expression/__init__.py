@@ -44,6 +44,7 @@ from .operators import (
 from .column_types import (
     ColumnBase,
     StringColumn,
+    IntegerColumn,
     NumericColumn,
     DateTimeColumn,
     BooleanColumn,
@@ -474,6 +475,7 @@ __all__ = [
     # Type-narrowed column expressions
     "ColumnBase",
     "StringColumn",
+    "IntegerColumn",
     "NumericColumn",
     "DateTimeColumn",
     "BooleanColumn",

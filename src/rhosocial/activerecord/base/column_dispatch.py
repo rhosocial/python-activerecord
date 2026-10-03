@@ -21,7 +21,7 @@ import enum
 import types
 import typing
 import uuid
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional, Type, overload
 
 from ..backend.expression.value_types import INTEGER
 from ..backend.expression.column_types import (
@@ -30,6 +30,7 @@ from ..backend.expression.column_types import (
     BooleanColumn,
     ColumnBase,
     DateTimeColumn,
+    IntegerColumn,
     JSONColumn,
     NumericColumn,
     StringColumn,
@@ -41,7 +42,7 @@ from ..backend.expression.core import Column
 #: mapped explicitly; everything else is looked up by type below.
 _BY_NAME: Dict[str, Type[ColumnBase]] = {
     "str": StringColumn,
-    "int": NumericColumn,
+    "int": IntegerColumn,
     "float": NumericColumn,
     "bool": BooleanColumn,
     "bytes": BinaryColumn,
@@ -114,10 +115,10 @@ def column_class_for(annotation: Any) -> Type[ColumnBase]:
     return Column
 
 
-#: Annotations that mean a whole number even though their column class is
-#: shared with the fractional ones. ``ABS(int)`` is an int in SQL, so the
-#: family has to be narrower than the class or "integer in, integer out"
-#: cannot be expressed.
+#: Annotations that mean a whole number. ``int`` now has a column class of its
+#: own, so this is the narrower family rather than a per-instance override --
+#: the answer is in the type a factory receives instead of an attribute it has
+#: to read back.
 _WHOLE_NUMBER_ANNOTATIONS = (int,)
 
 
@@ -138,6 +139,50 @@ def family_for(annotation: Any) -> Optional[str]:
     if annotation in _WHOLE_NUMBER_ANNOTATIONS:
         return INTEGER
     return None
+
+
+# One overload per annotation that has a column class of its own. The point is
+# that a checker can tell an int field from a float one: the answer is in the
+# return type rather than in an attribute a factory has to read back, which is
+# what CEIL(int) being an integer depends on.
+@overload
+def build_column(dialect: Any, column_name: str, annotation: Type[int],
+                 table: Optional[str] = ..., schema_name: Optional[str] = ...) -> IntegerColumn: ...
+
+
+@overload
+def build_column(dialect: Any, column_name: str, annotation: Type[float],
+                 table: Optional[str] = ..., schema_name: Optional[str] = ...) -> NumericColumn: ...
+
+
+@overload
+def build_column(dialect: Any, column_name: str, annotation: Type[str],
+                 table: Optional[str] = ..., schema_name: Optional[str] = ...) -> StringColumn: ...
+
+
+@overload
+def build_column(dialect: Any, column_name: str, annotation: Type[bool],
+                 table: Optional[str] = ..., schema_name: Optional[str] = ...) -> BooleanColumn: ...
+
+
+@overload
+def build_column(dialect: Any, column_name: str, annotation: Type[bytes],
+                 table: Optional[str] = ..., schema_name: Optional[str] = ...) -> BinaryColumn: ...
+
+
+@overload
+def build_column(dialect: Any, column_name: str, annotation: Type[dict],
+                 table: Optional[str] = ..., schema_name: Optional[str] = ...) -> JSONColumn: ...
+
+
+@overload
+def build_column(dialect: Any, column_name: str, annotation: Type[uuid.UUID],
+                 table: Optional[str] = ..., schema_name: Optional[str] = ...) -> UUIDColumn: ...
+
+
+@overload
+def build_column(dialect: Any, column_name: str, annotation: Type[datetime.datetime],
+                 table: Optional[str] = ..., schema_name: Optional[str] = ...) -> DateTimeColumn: ...
 
 
 def build_column(
