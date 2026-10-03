@@ -127,7 +127,7 @@ class TriggerMixin:
         parts.append(events_str)
 
         parts.append("ON")
-        parts.append(TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0])
+        parts.append(expr.table.to_sql()[0])
 
         if expr.referencing:
             if not self.supports_trigger_referencing():
@@ -151,7 +151,7 @@ class TriggerMixin:
             all_params.extend(cond_params)
 
         parts.append("EXECUTE")
-        parts.append(TableExpression(self, expr.function_name, schema_name=expr.schema_name).to_sql()[0])
+        parts.append(expr.function.to_sql()[0])
 
         return " ".join(parts), tuple(all_params)
 
@@ -185,8 +185,8 @@ class TriggerMixin:
 
         parts.append(TableExpression(self, expr.trigger_name, schema_name=expr.schema_name).to_sql()[0])
 
-        if expr.table_name:
+        if expr.table is not None:
             parts.append("ON")
-            parts.append(TableExpression(self, expr.table_name, schema_name=expr.schema_name).to_sql()[0])
+            parts.append(expr.table.to_sql()[0])
 
         return " ".join(parts), ()

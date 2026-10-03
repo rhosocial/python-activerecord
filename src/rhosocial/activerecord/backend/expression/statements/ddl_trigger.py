@@ -4,6 +4,7 @@
 from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 
+from ..core import TableExpression
 from ..bases import BaseExpression, SQLPredicate
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -43,7 +44,7 @@ class CreateTriggerExpression(BaseExpression):
         create_trigger = CreateTriggerExpression(
             dialect,
             trigger_name="update_timestamp",
-            table_name="users",
+            table=TableExpression(dialect, "users"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             function_name="update_updated_at_column"
@@ -53,7 +54,7 @@ class CreateTriggerExpression(BaseExpression):
         create_trigger = CreateTriggerExpression(
             dialect,
             trigger_name="check_status",
-            table_name="orders",
+            table=TableExpression(dialect, "orders"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             update_columns=["status"],
@@ -72,10 +73,10 @@ class CreateTriggerExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         trigger_name: str,
-        table_name: str,
+        table: "TableExpression",
         timing: TriggerTiming,
         events: List[TriggerEvent],
-        function_name: str,
+        function_name: "TableExpression",
         level: TriggerLevel = TriggerLevel.ROW,
         condition: Optional["SQLPredicate"] = None,
         update_columns: Optional[List[str]] = None,
@@ -85,6 +86,10 @@ class CreateTriggerExpression(BaseExpression):
     ):
         """
         Args:
+            table: The table the trigger is attached to. Carries its own
+                namespace, independently of ``schema_name``.
+            function_name: The function the trigger body calls, as a
+                TableExpression carrying its own namespace.
             schema_name: Namespace to qualify the trigger with, e.g. ``app``.
                 None leaves the name unqualified. An empty string raises
                 ValueError, and a dialect with no namespace raises
@@ -93,10 +98,11 @@ class CreateTriggerExpression(BaseExpression):
         super().__init__(dialect)
         self.trigger_name = trigger_name
         self.schema_name = schema_name
-        self.table_name = table_name
+        self.table = table
+        self.function = function_name
         self.timing = timing
         self.events = events
-        self.function_name = function_name
+        
         self.level = level
         self.condition = condition
         self.update_columns = update_columns
@@ -112,7 +118,7 @@ class DropTriggerExpression(BaseExpression):
         drop_trigger = DropTriggerExpression(
             dialect,
             trigger_name="update_timestamp",
-            table_name="users"
+            table=TableExpression(dialect, "users")
         )
     """
 
@@ -125,12 +131,15 @@ class DropTriggerExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         trigger_name: str,
-        table_name: Optional[str] = None,
+        table: Optional["TableExpression"] = None,
         if_exists: bool = False,
         schema_name: Optional[str] = None,
     ):
         """
         Args:
+            table: The table carrying the trigger, or None to omit the
+                ``ON`` clause. Carries its own namespace, independently of
+                ``schema_name``.
             schema_name: Namespace to qualify the trigger with, e.g. ``app``.
                 None leaves the name unqualified. An empty string raises
                 ValueError, and a dialect with no namespace raises
@@ -139,5 +148,5 @@ class DropTriggerExpression(BaseExpression):
         super().__init__(dialect)
         self.trigger_name = trigger_name
         self.schema_name = schema_name
-        self.table_name = table_name
+        self.table = table
         self.if_exists = if_exists
