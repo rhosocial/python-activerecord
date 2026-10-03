@@ -1,6 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_advanced_function_window.py
 import pytest
 
+from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
@@ -85,7 +86,7 @@ class TestAdvancedFunctionWindow:
         else:
             return
 
-        cast_expr = expr.cast(target_type)
+        cast_expr = expr.cast(CustomType(dummy_dialect, raw=target_type))
         sql, params = cast_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params

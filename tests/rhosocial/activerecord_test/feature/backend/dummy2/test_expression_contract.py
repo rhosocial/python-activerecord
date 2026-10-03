@@ -41,6 +41,11 @@ KNOWN_NON_AUTO_CONSTRUCTIBLE = {
     "expression.uuid.UUIDConstantExpression": "requires `which` to name a "
         "constant kind ('nil' / 'max'); __init__ rejects anything else, and a "
         "heuristic filler has no way to guess a valid one",
+    "types.custom.CustomType": "requires `raw`, the backend's own spelling of "
+        "the type. It is the escape hatch for a type name this library does "
+        "not model -- DOUBLE PRECISION, a vendor's domain type -- and there is "
+        "nothing to guess: the name is the whole point, and it is validated as "
+        "a grammar rather than accepted blindly",
 }
 
 

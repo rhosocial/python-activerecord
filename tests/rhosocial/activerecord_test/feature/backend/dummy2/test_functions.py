@@ -495,14 +495,14 @@ class TestDateTimeFunctionFactories:
 
     def test_date_part_function(self, dummy_dialect: DummyDialect):
         """Test DATE_PART function."""
-        func = date_part(dummy_dialect, "year", "created_at")
+        func = date_part(dummy_dialect, "year", Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert sql == 'EXTRACT(YEAR FROM "created_at")'
         assert params == ()
 
     def test_date_trunc_function(self, dummy_dialect: DummyDialect):
         """Test DATE_TRUNC function."""
-        func = date_trunc(dummy_dialect, "month", "created_at")
+        func = date_trunc(dummy_dialect, "month", Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert sql == "DATE_TRUNC('month', \"created_at\")"
         assert params == ()
@@ -648,11 +648,13 @@ class TestTypeConversionFunctionFactories:
     def test_cast_function(self, dummy_dialect: DummyDialect):
         """Test CAST function."""
         from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+        from rhosocial.activerecord.backend.expression.types import CustomType
 
-        func = cast(dummy_dialect, "value", "INTEGER")
+        func = cast(dummy_dialect, Column(dummy_dialect, "value"),
+                 CustomType(dummy_dialect, raw="INTEGER"))
         # cast() wraps the (string-as-column) expression in a CastExpression node
         assert isinstance(func, CastExpression)
-        assert func.target_type == "INTEGER"
+        assert func.target_type.raw == "INTEGER"
         assert isinstance(func.expression, Column)
         sql, params = func.to_sql()
         assert "CAST(" in sql

@@ -746,6 +746,20 @@ class ResultTypeMixin:
         return self._retype(BinaryValueExpression)
 
 
+def _literal(dialect, value):
+    """Wrap a bare number as the Literal the factories now require.
+
+    The factories take expressions, so a caller who writes ``col.power(3)`` has
+    to end up with an expression somewhere. Doing it here keeps the arithmetic
+    methods taking plain numbers, which is what a caller means by them, and puts
+    the construction in one place instead of at every call site.
+    """
+    from .bases import BaseExpression
+    from .core import Literal
+
+    return value if isinstance(value, BaseExpression) else Literal(dialect, value)
+
+
 class NumericValueMixin:
     """Operations on a **fractional**-valued expression.
 
@@ -833,7 +847,7 @@ class NumericValueMixin:
 
     def power(self, exponent: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
         """Raise to *exponent*. ``POWER(col, n)``"""
-        return self._numeric_op("power", exponent)
+        return self._numeric_op("power", _literal(self._dialect, exponent))
 
     def exp(self) -> "NumericValueMixin":
         """e raised to the power of the value. ``EXP(col)``"""
@@ -841,11 +855,11 @@ class NumericValueMixin:
 
     def log(self, base: Optional[Union[int, float, "BaseExpression"]] = None) -> "NumericValueMixin":
         """Natural logarithm, or logarithm to *base*. ``LOG(col[, base])``"""
-        return self._numeric_op("log", base)
+        return self._numeric_op("log", _literal(self._dialect, base))
 
     def mod(self, divisor: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
         """Remainder of division by *divisor*. ``MOD(col, n)``"""
-        return self._numeric_op("mod", divisor)
+        return self._numeric_op("mod", _literal(self._dialect, divisor))
 
     # --- trigonometry ---
 

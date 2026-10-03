@@ -189,13 +189,13 @@ def second(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
 
 def date_part(dialect: "SQLDialectBase", field: str, expr: "BaseExpression") -> "DatePartExpression":
     """Creates a DATE_PART expression."""
-    target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
+    target_expr = expr
     return DatePartExpression(dialect, field, target_expr)
 
 
 def date_trunc(dialect: "SQLDialectBase", field: str, expr: "BaseExpression") -> "DateTruncExpression":
     """Creates a DATE_TRUNC expression."""
-    target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
+    target_expr = expr
     return DateTruncExpression(dialect, field, target_expr)
 
 
@@ -249,7 +249,7 @@ def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -
 
 def extract(dialect: "SQLDialectBase", field: str, expr: "BaseExpression") -> "ExtractExpression":
     """Creates an EXTRACT expression."""
-    target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
+    target_expr = expr
     return ExtractExpression(dialect, field, target_expr)
 
 
@@ -279,7 +279,7 @@ def date_add(
     unit: Optional[str] = None,
 ) -> "DateTimeAddExpression":
     """Creates an expression that adds an interval to a datetime expression."""
-    target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
+    target_expr = expr
     interval_expr = _ensure_interval(dialect, value_or_interval, unit)
     return DateTimeAddExpression(dialect, target_expr, interval_expr)
 
@@ -291,7 +291,7 @@ def date_sub(
     unit: Optional[str] = None,
 ) -> "DateTimeSubtractExpression":
     """Creates an expression that subtracts an interval from a datetime expression."""
-    target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
+    target_expr = expr
     interval_expr = _ensure_interval(dialect, value_or_interval, unit)
     return DateTimeSubtractExpression(dialect, target_expr, interval_expr)
 

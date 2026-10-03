@@ -7,6 +7,7 @@ import pytest
 import sqlite3
 import sys
 
+from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -475,7 +476,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
 
     # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
     # Use the new cast() function which returns expression with cast_types
-    cast_expr = cast(dialect, lp_column + Literal(dialect, 1), "TEXT")
+    cast_expr = cast(dialect, lp_column + Literal(dialect, 1), CustomType(dialect, raw="TEXT"))
     lp_plus_one = lp_column + Literal(dialect, 1)
 
     recursive_query = QueryExpression(
@@ -515,7 +516,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     lp_column = Column(dialect, "lp", table="digits")
 
     # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
-    cast_expr = cast(dialect, lp_column + Literal(dialect, 1), "TEXT")
+    cast_expr = cast(dialect, lp_column + Literal(dialect, 1), CustomType(dialect, raw="TEXT"))
     lp_plus_one = lp_column + Literal(dialect, 1)
 
     recursive_query = QueryExpression(

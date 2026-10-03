@@ -570,7 +570,7 @@ class TestSpatialCatalogScenario:
                     & (json_extract_func(
                         dialect,
                         Column(dialect, "props", table="feature_props"),
-                        "$.has_lake"
+                        Literal(dialect, "$.has_lake")
                       ) == 1)
                 )
             ).to_sql()

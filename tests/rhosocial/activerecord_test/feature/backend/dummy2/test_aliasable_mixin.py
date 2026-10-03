@@ -6,6 +6,7 @@ This tests the as_() method and alias initialization for various expression clas
 
 import pytest
 
+from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, TableExpression
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
@@ -17,7 +18,6 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
 from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import (
-    CustomType,
     DecimalType,
     TextType,
 )
@@ -295,7 +295,7 @@ class TestAliasNonContamination:
         # identically, and the original column stays untouched.
         col = Column(dummy_dialect, "id")
         aliased = col.as_("id_text")
-        casted = aliased.cast(TextType(self.dialect))
+        casted = aliased.cast(TextType(dummy_dialect))
         assert casted.to_sql()[0] == 'CAST("id" AS TEXT) AS "id_text"'
         assert col.to_sql()[0] == '"id"'
         assert col.alias is None
@@ -308,7 +308,7 @@ class TestAliasNonContamination:
     ):
         col = Column(dummy_dialect, "amount").cast(CustomType(dummy_dialect, raw='MONEY'))
         aliased = col.as_("m")
-        deeper = aliased.cast(DecimalType(self.dialect))
+        deeper = aliased.cast(CustomType(dummy_dialect, raw="NUMERIC"))
         # as_() hoists the alias off the inner node onto the new cast; the
         # later cast wraps that aliased node, alias moving outward again.
         assert aliased.to_sql()[0] == 'CAST("amount" AS MONEY)'

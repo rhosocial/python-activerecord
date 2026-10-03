@@ -11,7 +11,7 @@ answers with their common kind, or with nothing when they disagree.
 # tests/rhosocial/activerecord_test/feature/query/test_document_and_conversion_families.py
 import pytest
 
-from rhosocial.activerecord.backend.expression import functions as F
+from rhosocial.activerecord.backend.expression import functions as F, Literal
 from rhosocial.activerecord.backend.expression.core import (
     ArrayValueExpression,
     JSONValueExpression,
@@ -62,7 +62,7 @@ def columns(dialect):
 
 
 def test_arrow_extraction_gives_a_document(dialect, columns):
-    assert value_type_of(F.json_extract(dialect, columns["json"], "$.a")) == JSON
+    assert value_type_of(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a"))) == JSON
 
 
 def test_double_arrow_extraction_gives_text(dialect, columns):

@@ -74,7 +74,7 @@ class TestCastMethod:
     def test_cast_method_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic CAST via cast() method."""
         col = Column(sqlite_dialect_3_8_0, "price")
-        cast_expr = col.cast(IntegerType(self.dialect))
+        cast_expr = col.cast(IntegerType(sqlite_dialect_3_8_0))
         sql, params = cast_expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql

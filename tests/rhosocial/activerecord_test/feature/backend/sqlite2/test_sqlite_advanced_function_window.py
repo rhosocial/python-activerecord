@@ -50,7 +50,7 @@ class TestAdvancedFunctionWindow:
     def test_cast_method(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests cast() method."""
         col = Column(sqlite_dialect_3_8_0, "price")
-        cast_expr = col.cast(RealType(self.dialect))
+        cast_expr = col.cast(RealType(sqlite_dialect_3_8_0))
         sql, params = cast_expr.to_sql()
         assert "CAST" in sql.upper()
         assert params == ()
