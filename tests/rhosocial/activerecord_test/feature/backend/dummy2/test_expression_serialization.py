@@ -820,11 +820,15 @@ class TestDDLRoundtrip:
         assert restored.get_params() == expr.get_params()
 
     def test_truncate_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.core import TableExpression
         from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateExpression
 
-        expr = TruncateExpression(dummy_dialect, "users", cascade=True)
-        restored = deserialize(serialize(expr), dummy_dialect)
-        assert restored.get_params() == expr.get_params()
+        expr = TruncateExpression(
+            dummy_dialect, table=TableExpression(dummy_dialect, "users"), cascade=True
+        )
+        # Compared by rendered SQL rather than get_params(): the table is a
+        # nested expression, and nested expressions carry no __eq__.
+        assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
     def test_explain_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.explain import ExplainExpression

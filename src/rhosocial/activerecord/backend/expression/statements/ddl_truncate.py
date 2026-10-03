@@ -3,6 +3,7 @@
 
 from typing import Optional, TYPE_CHECKING
 
+from ..core import TableExpression
 from ..bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -23,19 +24,19 @@ class TruncateExpression(BaseExpression):
 
     Examples:
         # Basic truncate
-        truncate_expr = TruncateExpression(dialect, table_name="users")
+        truncate_expr = TruncateExpression(dialect, table=TableExpression(dialect, "users"))
 
         # Truncate with restart identity (PostgreSQL)
         truncate_expr = TruncateExpression(
             dialect,
-            table_name="users",
+            table=TableExpression(dialect, "users"),
             restart_identity=True
         )
 
         # Truncate with cascade (PostgreSQL)
         truncate_expr = TruncateExpression(
             dialect,
-            table_name="orders",
+            table=TableExpression(dialect, "orders"),
             cascade=True
         )
     """
@@ -43,29 +44,31 @@ class TruncateExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: "TableExpression",
         restart_identity: bool = False,  # RESTART IDENTITY option (PostgreSQL)
         cascade: bool = False,  # CASCADE option (PostgreSQL)
-        schema_name: Optional[str] = None,
     ):
         """
         Initialize a TRUNCATE expression with the specified parameters.
 
         Args:
             dialect: The SQL dialect instance that determines query generation rules
-            table_name: Name of the table to truncate
+            table: The table to truncate, as a TableExpression carrying its
+                optional namespace.
             restart_identity: Whether to restart identity counters (PostgreSQL-specific)
             cascade: Whether to truncate dependent tables as well (PostgreSQL-specific)
-            schema_name: Namespace to qualify the table with, e.g. ``app``.
-                None leaves the name unqualified. An empty string raises
-                ValueError, and a dialect with no namespace raises
-                UnsupportedFeatureError.
+
+        Raises:
+            TypeError: If ``table`` is not a TableExpression
         """
         super().__init__(dialect)
-        self.table_name = table_name
+        if not isinstance(table, TableExpression):
+            raise TypeError(
+                f"table must be a TableExpression, got {type(table).__name__}"
+            )
+        self.table = table
         self.restart_identity = restart_identity  # For PostgreSQL-style RESTART IDENTITY
         self.cascade = cascade  # For PostgreSQL-style CASCADE
-        self.schema_name = schema_name
 
     @property
     def format_method(self) -> str:

@@ -99,7 +99,7 @@ class TestRenderingTableMatchesBehaviour:
 #:
 #: Table statements are deliberately absent: ``CreateTableExpression`` and
 #: friends take ``table: Union[str, TableExpression]``, and ``TruncateExpression``
-#: names the field ``schema``. Both qualify, and are covered below.
+#: takes a ``TableExpression`` outright. Both qualify, and are covered below.
 NAMED_OBJECT_DDL = [
     ("ddl_view", "CreateViewExpression"),
     ("ddl_view", "DropViewExpression"),
@@ -184,19 +184,19 @@ class TestDdlStatementsAcceptSchema:
         ref = TableExpression(dialect, TABLE, schema_name=SCHEMA)
         assert ref.to_sql()[0] == f'"{SCHEMA}"."{TABLE}"'
 
-    def test_truncate_names_the_field_schema_name(self):
-        """``TruncateExpression`` uses ``schema_name`` like every other statement.
+    def test_truncate_carries_the_namespace_on_its_table(self):
+        """``TruncateExpression`` reaches the namespace through its ``table``.
 
-        It used to be the one object statement carrying the namespace in a field
-        called ``schema``, and it did not validate it -- an empty string was
-        caught during rendering by the TableExpression the formatter built, so
-        the error named that object rather than the one the caller constructed.
+        It used to take a bare table name plus a parallel ``schema_name``,
+        and the formatter rebuilt a TableExpression from the pair at render
+        time. The target is now the TableExpression the caller passes, so the
+        namespace lives in one place, as it does for CreateTableExpression.
         """
         import inspect
 
         params = inspect.signature(TruncateExpression.__init__).parameters
-        assert "schema_name" in params
-        assert params["schema_name"].default is None
+        assert "table" in params
+        assert "schema_name" not in params
         assert "schema" not in params, (
             "the old name must be gone rather than kept as an alias: an alias "
             "would be accepted and ignored, which is the silent version of the "

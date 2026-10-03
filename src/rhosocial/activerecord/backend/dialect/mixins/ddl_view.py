@@ -294,7 +294,6 @@ class TruncateMixin:
             UnsupportedFeatureError: If the dialect does not support
                 RESTART IDENTITY or CASCADE for TRUNCATE.
         """
-        from ...expression.core import TableExpression
         from ..exceptions import UnsupportedFeatureError
         if expr.restart_identity and not self.supports_truncate_restart_identity():
             raise UnsupportedFeatureError(
@@ -306,9 +305,7 @@ class TruncateMixin:
                 self.name, "TRUNCATE CASCADE",
                 f"{self.name} does not support TRUNCATE with CASCADE."
             )
-        table_sql = TableExpression(
-            self, expr.table_name, schema_name=expr.schema_name
-        ).to_sql()[0]
+        table_sql = expr.table.to_sql()[0]
         sql = f"TRUNCATE TABLE {table_sql}"
         if expr.restart_identity:
             sql += " RESTART IDENTITY"
