@@ -108,8 +108,8 @@ class TestSQLiteRejectsSchema:
             "trg_orders_ai",
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.INSERT],
-            table_name="orders",
-            function_name="fn_orders_ai",
+            table=TableExpression(dialect, "orders"),
+            function_name=TableExpression(dialect, "fn_orders_ai"),
             schema_name=SCHEMA,
         )
         with pytest.raises(UnsupportedFeatureError) as exc:
@@ -134,8 +134,8 @@ class TestSQLiteRejectsSchema:
             "trg_orders_ai",
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.INSERT],
-            table_name="orders",
-            function_name="fn_orders_ai",
+            table=TableExpression(dialect, "orders"),
+            function_name=TableExpression(dialect, "fn_orders_ai"),
         )
         sql, params = expr.to_sql()
         assert sql == (

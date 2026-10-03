@@ -47,7 +47,7 @@ class CreateTriggerExpression(BaseExpression):
             table=TableExpression(dialect, "users"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
-            function_name="update_updated_at_column"
+            function_name=TableExpression(dialect, "update_updated_at_column")
         )
 
         # Trigger with condition
@@ -58,7 +58,7 @@ class CreateTriggerExpression(BaseExpression):
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             update_columns=["status"],
-            function_name="validate_status",
+            function_name=TableExpression(dialect, "validate_status"),
             level=TriggerLevel.ROW,
             condition=Column(dialect, "new.status") != Column(dialect, "old.status")
         )

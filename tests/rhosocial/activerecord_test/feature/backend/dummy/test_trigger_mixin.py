@@ -1,6 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/test_trigger_mixin.py
 """Tests for TriggerMixin format methods."""
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression import Column, Literal
 
@@ -19,10 +20,10 @@ class TestTriggerMixinFormatMethods:
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
             trigger_name="audit_trigger",
-            table_name="users",
+            table=TableExpression(dummy_dialect, "users"),
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.INSERT],
-            function_name="log_audit",
+            function_name=TableExpression(dummy_dialect, "log_audit"),
         )
         sql, params = dummy_dialect.format_create_trigger_statement(create_trigger)
 
@@ -49,10 +50,10 @@ class TestTriggerMixinFormatMethods:
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
             trigger_name="status_trigger",
-            table_name="orders",
+            table=TableExpression(dummy_dialect, "orders"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
-            function_name="validate_status",
+            function_name=TableExpression(dummy_dialect, "validate_status"),
             condition=condition,
         )
         sql, params = dummy_dialect.format_create_trigger_statement(create_trigger)
@@ -73,10 +74,10 @@ class TestTriggerMixinFormatMethods:
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
             trigger_name="bulk_trigger",
-            table_name="logs",
+            table=TableExpression(dummy_dialect, "logs"),
             timing=TriggerTiming.AFTER,
             events=[TriggerEvent.INSERT],
-            function_name="process_bulk",
+            function_name=TableExpression(dummy_dialect, "process_bulk"),
             level=TriggerLevel.STATEMENT,
         )
         sql, params = dummy_dialect.format_create_trigger_statement(create_trigger)
@@ -95,10 +96,10 @@ class TestTriggerMixinFormatMethods:
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
             trigger_name="ref_trigger",
-            table_name="audit_log",
+            table=TableExpression(dummy_dialect, "audit_log"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
-            function_name="capture_changes",
+            function_name=TableExpression(dummy_dialect, "capture_changes"),
             referencing="OLD AS old_row NEW AS new_row",
         )
         sql, params = dummy_dialect.format_create_trigger_statement(create_trigger)
@@ -118,10 +119,10 @@ class TestTriggerMixinFormatMethods:
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
             trigger_name="safe_trigger",
-            table_name="data",
+            table=TableExpression(dummy_dialect, "data"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.INSERT],
-            function_name="validate_data",
+            function_name=TableExpression(dummy_dialect, "validate_data"),
             if_not_exists=True,
         )
         sql, params = dummy_dialect.format_create_trigger_statement(create_trigger)
@@ -140,11 +141,11 @@ class TestTriggerMixinFormatMethods:
         create_trigger = CreateTriggerExpression(
             dummy_dialect,
             trigger_name="col_trigger",
-            table_name="products",
+            table=TableExpression(dummy_dialect, "products"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             update_columns=["price", "quantity"],
-            function_name="check_changes",
+            function_name=TableExpression(dummy_dialect, "check_changes"),
         )
         sql, params = dummy_dialect.format_create_trigger_statement(create_trigger)
 
@@ -157,7 +158,7 @@ class TestTriggerMixinFormatMethods:
         """Tests format_drop_trigger_statement basic case."""
         from rhosocial.activerecord.backend.expression.statements import DropTriggerExpression
 
-        drop_trigger = DropTriggerExpression(dummy_dialect, trigger_name="old_trigger", table_name="users")
+        drop_trigger = DropTriggerExpression(dummy_dialect, trigger_name="old_trigger", table=TableExpression(dummy_dialect, "users"))
         sql, params = dummy_dialect.format_drop_trigger_statement(drop_trigger)
 
         assert "DROP TRIGGER" in sql
@@ -171,7 +172,7 @@ class TestTriggerMixinFormatMethods:
         from rhosocial.activerecord.backend.expression.statements import DropTriggerExpression
 
         drop_trigger = DropTriggerExpression(
-            dummy_dialect, trigger_name="maybe_trigger", table_name="temp", if_exists=True
+            dummy_dialect, trigger_name="maybe_trigger", table=TableExpression(dummy_dialect, "temp"), if_exists=True
         )
         sql, params = dummy_dialect.format_drop_trigger_statement(drop_trigger)
 

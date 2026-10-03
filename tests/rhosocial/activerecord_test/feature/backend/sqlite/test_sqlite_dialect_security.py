@@ -7,6 +7,7 @@ methods properly sanitize user input to prevent SQL injection.
 Tests are run against the actual SQLite dialect.
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -257,9 +258,9 @@ def test_format_create_trigger_function_name_quoted(dialect):
         trigger_name="test_trigger",
         timing=TriggerTiming.AFTER,
         events=[TriggerEvent.INSERT],
-        table_name="users",
+        table=TableExpression(dialect, "users"),
         level=TriggerLevel.ROW,
-        function_name="my_func",
+        function_name=TableExpression(dialect, "my_func"),
     )
     sql, params = dialect.format_create_trigger_statement(expr)
     assert '"my_func"' in sql
@@ -283,9 +284,9 @@ def test_format_create_trigger_malicious_function_name(dialect):
         trigger_name="test_trigger",
         timing=TriggerTiming.AFTER,
         events=[TriggerEvent.INSERT],
-        table_name="users",
+        table=TableExpression(dialect, "users"),
         level=TriggerLevel.ROW,
-        function_name='f"; DROP TABLE users--',
+        function_name=TableExpression(dialect, 'f"; DROP TABLE users--'),
     )
     sql, params = dialect.format_create_trigger_statement(expr)
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"

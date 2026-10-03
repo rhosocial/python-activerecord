@@ -1,5 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_ddl_improvements.py
 """Tests for DDL improvements: capability gating, UnsupportedFeatureError, parentheses fix."""
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 from unittest.mock import patch, PropertyMock
 
@@ -209,10 +210,10 @@ class TestTriggerCapabilityGating:
         trigger = CreateTriggerExpression(
             dummy_dialect,
             trigger_name="t",
-            table_name="t",
+            table=TableExpression(dummy_dialect, "t"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.INSERT],
-            function_name="f",
+            function_name=TableExpression(dummy_dialect, "f"),
             if_not_exists=True,
         )
         with patch.object(type(dummy_dialect), "supports_trigger_if_not_exists", return_value=False):
@@ -224,10 +225,10 @@ class TestTriggerCapabilityGating:
         trigger = CreateTriggerExpression(
             dummy_dialect,
             trigger_name="t",
-            table_name="t",
+            table=TableExpression(dummy_dialect, "t"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
-            function_name="f",
+            function_name=TableExpression(dummy_dialect, "f"),
             referencing="OLD AS old_row",
         )
         with patch.object(type(dummy_dialect), "supports_trigger_referencing", return_value=False):
@@ -240,10 +241,10 @@ class TestTriggerCapabilityGating:
         trigger = CreateTriggerExpression(
             dummy_dialect,
             trigger_name="t",
-            table_name="t",
+            table=TableExpression(dummy_dialect, "t"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
-            function_name="f",
+            function_name=TableExpression(dummy_dialect, "f"),
             condition=ComparisonPredicate(
                 dialect=dummy_dialect,
                 op="=",
