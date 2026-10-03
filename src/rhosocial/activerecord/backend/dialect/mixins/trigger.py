@@ -150,8 +150,9 @@ class TriggerMixin:
             parts.append(f"WHEN ({cond_sql})")
             all_params.extend(cond_params)
 
-        parts.append("EXECUTE")
-        parts.append(expr.function_name.to_sql()[0])
+        if expr.function_name is not None:
+            parts.append("EXECUTE")
+            parts.append(expr.function_name.to_sql()[0])
 
         return " ".join(parts), tuple(all_params)
 

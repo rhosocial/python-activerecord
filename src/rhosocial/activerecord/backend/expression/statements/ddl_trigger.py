@@ -76,7 +76,7 @@ class CreateTriggerExpression(BaseExpression):
         table: "TableExpression",
         timing: TriggerTiming,
         events: List[TriggerEvent],
-        function_name: "TableExpression",
+        function_name: Optional["TableExpression"] = None,
         level: TriggerLevel = TriggerLevel.ROW,
         condition: Optional["SQLPredicate"] = None,
         update_columns: Optional[List[str]] = None,
@@ -89,7 +89,10 @@ class CreateTriggerExpression(BaseExpression):
             table: The table the trigger is attached to. Carries its own
                 namespace, independently of ``schema_name``.
             function_name: The function the trigger body calls, as a
-                TableExpression carrying its own namespace.
+                TableExpression carrying its own namespace. None only where the
+                dialect runs an inline statement instead; such a dialect
+                declares the alternative field itself and renders it, and a
+                dialect with no alternative must reject None at render time.
             schema_name: Namespace to qualify the trigger with, e.g. ``app``.
                 None leaves the name unqualified. An empty string raises
                 ValueError, and a dialect with no namespace raises
@@ -98,11 +101,12 @@ class CreateTriggerExpression(BaseExpression):
         super().__init__(dialect)
         self.trigger_name = trigger_name
         self.schema_name = schema_name
-        for label, value in (("table", table), ("function_name", function_name)):
-            if not isinstance(value, TableExpression):
-                raise TypeError(
-                    f"{label} must be a TableExpression, got {type(value).__name__}"
-                )
+        if not isinstance(table, TableExpression):
+            raise TypeError(f"table must be a TableExpression, got {type(table).__name__}")
+        if function_name is not None and not isinstance(function_name, TableExpression):
+            raise TypeError(
+                f"function_name must be a TableExpression, got {type(function_name).__name__}"
+            )
         self.table = table
         self.function_name = function_name
         self.timing = timing
