@@ -249,12 +249,23 @@ class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixi
 
 
 class TableExpression(AliasableMixin, BaseExpression):
-    """Represents a table or view in a SQL query, optionally with schema and alias.
+    """A schema-qualified reference to a named database object.
+
+    This is the single carrier for "which object, in which namespace" across
+    the whole expression layer. It is used for tables and views in a FROM
+    clause, and also for the objects that DDL names rather than selects:
+    indexes, sequences, types and functions. ``alias`` and
+    ``temporal_options`` only carry meaning for a range in a FROM clause;
+    elsewhere they stay at their defaults.
 
     Per-role quoting fields (all default to ``True``):
     - ``name_need_quote`` ↔ ``name``
     - ``schema_need_quote`` ↔ ``schema_name``
     - ``alias_need_quote`` ↔ ``alias``
+
+    Attributes:
+        temporal_options: Rendering modifiers for a range in a FROM clause,
+            e.g. a time-travel window. Always present, empty when unused.
     """
 
     @property
@@ -274,7 +285,7 @@ class TableExpression(AliasableMixin, BaseExpression):
     ):
         """
         Args:
-            schema_name: Namespace to qualify the table with, e.g. ``app``.
+            schema_name: Namespace to qualify the object with, e.g. ``app``.
                 None leaves the name unqualified. An empty string raises
                 ValueError, and a dialect with no namespace raises
                 UnsupportedFeatureError.
@@ -287,38 +298,6 @@ class TableExpression(AliasableMixin, BaseExpression):
         self.schema_name = schema_name
         self.alias = alias
         self.temporal_options = temporal_options or {}
-
-
-class QualifiedIdentifierExpression(BaseExpression):
-    """Represents a schema-qualified identifier (e.g., schema_name.table).
-
-    Per-role quoting fields (all default to ``True``):
-    - ``name_need_quote`` ↔ ``name``
-    - ``schema_need_quote`` ↔ ``schema_name``
-    """
-
-    @property
-    def format_method(self) -> str:
-        return "format_qualified_identifier"
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        schema_name: Optional[str] = None,
-        name: str = "",
-        name_need_quote: bool = True,
-        schema_need_quote: bool = True,
-    ):
-        super().__init__(dialect)
-        self.name_need_quote = name_need_quote
-        self.schema_need_quote = schema_need_quote
-        # Same contract as every other expression: None is "unqualified", and
-        # an empty string is a mistake rather than a way to spell unqualified --
-        # without the check it rendered as a bare name, quietly dropping the
-        # qualification the caller asked for. The dialect judges it while
-        # rendering; see SchemaSupport.validate_schema_name.
-        self.schema_name = schema_name
-        self.name = name
 
 
 class WildcardExpression(SQLValueExpression):

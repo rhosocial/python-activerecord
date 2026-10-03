@@ -39,7 +39,6 @@ from .core import (
     TableExpression,
     Literal,
     WildcardExpression,
-    QualifiedIdentifierExpression,
 )
 from .collation import (
     CollateExpression,
@@ -438,7 +437,6 @@ __all__ = [
     "TableExpression",
     "Literal",
     "WildcardExpression",
-    "QualifiedIdentifierExpression",
     # Collation expressions
     "CollateExpression",
     "collate",

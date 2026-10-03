@@ -4,6 +4,7 @@
 from typing import List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate
+from ..core import TableExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -17,20 +18,43 @@ class CreateIndexExpression(BaseExpression):
     index definitions during table creation, use CreateTableExpression
     with the indexes parameter.
 
+    The index and the table it is built on live in namespaces that are
+    chosen independently. ``schema_name`` qualifies the index;
+    ``table`` qualifies the table. Passing a bare string as ``table``
+    leaves the table unqualified even when ``schema_name`` is set.
+
     Examples:
         # Basic index
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_users_email",
-            table_name="users",
+            table="users",
             columns=["email"]
+        )
+
+        # Index and table in the same namespace
+        create_idx = CreateIndexExpression(
+            dialect,
+            index_name="idx_users_email",
+            table=TableExpression(dialect, "users", schema_name="app"),
+            columns=["email"],
+            schema_name="app"
+        )
+
+        # Index in one namespace, table in another
+        create_idx = CreateIndexExpression(
+            dialect,
+            index_name="idx_shared",
+            table=TableExpression(dialect, "orders", schema_name="sales"),
+            columns=["user_id"],
+            schema_name="app"
         )
 
         # Unique index
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_users_username",
-            table_name="users",
+            table="users",
             columns=["username"],
             unique=True
         )
@@ -39,7 +63,7 @@ class CreateIndexExpression(BaseExpression):
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_orders_user_date",
-            table_name="orders",
+            table="orders",
             columns=["user_id", "created_at"]
         )
 
@@ -47,7 +71,7 @@ class CreateIndexExpression(BaseExpression):
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_active_users",
-            table_name="users",
+            table="users",
             columns=["email"],
             where=Column(dialect, "status") == Literal(dialect, "active")
         )
@@ -56,7 +80,7 @@ class CreateIndexExpression(BaseExpression):
         create_idx = CreateIndexExpression(
             dialect,
             index_name="idx_users_name_hash",
-            table_name="users",
+            table="users",
             columns=["name"],
             index_type="HASH"
         )
@@ -71,7 +95,7 @@ class CreateIndexExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         index_name: str,
-        table_name: str,
+        table: Union[str, "TableExpression"],
         columns: List[Union[str, "BaseExpression"]],
         unique: bool = False,
         if_not_exists: bool = False,
@@ -84,16 +108,19 @@ class CreateIndexExpression(BaseExpression):
     ):
         """
         Args:
+            table: The table the index is built on. A bare string leaves it
+                unqualified; pass a TableExpression to place it in a
+                namespace. This is independent of ``schema_name``, which
+                qualifies the index itself.
             schema_name: Namespace to qualify the index with, e.g. ``app``.
-                None leaves the name unqualified. An empty string raises
-                ValueError, and a dialect with no namespace raises
-                UnsupportedFeatureError. A table named by the statement is
-                qualified with the same namespace.
+                None leaves the index name unqualified. An empty string
+                raises ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
         """
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = schema_name
-        self.table_name = table_name
+        self.table = table if isinstance(table, TableExpression) else TableExpression(dialect, table)
         self.columns = columns
         self.unique = unique
         self.if_not_exists = if_not_exists
@@ -126,7 +153,15 @@ class DropIndexExpression(BaseExpression):
         drop_idx = DropIndexExpression(
             dialect,
             index_name="idx_orders_status",
-            table_name="orders"
+            table="orders"
+        )
+
+        # Index and table resolved independently
+        drop_idx = DropIndexExpression(
+            dialect,
+            index_name="idx_shared",
+            table=TableExpression(dialect, "orders", schema_name="sales"),
+            schema_name="app"
         )
     """
 
@@ -139,23 +174,28 @@ class DropIndexExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         index_name: str,
-        table_name: Optional[str] = None,
+        table: Optional[Union[str, "TableExpression"]] = None,
         if_exists: bool = False,
         concurrent: bool = False,
         schema_name: Optional[str] = None,
     ):
         """
         Args:
+            table: The table carrying the index. None omits the ``ON``
+                clause. A bare string leaves it unqualified; pass a
+                TableExpression to place it in a namespace. This is
+                independent of ``schema_name``, which qualifies the index.
             schema_name: Namespace to qualify the index with, e.g. ``app``.
-                None leaves the name unqualified. An empty string raises
-                ValueError, and a dialect with no namespace raises
-                UnsupportedFeatureError. A table named by the statement is
-                qualified with the same namespace.
+                None leaves the index name unqualified. An empty string
+                raises ValueError, and a dialect with no namespace raises
+                UnsupportedFeatureError.
         """
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = schema_name
-        self.table_name = table_name
+        self.table = None if table is None else (
+            table if isinstance(table, TableExpression) else TableExpression(dialect, table)
+        )
         self.if_exists = if_exists
         self.concurrent = concurrent
 
@@ -176,7 +216,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         create_ft = CreateFulltextIndexExpression(
             dialect,
             index_name="idx_articles_content",
-            table_name="articles",
+            table="articles",
             columns=["title", "content"]
         )
 
@@ -184,7 +224,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         create_ft = CreateFulltextIndexExpression(
             dialect,
             index_name="idx_documents_body",
-            table_name="documents",
+            table="documents",
             columns=["body"],
             parser="ngram"
         )
@@ -193,7 +233,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         create_ft = CreateFulltextIndexExpression(
             dialect,
             index_name="idx_posts_content",
-            table_name="posts",
+            table="posts",
             columns=["content"],
             if_not_exists=True
         )
@@ -208,7 +248,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         index_name: str,
-        table_name: str,
+        table: Union[str, "TableExpression"],
         columns: List[str],
         parser: Optional[str] = None,
         if_not_exists: bool = False,
@@ -216,16 +256,19 @@ class CreateFulltextIndexExpression(BaseExpression):
     ):
         """
         Args:
+            table: The table the index is built on. A bare string leaves it
+                unqualified; pass a TableExpression to place it in a
+                namespace. This is independent of ``schema_name``, which
+                qualifies the index itself.
             schema_name: Namespace to qualify the full-text index with, e.g.
                 ``app``. None leaves the name unqualified. An empty string
                 raises ValueError, and a dialect with no namespace raises
-                UnsupportedFeatureError. A table named by the statement is
-                qualified with the same namespace.
+                UnsupportedFeatureError.
         """
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = schema_name
-        self.table_name = table_name
+        self.table = table if isinstance(table, TableExpression) else TableExpression(dialect, table)
         self.columns = columns
         self.parser = parser
         self.if_not_exists = if_not_exists
@@ -240,14 +283,14 @@ class DropFulltextIndexExpression(BaseExpression):
         drop_ft = DropFulltextIndexExpression(
             dialect,
             index_name="idx_articles_content",
-            table_name="articles"
+            table="articles"
         )
 
         # Drop with IF EXISTS
         drop_ft = DropFulltextIndexExpression(
             dialect,
             index_name="idx_old_fulltext",
-            table_name="old_table",
+            table="old_table",
             if_exists=True
         )
     """
@@ -261,20 +304,23 @@ class DropFulltextIndexExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         index_name: str,
-        table_name: str,
+        table: Union[str, "TableExpression"],
         if_exists: bool = False,
         schema_name: Optional[str] = None,
     ):
         """
         Args:
+            table: The table carrying the index. A bare string leaves it
+                unqualified; pass a TableExpression to place it in a
+                namespace. This is independent of ``schema_name``, which
+                qualifies the index.
             schema_name: Namespace to qualify the full-text index with, e.g.
                 ``app``. None leaves the name unqualified. An empty string
                 raises ValueError, and a dialect with no namespace raises
-                UnsupportedFeatureError. A table named by the statement is
-                qualified with the same namespace.
+                UnsupportedFeatureError.
         """
         super().__init__(dialect)
         self.index_name = index_name
         self.schema_name = schema_name
-        self.table_name = table_name
+        self.table = table if isinstance(table, TableExpression) else TableExpression(dialect, table)
         self.if_exists = if_exists

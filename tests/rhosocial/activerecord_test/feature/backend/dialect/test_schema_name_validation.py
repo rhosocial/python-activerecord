@@ -21,7 +21,6 @@ from rhosocial.activerecord.backend.dialect.mixins.ddl_schema import SchemaMixin
 from rhosocial.activerecord.backend.dialect.protocols import SchemaSupport
 from rhosocial.activerecord.backend.expression.core import (
     Column,
-    QualifiedIdentifierExpression,
     TableExpression,
     WildcardExpression,
 )
@@ -125,7 +124,7 @@ class TestEveryRenderingPathJudges:
                 id="wildcard",
             ),
             pytest.param(
-                lambda d: QualifiedIdentifierExpression(
+                lambda d: TableExpression(
                     d, schema_name="", name="users"
                 ),
                 id="qualified-identifier",

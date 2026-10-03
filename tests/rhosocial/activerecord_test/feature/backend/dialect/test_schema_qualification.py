@@ -379,13 +379,10 @@ class TestRemainingSchemaValidationGaps:
         with pytest.raises(ValueError, match="no table"):
             expr.to_sql()
 
-    def test_qualified_identifier_rejects_empty_schema(self, dialect):
-        from rhosocial.activerecord.backend.expression.core import (
-            QualifiedIdentifierExpression,
-        )
+    def test_table_expression_rejects_empty_schema(self, dialect):
 
         with pytest.raises((TypeError, ValueError)):
-            QualifiedIdentifierExpression(dialect, schema_name="", name=TABLE).to_sql()
+            TableExpression(dialect, schema_name="", name=TABLE).to_sql()
 
     def test_create_schema_rejects_empty_name(self, dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_schema import (
@@ -421,7 +418,6 @@ class TestRemainingSchemaValidationGaps:
     def test_unqualified_forms_still_render(self, dialect):
         """The fix must not narrow what already worked: None stays None."""
         from rhosocial.activerecord.backend.expression.core import (
-            QualifiedIdentifierExpression,
             WildcardExpression,
         )
 
@@ -431,7 +427,7 @@ class TestRemainingSchemaValidationGaps:
             WildcardExpression(dialect, table=TABLE, schema_name=SCHEMA).to_sql()[0]
             == f'"{SCHEMA}"."{TABLE}".*'
         )
-        assert QualifiedIdentifierExpression(dialect, name=TABLE).to_sql()[0] == f'"{TABLE}"'
+        assert TableExpression(dialect, name=TABLE).to_sql()[0] == f'"{TABLE}"'
 
 
 class TestAliasedRangeNeedsAnAliasReference:

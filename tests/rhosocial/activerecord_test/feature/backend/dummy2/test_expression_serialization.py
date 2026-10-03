@@ -778,14 +778,18 @@ class TestDDLRoundtrip:
 
         expr = CreateIndexExpression(dummy_dialect, "idx_name", "users", ["name", "age"])
         restored = deserialize(serialize(expr), dummy_dialect)
-        assert restored.get_params() == expr.get_params()
+        # ``table`` is a nested TableExpression, so identity comparison of
+        # live objects cannot work; compare the serialized specs instead.
+        assert serialize(restored) == serialize(expr)
 
     def test_drop_index_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_index import DropIndexExpression
 
         expr = DropIndexExpression(dummy_dialect, "idx_name")
         restored = deserialize(serialize(expr), dummy_dialect)
-        assert restored.get_params() == expr.get_params()
+        # ``table`` is a nested TableExpression, so identity comparison of
+        # live objects cannot work; compare the serialized specs instead.
+        assert serialize(restored) == serialize(expr)
 
     def test_create_schema_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_schema import CreateSchemaExpression

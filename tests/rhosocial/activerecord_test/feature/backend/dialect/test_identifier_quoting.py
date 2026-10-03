@@ -7,10 +7,10 @@ Covers:
 - SQLDialectBase.format_identifier (quoting, escaping, need_quote)
 - SQLDialectBase.is_reserved_word (case-insensitive)
 - Reserved word warning emission
-- Per-role need_quote properties on Column, TableExpression,
-  QualifiedIdentifierExpression, WildcardExpression, Identifier
+- Per-role need_quote properties on Column,
+  TableExpression, WildcardExpression, Identifier
 - Format methods (format_column, format_table, format_wildcard,
-  format_identifier_expression, format_qualified_identifier)
+  format_identifier_expression)
 """
 
 import warnings
@@ -19,9 +19,9 @@ import pytest
 
 from rhosocial.activerecord.backend.warnings import IdentifierQuotingWarning
 from rhosocial.activerecord.backend.expression.core import (
-    Column,
+
     TableExpression,
-    QualifiedIdentifierExpression,
+    Column,
     WildcardExpression,
 )
 from rhosocial.activerecord.backend.expression.literals import Identifier
@@ -193,18 +193,18 @@ class TestTableExpressionIdentifierQuoting:
         assert t.alias_need_quote is False
 
 
-class TestQualifiedIdentifierExpressionIdentifierQuoting:
-    """Test QualifiedIdentifierExpression per-role need_quote properties."""
+class TestTableExpressionIdentifierQuoting:
+    """Test TableExpression per-role need_quote properties."""
 
     def test_defaults_all_true(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users")
+        qi = TableExpression(d, schema_name="public", name="users")
         assert qi.name_need_quote is True
         assert qi.schema_need_quote is True
 
     def test_all_false(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users",
+        qi = TableExpression(d, schema_name="public", name="users",
                                            name_need_quote=False,
                                            schema_need_quote=False)
         assert qi.name_need_quote is False
@@ -212,7 +212,7 @@ class TestQualifiedIdentifierExpressionIdentifierQuoting:
 
     def test_schema_need_quote_independent(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users",
+        qi = TableExpression(d, schema_name="public", name="users",
                                            name_need_quote=True,
                                            schema_need_quote=False)
         assert qi.schema_need_quote is False
@@ -220,7 +220,7 @@ class TestQualifiedIdentifierExpressionIdentifierQuoting:
 
     def test_no_schema(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, name="users",
+        qi = TableExpression(d, name="users",
                                            name_need_quote=False)
         assert qi.name_need_quote is False
 
@@ -440,29 +440,6 @@ class TestFormatMethodDirectPropertyAccess:
         with pytest.warns(IdentifierQuotingWarning):
             sql, params = d.format_identifier_expression(ident)
         assert sql == "select"
-
-    def test_format_qualified_identifier_unquoted(self):
-        d = DummyDialect()
-        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users",
-                                           name_need_quote=False,
-                                           schema_need_quote=False)
-        sql, params = d.format_qualified_identifier(qi)
-        assert sql == "public.users"
-
-    def test_format_qualified_identifier_quoted(self):
-        d = DummyDialect()
-        qi = QualifiedIdentifierExpression(d, schema_name="public", name="users",
-                                           name_need_quote=True,
-                                           schema_need_quote=True)
-        sql, params = d.format_qualified_identifier(qi)
-        assert sql == '"public"."users"'
-
-    def test_format_qualified_identifier_no_schema(self):
-        d = DummyDialect()
-        qi = QualifiedIdentifierExpression(d, name="users",
-                                           name_need_quote=False)
-        sql, params = d.format_qualified_identifier(qi)
-        assert sql == "users"
 
     def test_format_column_mixed_quoting(self):
         d = DummyDialect()

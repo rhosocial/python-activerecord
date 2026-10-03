@@ -18,7 +18,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     RawSQLExpression,
-    QualifiedIdentifierExpression,
+    TableExpression,
     WildcardExpression,
 )
 from rhosocial.activerecord.backend.expression.types import (
@@ -74,13 +74,13 @@ class TestCoreExpressionBranches:
         assert params == (42,)
 
     def test_qualified_identifier_with_schema(self, dialect):
-        expr = QualifiedIdentifierExpression(dialect, schema_name="app", name="users")
+        expr = TableExpression(dialect, schema_name="app", name="users")
         sql, params = expr.to_sql()
         assert sql == '"app"."users"'
         assert params == ()
 
     def test_qualified_identifier_without_schema(self, dialect):
-        expr = QualifiedIdentifierExpression(dialect, name="users")
+        expr = TableExpression(dialect, name="users")
         sql, params = expr.to_sql()
         assert sql == '"users"'
         assert params == ()

@@ -10,7 +10,6 @@ from typing import Any, List, Tuple
 from ...expression import bases
 from ...expression.core import (
     CastExpression,
-    QualifiedIdentifierExpression,
     Subquery,
     WildcardExpression,
 )
@@ -78,28 +77,6 @@ class ExpressionMixin(FunctionCallMixin):
         else:
             wildcard_sql = "*"
         return wildcard_sql, ()
-
-    def format_qualified_identifier(self, expr: QualifiedIdentifierExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.QualifiedIdentifierExpression`.
-
-        Args:
-            expr: Qualified identifier optionally carrying a schema.
-
-        Returns:
-            A ``(sql, params)`` tuple; ``params`` is empty.
-        """
-        from ..protocols import SchemaSupport
-
-        if isinstance(self, SchemaSupport):
-            self.validate_schema_name(expr)
-        schema_name = expr.schema_name if isinstance(self, SchemaSupport) else None
-        if schema_name:
-            return (
-                f"{self.format_identifier(schema_name, expr.schema_need_quote)}."
-                f"{self.format_identifier(expr.name, expr.name_need_quote)}",
-                (),
-            )
-        return self.format_identifier(expr.name, expr.name_need_quote), ()
 
     def format_literal_expression(self, expr: "bases.SQLValueExpression") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.Literal`.
