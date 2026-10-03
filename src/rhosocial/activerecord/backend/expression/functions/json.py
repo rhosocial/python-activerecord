@@ -5,8 +5,13 @@ from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
-from ..value_types import JSON, wrap_as
-from ..core import Column, FunctionCall, Literal
+from ..value_types import JSON
+from ..core import (
+    Column,
+    JSONValueExpression,
+    FunctionCall,
+    Literal,
+)
 from ..advanced_functions import JSONExpression
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -59,7 +64,7 @@ def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path:
     return JSONExpression(dialect, target_column, path, operation="->>")
 
 
-def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpression") -> "FunctionCall":
+def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpression") -> "JSONValueExpression":
     """
     Creates a JSON_BUILD_OBJECT function call.
 
@@ -74,16 +79,16 @@ def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpressi
             contract; it is still bound as a literal at runtime.
 
     Returns:
-        A FunctionCall instance representing the JSON_BUILD_OBJECT function
+        A JSONValueExpression wrapping JSON_BUILD_OBJECT
     """
     # Expect alternating sequence of key-value expressions
     processed_args = []
     for arg in key_value_pairs:
         processed_args.append(arg if isinstance(arg, BaseExpression) else Literal(dialect, arg))
-    return wrap_as(dialect, FunctionCall(dialect, "JSON_BUILD_OBJECT", *processed_args), JSON)
+    return JSONValueExpression(dialect, FunctionCall(dialect, 'JSON_BUILD_OBJECT', *processed_args))
 
 
-def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
+def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "JSONValueExpression":
     """
     Creates a JSON_ARRAY_ELEMENTS function call.
 
@@ -97,10 +102,10 @@ def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "F
               of the contract; it is still coerced to a column at runtime.
 
     Returns:
-        A FunctionCall instance representing the JSON_ARRAY_ELEMENTS function
+        A JSONValueExpression wrapping JSON_ARRAY_ELEMENTS
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return wrap_as(dialect, FunctionCall(dialect, "JSON_ARRAY_ELEMENTS", target_expr), JSON)
+    return JSONValueExpression(dialect, FunctionCall(dialect, 'JSON_ARRAY_ELEMENTS', target_expr))
 
 
 def json_objectagg(
