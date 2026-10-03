@@ -12,6 +12,7 @@ answers with their common kind, or with nothing when they disagree.
 import pytest
 
 from rhosocial.activerecord.backend.expression import functions as F, Literal
+from rhosocial.activerecord.backend.expression.bases import SQLValueExpression
 from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
 from rhosocial.activerecord.backend.expression.core import (
     ArrayValueExpression,
@@ -248,6 +249,23 @@ def test_xmlexists_is_a_predicate_not_a_value():
 # ---------------------------------------------------------------------------
 # Every family has a wrapper
 # ---------------------------------------------------------------------------
+
+
+def test_a_family_the_core_does_not_hold_is_reported_unknown():
+    """The lattice is closed. An extension type a backend models fully is still
+    unknown here, because the core does not know which backends exist and cannot
+    say what such a family means for the operations its own results offer.
+
+    Declaring one used to look like it worked -- the attribute was there, and
+    reading it gave the name back -- so nothing pinned the difference between a
+    family that is honoured and one that is quietly dropped."""
+    declared = "network"
+
+    class ExtensionValue(SQLValueExpression):
+        VALUE_FAMILY = declared
+
+    assert declared not in FAMILIES
+    assert value_type_of(ExtensionValue.__new__(ExtensionValue)) is None
 
 
 def test_every_typed_expression_declares_a_family_from_the_lattice():

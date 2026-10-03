@@ -1,22 +1,25 @@
 # src/rhosocial/activerecord/backend/expression/value_types.py
-"""The value lattice: which family a value belongs to, and how to wrap one.
+"""The value lattice: which family a value belongs to.
 
-An operation's result family decides which operations the result offers.
-``upper()`` yields a string, so ``substr()`` follows; ``length()`` is a legal
-string operation whose result is an integer, so ``upper()`` does not. Nothing
-checks that at runtime — the narrowing falls out of the types, and an
-unavailable method raises :class:`AttributeError` because it was never defined
-rather than because something rejected the call.
+What operations a result offers is decided by the class it is. An integer and a
+numeric are different classes with different methods, and an unavailable method
+raises :class:`AttributeError` because it was never defined rather than because
+something rejected the call. The family is the *report* of that, which is what
+:func:`value_type_of` reads.
 
-Families are declared, not inferred from a class hierarchy. ``VALUE_FAMILY``
-is read off the expression, which means a backend-defined expression can
-declare a family without subclassing anything from here, and an expression
-that does not declare one is *unknown* rather than wrong.
+Families are declared, not inferred from a class hierarchy, so an expression
+that declares none is *unknown* rather than wrong.
+
+The lattice is the core's own and it is closed. :func:`value_type_of` returns a
+family only if the core holds it, so an extension type a backend defines -- an
+inet address, a range, an hstore -- is reported unknown here even though the
+backend models it fully. That is deliberate rather than a gap. Backends depend
+on the core and the core does not know which backends exist, so a family it
+cannot interpret is not one it should claim to understand.
 
 This module deliberately imports nothing from the rest of the expression
 package. The typed classes import their family constant from here, so a
-module-level import in the other direction would be circular; the typed value
-expressions therefore never import this module's classes back.
+module-level import in the other direction would be circular.
 """
 
 # src/rhosocial/activerecord/backend/expression/value_types.py
@@ -64,6 +67,12 @@ def value_type_of(expr: Any) -> Optional[str]:
     about them says what a database would return. Callers that need a family
     for such an expression either ask the user or fall back to a permissive
     value.
+
+    A family the core lattice does not hold is unknown for the same reason, even
+    though the expression declaring it knows exactly what it is. The core cannot
+    say what an inet address or a range means for the operations its own results
+    offer, and admitting the name without the meaning would make this function
+    answer with something it does not understand.
 
     Args:
         expr: Any expression node, or ``None``.
