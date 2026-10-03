@@ -8,6 +8,7 @@ This test module covers:
 - list_named_expressions_in_module function
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import types
 from unittest.mock import MagicMock, patch
 import pytest
@@ -380,7 +381,7 @@ class TestClassifyProbeUtilities:
         from rhosocial.activerecord.backend.expression import CreateTableExpression
 
         d = self._dialect()
-        expr = CreateTableExpression(d, "t")
+        expr = CreateTableExpression(d, TableExpression(d, "t"))
         result = _classify(expr)
         assert result == ["DDL"]
 

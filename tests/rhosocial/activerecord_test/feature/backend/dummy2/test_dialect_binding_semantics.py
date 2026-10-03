@@ -35,6 +35,7 @@ DataType 继承自 BaseExpression，其 SQL 文本**不由类型自身构建**�
                                        参与参数面、不影响渲染文本
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 
 from rhosocial.activerecord.backend.expression.types import (
@@ -75,7 +76,7 @@ class TestExplicitPerNodeBinding:
         def build(varchar: VarCharType) -> str:
             expr = CreateTableExpression(
                 dummy_dialect,
-                "t",
+                TableExpression(dummy_dialect, "t"),
                 [
                     ColumnDefinition(
                         dummy_dialect,

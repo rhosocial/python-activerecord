@@ -151,7 +151,7 @@ class TriggerMixin:
             all_params.extend(cond_params)
 
         parts.append("EXECUTE")
-        parts.append(expr.function.to_sql()[0])
+        parts.append(expr.function_name.to_sql()[0])
 
         return " ".join(parts), tuple(all_params)
 

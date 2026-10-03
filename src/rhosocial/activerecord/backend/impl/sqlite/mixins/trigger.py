@@ -85,7 +85,7 @@ class SQLiteTriggerMixin:
 
         parts.append("BEGIN")
         parts.append(
-            f"SELECT {expr.function.to_sql()[0]}();"
+            f"SELECT {expr.function_name.to_sql()[0]}();"
         )
         parts.append("END")
 

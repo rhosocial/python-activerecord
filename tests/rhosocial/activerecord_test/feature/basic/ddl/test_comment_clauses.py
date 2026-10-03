@@ -15,6 +15,7 @@ capability gating, and the fixed spacing between the column list and the
 table-comment clause.
 """
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
@@ -95,7 +96,7 @@ def test_generic_create_table_table_comment_spacing(dummy):
     col = ColumnDefinition(dummy, "id", IntegerType(dummy))
     expr = CreateTableExpression(
         dummy,
-        "t",
+        TableExpression(dummy, "t"),
         [col],
         table_options=CreateTableOptions(
             dummy, comment=TableCommentClause(dummy, "hello world")

@@ -78,7 +78,7 @@ class TestDialectOptionsExpressionTraversal:
         assert restored.to_sql() == expr.to_sql()
 
     def test_create_index_roundtrip(self, sqlite_dialect):
-        expr = CreateIndexExpression(sqlite_dialect, "idx_users", "users", ["name"], unique=True)
+        expr = CreateIndexExpression(sqlite_dialect, "idx_users", TableExpression(sqlite_dialect, "users"), ["name"], unique=True)
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()

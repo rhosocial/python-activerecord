@@ -777,7 +777,7 @@ class TestDDLRoundtrip:
     def test_create_index_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression
 
-        expr = CreateIndexExpression(dummy_dialect, "idx_name", "users", ["name", "age"])
+        expr = CreateIndexExpression(dummy_dialect, "idx_name", TableExpression(dummy_dialect, "users"), ["name", "age"])
         restored = deserialize(serialize(expr), dummy_dialect)
         # ``table`` is a nested TableExpression, so identity comparison of
         # live objects cannot work; compare the serialized specs instead.

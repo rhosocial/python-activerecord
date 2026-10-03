@@ -1,6 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_constraint_protocol.py
 """Tests for ConstraintSupport protocol and ConstraintMixin."""
 
+from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 from rhosocial.activerecord.backend.dialect.protocols import ConstraintSupport
 from rhosocial.activerecord.backend.dialect.mixins import ConstraintMixin
@@ -290,7 +291,7 @@ class TestConstraintEnforcementAndValidation:
         )
         expression = CreateTableExpression(
             dialect,
-            "people",
+            TableExpression(dialect, "people"),
             [ColumnDefinition(dialect, "age", IntegerType(dialect), [column_constraint])],
             table_constraints=[table_constraint],
         )

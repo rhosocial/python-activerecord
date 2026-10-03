@@ -1,6 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_drop_table.py
 import pytest
 from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 

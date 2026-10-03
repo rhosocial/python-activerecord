@@ -104,7 +104,7 @@ class CreateTriggerExpression(BaseExpression):
                     f"{label} must be a TableExpression, got {type(value).__name__}"
                 )
         self.table = table
-        self.function = function_name
+        self.function_name = function_name
         self.timing = timing
         self.events = events
         
