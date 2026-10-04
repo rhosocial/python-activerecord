@@ -20,8 +20,9 @@ class CreateIndexExpression(BaseExpression):
 
     The index and the table it is built on live in namespaces that are
     chosen independently. ``schema_name`` qualifies the index;
-    ``table`` qualifies the table. Passing a bare string as ``table``
-    leaves the table unqualified even when ``schema_name`` is set.
+    ``table`` qualifies the table. A bare string as ``table`` is refused
+    rather than wrapped, so a qualified index on an unqualified table has to
+    be asked for explicitly.
 
     Examples:
         # Basic index
