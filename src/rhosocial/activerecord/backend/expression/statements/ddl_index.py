@@ -108,10 +108,12 @@ class CreateIndexExpression(BaseExpression):
     ):
         """
         Args:
-            table: The table the index is built on. A bare string leaves it
-                unqualified; pass a TableExpression to place it in a
-                namespace. This is independent of ``schema_name``, which
-                qualifies the index itself.
+            table: The table the index is built on, carrying its own
+                namespace. A bare string is refused rather than wrapped: wrapping it builds
+                    an unnamed reference, so a caller who meant to qualify the
+                    index gets an unqualified table and no error.
+                Independent of ``schema_name``, which qualifies the
+                index itself.
             schema_name: Namespace to qualify the index with, e.g. ``app``.
                 None leaves the index name unqualified. An empty string
                 raises ValueError, and a dialect with no namespace raises
@@ -183,10 +185,11 @@ class DropIndexExpression(BaseExpression):
     ):
         """
         Args:
-            table: The table carrying the index. None omits the ``ON``
-                clause. A bare string leaves it unqualified; pass a
-                TableExpression to place it in a namespace. This is
-                independent of ``schema_name``, which qualifies the index.
+            table: The table carrying the index, carrying its own namespace.
+                None omits the ``ON`` clause. A bare string is refused rather than wrapped: wrapping it builds
+                    an unnamed reference, so a caller who meant to qualify the
+                    index gets an unqualified table and no error.
+                Independent of ``schema_name``, which qualifies the index.
             schema_name: Namespace to qualify the index with, e.g. ``app``.
                 None leaves the index name unqualified. An empty string
                 raises ValueError, and a dialect with no namespace raises
@@ -258,9 +261,10 @@ class CreateFulltextIndexExpression(BaseExpression):
     ):
         """
         Args:
-            table: The table the index is built on. A bare string leaves it
-                unqualified; pass a TableExpression to place it in a
-                namespace. This is independent of ``schema_name``, which
+            table: The table the fulltext index is built on, carrying its
+                own namespace. A bare string is refused rather than wrapped: wrapping it builds
+                    an unnamed reference, so a caller who meant to qualify the
+                    index gets an unqualified table and no error. This is independent of ``schema_name``, which
                 qualifies the index itself.
             schema_name: Namespace to qualify the full-text index with, e.g.
                 ``app``. None leaves the name unqualified. An empty string
@@ -314,10 +318,12 @@ class DropFulltextIndexExpression(BaseExpression):
     ):
         """
         Args:
-            table: The table carrying the index. A bare string leaves it
-                unqualified; pass a TableExpression to place it in a
-                namespace. This is independent of ``schema_name``, which
-                qualifies the index.
+            table: The table carrying the index, carrying its own namespace.
+                A bare string is refused rather than wrapped: wrapping it builds
+                    an unnamed reference, so a caller who meant to qualify the
+                    index gets an unqualified table and no error.
+                Independent of ``schema_name``, which qualifies the
+                index.
             schema_name: Namespace to qualify the full-text index with, e.g.
                 ``app``. None leaves the name unqualified. An empty string
                 raises ValueError, and a dialect with no namespace raises
