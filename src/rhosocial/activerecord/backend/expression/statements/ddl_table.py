@@ -820,7 +820,10 @@ class DropTableExpression(BaseExpression):
 
     Args:
         dialect: The SQL dialect to use for formatting
-        table_name: The table name (string) or TableExpression object
+        table: The table to drop, carrying its own namespace. A bare string is
+            refused rather than wrapped: wrapping it builds an unnamed
+            reference, so a caller who meant to qualify the drop gets
+            unqualified SQL and no error.
         if_exists: Add IF EXISTS clause to avoid error if table doesn't exist
         cascade: Optional cascade behavior:
             - None: Omit from SQL (use database default)
