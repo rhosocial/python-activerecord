@@ -27,7 +27,7 @@ def _typed(call: AggregateFunctionCall, target: BaseExpression):
     exception and always wraps in :class:`IntegerValueExpression`, because a
     count is a count whatever it counted.
 
-    A target that says nothing -- a ``Literal``, an ``AnyColumn`` -- leaves the
+    A target that says nothing -- a ``Literal``, an ``Column`` -- leaves the
     call untyped. That is the honest answer: the database decides, and the
     caller who needs a specific type says so with ``cast()``.
     """

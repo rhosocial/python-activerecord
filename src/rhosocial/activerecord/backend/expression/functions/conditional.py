@@ -39,7 +39,7 @@ def _result_class_for(expr: object):
     so it is read off the class rather than off an attribute that duplicates it.
 
     ``None`` is a real answer, not a failure: a ``Literal`` and an
-    ``AnyColumn`` say nothing about what a database would hand back, so an
+    ``Column`` say nothing about what a database would hand back, so an
     operation over them stays untyped rather than guessing.
 
     The checks are ordered narrowest-first because the numeric classes derive

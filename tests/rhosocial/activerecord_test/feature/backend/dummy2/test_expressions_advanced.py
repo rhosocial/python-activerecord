@@ -14,6 +14,8 @@ from rhosocial.activerecord.backend.expression import (
     WindowSpecification,
     WindowFrameSpecification,
     ArrayExpression,
+    JSONDocumentExpression,
+    JSONTextExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import (

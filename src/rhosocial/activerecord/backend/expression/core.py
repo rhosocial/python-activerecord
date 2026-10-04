@@ -22,6 +22,7 @@ from .mixins import (
     StringPatternPredicateMixin,
     StringValueMixin,
     TypeCastingMixin,
+    WrappedCallMixin,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -69,7 +70,7 @@ class Literal(
         return f"Literal({self.value!r}, inline_literals={self.inline_literals!r})"
 
 
-class AnyColumn(
+class Column(
     ArithmeticMixin,
     StringPatternPredicateMixin,
     JSONAccessorMixin,
@@ -77,19 +78,19 @@ class AnyColumn(
 ):
     """A column reference whose type is not known.
 
-    The name says it: this column's value type is **undetermined**, so it
-    promises nothing. It carries the whole operation set because there is
-    nothing to narrow by — offering less would mean guessing, and a guess that
-    removes an operation the caller needed is worse than one that offers an
-    operation the database will reject.
+    This is the **untyped** column: nothing established what it holds, so it
+    carries the whole operation set. Offering less would mean guessing, and a
+    guess that removes an operation the caller needed is worse than one that
+    offers an operation the database will reject.
 
     Two things lead here:
 
     * **A string at a public entry point.** ``order_by("name")``,
       ``count("price")`` and ``select("id")`` accept a column name as text.
       The framework has no annotation to consult, so it cannot know what the
-      column holds. Pass the model proxy instead — ``order_by(User.c.name)`` —
-      and the column arrives typed.
+      column holds -- and a string here is not safe, because nothing checked
+      the name. Pass the model proxy instead, ``order_by(User.c.name)``, and
+      the column arrives typed.
     * **A model field whose annotation cannot be classified** (``Any``, an
       unresolvable ``Union``) must not lose operations it may well support.
 
@@ -102,7 +103,7 @@ class AnyColumn(
 
     The one thing a typed column cannot do is render itself, because
     :class:`~...expression.column_types.ColumnBase` deliberately declares no
-    formatting method — a column with no type has nothing to say about how it
+    formatting method -- a column with no type has nothing to say about how it
     spells itself. This class supplies that spelling, which is why it is the
     only concrete column class rather than an abstract one.
     """
@@ -133,15 +134,8 @@ class AnyColumn(
         )
 
 
-#: Compatibility alias for the name this class had while the typed column
-#: classes were being introduced. Kept so that the ~90 call sites in the
-#: testsuite and the several dozen across the backends keep working; new code
-#: should say :class:`AnyColumn`, whose name carries the warning that the type
-#: is undetermined.
-Column = AnyColumn
-
-
 class TemporalValueExpression(
+    WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     DateTimeMixin,
@@ -219,6 +213,7 @@ class IntervalValueExpression(TemporalValueExpression):
 
 
 class JSONValueExpression(
+    WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     JSONAccessorMixin,
@@ -261,6 +256,7 @@ class JSONValueExpression(
 
 
 class ArrayValueExpression(
+    WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     ArrayMixin,
@@ -302,6 +298,7 @@ class ArrayValueExpression(
 
 
 class BooleanValueExpression(
+    WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
 LogicalMixin,
@@ -343,6 +340,7 @@ LogicalMixin,
 
 
 class BinaryValueExpression(
+    WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
@@ -383,6 +381,7 @@ class BinaryValueExpression(
 
 
 class UUIDValueExpression(
+    WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
@@ -423,6 +422,7 @@ class UUIDValueExpression(
 
 
 class NumericValueExpression(
+    WrappedCallMixin,
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
@@ -470,6 +470,7 @@ class NumericValueExpression(
         return self.call.to_sql()
 
 class IntegerValueExpression(
+    WrappedCallMixin,
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
@@ -517,6 +518,7 @@ class IntegerValueExpression(
         return self.call.to_sql()
 
 class StringValueExpression(
+    WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     IntegerValueMixin,

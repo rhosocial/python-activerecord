@@ -86,6 +86,50 @@ class _ValueExpression(Protocol[_ResultT]):
     def __call__(self, dialect: "SQLDialectBase", call: Any) -> _ResultT: ...
 
 
+class WrappedCallMixin:
+    """Forwards an unknown attribute to the node this expression wraps.
+
+    A typed value wraps the call it was built from -- ``min(name)`` is a
+    ``StringValueExpression`` holding an ``AggregateFunctionCall`` -- so that
+    the result says what it is rather than what produced it. The wrapper offers
+    the operations its *type* supports, and those are the ones a caller reaches
+    for.
+
+    Anything else belongs to the node, and the wrapper should not swallow it:
+    ``count(x).filter(pred)`` is a filter on the aggregate, not an operation on
+    an integer, and the only one that knows how to add one is the aggregate.
+    Rather than restate every node-specific method on every value type, an
+    attribute the wrapper does not define is looked up on the node it holds.
+
+    The wrapper keeps the type either way: a forwarded call that returns the
+    node hands back a node, so ``count(x).filter(...)`` is an untyped
+    ``AggregateFunctionCall`` again -- which is honest, because that is what the
+    filter produces and nothing about adding one re-types the result.
+
+    Example:
+        >>> agg = count(dialect, "price")
+        >>> type(agg).__name__             # IntegerValueExpression
+        >>> type(agg.filter(pred)).__name__# AggregateFunctionCall
+    """
+
+    def __getattr__(self, name):
+        # Only reached for attributes this class does not define, so `call`
+        # itself is already set here. Going through the instance dict rather
+        # than `getattr` keeps a missing `call` from recursing into itself.
+        try:
+            node = object.__getattribute__(self, "call")
+        except AttributeError:
+            raise AttributeError(
+                f"{type(self).__name__} has no attribute {name!r}"
+            ) from None
+        try:
+            return getattr(node, name)
+        except AttributeError:
+            raise AttributeError(
+                f"{type(self).__name__} has no attribute {name!r}"
+            ) from None
+
+
 class AliasableMixin:
     """Mixin class that provides aliasing capability to expressions.
 

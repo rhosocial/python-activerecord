@@ -65,7 +65,6 @@ from .uuid import (
 )
 from .core import (
     Column,
-    AnyColumn,
     FunctionCall,
     IntegerValueExpression,
     StringValueExpression,
@@ -495,7 +494,6 @@ __all__ = [
     "UUIDColumn",
     "JSONColumn",
     "ArrayColumn",
-    "AnyColumn",
     "FunctionCall",
     "Subquery",
     "TableExpression",
