@@ -231,39 +231,68 @@ depends on what the statement names:
 | `CREATE` / `DROP` TABLE | `table` takes a `TableExpression` |
 | VIEW, TYPE, SEQUENCE, FUNCTION, DOMAIN | a plain `schema_name` string; the formatter wraps the object name in a `TableExpression` |
 
-### Bare strings: refused in some places, accepted in others
+### Bare strings: refused everywhere
 
-The `table` parameter is not uniform across statements, so the safe rule is to
-pass a `TableExpression` everywhere. What happens today if you do not:
+Every parameter that names a table requires a `TableExpression`. There is no
+statement left that accepts a string and quietly turns it into an unqualified
+reference:
 
 | Parameter | Bare `str` |
 |---|---|
-| `AlterTableExpression.table` | `TypeError` at construction |
+| `CreateTableExpression.table` | `TypeError` at construction |
+| `DropTableExpression.table` | `TypeError` at construction |
 | `TruncateExpression.table` | `TypeError` at construction |
+| `AlterTableExpression.table` | `TypeError` at construction |
+| `CreateIndexExpression.table`, `DropIndexExpression.table` | `TypeError` at construction |
+| `CreateFulltextIndexExpression.table`, `DropFulltextIndexExpression.table` | `TypeError` at construction |
+| `CreateTriggerExpression.table`, `CreateTriggerExpression.function_name` | `TypeError` at construction |
+| `DropTriggerExpression.table` | `TypeError` at construction |
+| `InsertExpression.into` | `TypeError` at construction |
+| `DeleteExpression.tables` | `TypeError` at construction, per element |
 | `UpdateExpression.table` | `TypeError` at construction |
 | `MergeExpression.target_table` | `TypeError` at construction |
-| `CreateTableExpression.table`, `DropTableExpression.table` | accepted, wrapped as an unqualified `TableExpression` |
-| `CreateIndexExpression.table`, `DropIndexExpression.table` | accepted, wrapped as an unqualified `TableExpression` |
-| `CreateFulltextIndexExpression.table`, `DropFulltextIndexExpression.table` | accepted, wrapped as an unqualified `TableExpression` |
-| `CreateTriggerExpression.table` / `.function_name`, `DropTriggerExpression.table` | not checked; surfaces as an `AttributeError` while rendering |
 
-The accepted case is the one worth knowing about, because the namespace it
-produces is not the one a caller may expect:
+The error names the parameter, so the fix is obvious from the message:
+
+```
+TypeError: table must be a TableExpression, got str
+TypeError: into must be a TableExpression, got str
+TypeError: tables must be a TableExpression, got str
+TypeError: target_table must be a TableExpression, got str
+```
+
+This uniformity is the point. An earlier version wrapped a bare string into an
+unnamed `TableExpression`, which meant a caller who asked to qualify a
+statement got unqualified SQL and no error:
 
 ```python
 CreateIndexExpression(
     dialect,
     index_name="idx_users_email",
-    table="users",             # a bare string
+    table="users",             # accepted, and the namespace went nowhere
     columns=["email"],
     schema_name="app",
 ).to_sql()[0]
 # CREATE INDEX "app"."idx_users_email" ON "users" ("email")
 ```
 
-`schema_name` qualifies the index, and the table stays in the connection's
-default namespace. Pass `table=TableExpression(dialect, "users", schema_name="app")`
-to place both.
+`schema_name` qualifies the index; the table lands in the connection's default
+namespace. Nothing about the output says that was not what you asked for. Write
+`table=TableExpression(dialect, "users", schema_name="app")` and both are placed.
+
+### The two exceptions, and why they are not about tables
+
+Two fields still take a plain string, and neither names a table:
+
+- `Column.table` is a *name to qualify a column with*, not a table to read from.
+  It is a `str`, and it pairs with the same expression's `schema_name`.
+- PostgreSQL's partition `parent_table` likewise names an existing table for the
+  `INHERITS` / `PARTITION BY` clause, and is not the statement's target.
+
+Beyond those, a backend whose server has more namespace levels than core models
+adds its own expression rather than widening the shared one. Snowflake has three
+levels, so it declares `SnowflakeTableExpression` with a `database_name` above
+the schema; `TableExpression` itself stops at `schema_name`.
 
 ## 5. DDL: each object chooses its own namespace
 
@@ -758,7 +787,7 @@ config = PostgresConnectionConfig(
   [§6](#6-model-level-ddl-factories) so the two layers cannot drift apart. The
   smaller the exceptional surface, the less chance of running into the empty
   string of [§3](#3-when-validation-happens) or the unqualified table of
-  [§4](#bare-strings-refused-in-some-places-accepted-in-others).
+  [§4](#bare-strings-refused-everywhere).
 * **Cross-schema joins** — each side qualifies its own range, so this works
   without extra configuration:
 

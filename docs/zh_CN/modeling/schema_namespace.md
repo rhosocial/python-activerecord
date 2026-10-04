@@ -202,37 +202,65 @@ TableExpression(
 | `CREATE` / `DROP` TABLE | `table` 传 `TableExpression` |
 | VIEW、TYPE、SEQUENCE、FUNCTION、DOMAIN | 一个普通字符串 `schema_name`，由格式化方法把对象名包成 `TableExpression` |
 
-### 裸字符串：有的地方拒绝，有的地方照收
+### 裸字符串：一律拒绝
 
-`table` 参数在各语句之间并不统一，所以稳妥的做法是处处传 `TableExpression`。目前不这么做
-会怎样：
+凡是给表命名的参数都要求 `TableExpression`。已经不存在任何一条会照收字符串、然后
+悄悄把它变成无限定引用的语句：
 
 | 参数 | 传裸 `str` 的结果 |
 |---|---|
-| `AlterTableExpression.table` | 构造期抛 `TypeError` |
+| `CreateTableExpression.table` | 构造期抛 `TypeError` |
+| `DropTableExpression.table` | 构造期抛 `TypeError` |
 | `TruncateExpression.table` | 构造期抛 `TypeError` |
+| `AlterTableExpression.table` | 构造期抛 `TypeError` |
+| `CreateIndexExpression.table`、`DropIndexExpression.table` | 构造期抛 `TypeError` |
+| `CreateFulltextIndexExpression.table`、`DropFulltextIndexExpression.table` | 构造期抛 `TypeError` |
+| `CreateTriggerExpression.table`、`CreateTriggerExpression.function_name` | 构造期抛 `TypeError` |
+| `DropTriggerExpression.table` | 构造期抛 `TypeError` |
+| `InsertExpression.into` | 构造期抛 `TypeError` |
+| `DeleteExpression.tables` | 构造期抛 `TypeError`，逐个元素检查 |
 | `UpdateExpression.table` | 构造期抛 `TypeError` |
 | `MergeExpression.target_table` | 构造期抛 `TypeError` |
-| `CreateTableExpression.table`、`DropTableExpression.table` | 接受，包成不带限定的 `TableExpression` |
-| `CreateIndexExpression.table`、`DropIndexExpression.table` | 接受，包成不带限定的 `TableExpression` |
-| `CreateFulltextIndexExpression.table`、`DropFulltextIndexExpression.table` | 接受，包成不带限定的 `TableExpression` |
-| `CreateTriggerExpression.table` / `.function_name`、`DropTriggerExpression.table` | 不检查，渲染阶段以 `AttributeError` 暴露出来 |
 
-「接受」这一类值得留意，因为它给出的命名空间未必是调用方以为的那个：
+报错信息里带着参数名，所以从消息就能知道该怎么改：
+
+```
+TypeError: table must be a TableExpression, got str
+TypeError: into must be a TableExpression, got str
+TypeError: tables must be a TableExpression, got str
+TypeError: target_table must be a TableExpression, got str
+```
+
+这份统一正是重点所在。早期版本会把裸字符串包成一个无名的 `TableExpression`，于是本想
+限定作用域的调用方拿到未限定的 SQL，而且没有任何报错：
 
 ```python
 CreateIndexExpression(
     dialect,
     index_name="idx_users_email",
-    table="users",             # 裸字符串
+    table="users",             # 照收，然后命名空间就丢了
     columns=["email"],
     schema_name="app",
 ).to_sql()[0]
 # CREATE INDEX "app"."idx_users_email" ON "users" ("email")
 ```
 
-`schema_name` 限定的是索引，表仍留在连接的默认命名空间里。要两边都限定，就把
-`table` 换成 `TableExpression(dialect, "users", schema_name="app")`。
+`schema_name` 限定的是索引，表仍落在连接的默认命名空间里。输出里没有任何地方说明这
+不是你想要的。写成 `table=TableExpression(dialect, "users", schema_name="app")`，
+两边才会都被限定。
+
+### 两个例外，以及它们为什么不算表
+
+仍有两个字段接受普通字符串，而它们都不给表命名：
+
+- `Column.table` 是**用来限定列的名字**，不是要读取的表。它是 `str`，与同一个表达式上的
+  `schema_name` 配对使用。
+- PostgreSQL 分区的 `parent_table` 同样是为 `INHERITS` / `PARTITION BY` 子句指明一张
+  已存在的表，并不是该语句的目标。
+
+除此之外，如果某个后端的服务器命名空间层级比 core 建模的更多，它会新增自己的表达式，
+而不是把共享的那个拓宽。Snowflake 有三层，于是声明了带 `database_name` 的
+`SnowflakeTableExpression`；`TableExpression` 本身只到 `schema_name` 为止。
 
 ## 5. DDL：每个对象各自选择命名空间
 
@@ -686,7 +714,7 @@ config = PostgresConnectionConfig(
 - **多个 schema** —— 只给那些不在 `search_path` 里的模型设 `__schema_name__`，并用
   [§6](#6-模型层的-ddl-工厂方法) 那组工厂方法为这个模型构造 DDL，两层就不会漂移。
   例外越少，撞上 [§3](#3-校验发生在什么时候) 那个空串、或
-  [§4](#裸字符串有的地方拒绝有的地方照收) 那个不带限定的表的机会就越小。
+  [§4](#裸字符串一律拒绝) 那个不带限定的表的机会就越小。
 - **跨 schema JOIN** —— 两侧各自限定自己的范围就行，不用额外配置：
 
   ```python
