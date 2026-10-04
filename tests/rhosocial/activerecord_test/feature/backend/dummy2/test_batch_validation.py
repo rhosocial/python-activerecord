@@ -34,7 +34,9 @@ from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 def _make_insert(dialect, table="users", name_val="Alice", email_val="a@test.com"):
     """Construct a minimal single-row InsertExpression without RETURNING."""
     source = ValuesSource(dialect, values_list=[[Literal(dialect, name_val), Literal(dialect, email_val)]])
-    return InsertExpression(dialect, into=table, columns=["name", "email"], source=source)
+    return InsertExpression(
+        dialect, into=TableExpression(dialect, table), columns=["name", "email"], source=source
+    )
 
 
 def _make_update(dialect, table="users", set_col="name", set_val="Bob", pk_val=1):
@@ -51,7 +53,7 @@ def _make_delete(dialect, table="users", pk_val=1):
     """Construct a minimal DeleteExpression without RETURNING."""
     return DeleteExpression(
         dialect,
-        tables=table,
+        tables=TableExpression(dialect, table),
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
 
@@ -125,7 +127,7 @@ class TestBatchDMLReturningConflict:
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
         expr = InsertExpression(
             dummy_dialect,
-            into="users",
+            into=TableExpression(dummy_dialect, "users"),
             columns=["name", "email"],
             source=source,
             returning=clause,
@@ -147,7 +149,7 @@ class TestBatchDMLReturningConflict:
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
         expr = DeleteExpression(
             dummy_dialect,
-            tables="users",
+            tables=TableExpression(dummy_dialect, "users"),
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
             returning=clause,
         )
@@ -166,7 +168,7 @@ class TestBatchDMLReturningConflict:
         )
         expr_dirty = InsertExpression(
             dummy_dialect,
-            into="users",
+            into=TableExpression(dummy_dialect, "users"),
             columns=["name", "email"],
             source=source,
             returning=clause,
@@ -191,10 +193,10 @@ class TestBatchDMLTemplateValidation:
 
     def test_different_columns_inconsistent(self, dummy_dialect: DummyDialect):
         source_a = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "Alice")]])
-        expr_a = InsertExpression(dummy_dialect, into="users", columns=["name"], source=source_a)
+        expr_a = InsertExpression(dummy_dialect, into=TableExpression(dummy_dialect, "users"), columns=["name"], source=source_a)
 
         source_b = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "a@t.com")]])
-        expr_b = InsertExpression(dummy_dialect, into="users", columns=["email"], source=source_b)
+        expr_b = InsertExpression(dummy_dialect, into=TableExpression(dummy_dialect, "users"), columns=["email"], source=source_b)
 
         sql_a, _ = expr_a.to_sql()
         sql_b, _ = expr_b.to_sql()
@@ -374,7 +376,7 @@ class TestBatchDMLValuesSourceModes:
         def make_3row(i):
             rows = [[Literal(dummy_dialect, f"u{i}_{j}"), Literal(dummy_dialect, f"u{i}_{j}@t.com")] for j in range(3)]
             source = ValuesSource(dummy_dialect, values_list=rows)
-            return InsertExpression(dummy_dialect, into="users", columns=["name", "email"], source=source)
+            return InsertExpression(dummy_dialect, into=TableExpression(dummy_dialect, "users"), columns=["name", "email"], source=source)
 
         exprs = [make_3row(i) for i in range(3)]
         templates = {e.to_sql()[0] for e in exprs}
@@ -387,7 +389,7 @@ class TestBatchDMLValuesSourceModes:
         # Triple row
         rows = [[Literal(dummy_dialect, f"u{j}"), Literal(dummy_dialect, f"u{j}@t.com")] for j in range(3)]
         source_3 = ValuesSource(dummy_dialect, values_list=rows)
-        expr_3 = InsertExpression(dummy_dialect, into="users", columns=["name", "email"], source=source_3)
+        expr_3 = InsertExpression(dummy_dialect, into=TableExpression(dummy_dialect, "users"), columns=["name", "email"], source=source_3)
 
         sql_1, _ = expr_1.to_sql()
         sql_3, _ = expr_3.to_sql()

@@ -17,6 +17,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Literal,
     InsertExpression,
+    TableExpression,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -54,7 +55,12 @@ def _make_insert(dialect, name, email, batch_tag="default"):
     source = ValuesSource(
         dialect, values_list=[[Literal(dialect, name), Literal(dialect, email), Literal(dialect, batch_tag)]]
     )
-    return InsertExpression(dialect, into="users", columns=["name", "email", "batch_tag"], source=source)
+    return InsertExpression(
+        dialect,
+        into=TableExpression(dialect, "users"),
+        columns=["name", "email", "batch_tag"],
+        source=source,
+    )
 
 
 def _count_rows(backend, where_clause="1=1"):

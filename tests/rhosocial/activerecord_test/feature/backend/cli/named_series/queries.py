@@ -71,7 +71,7 @@ def insert_user(dialect, name: str, email: str):
     """Insert a user row; returns id/name for verification."""
     return InsertExpression(
         dialect,
-        into="users",
+        into=TableExpression(dialect, "users"),
         columns=["name", "email"],
         source=ValuesSource(dialect, [[Literal(dialect, name), Literal(dialect, email)]]),
     )
@@ -81,7 +81,7 @@ def insert_post(dialect, title: str, user_id: int):
     """Insert a post row; returns id/title for verification."""
     return InsertExpression(
         dialect,
-        into="posts",
+        into=TableExpression(dialect, "posts"),
         columns=["title", "user_id"],
         source=ValuesSource(dialect, [[Literal(dialect, title), Literal(dialect, user_id)]]),
     )

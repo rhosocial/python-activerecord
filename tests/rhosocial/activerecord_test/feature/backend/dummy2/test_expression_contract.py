@@ -38,6 +38,10 @@ KNOWN_NON_AUTO_CONSTRUCTIBLE = {
     "statements.ddl_domain.AlterDomainExpression": "requires at least one concrete DomainAlterAction",
     "statements.ddl_alter.AlterConstraint": "requires a non-empty constraint name",
     "statements.ddl_alter.ValidateConstraint": "requires a non-empty constraint name",
+    "statements.dml.ValuesSource": "requires a non-empty `values_list` whose rows all "
+                                   "have the same width (the heuristic filler for an "
+                                   "expression-typed parameter is None, so construction "
+                                   "raises ValueError)",
 }
 
 

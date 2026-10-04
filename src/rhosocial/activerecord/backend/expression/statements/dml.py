@@ -203,7 +203,7 @@ class DeleteExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        tables: Union[str, "TableExpression", List[Union[str, "TableExpression"]]],
+        tables: Union["TableExpression", List["TableExpression"]],
         *,  # Enforce keyword-only arguments for optional parameters
         using: Optional[
             Union[
@@ -227,22 +227,31 @@ class DeleteExpression(BaseExpression):
         where: Optional[Union["SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         returning: Optional["ReturningClause"] = None,  # RETURNING clause object
     ):
+        """
+        Args:
+            tables: The target table, or a list of them for a multi-table
+                DELETE. Each carries its own namespace. A bare string is
+                rejected rather than wrapped: wrapping it builds an unnamed
+                reference, so a caller who meant to qualify the delete gets
+                unqualified SQL and no error.
+        """
         super().__init__(dialect)
 
         # Normalize the target table(s) to a list of TableExpression objects
         if isinstance(tables, list):
             if not tables:
                 raise ValueError("Table list cannot be empty for a DELETE statement.")
-            self.tables = []
             for t in tables:
-                if isinstance(t, TableExpression):
-                    self.tables.append(t)
-                else:
-                    self.tables.append(TableExpression(dialect, str(t)))
+                if not isinstance(t, TableExpression):
+                    raise TypeError(
+                        f"every table in tables must be a TableExpression, "
+                        f"got {type(t).__name__}"
+                    )
+            self.tables = list(tables)
         else:
-            # Single table
-            single_table = tables if isinstance(tables, TableExpression) else TableExpression(dialect, str(tables))
-            self.tables = [single_table]
+            if not isinstance(tables, TableExpression):
+                raise TypeError(f"tables must be a TableExpression, got {type(tables).__name__}")
+            self.tables = [tables]
 
         self.using = using
 
@@ -458,19 +467,24 @@ class UpdateExpression(BaseExpression):
 
 
 # region Insert Statement
-class InsertDataSource(abc.ABC):
+class InsertDataSource(BaseExpression, abc.ABC):
     """
     Abstract base class for an INSERT statement's data source.
     Implementations represent the source of data, such as a VALUES clause,
     a SELECT query, or the DEFAULT VALUES keyword.
+
+    A data source is a node of the INSERT expression tree, so it participates
+    in the expression protocol like every other node: it carries its own
+    dialect binding and reports its constructor state through
+    :meth:`~..bases.BaseExpression.get_params`, which is what lets a whole
+    ``InsertExpression`` round-trip through serialization. Rendering stays a
+    polymorphic dispatch in ``format_insert_statement`` — the three concrete
+    sources render through entirely different SQL fragments, so each is
+    recognised by its own type rather than by a per-node format method.
     """
 
     def __init__(self, dialect: "SQLDialectBase"):
-        self._dialect = dialect
-
-    @property
-    def dialect(self) -> "SQLDialectBase":
-        return self._dialect
+        super().__init__(dialect)
 
 
 class ValuesSource(InsertDataSource):
@@ -562,16 +576,25 @@ class InsertExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        into: Union[str, "TableExpression"],
+        into: "TableExpression",
         source: InsertDataSource,
         columns: Optional[List[str]] = None,
         *,
         on_conflict: Optional[Union[OnConflictClause, List[OnConflictClause]]] = None,
         returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
     ):
+        """
+        Args:
+            into: The table being inserted into, carrying its own namespace.
+                A bare string is rejected rather than wrapped: wrapping it
+                builds an unnamed reference, so a caller who meant to qualify
+                the insert gets unqualified SQL and no error.
+        """
         super().__init__(dialect)
 
-        self.into = into if isinstance(into, TableExpression) else TableExpression(dialect, str(into))
+        if not isinstance(into, TableExpression):
+            raise TypeError(f"into must be a TableExpression, got {type(into).__name__}")
+        self.into = into
         self.source = source
         self.columns = columns
         self.on_conflict = self._normalize_on_conflict(on_conflict)

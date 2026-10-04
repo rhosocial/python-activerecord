@@ -32,7 +32,7 @@ def add_order(dialect, user_id: int, status: str = "pending"):
     """
     return InsertExpression(
         dialect,
-        into="orders",
+        into=TableExpression(dialect, "orders"),
         columns=["user_id", "status"],
         source=ValuesSource(
             dialect,
@@ -53,7 +53,7 @@ def add_order_bulk(dialect, user_id: int):
     """
     return InsertExpression(
         dialect,
-        into="orders",
+        into=TableExpression(dialect, "orders"),
         columns=["user_id", "status"],
         source=ValuesSource(
             dialect,
@@ -99,7 +99,7 @@ def cancel_order(dialect, order_id: int):
     """
     return DeleteExpression(
         dialect,
-        tables="orders",
+        tables=TableExpression(dialect, "orders"),
         where=WhereClause(
             dialect,
             condition=Column(dialect, "id") == Literal(dialect, order_id),
@@ -120,7 +120,7 @@ def add_payment(dialect, order_id: int, status: str = "pending"):
     """
     return InsertExpression(
         dialect,
-        into="payments",
+        into=TableExpression(dialect, "payments"),
         columns=["order_id", "status", "transaction_id"],
         source=ValuesSource(
             dialect,
@@ -151,7 +151,7 @@ def archive_processed_orders(dialect, status: str = "completed"):
     """
     return DeleteExpression(
         dialect,
-        tables="orders",
+        tables=TableExpression(dialect, "orders"),
         where=WhereClause(
             dialect,
             condition=Column(dialect, "status") == Literal(dialect, status),

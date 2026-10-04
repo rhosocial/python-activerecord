@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.expression import (
     InsertExpression,
     Literal,
     OnConflictClause,
+    TableExpression,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.serialization import serialize, deserialize
@@ -57,7 +58,12 @@ class TestOnConflictCapabilitySwitches:
         source = ValuesSource(dialect, values_list=[[Literal(dialect, 1)]])
         clause1 = OnConflictClause(dialect, conflict_target=["a"], do_nothing=True)
         clause2 = OnConflictClause(dialect, conflict_target=["b"], do_nothing=True)
-        expr = InsertExpression(dialect, into="t", source=source, on_conflict=[clause1, clause2])
+        expr = InsertExpression(
+            dialect,
+            into=TableExpression(dialect, "t"),
+            source=source,
+            on_conflict=[clause1, clause2],
+        )
 
         with pytest.raises(UnsupportedFeatureError, match="multiple ON CONFLICT clauses"):
             expr.to_sql()
@@ -67,7 +73,12 @@ class TestOnConflictCapabilitySwitches:
         dialect = SingleConflictDialect()
         source = ValuesSource(dialect, values_list=[[Literal(dialect, 1)]])
         clause = OnConflictClause(dialect, conflict_target=["a"], do_nothing=True)
-        expr = InsertExpression(dialect, into="t", source=source, on_conflict=clause)
+        expr = InsertExpression(
+            dialect,
+            into=TableExpression(dialect, "t"),
+            source=source,
+            on_conflict=clause,
+        )
 
         sql, params = expr.to_sql()
         assert "ON CONFLICT" in sql
@@ -78,7 +89,12 @@ class TestOnConflictCapabilitySwitches:
         dialect = NoOnConflictClauseDialect()
         source = ValuesSource(dialect, values_list=[[Literal(dialect, 1)]])
         clause = OnConflictClause(dialect, conflict_target=["a"], do_nothing=True)
-        expr = InsertExpression(dialect, into="t", source=source, on_conflict=clause)
+        expr = InsertExpression(
+            dialect,
+            into=TableExpression(dialect, "t"),
+            source=source,
+            on_conflict=clause,
+        )
 
         with pytest.raises(UnsupportedFeatureError, match="does not support ON CONFLICT"):
             expr.to_sql()
@@ -99,7 +115,7 @@ class TestOnConflictSerialization:
         )
         expr = InsertExpression(
             dialect,
-            into="users",
+            into=TableExpression(dialect, "users"),
             columns=["id", "name"],
             source=source,
             on_conflict=[clause1, clause2],

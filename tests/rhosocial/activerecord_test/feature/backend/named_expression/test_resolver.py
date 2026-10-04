@@ -372,7 +372,7 @@ class TestClassifyProbeUtilities:
         from rhosocial.activerecord.backend.expression import InsertExpression
 
         d = self._dialect()
-        expr = InsertExpression(d, "t", [Literal(d, 1)])  # noqa: F821
+        expr = InsertExpression(d, TableExpression(d, "t"), [Literal(d, 1)])  # noqa: F821
         result = _classify(expr)
         assert result == ["DML"]
 

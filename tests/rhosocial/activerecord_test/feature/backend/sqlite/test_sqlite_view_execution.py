@@ -6,7 +6,6 @@ These tests verify that generated SQL statements execute correctly
 against an actual SQLite database.
 """
 
-from rhosocial.activerecord.backend.expression.core import TableExpression
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
@@ -103,7 +102,7 @@ def sqlite_backend():
     for name, email, status in insert_users:
         insert_expr = InsertExpression(
             dialect,
-            into="users",
+            into=TableExpression(dialect, "users"),
             source=ValuesSource(dialect, [[Literal(dialect, name), Literal(dialect, email), Literal(dialect, status)]]),
             columns=["name", "email", "status"],
         )
@@ -119,7 +118,7 @@ def sqlite_backend():
     for user_id, amount, order_date in insert_orders:
         insert_expr = InsertExpression(
             dialect,
-            into="orders",
+            into=TableExpression(dialect, "orders"),
             source=ValuesSource(
                 dialect, [[Literal(dialect, user_id), Literal(dialect, amount), Literal(dialect, order_date)]]
             ),

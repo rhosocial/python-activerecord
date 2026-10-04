@@ -6,7 +6,6 @@ and performs combined queries across multiple extension types using the
 expression-dialect system for SQL generation. No raw SQL strings are used.
 """
 
-from rhosocial.activerecord.backend.expression.core import TableExpression
 import json
 
 import pytest
@@ -127,7 +126,7 @@ class TestGeoDocumentScenario:
 
         backend.execute(
             *InsertExpression(
-                dialect, into="docs_fts",
+                dialect, into=TableExpression(dialect, "docs_fts"),
                 columns=["rowid", "title", "body", "author"],
                 source=ValuesSource(dialect, [
                     [Literal(dialect, d[0]), Literal(dialect, d[1]),
@@ -138,7 +137,7 @@ class TestGeoDocumentScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="doc_locations",
+                dialect, into=TableExpression(dialect, "doc_locations"),
                 source=ValuesSource(dialect, [
                     [Literal(dialect, d[0]), Literal(dialect, 0),
                      Literal(dialect, 100), Literal(dialect, 0),
@@ -149,7 +148,7 @@ class TestGeoDocumentScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="doc_meta",
+                dialect, into=TableExpression(dialect, "doc_meta"),
                 columns=["doc_id", "extra"],
                 source=ValuesSource(dialect, [
                     [Literal(dialect, d[0]), Literal(dialect, d[4])] for d in docs
@@ -269,7 +268,7 @@ class TestGeofencingScenario:
         # Regular hexagon centered at (0,0) radius 3
         backend.execute(
             *InsertExpression(
-                dialect, into="zones",
+                dialect, into=TableExpression(dialect, "zones"),
                 columns=["name", "category", "config", "_shape"],
                 source=ValuesSource(dialect, [[
                     Literal(dialect, "central_park"),
@@ -284,7 +283,7 @@ class TestGeofencingScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="zones",
+                dialect, into=TableExpression(dialect, "zones"),
                 columns=["name", "category", "config", "_shape"],
                 source=ValuesSource(dialect, [[
                     Literal(dialect, "north_zone"),
@@ -309,7 +308,7 @@ class TestGeofencingScenario:
         # Sync content from zones to FTS (real app uses triggers)
         backend.execute(
             *InsertExpression(
-                dialect, into="zone_fts",
+                dialect, into=TableExpression(dialect, "zone_fts"),
                 columns=["rowid", "name", "category"],
                 source=SelectSource(dialect, QueryExpression(
                     dialect,
@@ -471,7 +470,7 @@ class TestSpatialCatalogScenario:
 
         backend.execute(
             *InsertExpression(
-                dialect, into="features_fts",
+                dialect, into=TableExpression(dialect, "features_fts"),
                 columns=["rowid", "name", "description"],
                 source=ValuesSource(dialect, [
                     [Literal(dialect, f[0]), Literal(dialect, f[1]),
@@ -482,7 +481,7 @@ class TestSpatialCatalogScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="features_rtree",
+                dialect, into=TableExpression(dialect, "features_rtree"),
                 source=ValuesSource(dialect, [
                     [Literal(dialect, f[0]), Literal(dialect, f[4]),
                      Literal(dialect, f[5]), Literal(dialect, f[6]),
@@ -529,7 +528,7 @@ class TestSpatialCatalogScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="feature_props",
+                dialect, into=TableExpression(dialect, "feature_props"),
                 columns=["feature_id", "props"],
                 source=ValuesSource(dialect, [
                     [Literal(dialect, f[0]), Literal(dialect, f[3])] for f in features

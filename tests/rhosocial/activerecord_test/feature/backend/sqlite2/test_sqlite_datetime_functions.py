@@ -29,7 +29,7 @@ class TestSQLiteDateTimeFunctions:
 
         insert_expr = InsertExpression(
             sqlite_dialect_3_8_0,
-            into="users",
+            into=TableExpression(sqlite_dialect_3_8_0, "users"),
             source=ValuesSource(
                 sqlite_dialect_3_8_0, values_list=[[Literal(sqlite_dialect_3_8_0, "john"), raw_timestamp]]
             ),
@@ -101,7 +101,7 @@ class TestSQLiteDateTimeFunctions:
         # Create a table with a timestamp column for audit purposes
         delete_expr = DeleteExpression(
             sqlite_dialect_3_8_0,
-            tables="temp_users",
+            tables=TableExpression(sqlite_dialect_3_8_0, "temp_users"),
             where=Column(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "inactive"),
         )
 

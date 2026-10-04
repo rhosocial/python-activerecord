@@ -1196,7 +1196,7 @@ class TestAsyncReturning:
         # 2. Create an InsertExpression with a ReturningClause
         insert_expr = InsertExpression(
             dialect=dialect,
-            into="users",
+            into=TableExpression(dialect, "users"),
             columns=["name"],
             source=ValuesSource(dialect, values_list=[[Literal(dialect, "test")]]),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "id")]),
@@ -1229,7 +1229,7 @@ class TestAsyncReturning:
         # Create an InsertExpression with a ReturningClause
         insert_expr = InsertExpression(
             dialect=dialect,
-            into="users",
+            into=TableExpression(dialect, "users"),
             columns=["name", "email"],
             source=ValuesSource(
                 dialect, values_list=[[Literal(dialect, "Alice"), Literal(dialect, "alice@example.com")]]
@@ -1316,7 +1316,7 @@ class TestAsyncReturning:
         # Delete with RETURNING
         delete_expr = DeleteExpression(
             dialect=dialect,
-            tables="users",
+            tables=TableExpression(dialect, "users"),
             where=Column(dialect, "id") == Literal(dialect, 1),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "name")]),
         )
@@ -1353,7 +1353,7 @@ class TestAsyncReturning:
         # Create an InsertExpression with an invalid column in the ReturningClause
         insert_expr = InsertExpression(
             dialect=dialect,
-            into="users",
+            into=TableExpression(dialect, "users"),
             columns=["name"],
             source=ValuesSource(dialect, values_list=[[Literal(dialect, "test")]]),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "invalid_column")]),
@@ -1438,7 +1438,7 @@ class TestAsyncReturning:
         async with backend.transaction():
             insert_expr = InsertExpression(
                 dialect=dialect,
-                into="users",
+                into=TableExpression(dialect, "users"),
                 columns=["name"],
                 source=ValuesSource(dialect, values_list=[[Literal(dialect, "TransUser")]]),
                 returning=ReturningClause(dialect, expressions=[Column(dialect, "id")]),
