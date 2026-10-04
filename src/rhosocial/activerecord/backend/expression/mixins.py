@@ -46,7 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ArrayValueExpression,
         BinaryValueExpression,
         BooleanValueExpression,
-        DateTimeValueExpression,
+        TimestampValueExpression,
         IntegerValueExpression,
         JSONValueExpression,
         NumericValueExpression,
@@ -62,7 +62,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DateTruncExpression,
         ExtractExpression,
     )
-    from .advanced_functions import JSONExpression
+    from .advanced_functions import JSONDocumentExpression, JSONTextExpression
 
 T = TypeVar("T")
 _ResultT = TypeVar("_ResultT")
@@ -704,11 +704,11 @@ class ResultTypeMixin:
 
         return self._retype(IntegerValueExpression)
 
-    def as_datetime(self) -> "DateTimeValueExpression":
+    def as_datetime(self) -> "TimestampValueExpression":
         """This yields a date or a time."""
-        from .core import DateTimeValueExpression
+        from .core import TimestampValueExpression
 
-        return self._retype(DateTimeValueExpression)
+        return self._retype(TimestampValueExpression)
 
     def as_boolean(self) -> "BooleanValueExpression":
         """This yields a truth value.
@@ -841,39 +841,100 @@ class NumericValueMixin:
 
     # --- roots, powers, logarithms ---
 
-    def sqrt(self) -> "NumericValueMixin":
-        """Square root. ``SQRT(col)``"""
-        return self._numeric_op("sqrt")
-
-    def power(self, exponent: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
-        """Raise to *exponent*. ``POWER(col, n)``"""
-        return self._numeric_op("power", _literal(self._dialect, exponent))
-
-    def exp(self) -> "NumericValueMixin":
-        """e raised to the power of the value. ``EXP(col)``"""
-        return self._numeric_op("exp")
-
-    def log(self, base: Optional[Union[int, float, "BaseExpression"]] = None) -> "NumericValueMixin":
-        """Natural logarithm, or logarithm to *base*. ``LOG(col[, base])``"""
-        return self._numeric_op("log", _literal(self._dialect, base))
-
     def mod(self, divisor: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
         """Remainder of division by *divisor*. ``MOD(col, n)``"""
         return self._numeric_op("mod", _literal(self._dialect, divisor))
+
+    def sqrt(self) -> "NumericValueMixin":
+        """Square root. ``SQRT(col)``
+
+        Kept here rather than in :class:`TranscendentalMixin`: a square root is
+        an algebraic operation, and a monetary amount has a meaningful one
+        (an interest factor), which is why this mixin is the part a money
+        column can reuse.
+        """
+        return self._numeric_op("sqrt")
+
+    def power(self, exponent: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
+        """Raise to *exponent*. ``POWER(col, n)``
+
+        Compound interest makes this meaningful for a monetary amount, so it
+        belongs with the algebraic operations rather than the transcendental
+        ones.
+        """
+        return self._numeric_op("power", _literal(self._dialect, exponent))
+
+
+class TranscendentalMixin:
+    """Operations whose result falls outside the numeric domain.
+
+    Split from :class:`NumericValueMixin` by *what the result is*, not by which
+    family the operand belongs to. ``exp``, ``log``, ``sin``, ``cos`` and
+    ``tan`` answer with a real number whatever they are handed: ``log(2)`` is
+    not a whole number even though 2 is, and ``sin(0)`` happens to be0 for a
+    reason that has nothing to do with the operand being whole. A caller that
+    wants a whole number back has to say so, which is what
+    :class:`WholeNumberResultMixin` is for on the other side of the split.
+
+    ``sqrt`` and ``power`` are *not* here. They are algebraic, and a monetary
+    amount has a meaningful square root and a meaningful power — compound
+    interest is the obvious one — so a money column reuses those. What it does
+    not have is a logarithm, which is why this is the mixin it leaves out.
+
+    A whole-number column still mixes this in. ``log(2)`` is a legal query that
+    the database will answer, and refusing to offer it would make an integer
+    behave differently from the float it widens to for no reason the caller can
+    see. A money column is different in kind, not in width: an interest rate is
+    a logarithm taken somewhere else, and none of these belong to the amount.
+
+    Example:
+        >>> col.exp()                # EXP("x")
+        >>> col.log()                # LOG("x")
+        >>> col.sin()                # SIN("x")
+    """
+
+    def _transcendental_op(self, factory_name: str, *args, **kwargs):
+        """Call a math factory, which tags its own result type.
+
+        Args:
+            factory_name: Name of the function in ``functions.math``.
+            args: Positional arguments forwarded to the factory.
+            kwargs: Keyword arguments forwarded to the factory.
+
+        Returns:
+            A real-valued expression; none of these preserves the operand's
+            family.
+        """
+        from . import functions as _functions
+
+        factory = getattr(_functions, factory_name)
+        return factory(self._dialect, self, *args, **kwargs)
+
+    # --- roots, powers, logarithms ---
+    #
+    # sqrt and power live in NumericValueMixin; only the logarithm is here.
+
+    def exp(self) -> "NumericValueMixin":
+        """e raised to the power of the value. ``EXP(col)``"""
+        return self._transcendental_op("exp")
+
+    def log(self, base: Optional[Union[int, float, "BaseExpression"]] = None) -> "NumericValueMixin":
+        """Natural logarithm, or logarithm to *base*. ``LOG(col[, base])``"""
+        return self._transcendental_op("log", _literal(self._dialect, base))
 
     # --- trigonometry ---
 
     def sin(self) -> "NumericValueMixin":
         """Sine. ``SIN(col)``"""
-        return self._numeric_op("sin")
+        return self._transcendental_op("sin")
 
     def cos(self) -> "NumericValueMixin":
         """Cosine. ``COS(col)``"""
-        return self._numeric_op("cos")
+        return self._transcendental_op("cos")
 
     def tan(self) -> "NumericValueMixin":
         """Tangent. ``TAN(col)``"""
-        return self._numeric_op("tan")
+        return self._transcendental_op("tan")
 
 
 class WholeNumberResultMixin:
@@ -1432,7 +1493,7 @@ class JSONAccessorMixin:
     """Path access for a value known to hold JSON.
 
     Mixed into **both** :class:`~...expression.column_types.JSONColumn` and
-    :class:`~...expression.advanced_functions.JSONExpression` — the latter is
+    :class:`~...expression.advanced_functions.JSONDocumentExpression` — the latter is
     what :meth:`json_path` returns, so without it on both, chaining
     ``col.json_value("a").json_value("b")`` would break at the second call.
 
@@ -1453,11 +1514,18 @@ class JSONAccessorMixin:
         >>> col.json_value("a").json_value("b")   # -> "settings"->'$.a'->'$.b'
     """
 
-    def _json_path(self, keys, as_text: bool, mode) -> "JSONExpression":
-        from .advanced_functions import JSONExpression
+    def _json_path(self, keys, as_text: bool, mode) -> "SQLValueExpression":
+        from .advanced_functions import (
+            JSONDocumentExpression,
+            JSONTextExpression,
+        )
 
         alias = getattr(self, "alias", None)
-        node = JSONExpression(
+        # The two operations yield different types, so they build different
+        # nodes: `->>` is text and offers the text operations, `->` is a
+        # document and offers the path accessors again.
+        node_class = JSONTextExpression if as_text else JSONDocumentExpression
+        node = node_class(
             self._dialect,
             self,
             build_json_path(*keys),
@@ -1469,7 +1537,7 @@ class JSONAccessorMixin:
             self.alias = None
         return node
 
-    def json_path(self, *keys, mode=None) -> "JSONExpression":
+    def json_path(self, *keys, mode=None) -> "JSONTextExpression":
         """Extract a scalar at *keys* (renders ``->>``).
 
         Args:
@@ -1484,7 +1552,7 @@ class JSONAccessorMixin:
         """
         return self._json_path(keys, as_text=True, mode=mode)
 
-    def json_value(self, *keys, mode=None) -> "JSONExpression":
+    def json_value(self, *keys, mode=None) -> "JSONDocumentExpression":
         """Extract JSON at *keys* (renders ``->``), preserving the JSON type.
 
         Chainable: the result is itself a JSON expression, so further

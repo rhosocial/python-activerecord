@@ -8,18 +8,6 @@ from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression, is_sql_query_and_params
 from .column_types import ColumnBase
-from .value_types import (
-    ARRAY,
-    family_for_data_type,
-    BINARY,
-    BOOLEAN,
-    DATETIME,
-    INTEGER,
-    JSON,
-    NUMERIC,
-    STRING,
-    UUID,
-)
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -81,31 +69,42 @@ class Literal(
         return f"Literal({self.value!r}, inline_literals={self.inline_literals!r})"
 
 
-class Column(
+class AnyColumn(
     ArithmeticMixin,
     StringPatternPredicateMixin,
     JSONAccessorMixin,
     ColumnBase,
 ):
-    """A column reference whose value type is not known.
+    """A column reference whose type is not known.
 
-    This is the **permissive** column: it keeps the full operation set and
-    is a *sibling* of the type-narrowed classes in
-    :mod:`...expression.column_types`, not their parent. Two reasons it
-    survives rather than being replaced:
+    The name says it: this column's value type is **undetermined**, so it
+    promises nothing. It carries the whole operation set because there is
+    nothing to narrow by — offering less would mean guessing, and a guess that
+    removes an operation the caller needed is worse than one that offers an
+    operation the database will reject.
 
-    * A column built by hand — ``Column(dialect, "settings")`` — has no model
-      field behind it, so there is nothing to infer a type from. This is
-      common in tests, in ``DerivedField`` callbacks and in backend examples.
-    * A model field whose annotation cannot be classified (``Any``, an
+    Two things lead here:
+
+    * **A string at a public entry point.** ``order_by("name")``,
+      ``count("price")`` and ``select("id")`` accept a column name as text.
+      The framework has no annotation to consult, so it cannot know what the
+      column holds. Pass the model proxy instead — ``order_by(User.c.name)`` —
+      and the column arrives typed.
+    * **A model field whose annotation cannot be classified** (``Any``, an
       unresolvable ``Union``) must not lose operations it may well support.
 
-    When the type *is* known, :class:`FieldProxy
-    <rhosocial.activerecord.base.field_proxy.FieldProxy>` returns the
-    matching narrow class instead — ``User.c.age`` is a
-    :class:`~...expression.column_types.NumericColumn` and offers no
-    ``.like()``, while a hand-built ``Column`` still does. The class identity
-    of a typed column does not vary by backend; only its storage does.
+    When the type *is* known,
+    :class:`FieldProxy<rhosocial.activerecord.base.field_proxy.FieldProxy>`
+    returns the narrow class instead, so ``User.c.age`` is an
+    :class:`~...expression.column_types.IntegerColumn` and offers no
+    ``.like()``. The class identity of a typed column does not vary by backend;
+    only its storage does.
+
+    The one thing a typed column cannot do is render itself, because
+    :class:`~...expression.column_types.ColumnBase` deliberately declares no
+    formatting method — a column with no type has nothing to say about how it
+    spells itself. This class supplies that spelling, which is why it is the
+    only concrete column class rather than an abstract one.
     """
 
     def __init__(
@@ -134,45 +133,47 @@ class Column(
         )
 
 
-class DateTimeValueExpression(
+#: Compatibility alias for the name this class had while the typed column
+#: classes were being introduced. Kept so that the ~90 call sites in the
+#: testsuite and the several dozen across the backends keep working; new code
+#: should say :class:`AnyColumn`, whose name carries the warning that the type
+#: is undetermined.
+Column = AnyColumn
+
+
+class TemporalValueExpression(
     AliasableMixin,
-    ArithmeticMixin,
     ComparisonMixin,
     DateTimeMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
-    """A temporal value that is not a column reference.
+    """Shared base for the four temporal value types.
 
-    Covers the result of ``now``, ``current_date``, ``current_time``,
-    ``current_timestamp`` and ``localtimestamp``, which are plain function
-    calls with no node class of their own.
+    A date, a time, a timestamp and an interval offer the same operations --
+    ``date_add``, ``date_sub``, ``date_diff``, ``date_part``, ``extract`` -- and
+    none of them supports ``upper``, so the operations live here and the
+    subclasses say only which kind of temporal value they are.
 
-    One class serves four families because they offer the same surface: a
-    date, a time, a timestamp and a span all support date_add, date_sub,
-    date_diff, date_part and extract, and none of them supports ``upper``.
-    The family is still reported, because it is what decides what a result
-    *propagates* — a timestamp added to an interval stays a timestamp, while
-    the interval itself is a span.
+    They are four classes rather than one because they are four types. A
+    timestamp added to an interval is a timestamp; a date added to an interval
+    is not legal in most backends, and nothing about a span says it can be
+    extracted from. With one class and a label those differences would have had
+    to be spelled as data, and the operations a caller could reach would be the
+    union of four unrelated ones.
+
+    Subclasses exist so that ``current_date()`` and ``current_timestamp()``
+    arrive already typed. Neither carries ``StringPatternPredicateMixin``:
+    a temporal value is not text.
     """
-
-    VALUE_FAMILY = DATETIME
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         call: "FunctionCall",
-        family: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.call = call
-        # get_params() resolves a constructor parameter to `_name` or `name`,
-        # so the value has to live under the private spelling even when it is
-        # None. The parameter is in the signature either way.
-        self._family = family
-        if family is not None:
-            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:
@@ -193,11 +194,34 @@ class DateTimeValueExpression(
         return self.call.to_sql()
 
 
+class DateValueExpression(TemporalValueExpression):
+    """A date with no time component. ``CURRENT_DATE`` answers with one."""
+
+
+class TimeValueExpression(TemporalValueExpression):
+    """A time of day. ``CURRENT_TIME`` answers with one."""
+
+
+class TimestampValueExpression(TemporalValueExpression):
+    """A date and a time together. ``NOW()`` and ``CURRENT_TIMESTAMP`` answer
+    with one, and adding an interval to it gives another."""
+
+
+class IntervalValueExpression(TemporalValueExpression):
+    """A span of time rather than a point in it.
+
+    An interval is not a timestamp and does not add to one, which is why it is
+    its own type here and not a ``date_add`` argument that happens to be
+    special. The arithmetic a span supports is what
+    :class:`~...expression.mixins.ArithmeticMixin` gives every numeric-like
+    value; this class carries the temporal operations that do not apply.
+    """
+
+
 class JSONValueExpression(
     AliasableMixin,
     ComparisonMixin,
     JSONAccessorMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -208,22 +232,14 @@ class JSONValueExpression(
     be walked the same way a column can — json_path is scalar and terminal,
     json_value keeps a document to chain on."""
 
-    VALUE_FAMILY = JSON
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         call: "FunctionCall",
-        family: Optional[str] = None,
-    ):
+   ):
         super().__init__(dialect)
         self.call = call
-        # get_params() resolves a constructor parameter to `_name` or `name`,
-        # so the value has to live under the private spelling even when it is
-        # None. The parameter is in the signature either way.
-        self._family = family
-        if family is not None:
-            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:
@@ -248,7 +264,6 @@ class ArrayValueExpression(
     AliasableMixin,
     ComparisonMixin,
     ArrayMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -258,22 +273,14 @@ class ArrayValueExpression(
     the array operations, so a collected sequence can be measured or expanded
     the same way a column can."""
 
-    VALUE_FAMILY = ARRAY
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         call: "FunctionCall",
-        family: Optional[str] = None,
-    ):
+   ):
         super().__init__(dialect)
         self.call = call
-        # get_params() resolves a constructor parameter to `_name` or `name`,
-        # so the value has to live under the private spelling even when it is
-        # None. The parameter is in the signature either way.
-        self._family = family
-        if family is not None:
-            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:
@@ -298,7 +305,6 @@ class BooleanValueExpression(
     AliasableMixin,
     ComparisonMixin,
 LogicalMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -308,22 +314,14 @@ LogicalMixin,
     compared. It does not extend: every operation on it yields a predicate or
     a boolean, so there is nothing further to chain."""
 
-    VALUE_FAMILY = BOOLEAN
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         call: "FunctionCall",
-        family: Optional[str] = None,
-    ):
+   ):
         super().__init__(dialect)
         self.call = call
-        # get_params() resolves a constructor parameter to `_name` or `name`,
-        # so the value has to live under the private spelling even when it is
-        # None. The parameter is in the signature either way.
-        self._family = family
-        if family is not None:
-            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:
@@ -347,7 +345,6 @@ LogicalMixin,
 class BinaryValueExpression(
     AliasableMixin,
     ComparisonMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -357,22 +354,14 @@ class BinaryValueExpression(
     pattern predicates and casting. It exists so a function that returns bytes
     says so instead of being unknown."""
 
-    VALUE_FAMILY = BINARY
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         call: "FunctionCall",
-        family: Optional[str] = None,
-    ):
+   ):
         super().__init__(dialect)
         self.call = call
-        # get_params() resolves a constructor parameter to `_name` or `name`,
-        # so the value has to live under the private spelling even when it is
-        # None. The parameter is in the signature either way.
-        self._family = family
-        if family is not None:
-            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:
@@ -396,7 +385,6 @@ class BinaryValueExpression(
 class UUIDValueExpression(
     AliasableMixin,
     ComparisonMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -406,22 +394,14 @@ class UUIDValueExpression(
     nothing to extend with. A backend that cannot generate one raises at the
     factory rather than returning an untyped node."""
 
-    VALUE_FAMILY = UUID
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         call: "FunctionCall",
-        family: Optional[str] = None,
-    ):
+   ):
         super().__init__(dialect)
         self.call = call
-        # get_params() resolves a constructor parameter to `_name` or `name`,
-        # so the value has to live under the private spelling even when it is
-        # None. The parameter is in the signature either way.
-        self._family = family
-        if family is not None:
-            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:
@@ -447,7 +427,6 @@ class NumericValueExpression(
     ArithmeticMixin,
     ComparisonMixin,
     NumericValueMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -463,7 +442,6 @@ class NumericValueExpression(
     saying otherwise would offer ``bit_length`` on the result of ``ceil``.
     """
 
-    VALUE_FAMILY = NUMERIC
 
     def __init__(self, dialect: "SQLDialectBase", call: "FunctionCall"):
         super().__init__(dialect)
@@ -496,12 +474,10 @@ class IntegerValueExpression(
     ArithmeticMixin,
     ComparisonMixin,
     IntegerValueMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
 
-    VALUE_FAMILY = INTEGER
     """An integer-valued expression that is not a column reference.
 
     Returned by the string operations whose result is a number — ``length``,
@@ -550,7 +526,6 @@ class StringValueExpression(
     SQLValueExpression,
 ):
 
-    VALUE_FAMILY = STRING
     """A string-valued expression that is not a column reference.
 
     This is what makes the string value operations chain. ``col.upper()``
@@ -564,7 +539,7 @@ class StringValueExpression(
     about the object. What it shares with a string column is the *value type*,
     which is what decides which operations are offered.
 
-    The class mirrors :class:`~...expression.advanced_functions.JSONExpression`,
+    The class mirrors :class:`~...expression.advanced_functions.JSONDocumentExpression`,
     which plays the same role for the JSON family.
     """
 
@@ -698,12 +673,6 @@ class CastExpression(
         self.expression = expression
         self.target_type = target_type
         self.alias = alias
-        # The family travels with the type, so a cast cannot disagree with the
-        # type it casts to. An unrecognised type leaves it unknown rather than
-        # guessed.
-        family = family_for_data_type(target_type)
-        if family is not None:
-            self.VALUE_FAMILY = family
 
     def __repr__(self) -> str:
         return f"CastExpression({self.expression!r} AS {self.target_type!r})"

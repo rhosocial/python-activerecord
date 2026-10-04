@@ -24,27 +24,14 @@ business (``DataType`` / ``format_data_type_*``), and the two never read each
 other. See ``expression/types/__init__.py`` for the DDL-side boundary.
 """
 
-import sys
-
 from typing import Optional, TYPE_CHECKING
 
 from .bases import SQLValueExpression
-from .value_types import (
-    ARRAY,
-    INTEGER,
-    BINARY,
-    BOOLEAN,
-    DATETIME,
-    JSON,
-    NUMERIC,
-    STRING,
-    UUID,
-)
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     NumericValueMixin,
-    WholeNumberResultMixin,
+    TranscendentalMixin,
     ArrayMixin,
     ComparisonMixin,
     DateTimeMixin,
@@ -75,9 +62,12 @@ class ColumnBase(
     this layer required no dialect change and no change to the SQL produced
     for a plain column reference.
 
-    ``value_family`` narrows the declared family per instance, which is what
-    lets an ``int`` field be INTEGER while a ``float`` field on the same class
-    is NUMERIC.
+    A column's value type is the class itself. There is no tag, no label and
+    no per-instance override: ``StringColumn`` holds text, ``IntegerColumn``
+    holds a whole number, and an operation is offered because the class mixes
+    in the mixin that provides it. Two classes that offer the same operations
+    are still two classes when they hold different things, and one class that
+    held two different things would be the bug.
     """
 
     def __init__(
@@ -92,22 +82,8 @@ class ColumnBase(
         schema_need_quote: bool = True,
         table_need_quote: bool = True,
         value_type: Optional[str] = None,
-        value_family: Optional[str] = None,
     ):
         super().__init__(dialect)
-        # get_params() resolves a constructor parameter to `_name` or `name`,
-        # so the value has to live under the private spelling. Storing it
-        # unconditionally keeps the round trip working for the default case
-        # too; the parameter is part of the signature either way.
-        self._value_family = value_family
-        if value_family is not None:
-            # Instance attribute shadows the class default, which is how one
-            # class can serve two families: NumericColumn is INTEGER for an
-            # `int` annotation and NUMERIC for `float`, because SQL really does
-            # round a whole number to a whole number. Without this the family
-            # would be whatever the class declares, and "integer in, integer
-            # out" could not be expressed.
-            self.VALUE_FAMILY = value_family
         self.name_need_quote = name_need_quote
         self.alias_need_quote = alias_need_quote
         self.schema_need_quote = schema_need_quote
@@ -134,8 +110,6 @@ class ColumnBase(
 
 
 class StringColumn(StringValueMixin, StringPatternPredicateMixin, ColumnBase):
-
-    VALUE_FAMILY = STRING
     """A column holding text: comparison, ``LIKE`` / ``ILIKE``, casting.
 
     Not available: arithmetic. ``LIKE`` against a numeric column is a
@@ -143,39 +117,97 @@ class StringColumn(StringValueMixin, StringPatternPredicateMixin, ColumnBase):
     """
 
 
-class NumericColumn(ArithmeticMixin, NumericValueMixin, ColumnBase):
 
-    VALUE_FAMILY = NUMERIC
+class NumericColumn(ArithmeticMixin, NumericValueMixin, TranscendentalMixin, ColumnBase):
     """A column holding a number: comparison and arithmetic.
 
+    The base of every numeric family. ``DecimalColumn`` and ``FloatColumn``
+    derive from it rather than repeating the mixins, so a backend that models a
+    numeric type of its own — a monetary amount, an unsigned width — derives
+    from this and inherits what it agrees with.
+
     Not available: ``LIKE`` / ``ILIKE``.
+
+    Precision is deliberately absent. SQL's arithmetic syntax has nowhere to
+    state it — ``a + b`` is the same statement whatever ``a`` was declared as —
+    so a ``NUMERIC(18,4)`` column and a ``NUMERIC(4,1)`` column offer exactly the
+    same operations. Width and scale belong to the DDL layer's ``DataType``,
+    which is a separate concern and never read from here.
     """
 
 
-class IntegerColumn(ArithmeticMixin, WholeNumberResultMixin,
-                  NumericValueMixin, ColumnBase):
+
+class IntegerColumn(NumericColumn):
     """A column holding a whole number.
 
-    Separate from :class:`NumericColumn` because SQL keeps the two apart in the
-    result, not only in the input: ``CEIL`` of a whole number is a whole number,
-    while ``SQRT`` of one is generally not. One column class for both meant the
-    distinction lived in an instance attribute, which a checker cannot see, so
-    ``ceil(int_column)`` and ``ceil(float_column)`` had to be told apart at run
-    time by reading it back.
+    A subclass rather than a sibling of :class:`NumericColumn`: arithmetic on a
+    whole number is arithmetic, so there is nothing to redeclare. What differs
+    is the *result* — SQL keeps ``CEIL`` of a whole number a whole number, while
+    ``SQRT`` of one generally is not — and :class:`WholeNumberResultMixin`
+    supplies that by overriding the five operations whose result follows the
+    operand.
 
-    As two classes the answer is in the type. ``IntegerColumn`` says what it
-    holds before anything is called, and a factory that has to choose between an
-    integer result and a fractional one can choose with ``isinstance`` and stay
-    readable.
+    It has to be listed ahead of :class:`NumericValueMixin` for those overrides
+    to win, which is what the MRO below arranges.
+
+    ``TranscendentalMixin`` is inherited and not withheld: ``log(2)`` is a legal
+    query the database will answer, and an integer behaving differently from the
+    float it widens to would be a difference the caller cannot see or explain.
+    A monetary column is different in kind rather than in width, and is the case
+    that leaves this mixin out.
     """
 
-    VALUE_FAMILY = INTEGER
     """A whole number, which SQL preserves through CEIL, FLOOR and ABS."""
+
+
+class DecimalColumn(NumericColumn):
+    """A column holding an exact fixed-point number.
+
+    Separate from :class:`FloatColumn` because the two answer different
+    questions — an amount that must add up exactly is not one that must stay
+    within a rounding error — but they offer the same operations, so the
+    difference is in the name a caller reads rather than in the method set.
+
+    Scale is not a parameter here. See :class:`NumericColumn` on why.
+    """
+
+
+
+class FloatColumn(NumericColumn):
+    """A column holding an approximate number.
+
+    The parent of :class:`RealColumn` and :class:`DoubleColumn`. Those three
+    offer **the same operations** — an approximate value is an approximate value
+    whichever width it is stored at, and ``sqrt`` of one is as approximate as
+    ``sqrt`` of the other. The split exists for two narrower reasons: SQL
+    standard and every backend distinguish single from double precision, and a
+    backend needs a class to derive from when it models its own widths (PostgreSQL
+    has ``float4`` and ``float8``). Nothing about the operation set depends on
+    which of the three a column is.
+    """
+
+
+
+class RealColumn(FloatColumn):
+    """A single-precision approximate number (``REAL``).
+
+    Operationally identical to :class:`FloatColumn`; see its docstring for why
+    the class exists anyway.
+    """
+
+
+
+class DoubleColumn(FloatColumn):
+    """A double-precision approximate number (``DOUBLE PRECISION``).
+
+    Operationally identical to :class:`FloatColumn`; see its docstring for why
+    the class exists anyway.
+    """
+
 
 
 class DateTimeColumn(ArithmeticMixin, DateTimeMixin, ColumnBase):
 
-    VALUE_FAMILY = DATETIME
     """A column holding a date/time.
 
     Adds the temporal surface — :meth:`~...mixins.DateTimeMixin.date_trunc`,
@@ -189,19 +221,16 @@ class DateTimeColumn(ArithmeticMixin, DateTimeMixin, ColumnBase):
 
 class BooleanColumn(ColumnBase):
 
-    VALUE_FAMILY = BOOLEAN
     """A column holding a truth value: comparison, casting, collation."""
 
 
 class BinaryColumn(ColumnBase):
 
-    VALUE_FAMILY = BINARY
     """A column holding raw bytes: comparison, casting, collation."""
 
 
 class UUIDColumn(ColumnBase):
 
-    VALUE_FAMILY = UUID
     """A column holding a UUID.
 
     Carries no UUID-specific operator, because portable SQL has none — a UUID
@@ -214,7 +243,6 @@ class UUIDColumn(ColumnBase):
 
 class JSONColumn(JSONAccessorMixin, ColumnBase):
 
-    VALUE_FAMILY = JSON
     """A column holding JSON: comparison, casting, and path access.
 
     Adds :meth:`~...mixins.JSONAccessorMixin.json_path` (scalar, terminal)
@@ -227,76 +255,24 @@ class JSONColumn(JSONAccessorMixin, ColumnBase):
 
 class ArrayColumn(ArrayMixin, ColumnBase):
 
-    VALUE_FAMILY = ARRAY
     """A column holding an array: :meth:`~...mixins.ArrayMixin.array_length`
     and :meth:`~...mixins.ArrayMixin.unnest`."""
 
-
-
-#: Column class name -> the result class an operation over that column hands
-#: back. A reduction keeps what it was given (MIN of an integer is an integer),
-#: and NULLIF returns the value it tests, so both need to know this without
-#: reading an attribute off the instance. Keyed by name so the table can be
-#: written before :mod:`core` is importable -- core imports ColumnBase from
-#: here, so importing it at module level would close a cycle. Resolved lazily,
-#: once, by :func:`result_class_of`.
-_RESULT_CLASS_NAMES = {
-    "IntegerColumn": "IntegerValueExpression",
-    "NumericColumn": "NumericValueExpression",
-    "StringColumn": "StringValueExpression",
-    "DateTimeColumn": "DateTimeValueExpression",
-    "JSONColumn": "JSONValueExpression",
-    "ArrayColumn": "ArrayValueExpression",
-    "BooleanColumn": "BooleanValueExpression",
-}
-
-_RESULT_CLASS_OF: dict = {}
-
-
-def result_class_of(expr: object) -> Optional[type]:
-    """The result class an operation over *expr* gives back, or None.
-
-    None is a real answer: a ``Literal`` and a hand-written ``Column`` say
-    nothing about what a database would hand back, so neither does an operation
-    over them. ``SQLValueExpression`` would be a guess.
-
-    Subclasses resolve through the MRO, so a backend that narrows a column class
-    is still recognised.
-    """
-    if not _RESULT_CLASS_OF:
-        from . import core
-
-        _RESULT_CLASS_OF.update(
-            {getattr(sys.modules[__name__], col): getattr(core, res)
-             for col, res in _RESULT_CLASS_NAMES.items()}
-        )
-    for klass in type(expr).__mro__:
-        if klass in _RESULT_CLASS_OF:
-            return _RESULT_CLASS_OF[klass]
-    return None
-
-
-def family_of_result(expr: object) -> Optional[str]:
-    """The family an operation over *expr* propagates, or None if unknown.
-
-    For the same reason as :func:`result_class_of`, and read off the result
-    class rather than off *expr*: the column and its result agree on the family,
-    so the answer comes from the type rather than from construction-time state.
-    """
-    result = result_class_of(expr)
-    return getattr(result, "VALUE_FAMILY", None) if result is not None else None
 
 
 __all__ = [
     "ColumnBase",
     "StringColumn",
     "NumericColumn",
+    "IntegerColumn",
+    "DecimalColumn",
+    "FloatColumn",
+    "RealColumn",
+    "DoubleColumn",
     "DateTimeColumn",
     "BooleanColumn",
     "BinaryColumn",
     "UUIDColumn",
     "JSONColumn",
     "ArrayColumn",
-    "result_class_of",
-    "family_of_result",
 ]

@@ -421,7 +421,7 @@ class SQLiteDialect(
         FUNCTION mode produced SQL the server rejects.
 
         Args:
-            expr: The JSONExpression node.
+            expr: The JSONDocumentExpression node.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

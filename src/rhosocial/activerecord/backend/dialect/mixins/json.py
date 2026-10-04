@@ -10,7 +10,7 @@ from ..exceptions import UnsupportedFeatureError
 from ...expression import bases
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.advanced_functions import JSONExpression
+    from ...expression.advanced_functions import JSONDocumentExpression
 
 
 class JSONMixin:
@@ -72,14 +72,14 @@ class JSONMixin:
     # Arrow-operator formatting (-> / ->>)
     # ------------------------------------------------------------------
 
-    def format_json_arrow_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
+    def format_json_arrow_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
         """Format JSON expression using arrow operators (-> / ->>).
 
         This method always uses arrow operator syntax. If the dialect does
         not support arrow operators, it raises UnsupportedFeatureError.
 
         Args:
-            expr: The JSONExpression node with column, path, operation, and
+            expr: The JSONDocumentExpression node with column, path, operation, and
                 optional alias.
 
         Returns:
@@ -114,7 +114,7 @@ class JSONMixin:
     # Function-based formatting (JSON_EXTRACT / JSON_UNQUOTE etc.)
     # ------------------------------------------------------------------
 
-    def format_json_function_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
+    def format_json_function_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
         """Format JSON expression using function-based equivalents.
 
         Default implementation uses JSON_EXTRACT for -> and
@@ -124,7 +124,7 @@ class JSONMixin:
         method to provide the correct function-based SQL.
 
         Args:
-            expr: The JSONExpression node with column, path, operation, and
+            expr: The JSONDocumentExpression node with column, path, operation, and
                 optional alias.
 
         Returns:
@@ -156,7 +156,7 @@ class JSONMixin:
     # Dispatch entry point
     # ------------------------------------------------------------------
 
-    def format_json_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
+    def format_json_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
         """Format JSON expression, dispatching on mode and capability.
 
         Dispatches to arrow-operator or function-based formatting depending
@@ -169,7 +169,7 @@ class JSONMixin:
         The default mode is ``JSONPathMode.AUTO``.
 
         Args:
-            expr: The JSONExpression node to format.
+            expr: The JSONDocumentExpression node to format.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the expression.

@@ -23,7 +23,6 @@ import typing
 import uuid
 from typing import Any, Dict, Optional, Type, overload
 
-from ..backend.expression.value_types import INTEGER
 from ..backend.expression.column_types import (
     ArrayColumn,
     BinaryColumn,
@@ -115,32 +114,6 @@ def column_class_for(annotation: Any) -> Type[ColumnBase]:
     return Column
 
 
-#: Annotations that mean a whole number. ``int`` now has a column class of its
-#: own, so this is the narrower family rather than a per-instance override --
-#: the answer is in the type a factory receives instead of an attribute it has
-#: to read back.
-_WHOLE_NUMBER_ANNOTATIONS = (int,)
-
-
-def family_for(annotation: Any) -> Optional[str]:
-    """Return the value family *annotation* implies, or ``None``.
-
-    Only annotations that *narrow* their column class are listed. Everything
-    else takes the family its class declares, so a new annotation cannot
-    accidentally claim a family it does not have.
-
-    Args:
-        annotation: A field's Python annotation, already stripped.
-
-    Returns:
-        One of the families in
-        :mod:`...backend.expression.value_types`, or ``None``.
-    """
-    if annotation in _WHOLE_NUMBER_ANNOTATIONS:
-        return INTEGER
-    return None
-
-
 # One overload per annotation that has a column class of its own. The point is
 # that a checker can tell an int field from a float one: the answer is in the
 # return type rather than in an attribute a factory has to read back, which is
@@ -211,7 +184,6 @@ def build_column(
         table=table,
         schema_name=schema_name,
         value_type=value_type,
-        value_family=family_for(strip_annotation(annotation)),
     )
 
 
