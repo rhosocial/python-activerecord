@@ -5,20 +5,19 @@ from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
-from ..value_types import JSON
 from ..core import (
     Column,
     JSONValueExpression,
     FunctionCall,
     Literal,
 )
-from ..advanced_functions import JSONExpression
+from ..advanced_functions import JSONDocumentExpression, JSONTextExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONExpression":
+def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONDocumentExpression":
     """
     Creates a JSON extract operation (e.g., column->path).
 
@@ -32,13 +31,13 @@ def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str)
         path: The JSON path to extract.
 
     Returns:
-        A JSONExpression instance representing the JSON extract operation
+        A JSONDocumentExpression instance representing the JSON extract operation
     """
     target_column = column if isinstance(column, BaseExpression) else Column(dialect, column)
-    return JSONExpression(dialect, target_column, path, operation="->")
+    return JSONDocumentExpression(dialect, target_column, path, operation="->")
 
 
-def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONExpression":
+def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONTextExpression":
     """
     Creates a JSON extract text operation (e.g., column->>path).
 
@@ -53,15 +52,15 @@ def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path:
         path: The JSON path to extract as text.
 
     Returns:
-        A JSONExpression instance representing the JSON extract text operation
+        A JSONTextExpression instance representing the JSON extract text operation
     """
     target_column = column if isinstance(column, BaseExpression) else Column(dialect, column)
-    # Not wrapped: the wrapper forwards unknown attributes to the node it
-    # holds, so wrapping a JSONExpression in a string value would hand back
-    # the JSON accessors it was meant to hide. The family says string, which
-    # is what propagation reads; the accessors stay because this node class
-    # serves both arrow directions and cannot drop them per instance.
-    return JSONExpression(dialect, target_column, path, operation="->>")
+    # `->>` yields text, so it arrives as JSONTextExpression and carries the
+    # string operations. It used to be built as a JSONDocumentExpression and described
+    # as a string by a tag, which meant the JSON accessors it was meant to end
+    # the chain with stayed reachable -- the node class served both arrow
+    # directions and could not drop them per instance.
+    return JSONTextExpression(dialect, target_column, path, operation="->>")
 
 
 def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpression") -> "JSONValueExpression":
@@ -116,7 +115,9 @@ def json_objectagg(
     """Creates a JSON_OBJECTAGG aggregate function call."""
     key_target = key_expr if isinstance(key_expr, BaseExpression) else Column(dialect, key_expr)
     value_target = value_expr if isinstance(value_expr, BaseExpression) else Column(dialect, value_expr)
-    return AggregateFunctionCall(dialect, "JSON_OBJECTAGG", key_target, value_target, family=JSON)
+    return JSONValueExpression(
+        dialect, AggregateFunctionCall(dialect, "JSON_OBJECTAGG", key_target, value_target)
+    )
 
 
 def json_arrayagg(
@@ -127,11 +128,13 @@ def json_arrayagg(
 ) -> "AggregateFunctionCall":
     """Creates a JSON_ARRAYAGG aggregate function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(
+    return JSONValueExpression(
         dialect,
-        "JSON_ARRAYAGG",
-        target_expr,
-        is_distinct=is_distinct,
-        alias=alias,
-        family=JSON,
+        AggregateFunctionCall(
+            dialect,
+            "JSON_ARRAYAGG",
+            target_expr,
+            is_distinct=is_distinct,
+            alias=alias,
+        ),
     )

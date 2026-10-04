@@ -18,19 +18,7 @@ from rhosocial.activerecord.backend.expression.core import (
     ArrayValueExpression,
     JSONValueExpression,
 )
-from rhosocial.activerecord.backend.expression.value_types import (
-    ARRAY,
-    BOOLEAN,
-    DATETIME,
-    FAMILIES,
-    INTEGER,
-    JSON,
-    NUMERIC,
-    STRING,
-    XML,
-    family_for_sql_type,
-    value_type_of,
-)
+from rhosocial.activerecord.backend.expression.type_name import is_valid_type_name
 from rhosocial.activerecord.backend.expression.types import VarCharType, JsonType, CustomType
 
 
@@ -62,17 +50,17 @@ def columns(dialect):
 
 
 def test_arrow_extraction_gives_a_document(dialect, columns):
-    assert value_type_of(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a"))) == JSON
+    assert isinstance(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a")), JSONValueExpression)
 
 
 def test_double_arrow_extraction_gives_text(dialect, columns):
     """`->>` is a narrowing: a document becomes a string and cannot widen back."""
-    assert value_type_of(F.json_extract_text(dialect, columns["json"], "$.a")) == STRING
+    assert isinstance(F.json_extract_text(dialect, columns["json"], "$.a"), StringValueExpression)
 
 
 def test_a_built_document_is_a_document(dialect, columns):
-    assert value_type_of(F.json_build_object(dialect, "k", 1)) == JSON
-    assert value_type_of(F.json_array_elements(dialect, columns["json"])) == JSON
+    assert isinstance(F.json_build_object(dialect, "k", 1), JSONValueExpression)
+    assert isinstance(F.json_array_elements(dialect, columns["json"]), JSONValueExpression)
 
 
 def test_a_document_offers_the_json_accessors(dialect, columns):
@@ -90,7 +78,7 @@ def test_text_reports_a_string_family(dialect, columns):
     over-offer on this one class, not a claim that text is a document.
     """
     text = F.json_extract_text(dialect, columns["json"], "$.a")
-    assert value_type_of(text) == STRING
+    assert isinstance(text, StringValueExpression)
     assert text.to_sql()[0].endswith("->>'$.a'")
 
 
@@ -100,12 +88,12 @@ def test_text_reports_a_string_family(dialect, columns):
 
 
 def test_a_sequence_is_a_sequence(dialect, columns):
-    assert value_type_of(F.unnest(dialect, columns["array"])) == ARRAY
+    assert isinstance(F.unnest(dialect, columns["array"]), ArrayValueExpression)
     assert isinstance(F.unnest(dialect, columns["array"]), ArrayValueExpression)
 
 
 def test_measuring_a_sequence_gives_a_whole_number(dialect, columns):
-    assert value_type_of(F.array_length(dialect, columns["array"], 1)) == INTEGER
+    assert isinstance(F.array_length(dialect, columns["array"], 1), IntegerValueExpression)
 
 
 # ---------------------------------------------------------------------------
@@ -114,21 +102,21 @@ def test_measuring_a_sequence_gives_a_whole_number(dialect, columns):
 
 
 def test_greatest_answers_with_what_its_arguments_answer_with(dialect, columns):
-    assert value_type_of(F.greatest(dialect, columns["int"], columns["int"])) == INTEGER
+    assert isinstance(F.greatest(dialect, columns["int"], columns["int"]), IntegerValueExpression)
 
 
 def test_greatest_of_mixed_kinds_is_unknown(dialect, columns):
     """The comparison is legal SQL and the answer is neither kind, so neither
     surface may be offered. Guessing the first or the widest would be wrong."""
-    assert value_type_of(F.greatest(dialect, columns["int"], columns["str"])) is None
+    assert not isinstance(F.greatest(dialect, columns["int"], columns["str"]), ArrayValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), BinaryValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), BooleanValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), DateValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), IntegerValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), IntervalValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), JSONValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), NumericValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), StringValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), TimeValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), TimestampValueExpression) and not isinstance(F.greatest(dialect, columns["int"], columns["str"]), UUIDValueExpression)
 
 
 def test_least_agrees_with_greatest(dialect, columns):
-    assert value_type_of(F.least(dialect, columns["float"], columns["float"])) == NUMERIC
+    assert isinstance(F.least(dialect, columns["float"], columns["float"]), NumericValueExpression)
 
 
 def test_nullif_keeps_the_value_it_tests(dialect, columns):
-    assert value_type_of(F.nullif(dialect, columns["str"], None)) == STRING
+    assert isinstance(F.nullif(dialect, columns["str"], None), StringValueExpression)
 
 
 # ---------------------------------------------------------------------------
@@ -141,14 +129,14 @@ def test_a_consensus_needs_exactly_one(dialect, columns):
     kind, so neither surface may be offered."""
     mixed = CaseExpression(dialect, cases=[(columns["int"], columns["int"])],
                            else_result=columns["float"])
-    assert value_type_of(mixed) is None
+    assert not isinstance(mixed, ArrayValueExpression) and not isinstance(mixed, BinaryValueExpression) and not isinstance(mixed, BooleanValueExpression) and not isinstance(mixed, DateValueExpression) and not isinstance(mixed, IntegerValueExpression) and not isinstance(mixed, IntervalValueExpression) and not isinstance(mixed, JSONValueExpression) and not isinstance(mixed, NumericValueExpression) and not isinstance(mixed, StringValueExpression) and not isinstance(mixed, TimeValueExpression) and not isinstance(mixed, TimestampValueExpression) and not isinstance(mixed, UUIDValueExpression)
 
 
 def test_an_argument_without_a_family_does_not_break_a_consensus(dialect, columns):
     """A literal says nothing, so it neither agrees nor disagrees."""
     with_literal = CaseExpression(dialect, cases=[(columns["int"], Literal(dialect, 1))],
                                  else_result=columns["int"])
-    assert value_type_of(with_literal) == INTEGER
+    assert isinstance(with_literal, IntegerValueExpression)
 
 
 # ---------------------------------------------------------------------------
@@ -157,39 +145,81 @@ def test_an_argument_without_a_family_does_not_break_a_consensus(dialect, column
 
 
 @pytest.mark.parametrize(
-    "sql_type, expected",
+    "sql_type",
     [
-        ("VARCHAR(255)", STRING),
-        ("TEXT", STRING),
-        ("NVARCHAR2(10)", STRING),
-        ("INTEGER", INTEGER),
-        ("BIGINT", INTEGER),
-        ("DECIMAL(10,2)", NUMERIC),
-        ("DOUBLE PRECISION", NUMERIC),
-        ("BOOLEAN", BOOLEAN),
-        ("TIMESTAMP", DATETIME),
-        ("JSONB", JSON),
-        ("BLOB", "binary"),
-        ("UUID", "uuid"),
-        ("XML", XML),
+        "VARCHAR(255)",
+        "TEXT",
+        "NVARCHAR2(10)",
+        "INTEGER",
+        "BIGINT",
+        "DECIMAL(10,2)",
+        "DOUBLE PRECISION",
+        "BOOLEAN",
+        "TIMESTAMP",
+        "JSONB",
+        "BLOB",
+        "UUID",
+        "XML",
     ],
 )
-def test_sql_type_names_map_to_families(sql_type, expected):
-    assert family_for_sql_type(sql_type) == expected
+def test_real_sql_type_names_are_names(sql_type):
+    """These are all type names a database has.
+
+    They used to be pinned to the value family a cast to them produces. There is
+    no such table now: ``cast`` answers with the class of the ``DataType`` it
+    was handed, so the name carries no type of its own to be right about. What
+    remains is that the name is recognised -- the grammar, not a meaning.
+    """
+    assert is_valid_type_name(sql_type)
 
 
-def test_an_unknown_sql_type_is_not_guessed():
-    """Offering JSON navigation on a type nobody has heard of is worse than
-    saying nothing."""
-    assert family_for_sql_type("GEOMETRY") is None
-    assert family_for_sql_type("POINT") is None
-    assert family_for_sql_type(None) is None
+def test_an_unknown_sql_type_is_still_a_name():
+    """A name nobody here knows is still shaped like a name.
+
+    What it means is the dialect's business, decided when the dialect is
+    asked to render it, not something this package guesses at here.
+    """
+    assert is_valid_type_name("GEOMETRY")
+    assert is_valid_type_name("POINT")
+    assert not is_valid_type_name(None)
 
 
-def test_cast_takes_its_family_from_the_target_type(dialect, columns):
-    assert value_type_of(F.cast(dialect, columns["int"], VarCharType(dialect, length=10))) == STRING
-    assert value_type_of(F.cast(dialect, columns["int"], JsonType(dialect))) == JSON
-    assert value_type_of(F.cast(dialect, columns["int"], CustomType(dialect, raw="GEOMETRY"))) is None
+def test_cast_takes_its_type_from_the_target_type(dialect, columns):
+    """The cast answers with the class of the type it was handed."""
+    assert isinstance(
+        F.cast(dialect, columns["int"], VarCharType(dialect, length=10)),
+        StringValueExpression,
+    )
+    assert isinstance(
+        F.cast(dialect, columns["int"], JsonType(dialect)), JSONValueExpression
+    )
+
+
+def test_an_unmodelled_target_type_yields_no_typed_result(dialect, columns):
+    """A user-defined type has no value class to answer with.
+
+    Offering JSON navigation on a type nobody here has heard of would be worse
+    than saying nothing, so the cast comes back untyped and the caller says what
+    they meant with ``as_*``.
+    """
+    result = F.cast(dialect, columns["int"], CustomType(dialect, raw="GEOMETRY"))
+    assert not isinstance(
+        result,
+        (
+            ArrayValueExpression,
+            BinaryValueExpression,
+            BooleanValueExpression,
+            DateValueExpression,
+            IntegerValueExpression,
+            IntervalValueExpression,
+            JSONValueExpression,
+            NumericValueExpression,
+            StringValueExpression,
+            TimeValueExpression,
+            TimestampValueExpression,
+            UUIDValueExpression,
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -198,15 +228,15 @@ def test_cast_takes_its_family_from_the_target_type(dialect, columns):
 
 
 def test_to_char_gives_text(dialect, columns):
-    assert value_type_of(F.to_char(dialect, columns["int"])) == STRING
+    assert isinstance(F.to_char(dialect, columns["int"]), StringValueExpression)
 
 
 def test_to_number_gives_a_number(dialect, columns):
-    assert value_type_of(F.to_number(dialect, columns["int"])) == NUMERIC
+    assert isinstance(F.to_number(dialect, columns["int"]), NumericValueExpression)
 
 
 def test_to_date_gives_a_timestamp(dialect, columns):
-    assert value_type_of(F.to_date(dialect, columns["int"])) == DATETIME
+    assert isinstance(F.to_date(dialect, columns["int"]), TimestampValueExpression)
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +247,7 @@ def test_to_date_gives_a_timestamp(dialect, columns):
 @pytest.mark.parametrize("factory", ["current_user", "session_user", "system_user"])
 def test_the_session_identity_is_a_name(dialect, factory):
     result = getattr(F, factory)(dialect)
-    assert value_type_of(result) == STRING
+    assert isinstance(result, StringValueExpression)
     assert hasattr(result, "upper")
 
 
@@ -265,7 +295,7 @@ def test_a_family_the_core_does_not_hold_is_reported_unknown():
         VALUE_FAMILY = declared
 
     assert declared not in FAMILIES
-    assert value_type_of(ExtensionValue.__new__(ExtensionValue)) is None
+    assert not isinstance(ExtensionValue.__new__(ExtensionValue), ArrayValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), BinaryValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), BooleanValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), DateValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), IntegerValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), IntervalValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), JSONValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), NumericValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), StringValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), TimeValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), TimestampValueExpression) and not isinstance(ExtensionValue.__new__(ExtensionValue), UUIDValueExpression)
 
 
 def test_every_typed_expression_declares_a_family_from_the_lattice():
@@ -280,11 +310,24 @@ def test_every_typed_expression_declares_a_family_from_the_lattice():
     from rhosocial.activerecord.backend.expression import core
 
     declared = {
-        name: getattr(cls, "VALUE_FAMILY", None)
+        name: cls
         for name, cls in inspect.getmembers(core, inspect.isclass)
         if name.endswith("ValueExpression") and name != "SQLValueExpression"
     }
     assert declared, "the typed expressions moved"
-    assert {f for f in declared.values() if f not in FAMILIES} == set()
-    # The base declares none on purpose: it is what an unmodelled result is.
-    assert getattr(core.SQLValueExpression, "VALUE_FAMILY", None) is None
+    # Every typed expression declares its type by being a class, so the only
+    # thing left to check is that each one is still reachable and distinct.
+    assert len(set(declared.values())) == len(declared), "two names bind one class"
+
+
+def test_every_temporal_type_is_reachable():
+    """The four temporal classes exist and are distinct.
+
+    They were one class with a label saying which it was; now each is its own,
+    so this pins that they are all still there.
+    """
+    from rhosocial.activerecord.backend.expression import core
+
+    for name in ("TimestampValueExpression", "DateValueExpression",
+                 "TimeValueExpression", "IntervalValueExpression"):
+        assert hasattr(core, name), name

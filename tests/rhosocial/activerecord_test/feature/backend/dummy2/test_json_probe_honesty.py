@@ -20,7 +20,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.advanced_functions import JSONExpression
+from rhosocial.activerecord.backend.expression.advanced_functions import JSONDocumentExpression
 
 
 def _sqlite():
@@ -50,7 +50,7 @@ def no_json_dialect(dialect):
 
 
 def _expr(dialect, operation="->>", mode="function"):
-    return JSONExpression(dialect, Column(dialect, "j", table="t"), "$.a", operation, mode=mode)
+    return JSONDocumentExpression(dialect, Column(dialect, "j", table="t"), "$.a", operation, mode=mode)
 
 
 # ---------------------------------------------------------------------------

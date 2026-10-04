@@ -154,11 +154,19 @@ def test_arithmetic_on_a_number_result(name):
     assert params == (1,)
 
 
-def test_predicates_are_available_on_a_number_result(name):
-    """Any value can be compared or matched; that is not string-ness."""
+def test_a_number_result_can_be_compared_but_not_matched(name):
+    """Comparison is universal; ``LIKE`` is not.
+
+    Every value can be compared, so ``length() > 5`` is offered. ``LIKE`` is
+    text matching and a whole number is not text, so the operation is not
+    offered — it fails here, at the point of the call, rather than at the
+    database. This used to be the other way round and the reason the typed
+    column classes exist at all.
+    """
     result = name.length()
-    assert " LIKE " in result.like("1%").to_sql()[0]
     assert " > " in (result > 0).to_sql()[0]
+    with pytest.raises(AttributeError):
+        result.like("1%")
 
 
 # ---------------------------------------------------------------------------
@@ -166,15 +174,13 @@ def test_predicates_are_available_on_a_number_result(name):
 # ---------------------------------------------------------------------------
 
 
-def test_predicate_ends_the_chain_from_either_family(name):
-    """Both a string and a number can be matched; neither comes back."""
-    string_predicate = name.upper().like("A%")
-    number_predicate = name.length().like("1%")
-    for predicate in (string_predicate, number_predicate):
-        for method in ("upper", "length", "substr"):
-            assert not hasattr(predicate, method), (
-                f"predicate wrongly offers {method}; the value chain should have ended"
-            )
+def test_predicate_ends_the_chain(name):
+    """A predicate is the end of the value chain whatever produced it."""
+    predicate = name.upper().like("A%")
+    for method in ("upper", "length", "substr"):
+        assert not hasattr(predicate, method), (
+            f"predicate wrongly offers {method}; the value chain should have ended"
+        )
 
 
 def test_integer_value_can_be_aliased(name):

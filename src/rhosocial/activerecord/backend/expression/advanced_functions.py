@@ -6,18 +6,19 @@ JSON operations, and Array operations.
 from enum import Enum
 from typing import Any, List, Optional, Union, TYPE_CHECKING
 
-from .bases import BaseExpression, SQLPredicate, SQLValueExpression
-from .core import Column, Subquery
-from .column_types import result_class_of
-from .value_types import JSON, STRING
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     JSONAccessorMixin,
     StringPatternPredicateMixin,
+    StringValueMixin,
     TypeCastingMixin,
 )
+
+from .bases import BaseExpression, SQLPredicate, SQLValueExpression
+from .core import Column, Subquery
+
 from .query_parts import OrderByClause
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -57,27 +58,12 @@ class CaseExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         cases: Optional[list] = None,
         else_result: Optional["BaseExpression"] = None,
         alias: Optional[str] = None,
-        family: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.value = value
         self.cases = cases or []
         self.else_result = else_result
         self.alias = alias
-        # Stored under the private spelling for get_params().
-        self._family = family
-        if family is None:
-            # A CASE answers with whatever its branches answer with, so the
-            # branches decide it. The factory cannot: it is handed a list
-            # rather than the individual results.
-            branches = [result for _condition, result in self.cases] + [self.else_result]
-            # A branch that declares nothing is not a contradiction: what
-            # matters is that the branches that do declare a kind agree.
-            classes = {result_class_of(result) for result in branches}
-            classes.discard(None)
-            family = classes.pop().VALUE_FAMILY if len(classes) == 1 else None
-        if family is not None:
-            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:
@@ -244,21 +230,12 @@ class WindowFunctionCall(
         args: Optional[List[Union["BaseExpression", Any]]] = None,
         window_spec: Optional[Union[WindowSpecification, str]] = None,
         alias: Optional[str] = None,
-        family: Optional[str] = None,
     ):
         super().__init__(dialect)
         self.function_name = function_name
         self.args = args or []
         self.window_spec = window_spec
         self.alias = alias
-        # Stored under the private spelling for get_params(), which resolves a
-        # constructor parameter to `_name` or `name`.
-        self._family = family
-        if family is not None:
-            # ROW_NUMBER counts rows while LAG hands back a value from an
-            # earlier row, and those are not the same kind of thing even
-            # though both are window calls.
-            self.VALUE_FAMILY = family
 
     @property
     def format_method(self) -> str:
@@ -266,28 +243,28 @@ class WindowFunctionCall(
         return "format_window_function_call"
 
 
-class JSONExpression(
+class JSONDocumentExpression(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     JSONAccessorMixin,
     SQLValueExpression,
 ):
-    """Represents JSON operations like json->, json->>.
+    """A JSON document reached by path -- ``->``.
 
-    The *mode* parameter controls how the expression is rendered:
-    - ``JSONPathMode.AUTO`` (default / None): use arrow operators if the
-      dialect supports them, otherwise fall back to function-based formatting.
-    - ``JSONPathMode.ARROW``: force arrow operators (-> / ->>); raises
-      UnsupportedFeatureError if the dialect does not support them.
-    - ``JSONPathMode.FUNCTION``: force function-based formatting (e.g. JSON_EXTRACT).
+    :meth:`~...expression.mixins.JSONAccessorMixin.json_value` returns one of
+    these and ``.json_value("b")`` must work on it, so the accessor mixin is
+    here as well as on :class:`~...expression.column_types.JSONColumn`.
 
-    It carries :class:`~...expression.mixins.JSONAccessorMixin` so a path
-    access can be chained: ``col.json_value("a")`` returns one of these, and
-    ``.json_value("b")`` must be available on it. The mixin is on
-    ``JSONColumn`` too; without it on both, the second call would fail.
+    Not available: ``like`` / ``ilike`` and arithmetic. Those apply to the text
+    a scalar path access returns, not to the document it navigated. Use
+    :meth:`~...expression.mixins.JSONAccessorMixin.json_path` for the text
+    form, which arrives as :class:`JSONTextExpression`.
+
+    Split from that sibling rather than sharing one class: the two operations
+    yield different types, and a single class could only offer the union of
+    their operations to both.
     """
 
     def __init__(
@@ -305,16 +282,31 @@ class JSONExpression(
         self.operation = operation
         self.alias = alias
         self.mode = JSONPathMode.from_value(mode)
-        # `->` hands back a document, `->>` hands back text. One class serves
-        # both, so the operation is what decides the family, and the result
-        # is chained accordingly: json->'a'->>'b' is legal, the reverse
-        # narrowing a document to a string and back is not.
-        self.VALUE_FAMILY = STRING if operation == "->>" else JSON
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_json_expression"
+
+
+class JSONTextExpression(
+    JSONDocumentExpression,
+    StringValueMixin,
+    StringPatternPredicateMixin,
+):
+    """A JSON path access that yielded **text** -- ``->>``.
+
+    The sibling of :class:`JSONDocumentExpression`, and the reason that one is
+    split from this: ``->`` hands back a document and ``->>`` hands back a
+    scalar, and they are different types with different operations. It used to
+    be one class whose ``operation`` decided the answer at construction, which
+    meant the operations on offer could not be read off the class -- a JSON
+    document would offer ``like``, because the one class could be either.
+
+    Text is the narrower of the two, so chaining continues: ``->>`` yields a
+    scalar and a scalar cannot be navigated further. ``->`` yields a document
+    and can be, which is why this class is the one without ``like``.
+    """
 
 
 class ArrayExpression(

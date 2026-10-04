@@ -13,7 +13,6 @@ from rhosocial.activerecord.backend.expression import (
     WindowFunctionCall,
     WindowSpecification,
     WindowFrameSpecification,
-    JSONExpression,
     ArrayExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -174,7 +173,7 @@ class TestAdvancedExpressions:
         assert sql == expected
         assert params == ()
 
-    # --- JSONExpression ---
+    # --- JSONDocumentExpression ---
     @pytest.mark.parametrize(
         "col_name, path, operation, expected_sql, expected_params",
         [
@@ -187,7 +186,7 @@ class TestAdvancedExpressions:
     ):
         """Tests JSON path extraction operations."""
         json_col = Column(dummy_dialect, col_name)
-        json_expr = JSONExpression(dummy_dialect, json_col, path, operation=operation)
+        json_expr = JSONDocumentExpression(dummy_dialect, json_col, path, operation=operation)
         sql, params = json_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params

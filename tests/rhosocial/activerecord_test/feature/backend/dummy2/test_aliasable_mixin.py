@@ -11,7 +11,7 @@ from rhosocial.activerecord.backend.expression import Literal, Column, FunctionC
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    JSONExpression,
+    JSONDocumentExpression,
     ArrayExpression,
     OrderedSetAggregation,
 )
@@ -107,16 +107,16 @@ class TestAliasableMixin:
         assert params == ()
 
     def test_json_expression_alias_initialization(self, dummy_dialect: DummyDialect):
-        """Test JSONExpression with alias specified during initialization."""
-        json_expr = JSONExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name", alias="name_field")
+        """Test JSONDocumentExpression with alias specified during initialization."""
+        json_expr = JSONDocumentExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name", alias="name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
         assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'
         assert params == ()
 
     def test_json_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
-        """Test JSONExpression with alias specified using as_() method."""
-        json_expr = JSONExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name").as_("name_field")
+        """Test JSONDocumentExpression with alias specified using as_() method."""
+        json_expr = JSONDocumentExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name").as_("name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
         assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'

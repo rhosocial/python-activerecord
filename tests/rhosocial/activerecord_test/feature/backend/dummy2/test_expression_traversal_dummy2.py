@@ -70,7 +70,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
     ArrayExpression,
     CaseExpression,
     ExistsExpression,
-    JSONExpression,
+    JSONDocumentExpression,
     OrderedSetAggregation,
     WindowClause,
     WindowDefinition,
@@ -302,8 +302,8 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(dialect=d, subquery=Subquery(d, "SELECT 1")),
     ),
     dict(
-        name="JSONExpression",
-        cls=JSONExpression,
+        name="JSONDocumentExpression",
+        cls=JSONDocumentExpression,
         params_func=lambda d: dict(dialect=d, column=Column(d, "data"), path="$.key", operation="->"),
     ),
     dict(

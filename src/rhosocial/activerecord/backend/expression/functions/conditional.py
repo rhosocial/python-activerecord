@@ -4,12 +4,64 @@
 from typing import Any, Union, Optional, TYPE_CHECKING, overload
 
 from ..bases import BaseExpression, SQLValueExpression
-from ..column_types import IntegerColumn, NumericColumn, result_class_of
-from ..core import FunctionCall, IntegerValueExpression, Literal, NumericValueExpression
+from ..column_types import (
+    ArrayColumn,
+    BooleanColumn,
+    DateTimeColumn,
+    IntegerColumn,
+    JSONColumn,
+    NumericColumn,
+    StringColumn,
+)
+from ..core import (
+    ArrayValueExpression,
+    BooleanValueExpression,
+    TimestampValueExpression,
+    FunctionCall,
+    IntegerValueExpression,
+    JSONValueExpression,
+    Literal,
+    NumericValueExpression,
+    StringValueExpression,
+)
 from ..advanced_functions import CaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+
+
+def _result_class_for(expr: object):
+    """The value class an operation over *expr* hands back, or ``None``.
+
+    This is the answer to one question asked inside this module: *GREATEST* and
+    *NULLIF* both answer with the kind of thing they were given. Nothing in the
+    expression tree records that — it is what the *column class* already says,
+    so it is read off the class rather than off an attribute that duplicates it.
+
+    ``None`` is a real answer, not a failure: a ``Literal`` and an
+    ``AnyColumn`` say nothing about what a database would hand back, so an
+    operation over them stays untyped rather than guessing.
+
+    The checks are ordered narrowest-first because the numeric classes derive
+    from one another, and ``isinstance`` walks the MRO: an ``IntegerColumn``
+    is a ``NumericColumn``, and it must be recognised as an integer before the
+    numeric branch sees it.
+    """
+    if isinstance(expr, IntegerColumn):
+        return IntegerValueExpression
+    if isinstance(expr, StringColumn):
+        return StringValueExpression
+    if isinstance(expr, DateTimeColumn):
+        return TimestampValueExpression
+    if isinstance(expr, JSONColumn):
+        return JSONValueExpression
+    if isinstance(expr, ArrayColumn):
+        return ArrayValueExpression
+    if isinstance(expr, BooleanColumn):
+        return BooleanValueExpression
+    if isinstance(expr, NumericColumn):
+        return NumericValueExpression
+    return None
 
 
 def case(
@@ -39,7 +91,7 @@ def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQ
     argument or the widest, either of which would promise a surface the
     database does not.
     """
-    classes = {result_class_of(e) for e in exprs}
+    classes = {_result_class_for(e) for e in exprs}
     if len(classes) == 1 and None not in classes:
         return classes.pop()(dialect, call)
     return call
@@ -92,7 +144,7 @@ def nullif(
     value_expr = value if isinstance(value, BaseExpression) else Literal(dialect, value)
     null_expr = null_value if isinstance(null_value, BaseExpression) else Literal(dialect, null_value)
     call = FunctionCall(dialect, "NULLIF", value_expr, null_expr)
-    result = result_class_of(value_expr)
+    result = _result_class_for(value_expr)
     if result is not None:
         return result(dialect, call)
     return call

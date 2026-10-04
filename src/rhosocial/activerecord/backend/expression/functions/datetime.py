@@ -4,10 +4,12 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..value_types import DATE, DATETIME, TIME
 from ..core import (
     Column,
-    DateTimeValueExpression,
+    DateValueExpression,
+    TemporalValueExpression,
+    TimeValueExpression,
+    TimestampValueExpression,
     FunctionCall,
     IntegerValueExpression,
     Literal,
@@ -26,7 +28,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def now(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
+def now(dialect: "SQLDialectBase") -> "TemporalValueExpression":
     """
     Creates a NOW scalar function call.
 
@@ -34,12 +36,12 @@ def now(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
         dialect: The SQL dialect instance
 
     Returns:
-        A DateTimeValueExpression wrapping NOW
+        A TimestampValueExpression wrapping NOW
     """
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'NOW'))
+    return TimestampValueExpression(dialect, FunctionCall(dialect, 'NOW'))
 
 
-def current_date(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
+def current_date(dialect: "SQLDialectBase") -> "TemporalValueExpression":
     """
     Creates a CURRENT_DATE niladic value function.
 
@@ -50,12 +52,12 @@ def current_date(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
         dialect: The SQL dialect instance
 
     Returns:
-        A DateTimeValueExpression wrapping CURRENT_DATE
+        A DateValueExpression wrapping CURRENT_DATE
     """
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_DATE', niladic=True), family=DATE)
+    return DateValueExpression(dialect, FunctionCall(dialect, 'CURRENT_DATE', niladic=True))
 
 
-def current_time(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
+def current_time(dialect: "SQLDialectBase") -> "TemporalValueExpression":
     """
     Creates a CURRENT_TIME niladic value function.
 
@@ -66,9 +68,9 @@ def current_time(dialect: "SQLDialectBase") -> "DateTimeValueExpression":
         dialect: The SQL dialect instance
 
     Returns:
-        A DateTimeValueExpression wrapping CURRENT_TIME
+        A TimeValueExpression wrapping CURRENT_TIME
     """
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIME', niladic=True), family=TIME)
+    return TimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIME', niladic=True))
 
 
 def year(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
@@ -207,7 +209,7 @@ def date_trunc(dialect: "SQLDialectBase", field: str, expr: "BaseExpression") ->
 
 def current_timestamp(
     dialect: "SQLDialectBase", precision: Optional[int] = None
-) -> "DateTimeValueExpression":
+) -> "TemporalValueExpression":
     """
     Creates a CURRENT_TIMESTAMP niladic value function.
 
@@ -224,16 +226,16 @@ def current_timestamp(
         precision: Optional fractional seconds precision
 
     Returns:
-        A DateTimeValueExpression wrapping CURRENT_TIMESTAMP
+        A TimeValueExpression wrapping CURRENT_TIMESTAMP
     """
     if precision is not None:
         return FunctionCall(dialect, "CURRENT_TIMESTAMP", Literal(dialect, precision))
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIMESTAMP', niladic=True), family=DATETIME)
+    return TimestampValueExpression(dialect, FunctionCall(dialect, 'CURRENT_TIMESTAMP', niladic=True))
 
 
 def localtimestamp(
     dialect: "SQLDialectBase", precision: Optional[int] = None
-) -> "DateTimeValueExpression":
+) -> "TemporalValueExpression":
     """
     Creates a LOCALTIMESTAMP niladic value function.
 
@@ -250,11 +252,11 @@ def localtimestamp(
         precision: Optional fractional seconds precision
 
     Returns:
-        A DateTimeValueExpression wrapping LOCALTIMESTAMP
+        A TimestampValueExpression wrapping LOCALTIMESTAMP
     """
     if precision is not None:
         return FunctionCall(dialect, "LOCALTIMESTAMP", Literal(dialect, precision))
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'LOCALTIMESTAMP', niladic=True), family=DATETIME)
+    return TimestampValueExpression(dialect, FunctionCall(dialect, 'LOCALTIMESTAMP', niladic=True))
 
 
 def extract(dialect: "SQLDialectBase", field: str, expr: "BaseExpression") -> "ExtractExpression":

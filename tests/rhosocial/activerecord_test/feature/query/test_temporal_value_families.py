@@ -16,7 +16,14 @@ import datetime
 import pytest
 
 from rhosocial.activerecord.backend.expression import functions as datetime_functions
-from rhosocial.activerecord.backend.expression.core import DateTimeValueExpression
+from rhosocial.activerecord.backend.expression.core import (
+    DateValueExpression,
+    TimeValueExpression,
+    TimestampValueExpression,
+    IntervalValueExpression,
+    NumericValueExpression,
+    IntegerValueExpression,
+)
 from rhosocial.activerecord.backend.expression.datetime import (
     DatePartExpression,
     DateTimeAddExpression,
@@ -25,15 +32,6 @@ from rhosocial.activerecord.backend.expression.datetime import (
     DateTruncExpression,
     ExtractExpression,
     IntervalExpression,
-)
-from rhosocial.activerecord.backend.expression.value_types import (
-    DATE,
-    DATETIME,
-    INTEGER,
-    INTERVAL,
-    NUMERIC,
-    TIME,
-    value_type_of,
 )
 
 
@@ -59,18 +57,23 @@ def timestamp(dialect):
 
 
 @pytest.mark.parametrize(
-    "factory, expected",
+    "factory, cls",
     [
-        ("now", DATETIME),
-        ("current_timestamp", DATETIME),
-        ("localtimestamp", DATETIME),
-        ("current_date", DATE),
-        ("current_time", TIME),
+        ("now", TimestampValueExpression),
+        ("current_timestamp", TimestampValueExpression),
+        ("localtimestamp", TimestampValueExpression),
+        ("current_date", DateValueExpression),
+        ("current_time", TimeValueExpression),
     ],
 )
-def test_the_present_keeps_its_precision(dialect, factory, expected):
-    """A date is not a timestamp and a time is not either."""
-    assert value_type_of(getattr(datetime_functions, factory)(dialect)) == expected
+def test_the_present_keeps_its_precision(dialect, factory, cls):
+    """A date is not a timestamp and a time is not either.
+
+    Four separate classes now, where there was one class and a label saying
+    which it was standing in for. Each factory returns the class its own
+    precision calls for, and that is readable off the result.
+    """
+    assert isinstance(getattr(datetime_functions, factory)(dialect), cls)
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +85,7 @@ def test_the_present_keeps_its_precision(dialect, factory, expected):
     "factory", ["year", "month", "day", "hour", "minute", "second"]
 )
 def test_a_component_is_a_whole_number(dialect, timestamp, factory):
-    assert value_type_of(getattr(datetime_functions, factory)(dialect, timestamp)) == INTEGER
+    assert isinstance(getattr(datetime_functions, factory)(dialect, timestamp), IntegerValueExpression)
 
 
 def test_a_component_takes_arithmetic_and_not_string_operations(dialect, timestamp):
@@ -103,12 +106,12 @@ def test_extraction_is_numeric(dialect, timestamp, factory):
     """``EXTRACT(EPOCH FROM ts)`` is fractional, so the family is too wide to
     be a whole number. Widening here is deliberate: claiming integer would
     offer ``bit_length`` on a value that may be a million and a half."""
-    assert value_type_of(getattr(datetime_functions, factory)(dialect, "year", timestamp)) == NUMERIC
+    assert isinstance(getattr(datetime_functions, factory)(dialect, "year", timestamp), NumericValueExpression)
 
 
 def test_date_diff_counts_whole_units(dialect):
     now = datetime_functions.now(dialect)
-    assert value_type_of(now.date_diff("day", now)) == INTEGER
+    assert isinstance(now.date_diff("day", now), IntegerValueExpression)
 
 
 # ---------------------------------------------------------------------------
@@ -117,47 +120,50 @@ def test_date_diff_counts_whole_units(dialect):
 
 
 def test_truncation_stays_a_timestamp(dialect):
-    assert value_type_of(datetime_functions.now(dialect).date_trunc("day")) == DATETIME
+    assert isinstance(datetime_functions.now(dialect).date_trunc("day"), TimestampValueExpression)
 
 
 @pytest.mark.parametrize("method", ["date_add", "date_sub"])
 def test_shifting_time_stays_a_timestamp(dialect, method):
     now = datetime_functions.now(dialect)
     result = getattr(now, method)(1, "days")
-    assert value_type_of(result) == DATETIME
+    assert isinstance(result, TimestampValueExpression)
     assert isinstance(result, (DateTimeAddExpression, DateTimeSubtractExpression))
 
 
 def test_an_interval_is_its_own_family(dialect):
     """A span is not a point in time, which is why date_add takes one."""
-    assert value_type_of(datetime_functions.interval(dialect, 1, "day")) == INTERVAL
+    assert isinstance(datetime_functions.interval(dialect, 1, "day"), IntervalValueExpression)
 
 
 # ---------------------------------------------------------------------------
-# Nodes that have their own class declare their family on it
+# A node with a class of its own is its type; there is nothing to declare
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
-    "cls, expected",
+    "factory, args, result_cls",
     [
-        (ExtractExpression, NUMERIC),
-        (DatePartExpression, NUMERIC),
-        (DateTruncExpression, DATETIME),
-        (IntervalExpression, INTERVAL),
-        (DateTimeAddExpression, DATETIME),
-        (DateTimeSubtractExpression, DATETIME),
-        (DateTimeDiffExpression, INTEGER),
+        ("extract", ("year",), NumericValueExpression),
+        ("date_part", ("year",), NumericValueExpression),
+        ("interval", (1, "day"), IntervalValueExpression),
+        ("date_diff", ("day",), IntegerValueExpression),
     ],
 )
-def test_a_dedicated_node_declares_its_family(cls, expected):
-    """No wrapper needed: the class already exists, so it says what it is."""
-    assert value_type_of(cls) == expected
+def test_a_temporal_operation_yields_its_own_type(dialect, timestamp, factory, args, result_cls):
+    """What a temporal operation yields is decided where it is built.
 
-
-# ---------------------------------------------------------------------------
-# One class, four temporal families
-# ---------------------------------------------------------------------------
+    ``EXTRACT`` yields a number and ``DATE_DIFF`` a whole number; each is
+    decided by the factory that builds the node, and neither needed a label to
+    say so afterwards.
+    """
+    if factory == "interval":
+        result = getattr(datetime_functions, factory)(dialect, *args)
+    elif factory == "date_diff":
+        result = getattr(datetime_functions, factory)(dialect, *args, timestamp, timestamp)
+    else:
+        result = getattr(datetime_functions, factory)(dialect, *args, timestamp)
+    assert isinstance(result, result_cls)
 
 
 def test_a_temporal_value_offers_temporal_operations(dialect):
@@ -170,15 +176,20 @@ def test_a_temporal_value_does_not_offer_string_operations(dialect):
     assert not hasattr(datetime_functions.now(dialect), "upper")
 
 
-@pytest.mark.parametrize("family", [DATETIME, DATE, TIME, INTERVAL])
-def test_one_class_serves_every_temporal_family(dialect, family):
-    """They offer the same operations, so they share a class, but the family
-    is still reported because it is what a result propagates."""
+@pytest.mark.parametrize(
+    "cls",
+    [TimestampValueExpression, DateValueExpression, TimeValueExpression,
+     IntervalValueExpression],
+)
+def test_each_temporal_type_is_its_own_class(dialect, cls):
+    """They offer the same operations, so they share a base -- but they are four
+    different types, and each says so with its own class."""
     from rhosocial.activerecord.backend.expression import FunctionCall
+    from rhosocial.activerecord.backend.expression.core import TemporalValueExpression
 
-    wrapped = DateTimeValueExpression(dialect, FunctionCall(dialect, "SOME_FUNC"), family)
-    assert isinstance(wrapped, DateTimeValueExpression)
-    assert value_type_of(wrapped) == family
+    wrapped = cls(dialect, FunctionCall(dialect, "SOME_FUNC"))
+    assert isinstance(wrapped, cls)
+    assert isinstance(wrapped, TemporalValueExpression)
     assert hasattr(wrapped, "date_add")
 
 
@@ -187,11 +198,11 @@ def test_the_sql_does_not_change_when_a_value_is_wrapped(dialect, timestamp):
     from rhosocial.activerecord.backend.expression import FunctionCall
 
     call = FunctionCall(dialect, "MY_FUNC", timestamp)
-    assert DateTimeValueExpression(dialect, call, DATETIME).to_sql() == call.to_sql()
+    assert TimestampValueExpression(dialect, call).to_sql() == call.to_sql()
 
 
 def test_an_alias_survives_wrapping(dialect, timestamp):
     from rhosocial.activerecord.backend.expression import FunctionCall
 
     call = FunctionCall(dialect, "MY_FUNC", timestamp)
-    assert " AS " in DateTimeValueExpression(dialect, call, DATETIME).as_("when").to_sql()[0]
+    assert " AS " in TimestampValueExpression(dialect, call).as_("when").to_sql()[0]

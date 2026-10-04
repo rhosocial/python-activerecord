@@ -10,7 +10,6 @@ dialect through the subtree, and hands it to the declared formatter.
 
 from typing import Any, Optional, Tuple, List, TYPE_CHECKING
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
-from .value_types import STRING
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -62,7 +61,6 @@ class StringConcatExpression(
     BinaryExpression,
 ):
 
-    VALUE_FAMILY = STRING
     """String concatenation, stated as an intent rather than an operator.
 
     ``||`` is the SQL standard's concatenation operator and PostgreSQL,

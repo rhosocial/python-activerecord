@@ -5,13 +5,35 @@ from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
-from ..column_types import family_of_result
-from ..value_types import INTEGER, NUMERIC
-from ..core import Column, WildcardExpression
+from ..column_types import IntegerColumn
+from ..core import (
+    Column,
+    WildcardExpression,
+    IntegerValueExpression,
+    NumericValueExpression,
+)
 from ..operators import RawSQLExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+
+
+def _typed(call: AggregateFunctionCall, target: BaseExpression):
+    """Wrap *call* in the value class matching *target*, when there is one.
+
+    A reduction answers with the kind of thing it was given: the minimum of an
+    integer is an integer, the minimum of a string is a string. The column class
+    already says which that is, so it is read off the class. ``COUNT`` is the
+    exception and always wraps in :class:`IntegerValueExpression`, because a
+    count is a count whatever it counted.
+
+    A target that says nothing -- a ``Literal``, an ``AnyColumn`` -- leaves the
+    call untyped. That is the honest answer: the database decides, and the
+    caller who needs a specific type says so with ``cast()``.
+    """
+    if isinstance(target, IntegerColumn):
+        return IntegerValueExpression(call._dialect, call)
+    return call
 
 
 def count(
@@ -48,7 +70,10 @@ def count(
         target_expr = expr
     else:
         target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "COUNT", target_expr, is_distinct=is_distinct, alias=alias, family=INTEGER)
+    return IntegerValueExpression(
+        dialect,
+        AggregateFunctionCall(dialect, "COUNT", target_expr, is_distinct=is_distinct, alias=alias),
+    )
 
 
 def sum_(
@@ -75,13 +100,15 @@ def sum_(
         An AggregateFunctionCall instance representing the SUM function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(
-        dialect,
-        "SUM",
+    return _typed(
+        AggregateFunctionCall(
+            dialect,
+            "SUM",
+            target_expr,
+            is_distinct=is_distinct,
+            alias=alias,
+        ),
         target_expr,
-        is_distinct=is_distinct,
-        alias=alias,
-        family=family_of_result(target_expr),
     )
 
 
@@ -109,7 +136,10 @@ def avg(
         An AggregateFunctionCall instance representing the AVG function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "AVG", target_expr, is_distinct=is_distinct, alias=alias, family=NUMERIC)
+    return NumericValueExpression(
+        dialect,
+        AggregateFunctionCall(dialect, "AVG", target_expr, is_distinct=is_distinct, alias=alias),
+    )
 
 
 def min_(
@@ -132,7 +162,7 @@ def min_(
         An AggregateFunctionCall instance representing the MIN function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "MIN", target_expr, alias=alias, family=family_of_result(target_expr))
+    return _typed(AggregateFunctionCall(dialect, "MIN", target_expr, alias=alias), target_expr)
 
 
 def max_(
@@ -155,4 +185,4 @@ def max_(
         An AggregateFunctionCall instance representing the MAX function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "MAX", target_expr, alias=alias, family=family_of_result(target_expr))
+    return _typed(AggregateFunctionCall(dialect, "MAX", target_expr, alias=alias), target_expr)

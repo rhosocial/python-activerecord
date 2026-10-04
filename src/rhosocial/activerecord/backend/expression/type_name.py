@@ -25,10 +25,6 @@ per-formatter check is a per-formatter bug waiting to happen — PostgreSQL's
 import re
 from typing import Optional
 
-from .value_types import (
-    BINARY, BOOLEAN, DATE, DATETIME, INTEGER, INTERVAL, JSON, NUMERIC, STRING,
-    TIME, UUID, XML,
-)
 
 #: Multi-word built-in type names. The only reason a type name is not a bare
 #: identifier, and enumerated rather than allowed through by permitting
@@ -76,71 +72,6 @@ class InvalidTypeNameError(ValueError):
             f"parentheses or a comment marker, because that position cannot "
             f"take a bound parameter."
         )
-
-
-#: The value family a type belongs to, keyed on the leading word of its name.
-#: It sits here beside the grammar because it answers the same question from
-#: the same input: what does this type name mean.
-#: Leading keywords of SQL type names, mapped to the family a cast to them
-#: produces. Matched as a prefix of the upper-cased name with any length or
-#: precision stripped, so ``VARCHAR(255)``, ``character varying`` and
-#: ``NVARCHAR2`` all land on a string.
-_SQL_TYPE_FAMILIES = (
-    ("BOOL", BOOLEAN),
-    ("BIT", BINARY),
-    ("VARCHAR", STRING),
-    ("CHARACTER", STRING),
-    ("CHAR", STRING),
-    ("TEXT", STRING),
-    ("STRING", STRING),
-    ("CLOB", STRING),
-    ("ENUM", STRING),
-    ("SET", STRING),
-    ("TINYINT", INTEGER),
-    ("SMALLINT", INTEGER),
-    ("MEDIUMINT", INTEGER),
-    ("INT", INTEGER),
-    ("SERIAL", INTEGER),
-    ("BIGINT", INTEGER),
-    ("NUMBER", NUMERIC),
-    ("NUMERIC", NUMERIC),
-    ("DECIMAL", NUMERIC),
-    ("DEC", NUMERIC),
-    ("FLOAT", NUMERIC),
-    ("DOUBLE", NUMERIC),
-    ("REAL", NUMERIC),
-    ("MONEY", NUMERIC),
-    ("DATE", DATETIME),
-    ("TIME", DATETIME),
-    ("JSON", JSON),
-    ("XML", XML),
-    ("BLOB", BINARY),
-    ("BYTEA", BINARY),
-    ("BINARY", BINARY),
-    ("RAW", BINARY),
-    ("IMAGE", BINARY),
-    ("UUID", UUID),
-    ("UNIQUEIDENTIFIER", UUID),
-)
-
-def family_for_sql_type_name(name: str) -> Optional[str]:
-    """Return the value family a SQL type name belongs to, or ``None``.
-
-    Args:
-        name: A SQL type name, with or without a length or precision.
-
-    Returns:
-        One of the value families, or ``None`` when unrecognised.
-    """
-    if not isinstance(name, str):
-        return None
-    stripped = name.split("(")[0].strip().upper()
-    for prefix, family in _SQL_TYPE_FAMILIES:
-        if stripped.startswith(prefix):
-            return family
-    if stripped.startswith("N") and stripped[1:]:
-        return family_for_sql_type_name(stripped[1:])
-    return None
 
 
 def is_valid_type_name(value: object) -> bool:
@@ -195,7 +126,6 @@ def validate_type_name(value: object) -> str:
 
 __all__ = [
     "InvalidTypeNameError",
-    "family_for_sql_type_name",
     "MULTI_WORD_TYPE_NAMES",
     "is_valid_type_name",
     "validate_type_name",

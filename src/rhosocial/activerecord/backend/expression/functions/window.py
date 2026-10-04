@@ -4,28 +4,47 @@
 from typing import Union, Optional, Any, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..column_types import family_of_result
-from ..value_types import INTEGER
-from ..core import Column, Literal
+from ..column_types import IntegerColumn
+from ..core import Column, Literal, IntegerValueExpression
 from ..advanced_functions import WindowFunctionCall
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
+def _typed(call: WindowFunctionCall, target: BaseExpression):
+    """Wrap *call* in the value class matching *target*, when there is one.
+
+    A window function over a value hands that value back: ``LAG`` over a string
+    answers with a string. The column class already says which, so it is read
+    off the class rather than off an attribute duplicating it.
+
+    ``ROW_NUMBER``, ``RANK`` and ``DENSE_RANK`` are the exception -- they count
+    or place rows and are always whole numbers -- so they always wrap in
+    :class:`IntegerValueExpression`.
+    """
+    if isinstance(target, IntegerColumn):
+        return IntegerValueExpression(call._dialect, call)
+    return call
+
+
 def row_number(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "WindowFunctionCall":
     """Creates a ROW_NUMBER window function call."""
-    return WindowFunctionCall(dialect, "ROW_NUMBER", alias=alias, family=INTEGER)
+    return IntegerValueExpression(
+        dialect, WindowFunctionCall(dialect, "ROW_NUMBER", alias=alias)
+    )
 
 
 def rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "WindowFunctionCall":
     """Creates a RANK window function call."""
-    return WindowFunctionCall(dialect, "RANK", alias=alias, family=INTEGER)
+    return IntegerValueExpression(dialect, WindowFunctionCall(dialect, "RANK", alias=alias))
 
 
 def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "WindowFunctionCall":
     """Creates a DENSE_RANK window function call."""
-    return WindowFunctionCall(dialect, "DENSE_RANK", alias=alias, family=INTEGER)
+    return IntegerValueExpression(
+        dialect, WindowFunctionCall(dialect, "DENSE_RANK", alias=alias)
+    )
 
 
 def lag(
@@ -56,7 +75,7 @@ def lag(
     args = [target_expr, Literal(dialect, offset)]
     if default is not None:
         args.append(Literal(dialect, default))
-    return WindowFunctionCall(dialect, "LAG", args=args, alias=alias, family=family_of_result(target_expr))
+    return _typed(WindowFunctionCall(dialect, "LAG", args=args, alias=alias), target_expr)
 
 
 def lead(
@@ -88,7 +107,7 @@ def lead(
     args = [target_expr, Literal(dialect, offset)]
     if default is not None:
         args.append(Literal(dialect, default))
-    return WindowFunctionCall(dialect, "LEAD", args=args, alias=alias, family=family_of_result(target_expr))
+    return _typed(WindowFunctionCall(dialect, "LEAD", args=args, alias=alias), target_expr)
 
 
 def first_value(
@@ -110,8 +129,9 @@ def first_value(
         A WindowFunctionCall instance representing the FIRST_VALUE function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return WindowFunctionCall(
-        dialect, "FIRST_VALUE", args=[target_expr], alias=alias, family=family_of_result(target_expr)
+    return _typed(
+        WindowFunctionCall(dialect, "FIRST_VALUE", args=[target_expr], alias=alias),
+        target_expr,
     )
 
 
@@ -134,9 +154,10 @@ def last_value(
         A WindowFunctionCall instance representing the LAST_VALUE function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return WindowFunctionCall(
-        dialect, "LAST_VALUE", args=[target_expr], alias=alias,
-        family=family_of_result(target_expr))
+    return _typed(
+        WindowFunctionCall(dialect, "LAST_VALUE", args=[target_expr], alias=alias),
+        target_expr,
+    )
 
 
 def nth_value(
@@ -160,6 +181,7 @@ def nth_value(
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     n_expr = Literal(dialect, n)
-    return WindowFunctionCall(
-        dialect, "NTH_VALUE", args=[target_expr, n_expr], alias=alias, family=family_of_result(target_expr)
+    return _typed(
+        WindowFunctionCall(dialect, "NTH_VALUE", args=[target_expr, n_expr], alias=alias),
+        target_expr,
     )

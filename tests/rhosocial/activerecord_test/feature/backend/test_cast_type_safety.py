@@ -12,17 +12,29 @@ import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.expression.type_name import (
-    InvalidTypeNameError,
-    family_for_sql_type_name,
-    is_valid_type_name,
-    validate_type_name,
-)
 from rhosocial.activerecord.backend.expression.types import (
     CustomType,
     DecimalType,
     IntType,
     TextType,
+)
+from rhosocial.activerecord.backend.expression.advanced_functions import (
+    JSONTextExpression,
+    JSONDocumentExpression,
+)
+from rhosocial.activerecord.backend.expression.core import (
+    NumericValueExpression,
+    IntegerValueExpression,
+    StringValueExpression,
+    BooleanValueExpression,
+    BinaryValueExpression,
+    UUIDValueExpression,
+    JSONValueExpression,
+    ArrayValueExpression,
+    TimestampValueExpression,
+    DateValueExpression,
+    TimeValueExpression,
+    IntervalValueExpression,
 )
 
 #: Payloads that turn a cast target into a second statement, a subquery, or a
@@ -75,20 +87,6 @@ def sqlite_dialect():
     return SQLiteDialect()
 
 
-FAMILIES = [
-    ("INTEGER", "integer"),
-    ("bigint", "integer"),
-    ("numeric(10,2)", "numeric"),
-    ("VARCHAR(10)", "string"),
-    ("boolean", "boolean"),
-    ("timestamp with time zone", "datetime"),
-    ("jsonb", "json"),
-    ("uuid", "uuid"),
-    ("xml", "xml"),
-    ("blob", "binary"),
-]
-
-
 class TestTypeNameGrammar:
     """A type name is a name, so it is parsed as one."""
 
@@ -111,13 +109,40 @@ class TestTypeNameGrammar:
         assert is_valid_type_name(None) is False
         assert is_valid_type_name(123) is False
 
-    @pytest.mark.parametrize("name,family", FAMILIES)
-    def test_family_matches_the_type(self, name, family):
-        assert family_for_sql_type_name(name) == family
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "INTEGER",
+            "bigint",
+            "numeric(10,2)",
+            "VARCHAR(10)",
+            "boolean",
+            "timestamp with time zone",
+            "jsonb",
+            "uuid",
+            "xml",
+            "blob",
+        ],
+    )
+    def test_real_type_names_are_accepted_as_names(self, name):
+        """Each of these is a type a database has.
 
-    def test_unknown_name_has_no_family(self):
-        """An unrecognised type is unknown rather than guessed."""
-        assert family_for_sql_type_name("some_extension_type") is None
+        They used to be pinned to the value family a cast to them produces,
+        which no longer exists: ``cast`` now answers with the class of the type
+        it was handed, so there is no name-to-family table to be right about.
+        What still matters is that the name is recognised as a name, whatever
+        the type behind it means.
+        """
+        assert is_valid_type_name(name)
+
+    def test_an_unknown_type_name_is_still_a_valid_name(self):
+        """Grammar and meaning are separate questions.
+
+        ``some_extension_type`` names nothing this package knows, but it is
+        still shaped like a type name, so it passes the grammar and fails at
+        the dialect that cannot render it -- not here.
+        """
+        assert is_valid_type_name("some_extension_type")
 
 
 class TestCastRequiresADataType:

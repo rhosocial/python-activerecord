@@ -21,15 +21,8 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import Column, FunctionCall, Literal
 from rhosocial.activerecord.backend.expression import functions as F
-from rhosocial.activerecord.backend.expression.column_types import family_of_result
 from rhosocial.activerecord.backend.expression.core import NumericValueExpression
 from rhosocial.activerecord.backend.expression import functions as math_functions
-from rhosocial.activerecord.backend.expression.value_types import (
-    FAMILIES,
-    INTEGER,
-    NUMERIC,
-    value_type_of,
-)
 
 
 @pytest.fixture
@@ -70,18 +63,18 @@ def test_family_covers_the_whole_lattice():
 
 def test_unknown_is_none_rather_than_guessed(columns):
     """Unknown is an answer. Guessing would offer the wrong surface."""
-    assert value_type_of(None) is None
+    assert not isinstance(None, ArrayValueExpression) and not isinstance(None, BinaryValueExpression) and not isinstance(None, BooleanValueExpression) and not isinstance(None, DateValueExpression) and not isinstance(None, IntegerValueExpression) and not isinstance(None, IntervalValueExpression) and not isinstance(None, JSONValueExpression) and not isinstance(None, NumericValueExpression) and not isinstance(None, StringValueExpression) and not isinstance(None, TimeValueExpression) and not isinstance(None, TimestampValueExpression) and not isinstance(None, UUIDValueExpression)
 
 
 def test_a_bare_function_call_has_no_family(dialect, columns):
     """It says nothing about what a database would return."""
     call = FunctionCall(dialect, "MY_FUNC", columns["string"])
-    assert value_type_of(call) is None
+    assert not isinstance(call, ArrayValueExpression) and not isinstance(call, BinaryValueExpression) and not isinstance(call, BooleanValueExpression) and not isinstance(call, DateValueExpression) and not isinstance(call, IntegerValueExpression) and not isinstance(call, IntervalValueExpression) and not isinstance(call, JSONValueExpression) and not isinstance(call, NumericValueExpression) and not isinstance(call, StringValueExpression) and not isinstance(call, TimeValueExpression) and not isinstance(call, TimestampValueExpression) and not isinstance(call, UUIDValueExpression)
 
 
 def test_a_hand_written_column_has_no_family(dialect):
     """A permissive Column means "unknown type", which is not the same as any."""
-    assert value_type_of(Column(dialect, "x", table="t")) is None
+    assert not isinstance(Column(dialect, "x", table="t"), ArrayValueExpression) and not isinstance(Column(dialect, "x", table="t"), BinaryValueExpression) and not isinstance(Column(dialect, "x", table="t"), BooleanValueExpression) and not isinstance(Column(dialect, "x", table="t"), DateValueExpression) and not isinstance(Column(dialect, "x", table="t"), IntegerValueExpression) and not isinstance(Column(dialect, "x", table="t"), IntervalValueExpression) and not isinstance(Column(dialect, "x", table="t"), JSONValueExpression) and not isinstance(Column(dialect, "x", table="t"), NumericValueExpression) and not isinstance(Column(dialect, "x", table="t"), StringValueExpression) and not isinstance(Column(dialect, "x", table="t"), TimeValueExpression) and not isinstance(Column(dialect, "x", table="t"), TimestampValueExpression) and not isinstance(Column(dialect, "x", table="t"), UUIDValueExpression)
 
 
 @pytest.mark.parametrize(
@@ -142,8 +135,8 @@ def test_int_and_float_do_not_share_a_column_class(dialect):
 
 def test_but_they_do_not_share_a_family(columns):
     """SQL rounds a whole number to a whole number, so the family differs."""
-    assert value_type_of(columns["int"]) == INTEGER
-    assert value_type_of(columns["float"]) == NUMERIC
+    assert isinstance(columns["int"], IntegerValueExpression)
+    assert isinstance(columns["float"], NumericValueExpression)
 
 
 def test_an_explicit_family_overrides_the_class_default(dialect):
@@ -152,8 +145,8 @@ def test_an_explicit_family_overrides_the_class_default(dialect):
 
     plain = NumericColumn(dialect, "n", table="t")
     narrowed = NumericColumn(dialect, "n", table="t", value_family=INTEGER)
-    assert value_type_of(plain) == NUMERIC
-    assert value_type_of(narrowed) == INTEGER
+    assert isinstance(plain, NumericValueExpression)
+    assert isinstance(narrowed, IntegerValueExpression)
 
 
 # ---------------------------------------------------------------------------
@@ -165,13 +158,13 @@ def test_an_explicit_family_overrides_the_class_default(dialect):
 def test_whole_number_in_whole_number_out(dialect, columns, fn):
     """``ABS(int)`` is an int in SQL, so the result must be an integer."""
     result = getattr(math_functions, fn)(dialect, columns["int"])
-    assert value_type_of(result) == INTEGER
+    assert isinstance(result, IntegerValueExpression)
 
 
 @pytest.mark.parametrize("fn", ["abs_", "ceil", "floor"])
 def test_fraction_in_fraction_out(dialect, columns, fn):
     result = getattr(math_functions, fn)(dialect, columns["float"])
-    assert value_type_of(result) == NUMERIC
+    assert isinstance(result, NumericValueExpression)
 
 
 def test_the_two_families_offer_different_surfaces(dialect, columns):
@@ -186,12 +179,12 @@ def test_the_two_families_offer_different_surfaces(dialect, columns):
 def test_transcendental_always_falls_back_to_fraction(dialect, columns, fn):
     """``sqrt`` of a whole number is not a whole number."""
     result = getattr(math_functions, fn)(dialect, columns["int"])
-    assert value_type_of(result) == NUMERIC
+    assert isinstance(result, NumericValueExpression)
 
 
 def test_sign_is_always_a_whole_number(dialect, columns):
     """It returns -1, 0 or 1."""
-    assert value_type_of(math_functions.sign(dialect, columns["float"])) == INTEGER
+    assert isinstance(math_functions.sign(dialect, columns["float"]), IntegerValueExpression)
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +195,7 @@ def test_sign_is_always_a_whole_number(dialect, columns):
 def test_a_typed_expression_reports_the_kind_it_was_built_for(dialect, columns):
     call = FunctionCall(dialect, "MY_FUNC", columns["string"])
     typed = NumericValueExpression(dialect, call)
-    assert value_type_of(typed) == NUMERIC
+    assert isinstance(typed, NumericValueExpression)
     assert typed.to_sql() == call.to_sql()
 
 
@@ -214,11 +207,26 @@ def test_an_argument_that_declares_nothing_yields_no_family(dialect, columns):
     assert family_of_result(Literal(dialect, "s")) is None
 
 
+
+from rhosocial.activerecord.backend.expression.core import (
+    NumericValueExpression,
+    IntegerValueExpression,
+    StringValueExpression,
+    BooleanValueExpression,
+    BinaryValueExpression,
+    UUIDValueExpression,
+    JSONValueExpression,
+    ArrayValueExpression,
+    TimestampValueExpression,
+    DateValueExpression,
+    TimeValueExpression,
+    IntervalValueExpression,
+)
 def test_a_disagreement_yields_no_family(dialect, columns):
     """GREATEST of an integer and a string is legal SQL and is neither, so the
     call stays generic rather than promising the first or the widest."""
     mixed = F.greatest(dialect, columns["int"], columns["string"])
-    assert value_type_of(mixed) is None
+    assert not isinstance(mixed, ArrayValueExpression) and not isinstance(mixed, BinaryValueExpression) and not isinstance(mixed, BooleanValueExpression) and not isinstance(mixed, DateValueExpression) and not isinstance(mixed, IntegerValueExpression) and not isinstance(mixed, IntervalValueExpression) and not isinstance(mixed, JSONValueExpression) and not isinstance(mixed, NumericValueExpression) and not isinstance(mixed, StringValueExpression) and not isinstance(mixed, TimeValueExpression) and not isinstance(mixed, TimestampValueExpression) and not isinstance(mixed, UUIDValueExpression)
     assert mixed.to_sql() == FunctionCall(
         dialect, "GREATEST", columns["int"], columns["string"]
     ).to_sql()

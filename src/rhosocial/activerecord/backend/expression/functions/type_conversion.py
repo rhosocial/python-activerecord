@@ -6,7 +6,7 @@ from typing import Union, Optional, TYPE_CHECKING
 from ..bases import BaseExpression, SQLValueExpression
 from ..core import (
     Column,
-    DateTimeValueExpression,
+    TimestampValueExpression,
     NumericValueExpression,
     StringValueExpression,
     FunctionCall,
@@ -113,7 +113,7 @@ def to_number(
 
 def to_date(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], format: Optional[str] = None
-) -> "DateTimeValueExpression":
+) -> "TimestampValueExpression":
     """
     Creates a TO_DATE function call.
 
@@ -130,10 +130,10 @@ def to_date(
         format: Optional format string for conversion.
 
     Returns:
-        A DateTimeValueExpression wrapping TO_DATE
+        A TimestampValueExpression wrapping TO_DATE
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return DateTimeValueExpression(dialect, FunctionCall(dialect, 'TO_DATE', target_expr, format_expr))
-    return DateTimeValueExpression(dialect, FunctionCall(dialect, 'TO_DATE', target_expr))
+        return TimestampValueExpression(dialect, FunctionCall(dialect, 'TO_DATE', target_expr, format_expr))
+    return TimestampValueExpression(dialect, FunctionCall(dialect, 'TO_DATE', target_expr))

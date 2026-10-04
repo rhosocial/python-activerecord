@@ -5,10 +5,13 @@ import math
 from enum import Enum
 from typing import Any, Dict, TYPE_CHECKING, Union
 
-from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
-from .value_types import DATETIME, INTEGER, INTERVAL, NUMERIC
-from .mixins import AliasableMixin, ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, TypeCastingMixin
+from .mixins import (
+    AliasableMixin,
+    ComparisonMixin,
+    TypeCastingMixin,
+)
 
+from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
@@ -127,17 +130,20 @@ def validate_interval_value(value: Union[int, float]) -> Union[int, float]:
 
 class _TemporalValueExpression(
     AliasableMixin,
-    ArithmeticMixin,
     ComparisonMixin,
-    StringPatternPredicateMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
-    pass
+    """Shared base for the temporal operation nodes.
+
+    No ``StringPatternPredicateMixin``: a date, a time, a timestamp and a span
+    are not text, so ``like`` is not an operation any of them offers. The same
+    goes for arithmetic here — these nodes render, they do not compose — so the
+    surface is what every value can do and nothing more.
+    """
 
 
 class ExtractExpression(_TemporalValueExpression):
-    VALUE_FAMILY = NUMERIC
     """Represents extraction of a datetime field from an expression."""
 
     def __init__(
@@ -159,7 +165,6 @@ class ExtractExpression(_TemporalValueExpression):
 
 
 class DatePartExpression(_TemporalValueExpression):
-    VALUE_FAMILY = NUMERIC
     """Represents backend-specific date part extraction."""
 
     def __init__(
@@ -181,7 +186,6 @@ class DatePartExpression(_TemporalValueExpression):
 
 
 class DateTruncExpression(_TemporalValueExpression):
-    VALUE_FAMILY = DATETIME
     """Represents truncating a datetime expression to a field."""
 
     def __init__(
@@ -203,7 +207,6 @@ class DateTruncExpression(_TemporalValueExpression):
 
 
 class IntervalExpression(_TemporalValueExpression):
-    VALUE_FAMILY = INTERVAL
     """Represents a structured interval value."""
 
     def __init__(
@@ -225,7 +228,6 @@ class IntervalExpression(_TemporalValueExpression):
 
 
 class DateTimeAddExpression(_TemporalValueExpression):
-    VALUE_FAMILY = DATETIME
     """Represents adding an interval to a datetime expression."""
 
     def __init__(
@@ -247,7 +249,6 @@ class DateTimeAddExpression(_TemporalValueExpression):
 
 
 class DateTimeSubtractExpression(_TemporalValueExpression):
-    VALUE_FAMILY = DATETIME
     """Represents subtracting an interval from a datetime expression."""
 
     def __init__(
@@ -269,7 +270,6 @@ class DateTimeSubtractExpression(_TemporalValueExpression):
 
 
 class DateTimeDiffExpression(_TemporalValueExpression):
-    VALUE_FAMILY = INTEGER
     """Represents the difference between two datetime expressions."""
 
     def __init__(
