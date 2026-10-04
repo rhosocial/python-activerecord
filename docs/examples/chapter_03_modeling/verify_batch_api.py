@@ -175,6 +175,7 @@ def demonstrate_batch_dml() -> None:
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from rhosocial.activerecord.backend.expression import (
         InsertExpression,
+        TableExpression,
         ValuesSource,
         Literal,
     )
@@ -205,7 +206,7 @@ def demonstrate_batch_dml() -> None:
     exprs = [
         InsertExpression(
             dialect,
-            into="users",
+            into=TableExpression(dialect, "users"),
             columns=["name", "email"],
             source=ValuesSource(
                 dialect,

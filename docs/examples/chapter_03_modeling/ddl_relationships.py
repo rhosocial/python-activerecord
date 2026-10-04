@@ -12,7 +12,11 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableExpression
+from rhosocial.activerecord.backend.expression import (
+    ColumnDefinition,
+    CreateTableExpression,
+    TableExpression,
+)
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
