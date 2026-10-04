@@ -62,7 +62,7 @@ for table, cols, rows in sample_data:
     for row in rows:
         insert = InsertExpression(
             dialect=dialect,
-            into=table,
+            into=TableExpression(dialect, table),
             columns=cols,
             source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
         )

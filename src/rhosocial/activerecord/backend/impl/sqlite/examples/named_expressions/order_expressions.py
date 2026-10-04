@@ -19,6 +19,7 @@ dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
+    TableExpression,
     InsertExpression,
     ValuesSource,
     ColumnConstraint,
@@ -72,7 +73,7 @@ for table, data in [
     for row in data:
         insert = InsertExpression(
             dialect=dialect,
-            into=table,
+            into=TableExpression(dialect, table),
             columns=[name for name, _ in tables[[t for t, _ in tables].index(table)][1]],
             source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
         )
@@ -82,7 +83,6 @@ for table, data in [
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression, TableExpression  # noqa: E402
 
 
 def get_order(dialect, order_id: int):
