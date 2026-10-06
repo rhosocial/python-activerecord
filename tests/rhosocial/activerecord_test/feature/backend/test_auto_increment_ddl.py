@@ -21,6 +21,7 @@ from rhosocial.activerecord.backend.expression.types import (
     BooleanType, IntegerType, TextType, TimestampType, VarCharType,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 @pytest.fixture
@@ -36,7 +37,7 @@ def _pk():
 
 def _build_table(dialect):
     return CreateTableExpression(
-        dialect=dialect, table="test_tbl",
+        dialect=dialect, table=Table(dialect, 'test_tbl'),
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
             ColumnDefinition(dialect, "name", TextType(dialect),
@@ -63,7 +64,7 @@ class TestAutoIncrementDDL:
 
     def test_boolean_default_true(self, dialect):
         expr = CreateTableExpression(
-            dialect=dialect, table="bool_test",
+            dialect=dialect, table=Table(dialect, 'bool_test'),
             columns=[
                 ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
                 ColumnDefinition(dialect, "flag", BooleanType(dialect),
@@ -76,7 +77,7 @@ class TestAutoIncrementDDL:
 
     def test_timestamp_type(self, dialect):
         expr = CreateTableExpression(
-            dialect=dialect, table="ts_test",
+            dialect=dialect, table=Table(dialect, 'ts_test'),
             columns=[
                 ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
                 ColumnDefinition(dialect, "created_at", TimestampType(dialect=dialect)),

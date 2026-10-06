@@ -85,7 +85,7 @@ class TestBuildOwnerNamespace:
         class Outer(RelationManagementMixin, BaseModel):
             id: int
 
-        setattr(Outer, "Inner", Inner)
+        Outer.Inner = Inner
         ns = _build_owner_namespace(Outer)
         assert "Outer" in ns
         assert "Inner" in ns

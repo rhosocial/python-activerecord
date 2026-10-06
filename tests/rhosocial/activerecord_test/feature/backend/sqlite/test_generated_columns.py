@@ -14,6 +14,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 from rhosocial.activerecord.backend.expression import RawSQLExpression
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestGeneratedColumnsVersionSupport:
@@ -163,7 +164,7 @@ class TestGeneratedColumnsInCreateTable:
             ),
         ]
 
-        create_table = CreateTableExpression(dialect=dialect, table="order_items", columns=columns)
+        create_table = CreateTableExpression(dialect=dialect, table=Table(dialect, 'order_items'), columns=columns)
 
         sql, params = create_table.to_sql()
 
@@ -193,7 +194,7 @@ class TestGeneratedColumnsInCreateTable:
             ),
         ]
 
-        create_table = CreateTableExpression(dialect=dialect, table="users", columns=columns)
+        create_table = CreateTableExpression(dialect=dialect, table=Table(dialect, 'users'), columns=columns)
 
         sql, params = create_table.to_sql()
 

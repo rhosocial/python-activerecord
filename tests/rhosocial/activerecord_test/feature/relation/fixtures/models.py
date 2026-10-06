@@ -15,7 +15,7 @@ from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 from rhosocial.activerecord.base import DerivedField, FieldProxy
 from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.functions import (
-    json_extract_text, length, concat, coalesce
+    json_extract_text, length, coalesce
 )
 from rhosocial.activerecord.relation.descriptors import BelongsTo, HasMany, HasOne
 from rhosocial.activerecord.relation.async_descriptors import AsyncBelongsTo, AsyncHasMany, AsyncHasOne

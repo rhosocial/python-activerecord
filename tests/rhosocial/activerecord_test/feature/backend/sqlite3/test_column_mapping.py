@@ -7,6 +7,7 @@ from datetime import datetime
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # Configure logging for debugging
 logging.basicConfig(level=logging.INFO)
@@ -250,7 +251,7 @@ def test_insert_with_returning_columns_sql_construction(mapped_table_backend):
 
     insert_expr = InsertExpression(
         dialect=backend.dialect,
-        into=insert_options.table,
+        into=Table(backend.dialect, insert_options.table),
         source=values_source,
         columns=columns,
         returning=returning_clause,
@@ -355,7 +356,7 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
 
     update_expr = UpdateExpression(
         dialect=backend.dialect,
-        table=update_options.table,
+        table=Table(backend.dialect, update_options.table),
         assignments=assignments,
         where=update_options.where,
         returning=returning_clause,
@@ -458,7 +459,10 @@ def test_delete_with_returning_columns_sql_construction(mapped_table_backend):
     from rhosocial.activerecord.backend.expression import DeleteExpression
 
     delete_expr = DeleteExpression(
-        dialect=backend.dialect, tables=delete_options.table, where=delete_options.where, returning=returning_clause
+        dialect=backend.dialect,
+        tables=Table(backend.dialect, delete_options.table),
+        where=delete_options.where,
+        returning=returning_clause,
     )
 
     sql, params = delete_expr.to_sql()

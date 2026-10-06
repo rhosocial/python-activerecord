@@ -44,7 +44,7 @@ tables = [
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
-        table=table_name,
+        table=Table(dialect, table_name),
         columns=[ColumnDefinition(dialect, c.split()[0], c.split()[1]) for c in columns],
         if_not_exists=True,
     )
@@ -61,7 +61,7 @@ for table, cols, rows in sample_data:
     for row in rows:
         insert = InsertExpression(
             dialect=dialect,
-            into=table,
+            into=Table(dialect, table),
             columns=cols,
             source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
         )
@@ -75,6 +75,7 @@ for table, cols, rows in sample_data:
 from rhosocial.activerecord.backend.impl.sqlite.examples.named_procedures.order_workflow import (  # noqa: E402
     OrderProcessingProcedure,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 def main():

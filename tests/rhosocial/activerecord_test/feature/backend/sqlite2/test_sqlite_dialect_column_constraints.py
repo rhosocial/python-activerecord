@@ -18,6 +18,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteNumericType, SQLiteTextType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestColumnConstraintHandlers:
@@ -122,7 +123,7 @@ class TestColumnConstraintHandlers:
         """Test FOREIGN KEY constraint handler."""
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(dialect, 
-            constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"])
+            constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dialect, "users"), ["id"])
         )
 
         sql, params = dialect.format_column_fk_constraint(constraint)
@@ -134,7 +135,7 @@ class TestColumnConstraintHandlers:
         """Test FOREIGN KEY constraint with multiple columns."""
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(dialect, 
-            constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("orders", ["user_id", "order_id"])
+            constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dialect, "orders"), ["user_id", "order_id"])
         )
 
         sql, params = dialect.format_column_fk_constraint(constraint)
@@ -285,7 +286,7 @@ class TestFormatColumnDefinition:
             data_type=SQLiteIntegerType(dialect),
             constraints=[
                 ColumnConstraint(dialect, 
-                    constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"])
+                    constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dialect, "users"), ["id"])
                 )
             ],
         )

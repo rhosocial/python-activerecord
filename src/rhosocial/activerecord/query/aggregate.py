@@ -4,7 +4,15 @@
 import logging
 from typing import List, Union, Any, Optional, Dict
 
-from ..backend.expression import functions, statements, BaseExpression, WildcardExpression, TableExpression, Column
+from ..backend.expression import (
+    functions,
+    statements,
+    BaseExpression,
+    WildcardExpression,
+    Column,
+)
+from ..backend.expression.objects import Table
+from ..backend.expression.sources import NamedRelationRef
 
 
 class AggregateQueryMixin:
@@ -326,7 +334,14 @@ class AggregateQueryMixin:
             dialect = backend.dialect
 
             # Create the underlying query expression
-            from_clause = TableExpression(dialect, self.model_class.table_name())
+            from_clause = NamedRelationRef(
+                dialect,
+                Table(
+                    dialect,
+                    self.model_class.table_name(),
+                    schema_name=self.model_class.schema_name(),
+                ),
+            )
 
             query_expr = statements.QueryExpression(
                 dialect,
@@ -710,7 +725,14 @@ class AsyncAggregateQueryMixin:
             dialect = backend.dialect
 
             # Create the underlying query expression
-            from_clause = TableExpression(dialect, self.model_class.table_name())
+            from_clause = NamedRelationRef(
+                dialect,
+                Table(
+                    dialect,
+                    self.model_class.table_name(),
+                    schema_name=self.model_class.schema_name(),
+                ),
+            )
 
             query_expr = statements.QueryExpression(
                 dialect,

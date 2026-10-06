@@ -16,11 +16,11 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    TableExpression,
     WildcardExpression,
     ComparisonPredicate,
     SetOperationExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import QueryExpression
 from rhosocial.activerecord.backend.expression.query_sources import (
     WithQueryExpression,
@@ -32,6 +32,7 @@ from rhosocial.activerecord.backend.expression.query_parts import (
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 # ──────────────────────────────────────────────
@@ -83,7 +84,7 @@ def _select_all_expr(dialect, table="items", order_col="id"):
     return QueryExpression(
         dialect,
         select=[WildcardExpression(dialect)],
-        from_=TableExpression(dialect, table),
+        from_=NamedRelationRef(dialect, Table(dialect, table)),
         order_by=OrderByClause(dialect, expressions=[(Column(dialect, order_col), "ASC")]),
     )
 
@@ -93,7 +94,7 @@ def _select_where_expr(dialect, category):
     return QueryExpression(
         dialect,
         select=[WildcardExpression(dialect)],
-        from_=TableExpression(dialect, "items"),
+        from_=NamedRelationRef(dialect, Table(dialect, "items")),
         where=WhereClause(
             dialect,
             condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Literal(dialect, category)),
@@ -296,7 +297,7 @@ class TestBatchDQLExpressionTypes:
         cte_query = QueryExpression(
             dialect,
             select=[WildcardExpression(dialect)],
-            from_=TableExpression(dialect, "items"),
+            from_=NamedRelationRef(dialect, Table(dialect, "items")),
             where=WhereClause(
                 dialect,
                 condition=ComparisonPredicate(dialect, ">", Column(dialect, "price"), Literal(dialect, 50.0)),
@@ -307,7 +308,7 @@ class TestBatchDQLExpressionTypes:
         main_query = QueryExpression(
             dialect,
             select=[WildcardExpression(dialect)],
-            from_=TableExpression(dialect, "expensive"),
+            from_=NamedRelationRef(dialect, Table(dialect, "expensive")),
             order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
         )
 
@@ -328,7 +329,7 @@ class TestBatchDQLExpressionTypes:
         left = QueryExpression(
             dialect,
             select=[Column(dialect, "name"), Column(dialect, "price")],
-            from_=TableExpression(dialect, "items"),
+            from_=NamedRelationRef(dialect, Table(dialect, "items")),
             where=WhereClause(
                 dialect,
                 condition=ComparisonPredicate(
@@ -339,7 +340,7 @@ class TestBatchDQLExpressionTypes:
         right = QueryExpression(
             dialect,
             select=[Column(dialect, "name"), Column(dialect, "price")],
-            from_=TableExpression(dialect, "items"),
+            from_=NamedRelationRef(dialect, Table(dialect, "items")),
             where=WhereClause(
                 dialect,
                 condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Literal(dialect, "books")),

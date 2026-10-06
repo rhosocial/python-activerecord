@@ -7,6 +7,7 @@ JOIN, and table-function source expressions into dialect SQL.
 from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.query_sources import LateralExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression import bases

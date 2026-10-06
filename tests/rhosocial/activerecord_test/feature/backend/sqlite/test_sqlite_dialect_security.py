@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
     ColumnConstraintType,
 )
+from rhosocial.activerecord.backend.expression.objects import Function, Table, Trigger
 
 
 @pytest.fixture
@@ -206,7 +207,7 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
 def test_format_drop_virtual_table_normal(dialect):
     """Drop virtual table with normal table name."""
     from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
-    expr = DropVirtualTableExpression(dialect, table_name="my_fts_table", if_exists=False)
+    expr = DropVirtualTableExpression(dialect, table=Table(dialect, "my_fts_table"), if_exists=False)
     sql, params = expr.to_sql()
     assert sql == 'DROP TABLE "my_fts_table"'
     assert params == ()
@@ -215,7 +216,7 @@ def test_format_drop_virtual_table_normal(dialect):
 def test_format_drop_virtual_table_if_exists(dialect):
     """Drop virtual table with IF EXISTS."""
     from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
-    expr = DropVirtualTableExpression(dialect, table_name="my_fts_table", if_exists=True)
+    expr = DropVirtualTableExpression(dialect, table=Table(dialect, "my_fts_table"), if_exists=True)
     sql, params = expr.to_sql()
     assert sql == 'DROP TABLE IF EXISTS "my_fts_table"'
     assert params == ()
@@ -228,7 +229,7 @@ def test_format_drop_virtual_table_with_malicious_name(dialect):
     After fix: uses format_identifier which escapes " to "".
     """
     from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
-    expr = DropVirtualTableExpression(dialect, table_name='t"; DROP TABLE users--', if_exists=False)
+    expr = DropVirtualTableExpression(dialect, table=Table(dialect, 't"; DROP TABLE users--'), if_exists=False)
     sql, params = expr.to_sql()
     assert "DROP TABLE" not in sql.split('"')[1::2] if len(sql.split('"')) > 2 else "DROP TABLE users" not in sql
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
@@ -254,12 +255,12 @@ def test_format_create_trigger_function_name_quoted(dialect):
 
     expr = CreateTriggerExpression(
         dialect=dialect,
-        trigger_name="test_trigger",
+        trigger=Trigger(dialect, "test_trigger"),
         timing=TriggerTiming.AFTER,
         events=[TriggerEvent.INSERT],
-        table_name="users",
+        table=Table(dialect, "users"),
         level=TriggerLevel.ROW,
-        function_name="my_func",
+        function=Function(dialect, "my_func"),
     )
     sql, params = dialect.format_create_trigger_statement(expr)
     assert '"my_func"' in sql
@@ -280,12 +281,12 @@ def test_format_create_trigger_malicious_function_name(dialect):
 
     expr = CreateTriggerExpression(
         dialect=dialect,
-        trigger_name="test_trigger",
+        trigger=Trigger(dialect, "test_trigger"),
         timing=TriggerTiming.AFTER,
         events=[TriggerEvent.INSERT],
-        table_name="users",
+        table=Table(dialect, "users"),
         level=TriggerLevel.ROW,
-        function_name='f"; DROP TABLE users--',
+        function=Function(dialect, 'f"; DROP TABLE users--'),
     )
     sql, params = dialect.format_create_trigger_statement(expr)
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"

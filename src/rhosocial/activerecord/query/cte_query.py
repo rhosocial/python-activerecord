@@ -12,7 +12,9 @@ from .set_operation import SetOperationQuery
 from .utils import convert_qmark_placeholder
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.dialect.exceptions import UnsupportedFeatureError
-from ..backend.expression import statements, WildcardExpression, TableExpression, query_sources, bases
+from ..backend.expression import statements, WildcardExpression, query_sources, bases
+from ..backend.expression.objects import Table
+from ..backend.expression.sources import NamedRelationRef
 from ..backend.expression.query_sources import CTEExpression
 from ..interface import ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IAsyncSetOperationQuery, IQuery, IAsyncQuery
 
@@ -258,7 +260,10 @@ class CTEQuery(
         main_query_expr = statements.QueryExpression(
             dialect,
             select=self.select_columns,
-            from_=TableExpression(dialect, main_cte_name),  # Reference the specified CTE
+            from_=NamedRelationRef(
+                dialect,
+                Table(dialect, main_cte_name),  # Reference the specified CTE
+            ),
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
@@ -572,7 +577,10 @@ class AsyncCTEQuery(
         main_query_expr = statements.QueryExpression(
             dialect,
             select=self.select_columns,
-            from_=TableExpression(dialect, main_cte_name),  # Reference the specified CTE
+            from_=NamedRelationRef(
+                dialect,
+                Table(dialect, main_cte_name),  # Reference the specified CTE
+            ),
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,

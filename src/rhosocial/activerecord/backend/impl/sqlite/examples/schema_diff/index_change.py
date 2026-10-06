@@ -22,7 +22,7 @@ backend.introspect_and_adapt()
 dialect = backend.dialect
 
 expr = CreateTableExpression(
-    dialect=dialect, table="products", columns=[
+    dialect=dialect, table=Table(dialect, 'products'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
         ColumnDefinition(dialect, "name", TextType()),
@@ -45,6 +45,7 @@ from rhosocial.activerecord.backend.schema import (  # noqa: E402
 from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
     SQLiteSchemaDiffer,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
 snapshot_before = builder.build(schema="main")

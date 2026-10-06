@@ -5,14 +5,15 @@ from rhosocial.activerecord.backend.expression import (
     Subquery,
     FunctionCall,
     QueryExpression,
-    TableExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
     LateralExpression,
     TableFunctionExpression,
     ValuesExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestLateralExpression:
@@ -121,7 +122,7 @@ class TestLateralExpression:
                 FunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount")),
                 Column(dummy_dialect, "category"),
             ],
-            from_=TableExpression(dummy_dialect, "transactions"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "transactions")),
             # In a real scenario, this would reference outer query columns
         )
 

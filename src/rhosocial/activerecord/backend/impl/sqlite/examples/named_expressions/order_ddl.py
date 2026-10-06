@@ -15,9 +15,9 @@ from rhosocial.activerecord.backend.expression import (
     ColumnConstraintType,
     AlterTableExpression,
     AddColumn,
-    TableExpression,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, RealType, TextType
+from .....expression.objects import Table
 
 
 def _pk_column(name: str):
@@ -76,7 +76,7 @@ def create_orders_table(dialect):
     """
     return CreateTableExpression(
         dialect,
-        table="orders",
+        table=Table(dialect, 'orders'),
         columns=[
             _pk_column("id"),
             _integer_column("user_id", not_null=True),
@@ -99,7 +99,7 @@ def create_inventory_table(dialect):
     """
     return CreateTableExpression(
         dialect,
-        table="inventory",
+        table=Table(dialect, 'inventory'),
         columns=[
             _pk_column("id"),
             _integer_column("order_id", not_null=True),
@@ -159,6 +159,6 @@ def drop_old_orders_table(dialect):
     """
     return DropTableExpression(
         dialect,
-        table=TableExpression(dialect, "temp_orders"),
+        table=Table(dialect, 'temp_orders'),
         if_exists=True,
     )

@@ -9,6 +9,7 @@ including virtual table creation and range queries.
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from ....expression.bases import BaseExpression, SQLQueryAndParams
+from rhosocial.activerecord.backend.expression.objects import Table
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
@@ -20,14 +21,24 @@ class SQLiteRTreeCreateVirtualTable(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: "Table",
         dimensions: int = 2,
-        content_table: Optional[str] = None,
+        content_table: Optional["Table"] = None,
         content_rowid: Optional[str] = None,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        if not isinstance(table, Table):
+            raise TypeError(
+                f"table must be a Table, "
+                f"got {type(table).__name__}"
+            )
+        self.table = table
         self.dimensions = dimensions
+        if content_table is not None and not isinstance(content_table, Table):
+            raise TypeError(
+                f"content_table must be a Table, "
+                f"got {type(content_table).__name__}"
+            )
         self.content_table = content_table
         self.content_rowid = content_rowid
 
@@ -41,12 +52,17 @@ class SQLiteRTreeRangeQuery(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: "Table",
         ranges: List[Tuple[float, float]],
         column_names: Optional[List[Tuple[str, str]]] = None,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        if not isinstance(table, Table):
+            raise TypeError(
+                f"table must be a Table, "
+                f"got {type(table).__name__}"
+            )
+        self.table = table
         self.ranges = ranges
         self.column_names = column_names
 

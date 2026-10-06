@@ -22,9 +22,20 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression.functions.string import trim
 from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.dialect.mixins import NamespaceMixin, TableNameMixin
 
 
-class TestDialect(SQLDialectBase, ExpressionMixin, DDLColumnMixin, TableMixin, PartitionMixin, DataTypeMixin):
+class TestDialect(
+    SQLDialectBase,
+    ExpressionMixin,
+    DDLColumnMixin,
+    PartitionMixin,
+    DataTypeMixin,
+    TableNameMixin,
+    NamespaceMixin,
+    TableMixin,
+):
     """Test dialect for security tests."""
 
     name = "test"
@@ -248,7 +259,7 @@ def test_format_partition_method_validation(dialect):
     col_def = ColumnDefinition(dialect, name="id", data_type=IntegerType(dialect))
     expr = CreateTableExpression(
         dialect=dialect,
-        table="test_table",
+        table=Table(dialect, 'test_table'),
         columns=[col_def],
         partition=PartitionClause(
             dialect=dialect,

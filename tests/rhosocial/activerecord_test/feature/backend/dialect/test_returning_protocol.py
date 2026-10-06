@@ -13,6 +13,7 @@ from rhosocial.activerecord.backend.dialect import (
     UnsupportedFeatureError,
 )
 from rhosocial.activerecord.backend.dialect.mixins import DMLMixin, ExpressionMixin
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class NoReturningDialect(SQLDialectBase, ExpressionMixin, DMLMixin, ReturningSupport):
@@ -62,7 +63,14 @@ def test_dml_specific_returning_support():
 
 
 class TestFormatDmlReturningErrors:
-    """Test that UnsupportedFeatureError is raised for DML RETURNING when unsupported."""
+    """Test that UnsupportedFeatureError is raised for DML RETURNING when unsupported.
+
+    The relation each statement names is a stub, but it is a stub *of the
+    right kind*: ``MagicMock(spec=Table)`` passes the formatter's ``isinstance``
+    check while still rendering whatever ``to_sql`` is told to return. An
+    unspecced mock is not a Table, so it would be refused for being the wrong
+    object kind before the RETURNING check ever ran.
+    """
 
     def test_format_insert_returning_unsupported(self):
         """Test INSERT RETURNING raises error when insert returning is unsupported."""
@@ -71,9 +79,10 @@ class TestFormatDmlReturningErrors:
         dialect = NoReturningDialect()
         dialect.strict_validation = False
         mock_expr = MagicMock()
+        mock_expr.into = MagicMock(spec=Table)
         mock_expr.into.to_sql.return_value = ("test_table", ())
         mock_expr.columns = []
-        mock_expr.source = None
+        mock_expr.source.to_sql.return_value = ("", ())
         mock_expr.on_conflict = None
         mock_expr.returning = MagicMock()
 
@@ -86,6 +95,7 @@ class TestFormatDmlReturningErrors:
 
         dialect = NoReturningDialect()
         mock_expr = MagicMock()
+        mock_expr.table = MagicMock(spec=Table)
         mock_expr.table.to_sql.return_value = ("test_table", ())
         mock_expr.assignments = {}
         mock_expr.from_ = None
@@ -101,7 +111,7 @@ class TestFormatDmlReturningErrors:
 
         dialect = NoReturningDialect()
         dialect.strict_validation = False
-        mock_table = MagicMock()
+        mock_table = MagicMock(spec=Table)
         mock_table.to_sql.return_value = ("test_table", ())
         mock_expr = MagicMock()
         mock_expr.tables = [mock_table]

@@ -90,7 +90,7 @@ class SQLiteViewMixin:
             parts.append("VIEW IF NOT EXISTS")
         else:
             parts.append("VIEW")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(expr.view.to_sql()[0])
 
         if expr.column_aliases:
             cols = ", ".join(self.format_identifier(c) for c in expr.column_aliases)
@@ -116,7 +116,7 @@ class SQLiteViewMixin:
         parts = ["DROP VIEW"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(expr.view.to_sql()[0])
         return " ".join(parts), ()
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:

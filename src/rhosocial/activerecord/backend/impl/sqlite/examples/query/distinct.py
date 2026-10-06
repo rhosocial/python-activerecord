@@ -32,7 +32,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table="users",
+    table=Table(dialect, 'users'),
     columns=[
         ColumnDefinition(dialect, "id", IntegerType()),
         ColumnDefinition(dialect, "name", TextType()),
@@ -45,7 +45,7 @@ backend.execute(sql, params)
 
 insert = InsertExpression(
     dialect=dialect,
-    into="users",
+    into=Table(dialect, 'users'),
     columns=["id", "name"],
     source=ValuesSource(
         dialect,
@@ -63,16 +63,17 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: SELECT DISTINCT (using SelectModifier)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     SelectModifier,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from .....expression.objects import Table
 
 query = QueryExpression(
     dialect=dialect,
     select=[Column(dialect, "name")],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
     select_modifier=SelectModifier.DISTINCT,
 )
 sql, params = query.to_sql()
@@ -89,7 +90,7 @@ print(f"Result: {result.data}")
 query_distinct = QueryExpression(
     dialect=dialect,
     select=[Column(dialect, "id"), Column(dialect, "name")],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
     select_modifier=SelectModifier.DISTINCT,
 )
 sql, params = query_distinct.to_sql()
@@ -100,7 +101,7 @@ print(f"Multi-col result: {result.data}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table="users", if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

@@ -6,7 +6,7 @@ Collation expression support for SQL value expressions.
 from enum import Enum
 from typing import Any, Dict, Optional, Union, TYPE_CHECKING
 
-from .bases import SQLQueryAndParams, SQLValueExpression
+from .bases import SQLValueExpression
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,

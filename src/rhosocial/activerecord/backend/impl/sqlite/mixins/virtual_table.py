@@ -122,7 +122,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         """
         if expr.module not in _KNOWN_VTABLE_MODULES and not expr.module.isidentifier():
             raise ValueError(f"Unsafe virtual table module name: {expr.module!r}")
-        name = self.format_identifier(expr.table_name)
+        name = expr.table.to_sql()[0]
         cols = ", ".join(self.format_identifier(c) for c in expr.columns)
         sql = f"CREATE VIRTUAL TABLE {name} USING {expr.module}({cols})"
         return sql, ()
@@ -139,7 +139,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        name = self.format_identifier(expr.table_name)
+        name = expr.table.to_sql()[0]
         if expr.if_exists:
             return f"DROP TABLE IF EXISTS {name}", ()
         return f"DROP TABLE {name}", ()

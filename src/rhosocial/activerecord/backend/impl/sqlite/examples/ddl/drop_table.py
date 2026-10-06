@@ -37,7 +37,6 @@ backend.execute(sql, params)
 # SECTION: DROP TABLE (using DropTableExpression)
 # ============================================================
 from rhosocial.activerecord.backend.expression import DropTableExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType
 
 drop_expr = DropTableExpression(
     dialect=dialect,

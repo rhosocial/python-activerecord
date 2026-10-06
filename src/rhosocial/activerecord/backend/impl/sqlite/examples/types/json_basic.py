@@ -54,7 +54,7 @@ insert_data = [
 for data in insert_data:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="documents",
+        into=Table(dialect, 'documents'),
         columns=["data"],
         source=ValuesSource(dialect, [[Literal(dialect, json.dumps(data))]]),
     )
@@ -64,13 +64,13 @@ for data in insert_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     Column,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 query = QueryExpression(
     dialect=dialect,
@@ -78,7 +78,7 @@ query = QueryExpression(
         Column(dialect, "id"),
         FunctionCall(dialect, "json_extract", Column(dialect, "data"), Literal(dialect, "$.name")),
     ],
-    from_=TableExpression(dialect, "documents"),
+    from_=NamedRelationRef(dialect, Table(dialect, "documents")),
 )
 
 sql, params = query.to_sql()

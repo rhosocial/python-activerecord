@@ -4,8 +4,10 @@ Tests for the core SQL expression components in core.py
 """
 
 import pytest
-from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, TableExpression
+from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestLiteral:
@@ -166,7 +168,7 @@ class TestSubquery:
         query_expr = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "orders"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
             where=WhereClause(
                 dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "pending")
             ),
@@ -239,41 +241,40 @@ class TestSubquery:
 
 
 class TestTableExpression:
-    """Tests for TableExpression class."""
+    """Tests for NamedRelationRef class."""
 
     def test_table_expression_basic(self, dummy_dialect: DummyDialect):
-        """Test basic TableExpression functionality."""
-        table = TableExpression(dummy_dialect, "users")
+        """Test basic NamedRelationRef functionality."""
+        table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         sql, params = table.to_sql()
         assert '"users"' in sql
 
     def test_table_expression_with_alias(self, dummy_dialect: DummyDialect):
-        """Test TableExpression with alias."""
-        table = TableExpression(dummy_dialect, "users", alias="u")
+        """Test NamedRelationRef with alias."""
+        table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u")
         sql, params = table.to_sql()
         assert '"users"' in sql
         assert "AS" in sql
         assert '"u"' in sql
 
     def test_table_expression_with_temporal_options(self, dummy_dialect: DummyDialect):
-        """Test TableExpression with temporal options - this covers the missing branch."""
+        """Test NamedRelationRef with temporal options - this covers the missing branch."""
         temporal_opts = {"as_of": "2023-01-01", "for_system_time": "AS OF"}
-        table = TableExpression(dummy_dialect, "users", alias="u", temporal_options=temporal_opts)
+        table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u", temporal_options=temporal_opts)
         sql, params = table.to_sql()
         # This should call dialect.format_temporal_options
         # The exact output depends on the dialect implementation
         assert '"users"' in sql
 
     def test_table_expression_empty_temporal_options(self, dummy_dialect: DummyDialect):
-        """Test TableExpression with empty temporal options."""
-        table = TableExpression(dummy_dialect, "users", temporal_options={})
+        """Test NamedRelationRef with empty temporal options."""
+        table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), temporal_options={})
         sql, params = table.to_sql()
         assert '"users"' in sql
         # Should not call format_temporal_options since dict is empty
 
     def test_table_expression_with_temporal_options_that_returns_none(self, dummy_dialect: DummyDialect):
-        """Test TableExpression with temporal options when dialect returns None from format_temporal_options."""
-        from rhosocial.activerecord.backend.expression.datetime import TemporalOptionsExpression
+        """Test NamedRelationRef with temporal options when dialect returns None from format_temporal_options."""
         # Mock the dialect's format_temporal_options to return None
         original_method = dummy_dialect.format_temporal_options
 
@@ -283,7 +284,7 @@ class TestTableExpression:
         dummy_dialect.format_temporal_options = mock_format_temporal_options
 
         temporal_opts = {"as_of": "2023-01-01"}
-        table = TableExpression(dummy_dialect, "users", alias="u", temporal_options=temporal_opts)
+        table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u", temporal_options=temporal_opts)
         sql, params = table.to_sql()
 
         # Restore original method
@@ -295,11 +296,11 @@ class TestTableExpression:
     def test_format_join_clause_without_condition_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_join_clause raises ValueError for join types that require conditions."""
         from rhosocial.activerecord.backend.expression.query_parts import JoinClause
-        from rhosocial.activerecord.backend.expression.core import TableExpression
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         # Create a JoinClause without using or condition (should raise error for non-CROSS joins)
-        left_table = TableExpression(dummy_dialect, "users")
-        right_table = TableExpression(dummy_dialect, "orders")
+        left_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
+        right_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"))
 
         join_expr = JoinClause(
             dummy_dialect,
@@ -316,11 +317,11 @@ class TestTableExpression:
     def test_format_join_clause_with_cross_join_without_condition_succeeds(self, dummy_dialect: DummyDialect):
         """Tests that format_join_clause works for CROSS JOIN without condition."""
         from rhosocial.activerecord.backend.expression.query_parts import JoinClause
-        from rhosocial.activerecord.backend.expression.core import TableExpression
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         # Create a JoinClause for CROSS JOIN (doesn't require a condition)
-        left_table = TableExpression(dummy_dialect, "users")
-        right_table = TableExpression(dummy_dialect, "orders")
+        left_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
+        right_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"))
 
         join_expr = JoinClause(
             dummy_dialect,

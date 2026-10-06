@@ -106,7 +106,6 @@ class SchemaDiffer(ABC):
     """
 
     def compare(self, old: "SchemaSnapshot", new: "SchemaSnapshot") -> SchemaDiff:
-        from .snapshot import SchemaSnapshot
 
         if old.dialect_class != new.dialect_class:
             raise ValueError(

@@ -17,6 +17,7 @@ from enum import Enum
 from typing import Optional, TYPE_CHECKING, Union
 
 from ..bases import BaseExpression
+from ..objects import SchemaObject
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -54,8 +55,8 @@ class CommentOnExpression(BaseExpression):
     ``TableCommentClause``): it annotates an existing schema object and is the
     only comment mechanism on backends without inline comment grammar.
 
-    ``object_name`` may be a dotted reference (``table.column`` for a column);
-    ``schema`` optionally qualifies it.  ``comment=None`` renders the
+    A column is named by ``column`` beside the object it belongs to, since a
+    column's identity is scoped to its table rather than to the catalogue.  ``comment=None`` renders the
     clear-comment form (``IS NULL``).
     """
 
@@ -68,17 +69,17 @@ class CommentOnExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         object_type: Union["CommentObjectType", str],
-        object_name: str,
+        object: "SchemaObject",
         comment: Optional[str] = None,
-        schema: Optional[str] = None,
+        column: Optional[str] = None,
     ):
         super().__init__(dialect)
-        if not isinstance(object_name, str) or not object_name.strip():
-            raise ValueError("object_name must be a non-empty string")
+        if column is not None and (not isinstance(column, str) or not column.strip()):
+            raise ValueError("column must be a non-empty string or None")
         self.object_type = object_type
-        self.object_name = object_name
+        self.object = object
         self.comment = comment
-        self.schema = schema
+        self.column = column
 
 
 __all__ = ["CommentObjectType", "CommentOnExpression"]

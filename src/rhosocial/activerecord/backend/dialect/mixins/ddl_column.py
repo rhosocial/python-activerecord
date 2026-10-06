@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from ...expression.bases import BaseExpression, ToSQLProtocol
 from ...expression.core import Literal
+from ...expression.objects import Index, Table
 from .ddl_table import normalize_column_constraint_type, normalize_table_constraint_type
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -453,7 +454,19 @@ class DDLColumnMixin:
         Returns:
             A ``(sql, params)`` tuple. The ``sql`` value is prefixed with a
             leading space so it can be appended directly to a column definition.
+
+        Raises:
+            TypeError: ``ColumnConstraint.foreign_key_reference`` is not a Table.
+            The referenced relation would be named by whichever object kind it
+            actually was, so the FK would point somewhere else.
         """
+        reference = constraint.foreign_key_reference
+        if reference is not None and not isinstance(reference[0], Table):
+            raise TypeError(
+                f"ColumnConstraint.foreign_key_reference must pair a Table "
+                f"with its columns, got "
+                f"{type(reference[0]).__name__}"
+            )
         from ...expression.statements import ColumnConstraintType
         ctype = normalize_column_constraint_type(constraint.constraint_type)
         simple_constraints = {
@@ -559,13 +572,21 @@ class DDLColumnMixin:
             A ``(sql, params)`` tuple (params is always empty for DDL).
 
         Raises:
+            TypeError: ``ReferencesClause.referenced_table`` is not a Table. Another
+            object kind would have had its own name rendered as the referenced
+            relation.
             ValueError: If the referenced table has no columns.
         """
+        if not isinstance(expr.referenced_table, Table):
+            raise TypeError(
+                f"ReferencesClause.referenced_table must be a Table, "
+                f"got {type(expr.referenced_table).__name__}"
+            )
         from ...expression.statements import ReferentialAction
         if not expr.referenced_columns:
             raise ValueError("REFERENCES clause requires at least one referenced column.")
         ref_cols_str = ", ".join(self.format_identifier(col) for col in expr.referenced_columns)
-        result = f"REFERENCES {self.format_identifier(expr.referenced_table)}({ref_cols_str})"
+        result = f"REFERENCES {expr.referenced_table.to_sql()[0]}({ref_cols_str})"
         if expr.match_type is not None:
             if not isinstance(expr.match_type, str):
                 raise ValueError("FOREIGN KEY MATCH type must be a string")
@@ -777,7 +798,17 @@ class DDLColumnMixin:
         Returns:
             A ``(sql, params)`` tuple; ``sql`` is empty when no clause parts
             are produced.
+
+        Raises:
+            TypeError: ``TableConstraint.foreign_key_table`` is not a Table. Another
+            object kind would have had its own name rendered as the referenced
+            relation.
         """
+        if expr.foreign_key_table is not None and not isinstance(expr.foreign_key_table, Table):
+            raise TypeError(
+                f"TableConstraint.foreign_key_table must be a Table, "
+                f"got {type(expr.foreign_key_table).__name__}"
+            )
         from ...expression.statements import TableConstraintType
         body_parts = []
         params: Tuple = ()
@@ -1099,24 +1130,31 @@ class DDLColumnMixin:
         Emits ``DROP INDEX IF EXISTS`` when the action requests it.
 
         Args:
-            action: The action carrying the index name to drop.
+            action: The action carrying the index to drop.
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
 
         Raises:
+            TypeError: ``DropIndex.index`` is not an Index. Another object kind
+            would have had its own name rendered as the index's.
             UnsupportedFeatureError: If the dialect does not support
                 ``ALTER TABLE DROP INDEX``.
         """
+        if not isinstance(action.index, Index):
+            raise TypeError(
+                f"DropIndex.index must be an Index, "
+                f"got {type(action.index).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
         if not self.supports_alter_table_index_actions():
             raise UnsupportedFeatureError(
                 self.name, "ALTER TABLE DROP INDEX",
                 f"{self.name} does not support ALTER TABLE DROP INDEX.",
             )
-        if hasattr(action, "if_exists") and action.if_exists:
-            return f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}", ()
-        return f"DROP INDEX {self.format_identifier(action.index_name)}", ()
+        index_sql, index_params = action.index.to_sql()
+        head = "DROP INDEX IF EXISTS" if action.if_exists else "DROP INDEX"
+        return f"{head} {index_sql}", index_params
 
     def format_rename_column_action(self, action: "RenameObject") -> Tuple[str, Tuple]:
         """Format a ``RENAME COLUMN`` ALTER TABLE action.

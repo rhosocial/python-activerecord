@@ -27,6 +27,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 @pytest.fixture
@@ -206,12 +207,12 @@ def test_generic_column_definition_comment_gate(sqlite):
 
 
 def test_references_clause_minimal(dummy):
-    clause = ReferencesClause(dummy, "authors", ["id"])
+    clause = ReferencesClause(dummy, Table(dummy, "authors"), ["id"])
     assert dummy.format_references_clause(clause) == ('REFERENCES "authors"("id")', ())
 
 
 def test_references_clause_requires_columns(dummy):
-    clause = ReferencesClause(dummy, "authors", [])
+    clause = ReferencesClause(dummy, Table(dummy, "authors"), [])
     with pytest.raises(ValueError, match="referenced column"):
         dummy.format_references_clause(clause)
 
@@ -219,7 +220,7 @@ def test_references_clause_requires_columns(dummy):
 def test_references_clause_actions_and_deferrability(dummy):
     clause = ReferencesClause(
         dummy,
-        "authors",
+        Table(dummy, "authors"),
         ["id"],
         on_delete=ReferentialAction.CASCADE,
         on_update=ReferentialAction.SET_NULL,
@@ -234,28 +235,28 @@ def test_references_clause_actions_and_deferrability(dummy):
 
 
 def test_references_clause_not_deferrable(dummy):
-    clause = ReferencesClause(dummy, "a", ["id"], deferrable=False)
+    clause = ReferencesClause(dummy, Table(dummy, "a"), ["id"], deferrable=False)
     assert dummy.format_references_clause(clause)[0].endswith("NOT DEFERRABLE")
 
 
 def test_references_clause_deferrable_immediate(dummy):
-    clause = ReferencesClause(dummy, "a", ["id"], deferrable=True, initially_deferred=False)
+    clause = ReferencesClause(dummy, Table(dummy, "a"), ["id"], deferrable=True, initially_deferred=False)
     assert dummy.format_references_clause(clause)[0].endswith("DEFERRABLE INITIALLY IMMEDIATE")
 
 
 def test_references_clause_deferrable_without_initially(dummy):
-    clause = ReferencesClause(dummy, "a", ["id"], deferrable=True)
+    clause = ReferencesClause(dummy, Table(dummy, "a"), ["id"], deferrable=True)
     assert dummy.format_references_clause(clause)[0].endswith("DEFERRABLE")
 
 
 def test_references_clause_accepts_string_actions(dummy):
-    clause = ReferencesClause(dummy, "a", ["id"], on_delete=" set null ")
+    clause = ReferencesClause(dummy, Table(dummy, "a"), ["id"], on_delete=" set null ")
     sql, _ = dummy.format_references_clause(clause)
     assert sql.endswith("ON DELETE SET NULL")
 
 
 def test_references_clause_rejects_invalid_action(dummy):
-    clause = ReferencesClause(dummy, "a", ["id"], on_update="DO SOMETHING")
+    clause = ReferencesClause(dummy, Table(dummy, "a"), ["id"], on_update="DO SOMETHING")
     with pytest.raises(ValueError, match="Invalid referential action"):
         dummy.format_references_clause(clause)
 
@@ -265,7 +266,7 @@ def test_references_clause_on_update_gate(dummy):
         def supports_foreign_key_on_update(self):
             return False
 
-    clause = ReferencesClause(NoOnUpdate(), "a", ["id"], on_update=ReferentialAction.CASCADE)
+    clause = ReferencesClause(NoOnUpdate(), Table(NoOnUpdate(), "a"), ["id"], on_update=ReferentialAction.CASCADE)
     with pytest.raises(UnsupportedFeatureError, match="ON UPDATE"):
         NoOnUpdate().format_references_clause(clause)
 
@@ -275,7 +276,7 @@ def test_references_clause_match_gate(dummy):
         def supports_fk_match(self):
             return False
 
-    clause = ReferencesClause(NoMatch(), "a", ["id"], match_type="FULL")
+    clause = ReferencesClause(NoMatch(), Table(NoMatch(), "a"), ["id"], match_type="FULL")
     with pytest.raises(UnsupportedFeatureError, match="MATCH"):
         NoMatch().format_references_clause(clause)
 
@@ -285,7 +286,7 @@ def test_references_clause_on_delete_gate(dummy):
         def supports_foreign_key_on_delete(self):
             return False
 
-    clause = ReferencesClause(NoOnDelete(), "a", ["id"], on_delete=ReferentialAction.CASCADE)
+    clause = ReferencesClause(NoOnDelete(), Table(NoOnDelete(), "a"), ["id"], on_delete=ReferentialAction.CASCADE)
     with pytest.raises(UnsupportedFeatureError, match="ON DELETE"):
         NoOnDelete().format_references_clause(clause)
 
@@ -294,7 +295,7 @@ def test_column_fk_constraint_delegates_to_references(dummy):
     constraint = ColumnConstraint(
         dummy,
         ColumnConstraintType.FOREIGN_KEY,
-        foreign_key_reference=("authors", ["id"]),
+        foreign_key_reference=(Table(dummy, "authors"), ["id"]),
         on_delete=ReferentialAction.CASCADE,
     )
     sql, _ = dummy.format_column_fk_constraint(constraint)
@@ -311,7 +312,7 @@ def test_table_fk_constraint_uses_actions(dummy):
     fk = ForeignKeyConstraint(
         dummy,
         columns=["author_id"],
-        foreign_key_table="authors",
+        foreign_key_table=Table(dummy, "authors"),
         foreign_key_columns=["id"],
         on_delete=ReferentialAction.CASCADE,
         on_update=ReferentialAction.RESTRICT,
@@ -329,7 +330,7 @@ def test_table_fk_constraint_without_actions(dummy):
         dummy,
         TableConstraintType.FOREIGN_KEY,
         columns=["author_id"],
-        foreign_key_table="authors",
+        foreign_key_table=Table(dummy, "authors"),
         foreign_key_columns=["id"],
     )
     sql, _ = dummy.format_foreign_key_constraint(tc)
@@ -340,7 +341,7 @@ def test_table_fk_constraint_requires_columns(dummy):
     tc = TableConstraint(
         dummy,
         TableConstraintType.FOREIGN_KEY,
-        foreign_key_table="authors",
+        foreign_key_table=Table(dummy, "authors"),
         foreign_key_columns=["id"],
     )
     with pytest.raises(ValueError, match="local column"):
@@ -348,7 +349,7 @@ def test_table_fk_constraint_requires_columns(dummy):
 
 
 def test_table_fk_constraint_requires_referenced_columns(dummy):
-    tc = TableConstraint(dummy, TableConstraintType.FOREIGN_KEY, columns=["a"], foreign_key_table="authors")
+    tc = TableConstraint(dummy, TableConstraintType.FOREIGN_KEY, columns=["a"], foreign_key_table=Table(dummy, "authors"))
     with pytest.raises(ValueError, match="foreign key column"):
         dummy.format_foreign_key_constraint(tc)
 

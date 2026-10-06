@@ -53,11 +53,11 @@ class SQLiteReindexMixin:
                 )
             return "REINDEX EXPRESSIONS", ()
 
-        if expr.index_name:
-            return f"REINDEX {self.format_identifier(expr.index_name)}", ()
+        if expr.index:
+            return f"REINDEX {expr.index.to_sql()[0]}", ()
 
-        if expr.table_name:
-            return f"REINDEX {self.format_identifier(expr.table_name)}", ()
+        if expr.table:
+            return f"REINDEX {expr.table.to_sql()[0]}", ()
 
         return "REINDEX", ()
 

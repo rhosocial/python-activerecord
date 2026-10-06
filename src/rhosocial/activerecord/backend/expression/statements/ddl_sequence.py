@@ -4,17 +4,13 @@
 from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..objects import Sequence
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
 class CreateSequenceExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_sequence_statement"
     """
     Represents a CREATE SEQUENCE statement.
 
@@ -25,13 +21,13 @@ class CreateSequenceExpression(BaseExpression):
         # Basic sequence
         create_seq = CreateSequenceExpression(
             dialect,
-            sequence_name="user_id_seq"
+            sequence=Sequence(dialect, "user_id_seq")
         )
 
         # Sequence with options
         create_seq = CreateSequenceExpression(
             dialect,
-            sequence_name="order_id_seq",
+            sequence=Sequence(dialect, "order_id_seq"),
             start=1000,
             increment=1,
             minvalue=1000,
@@ -42,7 +38,7 @@ class CreateSequenceExpression(BaseExpression):
         # Sequence with cache
         create_seq = CreateSequenceExpression(
             dialect,
-            sequence_name="high_throughput_seq",
+            sequence=Sequence(dialect, "high_throughput_seq"),
             start=1,
             cache=100
         )
@@ -51,7 +47,7 @@ class CreateSequenceExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        sequence_name: str,
+        sequence: "Sequence",
         if_not_exists: bool = False,
         start: Optional[int] = None,
         increment: Optional[int] = None,
@@ -63,7 +59,7 @@ class CreateSequenceExpression(BaseExpression):
         owned_by: Optional[str] = None,
     ):
         super().__init__(dialect)
-        self.sequence_name = sequence_name
+        self.sequence = sequence
         self.if_not_exists = if_not_exists
         self.start = start
         self.increment = increment
@@ -81,11 +77,6 @@ class CreateSequenceExpression(BaseExpression):
 
 
 class DropSequenceExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_sequence_statement"
     """
     Represents a DROP SEQUENCE statement.
 
@@ -93,13 +84,13 @@ class DropSequenceExpression(BaseExpression):
         # Basic drop
         drop_seq = DropSequenceExpression(
             dialect,
-            sequence_name="old_seq"
+            sequence=Sequence(dialect, "old_seq")
         )
 
         # Safe drop
         drop_seq = DropSequenceExpression(
             dialect,
-            sequence_name="deprecated_seq",
+            sequence=Sequence(dialect, "deprecated_seq"),
             if_exists=True
         )
     """
@@ -107,11 +98,11 @@ class DropSequenceExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        sequence_name: str,
+        sequence: "Sequence",
         if_exists: bool = False,
     ):
         super().__init__(dialect)
-        self.sequence_name = sequence_name
+        self.sequence = sequence
         self.if_exists = if_exists
 
     @property
@@ -121,11 +112,6 @@ class DropSequenceExpression(BaseExpression):
 
 
 class AlterSequenceExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_alter_sequence_statement"
     """
     Represents an ALTER SEQUENCE statement.
 
@@ -133,21 +119,21 @@ class AlterSequenceExpression(BaseExpression):
         # Restart sequence
         alter_seq = AlterSequenceExpression(
             dialect,
-            sequence_name="user_id_seq",
+            sequence=Sequence(dialect, "user_id_seq"),
             restart=1000
         )
 
         # Change increment
         alter_seq = AlterSequenceExpression(
             dialect,
-            sequence_name="order_num_seq",
+            sequence=Sequence(dialect, "order_num_seq"),
             increment=2
         )
 
         # Set options
         alter_seq = AlterSequenceExpression(
             dialect,
-            sequence_name="my_seq",
+            sequence=Sequence(dialect, "my_seq"),
             minvalue=1,
             maxvalue=1000000,
             cycle=True
@@ -157,7 +143,7 @@ class AlterSequenceExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        sequence_name: str,
+        sequence: "Sequence",
         restart: Optional[int] = None,
         start: Optional[int] = None,
         increment: Optional[int] = None,
@@ -169,7 +155,7 @@ class AlterSequenceExpression(BaseExpression):
         owned_by: Optional[str] = None,
     ):
         super().__init__(dialect)
-        self.sequence_name = sequence_name
+        self.sequence = sequence
         self.restart = restart
         self.start = start
         self.increment = increment

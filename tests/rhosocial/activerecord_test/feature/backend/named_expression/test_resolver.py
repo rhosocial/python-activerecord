@@ -25,6 +25,7 @@ from rhosocial.activerecord.backend.named_expression.exceptions import (
     NamedExpressionMissingParameterError,
     NamedExpressionInvalidParameterError,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class DummyCallable:
@@ -371,16 +372,15 @@ class TestClassifyProbeUtilities:
         from rhosocial.activerecord.backend.expression import InsertExpression
 
         d = self._dialect()
-        expr = InsertExpression(d, "t", [Literal(d, 1)])  # noqa: F821
+        expr = InsertExpression(d, Table(d, 't'), [Literal(d, 1)])  # noqa: F821
         result = _classify(expr)
         assert result == ["DML"]
 
     def test_classify_ddl(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import CreateTableExpression
 
         d = self._dialect()
-        expr = CreateTableExpression(d, "t")
+        expr = CreateNamedRelationRef(d, Table(d, "t"))
         result = _classify(expr)
         assert result == ["DDL"]
 

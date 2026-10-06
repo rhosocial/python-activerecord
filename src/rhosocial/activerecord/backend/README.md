@@ -254,13 +254,20 @@ if isinstance(dialect, WindowFunctionSupport):
 
 **Available Protocols**:
 
-- **Query Features**: `WindowFunctionSupport`, `CTESupport`, `AdvancedGroupingSupport`, `SetOperationSupport`, `JoinSupport`
-- **Data Operations**: `ReturningSupport`, `UpsertSupport`, `MergeSupport`
-- **Data Types**: `JSONSupport`, `ArraySupport`, `GeneratedColumnSupport`
-- **Query Optimization**: `ExplainSupport`, `FilterClauseSupport`, `OrderedSetAggregationSupport`
-- **Concurrency Control**: `LockingSupport`, `QualifyClauseSupport`
-- **DDL Operations**: `TableSupport`, `ViewSupport`, `IndexSupport`, `SequenceSupport`, `TriggerSupport`, `FunctionSupport`, `SchemaSupport`
-- **Advanced Features**: `LateralJoinSupport`, `TemporalTableSupport`, `GraphSupport`, `ILIKESupport`
+- **Query Features**: `WindowFunctionSupport`, `CTESupport`, `AdvancedGroupingSupport`, `SetOperationSupport`, `JoinSupport`, `WildcardSupport`, `DqlOrderSupport`, `CollationSupport`
+- **Data Operations**: `ReturningSupport`, `UpsertSupport`, `MergeSupport`, `FilterClauseSupport`
+- **Data Types**: `JSONSupport`, `ArraySupport`, `DataTypeSupport`, `DateTimeSupport`
+- **Query Optimization**: `ExplainSupport`, `PivotSupport`, `OrderedSetAggregationSupport`
+- **Concurrency Control**: `LockingSupport`, `QualifyClauseSupport`, `TransactionControlSupport`
+- **DDL Operations**: `CreateTableSupport`, `DropTableSupport`, `AlterTableSupport`, `CreateViewSupport`, `DropViewSupport`, `MaterializedViewSupport`, `CreateIndexSupport`, `DropIndexSupport`, `FulltextIndexSupport`, `PartitionSupport`, `CreateSequenceSupport`, `CreateTypeSupport`, `CreateDomainSupport`, `CreateRoutineSupport`, `CreateTriggerSupport`, `CreateSchemaSupport`, `CreateDatabaseSupport`, `ConstraintSupport`, `CommentSupport`, `TruncateSupport`
+- **Object Naming**: `TableObjectSupport`, `ViewObjectSupport`, `MaterializedViewObjectSupport`, `ForeignTableObjectSupport`, `IndexObjectSupport`, `SequenceObjectSupport`, `TypeObjectSupport`, `RoutineObjectSupport`, `TriggerObjectSupport`, `SynonymObjectSupport`, `NamespaceSupport`
+- **Advanced Features**: `LateralJoinSupport`, `TemporalTableSupport`, `GraphSupport`, `GraphTableSupport`, `ILIKESupport`, `SQLXMLSupport`, `IntrospectionSupport`
+
+`NamespaceSupport` is the naming protocol, not a DDL one: it answers whether a name may be
+qualified with a catalog or a schema. Whether the engine *has* those objects is a separate
+question answered by `CreateSchemaSupport` / `CreateDatabaseSupport`, and an engine can
+answer the two differently — PostgreSQL has a database and qualifies names with it, while
+its `CREATE SCHEMA` support is a separate matter entirely.
 
 ### Expression System
 

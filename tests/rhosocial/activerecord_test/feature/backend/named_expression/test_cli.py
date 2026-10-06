@@ -18,6 +18,7 @@ from rhosocial.activerecord.backend.named_expression.cli import (
     parse_params,
     handle_named_expression,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 _DIALECT = SQLiteDialect()
 
@@ -544,7 +545,7 @@ class TestCliForceMode:
         module.__all__ = ["insert_user"]
 
         def insert_user(dialect, name: str):
-            return DeleteExpression(dialect, "users")
+            return DeleteExpression(dialect, Table(dialect, 'users'))
 
         module.insert_user = insert_user
         sys.modules["test_force_module"] = module
@@ -950,7 +951,7 @@ class TestExecuteExpression:
     def test_non_select_without_force_exits(self):
         from rhosocial.activerecord.backend.named_expression.cli import _execute_expression
 
-        expr = DeleteExpression(_DIALECT, "t")
+        expr = DeleteExpression(_DIALECT, Table(_DIALECT, 't'))
         args = Namespace(
             dry_run=False,
             force=False,
@@ -999,5 +1000,5 @@ class TestClassifyExpression:
     def test_classify_dml(self):
         from rhosocial.activerecord.backend.named_expression.cli import _classify_expression
 
-        result = _classify_expression(DeleteExpression(_DIALECT, "t"))
+        result = _classify_expression(DeleteExpression(_DIALECT, Table(_DIALECT, 't')))
         assert result == "DML"

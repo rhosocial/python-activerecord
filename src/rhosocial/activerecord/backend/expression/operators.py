@@ -8,8 +8,8 @@ method and holds construction parameters. Rendering is centralized in
 dialect through the subtree, and hands it to the declared formatter.
 """
 
-from typing import Any, Optional, Tuple, List, TYPE_CHECKING
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
+from typing import Optional, TYPE_CHECKING
+from .bases import BaseExpression, SQLPredicate, SQLValueExpression
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,

@@ -11,12 +11,28 @@ import pytest
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, LateralJoinMixin, LateralJoinSupport
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.mixins import DQLMixin, ExpressionMixin, DDLColumnMixin, TableMixin
-from rhosocial.activerecord.backend.expression import Column, QueryExpression, TableExpression, Subquery
+from rhosocial.activerecord.backend.expression import Column, QueryExpression, Subquery
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import LateralExpression, TableFunctionExpression
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.dialect.mixins import (
+    NamespaceMixin,
+    RelationSourceMixin,
+    TableNameMixin,
+)
 
 
 class NoLateralDialect(
-    SQLDialectBase, ExpressionMixin, DDLColumnMixin, TableMixin, DQLMixin, LateralJoinMixin, LateralJoinSupport
+    SQLDialectBase,
+    RelationSourceMixin,
+    ExpressionMixin,
+    DDLColumnMixin,
+    TableNameMixin,
+    NamespaceMixin,
+    TableMixin,
+    DQLMixin,
+    LateralJoinMixin,
+    LateralJoinSupport,
 ):
     """Dialect that does not support lateral joins and table functions."""
 
@@ -53,7 +69,7 @@ def test_lateral_expression_integration_reports_no_support():
 
     # Create a subquery to use in lateral expression
     subquery = Subquery(
-        dialect, QueryExpression(dialect, select=[Column(dialect, "id")], from_=TableExpression(dialect, "other_table"))
+        dialect, QueryExpression(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "other_table")))
     )
 
     # Create LateralExpression

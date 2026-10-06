@@ -4,18 +4,17 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    TableExpression,
     FunctionCall,
     ComparisonPredicate,
-    QueryExpression,  # Import new classes for window functions and advanced features
-    SelectModifier,  # Window-related classes
+    QueryExpression,
+    SelectModifier,
     WindowFrameSpecification,
     WindowSpecification,
     WindowDefinition,
     WindowClause,
     WindowFunctionCall,
-    # Additional classes needed
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_parts import (
     GroupByHavingClause,
     LimitOffsetClause,
@@ -24,6 +23,7 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     ForUpdateClause,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestQueryStatements:
@@ -43,7 +43,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "category")],
-            from_=TableExpression(dummy_dialect, "products"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products")),
             select_modifier=modifier,
         )
         sql, params = query.to_sql()
@@ -60,7 +60,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
             for_update=for_update_clause,
         )
         sql, params = query.to_sql()
@@ -75,7 +75,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "locks"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "locks")),
             for_update=for_update_clause,
         )
         sql, params = query.to_sql()
@@ -192,7 +192,7 @@ class TestQueryStatements:
                 # In a real query, these would reference the named windows
                 WindowFunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking"),
             ],
-            from_=TableExpression(dummy_dialect, "employees"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "employees")),
             # Note: The WindowClause would need to be integrated into QueryExpression to be fully functional
         )
 
@@ -339,7 +339,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
             limit_offset=limit_offset_clause,  # Use limit/offset clause object with just offset
         )
         sql, params = query.to_sql()
@@ -370,7 +370,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
             order_by=order_by_clause,
         )
         sql, params = query.to_sql()
@@ -403,7 +403,7 @@ class TestQueryStatements:
                 Column(dummy_dialect, "category"),
                 FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")),
             ],
-            from_=TableExpression(dummy_dialect, "products"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products")),
             group_by_having=group_by_having,  # Use new GROUP BY/HAVING clause object
             qualify=qualify_clause,  # Use new QUALIFY clause object
         )
@@ -604,7 +604,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],  # Valid initial value
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
         # Manually assign invalid type to trigger validation error
         query.select = "invalid"  # Invalid type - should be list
@@ -617,21 +617,21 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users"),  # Valid initial value
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),  # Valid initial value
         )
         # Manually assign invalid type to trigger validation error
         query.from_ = 123  # Invalid type
 
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
         ):
             query.validate(strict=True)
 
     def test_query_expression_invalid_where_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid where parameter type."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         # Manually assign invalid type to trigger validation error
         query.where = 456  # Invalid type - should be WhereClause or SQLPredicate
@@ -642,7 +642,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_group_by_having_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid group_by_having parameter type."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         # Manually assign invalid type to trigger validation error
         query.group_by_having = 789  # Invalid type - should be GroupByHavingClause
@@ -653,7 +653,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_order_by_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid order_by parameter type."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         # Manually assign invalid type to trigger validation error
         query.order_by = 999  # Invalid type - should be OrderByClause
@@ -664,7 +664,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_qualify_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid qualify parameter type."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         # Manually assign invalid type to trigger validation error
         query.qualify = 111  # Invalid type - should be QualifyClause
@@ -675,7 +675,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_limit_offset_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid limit_offset parameter type."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         # Manually assign invalid type to trigger validation error
         query.limit_offset = 222  # Invalid type - should be LimitOffsetClause
@@ -686,7 +686,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_for_update_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid for_update parameter type."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         # Manually assign invalid type to trigger validation error
         query.for_update = 333  # Invalid type - should be ForUpdateClause
@@ -697,7 +697,7 @@ class TestQueryStatements:
     def test_query_expression_invalid_select_modifier_type(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression raises TypeError for invalid select_modifier parameter type."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         # Manually assign invalid type to trigger validation error
         query.select_modifier = "invalid"  # Invalid type - should be SelectModifier
@@ -708,7 +708,7 @@ class TestQueryStatements:
     def test_query_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
         """Tests that QueryExpression.validate with strict=False skips validation."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         # Manually assign invalid type that would normally cause an error
         query.where = 999  # Invalid type - should be WhereClause or SQLPredicate
@@ -720,7 +720,7 @@ class TestQueryStatements:
         query_valid = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "email")],
-            from_=TableExpression(dummy_dialect, "customers"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "customers")),
             where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"),
         )
         query_valid.validate(strict=False)  # Should not raise any exception
@@ -731,10 +731,10 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users"),  # Valid initial value
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),  # Valid initial value
         )
         # Manually assign invalid type that would normally cause an error
-        query.from_ = 999  # Invalid type - should be str, TableExpression, etc.
+        query.from_ = 999  # Invalid type - should be str, NamedRelationRef, etc.
 
         # With strict=False, validation should pass without raising an error
         query.validate(strict=False)  # Should not raise any exception
@@ -742,7 +742,7 @@ class TestQueryStatements:
         # Verify that strict=True would raise an error for the same invalid parameter
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
         ):
             query.validate(strict=True)
 
@@ -754,7 +754,7 @@ class TestQueryStatements:
         count_distinct_expr = count(dummy_dialect, Column(dummy_dialect, "category"), is_distinct=True)
 
         query = QueryExpression(
-            dummy_dialect, select=[count_distinct_expr], from_=TableExpression(dummy_dialect, "products")
+            dummy_dialect, select=[count_distinct_expr], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"))
         )
         sql, params = query.to_sql()
 
@@ -766,13 +766,13 @@ class TestQueryStatements:
         """Tests QueryExpression with valid types in from_ list."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        # Test with list containing valid types: string, TableExpression, ValuesExpression
+        # Test with list containing valid types: string, NamedRelationRef, ValuesExpression
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "col1"), Column(dummy_dialect, "col2")],
             from_=[
                 "users",  # String table name
-                TableExpression(dummy_dialect, "orders", alias="o"),  # TableExpression with alias
+                NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"), alias="o"),  # NamedRelationRef with alias
                 ValuesExpression(dummy_dialect, [("test",)], "values_alias", ["val"]),  # ValuesExpression
             ],
         )
@@ -792,7 +792,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=[TableExpression(dummy_dialect, "users")],  # Valid initial value
+            from_=[NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))],  # Valid initial value
         )
 
         # Manually assign a list with an invalid type to trigger validation error
@@ -800,7 +800,7 @@ class TestQueryStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ list item at index 1 must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, JoinClause, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
         ):
             query.validate(strict=True)
 
@@ -811,18 +811,18 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=[TableExpression(dummy_dialect, "users")],  # Valid initial value
+            from_=[NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))],  # Valid initial value
         )
 
         # Manually assign a list with an invalid FunctionCall type to trigger validation error
         query.from_ = [
-            TableExpression(dummy_dialect, "users"),
+            NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
             FunctionCall(dummy_dialect, "NOW"),
         ]  # FunctionCall is invalid in FROM context
 
         with pytest.raises(
             TypeError,
-            match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinClause, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class '.*FunctionCall.*'>",  # noqa: E501
+            match=r"from_ list item at index 1 must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, JoinClause, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class '.*FunctionCall.*'>",  # noqa: E501
         ):
             query.validate(strict=True)
 
@@ -832,7 +832,7 @@ class TestQueryStatements:
         from rhosocial.activerecord.backend.expression import WildcardExpression
 
         query = QueryExpression(
-            dummy_dialect, select=[WildcardExpression(dummy_dialect)], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[WildcardExpression(dummy_dialect)], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         sql, params = query.to_sql()
 
@@ -846,7 +846,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[WildcardExpression(dummy_dialect, table="users")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
         sql, params = query.to_sql()
 
@@ -860,7 +860,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[WildcardExpression(dummy_dialect, table="users"), Column(dummy_dialect, "name", "profiles")],
-            from_=[TableExpression(dummy_dialect, "users"), TableExpression(dummy_dialect, "profiles")],
+            from_=[NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")), NamedRelationRef(dummy_dialect, Table(dummy_dialect, "profiles"))],
         )
         sql, params = query.to_sql()
 
@@ -873,7 +873,7 @@ class TestQueryStatements:
 
         # Test COUNT(*) using WildcardExpression
         count_expr = count(dummy_dialect, WildcardExpression(dummy_dialect))
-        query = QueryExpression(dummy_dialect, select=[count_expr], from_=TableExpression(dummy_dialect, "users"))
+        query = QueryExpression(dummy_dialect, select=[count_expr], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")))
         sql, params = query.to_sql()
 
         assert sql == 'SELECT COUNT(*) FROM "users"'
@@ -886,7 +886,7 @@ class TestQueryStatements:
         # Test COUNT(table.*) using qualified WildcardExpression
         qualified_wildcard = WildcardExpression(dummy_dialect, table="users")
         count_expr = count(dummy_dialect, qualified_wildcard)
-        query = QueryExpression(dummy_dialect, select=[count_expr], from_=TableExpression(dummy_dialect, "users"))
+        query = QueryExpression(dummy_dialect, select=[count_expr], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")))
         sql, params = query.to_sql()
 
         # Note: COUNT(users.*) is not standard SQL, but this tests the integration
@@ -912,7 +912,7 @@ class TestQueryStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), count_expr],  # SELECT name, count(*)
-            from_=TableExpression(dummy_dialect, "users"),  # FROM users
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),  # FROM users
             group_by_having=group_by_having,  # GROUP BY name
         )
         sql, params = query.to_sql()

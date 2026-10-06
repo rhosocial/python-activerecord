@@ -8,7 +8,6 @@ This file contains model classes using Python 3.10+ syntax features:
 
 Note: This file should only be imported and used in Python 3.10+ environments.
 """
-from datetime import datetime
 
 from pydantic import Field
 

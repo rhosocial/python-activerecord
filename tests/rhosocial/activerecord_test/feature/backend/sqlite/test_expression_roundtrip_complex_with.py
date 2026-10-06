@@ -19,11 +19,11 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     FunctionCall,
-    TableExpression,
     QueryExpression,
     Subquery,
     WildcardExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
     CTEExpression,
     WithQueryExpression,
@@ -53,6 +53,7 @@ from rhosocial.activerecord.backend.expression.serialization import (
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.testsuite.utils.expression import assert_params_equal
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 @pytest.fixture
@@ -69,7 +70,7 @@ def build_mandelbrot(d):
         rec = QueryExpression(
             d,
             select=[Column(d, column) + Literal(d, step)],
-            from_=TableExpression(d, cte_name),
+            from_=NamedRelationRef(d, Table(d, cte_name)),
             where=Column(d, column) < Literal(d, limit_),
         )
         return SetOperationExpression(d, left=base, right=rec, operation="UNION", all_=True)
@@ -84,7 +85,7 @@ def build_mandelbrot(d):
     m_seed = QueryExpression(
         d,
         select=[Literal(d, 0), Column(d, "x"), Column(d, "y"), Literal(d, 0.0), Literal(d, 0.0)],
-        from_=[TableExpression(d, "xaxis"), TableExpression(d, "yaxis")],
+        from_=[NamedRelationRef(d, Table(d, "xaxis")), NamedRelationRef(d, Table(d, "yaxis"))],
     )
     m_step = QueryExpression(
         d,
@@ -95,7 +96,7 @@ def build_mandelbrot(d):
             Column(d, "x") * Column(d, "x") - Column(d, "y") * Column(d, "y") + Column(d, "cx"),
             Literal(d, 2.0) * Column(d, "x") * Column(d, "y") + Column(d, "cy"),
         ],
-        from_=TableExpression(d, "m"),
+        from_=NamedRelationRef(d, Table(d, "m")),
         where=((Column(d, "x") * Column(d, "x") + Column(d, "y") * Column(d, "y")) < Literal(d, 4.0))
         & (Column(d, "iter") < Literal(d, 28)),
     )
@@ -109,7 +110,7 @@ def build_mandelbrot(d):
     m2_query = QueryExpression(
         d,
         select=[FunctionCall(d, "MAX", Column(d, "iter")), Column(d, "cx"), Column(d, "cy")],
-        from_=TableExpression(d, "m"),
+        from_=NamedRelationRef(d, Table(d, "m")),
         group_by_having=GroupByHavingClause(d, group_by=[Column(d, "cx"), Column(d, "cy")]),
     )
     m2_cte = CTEExpression(d, name="m2", query=m2_query, columns=["iter", "cx", "cy"])
@@ -119,7 +120,7 @@ def build_mandelbrot(d):
     a_query = QueryExpression(
         d,
         select=[FunctionCall(d, "GROUP_CONCAT", substr_expr, Literal(d, ""))],
-        from_=TableExpression(d, "m2"),
+        from_=NamedRelationRef(d, Table(d, "m2")),
         group_by_having=GroupByHavingClause(d, group_by=[Column(d, "cy")]),
     )
     a_cte = CTEExpression(d, name="a", query=a_query, columns=["t"])
@@ -127,7 +128,7 @@ def build_mandelbrot(d):
     main = QueryExpression(
         d,
         select=[FunctionCall(d, "GROUP_CONCAT", FunctionCall(d, "RTRIM", Column(d, "t")), Literal(d, b"\x0a"))],
-        from_=TableExpression(d, "a"),
+        from_=NamedRelationRef(d, Table(d, "a")),
     )
     return WithQueryExpression(
         d, ctes=[xaxis_cte, yaxis_cte, m_cte, m2_cte, a_cte], main_query=main, recursive=True
@@ -145,7 +146,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     digits_step = QueryExpression(
         d,
         select=[cast(d, Column(d, "lp") + Literal(d, 1), "TEXT"), Column(d, "lp") + Literal(d, 1)],
-        from_=TableExpression(d, "digits"),
+        from_=NamedRelationRef(d, Table(d, "digits")),
         where=Column(d, "lp") < Literal(d, 9),
     )
     digits_cte = CTEExpression(
@@ -162,7 +163,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     x_seed = QueryExpression(
         d,
         select=[Column(d, "sud"), FunctionCall(d, "INSTR", Column(d, "sud"), Literal(d, "."))],
-        from_=TableExpression(d, "input"),
+        from_=NamedRelationRef(d, Table(d, "input")),
     )
 
     s_candidate = concat_op(
@@ -200,7 +201,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
             QueryExpression(
                 d,
                 select=[one],
-                from_=TableExpression(d, "digits", alias="lp"),
+                from_=NamedRelationRef(d, Table(d, "digits"), alias="lp"),
                 where=row_cond | col_cond | box_cond,
             ),
         ),
@@ -209,7 +210,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     x_step = QueryExpression(
         d,
         select=[s_candidate, FunctionCall(d, "INSTR", s_candidate, Literal(d, "."))],
-        from_=[TableExpression(d, "x"), TableExpression(d, "digits", alias="z")],
+        from_=[NamedRelationRef(d, Table(d, "x")), NamedRelationRef(d, Table(d, "digits"), alias="z")],
         where=(ind > zero) & not_exists,
     )
     x_cte = CTEExpression(
@@ -222,7 +223,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     main = QueryExpression(
         d,
         select=[Column(d, "s")],
-        from_=TableExpression(d, "x"),
+        from_=NamedRelationRef(d, Table(d, "x")),
         where=Column(d, "ind") == Literal(d, 0),
     )
     return WithQueryExpression(d, ctes=[input_cte, digits_cte, x_cte], main_query=main, recursive=True)
@@ -244,7 +245,7 @@ def build_bom(d):
     anchor = QueryExpression(
         d,
         select=[Column(d, "child_id"), Column(d, "quantity"), Column(d, "quantity").as_("total_qty")],
-        from_=TableExpression(d, "parts_tree"),
+        from_=NamedRelationRef(d, Table(d, "parts_tree")),
         where=Column(d, "parent_id") == Literal(d, 1),
     )
     step = QueryExpression(
@@ -255,8 +256,8 @@ def build_bom(d):
             Column(d, "total_qty", "b") * Column(d, "quantity", "c"),
         ],
         from_=[
-            TableExpression(d, "parts_tree", alias="c"),
-            TableExpression(d, "BOM_Explosion", alias="b"),
+            NamedRelationRef(d, Table(d, "parts_tree"), alias="c"),
+            NamedRelationRef(d, Table(d, "BOM_Explosion"), alias="b"),
         ],
         where=Column(d, "parent_id", "c") == Column(d, "child_id", "b"),
     )
@@ -267,7 +268,7 @@ def build_bom(d):
     main = QueryExpression(
         d,
         select=[Column(d, "child_id"), FunctionCall(d, "SUM", Column(d, "total_qty")).as_("required_count")],
-        from_=TableExpression(d, "BOM_Explosion"),
+        from_=NamedRelationRef(d, Table(d, "BOM_Explosion")),
         group_by_having=GroupByHavingClause(d, group_by=[Column(d, "child_id")]),
     )
     return WithQueryExpression(d, ctes=[cte], main_query=main)
@@ -294,7 +295,7 @@ def build_flight_paths(d):
             Literal(d, 1),
             concat_op(d, Literal(d, "TPE -> "), Column(d, "destination")),
         ],
-        from_=TableExpression(d, "flights"),
+        from_=NamedRelationRef(d, Table(d, "flights")),
         where=Column(d, "departure") == Literal(d, "TPE"),
     )
     step = QueryExpression(
@@ -306,8 +307,8 @@ def build_flight_paths(d):
             concat_op(d, Column(d, "path", "p"), Literal(d, " -> "), Column(d, "destination", "f")),
         ],
         from_=[
-            TableExpression(d, "flights", alias="f"),
-            TableExpression(d, "FlightPaths", alias="p"),
+            NamedRelationRef(d, Table(d, "flights"), alias="f"),
+            NamedRelationRef(d, Table(d, "FlightPaths"), alias="p"),
         ],
         where=(
             LikePredicate(
@@ -326,7 +327,7 @@ def build_flight_paths(d):
     main = QueryExpression(
         d,
         select=[WildcardExpression(d)],
-        from_=TableExpression(d, "FlightPaths"),
+        from_=NamedRelationRef(d, Table(d, "FlightPaths")),
         where=Column(d, "destination") == Literal(d, "JFK"),
         order_by=OrderByClause(d, [Column(d, "price")]),
         limit_offset=LimitOffsetClause(d, limit=Literal(d, 1)),
@@ -341,7 +342,7 @@ def build_game_of_life(d):
     GROUP BY, then applies the birth / survival rules with CASE WHEN against
     a LEFT JOIN of the live table.
     """
-    live = TableExpression(d, "live", alias="l")
+    live = NamedRelationRef(d, Table(d, "live"), alias="l")
     x = Column(d, "x")
     y = Column(d, "y")
     gen = Column(d, "gen")

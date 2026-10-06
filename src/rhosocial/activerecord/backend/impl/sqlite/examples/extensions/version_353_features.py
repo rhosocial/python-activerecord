@@ -101,7 +101,9 @@ print("=" * 60)
 
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexExpression  # noqa: E402
 from rhosocial.activerecord.backend.impl.sqlite.functions import json_array_insert, jsonb_array_insert  # noqa: E402
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression, TableExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from .....expression.objects import Table
 
 if dialect.supports_reindex_expressions():
     print("\n--- REINDEX EXPRESSIONS Example ---")
@@ -161,7 +163,7 @@ if dialect.version >= (3, 53, 0) and funcs.get("json_array_insert"):
     query = QueryExpression(
         dialect=dialect,
         select=[json_expr.as_("modified")],
-        from_=TableExpression(dialect, "test_json"),
+        from_=NamedRelationRef(dialect, Table(dialect, "test_json")),
     )
 
     sql, params = query.to_sql()
@@ -183,7 +185,7 @@ if dialect.version >= (3, 53, 0) and funcs.get("json_array_insert"):
     query = QueryExpression(
         dialect=dialect,
         select=[json_expr.as_("modified")],
-        from_=TableExpression(dialect, "test_jsonb"),
+        from_=NamedRelationRef(dialect, Table(dialect, "test_jsonb")),
     )
 
     sql, params = query.to_sql()

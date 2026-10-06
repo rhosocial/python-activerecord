@@ -92,7 +92,7 @@ departments = [("Engineering",), ("Sales",)]
 for dept in departments:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="departments",
+        into=Table(dialect, 'departments'),
         columns=["name"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in dept]]),
     )
@@ -107,7 +107,7 @@ employees = [
 for emp in employees:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="employees",
+        into=Table(dialect, 'employees'),
         columns=["name", "department_id", "salary"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in emp]]),
     )
@@ -117,21 +117,21 @@ for emp in employees:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     Column,
     WhereClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Subquery, Literal, FunctionCall  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
+from .....expression.objects import Table
 
 # Subquery in WHERE clause: find employees with salary above average
 avg_salary_subquery = QueryExpression(
     dialect=dialect,
     select=[FunctionCall(dialect, "AVG", Column(dialect, "salary"))],
-    from_=TableExpression(dialect, "employees"),
+    from_=NamedRelationRef(dialect, Table(dialect, "employees")),
 )
 
 query = QueryExpression(
@@ -140,7 +140,7 @@ query = QueryExpression(
         Column(dialect, "name"),
         Column(dialect, "salary"),
     ],
-    from_=TableExpression(dialect, "employees"),
+    from_=NamedRelationRef(dialect, Table(dialect, "employees")),
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(

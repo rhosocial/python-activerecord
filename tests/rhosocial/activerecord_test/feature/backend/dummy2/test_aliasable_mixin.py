@@ -6,7 +6,8 @@ This tests the as_() method and alias initialization for various expression clas
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, TableExpression
+from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.expression.advanced_functions import (
@@ -16,6 +17,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
 )
 from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestAliasableMixin:
@@ -250,16 +252,16 @@ class TestAliasNonContamination:
             lambda d: Column(d, "name"),
             lambda d: FunctionCall(d, "UPPER", Column(d, "name")),
             lambda d: Subquery(d, "SELECT 1"),
-            lambda d: TableExpression(d, "users"),
+            lambda d: NamedRelationRef(d, Table(d, "users")),
             lambda d: JoinClause(
                 d,
-                left_table=TableExpression(d, "users"),
-                right_table=TableExpression(d, "items"),
+                left_table=NamedRelationRef(d, Table(d, "users")),
+                right_table=NamedRelationRef(d, Table(d, "items")),
                 join_type="INNER JOIN",
                 condition=Column(d, "id", "u") == Column(d, "user_id", "i"),
             ),
         ],
-        ids=["Literal", "Column", "FunctionCall", "Subquery", "TableExpression", "JoinClause"],
+        ids=["Literal", "Column", "FunctionCall", "Subquery", "NamedRelationRef", "JoinClause"],
     )
     def test_as_returns_copy_for_each_expression_type(
         self, dummy_dialect: DummyDialect, factory

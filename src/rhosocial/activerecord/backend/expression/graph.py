@@ -6,10 +6,14 @@ Implements SQL/PGQ (Property Graph Query) standard as defined in
 SQL 2023 (ISO/IEC 9075-16:2023) for querying property graphs.
 """
 
+from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional, Tuple, Union, TYPE_CHECKING
 
 from .bases import BaseExpression
+from .objects import EdgeTable as EdgeTableObject
+from .objects import NodeTable, PropertyGraph
+from .sources import TableSource
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -28,7 +32,8 @@ class GraphEdgeDirection(Enum):
 class GraphVertex(BaseExpression):
     """Represents a vertex in a graph pattern according to SQL 2023 standard."""
 
-    def __init__(self, dialect: "SQLDialectBase", variable: Optional[str], table: str,
+    def __init__(self, dialect: "SQLDialectBase", variable: Optional[str],
+                 table: "NodeTable",
                  where: Optional["WhereClause"] = None):
 
         super().__init__(dialect)
@@ -47,7 +52,7 @@ class GraphEdge(BaseExpression):
 
     def __init__(self, dialect: "SQLDialectBase",
                  variable: Optional[str] = None,
-                 table: Optional[str] = None,
+                 table: Optional["EdgeTableObject"] = None,
                  direction: GraphEdgeDirection = GraphEdgeDirection.RIGHT):
 
         super().__init__(dialect)
@@ -171,13 +176,19 @@ class MatchClause(BaseExpression):
         return "format_match_clause"
 
 
+@dataclass
 class GraphColumn:
-    """A single column definition in a GRAPH_TABLE COLUMNS clause."""
+    """A single column definition in a GRAPH_TABLE COLUMNS clause.
 
-    def __init__(self, variable: str, property_name: str, alias: Optional[str] = None):
-        self.variable = variable
-        self.property_name = property_name
-        self.alias = alias
+    A value object rather than an expression: it does not render, it names a
+    property of a graph variable. It is a dataclass so the serializer can see its
+    fields -- a plain class serializes to ``null``, which empties the whole
+    COLUMNS clause on a JSON round-trip without complaining.
+    """
+
+    variable: str
+    property_name: str
+    alias: Optional[str] = None
 
 
 class ColumnsClause(BaseExpression):
@@ -194,17 +205,17 @@ class ColumnsClause(BaseExpression):
         return "format_graph_columns_clause"
 
 
-class GraphTableExpression(BaseExpression):
+class GraphTableExpression(TableSource, BaseExpression):
     """Represents a GRAPH_TABLE (graph MATCH ... COLUMNS (...)) expression.
 
     Acts as a FROM clause item, producing a tabular result set from graph pattern matching."""
 
-    def __init__(self, dialect: "SQLDialectBase", graph_name: str,
+    def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
                  match: MatchClause, columns: ColumnsClause,
                  alias: Optional[str] = None):
 
         super().__init__(dialect)
-        self.graph_name = graph_name
+        self.graph = graph
         self.match = match
         self.columns = columns
         self.alias = alias
@@ -241,7 +252,7 @@ class VertexTable(BaseExpression):
 
     Renders: table [AS alias] [LABEL l1 [LABEL l2 ...]] [KEY (cols)] [PROPERTIES ...]"""
 
-    def __init__(self, dialect: "SQLDialectBase", table: str,
+    def __init__(self, dialect: "SQLDialectBase", table: "NodeTable",
                  labels: Optional[List[str]] = None,
                  key_columns: Optional[List[str]] = None,
                  properties: Optional["TablePropertiesClause"] = None,
@@ -266,7 +277,7 @@ class EdgeTable(BaseExpression):
     Renders: table [AS alias] [KEY (cols)] SOURCE KEY (cols) [REFERENCES t (c)]
             DESTINATION KEY (cols) [REFERENCES t (c)] [LABEL ...] [PROPERTIES ...]"""
 
-    def __init__(self, dialect: "SQLDialectBase", table: str,
+    def __init__(self, dialect: "SQLDialectBase", table: "EdgeTableObject",
                  source_key: List[str], destination_key: List[str],
                  key_columns: Optional[List[str]] = None,
                  references_source: Optional[Tuple[str, List[str]]] = None,
@@ -295,13 +306,13 @@ class EdgeTable(BaseExpression):
 class CreatePropertyGraphExpression(BaseExpression):
     """Represents a CREATE PROPERTY GRAPH DDL statement."""
 
-    def __init__(self, dialect: "SQLDialectBase", graph_name: str,
+    def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
                  vertex_tables: List[VertexTable],
                  edge_tables: Optional[List[EdgeTable]] = None,
                  if_not_exists: bool = False,
                  ):
         super().__init__(dialect)
-        self.graph_name = graph_name
+        self.graph = graph
         self.vertex_tables = vertex_tables
         self.edge_tables = edge_tables or []
         self.if_not_exists = if_not_exists
@@ -315,11 +326,11 @@ class CreatePropertyGraphExpression(BaseExpression):
 class DropPropertyGraphExpression(BaseExpression):
     """Represents a DROP PROPERTY GRAPH DDL statement."""
 
-    def __init__(self, dialect: "SQLDialectBase", graph_name: str,
+    def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
                  if_exists: bool = False, cascade: bool = False,
                  ):
         super().__init__(dialect)
-        self.graph_name = graph_name
+        self.graph = graph
         self.if_exists = if_exists
         self.cascade = cascade
 
@@ -332,13 +343,13 @@ class DropPropertyGraphExpression(BaseExpression):
 class AlterPropertyGraphExpression(BaseExpression):
     """Represents an ALTER PROPERTY GRAPH DDL statement."""
 
-    def __init__(self, dialect: "SQLDialectBase", graph_name: str,
+    def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
                  action: str, target: str,
                  vertex_tables: Optional[List[VertexTable]] = None,
                  edge_tables: Optional[List[EdgeTable]] = None,
                  ):
         super().__init__(dialect)
-        self.graph_name = graph_name
+        self.graph = graph
         self.action = action
         self.target = target
         self.vertex_tables = vertex_tables or []

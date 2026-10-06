@@ -20,6 +20,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
 )
 from rhosocial.activerecord.backend.expression.serialization import serialize, deserialize
 from rhosocial.activerecord.backend.expression.introspection import TableListExpression
+from rhosocial.activerecord.backend.expression.objects import Index, Table
 
 
 @pytest.fixture
@@ -33,14 +34,14 @@ class TestSQLiteSpecificExpressionSerialization:
 
     def test_reindex_expression_table_name(self, sqlite_dialect):
         """Test REINDEX with table_name."""
-        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
+        expr = SQLiteReindexExpression(sqlite_dialect, table=Table(sqlite_dialect, "users"))
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_reindex_expression_index_name(self, sqlite_dialect):
         """Test REINDEX with index_name."""
-        expr = SQLiteReindexExpression(sqlite_dialect, index_name="idx_users")
+        expr = SQLiteReindexExpression(sqlite_dialect, index=Index(sqlite_dialect, "idx_users"))
         spec = serialize(expr)
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
@@ -54,7 +55,7 @@ class TestSQLiteSpecificExpressionSerialization:
 
     def test_reindex_expression_has_no_dialect_options(self, sqlite_dialect):
         """The SQLite REINDEX expression carries no dialect_options bag."""
-        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
+        expr = SQLiteReindexExpression(sqlite_dialect, table=Table(sqlite_dialect, "users"))
         assert not hasattr(expr, "dialect_options")
         spec = serialize(expr)
         assert "dialect_options" not in spec["params"]

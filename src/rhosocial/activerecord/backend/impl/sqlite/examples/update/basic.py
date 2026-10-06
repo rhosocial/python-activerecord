@@ -51,7 +51,7 @@ backend.execute(sql, params)
 
 insert_expr = InsertExpression(
     dialect=dialect,
-    into="users",
+    into=Table(dialect, 'users'),
     columns=["name"],
     source=ValuesSource(dialect, [[Literal(dialect, "Alice")]]),
 )
@@ -61,19 +61,18 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     UpdateExpression,
     ReturningClause,
-    TableExpression,
     Column,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 update_expr = UpdateExpression(
     dialect=dialect,
-    table=TableExpression(dialect, "users"),
+    table=Table(dialect, 'users'),
     assignments={"name": Literal(dialect, "Alice Smith")},
     where=ComparisonPredicate(
         dialect,

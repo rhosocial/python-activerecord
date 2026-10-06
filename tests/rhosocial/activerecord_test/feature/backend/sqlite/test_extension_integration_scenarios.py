@@ -42,9 +42,9 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     SelectSource,
     Subquery,
-    TableExpression,
     ValuesSource,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.functions import (
     json_extract_text,
 )
@@ -54,6 +54,7 @@ from rhosocial.activerecord.backend.impl.sqlite.functions import (
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 # =============================================================================
@@ -84,7 +85,7 @@ class TestGeoDocumentScenario:
         # --- Setup: FTS5 virtual table ---
         backend.execute(
             *SQLiteFTS5CreateVirtualTable(
-                dialect, table_name="docs_fts",
+                dialect, table=Table(dialect, "docs_fts"),
                 columns=["title", "body", "author"]
             ).to_sql(),
             options=ddl
@@ -93,7 +94,7 @@ class TestGeoDocumentScenario:
         # --- Setup: R-Tree virtual table ---
         backend.execute(
             *SQLiteRTreeCreateVirtualTable(
-                dialect, table_name="doc_locations"
+                dialect, table=Table(dialect, "doc_locations")
             ).to_sql(),
             options=ddl
         )
@@ -101,7 +102,7 @@ class TestGeoDocumentScenario:
         # --- Setup: JSON metadata table ---
         backend.execute(
             *CreateTableExpression(
-                dialect, table="doc_meta",
+                dialect, table=Table(dialect, 'doc_meta'),
                 columns=[
                     ColumnDefinition(dialect, "doc_id", SQLiteIntegerType(dialect), constraints=[
                         ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
@@ -126,7 +127,7 @@ class TestGeoDocumentScenario:
 
         backend.execute(
             *InsertExpression(
-                dialect, into="docs_fts",
+                dialect, into=Table(dialect, 'docs_fts'),
                 columns=["rowid", "title", "body", "author"],
                 source=ValuesSource(dialect, [
                     [Literal(dialect, d[0]), Literal(dialect, d[1]),
@@ -137,7 +138,7 @@ class TestGeoDocumentScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="doc_locations",
+                dialect, into=Table(dialect, 'doc_locations'),
                 source=ValuesSource(dialect, [
                     [Literal(dialect, d[0]), Literal(dialect, 0),
                      Literal(dialect, 100), Literal(dialect, 0),
@@ -148,7 +149,7 @@ class TestGeoDocumentScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="doc_meta",
+                dialect, into=Table(dialect, 'doc_meta'),
                 columns=["doc_id", "extra"],
                 source=ValuesSource(dialect, [
                     [Literal(dialect, d[0]), Literal(dialect, d[4])] for d in docs
@@ -162,7 +163,7 @@ class TestGeoDocumentScenario:
             *QueryExpression(
                 dialect,
                 select=[Column(dialect, "rowid"), Column(dialect, "title")],
-                from_=TableExpression(dialect, "docs_fts"),
+                from_=NamedRelationRef(dialect, Table(dialect, "docs_fts")),
                 where=(
                     SQLiteMatchPredicate(dialect, table="docs_fts", query="office")
                     & (Column(dialect, "author") == "Alice")
@@ -175,7 +176,7 @@ class TestGeoDocumentScenario:
         # --- Spatial search via expression ---
         rows = backend.fetch_all(
             *SQLiteRTreeRangeQuery(
-                dialect, table_name="doc_locations",
+                dialect, table=Table(dialect, "doc_locations"),
                 ranges=[(10, 50), (10, 50)]
             ).to_sql()
         )
@@ -191,11 +192,11 @@ class TestGeoDocumentScenario:
                 ],
                 from_=[JoinClause(
                     dialect,
-                    left_table=TableExpression(dialect, "docs_fts"),
+                    left_table=NamedRelationRef(dialect, Table(dialect, "docs_fts")),
                     right_table=Subquery(
                         dialect,
                         SQLiteRTreeRangeQuery(
-                            dialect, table_name="doc_locations",
+                            dialect, table=Table(dialect, "doc_locations"),
                             ranges=[(0, 50), (0, 50)]
                         ),
                         alias="loc"
@@ -213,7 +214,7 @@ class TestGeoDocumentScenario:
             *QueryExpression(
                 dialect,
                 select=[Column(dialect, "doc_id")],
-                from_=TableExpression(dialect, "doc_meta"),
+                from_=NamedRelationRef(dialect, Table(dialect, "doc_meta")),
                 where=json_extract_text(
                     dialect, Column(dialect, "extra"), "$.floor"
                 ).is_not_null()
@@ -224,10 +225,10 @@ class TestGeoDocumentScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *DropVirtualTableExpression(dialect, table_name="docs_fts").to_sql(), options=ddl
+            *DropVirtualTableExpression(dialect, table=Table(dialect, "docs_fts")).to_sql(), options=ddl
         )
         backend.execute(
-            *DropVirtualTableExpression(dialect, table_name="doc_locations").to_sql(), options=ddl
+            *DropVirtualTableExpression(dialect, table=Table(dialect, "doc_locations")).to_sql(), options=ddl
         )
 
 
@@ -259,7 +260,7 @@ class TestGeofencingScenario:
         # --- Setup geopoly zones with extra columns ---
         backend.execute(
             *SQLiteGeopolyCreateVirtualTable(
-                dialect, table_name="zones",
+                dialect, table=Table(dialect, "zones"),
                 extra_columns=["name", "category", "config"]
             ).to_sql(),
             options=ddl
@@ -268,7 +269,7 @@ class TestGeofencingScenario:
         # Regular hexagon centered at (0,0) radius 3
         backend.execute(
             *InsertExpression(
-                dialect, into="zones",
+                dialect, into=Table(dialect, 'zones'),
                 columns=["name", "category", "config", "_shape"],
                 source=ValuesSource(dialect, [[
                     Literal(dialect, "central_park"),
@@ -283,7 +284,7 @@ class TestGeofencingScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="zones",
+                dialect, into=Table(dialect, 'zones'),
                 columns=["name", "category", "config", "_shape"],
                 source=ValuesSource(dialect, [[
                     Literal(dialect, "north_zone"),
@@ -300,7 +301,7 @@ class TestGeofencingScenario:
         # --- FTS5 for zone name search ---
         backend.execute(
             *SQLiteFTS5CreateVirtualTable(
-                dialect, table_name="zone_fts", columns=["name", "category"]
+                dialect, table=Table(dialect, "zone_fts"), columns=["name", "category"]
             ).to_sql(),
             options=ddl
         )
@@ -308,7 +309,7 @@ class TestGeofencingScenario:
         # Sync content from zones to FTS (real app uses triggers)
         backend.execute(
             *InsertExpression(
-                dialect, into="zone_fts",
+                dialect, into=Table(dialect, 'zone_fts'),
                 columns=["rowid", "name", "category"],
                 source=SelectSource(dialect, QueryExpression(
                     dialect,
@@ -317,7 +318,7 @@ class TestGeofencingScenario:
                         Column(dialect, "name"),
                         Column(dialect, "category"),
                     ],
-                    from_=TableExpression(dialect, "zones")
+                    from_=NamedRelationRef(dialect, Table(dialect, "zones"))
                 ))
             ).to_sql(),
             options=insert
@@ -326,7 +327,7 @@ class TestGeofencingScenario:
         # --- Geofencing query: check if device at (1, 1) is inside any zone ---
         rows = backend.fetch_all(
             *SQLiteGeopolyContainsExpression(
-                dialect, table_name="zones", longitude=1.0, latitude=1.0
+                dialect, table=Table(dialect, "zones"), longitude=1.0, latitude=1.0
             ).to_sql()
         )
         assert len(rows) >= 1
@@ -335,7 +336,7 @@ class TestGeofencingScenario:
         # --- Point outside all zones ---
         rows = backend.fetch_all(
             *SQLiteGeopolyContainsExpression(
-                dialect, table_name="zones", longitude=100.0, latitude=100.0
+                dialect, table=Table(dialect, "zones"), longitude=100.0, latitude=100.0
             ).to_sql()
         )
         assert len(rows) == 0
@@ -345,7 +346,7 @@ class TestGeofencingScenario:
             *QueryExpression(
                 dialect,
                 select=[Column(dialect, "name")],
-                from_=TableExpression(dialect, "zone_fts"),
+                from_=NamedRelationRef(dialect, Table(dialect, "zone_fts")),
                 where=SQLiteMatchPredicate(dialect, table="zone_fts", query="park")
             ).to_sql()
         )
@@ -362,8 +363,8 @@ class TestGeofencingScenario:
                 ],
                 from_=[JoinClause(
                     dialect,
-                    left_table=TableExpression(dialect, "zones", alias="z"),
-                    right_table=TableExpression(dialect, "zone_fts", alias="f"),
+                    left_table=NamedRelationRef(dialect, Table(dialect, "zones"), alias="z"),
+                    right_table=NamedRelationRef(dialect, Table(dialect, "zone_fts"), alias="f"),
                     condition=Column(dialect, "rowid", table="z")
                              == Column(dialect, "rowid", table="f")
                 )],
@@ -382,7 +383,7 @@ class TestGeofencingScenario:
         # --- Area calculation via expression ---
         rows = backend.fetch_all(
             *SQLiteGeopolyAreaExpression(
-                dialect, table_name="zones"
+                dialect, table=Table(dialect, "zones")
             ).to_sql()
         )
         assert len(rows) == 2
@@ -391,10 +392,10 @@ class TestGeofencingScenario:
 
         # --- Cleanup ---
         backend.execute(
-            *DropVirtualTableExpression(dialect, table_name="zones").to_sql(), options=ddl
+            *DropVirtualTableExpression(dialect, table=Table(dialect, "zones")).to_sql(), options=ddl
         )
         backend.execute(
-            *DropVirtualTableExpression(dialect, table_name="zone_fts").to_sql(), options=ddl
+            *DropVirtualTableExpression(dialect, table=Table(dialect, "zone_fts")).to_sql(), options=ddl
         )
 
 
@@ -426,7 +427,7 @@ class TestSpatialCatalogScenario:
         # --- Main data table ---
         backend.execute(
             *CreateTableExpression(
-                dialect, table="features",
+                dialect, table=Table(dialect, 'features'),
                 columns=[
                     ColumnDefinition(dialect, "id", SQLiteIntegerType(dialect), constraints=[
                         ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
@@ -442,7 +443,7 @@ class TestSpatialCatalogScenario:
         # --- R-Tree spatial index via expression ---
         backend.execute(
             *SQLiteRTreeCreateVirtualTable(
-                dialect, table_name="features_rtree"
+                dialect, table=Table(dialect, "features_rtree")
             ).to_sql(),
             options=ddl
         )
@@ -450,7 +451,7 @@ class TestSpatialCatalogScenario:
         # --- FTS5 text index (standalone) via expression ---
         backend.execute(
             *SQLiteFTS5CreateVirtualTable(
-                dialect, table_name="features_fts",
+                dialect, table=Table(dialect, "features_fts"),
                 columns=["name", "description"]
             ).to_sql(),
             options=ddl
@@ -470,7 +471,7 @@ class TestSpatialCatalogScenario:
 
         backend.execute(
             *InsertExpression(
-                dialect, into="features_fts",
+                dialect, into=Table(dialect, 'features_fts'),
                 columns=["rowid", "name", "description"],
                 source=ValuesSource(dialect, [
                     [Literal(dialect, f[0]), Literal(dialect, f[1]),
@@ -481,7 +482,7 @@ class TestSpatialCatalogScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="features_rtree",
+                dialect, into=Table(dialect, 'features_rtree'),
                 source=ValuesSource(dialect, [
                     [Literal(dialect, f[0]), Literal(dialect, f[4]),
                      Literal(dialect, f[5]), Literal(dialect, f[6]),
@@ -496,7 +497,7 @@ class TestSpatialCatalogScenario:
             *QueryExpression(
                 dialect,
                 select=[Column(dialect, "rowid"), Column(dialect, "name")],
-                from_=TableExpression(dialect, "features_fts"),
+                from_=NamedRelationRef(dialect, Table(dialect, "features_fts")),
                 where=SQLiteMatchPredicate(dialect, table="features_fts", query="hospital")
             ).to_sql()
         )
@@ -506,7 +507,7 @@ class TestSpatialCatalogScenario:
         # --- Spatial search via expression ---
         rows = backend.fetch_all(
             *SQLiteRTreeRangeQuery(
-                dialect, table_name="features_rtree",
+                dialect, table=Table(dialect, "features_rtree"),
                 ranges=[(10, 100), (10, 100)]
             ).to_sql()
         )
@@ -516,7 +517,7 @@ class TestSpatialCatalogScenario:
         # --- Combined FTS5 + spatial + JSON filter via expressions ---
         backend.execute(
             *CreateTableExpression(
-                dialect, table="feature_props",
+                dialect, table=Table(dialect, 'feature_props'),
                 columns=[
                     ColumnDefinition(dialect, "feature_id", SQLiteIntegerType(dialect), constraints=[
                         ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
@@ -528,7 +529,7 @@ class TestSpatialCatalogScenario:
         )
         backend.execute(
             *InsertExpression(
-                dialect, into="feature_props",
+                dialect, into=Table(dialect, 'feature_props'),
                 columns=["feature_id", "props"],
                 source=ValuesSource(dialect, [
                     [Literal(dialect, f[0]), Literal(dialect, f[3])] for f in features
@@ -549,11 +550,11 @@ class TestSpatialCatalogScenario:
                     dialect,
                     left_table=JoinClause(
                         dialect,
-                        left_table=TableExpression(dialect, "features_fts"),
+                        left_table=NamedRelationRef(dialect, Table(dialect, "features_fts")),
                         right_table=Subquery(
                             dialect,
                             SQLiteRTreeRangeQuery(
-                                dialect, table_name="features_rtree",
+                                dialect, table=Table(dialect, "features_rtree"),
                                 ranges=[(100, 600), (100, 600)]
                             ),
                             alias="rt"
@@ -561,7 +562,7 @@ class TestSpatialCatalogScenario:
                         condition=Column(dialect, "rowid", table="features_fts")
                                  == Column(dialect, "id", table="rt")
                     ),
-                    right_table=TableExpression(dialect, "feature_props"),
+                    right_table=NamedRelationRef(dialect, Table(dialect, "feature_props")),
                     condition=Column(dialect, "rowid", table="features_fts")
                              == Column(dialect, "feature_id", table="feature_props")
                 )],
@@ -583,5 +584,8 @@ class TestSpatialCatalogScenario:
         # --- Cleanup ---
         for tbl in ["features_rtree", "features_fts"]:
             backend.execute(
-                *DropVirtualTableExpression(dialect, table_name=tbl).to_sql(), options=ddl
+                *DropVirtualTableExpression(
+                    dialect, table=Table(dialect, tbl)
+                ).to_sql(),
+                options=ddl,
             )

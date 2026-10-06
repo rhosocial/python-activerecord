@@ -17,7 +17,7 @@ import sys
 import logging
 from typing import Type, List, Tuple
 
-from rhosocial.activerecord.backend.expression import DropTableExpression, TableExpression
+from rhosocial.activerecord.backend.expression import DropTableExpression
 from rhosocial.activerecord.backend.type_adapter import BaseSQLTypeAdapter
 from rhosocial.activerecord.model import ActiveRecord
 
@@ -322,6 +322,7 @@ from rhosocial.activerecord.testsuite.core.protocols import WorkerTestProtocol  
 
 # ...and the scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario  # noqa: E402
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class BasicProviderBase:
@@ -391,9 +392,6 @@ class BasicSyncProvider(BasicProviderBase, IBasicSyncProvider, WorkerTestProtoco
         backend_class, original_config = get_scenario(scenario_name)
 
         # Check if this is a file-based scenario, and if so, generate a unique filename
-        import os
-        import tempfile
-        import uuid
 
         config = original_config  # default to the original config
 
@@ -427,7 +425,7 @@ class BasicSyncProvider(BasicProviderBase, IBasicSyncProvider, WorkerTestProtoco
         try:
             drop_expr = DropTableExpression(
                 dialect=model_class.__backend__.dialect,
-                table=TableExpression(model_class.__backend__.dialect, table_name),
+                table=Table(model_class.__backend__.dialect, table_name),
                 if_exists=True,
             )
             model_class.__backend__.execute(
@@ -671,9 +669,6 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
         _, original_config = get_scenario(scenario_name)
 
         # Check if this is a file-based scenario, and if so, generate a unique filename
-        import os
-        import tempfile
-        import uuid
 
         config = original_config  # default to the original config
 
@@ -707,7 +702,7 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
         try:
             drop_expr = DropTableExpression(
                 dialect=model_class.__backend__.dialect,
-                table=TableExpression(model_class.__backend__.dialect, table_name),
+                table=Table(model_class.__backend__.dialect, table_name),
                 if_exists=True,
             )
             await model_class.__backend__.execute(
@@ -787,7 +782,7 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
         options = ExecutionOptions(stmt_type=StatementType.DDL)
         drop_expr = DropTableExpression(
             dialect=model_class.__backend__.dialect,
-            table=TableExpression(model_class.__backend__.dialect, table_name),
+            table=Table(model_class.__backend__.dialect, table_name),
             if_exists=True,
         )
         await model_class.__backend__.execute(*drop_expr.to_sql(), options=options)

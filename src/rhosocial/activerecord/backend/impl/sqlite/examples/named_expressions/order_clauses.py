@@ -14,7 +14,6 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     FunctionCall,
-    TableExpression,
     WhereClause,
     JoinClause,
     GroupByHavingClause,
@@ -22,6 +21,8 @@ from rhosocial.activerecord.backend.expression import (
     LimitOffsetClause,
     SelectModifier,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from .....expression.objects import Table
 
 
 def where_example(dialect, status: str = "active"):
@@ -39,7 +40,7 @@ def where_example(dialect, status: str = "active"):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "status")],
-        from_=TableExpression(dialect, "orders"),
+        from_=NamedRelationRef(dialect, Table(dialect, "orders")),
         where=WhereClause(
             dialect,
             condition=Column(dialect, "status") == Literal(dialect, status),
@@ -68,8 +69,8 @@ def join_example(dialect, user_id: int = 1):
         ],
         from_=JoinClause(
             dialect,
-            left_table=TableExpression(dialect, "orders", alias="o"),
-            right_table=TableExpression(dialect, "users", alias="u"),
+            left_table=NamedRelationRef(dialect, Table(dialect, "orders"), alias="o"),
+            right_table=NamedRelationRef(dialect, Table(dialect, "users"), alias="u"),
             join_type="INNER JOIN",
             condition=Column(dialect, "o.user_id") == Column(dialect, "u.id"),
         ),
@@ -98,7 +99,7 @@ def group_by_example(dialect, min_total: float = 100.0):
             Column(dialect, "status"),
             FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("cnt"),
         ],
-        from_=TableExpression(dialect, "orders"),
+        from_=NamedRelationRef(dialect, Table(dialect, "orders")),
         group_by_having=GroupByHavingClause(
             dialect,
             group_by=[Column(dialect, "status")],
@@ -121,7 +122,7 @@ def order_by_example(dialect, limit: int = 10):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "status"), Column(dialect, "amount")],
-        from_=TableExpression(dialect, "orders"),
+        from_=NamedRelationRef(dialect, Table(dialect, "orders")),
         order_by=OrderByClause(
             dialect,
             expressions=[(Column(dialect, "amount"), "DESC")],
@@ -147,7 +148,7 @@ def distinct_example(dialect):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "status")],
-        from_=TableExpression(dialect, "orders"),
+        from_=NamedRelationRef(dialect, Table(dialect, "orders")),
         select_modifier=SelectModifier.DISTINCT,
     )
 
@@ -175,8 +176,8 @@ def compound_example(dialect, user_id: int = 1, status: str = "pending"):
         ],
         from_=JoinClause(
             dialect,
-            left_table=TableExpression(dialect, "orders", alias="o"),
-            right_table=TableExpression(dialect, "users", alias="u"),
+            left_table=NamedRelationRef(dialect, Table(dialect, "orders"), alias="o"),
+            right_table=NamedRelationRef(dialect, Table(dialect, "users"), alias="u"),
             join_type="INNER JOIN",
             condition=Column(dialect, "o.user_id") == Column(dialect, "u.id"),
         ),

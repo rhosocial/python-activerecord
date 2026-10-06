@@ -65,7 +65,7 @@ products_data = [
 for row in products_data:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="products",
+        into=Table(dialect, 'products'),
         columns=["name", "price", "category", "description"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
     )
@@ -75,12 +75,12 @@ for row in products_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     Column,
     WhereClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
     LikePredicate,
@@ -89,6 +89,7 @@ from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
     IsNullPredicate,
     LogicalPredicate,
 )
+from .....expression.objects import Table
 
 # Combine multiple predicates: (LIKE pattern) AND (IN list) AND (BETWEEN range) AND (IS NOT NULL)
 like_pred = LikePredicate(dialect, "LIKE", Column(dialect, "name"), Literal(dialect, "%a%"))
@@ -105,7 +106,7 @@ query = QueryExpression(
         Column(dialect, "price"),
         Column(dialect, "category"),
     ],
-    from_=TableExpression(dialect, "products"),
+    from_=NamedRelationRef(dialect, Table(dialect, "products")),
     where=WhereClause(dialect, condition=combined_pred),
 )
 

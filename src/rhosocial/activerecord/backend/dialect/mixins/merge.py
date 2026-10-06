@@ -5,6 +5,8 @@ Declares MERGE support and formats the MERGE statement together with its
 WHEN [NOT] MATCHED action clauses.
 """
 from typing import Any, List, Tuple, TYPE_CHECKING
+from rhosocial.activerecord.backend.expression.statements import MergeAction
+from ...expression.objects import Table
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -76,7 +78,16 @@ class MergeMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            TypeError: ``MergeExpression.target_table`` is not a Table. Another
+            object kind would have had its own name rendered as the merge target.
         """
+        if not isinstance(expr.target_table, Table):
+            raise TypeError(
+                f"MergeExpression.target_table must be a Table, "
+                f"got {type(expr.target_table).__name__}"
+            )
         all_params: List[Any] = []
         target_sql, target_params = expr.target_table.to_sql()
         all_params.extend(target_params)

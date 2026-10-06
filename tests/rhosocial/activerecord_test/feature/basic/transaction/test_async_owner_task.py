@@ -24,7 +24,6 @@ Coverage:
 """
 import asyncio
 import warnings
-from typing import Tuple
 
 import pytest
 

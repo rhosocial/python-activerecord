@@ -4,8 +4,10 @@ Tests to cover missing lines in expression core/bases/executable/operators modul
 Targets: core.py:69,177 / bases.py:16 / executable.py:35 / operators.py:153
 """
 
-from rhosocial.activerecord.backend.expression.core import Column, Literal, TableExpression, Subquery
+from rhosocial.activerecord.backend.expression import Column, Literal, Subquery
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestColumnSchemaName:
@@ -72,7 +74,7 @@ class TestExecutableProtocol:
 
         # QueryExpression implements Executable via statement_type
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         assert isinstance(query, Executable)
 

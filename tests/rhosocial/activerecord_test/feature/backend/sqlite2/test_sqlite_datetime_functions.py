@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.statements import InsertExpression, ReturningClause, ValuesSource
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestSQLiteDateTimeFunctions:
@@ -28,7 +29,7 @@ class TestSQLiteDateTimeFunctions:
 
         insert_expr = InsertExpression(
             sqlite_dialect_3_8_0,
-            into="users",
+            into=Table(sqlite_dialect_3_8_0, 'users'),
             source=ValuesSource(
                 sqlite_dialect_3_8_0, values_list=[[Literal(sqlite_dialect_3_8_0, "john"), raw_timestamp]]
             ),
@@ -47,7 +48,7 @@ class TestSQLiteDateTimeFunctions:
 
         update_expr = UpdateExpression(
             sqlite_dialect_3_8_0,
-            table="users",
+            table=Table(sqlite_dialect_3_8_0, 'users'),
             assignments={"updated_at": raw_timestamp, "username": Literal(sqlite_dialect_3_8_0, "updated_john")},
             where=Column(sqlite_dialect_3_8_0, "id") == Literal(sqlite_dialect_3_8_0, 1),
         )
@@ -100,7 +101,7 @@ class TestSQLiteDateTimeFunctions:
         # Create a table with a timestamp column for audit purposes
         delete_expr = DeleteExpression(
             sqlite_dialect_3_8_0,
-            tables="temp_users",
+            tables=Table(sqlite_dialect_3_8_0, 'temp_users'),
             where=Column(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "inactive"),
         )
 
@@ -137,7 +138,7 @@ class TestSQLiteDateTimeFunctions:
 
             update_expr = UpdateExpression(
                 sqlite_dialect_3_8_0,
-                table="users",
+                table=Table(sqlite_dialect_3_8_0, 'users'),
                 assignments={"updated_at": raw_timestamp, "status": Literal(sqlite_dialect_3_8_0, "active")},
                 where=Column(sqlite_dialect_3_8_0, "id") == Literal(sqlite_dialect_3_8_0, 1),
                 returning=ReturningClause(

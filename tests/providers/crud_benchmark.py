@@ -2,8 +2,6 @@
 
 import os
 import sys
-import tempfile
-import uuid
 from typing import Type
 
 from rhosocial.activerecord.backend.options import ExecutionOptions

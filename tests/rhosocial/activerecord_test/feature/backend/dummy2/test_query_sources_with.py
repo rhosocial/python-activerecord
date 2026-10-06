@@ -5,10 +5,11 @@ from rhosocial.activerecord.backend.expression import (
     Subquery,
     FunctionCall,
     QueryExpression,
-    TableExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import CTEExpression, WithQueryExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestCTEAndWithQueryExpressions:
@@ -48,7 +49,7 @@ class TestCTEAndWithQueryExpressions:
 
         # Create a WithQueryExpression with recursive=True to test recursive functionality
         main_query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "tree_cte")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "tree_cte"))
         )
 
         with_query = WithQueryExpression(dummy_dialect, ctes=[cte], main_query=main_query, recursive=True)
@@ -99,7 +100,7 @@ class TestCTEAndWithQueryExpressions:
         cte = CTEExpression(dummy_dialect, name="active_users", query=cte_query)
 
         main_query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "name")], from_=TableExpression(dummy_dialect, "active_users")
+            dummy_dialect, select=[Column(dummy_dialect, "name")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "active_users"))
         )
 
         with_query = WithQueryExpression(dummy_dialect, ctes=[cte], main_query=main_query)
@@ -124,7 +125,7 @@ class TestCTEAndWithQueryExpressions:
                 Column(dummy_dialect, "name", table="adults"),
                 Column(dummy_dialect, "order_count", table="user_orders"),
             ],
-            from_=TableExpression(dummy_dialect, "adults"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "adults")),
         )
 
         with_query = WithQueryExpression(dummy_dialect, ctes=[cte1, cte2], main_query=main_query)
@@ -142,7 +143,7 @@ class TestCTEAndWithQueryExpressions:
         cte = CTEExpression(dummy_dialect, name="simple_cte", query=cte_query)
 
         main_query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "simple_cte")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "simple_cte"))
         )
 
         with_query = WithQueryExpression(
@@ -159,7 +160,7 @@ class TestCTEAndWithQueryExpressions:
     def test_cte_with_complex_query(self, dummy_dialect: DummyDialect):
         """Test CTE with complex query involving multiple clauses."""
         # Create a complex query with various clauses
-        from_clause = TableExpression(dummy_dialect, "products")
+        from_clause = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"))
 
         complex_query = QueryExpression(
             dummy_dialect,
@@ -202,7 +203,7 @@ class TestCTEAndWithQueryExpressions:
         main_query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "adults"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "adults")),
             where=None,  # Will be set properly
         )
 

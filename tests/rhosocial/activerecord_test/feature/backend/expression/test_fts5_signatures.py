@@ -15,10 +15,6 @@ import pytest
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5MatchExpression,
-    SQLiteFTS5CreateVirtualTable,
-    SQLiteFTS5RankExpression,
-    SQLiteFTS5HighlightExpression,
-    SQLiteFTS5SnippetExpression,
 )
 
 

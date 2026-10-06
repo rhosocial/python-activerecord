@@ -6,7 +6,7 @@ from typing import List, Union, Tuple, Any, TYPE_CHECKING
 from ..backend.expression import Column, BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..query import IQuery
+    from ..interface.query import IQuery
 
 
 class RangeQueryMixin:

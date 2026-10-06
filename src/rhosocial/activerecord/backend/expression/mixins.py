@@ -27,7 +27,7 @@ ensuring consistent SQL generation across the expression tree.
 """
 
 import copy
-from typing import Any, Optional, Union, List, TYPE_CHECKING, TypeVar
+from typing import Any, Union, List, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression, SQLPredicate
@@ -65,8 +65,6 @@ class AliasableMixin:
         """
         new = copy.copy(self)
         new.alias = alias
-        if hasattr(new, "_cast_types"):
-            new._cast_types = list(new._cast_types)
         return new
 
 
@@ -324,6 +322,7 @@ class ComparisonMixin:
             >>> col = Column(dialect, "status")
             >>> predicate = col.in_(["active", "pending"])  # Generates: "status IN (?, ?)"
         """
+        from .bases import BaseExpression
         from .core import Literal
         from .predicates import InPredicate
 
@@ -333,7 +332,7 @@ class ComparisonMixin:
             from .core import Subquery
 
             return InPredicate(self._dialect, self, Subquery(None, to_query_expression()))
-        if hasattr(values, "to_sql"):
+        if isinstance(values, BaseExpression):
             # Already an expression (e.g. Subquery): pass through.
             return InPredicate(self._dialect, self, values)
 

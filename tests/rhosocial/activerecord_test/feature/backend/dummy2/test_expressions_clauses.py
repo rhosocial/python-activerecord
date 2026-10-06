@@ -6,7 +6,6 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     RawSQLExpression,
     Subquery,
-    TableExpression,
     ComparisonPredicate,
     JoinClause,
     CTEExpression,
@@ -17,7 +16,9 @@ from rhosocial.activerecord.backend.expression import (
     OrderedSetAggregation,
     MergeActionType,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestClauseExpressions:
@@ -69,8 +70,8 @@ class TestClauseExpressions:
         expected_params,
     ):
         """Tests various types of JOIN expressions."""
-        left_table = TableExpression(dummy_dialect, left_data[0], alias=left_data[1])
-        right_table = TableExpression(dummy_dialect, right_data[0], alias=right_data[1])
+        left_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, left_data[0]), alias=left_data[1])
+        right_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, right_data[0]), alias=right_data[1])
 
         condition = None
         if condition_data:
@@ -91,8 +92,8 @@ class TestClauseExpressions:
 
     def test_join_expression_validation_both_condition_and_using(self, dummy_dialect: DummyDialect):
         """Test that JoinClause raises ValueError when both condition and using are provided."""
-        left_table = TableExpression(dummy_dialect, "users")
-        right_table = TableExpression(dummy_dialect, "profiles")
+        left_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
+        right_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "profiles"))
         condition = ComparisonPredicate(
             dummy_dialect,
             "=",
@@ -183,7 +184,7 @@ class TestClauseExpressions:
     # --- MergeExpression ---
     def test_merge_expression_basic(self, dummy_dialect: DummyDialect):
         """Tests a basic MERGE statement with WHEN MATCHED UPDATE and WHEN NOT MATCHED INSERT."""
-        target_table = TableExpression(dummy_dialect, "products", alias="p")
+        target_table = Table(dummy_dialect, "products")
         source_values = ValuesExpression(
             dummy_dialect, [(1, "New Product A", 15.0)], "new_prods", ["id", "name", "price"]
         )
@@ -217,7 +218,7 @@ class TestClauseExpressions:
         )
         sql, params = merge_expr.to_sql()
         expected_sql = (
-            'MERGE INTO "products" AS "p" USING (VALUES (?, ?, ?)) AS "new_prods"("id", "name", "price") ON "p"."id" = "new_prods"."id" '  # noqa: E501
+            'MERGE INTO "products" USING (VALUES (?, ?, ?)) AS "new_prods"("id", "name", "price") ON "p"."id" = "new_prods"."id" '  # noqa: E501
             'WHEN MATCHED THEN UPDATE SET "name" = "new_prods"."name", "price" = "new_prods"."price" '
             'WHEN NOT MATCHED THEN INSERT ("id", "name", "price") VALUES ("new_prods"."id", "new_prods"."name", "new_prods"."price")'  # noqa: E501
         )

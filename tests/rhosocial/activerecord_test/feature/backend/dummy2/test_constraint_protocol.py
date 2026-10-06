@@ -5,6 +5,7 @@ import pytest
 from rhosocial.activerecord.backend.dialect.protocols import ConstraintSupport
 from rhosocial.activerecord.backend.dialect.mixins import ConstraintMixin
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestConstraintProtocol:
@@ -215,7 +216,7 @@ class TestConstraintSQLFormatting:
             dialect,
             constraint=ForeignKeyConstraint(dialect, 
                 columns=["user_id"],
-                foreign_key_table="users",
+                foreign_key_table=Table(dialect, "users"),
                 foreign_key_columns=["id"],
             ),
         )
@@ -290,7 +291,7 @@ class TestConstraintEnforcementAndValidation:
         )
         expression = CreateTableExpression(
             dialect,
-            "people",
+            Table(dialect, 'people'),
             [ColumnDefinition(dialect, "age", IntegerType(dialect), [column_constraint])],
             table_constraints=[table_constraint],
         )

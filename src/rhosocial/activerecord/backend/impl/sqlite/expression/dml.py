@@ -1,12 +1,14 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/expression/dml.py
 """SQLite-specific DML expression classes."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 from rhosocial.activerecord.backend.expression.statements import InsertExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
+    from rhosocial.activerecord.backend.expression.objects import Table
+    from rhosocial.activerecord.backend.expression.statements.dml import InsertDataSource
 
 
 class SQLiteInsertExpression(InsertExpression):
@@ -20,12 +22,12 @@ class SQLiteInsertExpression(InsertExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        into,
-        source,
-        columns=None,
+        into: "Table",
+        source: "InsertDataSource",
+        columns: Optional[List[str]] = None,
         *,
-        on_conflict=None,
-        returning=None,
+        on_conflict: Optional[list] = None,
+        returning: Optional[object] = None,
         or_replace: bool = False,
         or_ignore: bool = False,
     ):

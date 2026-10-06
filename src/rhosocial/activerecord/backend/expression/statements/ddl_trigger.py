@@ -5,6 +5,7 @@ from enum import Enum
 from typing import List, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate
+from ..objects import Function, Table, Trigger
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -35,33 +36,28 @@ class TriggerLevel(Enum):
 
 
 class CreateTriggerExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_trigger_statement"
     """SQL:1999 standard CREATE TRIGGER statement.
 
     Examples:
         # Basic trigger
         create_trigger = CreateTriggerExpression(
             dialect,
-            trigger_name="update_timestamp",
-            table_name="users",
+            trigger=Trigger(dialect, "update_timestamp"),
+            table=Table(dialect, "users"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
-            function_name="update_updated_at_column"
+            function=Function(dialect, "update_updated_at_column")
         )
 
         # Trigger with condition
         create_trigger = CreateTriggerExpression(
             dialect,
-            trigger_name="check_status",
-            table_name="orders",
+            trigger=Trigger(dialect, "check_status"),
+            table=Table(dialect, "orders"),
             timing=TriggerTiming.BEFORE,
             events=[TriggerEvent.UPDATE],
             update_columns=["status"],
-            function_name="validate_status",
+            function=Function(dialect, "validate_status"),
             level=TriggerLevel.ROW,
             condition=Column(dialect, "new.status") != Column(dialect, "old.status")
         )
@@ -70,11 +66,11 @@ class CreateTriggerExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        trigger_name: str,
-        table_name: str,
+        trigger: "Trigger",
+        table: "Table",
         timing: TriggerTiming,
         events: List[TriggerEvent],
-        function_name: str,
+        function: "Function",
         level: TriggerLevel = TriggerLevel.ROW,
         condition: Optional["SQLPredicate"] = None,
         update_columns: Optional[List[str]] = None,
@@ -82,11 +78,11 @@ class CreateTriggerExpression(BaseExpression):
         if_not_exists: bool = False,
     ):
         super().__init__(dialect)
-        self.trigger_name = trigger_name
-        self.table_name = table_name
+        self.trigger = trigger
+        self.table = table
         self.timing = timing
         self.events = events
-        self.function_name = function_name
+        self.function = function
         self.level = level
         self.condition = condition
         self.update_columns = update_columns
@@ -100,31 +96,28 @@ class CreateTriggerExpression(BaseExpression):
 
 
 class DropTriggerExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_trigger_statement"
     """SQL:1999 standard DROP TRIGGER statement.
 
     Examples:
         drop_trigger = DropTriggerExpression(
             dialect,
-            trigger_name="update_timestamp",
-            table_name="users"
+            trigger=Trigger(dialect, "update_timestamp"),
+            table=Table(dialect, "users")
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        trigger_name: str,
-        table_name: Optional[str] = None,
+        trigger: "Trigger",
+        table: Optional["Table"] = None,
         if_exists: bool = False,
     ):
         super().__init__(dialect)
-        self.trigger_name = trigger_name
-        self.table_name = table_name
+        # A trigger can be named by its own name alone, so the table is
+        # optional. The formatter checks its kind when one is given.
+        self.trigger = trigger
+        self.table = table
         self.if_exists = if_exists
 
     @property

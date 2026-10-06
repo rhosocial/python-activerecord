@@ -1,10 +1,11 @@
 # src/rhosocial/activerecord/backend/expression/xml.py
 """SQL/XML expression constructors."""
 
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Sequence, TYPE_CHECKING
 
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
+from .bases import BaseExpression, SQLPredicate, SQLValueExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -105,12 +106,18 @@ class XMLSerializeExpression(SQLValueExpression):
         return "format_xmlserialize_expression"
 
 
+@dataclass
 class XMLAttribute:
-    """Represents one XMLATTRIBUTES item."""
+    """One XMLATTRIBUTES item: a value, optionally given a name.
 
-    def __init__(self, value: BaseExpression, name: Optional[str] = None):
-        self.value = value
-        self.name = name
+    A dataclass because the expression serializer encodes dataclasses
+    structurally. As a plain class this serialised to ``null`` in JSON and to a
+    ``repr`` in XML, so an XMLATTRIBUTES clause lost its content on every
+    round-trip.
+    """
+
+    value: BaseExpression
+    name: Optional[str] = None
 
 
 class XMLAttributesExpression(SQLValueExpression):
@@ -151,12 +158,15 @@ class XMLElementExpression(SQLValueExpression):
         return "format_xmlelement_expression"
 
 
+@dataclass
 class XMLForestItem:
-    """Represents one XMLFOREST item."""
+    """One XMLFOREST item: a value, optionally given a name.
 
-    def __init__(self, value: BaseExpression, name: Optional[str] = None):
-        self.value = value
-        self.name = name
+    A dataclass for the reason given on :class:`XMLAttribute`.
+    """
+
+    value: BaseExpression
+    name: Optional[str] = None
 
 
 class XMLForestExpression(SQLValueExpression):
@@ -307,20 +317,20 @@ class XMLExistsExpression(SQLPredicate):
         return "format_xmlexists_expression"
 
 
+@dataclass
 class XMLTableColumn:
-    """Represents one SQL/XML XMLTABLE column definition."""
+    """One SQL/XML XMLTABLE column definition.
 
-    def __init__(
-        self,
-        name: str,
-        data_type: str,
-        path: Optional[BaseExpression] = None,
-        default: Optional[BaseExpression] = None,
-    ):
-        self.name = name
-        self.data_type = data_type
-        self.path = path
-        self.default = default
+    A dataclass for the reason given on :class:`XMLAttribute`: the serialiser
+    encodes dataclasses structurally, so as a plain class this definition was
+    written out as ``null`` by the JSON and XML encoders and an XMLTABLE lost its
+    column list on every round-trip.
+    """
+
+    name: str
+    data_type: str
+    path: Optional[BaseExpression] = None
+    default: Optional[BaseExpression] = None
 
 
 class XMLTableExpression(BaseExpression):

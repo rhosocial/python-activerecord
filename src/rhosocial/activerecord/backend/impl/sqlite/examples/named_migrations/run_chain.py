@@ -75,7 +75,7 @@ def main():
     print("    ✓ Table 'posts' created (dependency check passed).")
 
     # --- Show applied ---------------------------------------------------------
-    print(f"\n[5] Applied migrations:")
+    print("\n[5] Applied migrations:")
     for rec in store.get_applied():
         print(f"    - {rec.version}")
 

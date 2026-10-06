@@ -8,7 +8,6 @@ The backend-specific provider is responsible for taking these classes and
 configuring them with a live database connection at test time.
 """
 from typing import Optional
-from datetime import datetime
 
 from pydantic import Field
 

@@ -10,10 +10,11 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     Column,
     FunctionCall,
-    TableExpression,
     WhereClause,
     Literal,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from .....expression.objects import Table
 
 
 def agg_sales(dialect, month: str = ""):
@@ -32,7 +33,7 @@ def agg_sales(dialect, month: str = ""):
             FunctionCall(dialect, "SUM", Column(dialect, "amount")).as_("total"),
             FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("count"),
         ],
-        from_=TableExpression(dialect, "sales"),
+        from_=NamedRelationRef(dialect, Table(dialect, "sales")),
         where=WhereClause(dialect, condition=Column(dialect, "month") == Literal(dialect, month)),
     )
 
@@ -53,7 +54,7 @@ def agg_refunds(dialect, month: str = ""):
             FunctionCall(dialect, "SUM", Column(dialect, "amount")).as_("total"),
             FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("count"),
         ],
-        from_=TableExpression(dialect, "refunds"),
+        from_=NamedRelationRef(dialect, Table(dialect, "refunds")),
         where=WhereClause(dialect, condition=Column(dialect, "month") == Literal(dialect, month)),
     )
 

@@ -15,6 +15,7 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.predicates import InPredicate, BetweenPredicate, IsNullPredicate
 from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestQueryParts:
@@ -46,13 +47,14 @@ class TestQueryParts:
 
     def test_comparison_predicate_with_query_expression(self, dummy_dialect: DummyDialect):
         """Test ComparisonPredicate when right operand is QueryExpression (covers the isinstance check)."""
-        from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression
+        from rhosocial.activerecord.backend.expression import QueryExpression
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         # Create a subquery as the right operand
         subquery = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "other_table"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "other_table")),
             where=WhereClause(
                 dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
             ),

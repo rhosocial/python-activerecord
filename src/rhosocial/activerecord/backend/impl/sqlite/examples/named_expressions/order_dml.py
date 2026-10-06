@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.expression import (
     WhereClause,
     ReturningClause,
 )
+from .....expression.objects import Table
 
 
 def add_order(dialect, user_id: int, status: str = "pending"):
@@ -31,7 +32,7 @@ def add_order(dialect, user_id: int, status: str = "pending"):
     """
     return InsertExpression(
         dialect,
-        into="orders",
+        into=Table(dialect, 'orders'),
         columns=["user_id", "status"],
         source=ValuesSource(
             dialect,
@@ -52,7 +53,7 @@ def add_order_bulk(dialect, user_id: int):
     """
     return InsertExpression(
         dialect,
-        into="orders",
+        into=Table(dialect, 'orders'),
         columns=["user_id", "status"],
         source=ValuesSource(
             dialect,
@@ -77,7 +78,7 @@ def update_order_status(dialect, order_id: int, new_status: str):
     """
     return UpdateExpression(
         dialect,
-        table="orders",
+        table=Table(dialect, 'orders'),
         assignments={"status": Literal(dialect, new_status)},
         where=WhereClause(
             dialect,
@@ -98,7 +99,7 @@ def cancel_order(dialect, order_id: int):
     """
     return DeleteExpression(
         dialect,
-        tables="orders",
+        tables=Table(dialect, 'orders'),
         where=WhereClause(
             dialect,
             condition=Column(dialect, "id") == Literal(dialect, order_id),
@@ -119,7 +120,7 @@ def add_payment(dialect, order_id: int, status: str = "pending"):
     """
     return InsertExpression(
         dialect,
-        into="payments",
+        into=Table(dialect, 'payments'),
         columns=["order_id", "status", "transaction_id"],
         source=ValuesSource(
             dialect,
@@ -150,7 +151,7 @@ def archive_processed_orders(dialect, status: str = "completed"):
     """
     return DeleteExpression(
         dialect,
-        tables="orders",
+        tables=Table(dialect, 'orders'),
         where=WhereClause(
             dialect,
             condition=Column(dialect, "status") == Literal(dialect, status),

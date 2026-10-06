@@ -80,7 +80,7 @@ class ExistsExpression(SQLPredicate):
         # Automatically wrap BaseExpression in Subquery if needed
         if isinstance(subquery, Subquery):
             self.subquery = subquery
-        elif hasattr(subquery, "to_sql"):
+        elif isinstance(subquery, BaseExpression):
             # Create a Subquery from BaseExpression
             self.subquery = Subquery(dialect, subquery)
         else:

@@ -47,19 +47,18 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     InsertExpression,
     ValuesSource,
     ReturningClause,
-    TableExpression,
     Column,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 insert_expr = InsertExpression(
     dialect=dialect,
-    into=TableExpression(dialect, "users"),
+    into=Table(dialect, 'users'),
     source=ValuesSource(dialect, [[Literal(dialect, "Alice")]]),
     columns=["name"],
     returning=ReturningClause(dialect, [Column(dialect, "id")]),

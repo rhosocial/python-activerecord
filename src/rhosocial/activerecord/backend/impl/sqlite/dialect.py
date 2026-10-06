@@ -30,15 +30,11 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     WildcardSupport,
     JoinSupport,
     SetOperationSupport,
-    ViewSupport,
-    # DDL Protocols
-    TableSupport,
+    # DDL statement protocols
     ConstraintSupport,
     TruncateSupport,
-    SchemaSupport,
-    IndexSupport,
-    SequenceSupport,
-    TriggerSupport,
+    CreateSchemaSupport,
+    DropSchemaSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
     ColumnAttributeSupport,
@@ -50,11 +46,29 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SQLFunctionSupport,
     # Type Support Protocol
     DataTypeSupport,
-    UserDefinedTypeSupport,
-    DomainSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
-    AutoIncrementMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
+    RelationSourceMixin,
+    SchemaNameMixin,
+    # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
+    NamespaceMixin,
+    TableNameMixin,
+    ViewNameMixin,
+    MaterializedViewNameMixin,
+    ForeignTableNameMixin,
+    IndexNameMixin,
+    SequenceNameMixin,
+    TriggerNameMixin,
+    FunctionNameMixin,
+    ProcedureNameMixin,
+    TypeNameMixin,
+    DomainNameMixin,
+    SynonymNameMixin,
+    SchemaNameMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
     CollationMixin,
     CTEMixin,
 
@@ -98,7 +112,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression import bases
     from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression, OrderedSetAggregation
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
@@ -136,6 +149,7 @@ from .mixins import (
     SQLiteGeopolyMixin,
     SQLiteTypeSupportMixin,
 )
+from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
 # Module-level constants for error suggestions (SonarCloud S1192)
 _SUGGESTION_ARRAY_TYPES = "SQLite does not support native array types. Consider using JSON or comma-separated values."
@@ -149,6 +163,24 @@ _SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or
 
 class SQLiteDialect(
     SQLDialectBase,
+    RelationSourceMixin,
+    # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
+    TableNameMixin,
+    ViewNameMixin,
+    MaterializedViewNameMixin,
+    ForeignTableNameMixin,
+    IndexNameMixin,
+    SequenceNameMixin,
+    TriggerNameMixin,
+    FunctionNameMixin,
+    ProcedureNameMixin,
+    TypeNameMixin,
+    DomainNameMixin,
+    SynonymNameMixin,
+    SchemaNameMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
+    NamespaceMixin,
     # Include mixins for features that SQLite supports (with version-dependent implementations)
     CTEMixin,
 
@@ -233,15 +265,9 @@ class SQLiteDialect(
     WildcardSupport,
     JoinSupport,
     SetOperationSupport,
-    ViewSupport,
-    # DDL Protocols
-    TableSupport,
+    # DDL statement protocols
     ConstraintSupport,
     TruncateSupport,
-    SchemaSupport,
-    IndexSupport,
-    SequenceSupport,
-    TriggerSupport,
     GeneratedColumnSupport,
     AutoIncrementSupport,
     ColumnAttributeSupport,
@@ -263,8 +289,10 @@ class SQLiteDialect(
     SQLFunctionSupport,
     # DataType Support Protocol
     DataTypeSupport,
-    UserDefinedTypeSupport,
-    DomainSupport,
+    # DDL statement protocols follow the DDL mixins: a protocol's empty
+    # body would otherwise win over the mixin that actually renders.
+    CreateSchemaSupport,
+    DropSchemaSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -603,7 +631,7 @@ class SQLiteDialect(
         """Whether VIRTUAL generated columns are supported."""
         return self.supports_generated_columns()
 
-    # TableSupport protocol implementation
+    # CreateTableSupport protocol implementation
     def supports_create_table(self) -> bool:
         """Whether CREATE TABLE is supported."""
         return True
@@ -697,7 +725,7 @@ class SQLiteDialect(
         """SQLite does not support ENFORCED/NOT ENFORCED constraint control."""
         return False
 
-    # IndexSupport protocol implementation
+    # CreateIndexSupport protocol implementation
     def supports_create_index(self) -> bool:
         """Whether CREATE INDEX is supported."""
         return True

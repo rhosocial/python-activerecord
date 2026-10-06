@@ -16,7 +16,6 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     WildcardExpression,
     FunctionCall,
-    TableExpression,
     ComparisonPredicate,
     LogicalPredicate,
     InPredicate,
@@ -25,6 +24,7 @@ from rhosocial.activerecord.backend.expression import (
     IsBooleanPredicate,
     BetweenPredicate,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.query_parts import (
     WhereClause,
@@ -42,6 +42,10 @@ from rhosocial.activerecord.backend.expression.serialization import (
     ExpressionRegistry,
     ExpressionDeserializationError,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.objects import View
+from rhosocial.activerecord.backend.expression.objects import Index
+from rhosocial.activerecord.backend.expression.objects import Schema
 
 
 class TestAtomExpressionRoundtrip:
@@ -77,7 +81,7 @@ class TestAtomExpressionRoundtrip:
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
     def test_table_expression_roundtrip(self, dummy_dialect):
-        expr = TableExpression(dummy_dialect, "users", alias="u")
+        expr = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u")
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
 
@@ -178,7 +182,7 @@ class TestQueryExpressionRoundtrip:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
             where=WhereClause(
                 dummy_dialect,
                 ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18)),
@@ -236,7 +240,7 @@ class TestCrossDialectFastFail:
         from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexExpression
 
         sqlite_dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
+        expr = SQLiteReindexExpression(sqlite_dialect, table=Table(sqlite_dialect, "users"))
         spec = serialize(expr)
 
         assert "sqlite" in spec["type"]
@@ -769,56 +773,56 @@ class TestDDLRoundtrip:
         )
 
         col_def = ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)])
-        expr = CreateTableExpression(dummy_dialect, table="users", columns=[col_def])
+        expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=[col_def])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_create_index_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression
 
-        expr = CreateIndexExpression(dummy_dialect, "idx_name", "users", ["name", "age"])
+        expr = CreateIndexExpression(dummy_dialect, Index(dummy_dialect, "idx_name"), Table(dummy_dialect, "users"), ["name", "age"])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_drop_index_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_index import DropIndexExpression
 
-        expr = DropIndexExpression(dummy_dialect, "idx_name")
+        expr = DropIndexExpression(dummy_dialect, Index(dummy_dialect, "idx_name"))
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_create_schema_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_schema import CreateSchemaExpression
 
-        expr = CreateSchemaExpression(dummy_dialect, "myschema")
+        expr = CreateSchemaExpression(dummy_dialect, Schema(dummy_dialect, "myschema"))
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_drop_schema_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_schema import DropSchemaExpression
 
-        expr = DropSchemaExpression(dummy_dialect, "myschema", cascade=True)
+        expr = DropSchemaExpression(dummy_dialect, Schema(dummy_dialect, "myschema"), cascade=True)
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_create_view_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_view import CreateViewExpression
 
-        expr = CreateViewExpression(dummy_dialect, view_name="user_view", query="SELECT * FROM users")
+        expr = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "user_view"), query="SELECT * FROM users")
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_drop_view_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_view import DropViewExpression
 
-        expr = DropViewExpression(dummy_dialect, "user_view")
+        expr = DropViewExpression(dummy_dialect, View(dummy_dialect, "user_view"))
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_truncate_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateExpression
 
-        expr = TruncateExpression(dummy_dialect, "users", cascade=True)
+        expr = TruncateExpression(dummy_dialect, Table(dummy_dialect, "users"), cascade=True)
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 

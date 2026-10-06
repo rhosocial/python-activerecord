@@ -14,8 +14,7 @@ import argparse
 import os
 import sys
 import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -25,8 +24,6 @@ from rhosocial.activerecord.backend.migration.cli import (
 )
 from rhosocial.activerecord.backend.migration import (
     JSONFileMigrationRecordStore,
-    MigrationDialectError,
-    MigrationDirection,
 )
 # ══════════════════════════════════════════════════════════════════════
 # Helpers

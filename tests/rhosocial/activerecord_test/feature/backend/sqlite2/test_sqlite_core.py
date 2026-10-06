@@ -3,8 +3,10 @@
 Tests for the core SQL expression components in core.py
 """
 
-from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, TableExpression
+from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestLiteral:
@@ -83,11 +85,15 @@ class TestWildcard:
 
     def test_wildcard_in_query(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test WildcardExpression used in a QueryExpression."""
-        from rhosocial.activerecord.backend.expression import WildcardExpression, QueryExpression, TableExpression
+        from rhosocial.activerecord.backend.expression import (
+            WildcardExpression,
+            QueryExpression,
+        )
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         wildcard = WildcardExpression(sqlite_dialect_3_8_0)
         query = QueryExpression(
-            sqlite_dialect_3_8_0, select=[wildcard], from_=TableExpression(sqlite_dialect_3_8_0, "users")
+            sqlite_dialect_3_8_0, select=[wildcard], from_=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"))
         )
         sql, params = query.to_sql()
         assert sql == 'SELECT * FROM "users"'
@@ -95,11 +101,15 @@ class TestWildcard:
 
     def test_wildcard_with_table_in_query(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test qualified WildcardExpression used in a QueryExpression."""
-        from rhosocial.activerecord.backend.expression import WildcardExpression, QueryExpression, TableExpression
+        from rhosocial.activerecord.backend.expression import (
+            WildcardExpression,
+            QueryExpression,
+        )
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         wildcard = WildcardExpression(sqlite_dialect_3_8_0, table="users")
         query = QueryExpression(
-            sqlite_dialect_3_8_0, select=[wildcard], from_=TableExpression(sqlite_dialect_3_8_0, "users")
+            sqlite_dialect_3_8_0, select=[wildcard], from_=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"))
         )
         sql, params = query.to_sql()
         assert sql == 'SELECT "users".* FROM "users"'
@@ -145,11 +155,11 @@ class TestWildcard:
 
 
 class TestTableExpression:
-    """Tests for TableExpression class."""
+    """Tests for NamedRelationRef class."""
 
     def test_table_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test basic TableExpression functionality."""
-        table = TableExpression(sqlite_dialect_3_8_0, "users")
+        """Test basic NamedRelationRef functionality."""
+        table = NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"))
         assert table.name == "users"
         assert table.alias is None
         sql, params = table.to_sql()
@@ -157,8 +167,8 @@ class TestTableExpression:
         assert params == ()
 
     def test_table_with_alias(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test TableExpression with alias."""
-        table = TableExpression(sqlite_dialect_3_8_0, "users", alias="u")
+        """Test NamedRelationRef with alias."""
+        table = NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"), alias="u")
         assert table.name == "users"
         assert table.alias == "u"
         sql, params = table.to_sql()

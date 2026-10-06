@@ -27,6 +27,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteGeopolyAreaExpression,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestDialectExtensionIntegration:
@@ -133,7 +134,7 @@ class TestDialectVirtualTableFormatting:
     def test_format_create_virtual_table(self):
         d = SQLiteDialect(version=(3, 35, 0))
         expr = CreateVirtualTableExpression(
-            d, module="rtree", table_name="places",
+            d, module="rtree", table=Table(d, "places"),
             columns=["id", "minx", "maxx", "miny", "maxy"]
         )
         sql, params = expr.to_sql()
@@ -142,27 +143,27 @@ class TestDialectVirtualTableFormatting:
 
     def test_format_drop_virtual_table(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = DropVirtualTableExpression(d, table_name="my_table")
+        expr = DropVirtualTableExpression(d, table=Table(d, "my_table"))
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE "my_table"'
         assert params == ()
 
     def test_format_drop_virtual_table_if_exists(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = DropVirtualTableExpression(d, table_name="my_table", if_exists=True)
+        expr = DropVirtualTableExpression(d, table=Table(d, "my_table"), if_exists=True)
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE IF EXISTS "my_table"'
 
     def test_format_drop_virtual_table_quotes_malicious_name(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = DropVirtualTableExpression(d, table_name='t"; DROP TABLE users--')
+        expr = DropVirtualTableExpression(d, table=Table(d, 't"; DROP TABLE users--'))
         sql, params = expr.to_sql()
         assert sql.count('"') % 2 == 0  # balanced quotes prevent injection
         assert sql.startswith('DROP TABLE "')
 
     def test_format_drop_virtual_table_with_special_chars(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = DropVirtualTableExpression(d, table_name="my table")
+        expr = DropVirtualTableExpression(d, table=Table(d, "my table"))
         sql, _ = expr.to_sql()
         assert '"my table"' in sql
 
@@ -171,7 +172,7 @@ class TestDialectVirtualTableFormatting:
         d = SQLiteDialect(version=(3, 35, 0))
 
         sql, _ = d.format_fts5_create_virtual_table(
-            SQLiteFTS5CreateVirtualTable(d, table_name="articles", columns=["title"])
+            SQLiteFTS5CreateVirtualTable(d, table=Table(d, "articles"), columns=["title"])
         )
         assert "CREATE VIRTUAL TABLE" in sql
         assert "fts5" in sql
@@ -184,18 +185,18 @@ class TestDialectVirtualTableFormatting:
         assert params == ("python",)
 
         sql, _ = d.format_fts5_rank_expression(
-            SQLiteFTS5RankExpression(d, table_name="articles")
+            SQLiteFTS5RankExpression(d, table=Table(d, "articles"))
         )
         assert "bm25" in sql.lower()
 
         sql, params = d.format_fts5_highlight_expression(
-            SQLiteFTS5HighlightExpression(d, table_name="articles", column="title")
+            SQLiteFTS5HighlightExpression(d, table=Table(d, "articles"), column="title")
         )
         assert "highlight(" in sql
         assert len(params) == 2
 
         sql, params = d.format_fts5_snippet_expression(
-            SQLiteFTS5SnippetExpression(d, table_name="articles", column="body")
+            SQLiteFTS5SnippetExpression(d, table=Table(d, "articles"), column="body")
         )
         assert "snippet(" in sql
         assert len(params) == 4
@@ -204,13 +205,13 @@ class TestDialectVirtualTableFormatting:
         d = SQLiteDialect(version=(3, 35, 0))
 
         sql, _ = d.format_rtree_create_virtual_table(
-            SQLiteRTreeCreateVirtualTable(d, table_name="places")
+            SQLiteRTreeCreateVirtualTable(d, table=Table(d, "places"))
         )
         assert "CREATE VIRTUAL TABLE" in sql
         assert "rtree" in sql
 
         sql, params = d.format_rtree_range_query(
-            SQLiteRTreeRangeQuery(d, table_name="places", ranges=[(0.0, 1.0), (0.0, 1.0)])
+            SQLiteRTreeRangeQuery(d, table=Table(d, "places"), ranges=[(0.0, 1.0), (0.0, 1.0)])
         )
         assert "min0" in sql
         assert len(params) == 4
@@ -219,26 +220,26 @@ class TestDialectVirtualTableFormatting:
         d = SQLiteDialect(version=(3, 35, 0))
 
         sql, _ = d.format_geopoly_create_virtual_table(
-            SQLiteGeopolyCreateVirtualTable(d, table_name="zones")
+            SQLiteGeopolyCreateVirtualTable(d, table=Table(d, "zones"))
         )
         assert "CREATE VIRTUAL TABLE" in sql
         assert "geopoly" in sql
 
         sql, params = d.format_geopoly_contains_query(
-            SQLiteGeopolyContainsExpression(d, table_name="zones", longitude=1.0, latitude=2.0)
+            SQLiteGeopolyContainsExpression(d, table=Table(d, "zones"), longitude=1.0, latitude=2.0)
         )
         assert "geopoly_contains_point" in sql
         assert params == (1.0, 2.0)
 
         sql, _ = d.format_geopoly_area_expression(
-            SQLiteGeopolyAreaExpression(d, table_name="zones")
+            SQLiteGeopolyAreaExpression(d, table=Table(d, "zones"))
         )
         assert "geopoly_area" in sql
 
     def test_format_create_virtual_table_safe_unknown_module_allowed(self):
         d = SQLiteDialect(version=(3, 35, 0))
         expr = CreateVirtualTableExpression(
-            d, module="my_module", table_name="t", columns=["c"]
+            d, module="my_module", table=Table(d, "t"), columns=["c"]
         )
         sql, _ = expr.to_sql()
         assert 'USING my_module("c")' in sql
@@ -248,7 +249,7 @@ class TestDialectVirtualTableFormatting:
         with pytest.raises(ValueError, match="Unsafe virtual table module"):
             expr = CreateVirtualTableExpression(
                 d, module="malicious' DROP TABLE users; --",
-                table_name="t", columns=["c"]
+                table=Table(d, "t"), columns=["c"]
             )
             expr.to_sql()
 
@@ -256,17 +257,17 @@ class TestDialectVirtualTableFormatting:
         with pytest.raises(UnsupportedFeatureError):
             d = SQLiteDialect(version=(3, 8, 0))
             d.format_fts5_create_virtual_table(
-                SQLiteFTS5CreateVirtualTable(d, table_name="t", columns=["c"])
+                SQLiteFTS5CreateVirtualTable(d, table=Table(d, "t"), columns=["c"])
             )
 
         with pytest.raises(UnsupportedFeatureError):
             d = SQLiteDialect(version=(3, 5, 0))
             d.format_rtree_create_virtual_table(
-                SQLiteRTreeCreateVirtualTable(d, table_name="t")
+                SQLiteRTreeCreateVirtualTable(d, table=Table(d, "t"))
             )
 
         with pytest.raises(UnsupportedFeatureError):
             d = SQLiteDialect(version=(3, 25, 0))
             d.format_geopoly_create_virtual_table(
-                SQLiteGeopolyCreateVirtualTable(d, table_name="z")
+                SQLiteGeopolyCreateVirtualTable(d, table=Table(d, "z"))
             )

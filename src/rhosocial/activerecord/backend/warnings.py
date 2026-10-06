@@ -3,7 +3,6 @@
 Custom warning classes for the backend module.
 """
 
-import warnings
 
 
 class IdentifierQuotingWarning(UserWarning):

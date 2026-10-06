@@ -11,15 +11,16 @@ from dataclasses import dataclass
 from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
-from .core import Subquery, TableExpression
+from .core import Subquery
 from .mixins import ArithmeticMixin, ComparisonMixin
+from .sources import TableSource
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
 
 
-class SetOperationExpression(BaseExpression):
+class SetOperationExpression(TableSource, BaseExpression):
     """Represents a set operation (UNION, INTERSECT, EXCEPT) between two queries.
 
     This class is commonly used for:
@@ -35,12 +36,12 @@ class SetOperationExpression(BaseExpression):
             left=QueryExpression(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
-                from_=TableExpression(dialect, "users")
+                from_=NamedRelationRef(dialect, Table(dialect, "users"))
             ),
             right=QueryExpression(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
-                from_=TableExpression(dialect, "customers")
+                from_=NamedRelationRef(dialect, Table(dialect, "customers"))
             ),
             operation="UNION",
             alias="combined_users"
@@ -52,12 +53,12 @@ class SetOperationExpression(BaseExpression):
             left=QueryExpression(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
-                from_=TableExpression(dialect, "users")
+                from_=NamedRelationRef(dialect, Table(dialect, "users"))
             ),
             right=QueryExpression(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
-                from_=TableExpression(dialect, "customers")
+                from_=NamedRelationRef(dialect, Table(dialect, "customers"))
             ),
             operation="UNION",
             alias="combined_users",
@@ -78,7 +79,7 @@ class SetOperationExpression(BaseExpression):
                     dialect, "ARRAY_APPEND", Literal(dialect, []), Column(dialect, "id")
                 ).as_("path")  # Track path
             ],
-            from_=TableExpression(dialect, "nodes"),
+            from_=NamedRelationRef(dialect, Table(dialect, "nodes")),
             where=ComparisonPredicate(dialect, "=", Column(dialect, "parent_id"), Literal(dialect, None))  # Root nodes
         )
 
@@ -93,11 +94,11 @@ class SetOperationExpression(BaseExpression):
                 FunctionCall(dialect, "ARRAY_APPEND", Column(dialect, "r.path"), Column(dialect, "n.id")).as_("path")
             ],
             from_=[
-                TableExpression(dialect, "nodes", alias="n"),
+                NamedRelationRef(dialect, Table(dialect, "nodes"), alias="n"),
                 JoinClause(
                     dialect,
-                    left_table=TableExpression(dialect, "recursive_result", alias="r"),
-                    right_table=TableExpression(dialect, "nodes", alias="n"),
+                    left_table=NamedRelationRef(dialect, Table(dialect, "recursive_result"), alias="r"),
+                    right_table=NamedRelationRef(dialect, Table(dialect, "nodes"), alias="n"),
                     join_type="INNER JOIN",
                     condition=ComparisonPredicate(dialect, "=", Column(dialect, "r.id"), Column(dialect, "n.parent_id"))
                 )
@@ -172,7 +173,7 @@ class CTEExpression(BaseExpression):
             query=QueryExpression(
                 dialect,
                 select=[Column(dialect, "month"), FunctionCall(dialect, "SUM", Column(dialect, "amount"))],
-                from_=TableExpression(dialect, "sales"),
+                from_=NamedRelationRef(dialect, Table(dialect, "sales")),
                 group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "month")])
             ),
             columns=["month", "total_sales"]
@@ -192,7 +193,7 @@ class CTEExpression(BaseExpression):
                 FunctionCall(dialect, "CAST", Column(dialect, "value") + Literal(dialect, 1), "TEXT"),
                 Column(dialect, "level") + Literal(dialect, 1)
             ],
-            from_=[TableExpression(dialect, "counter")],  # Reference to CTE itself in recursive case
+            from_=[NamedRelationRef(dialect, Table(dialect, "counter"))],  # Reference to CTE itself in recursive case
             where=(Column(dialect, "level") < Literal(dialect, 10))
         )
 
@@ -220,7 +221,7 @@ class CTEExpression(BaseExpression):
             main_query=QueryExpression(
                 dialect,
                 select=[Column(dialect, "next_value"), Column(dialect, "next_level")],
-                from_=TableExpression(dialect, "counter")
+                from_=NamedRelationRef(dialect, Table(dialect, "counter"))
             ),
             recursive=True
         )
@@ -279,7 +280,7 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                     Column(dialect, "u.name"),
                     FunctionCall(dialect, "COUNT", Column(dialect, "o.id")),
                 ],
-                from_=[TableExpression(dialect, "users", alias="u")],
+                from_=[NamedRelationRef(dialect, Table(dialect, "users"), alias="u")],
                 where=ComparisonPredicate(
                     dialect, ">", FunctionCall(dialect, "COUNT", Column(dialect, "o.id")), Literal(dialect, 0)
                 ),
@@ -293,7 +294,7 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
             query=QueryExpression(
                 dialect,
                 select=[Column(dialect, "user_id"), Column(dialect, "user_name")],
-                from_=[TableExpression(dialect, "users_with_orders")],
+                from_=[NamedRelationRef(dialect, Table(dialect, "users_with_orders"))],
                 where=ComparisonPredicate(dialect, '>', Column(dialect, "order_count"), Literal(dialect, 5))
             ),
             columns=["user_id", "name"]
@@ -303,7 +304,7 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         main_query = QueryExpression(
             dialect,
             select=[Column(dialect, "tu.name"), Column(dialect, "uwo.order_count")],
-            from_=[TableExpression(dialect, "top_users", alias="tu")],
+            from_=[NamedRelationRef(dialect, Table(dialect, "top_users"), alias="tu")],
             where=ComparisonPredicate(dialect, '=', Column(dialect, "tu.user_id"), Column(dialect, "uwo.user_id"))
         )
 
@@ -333,7 +334,7 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         return "format_with_query_expression"
 
 
-class ValuesExpression(BaseExpression):
+class ValuesExpression(TableSource, BaseExpression):
     """Represents a VALUES clause (row constructor) as a data source.
 
     This class is commonly used for:
@@ -395,7 +396,7 @@ class ValuesExpression(BaseExpression):
         return "format_values_expression"
 
 
-class TableFunctionExpression(BaseExpression):
+class TableFunctionExpression(TableSource, BaseExpression):
     """Represents a table-valued function or array expansion function (e.g., UNNEST, JSON_TABLE).
 
     Example Usage:
@@ -434,7 +435,7 @@ class TableFunctionExpression(BaseExpression):
         return "format_table_function_expression"
 
 
-class LateralExpression(BaseExpression):
+class LateralExpression(TableSource, BaseExpression):
     """Represents a LATERAL subquery or table function call.
 
     Example Usage:
@@ -488,8 +489,13 @@ class JSONTableColumn:
         return []
 
 
-class JSONTableExpression(TableExpression):
+class JSONTableExpression(TableSource):
     """Represents a JSON_TABLE function call.
+
+    This is a row source with no catalogue identity: ``JSON_TABLE`` computes rows
+    from a document and is never referred to by name again, so it belongs to the
+    source tree directly rather than being a named relation. That is why it does
+    not inherit :class:`~...expression.sources.NamedRelationRef`.
 
     Example Usage:
         # With alias
@@ -518,7 +524,7 @@ class JSONTableExpression(TableExpression):
         columns: List[JSONTableColumn],
         alias: Optional[str] = None,
     ):
-        super().__init__(dialect, name="JSON_TABLE", alias=alias)
+        super().__init__(dialect, alias=alias)
         self.json_column, self.path, self.columns = json_column, path, columns
 
     @property
@@ -532,10 +538,9 @@ class JSONTableExpression(TableExpression):
         column's DataType. JSONTableColumn is an option value object, so its
         held DataType is surfaced here."""
         children = []
-        json_column = getattr(self, "json_column", None)
-        if isinstance(json_column, BaseExpression):
-            children.append(json_column)
-        for col in getattr(self, "columns", None) or []:
+        if isinstance(self.json_column, BaseExpression):
+            children.append(self.json_column)
+        for col in self.columns:
             if isinstance(col.data_type, BaseExpression):
                 children.append(col.data_type)
         return children

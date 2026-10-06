@@ -4,23 +4,19 @@
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..objects import Function
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
 class CreateFunctionExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_function_statement"
     """SQL/PSM standard CREATE FUNCTION statement.
 
     Examples:
         create_func = CreateFunctionExpression(
             dialect,
-            function_name="calculate_total",
+            function=Function(dialect, "calculate_total"),
             parameters=[
                 {"name": "price", "type": "DECIMAL(10,2)"},
                 {"name": "quantity", "type": "INTEGER"}
@@ -34,7 +30,7 @@ class CreateFunctionExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        function_name: str,
+        function: "Function",
         parameters: Optional[List[Dict[str, str]]] = None,
         returns: Optional[str] = None,
         body: str = "",
@@ -42,7 +38,7 @@ class CreateFunctionExpression(BaseExpression):
         or_replace: bool = False,
     ):
         super().__init__(dialect)
-        self.function_name = function_name
+        self.function = function
         self.parameters = parameters or []
         self.returns = returns
         self.body = body
@@ -56,17 +52,12 @@ class CreateFunctionExpression(BaseExpression):
 
 
 class DropFunctionExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_function_statement"
     """SQL/PSM standard DROP FUNCTION statement.
 
     Examples:
         drop_func = DropFunctionExpression(
             dialect,
-            function_name="calculate_total",
+            function=Function(dialect, "calculate_total"),
             if_exists=True
         )
     """
@@ -74,13 +65,13 @@ class DropFunctionExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        function_name: str,
+        function: "Function",
         if_exists: bool = False,
         parameters: Optional[List[str]] = None,
         cascade: bool = False,
     ):
         super().__init__(dialect)
-        self.function_name = function_name
+        self.function = function
         self.if_exists = if_exists
         self.parameters = parameters
         self.cascade = cascade

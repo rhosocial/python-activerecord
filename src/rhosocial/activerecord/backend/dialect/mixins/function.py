@@ -8,6 +8,8 @@ function *DDL* (``CREATE FUNCTION`` / ``DROP FUNCTION``).
 import re
 from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 
+from ...expression.objects import Function
+
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression import bases
     from ...expression.statements import (
@@ -163,10 +165,18 @@ class FunctionMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``CreateFunctionExpression.function`` is not a Function.
+            Another object kind would have had its own name rendered as the
+            function's.
             UnsupportedFeatureError: If the dialect does not support functions.
             ValueError: If a parameter or return type contains invalid
                 characters.
         """
+        if not isinstance(expr.function, Function):
+            raise TypeError(
+                f"CreateFunctionExpression.function must be a Function, "
+                f"got {type(expr.function).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_function():
@@ -182,7 +192,7 @@ class FunctionMixin:
                 )
             parts.insert(1, "OR REPLACE")
 
-        parts.append(self.format_identifier(expr.function_name))
+        parts.append(expr.function.to_sql()[0])
 
         if expr.parameters:
             if not self.supports_function_parameters():
@@ -231,8 +241,16 @@ class FunctionMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``DropFunctionExpression.function`` is not a Function.
+            Another object kind would have had its own name rendered as the
+            function's.
             UnsupportedFeatureError: If the dialect does not support functions.
         """
+        if not isinstance(expr.function, Function):
+            raise TypeError(
+                f"DropFunctionExpression.function must be a Function, "
+                f"got {type(expr.function).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_function():
@@ -248,7 +266,7 @@ class FunctionMixin:
                 )
             parts.append("IF EXISTS")
 
-        parts.append(self.format_identifier(expr.function_name))
+        parts.append(expr.function.to_sql()[0])
 
         if expr.parameters:
             param_types = ", ".join(expr.parameters)

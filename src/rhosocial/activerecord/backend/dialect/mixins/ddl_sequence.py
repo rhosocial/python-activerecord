@@ -2,6 +2,8 @@
 """Dialect mixin for sequence DDL support (CREATE/DROP/ALTER SEQUENCE)."""
 from typing import Tuple, TYPE_CHECKING
 
+from ...expression.objects import Sequence
+
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
         CreateSequenceExpression,
@@ -95,9 +97,17 @@ class SequenceMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
+            TypeError: ``CreateSequenceExpression.sequence`` is not a Sequence. A
+            table would render as a well-formed CREATE SEQUENCE over that table's
+            name.
             UnsupportedFeatureError: If the dialect does not support
                 specific sequence options.
         """
+        if not isinstance(expr.sequence, Sequence):
+            raise TypeError(
+                f"CreateSequenceExpression.sequence must be a Sequence, "
+                f"got {type(expr.sequence).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
         parts = ["CREATE SEQUENCE"]
         if expr.if_not_exists:
@@ -107,7 +117,7 @@ class SequenceMixin:
                     f"{self.name} does not support CREATE SEQUENCE IF NOT EXISTS."
                 )
             parts.append("IF NOT EXISTS")
-        parts.append(self.format_identifier(expr.sequence_name))
+        parts.append(expr.sequence.to_sql()[0])
 
         if expr.start is not None:
             parts.append(f"START WITH {expr.start}")
@@ -161,9 +171,17 @@ class SequenceMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
+            TypeError: ``DropSequenceExpression.sequence`` is not a Sequence. A
+            table would render as a well-formed DROP SEQUENCE over that table's
+            name.
             UnsupportedFeatureError: If the dialect does not support
                 DROP SEQUENCE IF EXISTS.
         """
+        if not isinstance(expr.sequence, Sequence):
+            raise TypeError(
+                f"DropSequenceExpression.sequence must be a Sequence, "
+                f"got {type(expr.sequence).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
         parts = ["DROP SEQUENCE"]
         if expr.if_exists:
@@ -173,7 +191,7 @@ class SequenceMixin:
                     f"{self.name} does not support DROP SEQUENCE IF EXISTS."
                 )
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.sequence_name))
+        parts.append(expr.sequence.to_sql()[0])
         return " ".join(parts), ()
 
     def format_alter_sequence_statement(self, expr: "AlterSequenceExpression") -> Tuple[str, tuple]:
@@ -186,9 +204,19 @@ class SequenceMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
+
+        Raises:
+            TypeError: ``AlterSequenceExpression.sequence`` is not a Sequence. A
+            table would render as a well-formed ALTER SEQUENCE over that table's
+            name.
         """
+        if not isinstance(expr.sequence, Sequence):
+            raise TypeError(
+                f"AlterSequenceExpression.sequence must be a Sequence, "
+                f"got {type(expr.sequence).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
-        parts = [f"ALTER SEQUENCE {self.format_identifier(expr.sequence_name)}"]
+        parts = [f"ALTER SEQUENCE {expr.sequence.to_sql()[0]}"]
 
         if expr.restart is not None:
             parts.append(f"RESTART WITH {expr.restart}")

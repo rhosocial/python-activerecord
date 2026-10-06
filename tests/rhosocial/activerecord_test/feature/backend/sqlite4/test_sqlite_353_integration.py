@@ -27,6 +27,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 # These declare the required capabilities for documentation/IDE purposes
 from rhosocial.activerecord.backend.dialect.protocols import ConstraintSupport
 from rhosocial.activerecord.backend.impl.sqlite.protocols import SQLiteReindexSupport
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 def has_sqlite_353_capabilities():
@@ -245,14 +246,15 @@ class TestSQLite353JsonFunctionsExecution:
         col_data = Column(dialect, "data", table="test_json")
         json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
 
-        from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression
+        from rhosocial.activerecord.backend.expression import QueryExpression
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         query = QueryExpression(
             dialect=dialect,
             select=[
                 json_expr.as_("modified"),
             ],
-            from_=TableExpression(dialect, "test_json"),
+            from_=NamedRelationRef(dialect, Table(dialect, "test_json")),
         )
 
         sql, params = query.to_sql()
@@ -285,14 +287,15 @@ class TestSQLite353JsonFunctionsExecution:
         col_data = Column(dialect, "data", table="test_jsonb")
         json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
 
-        from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression
+        from rhosocial.activerecord.backend.expression import QueryExpression
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         query = QueryExpression(
             dialect=dialect,
             select=[
                 json_expr.as_("modified"),
             ],
-            from_=TableExpression(dialect, "test_jsonb"),
+            from_=NamedRelationRef(dialect, Table(dialect, "test_jsonb")),
         )
 
         sql, params = query.to_sql()

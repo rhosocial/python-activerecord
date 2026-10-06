@@ -5,15 +5,11 @@ SQLite-specific Set Operation implementation.
 This module provides the SQLiteSetOperationMixin class.
 """
 
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression.query_parts import (
-        OrderByClause,
-        LimitOffsetClause,
-        ForUpdateClause,
-    )
+    pass
 
 _SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
 

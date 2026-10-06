@@ -27,6 +27,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 # ──────────────────────────────────────────────
@@ -91,14 +92,14 @@ def backend_no_returning(tmp_path):
 def _make_insert_expr(dialect, name, email):
     """Build a single-row InsertExpression for users table."""
     source = ValuesSource(dialect, values_list=[[Literal(dialect, name), Literal(dialect, email)]])
-    return InsertExpression(dialect, into="users", columns=["name", "email"], source=source)
+    return InsertExpression(dialect, into=Table(dialect, 'users'), columns=["name", "email"], source=source)
 
 
 def _make_update_expr(dialect, pk_val, new_name):
     """Build an UpdateExpression: SET name=? WHERE id=?"""
     return UpdateExpression(
         dialect,
-        table="users",
+        table=Table(dialect, 'users'),
         assignments={"name": Literal(dialect, new_name)},
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
@@ -108,7 +109,7 @@ def _make_delete_expr(dialect, pk_val):
     """Build a DeleteExpression: DELETE FROM users WHERE id=?"""
     return DeleteExpression(
         dialect,
-        tables="users",
+        tables=Table(dialect, 'users'),
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
 
@@ -340,7 +341,7 @@ class TestBatchDMLTypeConversion:
         )
         exprs = [
             InsertExpression(
-                dialect, into="typed_data", columns=["uuid_col", "dt_col", "dec_col", "bool_col"], source=source
+                dialect, into=Table(dialect, 'typed_data'), columns=["uuid_col", "dt_col", "dec_col", "bool_col"], source=source
             )
         ]
 

@@ -4,6 +4,7 @@
 from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..objects import Table
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -43,25 +44,27 @@ class TruncateExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: "Table",
         restart_identity: bool = False,  # RESTART IDENTITY option (PostgreSQL)
         cascade: bool = False,  # CASCADE option (PostgreSQL)
-        schema: Optional[str] = None,
     ):
         """
         Initialize a TRUNCATE expression with the specified parameters.
 
         Args:
             dialect: The SQL dialect instance that determines query generation rules
-            table_name: Name of the table to truncate
+            table: The Table being truncated; a schema-qualified table carries
+                its own namespace, so no separate schema argument is needed
             restart_identity: Whether to restart identity counters (PostgreSQL-specific)
             cascade: Whether to truncate dependent tables as well (PostgreSQL-specific)
+
+        Raises:
+            TypeError: If the table is not a Table
         """
         super().__init__(dialect)
-        self.table_name = table_name
+        self.table = table
         self.restart_identity = restart_identity  # For PostgreSQL-style RESTART IDENTITY
         self.cascade = cascade  # For PostgreSQL-style CASCADE
-        self.schema = schema
 
     @property
     def format_method(self) -> str:

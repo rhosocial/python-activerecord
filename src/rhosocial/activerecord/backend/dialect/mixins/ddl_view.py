@@ -7,6 +7,7 @@ TRUNCATE, with capability probes that backends override.
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
+from ...expression.objects import MaterializedView, Table, View
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
@@ -87,7 +88,16 @@ class ViewMixin:
         Returns:
             A ``(sql, params)`` tuple where ``params`` holds the parameters
             collected from the view's query.
+
+        Raises:
+            TypeError: ``CreateViewExpression.view`` is not a View. Another object
+            kind would have had its own name rendered as the view's.
         """
+        if not isinstance(expr.view, View):
+            raise TypeError(
+                f"CreateViewExpression.view must be a View, "
+                f"got {type(expr.view).__name__}"
+            )
         from ...expression.statements import ViewCheckOption
         from ..exceptions import UnsupportedFeatureError
         replace_part = ""
@@ -109,7 +119,7 @@ class ViewMixin:
             if_not_exists_part = "IF NOT EXISTS "
         sql_parts = [
             f"CREATE {replace_part}{temporary_part}VIEW {if_not_exists_part}"
-            f"{self.format_identifier(expr.view_name)}"
+            f"{expr.view.to_sql()[0]}"
         ]
         all_params: List[Any] = []
         if expr.column_aliases:
@@ -140,9 +150,16 @@ class ViewMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``DropViewExpression.view`` is not a View. Another object
+            kind would have had its own name rendered as the view's.
             UnsupportedFeatureError: If the dialect does not support
                 IF EXISTS or CASCADE for DROP VIEW.
         """
+        if not isinstance(expr.view, View):
+            raise TypeError(
+                f"DropViewExpression.view must be a View, "
+                f"got {type(expr.view).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
         if expr.if_exists and not self.supports_if_exists_view():
             raise UnsupportedFeatureError(
@@ -156,7 +173,7 @@ class ViewMixin:
             )
         if_exists_part = "IF EXISTS " if expr.if_exists else ""
         cascade_part = " CASCADE" if expr.cascade else ""
-        sql = f"DROP VIEW {if_exists_part}{self.format_identifier(expr.view_name)}{cascade_part}"
+        sql = f"DROP VIEW {if_exists_part}{expr.view.to_sql()[0]}{cascade_part}"
         return sql.strip(), ()
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
@@ -170,14 +187,22 @@ class ViewMixin:
             collected from the view's query.
 
         Raises:
+            TypeError: ``CreateMaterializedViewExpression.view`` is not a
+            MaterializedView. A plain view would render as a well-formed CREATE
+            MATERIALIZED VIEW over that view's name.
             UnsupportedFeatureError: If the dialect does not support
                 materialized views.
         """
+        if not isinstance(expr.view, MaterializedView):
+            raise TypeError(
+                f"CreateMaterializedViewExpression.view must be a MaterializedView, "
+                f"got {type(expr.view).__name__}"
+            )
         if not self.supports_materialized_view():
             raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW")
 
         parts = ["CREATE MATERIALIZED VIEW"]
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(expr.view.to_sql()[0])
 
         if expr.column_aliases:
             cols = ", ".join(self.format_identifier(c) for c in expr.column_aliases)
@@ -211,16 +236,24 @@ class ViewMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``DropMaterializedViewExpression.view`` is not a
+            MaterializedView. A plain view would render as a well-formed DROP
+            MATERIALIZED VIEW over that view's name.
             UnsupportedFeatureError: If the dialect does not support
                 materialized views.
         """
+        if not isinstance(expr.view, MaterializedView):
+            raise TypeError(
+                f"DropMaterializedViewExpression.view must be a MaterializedView, "
+                f"got {type(expr.view).__name__}"
+            )
         if not self.supports_materialized_view():
             raise UnsupportedFeatureError(self.name, "DROP MATERIALIZED VIEW")
 
         parts = ["DROP MATERIALIZED VIEW"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(expr.view.to_sql()[0])
         if expr.cascade:
             parts.append("CASCADE")
         return " ".join(parts), ()
@@ -237,16 +270,24 @@ class ViewMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``RefreshMaterializedViewExpression.view`` is not a
+            MaterializedView. A plain view would render as a well-formed REFRESH
+            MATERIALIZED VIEW over that view's name.
             UnsupportedFeatureError: If the dialect does not support refreshing
                 materialized views.
         """
+        if not isinstance(expr.view, MaterializedView):
+            raise TypeError(
+                f"RefreshMaterializedViewExpression.view must be a MaterializedView, "
+                f"got {type(expr.view).__name__}"
+            )
         if not self.supports_refresh_materialized_view():
             raise UnsupportedFeatureError(self.name, "REFRESH MATERIALIZED VIEW")
 
         parts = ["REFRESH MATERIALIZED VIEW"]
         if expr.concurrent:
             parts.append("CONCURRENTLY")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(expr.view.to_sql()[0])
         if expr.with_data is not None:
             parts.append("WITH DATA" if expr.with_data else "WITH NO DATA")
         return " ".join(parts), ()
@@ -285,9 +326,16 @@ class TruncateMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``TruncateExpression.table`` is not a Table. Another object
+            kind would have had its own name rendered after TRUNCATE.
             UnsupportedFeatureError: If the dialect does not support
                 RESTART IDENTITY or CASCADE for TRUNCATE.
         """
+        if not isinstance(expr.table, Table):
+            raise TypeError(
+                f"TruncateExpression.table must be a Table, "
+                f"got {type(expr.table).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
         if expr.restart_identity and not self.supports_truncate_restart_identity():
             raise UnsupportedFeatureError(
@@ -299,12 +347,7 @@ class TruncateMixin:
                 self.name, "TRUNCATE CASCADE",
                 f"{self.name} does not support TRUNCATE with CASCADE."
             )
-        table_sql = self.format_identifier(expr.table_name)
-        if getattr(expr, "schema", None):
-            table_sql = (
-                f"{self.format_identifier(expr.schema)}."
-                f"{table_sql}"
-            )
+        table_sql = expr.table.to_sql()[0]
         sql = f"TRUNCATE TABLE {table_sql}"
         if expr.restart_identity:
             sql += " RESTART IDENTITY"

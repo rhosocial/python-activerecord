@@ -6,7 +6,7 @@ and the base class for expressions that support filtering.
 
 from typing import Optional, TYPE_CHECKING
 
-from .bases import SQLQueryAndParams, SQLValueExpression
+from .bases import SQLValueExpression
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,

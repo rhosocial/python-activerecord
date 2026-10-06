@@ -23,7 +23,8 @@ TEST PURPOSE:
 import pytest
 
 from rhosocial.activerecord.backend.expression import serialization
-from rhosocial.activerecord.backend.expression import TableExpression, Literal
+from rhosocial.activerecord.backend.expression import Literal
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements.dml import DeleteExpression, ValuesSource
 from rhosocial.activerecord.backend.expression.statements.ddl_table import DropTableExpression
 from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression, DropIndexExpression
@@ -41,6 +42,8 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.predicates import SQL
 from rhosocial.activerecord.backend.impl.sqlite.expression.dml import SQLiteInsertExpression
 from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import SQLiteColumnInfoExpression
 from rhosocial.activerecord.backend.impl.sqlite.expression.table_list import SQLiteTableListExpression
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.objects import Index
 
 
 @pytest.fixture
@@ -53,38 +56,41 @@ class TestDialectOptionsExpressionTraversal:
     """Test expressions with dialect_options."""
 
     def test_insert_with_or_ignore(self, sqlite_dialect):
-        table = TableExpression(sqlite_dialect, "users")
         source = ValuesSource(
             sqlite_dialect, values_list=[[Literal(sqlite_dialect, "John"), Literal(sqlite_dialect, 30)]]
         )
-        expr = SQLiteInsertExpression(sqlite_dialect, into=table, source=source, or_ignore=True)
+        expr = SQLiteInsertExpression(
+            sqlite_dialect,
+            into=Table(sqlite_dialect, "users"),
+            source=source,
+            or_ignore=True,
+        )
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
         assert restored.or_ignore == expr.or_ignore
 
     def test_delete_has_no_dialect_options(self, sqlite_dialect):
-        table = TableExpression(sqlite_dialect, "users")
-        expr = DeleteExpression(sqlite_dialect, tables=table)
+        expr = DeleteExpression(sqlite_dialect, tables=Table(sqlite_dialect, "users"))
         assert not hasattr(expr, "dialect_options")
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_drop_table_roundtrip(self, sqlite_dialect):
-        expr = DropTableExpression(sqlite_dialect, table="users", if_exists=True)
+        expr = DropTableExpression(sqlite_dialect, table=Table(sqlite_dialect, 'users'), if_exists=True)
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_create_index_roundtrip(self, sqlite_dialect):
-        expr = CreateIndexExpression(sqlite_dialect, "idx_users", "users", ["name"], unique=True)
+        expr = CreateIndexExpression(sqlite_dialect, Index(sqlite_dialect, "idx_users"), Table(sqlite_dialect, "users"), ["name"], unique=True)
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_drop_index_roundtrip(self, sqlite_dialect):
-        expr = DropIndexExpression(sqlite_dialect, "idx_users", if_exists=True)
+        expr = DropIndexExpression(sqlite_dialect, Index(sqlite_dialect, "idx_users"), if_exists=True)
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
@@ -94,13 +100,13 @@ class TestSQLiteSpecificExpressionTraversal:
     """Test SQLite-specific expressions."""
 
     def test_reindex_table_name(self, sqlite_dialect):
-        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
+        expr = SQLiteReindexExpression(sqlite_dialect, table=Table(sqlite_dialect, "users"))
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_reindex_index_name(self, sqlite_dialect):
-        expr = SQLiteReindexExpression(sqlite_dialect, index_name="idx_users")
+        expr = SQLiteReindexExpression(sqlite_dialect, index=Index(sqlite_dialect, "idx_users"))
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()

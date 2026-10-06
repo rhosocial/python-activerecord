@@ -20,10 +20,11 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     WildcardExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
+from .....expression.objects import Table
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
@@ -51,7 +52,7 @@ def execute_match_query(pred: SQLiteMatchPredicate) -> list:
     query = QueryExpression(
         dialect=dialect,
         select=[WildcardExpression(dialect)],
-        from_=TableExpression(dialect, "docs"),
+        from_=NamedRelationRef(dialect, Table(dialect, "docs")),
         where=pred,
     )
     sql, params = query.to_sql()

@@ -11,8 +11,7 @@ import json
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, DropTableExpression,
-    ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+    CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.expression.types import (
     IntegerType, TextType,
@@ -24,7 +23,7 @@ backend.introspect_and_adapt()
 dialect = backend.dialect
 
 expr = CreateTableExpression(
-    dialect=dialect, table="books", columns=[
+    dialect=dialect, table=Table(dialect, 'books'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
         ColumnDefinition(dialect, "title", TextType(),
@@ -45,6 +44,7 @@ from rhosocial.activerecord.backend.schema import (  # noqa: E402
 from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
     SQLiteSchemaDiffer,
 )
+from .....expression.objects import Table
 
 builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
 snapshot_before = builder.build(schema="main")
@@ -54,7 +54,7 @@ snapshot_json = json.dumps(snapshot_before.to_dict(), default=str)
 snapshot_loaded = SchemaSnapshot.from_dict(json.loads(snapshot_json))
 
 # Modify the database
-expr = DropTableExpression(dialect, "books")
+expr = DropNamedRelationRef(dialect, Table(dialect, "books"))
 sql, params = expr.to_sql()
 backend.execute(sql, params)
 
@@ -85,7 +85,7 @@ for name in snapshot_before.tables:
         assert col_b.data_type.__class__.__name__ == col_a.data_type.__class__.__name__, (
             f"type mismatch in {name}.{col_b.name}"
         )
-print(f"Table data roundtrip ok:  all columns and types match")
+print("Table data roundtrip ok:  all columns and types match")
 print(f"Removed tables:          {diff.removed_tables}")
 print(f"Added tables:            {diff.added_tables}")
 print(f"Modified tables:         {diff.modified_tables}")

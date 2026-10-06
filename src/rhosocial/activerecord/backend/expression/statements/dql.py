@@ -5,7 +5,9 @@ from enum import Enum
 from typing import List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate, SQLValueExpression
-from ..core import Subquery, TableExpression
+from ..core import Subquery
+from ..objects import Table
+from ..sources import TableSource
 from ..mixins import ArithmeticMixin, ComparisonMixin
 from ..query_parts import (
     WhereClause,
@@ -17,6 +19,7 @@ from ..query_parts import (
 )
 from ._types import FromSourceType
 from ...schema import StatementType
+from ...expression.objects import Table
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -52,7 +55,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         query = QueryExpression(
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "name")],
-            from_=TableExpression(dialect, "users"),
+            from_=NamedRelationRef(dialect, Table(dialect, "users")),
             where=WhereClause(dialect, condition=Column(dialect, "status") == Literal(dialect, "active"))
         )
 
@@ -71,7 +74,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         query = QueryExpression(
             dialect,
             select=[Column(dialect, "category"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
-            from_=TableExpression(dialect, "products"),
+            from_=NamedRelationRef(dialect, Table(dialect, "products")),
             where=WhereClause(dialect, condition=Column(dialect, "price") > Literal(dialect, 100)),
             group_by_having=GroupByHavingClause(
                 dialect, group_by=[Column(dialect, "category")],
@@ -86,13 +89,13 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         count_query = QueryExpression(
             dialect,
             select=[FunctionCall(dialect, "COUNT", Column(dialect, "id"))],  # COUNT(id)
-            from_=TableExpression(dialect, "users")
+            from_=NamedRelationRef(dialect, Table(dialect, "users"))
         )
 
         max_price_query = QueryExpression(
             dialect,
             select=[FunctionCall(dialect, "MAX", Column(dialect, "price"))],  # MAX(price)
-            from_=TableExpression(dialect, "products")
+            from_=NamedRelationRef(dialect, Table(dialect, "products"))
         )
 
         # Window functions using the window function classes
@@ -117,7 +120,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                 Column(dialect, "salary"),
                 window_func  # Window function call
             ],
-            from_=TableExpression(dialect, "employees"),
+            from_=NamedRelationRef(dialect, Table(dialect, "employees")),
             order_by=OrderByClause(
                 dialect, expressions=[Column(dialect, "department"), (Column(dialect, "row_num"), "ASC")]
             )
@@ -127,7 +130,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         lock_query = QueryExpression(
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "status")],
-            from_=TableExpression(dialect, "orders"),
+            from_=NamedRelationRef(dialect, Table(dialect, "orders")),
             where=WhereClause(dialect, condition=Column(dialect, "status") == Literal(dialect, "pending")),
             for_update=ForUpdateClause(
                 dialect,
@@ -167,7 +170,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
             dialect: The SQL dialect instance that determines query generation rules
             select: List of expressions to select (required). At least one expression must be provided.
             from_: Source of data for the query (optional). Can be a table, subquery, join, etc.
-                   Note: When using a single source, pass the expression directly (e.g., TableExpression).
+                   Note: When using a single source, pass the expression directly (e.g., NamedRelationRef).
                    When using multiple sources, you can either:
                    1. Pass a list of expressions (equivalent to comma-separated tables in
                       FROM clause, creates implicit CROSS JOIN)
@@ -236,16 +239,17 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
 
         # Validate from_ parameter - should be one of the allowed types
         def _is_valid_from_source(item):
-            """Check if an item is a valid FROM source type."""
-            # Check if it's one of the valid types: basic types or specific expression classes
-            return isinstance(item, (str, TableExpression, Subquery)) or type(item).__name__ in [
-                "SetOperationExpression",
-                "JoinClause",
-                "ValuesExpression",
-                "TableFunctionExpression",
-                "LateralExpression",
-                "GraphTableExpression",
-            ]
+            """Check if an item is a valid FROM source type.
+
+            A ``Table`` is accepted and means the same as a ``NamedRelationRef``
+            around it: the caller named an object and did not need an alias or a
+            temporal clause. Everything else that yields rows derives from
+            :class:`~...expression.sources.TableSource`, so one check covers the
+            rest -- subqueries, set operations, joins, VALUES, table functions,
+            LATERAL, graph tables and JSON_TABLE alike. A bare string is also a
+            legal source, naming the engine's default schema.
+            """
+            return isinstance(item, (str, Table, Subquery, TableSource))
 
         if self.from_ is not None:
             if isinstance(self.from_, list):
@@ -253,7 +257,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                 for i, item in enumerate(self.from_):
                     if not _is_valid_from_source(item):
                         raise TypeError(
-                            f"from_ list item at index {i} must be one of: str, TableExpression, "
+                            f"from_ list item at index {i} must be one of: str, NamedRelationRef, "
                             f"Subquery, SetOperationExpression, JoinClause, ValuesExpression, "
                             f"TableFunctionExpression, LateralExpression, GraphTableExpression, "
                             f"got {type(item)}"
@@ -262,7 +266,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                 # For single values, validate using the same helper
                 if not _is_valid_from_source(self.from_):
                     raise TypeError(
-                        f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, "
+                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, GraphTableExpression, got {type(self.from_)}"
                     )

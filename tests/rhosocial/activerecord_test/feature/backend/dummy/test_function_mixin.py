@@ -2,6 +2,7 @@
 """Tests for FunctionMixin format methods."""
 
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Function
 
 
 class TestFunctionMixinFormatMethods:
@@ -11,7 +12,7 @@ class TestFunctionMixinFormatMethods:
         """Tests format_create_function_statement basic case."""
         from rhosocial.activerecord.backend.expression.statements import CreateFunctionExpression
 
-        create_func = CreateFunctionExpression(dummy_dialect, function_name="calculate_total")
+        create_func = CreateFunctionExpression(dummy_dialect, function=Function(dummy_dialect, "calculate_total"))
         sql, params = dummy_dialect.format_create_function_statement(create_func)
 
         assert "CREATE FUNCTION" in sql
@@ -25,7 +26,7 @@ class TestFunctionMixinFormatMethods:
 
         create_func = CreateFunctionExpression(
             dummy_dialect,
-            function_name="add_numbers",
+            function=Function(dummy_dialect, "add_numbers"),
             parameters=[{"name": "a", "type": "INTEGER"}, {"name": "b", "type": "INTEGER"}],
         )
         sql, params = dummy_dialect.format_create_function_statement(create_func)
@@ -41,7 +42,7 @@ class TestFunctionMixinFormatMethods:
         """Tests format_create_function_statement with RETURNS clause."""
         from rhosocial.activerecord.backend.expression.statements import CreateFunctionExpression
 
-        create_func = CreateFunctionExpression(dummy_dialect, function_name="get_count", returns="INTEGER")
+        create_func = CreateFunctionExpression(dummy_dialect, function=Function(dummy_dialect, "get_count"), returns="INTEGER")
         sql, params = dummy_dialect.format_create_function_statement(create_func)
 
         assert "RETURNS INTEGER" in sql
@@ -51,7 +52,7 @@ class TestFunctionMixinFormatMethods:
         """Tests format_create_function_statement with LANGUAGE clause."""
         from rhosocial.activerecord.backend.expression.statements import CreateFunctionExpression
 
-        create_func = CreateFunctionExpression(dummy_dialect, function_name="plpgsql_func", language="plpgsql")
+        create_func = CreateFunctionExpression(dummy_dialect, function=Function(dummy_dialect, "plpgsql_func"), language="plpgsql")
         sql, params = dummy_dialect.format_create_function_statement(create_func)
 
         assert "LANGUAGE plpgsql" in sql
@@ -63,7 +64,7 @@ class TestFunctionMixinFormatMethods:
 
         create_func = CreateFunctionExpression(
             dummy_dialect,
-            function_name="multiply",
+            function=Function(dummy_dialect, "multiply"),
             parameters=[{"name": "x", "type": "INTEGER"}, {"name": "y", "type": "INTEGER"}],
             returns="INTEGER",
             body="RETURN x * y;",
@@ -78,7 +79,7 @@ class TestFunctionMixinFormatMethods:
         """Tests format_create_function_statement with OR REPLACE."""
         from rhosocial.activerecord.backend.expression.statements import CreateFunctionExpression
 
-        create_func = CreateFunctionExpression(dummy_dialect, function_name="existing_func", or_replace=True)
+        create_func = CreateFunctionExpression(dummy_dialect, function=Function(dummy_dialect, "existing_func"), or_replace=True)
         sql, params = dummy_dialect.format_create_function_statement(create_func)
 
         assert "CREATE FUNCTION" in sql
@@ -92,7 +93,7 @@ class TestFunctionMixinFormatMethods:
 
         create_func = CreateFunctionExpression(
             dummy_dialect,
-            function_name="complex_func",
+            function=Function(dummy_dialect, "complex_func"),
             parameters=[{"name": "input", "type": "TEXT"}, {"name": "multiplier", "type": "INTEGER"}],
             returns="TEXT",
             language="plpgsql",
@@ -117,7 +118,7 @@ class TestFunctionMixinFormatMethods:
         from rhosocial.activerecord.backend.expression.statements import CreateFunctionExpression
 
         create_func = CreateFunctionExpression(
-            dummy_dialect, function_name="type_only_func", parameters=[{"type": "INTEGER"}, {"type": "TEXT"}]
+            dummy_dialect, function=Function(dummy_dialect, "type_only_func"), parameters=[{"type": "INTEGER"}, {"type": "TEXT"}]
         )
         sql, params = dummy_dialect.format_create_function_statement(create_func)
 
@@ -129,7 +130,7 @@ class TestFunctionMixinFormatMethods:
         """Tests format_drop_function_statement basic case."""
         from rhosocial.activerecord.backend.expression.statements import DropFunctionExpression
 
-        drop_func = DropFunctionExpression(dummy_dialect, function_name="old_function")
+        drop_func = DropFunctionExpression(dummy_dialect, function=Function(dummy_dialect, "old_function"))
         sql, params = dummy_dialect.format_drop_function_statement(drop_func)
 
         assert "DROP FUNCTION" in sql
@@ -140,7 +141,7 @@ class TestFunctionMixinFormatMethods:
         """Tests format_drop_function_statement with IF EXISTS."""
         from rhosocial.activerecord.backend.expression.statements import DropFunctionExpression
 
-        drop_func = DropFunctionExpression(dummy_dialect, function_name="maybe_function", if_exists=True)
+        drop_func = DropFunctionExpression(dummy_dialect, function=Function(dummy_dialect, "maybe_function"), if_exists=True)
         sql, params = dummy_dialect.format_drop_function_statement(drop_func)
 
         assert "DROP FUNCTION IF EXISTS" in sql
@@ -152,7 +153,7 @@ class TestFunctionMixinFormatMethods:
         from rhosocial.activerecord.backend.expression.statements import DropFunctionExpression
 
         drop_func = DropFunctionExpression(
-            dummy_dialect, function_name="overloaded_func", parameters=["INTEGER", "TEXT"]
+            dummy_dialect, function=Function(dummy_dialect, "overloaded_func"), parameters=["INTEGER", "TEXT"]
         )
         sql, params = dummy_dialect.format_drop_function_statement(drop_func)
 
@@ -165,7 +166,7 @@ class TestFunctionMixinFormatMethods:
         """Tests format_drop_function_statement with CASCADE."""
         from rhosocial.activerecord.backend.expression.statements import DropFunctionExpression
 
-        drop_func = DropFunctionExpression(dummy_dialect, function_name="dependent_func", cascade=True)
+        drop_func = DropFunctionExpression(dummy_dialect, function=Function(dummy_dialect, "dependent_func"), cascade=True)
         sql, params = dummy_dialect.format_drop_function_statement(drop_func)
 
         assert "DROP FUNCTION" in sql
@@ -177,7 +178,7 @@ class TestFunctionMixinFormatMethods:
         from rhosocial.activerecord.backend.expression.statements import DropFunctionExpression
 
         drop_func = DropFunctionExpression(
-            dummy_dialect, function_name="complex_func", if_exists=True, parameters=["INTEGER", "INTEGER"], cascade=True
+            dummy_dialect, function=Function(dummy_dialect, "complex_func"), if_exists=True, parameters=["INTEGER", "INTEGER"], cascade=True
         )
         sql, params = dummy_dialect.format_drop_function_statement(drop_func)
 

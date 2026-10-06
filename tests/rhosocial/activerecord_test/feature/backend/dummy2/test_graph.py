@@ -11,6 +11,7 @@ from rhosocial.activerecord.backend.expression.graph import (
 )
 from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import EdgeTable, NodeTable
 
 
 class TestGraphVertex:
@@ -18,28 +19,28 @@ class TestGraphVertex:
 
     def test_vertex_creation(self, dummy_dialect: DummyDialect):
         """Test creating a GraphVertex object."""
-        vertex = GraphVertex(dummy_dialect, "n", "Person")
+        vertex = GraphVertex(dummy_dialect, "n", NodeTable(dummy_dialect, "Person"))
         assert vertex.variable == "n"
-        assert vertex.table == "Person"
+        assert vertex.table.name == "Person"
         assert vertex.dialect is dummy_dialect
 
     def test_vertex_to_sql_basic(self, dummy_dialect: DummyDialect):
         """Test generating SQL for a basic vertex."""
-        vertex = GraphVertex(dummy_dialect, "n", "Person")
+        vertex = GraphVertex(dummy_dialect, "n", NodeTable(dummy_dialect, "Person"))
         sql, params = vertex.to_sql()
         assert sql == '(n IS "Person")'
         assert params == ()
 
     def test_vertex_to_sql_with_different_variable_and_table(self, dummy_dialect: DummyDialect):
         """Test generating SQL with different variable and table names."""
-        vertex = GraphVertex(dummy_dialect, "customer", "Customer")
+        vertex = GraphVertex(dummy_dialect, "customer", NodeTable(dummy_dialect, "Customer"))
         sql, params = vertex.to_sql()
         assert sql == '(customer IS "Customer")'
         assert params == ()
 
     def test_vertex_to_sql_with_special_characters(self, dummy_dialect: DummyDialect):
         """Test generating SQL with special characters that need escaping."""
-        vertex = GraphVertex(dummy_dialect, "v1", "My Table")
+        vertex = GraphVertex(dummy_dialect, "v1", NodeTable(dummy_dialect, "My Table"))
         sql, params = vertex.to_sql()
         # The exact escaping depends on the dialect's format_identifier method
         assert "v1 IS" in sql
@@ -51,39 +52,39 @@ class TestGraphEdge:
 
     def test_edge_creation(self, dummy_dialect: DummyDialect):
         """Test creating a GraphEdge object."""
-        edge = GraphEdge(dummy_dialect, "e", "KNOWS", GraphEdgeDirection.RIGHT)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "KNOWS"), GraphEdgeDirection.RIGHT)
         assert edge.variable == "e"
-        assert edge.table == "KNOWS"
+        assert edge.table.name == "KNOWS"
         assert edge.direction == GraphEdgeDirection.RIGHT
         assert edge.dialect is dummy_dialect
 
     def test_edge_to_sql_right_direction(self, dummy_dialect: DummyDialect):
         """Test generating SQL for a right-directed edge."""
-        edge = GraphEdge(dummy_dialect, "e", "KNOWS", GraphEdgeDirection.RIGHT)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "KNOWS"), GraphEdgeDirection.RIGHT)
         sql, params = edge.to_sql()
         assert sql == '-[e IS "KNOWS"]->'
 
     def test_edge_to_sql_left_direction(self, dummy_dialect: DummyDialect):
         """Test generating SQL for a left-directed edge."""
-        edge = GraphEdge(dummy_dialect, "e", "KNOWS", GraphEdgeDirection.LEFT)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "KNOWS"), GraphEdgeDirection.LEFT)
         sql, params = edge.to_sql()
         assert sql == '<-[e IS "KNOWS"]-'
 
     def test_edge_to_sql_any_direction(self, dummy_dialect: DummyDialect):
         """Test generating SQL for a bidirectional edge."""
-        edge = GraphEdge(dummy_dialect, "e", "KNOWS", GraphEdgeDirection.ANY)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "KNOWS"), GraphEdgeDirection.ANY)
         sql, params = edge.to_sql()
         assert sql == '<-[e IS "KNOWS"]->'
 
     def test_edge_to_sql_none_direction(self, dummy_dialect: DummyDialect):
         """Test generating SQL for an undirected edge."""
-        edge = GraphEdge(dummy_dialect, "e", "KNOWS", GraphEdgeDirection.NONE)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "KNOWS"), GraphEdgeDirection.NONE)
         sql, params = edge.to_sql()
         assert sql == '-[e IS "KNOWS"]-'
 
     def test_edge_with_different_variables_and_tables(self, dummy_dialect: DummyDialect):
         """Test generating SQL with different variable and table names."""
-        edge = GraphEdge(dummy_dialect, "rel", "Follows", GraphEdgeDirection.RIGHT)
+        edge = GraphEdge(dummy_dialect, "rel", EdgeTable(dummy_dialect, "Follows"), GraphEdgeDirection.RIGHT)
         sql, params = edge.to_sql()
         assert sql == '-[rel IS "Follows"]->'
 
@@ -93,8 +94,8 @@ class TestMatchClause:
 
     def test_match_clause_creation(self, dummy_dialect: DummyDialect):
         """Test creating a MatchClause object."""
-        vertex = GraphVertex(dummy_dialect, "n", "Person")
-        edge = GraphEdge(dummy_dialect, "e", "KNOWS", GraphEdgeDirection.RIGHT)
+        vertex = GraphVertex(dummy_dialect, "n", NodeTable(dummy_dialect, "Person"))
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "KNOWS"), GraphEdgeDirection.RIGHT)
 
         match_clause = MatchClause(dummy_dialect, vertex, edge)
         assert len(match_clause.path) == 2
@@ -104,7 +105,7 @@ class TestMatchClause:
 
     def test_match_clause_with_single_vertex(self, dummy_dialect: DummyDialect):
         """Test generating SQL for a MATCH clause with a single vertex."""
-        vertex = GraphVertex(dummy_dialect, "n", "Person")
+        vertex = GraphVertex(dummy_dialect, "n", NodeTable(dummy_dialect, "Person"))
         match_clause = MatchClause(dummy_dialect, vertex)
         sql, params = match_clause.to_sql()
         # The exact format depends on the dialect's format_match_clause implementation
@@ -114,9 +115,9 @@ class TestMatchClause:
 
     def test_match_clause_with_vertex_and_edge(self, dummy_dialect: DummyDialect):
         """Test generating SQL for a MATCH clause with vertex and edge."""
-        vertex = GraphVertex(dummy_dialect, "person", "Person")
-        edge = GraphEdge(dummy_dialect, "knows", "KNOWS", GraphEdgeDirection.RIGHT)
-        vertex2 = GraphVertex(dummy_dialect, "friend", "Person")
+        vertex = GraphVertex(dummy_dialect, "person", NodeTable(dummy_dialect, "Person"))
+        edge = GraphEdge(dummy_dialect, "knows", EdgeTable(dummy_dialect, "KNOWS"), GraphEdgeDirection.RIGHT)
+        vertex2 = GraphVertex(dummy_dialect, "friend", NodeTable(dummy_dialect, "Person"))
 
         match_clause = MatchClause(dummy_dialect, vertex, edge, vertex2)
         sql, params = match_clause.to_sql()
@@ -128,13 +129,13 @@ class TestMatchClause:
 
     def test_match_clause_with_multiple_edges(self, dummy_dialect: DummyDialect):
         """Test generating SQL for a MATCH clause with multiple edges."""
-        v1 = GraphVertex(dummy_dialect, "a", "Account")
-        e1 = GraphEdge(dummy_dialect, "owns", "OWNS", GraphEdgeDirection.LEFT)
-        v2 = GraphVertex(dummy_dialect, "p", "Person")
+        v1 = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "Account"))
+        e1 = GraphEdge(dummy_dialect, "owns", EdgeTable(dummy_dialect, "OWNS"), GraphEdgeDirection.LEFT)
+        v2 = GraphVertex(dummy_dialect, "p", NodeTable(dummy_dialect, "Person"))
         e2 = GraphEdge(
-            dialect=dummy_dialect, variable="transfers", table="TRANSFER", direction=GraphEdgeDirection.RIGHT
+            dialect=dummy_dialect, variable="transfers", table=EdgeTable(dummy_dialect, "TRANSFER"), direction=GraphEdgeDirection.RIGHT
         )
-        v3 = GraphVertex(dummy_dialect, "b", "Account")
+        v3 = GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "Account"))
 
         match_clause = MatchClause(dummy_dialect, v1, e1, v2, e2, v3)
         sql, params = match_clause.to_sql()
@@ -152,9 +153,9 @@ class TestGraphPatterns:
 
     def test_simple_path_pattern(self, dummy_dialect: DummyDialect):
         """Test a simple path pattern: (a)-[e]->(b)."""
-        a = GraphVertex(dummy_dialect, "a", "Account")
-        e = GraphEdge(dummy_dialect, "e", "OWNS", GraphEdgeDirection.RIGHT)
-        b = GraphVertex(dummy_dialect, "b", "Person")
+        a = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "Account"))
+        e = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "OWNS"), GraphEdgeDirection.RIGHT)
+        b = GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "Person"))
 
         match_clause = MatchClause(dummy_dialect, a, e, b)
         sql, params = match_clause.to_sql()
@@ -167,9 +168,9 @@ class TestGraphPatterns:
 
     def test_bidirectional_pattern(self, dummy_dialect: DummyDialect):
         """Test a bidirectional relationship pattern."""
-        person1 = GraphVertex(dummy_dialect, "p1", "Person")
-        knows_edge = GraphEdge(dummy_dialect, "k", "KNOWS", GraphEdgeDirection.ANY)
-        person2 = GraphVertex(dummy_dialect, "p2", "Person")
+        person1 = GraphVertex(dummy_dialect, "p1", NodeTable(dummy_dialect, "Person"))
+        knows_edge = GraphEdge(dummy_dialect, "k", EdgeTable(dummy_dialect, "KNOWS"), GraphEdgeDirection.ANY)
+        person2 = GraphVertex(dummy_dialect, "p2", NodeTable(dummy_dialect, "Person"))
 
         match_clause = MatchClause(dummy_dialect, person1, knows_edge, person2)
         sql, params = match_clause.to_sql()
@@ -182,9 +183,9 @@ class TestGraphPatterns:
 
     def test_complex_pattern_with_undirected_edge(self, dummy_dialect: DummyDialect):
         """Test a pattern with undirected edge."""
-        a = GraphVertex(dummy_dialect, "a", "NodeA")
-        rel = GraphEdge(dummy_dialect, "r", "RELATED", GraphEdgeDirection.NONE)
-        b = GraphVertex(dummy_dialect, "b", "NodeB")
+        a = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "NodeA"))
+        rel = GraphEdge(dummy_dialect, "r", EdgeTable(dummy_dialect, "RELATED"), GraphEdgeDirection.NONE)
+        b = GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "NodeB"))
 
         match_clause = MatchClause(dummy_dialect, a, rel, b)
         sql, params = match_clause.to_sql()
@@ -210,7 +211,7 @@ class TestGraphDirectionCombinations:
     )
     def test_edge_direction_output(self, dummy_dialect: DummyDialect, direction, expected_pattern):
         """Test that each direction produces the expected arrow pattern."""
-        edge = GraphEdge(dummy_dialect, "e", "REL", direction)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "REL"), direction)
         sql, _ = edge.to_sql()
 
         # For ANY direction, we expect both <- and -> in the string
@@ -225,32 +226,32 @@ class TestQuantifiedPath:
     """Tests for QuantifiedPath (variable-length pattern)."""
 
     def test_default_one_or_more(self, dummy_dialect: DummyDialect):
-        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
         qp = QuantifiedPath(dummy_dialect, edge)
         sql, params = qp.to_sql()
         assert sql == '-[e IS "knows"]->+'
         assert params == ()
 
     def test_zero_or_more(self, dummy_dialect: DummyDialect):
-        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
         qp = QuantifiedPath(dummy_dialect, edge, min_repeats=0)
         sql, params = qp.to_sql()
         assert sql == '-[e IS "knows"]->*'
 
     def test_exact_count(self, dummy_dialect: DummyDialect):
-        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
         qp = QuantifiedPath(dummy_dialect, edge, min_repeats=3, max_repeats=3)
         sql, params = qp.to_sql()
         assert sql == '-[e IS "knows"]->{3}'
 
     def test_range(self, dummy_dialect: DummyDialect):
-        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
         qp = QuantifiedPath(dummy_dialect, edge, min_repeats=2, max_repeats=5)
         sql, params = qp.to_sql()
         assert sql == '-[e IS "knows"]->{2,5}'
 
     def test_minimum_only(self, dummy_dialect: DummyDialect):
-        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
         qp = QuantifiedPath(dummy_dialect, edge, min_repeats=1)
         sql, params = qp.to_sql()
         assert sql == '-[e IS "knows"]->{1,}'
@@ -266,9 +267,9 @@ class TestPathPattern:
     """Tests for PathPattern (single path within MATCH)."""
 
     def test_simple_path(self, dummy_dialect: DummyDialect):
-        a = GraphVertex(dummy_dialect, "a", "person")
-        e = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
-        b = GraphVertex(dummy_dialect, "b", "person")
+        a = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "person"))
+        e = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
+        b = GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "person"))
         pattern = PathPattern(dummy_dialect, a, e, b)
         sql, params = pattern.to_sql()
         assert '(a IS "person")' in sql
@@ -276,10 +277,10 @@ class TestPathPattern:
         assert '(b IS "person")' in sql
 
     def test_with_quantified_path(self, dummy_dialect: DummyDialect):
-        a = GraphVertex(dummy_dialect, "a", "person")
-        e = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        a = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "person"))
+        e = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
         qp = QuantifiedPath(dummy_dialect, e, min_repeats=1)
-        b = GraphVertex(dummy_dialect, "b", "person")
+        b = GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "person"))
         pattern = PathPattern(dummy_dialect, a, qp, b)
         sql, params = pattern.to_sql()
         assert '(a IS "person")' in sql
@@ -287,9 +288,9 @@ class TestPathPattern:
         assert '(b IS "person")' in sql
 
     def test_rejects_unsupported_path_element(self, dummy_dialect: DummyDialect):
-        vertex = GraphVertex(dummy_dialect, "a", "person")
+        vertex = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "person"))
         raw = RawSQLExpression(dummy_dialect, "1); DROP TABLE people; --")
-        pattern = PathPattern(dummy_dialect, vertex, raw, GraphVertex(dummy_dialect, "b", "person"))
+        pattern = PathPattern(dummy_dialect, vertex, raw, GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "person")))
 
         with pytest.raises(TypeError, match="PathPattern elements"):
             pattern.to_sql()
@@ -303,15 +304,15 @@ class TestPathPattern:
         ],
     )
     def test_rejects_invalid_endpoint_sequence(self, dummy_dialect, path_factory):
-        vertex = GraphVertex(dummy_dialect, "a", "person")
-        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        vertex = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "person"))
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
         pattern = PathPattern(dummy_dialect, *path_factory(dummy_dialect, vertex, edge))
 
         with pytest.raises(ValueError, match="alternate vertices and edges"):
             pattern.to_sql()
 
     def test_rejects_invalid_quantifier_bounds(self, dummy_dialect: DummyDialect):
-        edge = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
+        edge = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
         quantified = QuantifiedPath(dummy_dialect, edge, min_repeats=3, max_repeats=2)
 
         with pytest.raises(ValueError, match="cannot exceed"):
@@ -322,13 +323,13 @@ class TestMatchClauseMultiPattern:
     """Tests for MatchClause with comma-separated multiple patterns."""
 
     def test_two_patterns(self, dummy_dialect: DummyDialect):
-        a = GraphVertex(dummy_dialect, "a", "person")
-        e1 = GraphEdge(dummy_dialect, "e1", "knows", GraphEdgeDirection.RIGHT)
-        b = GraphVertex(dummy_dialect, "b", "person")
+        a = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "person"))
+        e1 = GraphEdge(dummy_dialect, "e1", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
+        b = GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "person"))
         p1 = PathPattern(dummy_dialect, a, e1, b)
 
-        e2 = GraphEdge(dummy_dialect, "e2", "knows", GraphEdgeDirection.RIGHT)
-        c = GraphVertex(dummy_dialect, "c", "person")
+        e2 = GraphEdge(dummy_dialect, "e2", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
+        c = GraphVertex(dummy_dialect, "c", NodeTable(dummy_dialect, "person"))
         p2 = PathPattern(dummy_dialect, b, e2, c)
 
         match = MatchClause(dummy_dialect, p1, p2)
@@ -338,12 +339,12 @@ class TestMatchClauseMultiPattern:
         assert sql.count("MATCH") == 1
 
     def test_patterns_listed(self, dummy_dialect: DummyDialect):
-        a = GraphVertex(dummy_dialect, "a", "person")
-        e = GraphEdge(dummy_dialect, "e", "knows", GraphEdgeDirection.RIGHT)
-        b = GraphVertex(dummy_dialect, "b", "person")
+        a = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "person"))
+        e = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
+        b = GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "person"))
         p1 = PathPattern(dummy_dialect, a, e, b)
 
-        c = GraphVertex(dummy_dialect, "c", "person")
+        c = GraphVertex(dummy_dialect, "c", NodeTable(dummy_dialect, "person"))
         p2 = PathPattern(dummy_dialect, c)
 
         match = MatchClause(dummy_dialect, p1, p2)
@@ -353,11 +354,11 @@ class TestMatchClauseMultiPattern:
         assert "(c IS" in sql
 
     def test_pattern_property_ambiguous(self, dummy_dialect: DummyDialect):
-        a = GraphVertex(dummy_dialect, "a", "person")
-        e1 = GraphEdge(dummy_dialect, "e1", "knows", GraphEdgeDirection.RIGHT)
-        e2 = GraphEdge(dummy_dialect, "e2", "knows", GraphEdgeDirection.RIGHT)
-        b = GraphVertex(dummy_dialect, "b", "person")
-        c = GraphVertex(dummy_dialect, "c", "person")
+        a = GraphVertex(dummy_dialect, "a", NodeTable(dummy_dialect, "person"))
+        e1 = GraphEdge(dummy_dialect, "e1", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
+        e2 = GraphEdge(dummy_dialect, "e2", EdgeTable(dummy_dialect, "knows"), GraphEdgeDirection.RIGHT)
+        b = GraphVertex(dummy_dialect, "b", NodeTable(dummy_dialect, "person"))
+        c = GraphVertex(dummy_dialect, "c", NodeTable(dummy_dialect, "person"))
         p1 = PathPattern(dummy_dialect, a, e1, b)
         p2 = PathPattern(dummy_dialect, b, e2, c)
         match = MatchClause(dummy_dialect, p1, p2)
@@ -385,17 +386,17 @@ class TestIntegration:
         #           (a2) -[IS owner]-> (p2 IS person)
 
         # First pattern: person <- owner - account
-        p1 = GraphVertex(dummy_dialect, "p1", "person")
-        owner_left = GraphEdge(dummy_dialect, "owner", "owner", GraphEdgeDirection.LEFT)
-        a1 = GraphVertex(dummy_dialect, "a1", "account")
+        p1 = GraphVertex(dummy_dialect, "p1", NodeTable(dummy_dialect, "person"))
+        owner_left = GraphEdge(dummy_dialect, "owner", EdgeTable(dummy_dialect, "owner"), GraphEdgeDirection.LEFT)
+        a1 = GraphVertex(dummy_dialect, "a1", NodeTable(dummy_dialect, "account"))
 
         # Second pattern: account - transfer -> account
-        transfer = GraphEdge(dummy_dialect, "e", "transfer", GraphEdgeDirection.RIGHT)
-        a2 = GraphVertex(dummy_dialect, "a2", "account")
+        transfer = GraphEdge(dummy_dialect, "e", EdgeTable(dummy_dialect, "transfer"), GraphEdgeDirection.RIGHT)
+        a2 = GraphVertex(dummy_dialect, "a2", NodeTable(dummy_dialect, "account"))
 
         # Third pattern: account - owner -> person
-        owner_right = GraphEdge(dummy_dialect, "owner2", "owner", GraphEdgeDirection.RIGHT)
-        p2 = GraphVertex(dummy_dialect, "p2", "person")
+        owner_right = GraphEdge(dummy_dialect, "owner2", EdgeTable(dummy_dialect, "owner"), GraphEdgeDirection.RIGHT)
+        p2 = GraphVertex(dummy_dialect, "p2", NodeTable(dummy_dialect, "person"))
 
         # Create match clause with all elements
         match_clause = MatchClause(dummy_dialect, p1, owner_left, a1, transfer, a2, owner_right, p2)

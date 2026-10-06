@@ -15,7 +15,7 @@ TEST PURPOSE:
     - All expressions are tested uniformly
 
     COVERAGE:
-    - Core expressions: Column, Literal, FunctionCall, TableExpression, etc.
+    - Core expressions: Column, Literal, FunctionCall, NamedRelationRef, etc.
     - Predicates: ComparisonPredicate, LogicalPredicate, LikePredicate, etc.
     - Query parts: WhereClause, GroupByHavingClause, OrderByClause, etc.
     - DML/DDL statements: InsertExpression, DeleteExpression, CreateTableExpression, etc.
@@ -32,7 +32,6 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     WildcardExpression,
     FunctionCall,
-    TableExpression,
     ComparisonPredicate,
     LogicalPredicate,
     InPredicate,
@@ -41,6 +40,7 @@ from rhosocial.activerecord.backend.expression import (
     IsBooleanPredicate,
     BetweenPredicate,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.expression.query_parts import (
     WhereClause,
@@ -108,6 +108,8 @@ from rhosocial.activerecord.backend.expression.operators import (
 )
 from rhosocial.activerecord.backend.expression import serialization
 from rhosocial.activerecord.backend.expression.serialization import _reconstruct
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.objects import EdgeTable, NodeTable
 
 
 EXPRESSION_TEST_CASES = [
@@ -126,7 +128,11 @@ EXPRESSION_TEST_CASES = [
         cls=FunctionCall,
         params_func=lambda d: dict(dialect=d, func_name="COUNT", is_distinct=True),
     ),
-    dict(name="TableExpression", cls=TableExpression, params_func=lambda d: dict(dialect=d, name="users")),
+    dict(
+            name="NamedRelationRef",
+            cls=NamedRelationRef,
+            params_func=lambda d: dict(dialect=d, relation=Table(d, "users")),
+        ),
     dict(
         name="ComparisonPredicate",
         cls=ComparisonPredicate,
@@ -205,8 +211,8 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(
             dialect=d,
             operation="UNION",
-            left=QueryExpression(d, select=[Column(d, "id")], from_=TableExpression(d, name="users")),
-            right=QueryExpression(d, select=[Column(d, "id")], from_=TableExpression(d, name="admins")),
+            left=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
+            right=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "admins"))),
         ),
     ),
     dict(
@@ -220,7 +226,7 @@ EXPRESSION_TEST_CASES = [
         name="QueryExpression",
         cls=QueryExpression,
         params_func=lambda d: dict(
-            dialect=d, select=[Column(d, "id"), Column(d, "name")], from_=TableExpression(d, name="users")
+            dialect=d, select=[Column(d, "id"), Column(d, "name")], from_=NamedRelationRef(d, Table(d, "users"))
         ),
     ),
     dict(name="BeginTransactionExpression", cls=BeginTransactionExpression, params_func=lambda d: dict(dialect=d)),
@@ -230,18 +236,32 @@ EXPRESSION_TEST_CASES = [
         cls=RollbackTransactionExpression,
         params_func=lambda d: dict(dialect=d),
     ),
-    dict(name="GraphVertex", cls=GraphVertex, params_func=lambda d: dict(dialect=d, variable="v", table="users")),
+    dict(
+        name="GraphVertex",
+        cls=GraphVertex,
+        params_func=lambda d: dict(
+            dialect=d, variable="v", table=NodeTable(d, "users")
+        ),
+    ),
     dict(
         name="GraphEdge",
         cls=GraphEdge,
-        params_func=lambda d: dict(dialect=d, variable="e", table="follows", direction=GraphEdgeDirection.RIGHT),
+        params_func=lambda d: dict(
+            dialect=d,
+            variable="e",
+            table=EdgeTable(d, "follows"),
+            direction=GraphEdgeDirection.RIGHT,
+        ),
     ),
     # MatchClause uses *path (VAR_POSITIONAL) - import present, test skipped
     # dict(name="MatchClause", cls=MatchClause, params_func=lambda d: dict(
     #     dialect=d,
-    #     GraphVertex(d, variable="v1", table="users"),
-    #     GraphEdge(d, variable="e", table="follows", direction=GraphEdgeDirection.RIGHT),
-    #     GraphVertex(d, variable="v2", table="users"),
+    #     GraphVertex(d, variable="v1", table=NodeTable(d, "users")),
+    #     GraphEdge(
+    #         d, variable="e", table=EdgeTable(d, "follows"),
+    #         direction=GraphEdgeDirection.RIGHT,
+    #     ),
+    #     GraphVertex(d, variable="v2", table=NodeTable(d, "users")),
     # )),
     dict(
         name="RawSQLExpression",
@@ -381,7 +401,7 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(
             dialect=d,
             ctes=[CTEExpression(d, name="cte1", query=Subquery(d, "SELECT 1"))],
-            main_query=QueryExpression(d, select=[Column(d, "id")], from_=TableExpression(d, name="users")),
+            main_query=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
         ),
     ),
     # query_parts

@@ -8,9 +8,6 @@ import pytest
 
 from rhosocial.activerecord.backend.schema import (
     SchemaSnapshot,
-    SchemaDiff,
-    TableDiff,
-    ColumnDiff,
     SchemaDiffer,
 )
 from rhosocial.activerecord.backend.schema.differ import SchemaDiffer
@@ -18,9 +15,7 @@ from rhosocial.activerecord.backend.expression.types import (
     IntegerType,
     VarCharType,
     ArrayType,
-    BooleanType,
     DecimalType,
-    SmallIntType,
 )
 from rhosocial.activerecord.backend.introspection.types import (
     DatabaseInfo,
@@ -230,9 +225,6 @@ class TestIndexEquivalence:
         assert not differ._indexes_equivalent(old_idx, new_idx)
 
     def test_index_type_change(self):
-        from rhosocial.activerecord.backend.introspection.types import (
-            IndexType,
-        )
         differ = SchemaDiffer()
         old_idx = IndexInfo(
             name="idx", table_name="t",

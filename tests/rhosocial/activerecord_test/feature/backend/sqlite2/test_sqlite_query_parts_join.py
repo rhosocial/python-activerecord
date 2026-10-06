@@ -1,9 +1,11 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_query_parts_join.py
 import pytest
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import Column, TableExpression
+from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestSQLiteJoinClause:
@@ -13,8 +15,8 @@ class TestSQLiteJoinClause:
         """Test that INNER JOIN is supported."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "users", alias="u"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "orders", alias="o"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"), alias="u"),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders"), alias="o"),
             join_type="INNER JOIN",
             condition=Column(sqlite_dialect_3_8_0, "id", "u") == Column(sqlite_dialect_3_8_0, "user_id", "o"),
         )
@@ -26,8 +28,8 @@ class TestSQLiteJoinClause:
         """Test that LEFT JOIN is supported."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "users", alias="u"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "orders", alias="o"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"), alias="u"),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders"), alias="o"),
             join_type="LEFT JOIN",
             condition=Column(sqlite_dialect_3_8_0, "id", "u") == Column(sqlite_dialect_3_8_0, "user_id", "o"),
         )
@@ -39,8 +41,8 @@ class TestSQLiteJoinClause:
         """Test that LEFT OUTER JOIN is supported."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "users", alias="u"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "orders", alias="o"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"), alias="u"),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders"), alias="o"),
             join_type="LEFT OUTER JOIN",
             condition=Column(sqlite_dialect_3_8_0, "id", "u") == Column(sqlite_dialect_3_8_0, "user_id", "o"),
         )
@@ -52,8 +54,8 @@ class TestSQLiteJoinClause:
         """Test that CROSS JOIN is supported."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "users"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "departments"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users")),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "departments")),
             join_type="CROSS JOIN",
         )
         sql, params = join_expr.to_sql()
@@ -64,8 +66,8 @@ class TestSQLiteJoinClause:
         """Test NATURAL INNER JOIN is supported in SQLite."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "table_a"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "table_b"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "table_a")),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "table_b")),
             join_type="INNER JOIN",
             natural=True,
         )
@@ -77,8 +79,8 @@ class TestSQLiteJoinClause:
         """Test NATURAL LEFT JOIN is supported in SQLite."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "table_a"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "table_b"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "table_a")),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "table_b")),
             join_type="LEFT JOIN",
             natural=True,
         )
@@ -90,8 +92,8 @@ class TestSQLiteJoinClause:
         """Test NATURAL RIGHT JOIN raises UnsupportedFeatureError in SQLite."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "table_a"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "table_b"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "table_a")),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "table_b")),
             join_type="RIGHT JOIN",  # This should cause the error
             natural=True,
         )
@@ -102,8 +104,8 @@ class TestSQLiteJoinClause:
         """Test NATURAL FULL JOIN raises UnsupportedFeatureError in SQLite."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "table_a"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "table_b"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "table_a")),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "table_b")),
             join_type="FULL JOIN",  # This should cause the error
             natural=True,
         )
@@ -114,8 +116,8 @@ class TestSQLiteJoinClause:
         """Test that RIGHT JOIN raises UnsupportedFeatureError."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "users"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "orders"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users")),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders")),
             join_type="RIGHT JOIN",
             condition=Column(sqlite_dialect_3_8_0, "id", "users") == Column(sqlite_dialect_3_8_0, "user_id", "orders"),
         )
@@ -126,8 +128,8 @@ class TestSQLiteJoinClause:
         """Test that FULL OUTER JOIN raises UnsupportedFeatureError."""
         join_expr = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "users"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "orders"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users")),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders")),
             join_type="FULL OUTER JOIN",
             condition=Column(sqlite_dialect_3_8_0, "id", "users") == Column(sqlite_dialect_3_8_0, "user_id", "orders"),
         )
@@ -138,15 +140,15 @@ class TestSQLiteJoinClause:
         """Test that a chained join with an unsupported type fails."""
         base_join = JoinClause(
             sqlite_dialect_3_8_0,
-            left_table=TableExpression(sqlite_dialect_3_8_0, "users", alias="u"),
-            right_table=TableExpression(sqlite_dialect_3_8_0, "orders", alias="o"),
+            left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"), alias="u"),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders"), alias="o"),
             join_type="LEFT JOIN",
             condition=Column(sqlite_dialect_3_8_0, "id", "u") == Column(sqlite_dialect_3_8_0, "user_id", "o"),
         )
 
         # Chain with an unsupported RIGHT JOIN
         chained_join_with_unsupported = base_join.right_join(
-            right_table=TableExpression(sqlite_dialect_3_8_0, "products", alias="p"),
+            right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "products"), alias="p"),
             condition=Column(sqlite_dialect_3_8_0, "product_id", "o") == Column(sqlite_dialect_3_8_0, "id", "p"),
         )
 

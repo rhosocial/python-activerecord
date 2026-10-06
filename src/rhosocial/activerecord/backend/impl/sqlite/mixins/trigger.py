@@ -60,7 +60,7 @@ class SQLiteTriggerMixin:
         if expr.if_not_exists:
             parts.append("IF NOT EXISTS")
 
-        parts.append(self.format_identifier(expr.trigger_name))
+        parts.append(expr.trigger.to_sql()[0])
         parts.append(expr.timing.value)
 
         if expr.update_columns:
@@ -71,7 +71,7 @@ class SQLiteTriggerMixin:
         parts.append(events_str)
 
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(expr.table.to_sql()[0])
 
         if expr.level == TriggerLevel.ROW:
             parts.append("FOR EACH ROW")
@@ -83,7 +83,7 @@ class SQLiteTriggerMixin:
             all_params.extend(cond_params)
 
         parts.append("BEGIN")
-        parts.append(f"SELECT {self.format_identifier(expr.function_name)}();")
+        parts.append(f"SELECT {expr.function.to_sql()[0]}();")
         parts.append("END")
 
         return " ".join(parts), tuple(all_params)
@@ -95,7 +95,7 @@ class SQLiteTriggerMixin:
         if expr.if_exists:
             parts.append("IF EXISTS")
 
-        parts.append(self.format_identifier(expr.trigger_name))
+        parts.append(expr.trigger.to_sql()[0])
 
         return " ".join(parts), ()
 

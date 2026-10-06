@@ -13,9 +13,9 @@ Expression classes inherit from BaseExpression and implement to_sql(),
 delegating SQL generation to the dialect's corresponding format_* method.
 """
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
-from .bases import BaseExpression, SQLQueryAndParams
+from .bases import BaseExpression
 from ..transaction import IsolationLevel, TransactionMode
 
 if TYPE_CHECKING:

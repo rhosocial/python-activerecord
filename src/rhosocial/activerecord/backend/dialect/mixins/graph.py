@@ -8,6 +8,8 @@ import re
 from typing import Mapping, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
+from ...expression.objects import EdgeTable as EdgeTableObject
+from ...expression.objects import NodeTable, PropertyGraph
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.graph import (
@@ -96,10 +98,18 @@ class GraphMixin:
             A ``(sql, params)`` tuple for the formatted vertex.
 
         Raises:
+            TypeError: ``GraphVertex.table`` is not a NodeTable. Another object kind
+            would have had its own name rendered as the vertex's table, and the
+            MATCH pattern would read the wrong relation.
             UnsupportedFeatureError: If the dialect does not support MATCH.
             ValueError: If the vertex variable name contains invalid
                 characters.
         """
+        if not isinstance(vertex.table, NodeTable):
+            raise TypeError(
+                f"GraphVertex.table must be a NodeTable, "
+                f"got {type(vertex.table).__name__}"
+            )
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
@@ -107,8 +117,6 @@ class GraphMixin:
 
         if not isinstance(vertex, GraphVertex):
             raise TypeError("GraphVertex must be a GraphVertex expression")
-        if not isinstance(vertex.table, str):
-            raise TypeError("GraphVertex table must be a string")
         if vertex.variable is not None and not isinstance(vertex.variable, str):
             raise ValueError(
                 f"Invalid variable name '{vertex.variable}': "
@@ -133,10 +141,10 @@ class GraphMixin:
 
         if vertex.where is not None:
             where_sql, where_params = vertex.where.to_sql()
-            sql = f"({vertex_str}{self.format_identifier(vertex.table)} {where_sql})"
+            sql = f"({vertex_str}{vertex.table.to_sql()[0]} {where_sql})"
             return sql, where_params
 
-        sql = f"({vertex_str}{self.format_identifier(vertex.table)})"
+        sql = f"({vertex_str}{vertex.table.to_sql()[0]})"
         return sql, ()
 
     def format_graph_edge(self, edge: "GraphEdge") -> Tuple[str, tuple]:
@@ -150,9 +158,16 @@ class GraphMixin:
             A ``(sql, params)`` tuple for the formatted edge.
 
         Raises:
+            TypeError: ``GraphEdge.table`` is not an EdgeTableObject. Another object
+            kind would have had its own name rendered as the edge's.
             UnsupportedFeatureError: If the dialect does not support MATCH.
             ValueError: If the edge variable name contains invalid characters.
         """
+        if edge.table is not None and not isinstance(edge.table, EdgeTableObject):
+            raise TypeError(
+                f"GraphEdge.table must be an EdgeTableObject, "
+                f"got {type(edge.table).__name__}"
+            )
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
@@ -160,8 +175,6 @@ class GraphMixin:
 
         if not isinstance(edge, GraphEdge):
             raise TypeError("GraphEdge must be a GraphEdge expression")
-        if edge.table is not None and not isinstance(edge.table, str):
-            raise TypeError("GraphEdge table must be a string")
         if edge.variable is not None and not isinstance(edge.variable, str):
             raise ValueError(
                 f"Invalid variable name '{edge.variable}': "
@@ -188,7 +201,7 @@ class GraphMixin:
                     f"Invalid variable name '{edge.variable}': "
                     "must contain only alphanumeric characters and underscores."
                 )
-            edge_body = f"[{edge.variable} IS {self.format_identifier(edge.table)}]"
+            edge_body = f"[{edge.variable} IS {edge.table.to_sql()[0]}]"
         elif edge.variable is not None:
             if not re.fullmatch(r"[A-Za-z0-9_]+", edge.variable):
                 raise ValueError(
@@ -383,9 +396,16 @@ class GraphTableMixin:
             A ``(sql, params)`` tuple for the formatted expression.
 
         Raises:
+            TypeError: ``GraphTableExpression.graph`` is not a PropertyGraph.
+            Another object kind would have had its own name rendered as the graph's.
             UnsupportedFeatureError: If the dialect does not support
                 GRAPH_TABLE.
         """
+        if not isinstance(expr.graph, PropertyGraph):
+            raise TypeError(
+                f"GraphTableExpression.graph must be a PropertyGraph, "
+                f"got {type(expr.graph).__name__}"
+            )
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "GRAPH_TABLE")
 
@@ -397,11 +417,10 @@ class GraphTableMixin:
             raise TypeError("GraphTableExpression match must be a MatchClause expression")
         if not isinstance(expr.columns, ColumnsClause):
             raise TypeError("GraphTableExpression columns must be a ColumnsClause expression")
-        self._require_graph_string(expr.graph_name, "GRAPH_TABLE graph name")
         if expr.alias is not None:
             self._require_graph_string(expr.alias, "GRAPH_TABLE alias")
 
-        graph_name = self.format_identifier(expr.graph_name)
+        graph_name = expr.graph.to_sql()[0]
         match_sql, match_params = self.format_match_clause(expr.match)
         columns_sql, columns_params = self.format_graph_columns_clause(expr.columns)
 
@@ -466,13 +485,20 @@ class GraphTableMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``VertexTable.table`` is not a NodeTable. Another object kind
+            would have had its own name rendered as the vertex table's.
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
+        if not isinstance(vt.table, NodeTable):
+            raise TypeError(
+                f"VertexTable.table must be a NodeTable, "
+                f"got {type(vt.table).__name__}"
+            )
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "vertex table definition")
 
-        parts = [self.format_identifier(vt.table)]
+        parts = [vt.table.to_sql()[0]]
         if vt.alias:
             parts.append(f"AS {self.format_identifier(vt.alias)}")
 
@@ -505,13 +531,20 @@ class GraphTableMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``EdgeTable.table`` is not an EdgeTableObject. Another object
+            kind would have had its own name rendered as the edge table's.
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
+        if not isinstance(et.table, EdgeTableObject):
+            raise TypeError(
+                f"EdgeTable.table must be an EdgeTableObject, "
+                f"got {type(et.table).__name__}"
+            )
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "edge table definition")
 
-        parts = [self.format_identifier(et.table)]
+        parts = [et.table.to_sql()[0]]
         if et.alias:
             parts.append(f"AS {self.format_identifier(et.alias)}")
 
@@ -561,16 +594,24 @@ class GraphTableMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``CreatePropertyGraphExpression.graph`` is not a
+            PropertyGraph. Another object kind would have had its own name rendered
+            as the graph's.
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
+        if not isinstance(expr.graph, PropertyGraph):
+            raise TypeError(
+                f"CreatePropertyGraphExpression.graph must be a PropertyGraph, "
+                f"got {type(expr.graph).__name__}"
+            )
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "CREATE PROPERTY GRAPH")
 
         parts = ["CREATE PROPERTY GRAPH"]
         if expr.if_not_exists:
             parts.append("IF NOT EXISTS")
-        parts.append(self.format_identifier(expr.graph_name))
+        parts.append(expr.graph.to_sql()[0])
 
         if expr.vertex_tables:
             vt_parts = []
@@ -599,16 +640,23 @@ class GraphTableMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``DropPropertyGraphExpression.graph`` is not a PropertyGraph.
+            Another object kind would have had its own name rendered as the graph's.
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
+        if not isinstance(expr.graph, PropertyGraph):
+            raise TypeError(
+                f"DropPropertyGraphExpression.graph must be a PropertyGraph, "
+                f"got {type(expr.graph).__name__}"
+            )
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "DROP PROPERTY GRAPH")
 
         parts = ["DROP PROPERTY GRAPH"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.graph_name))
+        parts.append(expr.graph.to_sql()[0])
         if expr.cascade:
             parts.append("CASCADE")
         return " ".join(parts), ()
@@ -642,9 +690,17 @@ class GraphTableMixin:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
+            TypeError: ``AlterPropertyGraphExpression.graph`` is not a
+            PropertyGraph. Another object kind would have had its own name rendered
+            as the graph's.
             UnsupportedFeatureError: If the dialect does not support property
                 graph tables.
         """
+        if not isinstance(expr.graph, PropertyGraph):
+            raise TypeError(
+                f"AlterPropertyGraphExpression.graph must be a PropertyGraph, "
+                f"got {type(expr.graph).__name__}"
+            )
         if not self.supports_graph_table():
             raise UnsupportedFeatureError(self.name, "ALTER PROPERTY GRAPH")
 
@@ -655,7 +711,6 @@ class GraphTableMixin:
                 "ALTER PROPERTY GRAPH expression must be an "
                 "AlterPropertyGraphExpression"
             )
-        self._require_graph_string(expr.graph_name, "ALTER PROPERTY GRAPH graph name")
         action = self._normalize_alter_keyword(expr.action, self._ALTER_ACTIONS, "action")
         target = self._normalize_alter_keyword(expr.target, self._ALTER_TARGETS, "target")
 
@@ -676,7 +731,7 @@ class GraphTableMixin:
 
         parts = [
             "ALTER PROPERTY GRAPH",
-            self.format_identifier(expr.graph_name),
+            expr.graph.to_sql()[0],
             action,
             target,
         ]

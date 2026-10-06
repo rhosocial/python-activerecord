@@ -49,6 +49,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     CreateTableExpression,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestExplicitPerNodeBinding:
@@ -75,7 +76,7 @@ class TestExplicitPerNodeBinding:
         def build(varchar: VarCharType) -> str:
             expr = CreateTableExpression(
                 dummy_dialect,
-                "t",
+                Table(dummy_dialect, 't'),
                 [
                     ColumnDefinition(
                         dummy_dialect,

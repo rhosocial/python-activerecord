@@ -7,8 +7,6 @@ query classes context awareness (ActiveQuery, CTEQuery, SetOperationQuery).
 """
 
 import os
-import tempfile
-import uuid
 from typing import Type, Tuple, Optional
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord

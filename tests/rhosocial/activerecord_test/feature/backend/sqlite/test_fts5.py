@@ -26,6 +26,7 @@ from rhosocial.activerecord.backend.impl.sqlite.protocols import (
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 # =============================================================================
@@ -91,7 +92,7 @@ class TestSQLiteFTS5CreateVirtualTableConstruction:
     def test_basic(self):
         sql, params = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="documents", columns=["title", "content"]
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "documents"), columns=["title", "content"]
         ).to_sql()
         assert sql == 'CREATE VIRTUAL TABLE "documents" USING fts5("title", "content")'
         assert params == ()
@@ -99,28 +100,28 @@ class TestSQLiteFTS5CreateVirtualTableConstruction:
     def test_single_column(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t", columns=["a"]
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t"), columns=["a"]
         ).to_sql()
         assert sql == 'CREATE VIRTUAL TABLE "t" USING fts5("a")'
 
     def test_empty_columns(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t", columns=[]
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t"), columns=[]
         ).to_sql()
         assert sql == 'CREATE VIRTUAL TABLE "t" USING fts5()'
 
     def test_with_tokenizer(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="articles", columns=["body"], tokenizer="porter"
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "articles"), columns=["body"], tokenizer="porter"
         ).to_sql()
         assert "tokenize='porter'" in sql
 
     def test_with_tokenizer_options(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t", columns=["c"],
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t"), columns=["c"],
             tokenizer="unicode61", tokenizer_options={"remove_diacritics": 1}
         ).to_sql()
         assert "tokenize='unicode61 remove_diacritics 1'" in sql
@@ -128,7 +129,7 @@ class TestSQLiteFTS5CreateVirtualTableConstruction:
     def test_with_multiple_tokenizer_options(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t", columns=["c"],
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t"), columns=["c"],
             tokenizer="unicode61",
             tokenizer_options={"remove_diacritics": 1, "tokenchars": 1}
         ).to_sql()
@@ -137,7 +138,7 @@ class TestSQLiteFTS5CreateVirtualTableConstruction:
     def test_tokenize_overrides_tokenizer(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t", columns=["c"],
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t"), columns=["c"],
             tokenizer="porter", tokenize="unicode61 remove_diacritics 1"
         ).to_sql()
         assert "tokenize='unicode61 remove_diacritics 1'" in sql
@@ -146,28 +147,28 @@ class TestSQLiteFTS5CreateVirtualTableConstruction:
     def test_with_prefix(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t", columns=["c"], prefix=[2, 3]
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t"), columns=["c"], prefix=[2, 3]
         ).to_sql()
         assert "prefix='2 3'" in sql
 
     def test_with_single_prefix(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t", columns=["c"], prefix=[3]
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t"), columns=["c"], prefix=[3]
         ).to_sql()
         assert "prefix='3'" in sql
 
     def test_with_content_table(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t_fts", columns=["title", "body"], content="t"
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t_fts"), columns=["title", "body"], content="t"
         ).to_sql()
         assert "content='t'" in sql
 
     def test_with_content_rowid(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t_fts", columns=["title"],
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t_fts"), columns=["title"],
             content="t", content_rowid="row_id"
         ).to_sql()
         assert "content='t'" in sql
@@ -176,7 +177,7 @@ class TestSQLiteFTS5CreateVirtualTableConstruction:
     def test_all_options_combined(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t_fts", columns=["title", "body"],
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t_fts"), columns=["title", "body"],
             tokenizer="porter", prefix=[2], content="t", content_rowid="rid"
         ).to_sql()
         assert "tokenize='porter'" in sql
@@ -187,7 +188,7 @@ class TestSQLiteFTS5CreateVirtualTableConstruction:
     def test_special_chars_in_values(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="t", columns=["col"],
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "t"), columns=["col"],
             content="it's", tokenizer="porter"
         ).to_sql()
         assert "content='it''s'" in sql  # single quote escaped
@@ -195,14 +196,14 @@ class TestSQLiteFTS5CreateVirtualTableConstruction:
     def test_special_chars_in_table_name(self):
         sql, _ = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name='my"table', columns=["col"]
+            table=Table(SQLiteDialect(version=(3, 9, 0)), 'my"table'), columns=["col"]
         ).to_sql()
         assert '"my""table"' in sql  # double quote escaped by format_identifier
 
     def test_unsupported_version_raises_error(self):
         expr = SQLiteFTS5CreateVirtualTable(
             SQLiteDialect(version=(3, 8, 0)),
-            table_name="t", columns=["c"]
+            table=Table(SQLiteDialect(version=(3, 8, 0)), "t"), columns=["c"]
         )
         with pytest.raises(UnsupportedFeatureError) as exc:
             expr.to_sql()
@@ -210,8 +211,8 @@ class TestSQLiteFTS5CreateVirtualTableConstruction:
 
     def test_no_side_effects_between_expressions(self):
         dialect = SQLiteDialect(version=(3, 9, 0))
-        e1 = SQLiteFTS5CreateVirtualTable(dialect, table_name="t1", columns=["a"])
-        e2 = SQLiteFTS5CreateVirtualTable(dialect, table_name="t2", columns=["b", "c"], tokenizer="porter")
+        e1 = SQLiteFTS5CreateVirtualTable(dialect, table=Table(dialect, "t1"), columns=["a"])
+        e2 = SQLiteFTS5CreateVirtualTable(dialect, table=Table(dialect, "t2"), columns=["b", "c"], tokenizer="porter")
         sql1, _ = e1.to_sql()
         sql2, _ = e2.to_sql()
         assert '"t1"' in sql1 and '"t2"' in sql2
@@ -301,7 +302,7 @@ class TestSQLiteFTS5RankExpressionConstruction:
     def test_default(self):
         sql, params = SQLiteFTS5RankExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs"
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs")
         ).to_sql()
         assert sql == 'bm25("docs")'
         assert params == ()
@@ -309,28 +310,28 @@ class TestSQLiteFTS5RankExpressionConstruction:
     def test_with_weights(self):
         sql, _ = SQLiteFTS5RankExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", weights=[10.0, 1.0, 0.5]
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), weights=[10.0, 1.0, 0.5]
         ).to_sql()
         assert 'bm25("docs", 10.0, 1.0, 0.5)' in sql
 
     def test_with_single_weight(self):
         sql, _ = SQLiteFTS5RankExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", weights=[5.0]
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), weights=[5.0]
         ).to_sql()
         assert 'bm25("docs", 5.0)' in sql
 
     def test_with_empty_weights(self):
         sql, _ = SQLiteFTS5RankExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", weights=[]
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), weights=[]
         ).to_sql()
         assert 'bm25("docs")' in sql
 
     def test_with_bm25_params(self):
         sql, _ = SQLiteFTS5RankExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", bm25_params={"k1": 1.5, "b": 0.75}
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), bm25_params={"k1": 1.5, "b": 0.75}
         ).to_sql()
         assert "'k1', 1.5" in sql
         assert "'b', 0.75" in sql
@@ -338,14 +339,14 @@ class TestSQLiteFTS5RankExpressionConstruction:
     def test_with_empty_bm25_params(self):
         sql, _ = SQLiteFTS5RankExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", bm25_params={}
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), bm25_params={}
         ).to_sql()
         assert 'bm25("docs")' in sql
 
     def test_with_weights_and_params(self):
         sql, _ = SQLiteFTS5RankExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", weights=[5.0, 1.0], bm25_params={"k1": 1.2}
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), weights=[5.0, 1.0], bm25_params={"k1": 1.2}
         ).to_sql()
         assert 'bm25("docs", 5.0, 1.0' in sql
         assert "'k1', 1.2" in sql
@@ -353,7 +354,7 @@ class TestSQLiteFTS5RankExpressionConstruction:
     def test_special_chars_in_table_name(self):
         sql, _ = SQLiteFTS5RankExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name='my"table'
+            table=Table(SQLiteDialect(version=(3, 9, 0)), 'my"table')
         ).to_sql()
         assert '"my""table"' in sql
 
@@ -368,7 +369,7 @@ class TestSQLiteFTS5HighlightExpressionConstruction:
     def test_default_markers(self):
         sql, params = SQLiteFTS5HighlightExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="title"
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="title"
         ).to_sql()
         assert 'highlight("docs", "title", ?, ?)' in sql
         assert params == ("<b>", "</b>")
@@ -376,7 +377,7 @@ class TestSQLiteFTS5HighlightExpressionConstruction:
     def test_custom_markers(self):
         sql, params = SQLiteFTS5HighlightExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="title",
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="title",
             prefix_marker="<em>", suffix_marker="</em>"
         ).to_sql()
         assert params == ("<em>", "</em>")
@@ -384,7 +385,7 @@ class TestSQLiteFTS5HighlightExpressionConstruction:
     def test_empty_markers(self):
         sql, params = SQLiteFTS5HighlightExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="title",
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="title",
             prefix_marker="", suffix_marker=""
         ).to_sql()
         assert params == ("", "")
@@ -392,7 +393,7 @@ class TestSQLiteFTS5HighlightExpressionConstruction:
     def test_special_chars_in_markers(self):
         sql, params = SQLiteFTS5HighlightExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="title",
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="title",
             prefix_marker="<<", suffix_marker=">>"
         ).to_sql()
         assert params == ("<<", ">>")
@@ -400,7 +401,7 @@ class TestSQLiteFTS5HighlightExpressionConstruction:
     def test_special_chars_in_column_name(self):
         sql, _ = SQLiteFTS5HighlightExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column='"col"'
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column='"col"'
         ).to_sql()
         assert '"""col"""' in sql
 
@@ -415,7 +416,7 @@ class TestSQLiteFTS5SnippetExpressionConstruction:
     def test_default(self):
         sql, params = SQLiteFTS5SnippetExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="body"
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="body"
         ).to_sql()
         assert 'snippet("docs", "body", ?, ?, ?, ?)' in sql
         assert params == ("<b>", "</b>", "...", 10)
@@ -423,7 +424,7 @@ class TestSQLiteFTS5SnippetExpressionConstruction:
     def test_custom_all_options(self):
         sql, params = SQLiteFTS5SnippetExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="body",
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="body",
             prefix_marker="<mark>", suffix_marker="</mark>",
             context_tokens=20, ellipsis="[...]"
         ).to_sql()
@@ -432,7 +433,7 @@ class TestSQLiteFTS5SnippetExpressionConstruction:
     def test_zero_context_tokens(self):
         sql, params = SQLiteFTS5SnippetExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="body",
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="body",
             context_tokens=0
         ).to_sql()
         assert params[3] == 0
@@ -440,7 +441,7 @@ class TestSQLiteFTS5SnippetExpressionConstruction:
     def test_large_context_tokens(self):
         sql, params = SQLiteFTS5SnippetExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="body",
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="body",
             context_tokens=999
         ).to_sql()
         assert params[3] == 999
@@ -448,7 +449,7 @@ class TestSQLiteFTS5SnippetExpressionConstruction:
     def test_custom_ellipsis(self):
         sql, params = SQLiteFTS5SnippetExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="body",
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="body",
             ellipsis="---"
         ).to_sql()
         assert params[2] == "---"
@@ -456,7 +457,7 @@ class TestSQLiteFTS5SnippetExpressionConstruction:
     def test_empty_ellipsis(self):
         sql, params = SQLiteFTS5SnippetExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="body",
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="body",
             ellipsis=""
         ).to_sql()
         assert params[2] == ""
@@ -464,7 +465,7 @@ class TestSQLiteFTS5SnippetExpressionConstruction:
     def test_empty_prefix_suffix_markers(self):
         sql, params = SQLiteFTS5SnippetExpression(
             SQLiteDialect(version=(3, 9, 0)),
-            table_name="docs", column="body",
+            table=Table(SQLiteDialect(version=(3, 9, 0)), "docs"), column="body",
             prefix_marker="", suffix_marker=""
         ).to_sql()
         assert params[:2] == ("", "")
@@ -557,7 +558,7 @@ class TestFTS5Scenario:
             pytest.skip("FTS5 not available")
 
         sql, _ = SQLiteFTS5CreateVirtualTable(
-            dialect, table_name="articles", columns=["title", "body"]
+            dialect, table=Table(dialect, "articles"), columns=["title", "body"]
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
@@ -575,7 +576,7 @@ class TestFTS5Scenario:
             pytest.skip("FTS5 not available")
 
         sql, _ = SQLiteFTS5CreateVirtualTable(
-            dialect, table_name="docs", columns=["title", "body"]
+            dialect, table=Table(dialect, "docs"), columns=["title", "body"]
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
@@ -596,7 +597,7 @@ class TestFTS5Scenario:
             pytest.skip("FTS5 not available")
 
         sql, _ = SQLiteFTS5CreateVirtualTable(
-            dialect, table_name="posts", columns=["content"], tokenizer="porter"
+            dialect, table=Table(dialect, "posts"), columns=["content"], tokenizer="porter"
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
@@ -612,7 +613,7 @@ class TestFTS5Scenario:
             pytest.skip("FTS5 not available")
 
         sql, _ = SQLiteFTS5CreateVirtualTable(
-            dialect, table_name="texts", columns=["content"],
+            dialect, table=Table(dialect, "texts"), columns=["content"],
             tokenizer="unicode61", tokenizer_options={"remove_diacritics": 1}
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
@@ -629,7 +630,7 @@ class TestFTS5Scenario:
             pytest.skip("FTS5 not available")
 
         sql, _ = SQLiteFTS5CreateVirtualTable(
-            dialect, table_name="prefixes", columns=["content"], prefix=[2, 3]
+            dialect, table=Table(dialect, "prefixes"), columns=["content"], prefix=[2, 3]
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
@@ -645,14 +646,14 @@ class TestFTS5Scenario:
             pytest.skip("FTS5 not available")
 
         sql, _ = SQLiteFTS5CreateVirtualTable(
-            dialect, table_name="tmp", columns=["x"]
+            dialect, table=Table(dialect, "tmp"), columns=["x"]
         ).to_sql()
         backend.execute(sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
         rows = backend.fetch_all("SELECT name FROM sqlite_master WHERE name='tmp'")
         assert len(rows) == 1
 
-        drop_sql, _ = DropVirtualTableExpression(dialect, table_name="tmp").to_sql()
+        drop_sql, _ = DropVirtualTableExpression(dialect, table=Table(dialect, "tmp")).to_sql()
         backend.execute(drop_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
         rows = backend.fetch_all("SELECT name FROM sqlite_master WHERE name='tmp'")

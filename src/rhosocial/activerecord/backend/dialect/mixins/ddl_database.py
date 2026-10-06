@@ -1,9 +1,10 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_database.py
 """Dialect mixin for DATABASE DDL support."""
 
-from typing import Any, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
+from ...expression.objects import Database
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements.ddl_database import (
@@ -94,9 +95,17 @@ class DatabaseMixin:
         """Format a CREATE DATABASE statement.
 
         Raises:
+            TypeError: ``CreateDatabaseExpression.database`` is not a Database.
+            Another object kind would have had its own name rendered as the
+            database's.
             UnsupportedFeatureError: If the dialect does not support
                 CREATE DATABASE or specific clauses.
         """
+        if not isinstance(expr.database, Database):
+            raise TypeError(
+                f"CreateDatabaseExpression.database must be a Database, "
+                f"got {type(expr.database).__name__}"
+            )
         if not self.supports_create_database():
             raise UnsupportedFeatureError(
                 self.name, "CREATE DATABASE",
@@ -154,7 +163,7 @@ class DatabaseMixin:
         parts.append("DATABASE")
         if expr.if_not_exists:
             parts.append("IF NOT EXISTS")
-        parts.append(self.format_identifier(expr.database_name))
+        parts.append(expr.database.to_sql()[0])
 
         if expr.encoding:
             parts.append(f"ENCODING = '{expr.encoding}'")
@@ -180,9 +189,17 @@ class DatabaseMixin:
         """Format a DROP DATABASE statement.
 
         Raises:
+            TypeError: ``DropDatabaseExpression.database`` is not a Database.
+            Another object kind would have had its own name rendered as the
+            database's.
             UnsupportedFeatureError: If the dialect does not support
                 DROP DATABASE or specific clauses.
         """
+        if not isinstance(expr.database, Database):
+            raise TypeError(
+                f"DropDatabaseExpression.database must be a Database, "
+                f"got {type(expr.database).__name__}"
+            )
         if not self.supports_drop_database():
             raise UnsupportedFeatureError(
                 self.name, "DROP DATABASE",
@@ -202,7 +219,7 @@ class DatabaseMixin:
         parts = ["DROP DATABASE"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.database_name))
+        parts.append(expr.database.to_sql()[0])
         if expr.force:
             parts.append("WITH (FORCE)")
 
@@ -214,9 +231,16 @@ class DatabaseMixin:
         """Format an ALTER DATABASE statement.
 
         Raises:
+            TypeError: ``AlterDatabaseExpression.database`` is not a Database. A
+            table or a view would be named here and the statement would alter it.
             UnsupportedFeatureError: If the dialect does not support
                 ALTER DATABASE.
         """
+        if not isinstance(expr.database, Database):
+            raise TypeError(
+                f"AlterDatabaseExpression.database must be a Database, "
+                f"got {type(expr.database).__name__}"
+            )
         if not self.supports_alter_database():
             raise UnsupportedFeatureError(
                 self.name, "ALTER DATABASE",
@@ -226,7 +250,7 @@ class DatabaseMixin:
         parts = ["ALTER DATABASE"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.database_name))
+        parts.append(expr.database.to_sql()[0])
 
         from ...expression.statements.ddl_database import AlterDatabaseAction
         if expr.action == AlterDatabaseAction.RENAME_TO:

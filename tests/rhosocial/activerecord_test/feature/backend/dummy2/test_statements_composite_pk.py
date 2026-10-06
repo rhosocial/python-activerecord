@@ -9,9 +9,10 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     Literal,
 )
-from rhosocial.activerecord.backend.expression.core import Column, TableExpression
+from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 dialect = DummyDialect()
 
@@ -20,7 +21,7 @@ class TestCompositePKDDL:
     def test_create_table_dual_pk(self):
         expr = CreateTableExpression(
             dialect=dialect,
-            table="order_items",
+            table=Table(dialect, 'order_items'),
             columns=[
                 ColumnDefinition(dialect, "order_id", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
@@ -40,7 +41,7 @@ class TestCompositePKDDL:
     def test_create_table_triple_pk(self):
         expr = CreateTableExpression(
             dialect=dialect,
-            table="store_inventory",
+            table=Table(dialect, 'store_inventory'),
             columns=[
                 ColumnDefinition(dialect, "store_id", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
@@ -65,7 +66,7 @@ class TestCompositePKDDL:
     def test_pk_columns_not_null(self):
         expr = CreateTableExpression(
             dialect=dialect,
-            table="t",
+            table=Table(dialect, 't'),
             columns=[
                 ColumnDefinition(dialect, "a", IntegerType(dialect),
                     constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),

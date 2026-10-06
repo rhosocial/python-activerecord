@@ -1,7 +1,9 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_query_sources_set_operation.py
-from rhosocial.activerecord.backend.expression import Column, Subquery, QueryExpression, TableExpression
+from rhosocial.activerecord.backend.expression import Column, Subquery, QueryExpression
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import SetOperationExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestSetOperationExpression:
@@ -92,13 +94,13 @@ class TestSetOperationExpression:
     def test_set_operation_with_complex_queries(self, dummy_dialect: DummyDialect):
         """Test set operation with more complex query structures."""
         # Create complex left query
-        left_table = TableExpression(dummy_dialect, "users")
+        left_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         left_query = QueryExpression(
             dummy_dialect, select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")], from_=left_table
         )
 
         # Create complex right query
-        right_table = TableExpression(dummy_dialect, "customers")
+        right_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "customers"))
         right_query = QueryExpression(
             dummy_dialect, select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")], from_=right_table
         )
