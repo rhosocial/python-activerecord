@@ -60,7 +60,29 @@ class SequenceMixin:
     def supports_sequence_start(self) -> bool:
         """Whether the START WITH sequence option is supported.
 
+        This describes the ``CREATE SEQUENCE ... START WITH`` clause, which
+        sets the sequence's initial value. It says nothing about the ALTER-side
+        clause of the same spelling; :meth:`supports_alter_sequence_start` is
+        the probe that answers for ``ALTER SEQUENCE ... START``.
+
         Defaults to False.
+        """
+        return False
+
+    def supports_alter_sequence_start(self) -> bool:
+        """Whether the ``ALTER SEQUENCE ... START`` clause is supported.
+
+        This describes a different clause from the one
+        :meth:`supports_sequence_start` describes. That probe answers for
+        ``CREATE SEQUENCE ... START WITH``, which sets the sequence's *initial*
+        value; this one answers for ``ALTER SEQUENCE ... START WITH``, which
+        several engines refuse outright. A ``True`` for CREATE therefore does
+        not imply a ``True`` here, and the two are not interchangeable.
+
+        Defaults to False, deliberately: a probe answering True by default
+        would let :meth:`format_alter_sequence_statement` emit ``START WITH``
+        on ALTER and hand the server SQL it rejects. ``False`` fails closed, so
+        the dialects that accept the clause declare ``True`` explicitly.
         """
         return False
 
@@ -290,8 +312,11 @@ class SequenceMixin:
 
         RESTART WITH is unconditional once the master switch is on, because no
         dialect in the tree varies it. The other options are each gated before
-        their clause is emitted: :meth:`supports_sequence_start` for START
-        WITH, :meth:`supports_sequence_increment` for INCREMENT BY,
+        their clause is emitted: :meth:`supports_alter_sequence_start` for
+        START WITH -- *not* :meth:`supports_sequence_start`, which answers for
+        the CREATE-side clause of the same spelling and is consulted by
+        :meth:`format_create_sequence_statement` alone --
+        :meth:`supports_sequence_increment` for INCREMENT BY,
         :meth:`supports_sequence_minvalue` for MINVALUE,
         :meth:`supports_sequence_maxvalue` for MAXVALUE,
         :meth:`supports_sequence_cycle` for CYCLE,
@@ -336,7 +361,7 @@ class SequenceMixin:
         if expr.restart is not None:
             parts.append(f"RESTART WITH {expr.restart}")
         if expr.start is not None:
-            if not self.supports_sequence_start():
+            if not self.supports_alter_sequence_start():
                 raise UnsupportedFeatureError(
                     self.name, "ALTER SEQUENCE START",
                     f"{self.name} does not support the START WITH sequence option."

@@ -31,8 +31,10 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     CreateSequenceSupport,
     DropSequenceSupport,
 )
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Sequence
 from rhosocial.activerecord.backend.expression.statements import (
     AlterSequenceExpression,
     CreateSequenceExpression,
@@ -130,3 +132,120 @@ class TestSequenceConformanceIsNotVacuous:
         declining = [c.__name__ for c in CORE_DIALECTS if not _declares_sequences(c)]
         assert declaring, "no core dialect declares sequence support"
         assert declining, "no core dialect declines sequence support"
+
+
+class AlterStartRefusingDialect(DummyDialect):
+    """``DummyDialect`` with the ALTER-side START probe withdrawn.
+
+    Core's two dialects do not include a subject for the ALTER-side split:
+    ``DummyDialect`` answers both START probes ``True``, and ``SQLiteDialect``
+    has no sequence object at all. A dialect that declares sequences but whose
+    server refuses ``ALTER ... START`` is the shape four of the six real
+    backends have (Oracle, SQL Server, Firebird and Snowflake), so the split is
+    modelled here rather than left unexercised. The override returns ``False``
+    -- the mixin's own default -- while everything else is Dummy's.
+    """
+
+    def supports_alter_sequence_start(self) -> bool:
+        return False
+
+
+#: Subjects for the declaration/renderer agreement check on the ALTER side.
+#: The core dialects alone are not enough: ``DummyDialect`` declares the clause
+#: ``True`` and ``SQLiteDialect`` has no sequence object, so a dialect that
+#: answered ``False`` yet still rendered the clause could not be caught -- the
+#: ``False`` branch would only ever be exercised by a dialect with no ALTER
+#: formatter at all. ``AlterStartRefusingDialect`` declares sequences but
+#: withdraws the ALTER-side START probe, the shape four of the six real
+#: backends have, so the gate has a subject it can be caught ignoring.
+SPLIT_SUBJECTS = CORE_DIALECTS + (AlterStartRefusingDialect,)
+
+
+def _answers_alter_sequence_start(dialect_cls: type):
+    """The dialect's ALTER-side START answer, or ``None`` if it does not answer."""
+    probe = getattr(dialect_cls, "supports_alter_sequence_start", None)
+    return None if probe is None else probe(dialect_cls())
+
+
+def _render_alter_start(dialect_cls: type):
+    """Render ``ALTER SEQUENCE ... START WITH 5`` and classify the outcome.
+
+    Returns ``(rendered, sql)``. ``rendered`` is ``False`` when the dialect
+    refused the clause -- either the formatter raised ``UnsupportedFeatureError``
+    because the probe is ``False``, or the dialect has no ALTER formatter at all
+    (SQLite). Any other exception propagates, so a new failure mode cannot hide
+    behind the classification.
+    """
+    dialect = dialect_cls()
+    expr = AlterSequenceExpression(dialect, Sequence(dialect, "s"), start=5)
+    try:
+        return True, expr.to_sql()[0]
+    except UnsupportedFeatureError:
+        return False, None
+
+
+class TestAlterSequenceStartSplit:
+    """START on ALTER is gated by its own probe, not the CREATE one.
+
+    ``supports_sequence_start`` answers for ``CREATE SEQUENCE ... START WITH``.
+    Reusing it for ALTER let Firebird -- which declares ``False`` for the
+    ALTER side but has no ALTER formatter of its own -- render
+    ``ALTER SEQUENCE ... START WITH``, which its server rejects with ``Token
+    unknown - START``. The two clauses are separate, so the gate must be the
+    ALTER probe, and a ``False`` answer must fail closed.
+    """
+
+    def test_false_probe_refuses_alter_start(self):
+        """A dialect whose ALTER probe is False must not render START."""
+        dialect = AlterStartRefusingDialect()
+        expr = AlterSequenceExpression(dialect, Sequence(dialect, "s"), start=5)
+        with pytest.raises(UnsupportedFeatureError, match="ALTER SEQUENCE START"):
+            expr.to_sql()
+
+    def test_false_probe_leaves_create_start_alone(self):
+        """The split is real: the same dialect still renders CREATE ... START."""
+        dialect = AlterStartRefusingDialect()
+        sql, _ = CreateSequenceExpression(
+            dialect, Sequence(dialect, "s"), start=5
+        ).to_sql()
+        assert "START WITH 5" in sql
+
+    def test_true_probe_renders_alter_start(self):
+        """The two dialects that accept ALTER ... START declare True and render."""
+        dialect = DummyDialect()
+        sql, _ = AlterSequenceExpression(
+            dialect, Sequence(dialect, "s"), start=5
+        ).to_sql()
+        assert "START WITH 5" in sql
+
+    def test_restart_is_not_gated_by_the_start_probe(self):
+        """RESTART is ALTER-only and independent of the START probe."""
+        dialect = AlterStartRefusingDialect()
+        sql, _ = AlterSequenceExpression(
+            dialect, Sequence(dialect, "s"), restart=5
+        ).to_sql()
+        assert "RESTART WITH 5" in sql
+
+    def test_mixin_default_is_false(self):
+        """The shared default fails closed, so a new dialect must opt in."""
+        class _Bare(SequenceMixin):
+            pass
+
+        assert _Bare().supports_alter_sequence_start() is False
+
+    @pytest.mark.parametrize("dialect_cls", SPLIT_SUBJECTS, ids=lambda c: c.__name__)
+    def test_core_dialects_render_start_only_when_declared(self, dialect_cls):
+        """Declaration and renderer agree on the ALTER side, per dialect."""
+        declared = _answers_alter_sequence_start(dialect_cls)
+        rendered, sql = _render_alter_start(dialect_cls)
+        if declared is True:
+            assert rendered and "START WITH 5" in sql, (
+                f"{dialect_cls.__name__} answers supports_alter_sequence_start() "
+                f"with True but did not render ALTER ... START WITH 5"
+            )
+        else:
+            assert not rendered, (
+                f"{dialect_cls.__name__} answers supports_alter_sequence_start() "
+                f"with {declared!r} yet rendered {sql!r} with START; a non-True "
+                f"answer must fail closed"
+            )

@@ -1228,6 +1228,9 @@ class DummyDialect(
     def supports_sequence_start(self) -> bool:
         return True
 
+    def supports_alter_sequence_start(self) -> bool:
+        return True
+
     def supports_sequence_increment(self) -> bool:
         return True
 

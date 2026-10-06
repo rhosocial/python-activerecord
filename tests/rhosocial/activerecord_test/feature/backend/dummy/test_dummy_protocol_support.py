@@ -303,6 +303,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_sequence_if_not_exists() is True
         assert dialect.supports_sequence_if_exists() is True
         assert dialect.supports_sequence_start() is True
+        assert dialect.supports_alter_sequence_start() is True
         assert dialect.supports_sequence_increment() is True
         assert dialect.supports_sequence_minvalue() is True
         assert dialect.supports_sequence_maxvalue() is True

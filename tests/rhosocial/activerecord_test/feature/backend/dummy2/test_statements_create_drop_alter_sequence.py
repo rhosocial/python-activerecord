@@ -393,7 +393,7 @@ class TestSequenceOptionGating:
     @pytest.mark.parametrize(
         "probe,options,fragment",
         [
-            ("supports_sequence_start", {"start": 5}, "START"),
+            ("supports_alter_sequence_start", {"start": 5}, "START"),
             ("supports_sequence_increment", {"increment": 2}, "INCREMENT"),
             ("supports_sequence_minvalue", {"minvalue": 1}, "MINVALUE"),
             ("supports_sequence_maxvalue", {"maxvalue": 10}, "MAXVALUE"),

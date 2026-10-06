@@ -31,6 +31,16 @@ class AlterSequenceSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_alter_sequence_start(self) -> bool:
+        """Whether the engine accepts ``ALTER SEQUENCE ... START``.
+
+        This is a different clause from the ``CREATE SEQUENCE ... START WITH``
+        one ``supports_sequence_start`` describes, so the two are not
+        interchangeable. Defaults to ``False``; a dialect that accepts the
+        ALTER-side clause returns ``True``.
+        """
+        ...  # pragma: no cover
+
     def format_alter_sequence_statement(self, expr: "AlterSequenceExpression") -> Tuple[str, tuple]:
         """Render a :class:`~....expression.statements.AlterSequenceExpression`.
 
