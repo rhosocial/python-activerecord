@@ -39,6 +39,7 @@ from .trigger import TriggerMixin
 from .function import FunctionMixin, FunctionCallMixin
 from .generated_column import GeneratedColumnMixin
 from .auto_increment import AutoIncrementMixin
+from .identity_column import IdentityColumnMixin
 from .introspection import IntrospectionMixin, AsyncIntrospectionMixin
 from .predicate import PredicateMixin
 from .expression import ExpressionMixin
@@ -107,6 +108,7 @@ __all__ = [
     "FunctionCallMixin",
     "GeneratedColumnMixin",
     "AutoIncrementMixin",
+    "IdentityColumnMixin",
     "IntrospectionMixin",
     "AsyncIntrospectionMixin",
     "PredicateMixin",

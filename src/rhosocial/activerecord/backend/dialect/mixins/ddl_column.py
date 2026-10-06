@@ -31,7 +31,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ColumnConstraint,
         ColumnDefinition,
         DefaultValueClause,
-        IdentityClause,
         IndexDefinition,
         ReferencesClause,
         StorageOptionsExpression,
@@ -109,9 +108,17 @@ class DDLColumnMixin:
     def format_column_attribute(self, attr: "Any") -> Tuple[str, Tuple]:
         """Render one selected column attribute as a definition fragment.
 
-        Identity reuses :meth:`format_identity_clause` (per-backend syntax);
-        collation renders the SQL-standard ``COLLATE <name>``. Backend-only
-        kinds (or unknown kinds) raise ``UnsupportedFeatureError``.
+        Identity reuses :meth:`IdentityColumnMixin.format_identity_clause`
+        (per-backend syntax, capability-gated); collation renders the
+        SQL-standard ``COLLATE <name>``. Backend-only kinds (or unknown kinds)
+        raise ``UnsupportedFeatureError``.
+
+        Known coupling, recorded but not fixed here: ``attr`` is an AR-layer
+        ``IdentityAttribute`` because ``ColumnDefinition.attributes`` accepts
+        only AR-layer attribute objects -- passing an expression-layer
+        ``IdentityClause`` directly raises ``UnsupportedFeatureError``. This
+        reverse dependency (expression layer -> AR layer) predates the
+        identity split and removing it would touch the AR layer.
         """
         from ....base.ddl import (
             CollationAttribute,
@@ -195,37 +202,6 @@ class DDLColumnMixin:
         override this to return ``True``.
         """
         return False
-
-    def format_identity_clause(self, expr: "IdentityClause") -> Tuple[str, Tuple]:
-        """Format the SQL-standard identity clause.
-
-        Renders `` GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY`` with optional
-        ``(START WITH ... INCREMENT BY ... MINVALUE ... MAXVALUE ... CYCLE ...)``.
-        Backends with different syntax (MySQL ``AUTO_INCREMENT``, SQL Server
-        ``IDENTITY(seed, inc)``, SQLite ``AUTOINCREMENT``) override this.
-
-        Args:
-            expr: The ``IdentityClause`` carrying the identity parameters.
-
-        Returns:
-            A ``(sql, params)`` tuple with a leading space.
-        """
-        generation = (expr.generation or "BY DEFAULT").upper()
-        sql = f" GENERATED {generation} AS IDENTITY"
-        attributes: List[str] = []
-        if expr.start is not None:
-            attributes.append(f"START WITH {expr.start}")
-        if expr.increment is not None:
-            attributes.append(f"INCREMENT BY {expr.increment}")
-        if expr.minvalue is not None:
-            attributes.append(f"MINVALUE {expr.minvalue}")
-        if expr.maxvalue is not None:
-            attributes.append(f"MAXVALUE {expr.maxvalue}")
-        if expr.cycle is not None:
-            attributes.append("CYCLE" if expr.cycle else "NO CYCLE")
-        if attributes:
-            sql += f" ({' '.join(attributes)})"
-        return sql, ()
 
     def format_column_attributes(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
         """Render all of a column's attributes as one definition fragment.

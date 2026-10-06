@@ -339,14 +339,28 @@ class TestDummyProtocolSupport:
 
     # endregion
 
-    # region Auto Increment Support
+    # region Identity / Auto Increment Support
     def test_auto_increment_support_methods(self, dialect):
-        """Test AutoIncrementSupport protocol methods.
+        """Test AutoIncrementColumnSupport protocol methods.
 
-        DummyDialect composes AutoIncrementMixin and inherits the generic
-        behaviour without overriding it (override discipline).
+        DummyDialect composes AutoIncrementMixin and overrides the probe to
+        True: the generic mixin fails closed, and Dummy is the switchboard.
         """
-        assert dialect.supports_auto_increment() is True
+        assert dialect.supports_auto_increment_column() is True
+
+    def test_identity_support_methods(self, dialect):
+        """Test IdentityColumnSupport protocol methods.
+
+        DummyDialect overrides all seven identity probes to True so both core
+        rendering paths are reachable without a database.
+        """
+        assert dialect.supports_identity_column() is True
+        assert dialect.supports_identity_generation_always() is True
+        assert dialect.supports_identity_start() is True
+        assert dialect.supports_identity_increment() is True
+        assert dialect.supports_identity_minvalue() is True
+        assert dialect.supports_identity_maxvalue() is True
+        assert dialect.supports_identity_cycle() is True
 
     # endregion
 

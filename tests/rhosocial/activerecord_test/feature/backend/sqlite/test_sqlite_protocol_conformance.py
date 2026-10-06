@@ -204,7 +204,10 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.AlterTableModifierSupport,
 
 
-    dialect_protocols.AutoIncrementSupport,
+    dialect_protocols.AutoIncrementColumnSupport,
+
+
+    dialect_protocols.IdentityColumnSupport,
 
 
     dialect_protocols.CollationSupport,

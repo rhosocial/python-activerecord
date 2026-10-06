@@ -37,7 +37,8 @@ from .object.type_ import TypeObjectSupport
 
 # --- Data definition ---
 from .ddl.alter_table_modifier import AlterTableModifierSupport
-from .ddl.auto_increment import AutoIncrementSupport
+from .ddl.auto_increment import AutoIncrementColumnSupport
+from .ddl.identity_column import IdentityColumnSupport
 from .ddl.column_attribute import ColumnAttributeSupport
 from .ddl.comment import CommentSupport
 from .ddl.constraint import ConstraintSupport
@@ -131,7 +132,7 @@ __all__ = [
     "AlterTableSupport",
     "AlterTypeSupport",
     "ArraySupport",
-    "AutoIncrementSupport",
+    "AutoIncrementColumnSupport",
     "CTESupport",
     "CollationSupport",
     "ColumnAttributeSupport",
@@ -173,6 +174,7 @@ __all__ = [
     "GraphSupport",
     "GraphTableSupport",
     "ILIKESupport",
+    "IdentityColumnSupport",
     "IndexObjectSupport",
     "IntrospectionSupport",
     "JSONSupport",

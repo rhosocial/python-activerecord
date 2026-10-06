@@ -44,7 +44,8 @@ from .database.drop_database import DropDatabaseSupport
 from .schema.create_schema import CreateSchemaSupport
 from .schema.drop_schema import DropSchemaSupport
 from .alter_table_modifier import AlterTableModifierSupport
-from .auto_increment import AutoIncrementSupport
+from .auto_increment import AutoIncrementColumnSupport
+from .identity_column import IdentityColumnSupport
 from .column_attribute import ColumnAttributeSupport
 from .comment import CommentSupport
 from .constraint import ConstraintSupport
@@ -59,7 +60,7 @@ __all__ = [
     "AlterTableModifierSupport",
     "AlterTableSupport",
     "AlterTypeSupport",
-    "AutoIncrementSupport",
+    "AutoIncrementColumnSupport",
     "ColumnAttributeSupport",
     "CommentSupport",
     "ConstraintSupport",
@@ -89,6 +90,7 @@ __all__ = [
     "DropViewSupport",
     "FulltextIndexSupport",
     "GeneratedColumnSupport",
+    "IdentityColumnSupport",
     "MaterializedViewSupport",
     "PartitionSupport",
     "TruncateSupport",

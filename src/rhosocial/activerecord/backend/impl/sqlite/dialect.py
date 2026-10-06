@@ -36,7 +36,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     CreateSchemaSupport,
     DropSchemaSupport,
     GeneratedColumnSupport,
-    AutoIncrementSupport,
+    AutoIncrementColumnSupport,
+    IdentityColumnSupport,
     ColumnAttributeSupport,
     # Introspection Protocol
     IntrospectionSupport,
@@ -93,6 +94,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     IndexMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    IdentityColumnMixin,
     PartitionMixin,
     # New Mixins
     PredicateMixin,
@@ -212,6 +214,12 @@ class SQLiteDialect(
     # stays: naming a Sequence and creating one are separate jobs.
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    IdentityColumnMixin,
+    # Both new nodes fail closed on SQLite: it has no GENERATED ... AS
+    # IDENTITY grammar, and its AUTOINCREMENT keyword exists only inside an
+    # INTEGER PRIMARY KEY constraint (the existing is_auto_increment path),
+    # not as a standalone column clause. The mixin probes therefore stay at
+    # their False defaults and the formatters refuse the clauses.
     PartitionMixin,
     # New Mixins (without SQLite overrides)
     PredicateMixin,
@@ -274,7 +282,8 @@ class SQLiteDialect(
     ConstraintSupport,
     TruncateSupport,
     GeneratedColumnSupport,
-    AutoIncrementSupport,
+    AutoIncrementColumnSupport,
+    IdentityColumnSupport,
     ColumnAttributeSupport,
     # SQLite-specific protocols
     SQLiteExtensionSupport,

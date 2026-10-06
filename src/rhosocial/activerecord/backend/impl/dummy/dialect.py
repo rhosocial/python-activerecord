@@ -116,7 +116,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     CreateSchemaSupport,
     DropSchemaSupport,
     GeneratedColumnSupport,
-    AutoIncrementSupport,
+    AutoIncrementColumnSupport,
+    IdentityColumnSupport,
     ColumnAttributeSupport,
     CommentSupport,
     CreateDatabaseSupport,
@@ -216,6 +217,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     FunctionMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    IdentityColumnMixin,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
@@ -319,6 +321,7 @@ class DummyDialect(
     FunctionMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    IdentityColumnMixin,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
@@ -369,7 +372,8 @@ class DummyDialect(
     ConstraintSupport,
     TruncateSupport,
     GeneratedColumnSupport,
-    AutoIncrementSupport,
+    AutoIncrementColumnSupport,
+    IdentityColumnSupport,
     ColumnAttributeSupport,
     CommentSupport,
     # Introspection Protocols
@@ -1316,6 +1320,38 @@ class DummyDialect(
         return True
 
     def supports_virtual_generated_columns(self) -> bool:
+        return True
+
+    # endregion
+
+    # region Identity / Auto-Increment Column Support
+    # Dummy is the reference switchboard, not a product simulation. The
+    # generic mixins default every probe to False (fail-closed), so Dummy
+    # overrides each to True to exercise both core rendering paths: the
+    # SQL-standard GENERATED ... AS IDENTITY clause and the bare
+    # AUTO_INCREMENT marker.
+    def supports_identity_column(self) -> bool:
+        return True
+
+    def supports_identity_generation_always(self) -> bool:
+        return True
+
+    def supports_identity_start(self) -> bool:
+        return True
+
+    def supports_identity_increment(self) -> bool:
+        return True
+
+    def supports_identity_minvalue(self) -> bool:
+        return True
+
+    def supports_identity_maxvalue(self) -> bool:
+        return True
+
+    def supports_identity_cycle(self) -> bool:
+        return True
+
+    def supports_auto_increment_column(self) -> bool:
         return True
 
     # endregion

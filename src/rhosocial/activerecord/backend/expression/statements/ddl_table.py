@@ -89,18 +89,25 @@ class DefaultValueClause(BaseExpression):
 
 
 class IdentityClause(BaseExpression):
-    """The identity/auto-increment clause of a column definition.
+    """The SQL-standard identity clause of a column definition.
 
     A DDL clause node rendered through the dialect's ``format_identity_clause``.
     It carries the identity **parameters** (generation, start, increment,
-    bounds, cycle) so the syntax differences between backends live in one
-    place: MySQL/MariaDB ``AUTO_INCREMENT``, SQL Server ``IDENTITY(seed, inc)``,
-    PostgreSQL/Oracle/Firebird ``GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY
-    (START WITH ... INCREMENT BY ...)``, SQLite ``AUTOINCREMENT``.
+    bounds, cycle) for the SQL-standard
+    ``GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY (START WITH ... INCREMENT BY ...)``
+    grammar. SQL Server and Snowflake override the formatter to render their
+    own ``IDENTITY(seed, inc)`` spelling.
+
+    ``AUTO_INCREMENT`` is **not** this node: it has no parameter space (its
+    seed is a table-level option), so it is a different mechanism carried by
+    :class:`AutoIncrementClause`. ``SERIAL`` is a *type*, not a column clause,
+    and stays in the PostgreSQL type family.
 
     ``generation`` is ``"ALWAYS"`` or ``"BY DEFAULT"`` (``None`` defaults to
     ``BY DEFAULT``); ``start``/``increment``/``minvalue``/``maxvalue``/``cycle``
-    are optional sequence attributes.
+    are optional sequence attributes. Every option is gated by its own probe in
+    the formatter; an option the dialect cannot express is refused by name, not
+    dropped.
     """
 
     @property
@@ -126,6 +133,31 @@ class IdentityClause(BaseExpression):
         self.minvalue = minvalue
         self.maxvalue = maxvalue
         self.cycle = cycle
+
+
+class AutoIncrementClause(BaseExpression):
+    """The bare ``AUTO_INCREMENT`` marker of a column definition.
+
+    A DDL clause node rendered through the dialect's
+    ``format_auto_increment_clause``. It carries **no parameters**, and that is
+    the point: ``AUTO_INCREMENT`` has no column-level parameter space. Its seed
+    and increment are table-level options (``AUTO_INCREMENT = 100``), a
+    different mechanism that is out of scope for this node. A parameterised
+    identity column is expressed with :class:`IdentityClause` instead.
+
+    The node names the generic mechanism — "this column's value is generated
+    by the server, with no parameters" — and the dialect decides the spelling:
+    core renders `` AUTO_INCREMENT``; a dialect that cannot express the
+    mechanism refuses through its ``supports_auto_increment_column()`` probe.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_auto_increment_clause"
+
+    def __init__(self, dialect: "SQLDialectBase"):
+        super().__init__(dialect)
 
 
 class ReferencesClause(BaseExpression):
