@@ -52,6 +52,10 @@ IDENTITY_OPTION_CASES = (
     ("supports_identity_maxvalue", {"maxvalue": 100}, "MAXVALUE 100", "IDENTITY MAXVALUE"),
     ("supports_identity_cycle", {"cycle": True}, "CYCLE", "IDENTITY CYCLE"),
     ("supports_identity_cycle", {"cycle": False}, "NO CYCLE", "IDENTITY CYCLE"),
+    ("supports_identity_order", {"order": True}, "ORDER", "IDENTITY ORDER"),
+    ("supports_identity_order", {"order": False}, "NO ORDER", "IDENTITY ORDER"),
+    ("supports_identity_cache", {"cache": 10}, "CACHE 10", "IDENTITY CACHE"),
+    ("supports_identity_cache", {"cache": 0}, "NO CACHE", "IDENTITY CACHE"),
 )
 
 IDENTITY_OPTION_IDS = [

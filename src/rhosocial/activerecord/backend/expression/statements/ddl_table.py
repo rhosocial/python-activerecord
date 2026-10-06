@@ -104,10 +104,12 @@ class IdentityClause(BaseExpression):
     and stays in the PostgreSQL type family.
 
     ``generation`` is ``"ALWAYS"`` or ``"BY DEFAULT"`` (``None`` defaults to
-    ``BY DEFAULT``); ``start``/``increment``/``minvalue``/``maxvalue``/``cycle``
-    are optional sequence attributes. Every option is gated by its own probe in
-    the formatter; an option the dialect cannot express is refused by name, not
-    dropped.
+    ``BY DEFAULT``); ``start``/``increment``/``minvalue``/``maxvalue``/``cycle``/
+    ``order``/``cache`` are optional sequence attributes. Every option is gated
+    by its own probe in the formatter; an option the dialect cannot express is
+    refused by name, not dropped. ``order`` and ``cache`` mirror the sequence
+    node's fields: ``None`` means the option was not requested and is not
+    rendered, while an explicit value is rendered (or refused by name).
     """
 
     @property
@@ -125,6 +127,8 @@ class IdentityClause(BaseExpression):
         minvalue: Optional[int] = None,
         maxvalue: Optional[int] = None,
         cycle: Optional[bool] = None,
+        order: Optional[bool] = None,
+        cache: Optional[int] = None,
     ):
         super().__init__(dialect)
         self.generation = generation
@@ -133,6 +137,8 @@ class IdentityClause(BaseExpression):
         self.minvalue = minvalue
         self.maxvalue = maxvalue
         self.cycle = cycle
+        self.order = order
+        self.cache = cache
 
 
 class AutoIncrementClause(BaseExpression):

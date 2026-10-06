@@ -24,6 +24,12 @@ class IdentityColumnSupport(Protocol):
     Every probe defaults to ``False``. A probe answering ``True`` by default
     would let :meth:`format_identity_clause` emit a clause the server rejects;
     dialects declare the capability they really have.
+
+    Gating and spelling are separate: the probes answer whether an option can
+    be expressed, and the ``identity_*_keyword`` hooks answer how the dialect
+    spells it. The hooks default to the SQL-standard spellings, so a dialect
+    with a different grammar overrides the hook rather than copying the
+    formatter (a copy would duplicate the gating too).
     """
 
     def supports_identity_column(self) -> bool:
@@ -74,6 +80,44 @@ class IdentityColumnSupport(Protocol):
         """Whether the ``CYCLE`` / ``NO CYCLE`` identity option can be expressed.
 
         Defaults to ``False``; a dialect that accepts the option returns ``True``.
+        """
+        ...  # pragma: no cover
+
+    def supports_identity_order(self) -> bool:
+        """Whether the ``ORDER`` / ``NO ORDER`` identity option can be expressed.
+
+        Defaults to ``False``; a dialect that accepts the option returns ``True``.
+        """
+        ...  # pragma: no cover
+
+    def supports_identity_cache(self) -> bool:
+        """Whether the ``CACHE`` / ``NO CACHE`` identity option can be expressed.
+
+        Defaults to ``False``; a dialect that accepts the option returns ``True``.
+        """
+        ...  # pragma: no cover
+
+    def identity_cycle_keyword(self, cycle: bool) -> str:
+        """The dialect's spelling of an explicit cycle setting.
+
+        Defaults to the SQL-standard ``CYCLE`` / ``NO CYCLE``; a dialect whose
+        grammar spells the negative form differently (Oracle's ``NOCYCLE``)
+        overrides this hook.
+        """
+        ...  # pragma: no cover
+
+    def identity_order_keyword(self, order: bool) -> str:
+        """The dialect's spelling of an explicit order setting.
+
+        Defaults to the SQL-standard ``ORDER`` / ``NO ORDER``.
+        """
+        ...  # pragma: no cover
+
+    def identity_cache_keyword(self, cache: int) -> str:
+        """The dialect's spelling of an explicit cache setting.
+
+        Defaults to the SQL-standard ``CACHE n`` / ``NO CACHE``; a falsy
+        ``cache`` count spells the negative form, as on the sequence node.
         """
         ...  # pragma: no cover
 

@@ -90,6 +90,8 @@ class TestIdentityColumnProtocol:
         assert dialect.supports_identity_minvalue() is False
         assert dialect.supports_identity_maxvalue() is False
         assert dialect.supports_identity_cycle() is False
+        assert dialect.supports_identity_order() is False
+        assert dialect.supports_identity_cache() is False
 
     def test_dummy_declares_every_probe(self, dummy_dialect: DummyDialect):
         """DummyDialect turns the whole switchboard on, option by option."""
@@ -100,6 +102,8 @@ class TestIdentityColumnProtocol:
         assert dummy_dialect.supports_identity_minvalue() is True
         assert dummy_dialect.supports_identity_maxvalue() is True
         assert dummy_dialect.supports_identity_cycle() is True
+        assert dummy_dialect.supports_identity_order() is True
+        assert dummy_dialect.supports_identity_cache() is True
 
     def test_sqlite_inherits_the_false_defaults(self):
         """SQLite has no identity grammar, so every probe stays False."""
@@ -111,6 +115,8 @@ class TestIdentityColumnProtocol:
             "supports_identity_minvalue",
             "supports_identity_maxvalue",
             "supports_identity_cycle",
+            "supports_identity_order",
+            "supports_identity_cache",
         ):
             assert probe not in SQLiteDialect.__dict__, (
                 f"SQLiteDialect re-declares {probe}; the mixin default is right"

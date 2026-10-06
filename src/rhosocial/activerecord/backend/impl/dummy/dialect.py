@@ -1351,6 +1351,12 @@ class DummyDialect(
     def supports_identity_cycle(self) -> bool:
         return True
 
+    def supports_identity_order(self) -> bool:
+        return True
+
+    def supports_identity_cache(self) -> bool:
+        return True
+
     def supports_auto_increment_column(self) -> bool:
         return True
 

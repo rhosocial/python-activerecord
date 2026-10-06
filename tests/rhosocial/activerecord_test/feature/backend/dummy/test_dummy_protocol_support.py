@@ -351,7 +351,7 @@ class TestDummyProtocolSupport:
     def test_identity_support_methods(self, dialect):
         """Test IdentityColumnSupport protocol methods.
 
-        DummyDialect overrides all seven identity probes to True so both core
+        DummyDialect overrides all nine identity probes to True so both core
         rendering paths are reachable without a database.
         """
         assert dialect.supports_identity_column() is True
@@ -361,6 +361,8 @@ class TestDummyProtocolSupport:
         assert dialect.supports_identity_minvalue() is True
         assert dialect.supports_identity_maxvalue() is True
         assert dialect.supports_identity_cycle() is True
+        assert dialect.supports_identity_order() is True
+        assert dialect.supports_identity_cache() is True
 
     # endregion
 
