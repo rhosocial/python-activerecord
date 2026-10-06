@@ -45,6 +45,34 @@ class CreateSequenceSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_sequence_start(self) -> bool:
+        """Whether the engine accepts the form ``sequence_start``.
+
+        Defaults to ``False``; a dialect that accepts it returns ``True``.
+        """
+        ...  # pragma: no cover
+
+    def supports_sequence_increment(self) -> bool:
+        """Whether the engine accepts the form ``sequence_increment``.
+
+        Defaults to ``False``; a dialect that accepts it returns ``True``.
+        """
+        ...  # pragma: no cover
+
+    def supports_sequence_minvalue(self) -> bool:
+        """Whether the engine accepts the form ``sequence_minvalue``.
+
+        Defaults to ``False``; a dialect that accepts it returns ``True``.
+        """
+        ...  # pragma: no cover
+
+    def supports_sequence_maxvalue(self) -> bool:
+        """Whether the engine accepts the form ``sequence_maxvalue``.
+
+        Defaults to ``False``; a dialect that accepts it returns ``True``.
+        """
+        ...  # pragma: no cover
+
     def supports_sequence_cycle(self) -> bool:
         """Whether the engine accepts the form ``sequence_cycle``.
 

@@ -1225,6 +1225,18 @@ class DummyDialect(
     def supports_sequence_if_exists(self) -> bool:
         return True
 
+    def supports_sequence_start(self) -> bool:
+        return True
+
+    def supports_sequence_increment(self) -> bool:
+        return True
+
+    def supports_sequence_minvalue(self) -> bool:
+        return True
+
+    def supports_sequence_maxvalue(self) -> bool:
+        return True
+
     def supports_sequence_cycle(self) -> bool:
         return True
 

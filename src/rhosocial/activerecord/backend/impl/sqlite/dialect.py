@@ -91,7 +91,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     CommentOnMixin,
     SchemaMixin,
     IndexMixin,
-    SequenceMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
     PartitionMixin,
@@ -204,7 +203,13 @@ class SQLiteDialect(
     CommentOnMixin,
     SchemaMixin,
     IndexMixin,
-    SequenceMixin,
+    # No SequenceMixin here, and its absence is deliberate: SQLite has no
+    # sequence object. It numbers rows with AUTOINCREMENT/ROWID, so CREATE,
+    # DROP and ALTER SEQUENCE are not statements the engine parses. Leaving the
+    # mixin out makes the absence structural -- the dispatch finds no formatter
+    # and raises UnsupportedFeatureError naming the dialect and the statement,
+    # rather than rendering SQL SQLite would reject. SequenceNameMixin above
+    # stays: naming a Sequence and creating one are separate jobs.
     GeneratedColumnMixin,
     AutoIncrementMixin,
     PartitionMixin,
@@ -808,6 +813,14 @@ class SQLiteDialect(
 
     def supports_index_include(self) -> bool:
         """Whether INCLUDE clause for indexes is supported."""
+        return False
+
+    # The sequence master switch, stated rather than inherited. SQLite has no
+    # sequence object, so CREATE/DROP/ALTER SEQUENCE are not statements the
+    # engine parses; this class does not mix in SequenceMixin, and this probe
+    # is what tells a caller why. See the base list for the structural half.
+    def supports_sequence(self) -> bool:
+        """Whether sequence objects are supported. SQLite has none."""
         return False
 
     # ILIKESupport protocol implementation

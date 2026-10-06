@@ -261,15 +261,6 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.FulltextIndexSupport,
 
 
-    dialect_protocols.CreateSequenceSupport,
-
-
-    dialect_protocols.DropSequenceSupport,
-
-
-    dialect_protocols.AlterSequenceSupport,
-
-
     dialect_protocols.CreateTriggerSupport,
 
 
@@ -311,6 +302,15 @@ SQLITE_NOT_IMPLEMENTED = [
     dialect_protocols.CreateDatabaseSupport,
     dialect_protocols.DropDatabaseSupport,
     dialect_protocols.AlterDatabaseSupport,
+    # SQLite has no sequence object -- it numbers rows with AUTOINCREMENT/ROWID
+    # -- so CREATE/DROP/ALTER SEQUENCE are not statements the engine parses.
+    # SQLiteDialect therefore mixes in no base providing those formatters, and
+    # these three protocols name formatters that do not exist. SequenceObjectSupport
+    # above is a different capability and is still met: naming a Sequence is
+    # untouched, so Sequence(dialect, "s").to_sql() renders.
+    dialect_protocols.CreateSequenceSupport,
+    dialect_protocols.DropSequenceSupport,
+    dialect_protocols.AlterSequenceSupport,
     # RoutineObjectSupport is absent here on purpose, and it used to be present.
     # It asks whether a routine *object* can be spelled, and a trigger names the
     # routine it calls -- so a dialect with triggers must be able to spell one.

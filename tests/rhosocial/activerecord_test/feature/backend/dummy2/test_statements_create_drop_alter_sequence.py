@@ -328,3 +328,99 @@ class TestAlterSequenceCapabilityGating:
         with patch.object(type(dummy_dialect), "supports_sequence_owned_by", return_value=False):
             with pytest.raises(UnsupportedFeatureError, match="OWNED BY"):
                 expr.to_sql()
+
+
+class TestSequenceMasterSwitch:
+    """A dialect that declares no sequence object refuses all three statements.
+
+    This is the gate that makes an accidental ``SequenceMixin`` inheritance
+    harmless: even a dialect whose option probes are optimistic cannot render
+    sequence DDL once ``supports_sequence()`` is False.
+    """
+
+    @pytest.mark.parametrize(
+        "expr_factory",
+        [
+            pytest.param(
+                lambda d: CreateSequenceExpression(d, sequence=Sequence(d, "s")),
+                id="create",
+            ),
+            pytest.param(
+                lambda d: DropSequenceExpression(d, sequence=Sequence(d, "s")),
+                id="drop",
+            ),
+            pytest.param(
+                lambda d: AlterSequenceExpression(d, sequence=Sequence(d, "s"), restart=1),
+                id="alter",
+            ),
+        ],
+    )
+    def test_master_switch_refuses(self, dummy_dialect: DummyDialect, expr_factory):
+        expr = expr_factory(dummy_dialect)
+        with patch.object(type(dummy_dialect), "supports_sequence", return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match="has no sequence object"):
+                expr.to_sql()
+
+
+class TestSequenceOptionGating:
+    """Every requested option is checked before its clause is emitted.
+
+    A probe answering False must raise, naming the option, rather than letting
+    the formatter drop the clause -- dropping it would change the statement.
+    """
+
+    @pytest.mark.parametrize(
+        "probe,options,fragment",
+        [
+            ("supports_sequence_if_not_exists", {"if_not_exists": True}, "IF NOT EXISTS"),
+            ("supports_sequence_start", {"start": 5}, "START"),
+            ("supports_sequence_increment", {"increment": 2}, "INCREMENT"),
+            ("supports_sequence_minvalue", {"minvalue": 1}, "MINVALUE"),
+            ("supports_sequence_maxvalue", {"maxvalue": 10}, "MAXVALUE"),
+            ("supports_sequence_cache", {"cache": 5}, "CACHE"),
+            ("supports_sequence_order", {"order": True}, "ORDER"),
+            ("supports_sequence_owned_by", {"owned_by": "t.id"}, "OWNED BY"),
+        ],
+    )
+    def test_create_option_gated(self, dummy_dialect: DummyDialect, probe, options, fragment):
+        expr = CreateSequenceExpression(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s"), **options
+        )
+        with patch.object(type(dummy_dialect), probe, return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match=fragment):
+                expr.to_sql()
+
+    @pytest.mark.parametrize(
+        "probe,options,fragment",
+        [
+            ("supports_sequence_start", {"start": 5}, "START"),
+            ("supports_sequence_increment", {"increment": 2}, "INCREMENT"),
+            ("supports_sequence_minvalue", {"minvalue": 1}, "MINVALUE"),
+            ("supports_sequence_maxvalue", {"maxvalue": 10}, "MAXVALUE"),
+        ],
+    )
+    def test_alter_option_gated(self, dummy_dialect: DummyDialect, probe, options, fragment):
+        expr = AlterSequenceExpression(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s"), **options
+        )
+        with patch.object(type(dummy_dialect), probe, return_value=False):
+            with pytest.raises(UnsupportedFeatureError, match=fragment):
+                expr.to_sql()
+
+    def test_create_no_cycle_only_when_cycle_supported(self, dummy_dialect: DummyDialect):
+        """NO CYCLE is the SQL default; it is spelled only where it is legal."""
+        expr = CreateSequenceExpression(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s"), cycle=False
+        )
+        with patch.object(type(dummy_dialect), "supports_sequence_cycle", return_value=False):
+            sql, _ = expr.to_sql()
+        assert "CYCLE" not in sql
+
+    def test_alter_no_cycle_only_when_cycle_supported(self, dummy_dialect: DummyDialect):
+        """ALTER SEQUENCE has the same NO CYCLE hazard as CREATE."""
+        expr = AlterSequenceExpression(
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s"), cycle=False
+        )
+        with patch.object(type(dummy_dialect), "supports_sequence_cycle", return_value=False):
+            sql, _ = expr.to_sql()
+        assert "CYCLE" not in sql
