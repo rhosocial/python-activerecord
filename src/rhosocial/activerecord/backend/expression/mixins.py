@@ -328,10 +328,16 @@ class ComparisonMixin:
 
         to_query_expression = getattr(values, "to_query_expression", None)
         if callable(to_query_expression):
-            # An ActiveQuery-like object: render as an IN subquery.
+            # An ActiveQuery-like object: render as an IN subquery. The
+            # Subquery is bound to the same dialect as the two branches below
+            # it: rendering reaches it through format_in_predicate, which calls
+            # to_sql() on anything that is not a Literal, and to_sql() resolves
+            # the formatter on the node's own dialect.
             from .core import Subquery
 
-            return InPredicate(self._dialect, self, Subquery(None, to_query_expression()))
+            return InPredicate(
+                self._dialect, self, Subquery(self._dialect, to_query_expression())
+            )
         if isinstance(values, BaseExpression):
             # Already an expression (e.g. Subquery): pass through.
             return InPredicate(self._dialect, self, values)
