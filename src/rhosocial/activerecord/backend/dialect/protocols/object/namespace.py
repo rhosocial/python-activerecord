@@ -29,7 +29,7 @@ class NamespaceSupport(Protocol):
     Every switch here asks whether a name may be *qualified*, never whether the
     engine has the object at all. "Does this database have schemas" is a different
     question with a different owner -- see
-    :class:`~rhosocial.activerecord.backend.dialect.protocols.ddl.schema.SchemaSupport`
+    :class:`~rhosocial.activerecord.backend.dialect.protocols.ddl.schema.create_schema.CreateSchemaSupport`
     -- and an engine can answer the two differently. That is why these are named
     ``*_qualification`` and the DDL switches are not.
 
@@ -74,7 +74,7 @@ class NamespaceSupport(Protocol):
 
         Named apart from ``supports_schema`` deliberately. That switch is a DDL
         question -- does the engine have schemas, can it ``CREATE SCHEMA`` -- and
-        lives on :class:`~...ddl.schema.SchemaSupport`. This one is a naming
+        lives on :class:`~...ddl.schema.create_schema.CreateSchemaSupport`. This one is a naming
         question: may a name be qualified with a schema, which an engine can
         answer differently. PostgreSQL qualifies; MySQL and ClickHouse have a
         database and no inner schema, so they answer ``False`` here.
