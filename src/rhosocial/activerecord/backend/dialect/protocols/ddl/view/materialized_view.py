@@ -54,6 +54,13 @@ class MaterializedViewSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_materialized_view_restrict(self) -> bool:
+        """Whether the engine accepts the form ``materialized_view_restrict``.
+
+        Defaults to ``False``; a dialect that accepts it returns ``True``.
+        """
+        ...  # pragma: no cover
+
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
         """Render a :class:`~....expression.statements.CreateMaterializedViewExpression`.
 

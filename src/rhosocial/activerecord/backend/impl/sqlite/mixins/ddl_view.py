@@ -112,7 +112,21 @@ class SQLiteViewMixin:
         return " ".join(parts), query_params
 
     def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
-        """Format DROP VIEW statement for SQLite."""
+        """Format DROP VIEW statement for SQLite.
+
+        SQLite does not accept CASCADE or RESTRICT on DROP VIEW; asking for
+        either raises rather than dropping the request.
+        """
+        if expr.cascade:
+            raise UnsupportedFeatureError(
+                self.name, "DROP VIEW CASCADE",
+                "SQLite does not support DROP VIEW CASCADE.",
+            )
+        if expr.restrict:
+            raise UnsupportedFeatureError(
+                self.name, "DROP VIEW RESTRICT",
+                "SQLite does not support DROP VIEW RESTRICT.",
+            )
         parts = ["DROP VIEW"]
         if expr.if_exists:
             parts.append("IF EXISTS")

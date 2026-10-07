@@ -32,7 +32,8 @@ class TestCreateMaterializedViewStatements:
 
         assert 'CREATE MATERIALIZED VIEW "user_summary"' in sql
         assert 'SELECT "id", "name" FROM "users"' in sql
-        assert "WITH DATA" in sql
+        assert "WITH DATA" not in sql
+        assert "WITH NO DATA" not in sql
         assert params == ()
 
     def test_create_materialized_view_with_aggregates(self, dummy_dialect: DummyDialect):
@@ -53,7 +54,7 @@ class TestCreateMaterializedViewStatements:
         assert 'CREATE MATERIALIZED VIEW "order_summary"' in sql
         assert 'COUNT("id")' in sql
         assert 'GROUP BY "user_id"' in sql
-        assert "WITH DATA" in sql
+        assert "WITH DATA" not in sql
         assert params == ()
 
     def test_create_materialized_view_with_column_aliases(self, dummy_dialect: DummyDialect):
@@ -75,7 +76,7 @@ class TestCreateMaterializedViewStatements:
 
         assert 'CREATE MATERIALIZED VIEW "user_totals"' in sql
         assert '("user_id", "total_amount")' in sql
-        assert "WITH DATA" in sql
+        assert "WITH DATA" not in sql
 
     def test_create_materialized_view_with_tablespace(self, dummy_dialect: DummyDialect):
         """Tests CREATE MATERIALIZED VIEW with tablespace."""
@@ -100,13 +101,30 @@ class TestCreateMaterializedViewStatements:
         )
 
         create_mv = CreateMaterializedViewExpression(
-            dummy_dialect, view=MaterializedView(dummy_dialect, "category_mv"), query=query, with_data=False
+            dummy_dialect, view=MaterializedView(dummy_dialect, "category_mv"), query=query, no_data=True
         )
         sql, params = create_mv.to_sql()
 
         assert 'CREATE MATERIALIZED VIEW "category_mv"' in sql
         assert "WITH NO DATA" in sql
         assert "WITH DATA" not in sql
+
+    def test_create_materialized_view_with_data_explicit(self, dummy_dialect: DummyDialect):
+        """Tests CREATE MATERIALIZED VIEW WITH DATA (explicit)."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "categories")),
+        )
+
+        create_mv = CreateMaterializedViewExpression(
+            dummy_dialect, view=MaterializedView(dummy_dialect, "populated_mv"), query=query, with_data=True
+        )
+        sql, params = create_mv.to_sql()
+
+        assert sql.endswith("WITH DATA")
+        assert "WITH NO DATA" not in sql
+        assert params == ()
 
 
 class TestDropMaterializedViewStatements:
@@ -174,7 +192,7 @@ class TestRefreshMaterializedViewStatements:
 
     def test_refresh_materialized_view_with_no_data(self, dummy_dialect: DummyDialect):
         """Tests REFRESH MATERIALIZED VIEW WITH NO DATA statement."""
-        refresh_mv = RefreshMaterializedViewExpression(dummy_dialect, view=MaterializedView(dummy_dialect, "empty_view"), with_data=False)
+        refresh_mv = RefreshMaterializedViewExpression(dummy_dialect, view=MaterializedView(dummy_dialect, "empty_view"), no_data=True)
         sql, params = refresh_mv.to_sql()
 
         assert sql == 'REFRESH MATERIALIZED VIEW "empty_view" WITH NO DATA'
@@ -219,7 +237,7 @@ class TestMaterializedViewRoundtrip:
         drop_sql, drop_params = drop_mv.to_sql()
 
         assert 'CREATE MATERIALIZED VIEW "dept_avg_salary"' in create_sql
-        assert "WITH DATA" in create_sql
+        assert "WITH DATA" not in create_sql
         assert 'REFRESH MATERIALIZED VIEW "dept_avg_salary"' == refresh_sql
         assert 'DROP MATERIALIZED VIEW "dept_avg_salary"' == drop_sql
         assert create_params == ()

@@ -690,9 +690,9 @@ class TableMixin:
         parts.append(f"AS {query_sql}")
         all_params.extend(query_params)
 
-        if expr.with_data is True:
+        if expr.with_data:
             parts.append(" WITH DATA")
-        elif expr.with_data is False:
+        elif expr.no_data:
             parts.append(" WITH NO DATA")
 
         return " ".join(parts), tuple(all_params)
@@ -740,14 +740,14 @@ class TableMixin:
             parts.append("IF EXISTS")
         table_sql, table_params = expr.table.to_sql()
         parts.append(table_sql)
-        if expr.cascade is True:
+        if expr.cascade:
             if not self.supports_drop_table_cascade():
                 raise UnsupportedFeatureError(
                     self.name,
                     "DROP TABLE ... CASCADE",
                 )
             parts.append("CASCADE")
-        elif expr.cascade is False:
+        elif expr.restrict:
             if not self.supports_drop_table_restrict():
                 raise UnsupportedFeatureError(
                     self.name,

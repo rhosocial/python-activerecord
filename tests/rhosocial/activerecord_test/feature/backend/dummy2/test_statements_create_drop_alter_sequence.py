@@ -72,8 +72,8 @@ class TestCreateDropAlterSequenceStatements:
         assert params == ()
 
     def test_create_sequence_no_cycle_explicit(self, dummy_dialect: DummyDialect):
-        """Tests CREATE SEQUENCE with explicit NO CYCLE (default)."""
-        create_seq = CreateSequenceExpression(dummy_dialect, sequence=Sequence(dummy_dialect, "non_cycling_seq"), start=1, cycle=False)
+        """Tests CREATE SEQUENCE with explicit NO CYCLE."""
+        create_seq = CreateSequenceExpression(dummy_dialect, sequence=Sequence(dummy_dialect, "non_cycling_seq"), start=1, no_cycle=True)
         sql, params = create_seq.to_sql()
 
         assert "NO CYCLE" in sql
@@ -186,7 +186,7 @@ class TestCreateDropAlterSequenceStatements:
 
     def test_alter_sequence_no_cycle(self, dummy_dialect: DummyDialect):
         """Tests ALTER SEQUENCE with NO CYCLE."""
-        alter_seq = AlterSequenceExpression(dummy_dialect, sequence=Sequence(dummy_dialect, "non_cycling_seq"), cycle=False)
+        alter_seq = AlterSequenceExpression(dummy_dialect, sequence=Sequence(dummy_dialect, "non_cycling_seq"), no_cycle=True)
         sql, params = alter_seq.to_sql()
 
         assert "NO CYCLE" in sql
@@ -210,7 +210,7 @@ class TestCreateDropAlterSequenceStatements:
 
     def test_alter_sequence_no_order(self, dummy_dialect: DummyDialect):
         """Tests ALTER SEQUENCE with NO ORDER."""
-        alter_seq = AlterSequenceExpression(dummy_dialect, sequence=Sequence(dummy_dialect, "unordered_seq"), order=False)
+        alter_seq = AlterSequenceExpression(dummy_dialect, sequence=Sequence(dummy_dialect, "unordered_seq"), no_order=True)
         sql, params = alter_seq.to_sql()
 
         assert "NO ORDER" in sql
@@ -377,8 +377,11 @@ class TestSequenceOptionGating:
             ("supports_sequence_increment", {"increment": 2}, "INCREMENT"),
             ("supports_sequence_minvalue", {"minvalue": 1}, "MINVALUE"),
             ("supports_sequence_maxvalue", {"maxvalue": 10}, "MAXVALUE"),
+            ("supports_sequence_cycle", {"no_cycle": True}, "CYCLE"),
             ("supports_sequence_cache", {"cache": 5}, "CACHE"),
+            ("supports_sequence_cache", {"no_cache": True}, "CACHE"),
             ("supports_sequence_order", {"order": True}, "ORDER"),
+            ("supports_sequence_order", {"no_order": True}, "ORDER"),
             ("supports_sequence_owned_by", {"owned_by": "t.id"}, "OWNED BY"),
         ],
     )
@@ -397,6 +400,9 @@ class TestSequenceOptionGating:
             ("supports_sequence_increment", {"increment": 2}, "INCREMENT"),
             ("supports_sequence_minvalue", {"minvalue": 1}, "MINVALUE"),
             ("supports_sequence_maxvalue", {"maxvalue": 10}, "MAXVALUE"),
+            ("supports_sequence_cycle", {"no_cycle": True}, "CYCLE"),
+            ("supports_sequence_cache", {"no_cache": True}, "CACHE"),
+            ("supports_sequence_order", {"no_order": True}, "ORDER"),
         ],
     )
     def test_alter_option_gated(self, dummy_dialect: DummyDialect, probe, options, fragment):
@@ -407,19 +413,19 @@ class TestSequenceOptionGating:
             with pytest.raises(UnsupportedFeatureError, match=fragment):
                 expr.to_sql()
 
-    def test_create_no_cycle_only_when_cycle_supported(self, dummy_dialect: DummyDialect):
-        """NO CYCLE is the SQL default; it is spelled only where it is legal."""
+    def test_unset_create_cycle_pair_renders_nothing(self, dummy_dialect: DummyDialect):
+        """An unset pair is 'unspecified': nothing is spelled, no probe consulted."""
         expr = CreateSequenceExpression(
-            dummy_dialect, sequence=Sequence(dummy_dialect, "s"), cycle=False
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s")
         )
         with patch.object(type(dummy_dialect), "supports_sequence_cycle", return_value=False):
             sql, _ = expr.to_sql()
         assert "CYCLE" not in sql
 
-    def test_alter_no_cycle_only_when_cycle_supported(self, dummy_dialect: DummyDialect):
-        """ALTER SEQUENCE has the same NO CYCLE hazard as CREATE."""
+    def test_unset_alter_cycle_pair_renders_nothing(self, dummy_dialect: DummyDialect):
+        """ALTER SEQUENCE has the same unset-pair behavior as CREATE."""
         expr = AlterSequenceExpression(
-            dummy_dialect, sequence=Sequence(dummy_dialect, "s"), cycle=False
+            dummy_dialect, sequence=Sequence(dummy_dialect, "s")
         )
         with patch.object(type(dummy_dialect), "supports_sequence_cycle", return_value=False):
             sql, _ = expr.to_sql()

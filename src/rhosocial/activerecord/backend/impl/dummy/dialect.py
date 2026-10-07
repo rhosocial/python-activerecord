@@ -1112,6 +1112,9 @@ class DummyDialect(
     def supports_materialized_view_storage_options(self) -> bool:
         return True
 
+    def supports_materialized_view_restrict(self) -> bool:
+        return True
+
     def supports_if_exists_view(self) -> bool:
         return True
 
@@ -1119,6 +1122,9 @@ class DummyDialect(
         return True
 
     def supports_cascade_view(self) -> bool:
+        return True
+
+    def supports_restrict_view(self) -> bool:
         return True
 
     # endregion
@@ -1134,6 +1140,9 @@ class DummyDialect(
         return True
 
     def supports_truncate_cascade(self) -> bool:
+        return True
+
+    def supports_truncate_restrict(self) -> bool:
         return True
 
     # endregion
@@ -1152,6 +1161,9 @@ class DummyDialect(
         return True
 
     def supports_schema_cascade(self) -> bool:
+        return True
+
+    def supports_schema_restrict(self) -> bool:
         return True
 
     def supports_schema_authorization(self) -> bool:
@@ -1308,6 +1320,9 @@ class DummyDialect(
         return True
 
     def supports_drop_function_cascade(self) -> bool:
+        return True
+
+    def supports_drop_function_restrict(self) -> bool:
         return True
 
     # endregion
@@ -1517,10 +1532,11 @@ class DummyDialect(
                 parts.append("READ WRITE")
 
         deferrable = params.get("deferrable")
-        if deferrable is not None and isolation:
-            isolation_name = isolation.name if hasattr(isolation, "name") else str(isolation)
-            if isolation_name == "SERIALIZABLE":
-                parts.append("DEFERRABLE" if deferrable else "NOT DEFERRABLE")
+        not_deferrable = params.get("not_deferrable")
+        if deferrable:
+            parts.append("DEFERRABLE")
+        elif not_deferrable:
+            parts.append("NOT DEFERRABLE")
 
         return " ".join(parts), ()
 
@@ -1574,8 +1590,10 @@ class DummyDialect(
                 options.append("READ WRITE")
 
         deferrable = params.get("deferrable")
-        if deferrable is not None:
-            options.append("DEFERRABLE" if deferrable else "NOT DEFERRABLE")
+        if deferrable:
+            options.append("DEFERRABLE")
+        elif params.get("not_deferrable"):
+            options.append("NOT DEFERRABLE")
 
         if options:
             parts.append(" ".join(options))

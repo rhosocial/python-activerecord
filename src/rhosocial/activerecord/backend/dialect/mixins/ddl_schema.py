@@ -67,6 +67,13 @@ class SchemaMixin:
         """
         return False
 
+    def supports_schema_restrict(self) -> bool:
+        """Whether DROP SCHEMA RESTRICT is supported.
+
+        Defaults to False.
+        """
+        return False
+
     def supports_schema_authorization(self) -> bool:
         """Whether AUTHORIZATION clause is supported.
 
@@ -154,10 +161,17 @@ class SchemaMixin:
                 self.name, "DROP SCHEMA CASCADE",
                 f"{self.name} does not support DROP SCHEMA CASCADE."
             )
+        if expr.restrict and not self.supports_schema_restrict():
+            raise UnsupportedFeatureError(
+                self.name, "DROP SCHEMA RESTRICT",
+                f"{self.name} does not support DROP SCHEMA RESTRICT."
+            )
         parts = ["DROP SCHEMA"]
         if expr.if_exists:
             parts.append("IF EXISTS")
         parts.append(expr.schema.to_sql()[0])
         if expr.cascade:
             parts.append("CASCADE")
+        elif expr.restrict:
+            parts.append("RESTRICT")
         return " ".join(parts), ()

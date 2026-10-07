@@ -69,12 +69,16 @@ class DropFunctionExpression(BaseExpression):
         if_exists: bool = False,
         parameters: Optional[List[str]] = None,
         cascade: bool = False,
+        restrict: bool = False,
     ):
         super().__init__(dialect)
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
         self.function = function
         self.if_exists = if_exists
         self.parameters = parameters
         self.cascade = cascade
+        self.restrict = restrict
 
     @property
     def format_method(self) -> str:

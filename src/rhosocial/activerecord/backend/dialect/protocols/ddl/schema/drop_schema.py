@@ -45,6 +45,13 @@ class DropSchemaSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_schema_restrict(self) -> bool:
+        """Whether the engine accepts the form ``schema_restrict``.
+
+        Defaults to ``False``; a dialect that accepts it returns ``True``.
+        """
+        ...  # pragma: no cover
+
     def format_drop_schema_statement(self, expr: "DropSchemaExpression") -> Tuple[str, tuple]:
         """Render a :class:`~....expression.statements.DropSchemaExpression`.
 

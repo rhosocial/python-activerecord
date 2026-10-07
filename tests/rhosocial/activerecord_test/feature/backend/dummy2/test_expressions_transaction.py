@@ -71,17 +71,22 @@ class TestBeginTransactionExpression:
     def test_begin_not_deferrable(self, dummy_dialect: DummyDialect):
         """Test BEGIN with NOT DEFERRABLE."""
         expr = BeginTransactionExpression(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).deferrable(False)
+        expr.isolation_level(IsolationLevel.SERIALIZABLE).not_deferrable()
         sql, params = expr.to_sql()
         assert "NOT DEFERRABLE" in sql
         assert params == ()
 
-    def test_begin_deferrable_without_serializable(self, dummy_dialect: DummyDialect):
-        """Test DEFERRABLE without SERIALIZABLE is ignored."""
+    def test_begin_deferrable_without_serializable_is_rendered(self, dummy_dialect: DummyDialect):
+        """[NOT] DEFERRABLE is an independent transaction mode, not dropped.
+
+        It is only *effective* for SERIALIZABLE transactions, but the grammar
+        accepts it alone, so the request must be carried through rather than
+        silently ignored.
+        """
         expr = BeginTransactionExpression(dummy_dialect)
         expr.isolation_level(IsolationLevel.READ_COMMITTED).deferrable()
         sql, params = expr.to_sql()
-        assert "DEFERRABLE" not in sql
+        assert "DEFERRABLE" in sql
         assert "READ COMMITTED" in sql
 
     def test_method_chaining(self, dummy_dialect: DummyDialect):
@@ -283,7 +288,7 @@ class TestSetTransactionExpression:
     def test_set_transaction_not_deferrable(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION NOT DEFERRABLE."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).deferrable(False)
+        expr.isolation_level(IsolationLevel.SERIALIZABLE).not_deferrable()
         sql, params = expr.to_sql()
         assert "NOT DEFERRABLE" in sql
         assert params == ()
@@ -325,7 +330,13 @@ class TestSetTransactionExpression:
         """Test get_params returns defaults when nothing set."""
         expr = SetTransactionExpression(dummy_dialect)
         params = expr.get_params()
-        assert params == {"isolation_level": None, "mode": None, "session": False, "deferrable": None}
+        assert params == {
+            "isolation_level": None,
+            "mode": None,
+            "session": False,
+            "deferrable": False,
+            "not_deferrable": False,
+        }
 
 
 class TestAllIsolationLevels:

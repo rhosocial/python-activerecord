@@ -275,18 +275,25 @@ class DropTableConstraint(AlterTableAction):
 
 
 class AlterConstraint(AlterTableAction):
-    """Typed ``ALTER CONSTRAINT`` enforcement action."""
+    """Typed ``ALTER CONSTRAINT`` enforcement action.
+
+    The enforcement keyword is mandatory in the action's grammar, so exactly
+    one of ``enforced`` / ``not_enforced`` must be set. Setting both, or
+    neither, raises ``ValueError`` -- the action *is* the keyword.
+    """
 
     action_type: AlterTableActionType = AlterTableActionType.ALTER_CONSTRAINT
     constraint_name: str
     enforced: bool
+    not_enforced: bool
     constraint_type: TableConstraintType
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
         constraint_name: Optional[str] = None,
-        enforced: bool = True,
+        enforced: bool = False,
+        not_enforced: bool = False,
         *,
         name: Optional[str] = None,
         constraint_type: Union[
@@ -296,14 +303,19 @@ class AlterConstraint(AlterTableAction):
         ],
     ) -> None:
         super().__init__(dialect)
+        if enforced and not_enforced:
+            raise ValueError("enforced and not_enforced are mutually exclusive options")
+        if not (enforced or not_enforced):
+            raise ValueError(
+                "AlterConstraint requires exactly one of enforced=True or "
+                "not_enforced=True: the enforcement keyword is mandatory"
+            )
         if constraint_name is None:
             constraint_name = name
         elif name is not None and name != constraint_name:
             raise ValueError("name and constraint_name must match")
         if not isinstance(constraint_name, str) or not constraint_name.strip():
             raise ValueError("constraint_name must be a non-empty string")
-        if not isinstance(enforced, bool):
-            raise TypeError("enforced must be a bool")
         raw_value = getattr(constraint_type, "value", constraint_type)
         raw_name = getattr(constraint_type, "name", raw_value)
         normalized_type = None
@@ -331,6 +343,7 @@ class AlterConstraint(AlterTableAction):
         self.constraint_name = constraint_name
         self.name = constraint_name
         self.enforced = enforced
+        self.not_enforced = not_enforced
         self.constraint_type = normalized_type
 
     @property

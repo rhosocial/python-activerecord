@@ -249,3 +249,175 @@ class TestAlterSequenceStartSplit:
                 f"with {declared!r} yet rendered {sql!r} with START; a non-True "
                 f"answer must fail closed"
             )
+
+
+def _withdrawing_dialect(probe_name: str) -> type:
+    """A ``DummyDialect`` that answers one probe ``False``, everything else Dummy's.
+
+    The shape being modelled: a dialect that supports sequences but whose
+    server refuses one specific option.
+    """
+    return type(
+        f"DummyWithout_{probe_name}",
+        (DummyDialect,),
+        {probe_name: lambda self: False},
+    )
+
+
+#: One sequence option spelling -> the probe that gates it, the node that
+#: carries it, the constructor kwargs that request it, the SQL fragment it
+#: renders, and the feature name the refusal must carry. Both CREATE and ALTER
+#: are covered: the two statements name their options differently in refusals.
+SEQUENCE_OPTION_CASES = (
+    (
+        "supports_sequence_cycle",
+        CreateSequenceExpression,
+        {"cycle": True},
+        "CYCLE",
+        "SEQUENCE CYCLE",
+    ),
+    (
+        "supports_sequence_cycle",
+        CreateSequenceExpression,
+        {"no_cycle": True},
+        "NO CYCLE",
+        "SEQUENCE CYCLE",
+    ),
+    (
+        "supports_sequence_cache",
+        CreateSequenceExpression,
+        {"cache": 10},
+        "CACHE 10",
+        "SEQUENCE CACHE",
+    ),
+    (
+        "supports_sequence_cache",
+        CreateSequenceExpression,
+        {"no_cache": True},
+        "NO CACHE",
+        "SEQUENCE CACHE",
+    ),
+    (
+        "supports_sequence_order",
+        CreateSequenceExpression,
+        {"order": True},
+        "ORDER",
+        "SEQUENCE ORDER",
+    ),
+    (
+        "supports_sequence_order",
+        CreateSequenceExpression,
+        {"no_order": True},
+        "NO ORDER",
+        "SEQUENCE ORDER",
+    ),
+    (
+        "supports_sequence_cycle",
+        AlterSequenceExpression,
+        {"cycle": True},
+        "CYCLE",
+        "ALTER SEQUENCE CYCLE",
+    ),
+    (
+        "supports_sequence_cycle",
+        AlterSequenceExpression,
+        {"no_cycle": True},
+        "NO CYCLE",
+        "ALTER SEQUENCE CYCLE",
+    ),
+    (
+        "supports_sequence_cache",
+        AlterSequenceExpression,
+        {"cache": 10},
+        "CACHE 10",
+        "ALTER SEQUENCE CACHE",
+    ),
+    (
+        "supports_sequence_cache",
+        AlterSequenceExpression,
+        {"no_cache": True},
+        "NO CACHE",
+        "ALTER SEQUENCE CACHE",
+    ),
+    (
+        "supports_sequence_order",
+        AlterSequenceExpression,
+        {"order": True},
+        "ORDER",
+        "ALTER SEQUENCE ORDER",
+    ),
+    (
+        "supports_sequence_order",
+        AlterSequenceExpression,
+        {"no_order": True},
+        "NO ORDER",
+        "ALTER SEQUENCE ORDER",
+    ),
+)
+
+SEQUENCE_OPTION_IDS = [
+    f"{node.__name__}-{sorted(kwargs)}" for _, node, kwargs, _, _ in SEQUENCE_OPTION_CASES
+]
+
+
+class TestSequenceOptionGates:
+    """Each two-spelling sequence option has a parameter per spelling."""
+
+    @pytest.mark.parametrize(
+        "probe_name,node,kwargs,fragment,feature",
+        SEQUENCE_OPTION_CASES,
+        ids=SEQUENCE_OPTION_IDS,
+    )
+    def test_false_probe_refuses_the_option_by_name(
+        self, probe_name, node, kwargs, fragment, feature
+    ):
+        """Withdrawing the probe must refuse, naming the option -- never drop it."""
+        dialect = _withdrawing_dialect(probe_name)()
+        expr = node(dialect, Sequence(dialect, "s"), **kwargs)
+        with pytest.raises(UnsupportedFeatureError, match=feature):
+            expr.to_sql()
+
+    @pytest.mark.parametrize(
+        "probe_name,node,kwargs,fragment,feature",
+        SEQUENCE_OPTION_CASES,
+        ids=SEQUENCE_OPTION_IDS,
+    )
+    def test_true_probe_renders_the_option(self, probe_name, node, kwargs, fragment, feature):
+        """The reference switchboard renders every spelling it declares."""
+        dialect = DummyDialect()
+        sql = node(dialect, Sequence(dialect, "s"), **kwargs).to_sql()[0]
+        assert fragment in sql, f"expected {fragment!r} in {sql!r}"
+
+    @pytest.mark.parametrize(
+        "probe_name,node,kwargs,fragment,feature",
+        SEQUENCE_OPTION_CASES,
+        ids=SEQUENCE_OPTION_IDS,
+    )
+    def test_gate_is_per_option(self, probe_name, node, kwargs, fragment, feature):
+        """Withdrawing one probe must not disable the other options."""
+        dialect = _withdrawing_dialect(probe_name)()
+        for other_probe, other_node, other_kwargs, other_fragment, _ in SEQUENCE_OPTION_CASES:
+            if other_probe == probe_name:
+                continue
+            sql = other_node(dialect, Sequence(dialect, "s"), **other_kwargs).to_sql()[0]
+            assert other_fragment in sql, (
+                f"withdrawing {probe_name} also disabled {other_probe}: "
+                f"{other_fragment!r} missing from {sql!r}"
+            )
+
+    def test_neither_spelling_renders_nothing(self):
+        """The reference dialect renders no option when the pair is unset."""
+        dialect = DummyDialect()
+        sql = CreateSequenceExpression(dialect, Sequence(dialect, "s")).to_sql()[0]
+        assert "CYCLE" not in sql and "ORDER" not in sql and "CACHE" not in sql
+        sql = AlterSequenceExpression(dialect, Sequence(dialect, "s")).to_sql()[0]
+        assert sql == 'ALTER SEQUENCE "s"'
+
+    def test_both_spellings_of_a_pair_are_refused(self):
+        dialect = DummyDialect()
+        with pytest.raises(ValueError, match="cycle and no_cycle are mutually exclusive"):
+            CreateSequenceExpression(dialect, Sequence(dialect, "s"), cycle=True, no_cycle=True)
+        with pytest.raises(ValueError, match="cache and no_cache are mutually exclusive"):
+            AlterSequenceExpression(dialect, Sequence(dialect, "s"), cache=10, no_cache=True)
+        with pytest.raises(ValueError, match="order and no_order are mutually exclusive"):
+            CreateSequenceExpression(dialect, Sequence(dialect, "s"), order=True, no_order=True)

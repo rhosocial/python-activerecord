@@ -40,6 +40,10 @@ class TruncateSupport(Protocol):
         """Whether CASCADE option is supported."""
         ...  # pragma: no cover
 
+    def supports_truncate_restrict(self) -> bool:
+        """Whether RESTRICT option is supported."""
+        ...  # pragma: no cover
+
     def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
         """Format TRUNCATE TABLE statement."""
         ...  # pragma: no cover

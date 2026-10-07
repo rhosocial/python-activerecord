@@ -45,6 +45,13 @@ class DropRoutineSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_drop_function_restrict(self) -> bool:
+        """Whether the engine accepts the form ``drop_function_restrict``.
+
+        Defaults to ``False``; a dialect that accepts it returns ``True``.
+        """
+        ...  # pragma: no cover
+
     def format_drop_function_statement(self, expr: "DropFunctionExpression") -> Tuple[str, tuple]:
         """Render a :class:`~....expression.statements.DropFunctionExpression`.
 

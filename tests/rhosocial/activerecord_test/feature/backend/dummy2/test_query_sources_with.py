@@ -73,7 +73,7 @@ class TestCTEAndWithQueryExpressions:
         assert params_mat == (True,)
 
         # Test NOT MATERIALIZED
-        cte_not_materialized = CTEExpression(dummy_dialect, name="non_cached_data", query=query, materialized=False)
+        cte_not_materialized = CTEExpression(dummy_dialect, name="non_cached_data", query=query, not_materialized=True)
 
         sql_not_mat, params_not_mat = cte_not_materialized.to_sql()
         assert "NOT MATERIALIZED" in sql_not_mat.upper()
@@ -230,7 +230,7 @@ class TestCTEAndWithQueryExpressions:
             name="test_cte",
             query=query,
             columns=["col1", "col2"],
-            materialized=False,
+            not_materialized=True,
         )
 
         sql, params = cte.to_sql()

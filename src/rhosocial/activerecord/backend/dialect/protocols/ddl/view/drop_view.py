@@ -45,6 +45,13 @@ class DropViewSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_restrict_view(self) -> bool:
+        """Whether the engine accepts the form ``restrict_view``.
+
+        Defaults to ``False``; a dialect that accepts it returns ``True``.
+        """
+        ...  # pragma: no cover
+
     def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
         """Render a :class:`~....expression.statements.DropViewExpression`.
 

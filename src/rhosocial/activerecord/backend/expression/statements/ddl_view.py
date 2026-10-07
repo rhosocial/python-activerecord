@@ -147,6 +147,13 @@ class DropViewExpression(BaseExpression):
             view=View(dialect, "master_view"),
             cascade=True
         )
+
+        # Restrict drop (refuses if objects depend on the view)
+        drop_restrict = DropViewExpression(
+            dialect,
+            view=View(dialect, "master_view"),
+            restrict=True
+        )
     """
 
     def __init__(
@@ -155,11 +162,15 @@ class DropViewExpression(BaseExpression):
         view: "View",
         if_exists: bool = False,  # DROP VIEW IF EXISTS
         cascade: bool = False,
-    ):  # DROP VIEW ... CASCADE (drops dependent objects)
+        restrict: bool = False,
+    ):  # DROP VIEW ... CASCADE | RESTRICT (dependent-object handling)
         super().__init__(dialect)
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
         self.view = view
         self.if_exists = if_exists
         self.cascade = cascade
+        self.restrict = restrict
 
     @property
     def format_method(self) -> str:
@@ -219,15 +230,19 @@ class CreateMaterializedViewExpression(BaseExpression):
         query: "QueryExpression",
         column_aliases: Optional[List[str]] = None,
         tablespace: Optional[str] = None,
-        with_data: bool = True,  # Whether to populate immediately
+        with_data: bool = False,  # Whether to populate immediately
+        no_data: bool = False,  # Whether to leave the view unpopulated
         storage_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
+        if with_data and no_data:
+            raise ValueError("with_data and no_data are mutually exclusive options")
         self.view = view
         self.query = query
         self.column_aliases = column_aliases or []
         self.tablespace = tablespace
         self.with_data = with_data
+        self.no_data = no_data
         self.storage_options = storage_options or {}
 
     @property
@@ -260,6 +275,13 @@ class DropMaterializedViewExpression(BaseExpression):
             view=MaterializedView(dialect, "parent_view"),
             cascade=True
         )
+
+        # Restrict drop
+        drop_mv = DropMaterializedViewExpression(
+            dialect,
+            view=MaterializedView(dialect, "parent_view"),
+            restrict=True
+        )
     """
 
     def __init__(
@@ -268,11 +290,15 @@ class DropMaterializedViewExpression(BaseExpression):
         view: "MaterializedView",
         if_exists: bool = False,
         cascade: bool = False,
+        restrict: bool = False,
     ):
         super().__init__(dialect)
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
         self.view = view
         self.if_exists = if_exists
         self.cascade = cascade
+        self.restrict = restrict
 
     @property
     def format_method(self) -> str:
@@ -305,7 +331,7 @@ class RefreshMaterializedViewExpression(BaseExpression):
         refresh_mv = RefreshMaterializedViewExpression(
             dialect,
             view=MaterializedView(dialect, "empty_view"),
-            with_data=False
+            no_data=True
         )
     """
 
@@ -314,12 +340,16 @@ class RefreshMaterializedViewExpression(BaseExpression):
         dialect: "SQLDialectBase",
         view: "MaterializedView",
         concurrent: bool = False,  # Refresh concurrently (PostgreSQL)
-        with_data: Optional[bool] = None,  # WITH DATA or WITH NO DATA
+        with_data: bool = False,  # WITH DATA
+        no_data: bool = False,  # WITH NO DATA
     ):
         super().__init__(dialect)
+        if with_data and no_data:
+            raise ValueError("with_data and no_data are mutually exclusive options")
         self.view = view
         self.concurrent = concurrent
         self.with_data = with_data
+        self.no_data = no_data
 
     @property
     def format_method(self) -> str:

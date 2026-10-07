@@ -418,7 +418,7 @@ class TestCreateTableStatements:
             dummy_dialect,
             select=[Literal(dummy_dialect, 1)],
         )
-        expr = CreateTableAsExpression(dummy_dialect, table=Table(dummy_dialect, "t"), as_query=query, with_data=False)
+        expr = CreateTableAsExpression(dummy_dialect, table=Table(dummy_dialect, "t"), as_query=query, no_data=True)
         sql, params = expr.to_sql()
         assert sql.endswith("WITH NO DATA")
         assert params == (1,)

@@ -84,6 +84,13 @@ class DropSchemaExpression(BaseExpression):
             schema=Schema(dialect, "legacy"),
             cascade=True
         )
+
+        # Restrict drop (refuses if objects depend on the schema)
+        drop_schema = DropSchemaExpression(
+            dialect,
+            schema=Schema(dialect, "legacy"),
+            restrict=True
+        )
     """
 
     def __init__(
@@ -92,11 +99,15 @@ class DropSchemaExpression(BaseExpression):
         schema: "Schema",
         if_exists: bool = False,
         cascade: bool = False,
+        restrict: bool = False,
     ):
         super().__init__(dialect)
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
         self.schema = schema
         self.if_exists = if_exists
         self.cascade = cascade
+        self.restrict = restrict
 
     @property
     def format_method(self) -> str:

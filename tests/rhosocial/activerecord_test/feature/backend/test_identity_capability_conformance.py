@@ -44,18 +44,19 @@ CORE_DIALECTS = (DummyDialect, SQLiteDialect)
 
 #: One identity option -> the probe that gates it, the constructor kwargs that
 #: request it, the SQL fragment it renders, and the feature name the refusal
-#: must carry.
+#: must carry. Each spelling of a two-spelling option is its own case: the
+#: parameter selects the spelling, the shared probe gates the option.
 IDENTITY_OPTION_CASES = (
     ("supports_identity_start", {"start": 10}, "START WITH 10", "IDENTITY START"),
     ("supports_identity_increment", {"increment": 5}, "INCREMENT BY 5", "IDENTITY INCREMENT"),
     ("supports_identity_minvalue", {"minvalue": 1}, "MINVALUE 1", "IDENTITY MINVALUE"),
     ("supports_identity_maxvalue", {"maxvalue": 100}, "MAXVALUE 100", "IDENTITY MAXVALUE"),
     ("supports_identity_cycle", {"cycle": True}, "CYCLE", "IDENTITY CYCLE"),
-    ("supports_identity_cycle", {"cycle": False}, "NO CYCLE", "IDENTITY CYCLE"),
+    ("supports_identity_cycle", {"no_cycle": True}, "NO CYCLE", "IDENTITY CYCLE"),
     ("supports_identity_order", {"order": True}, "ORDER", "IDENTITY ORDER"),
-    ("supports_identity_order", {"order": False}, "NO ORDER", "IDENTITY ORDER"),
+    ("supports_identity_order", {"no_order": True}, "NO ORDER", "IDENTITY ORDER"),
     ("supports_identity_cache", {"cache": 10}, "CACHE 10", "IDENTITY CACHE"),
-    ("supports_identity_cache", {"cache": 0}, "NO CACHE", "IDENTITY CACHE"),
+    ("supports_identity_cache", {"no_cache": True}, "NO CACHE", "IDENTITY CACHE"),
 )
 
 IDENTITY_OPTION_IDS = [
@@ -246,3 +247,27 @@ class TestConformanceIsNotVacuous:
         """Each case names a probe the reference dialect answers ``True``."""
         for probe_name, _, _, _ in IDENTITY_OPTION_CASES:
             assert getattr(DummyDialect(), probe_name)() is True, probe_name
+
+
+class TestIdentitySpellingHooks:
+    """Spelling is split: the negative form has its own hook, no sentinel."""
+
+    def test_no_cache_hook_defaults_to_the_standard_spelling(self):
+        from rhosocial.activerecord.backend.dialect.mixins import IdentityColumnMixin
+
+        class _Bare(IdentityColumnMixin):
+            pass
+
+        assert _Bare().identity_no_cache_keyword() == "NO CACHE"
+
+    def test_cache_hook_spells_only_positive_counts(self):
+        from rhosocial.activerecord.backend.dialect.mixins import IdentityColumnMixin
+
+        class _Bare(IdentityColumnMixin):
+            pass
+
+        assert _Bare().identity_cache_keyword(10) == "CACHE 10"
+
+    def test_cache_zero_is_refused_as_a_sentinel(self):
+        with pytest.raises(ValueError, match="cache must be a positive integer"):
+            IdentityClause(DummyDialect(), cache=0)

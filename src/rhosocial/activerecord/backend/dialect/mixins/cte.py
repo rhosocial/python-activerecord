@@ -63,9 +63,12 @@ class CTEMixin:
             query_params = tuple(params_input) if isinstance(params_input, list) else params_input
         else:
             query_sql, query_params = str(query), ()
-        materialized_hint = ""
-        if expr.materialized is not None:
-            materialized_hint = "MATERIALIZED " if expr.materialized else "NOT MATERIALIZED "
+        if expr.materialized:
+            materialized_hint = "MATERIALIZED "
+        elif expr.not_materialized:
+            materialized_hint = "NOT MATERIALIZED "
+        else:
+            materialized_hint = ""
         name_part = self.format_identifier(expr.name)
         columns_part = f" ({', '.join(self.format_identifier(c) for c in expr.columns)})" if expr.columns else ""
         sql = f"{name_part}{columns_part} AS {materialized_hint}({query_sql})"

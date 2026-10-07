@@ -46,7 +46,9 @@ class TruncateExpression(BaseExpression):
         dialect: "SQLDialectBase",
         table: "Table",
         restart_identity: bool = False,  # RESTART IDENTITY option (PostgreSQL)
+        continue_identity: bool = False,  # CONTINUE IDENTITY option (PostgreSQL)
         cascade: bool = False,  # CASCADE option (PostgreSQL)
+        restrict: bool = False,  # RESTRICT option (PostgreSQL)
     ):
         """
         Initialize a TRUNCATE expression with the specified parameters.
@@ -56,15 +58,26 @@ class TruncateExpression(BaseExpression):
             table: The Table being truncated; a schema-qualified table carries
                 its own namespace, so no separate schema argument is needed
             restart_identity: Whether to restart identity counters (PostgreSQL-specific)
+            continue_identity: Whether to continue identity counters (PostgreSQL-specific)
             cascade: Whether to truncate dependent tables as well (PostgreSQL-specific)
+            restrict: Whether to refuse truncation when dependent tables exist
 
         Raises:
+            ValueError: If both spellings of a pair are set.
             TypeError: If the table is not a Table
         """
         super().__init__(dialect)
+        if restart_identity and continue_identity:
+            raise ValueError(
+                "restart_identity and continue_identity are mutually exclusive options"
+            )
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
         self.table = table
-        self.restart_identity = restart_identity  # For PostgreSQL-style RESTART IDENTITY
-        self.cascade = cascade  # For PostgreSQL-style CASCADE
+        self.restart_identity = restart_identity
+        self.continue_identity = continue_identity
+        self.cascade = cascade
+        self.restrict = restrict
 
     @property
     def format_method(self) -> str:

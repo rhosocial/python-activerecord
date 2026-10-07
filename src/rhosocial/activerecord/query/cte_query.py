@@ -193,9 +193,13 @@ class CTEQuery(
                 "Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported."
             )
 
-        # Create a CTEExpression
+        # Create a CTEExpression. The query-layer ``materialized`` tri-state is
+        # translated to the expression layer's two parameters; the AR-layer
+        # exposure of the split is decided later.
         cte_expr = query_sources.CTEExpression(
-            dialect, name=name, query=query_expr, columns=columns, materialized=materialized
+            dialect, name=name, query=query_expr, columns=columns,
+            materialized=materialized is True,
+            not_materialized=materialized is False,
         )
 
         # Add to the list of CTEs
@@ -510,9 +514,13 @@ class AsyncCTEQuery(
                 "Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported."
             )
 
-        # Create a CTEExpression
+        # Create a CTEExpression. The query-layer ``materialized`` tri-state is
+        # translated to the expression layer's two parameters; the AR-layer
+        # exposure of the split is decided later.
         cte_expr = query_sources.CTEExpression(
-            dialect, name=name, query=query_expr, columns=columns, materialized=materialized
+            dialect, name=name, query=query_expr, columns=columns,
+            materialized=materialized is True,
+            not_materialized=materialized is False,
         )
 
         # Add to the list of CTEs

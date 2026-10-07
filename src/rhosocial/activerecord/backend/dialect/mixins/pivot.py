@@ -85,7 +85,12 @@ class PivotMixin:
         if not self.supports_unpivot():
             raise UnsupportedFeatureError(self.name, "UNPIVOT clause")
 
-        nulls = "INCLUDE NULLS " if expr.include_nulls else "EXCLUDE NULLS "
+        if expr.include_nulls:
+            nulls = "INCLUDE NULLS "
+        elif expr.exclude_nulls:
+            nulls = "EXCLUDE NULLS "
+        else:
+            nulls = ""
         columns_sql = ", ".join(self.format_identifier(c) for c in expr.columns)
 
         sql = (

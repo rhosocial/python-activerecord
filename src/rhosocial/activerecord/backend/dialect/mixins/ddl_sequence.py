@@ -155,9 +155,12 @@ class SequenceMixin:
         is False raises ``UnsupportedFeatureError`` naming that option rather
         than dropping the clause, which would change the statement's meaning.
 
-        ``NO CYCLE`` is the SQL default, so the clause is emitted only where
-        :meth:`supports_sequence_cycle` accepts it; omitting it keeps the same
-        meaning on a dialect that does not.
+        ``NO CYCLE`` is the SQL default, but it is not implicit here: the
+        expression carries one parameter per spelling (``cycle`` /
+        ``no_cycle``, ``cache`` / ``no_cache``, ``order`` / ``no_order``), and
+        an unset pair renders nothing. The parameter selects the spelling; the
+        probe answers whether the dialect can express the option at all. An
+        explicit spelling whose probe is False raises.
 
         Args:
             expr: CreateSequenceExpression carrying the sequence name and
@@ -223,16 +226,13 @@ class SequenceMixin:
                     f"{self.name} does not support the MAXVALUE sequence option."
                 )
             parts.append(f"MAXVALUE {expr.maxvalue}")
-        if expr.cycle:
+        if expr.cycle or expr.no_cycle:
             if not self.supports_sequence_cycle():
                 raise UnsupportedFeatureError(
                     self.name, "SEQUENCE CYCLE",
                     f"{self.name} does not support the CYCLE sequence option."
                 )
-            parts.append("CYCLE")
-        elif self.supports_sequence_cycle():
-            # NO CYCLE is the default; only spell it where the words are legal.
-            parts.append("NO CYCLE")
+            parts.append("CYCLE" if expr.cycle else "NO CYCLE")
         if expr.cache is not None:
             if not self.supports_sequence_cache():
                 raise UnsupportedFeatureError(
@@ -240,13 +240,20 @@ class SequenceMixin:
                     f"{self.name} does not support the CACHE sequence option."
                 )
             parts.append(f"CACHE {expr.cache}")
-        if expr.order:
+        if expr.no_cache:
+            if not self.supports_sequence_cache():
+                raise UnsupportedFeatureError(
+                    self.name, "SEQUENCE CACHE",
+                    f"{self.name} does not support the CACHE sequence option."
+                )
+            parts.append("NO CACHE")
+        if expr.order or expr.no_order:
             if not self.supports_sequence_order():
                 raise UnsupportedFeatureError(
                     self.name, "SEQUENCE ORDER",
                     f"{self.name} does not support the ORDER sequence option."
                 )
-            parts.append("ORDER")
+            parts.append("ORDER" if expr.order else "NO ORDER")
         if expr.owned_by:
             if not self.supports_sequence_owned_by():
                 raise UnsupportedFeatureError(
@@ -326,9 +333,11 @@ class SequenceMixin:
         whose probe is False raises ``UnsupportedFeatureError`` naming it
         instead of the clause being dropped.
 
-        ``cycle=False`` asks for the SQL default, so ``NO CYCLE`` is emitted
-        only where :meth:`supports_sequence_cycle` accepts the words; an
-        explicit ``cycle=True`` whose probe is False raises.
+        Each two-spelling option carries one parameter per spelling: ``cycle``
+        / ``no_cycle``, ``cache`` / ``no_cache``, ``order`` / ``no_order``.
+        The parameter selects the spelling; the probe gates whether the
+        dialect can express the option at all. An unset pair renders nothing,
+        and an explicit spelling whose probe is False raises.
 
         Args:
             expr: AlterSequenceExpression carrying the sequence name and the
@@ -388,17 +397,13 @@ class SequenceMixin:
                     f"{self.name} does not support the MAXVALUE sequence option."
                 )
             parts.append(f"MAXVALUE {expr.maxvalue}")
-        if expr.cycle is not None:
-            if expr.cycle:
-                if not self.supports_sequence_cycle():
-                    raise UnsupportedFeatureError(
-                        self.name, "ALTER SEQUENCE CYCLE",
-                        f"{self.name} does not support the CYCLE sequence option."
-                    )
-                parts.append("CYCLE")
-            elif self.supports_sequence_cycle():
-                # NO CYCLE is the default; only spell it where it is legal.
-                parts.append("NO CYCLE")
+        if expr.cycle or expr.no_cycle:
+            if not self.supports_sequence_cycle():
+                raise UnsupportedFeatureError(
+                    self.name, "ALTER SEQUENCE CYCLE",
+                    f"{self.name} does not support the CYCLE sequence option."
+                )
+            parts.append("CYCLE" if expr.cycle else "NO CYCLE")
         if expr.cache is not None:
             if not self.supports_sequence_cache():
                 raise UnsupportedFeatureError(
@@ -406,7 +411,14 @@ class SequenceMixin:
                     f"{self.name} does not support the CACHE sequence option."
                 )
             parts.append(f"CACHE {expr.cache}")
-        if expr.order is not None:
+        if expr.no_cache:
+            if not self.supports_sequence_cache():
+                raise UnsupportedFeatureError(
+                    self.name, "ALTER SEQUENCE CACHE",
+                    f"{self.name} does not support the CACHE sequence option."
+                )
+            parts.append("NO CACHE")
+        if expr.order or expr.no_order:
             if not self.supports_sequence_order():
                 raise UnsupportedFeatureError(
                     self.name, "ALTER SEQUENCE ORDER",

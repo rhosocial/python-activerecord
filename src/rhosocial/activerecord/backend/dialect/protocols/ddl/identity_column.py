@@ -114,10 +114,20 @@ class IdentityColumnSupport(Protocol):
         ...  # pragma: no cover
 
     def identity_cache_keyword(self, cache: int) -> str:
-        """The dialect's spelling of an explicit cache setting.
+        """The dialect's spelling of a positive cache setting.
 
-        Defaults to the SQL-standard ``CACHE n`` / ``NO CACHE``; a falsy
-        ``cache`` count spells the negative form, as on the sequence node.
+        Defaults to the SQL-standard ``CACHE n``. The negative spelling has
+        its own hook, :meth:`identity_no_cache_keyword`; there is no sentinel
+        count for it.
+        """
+        ...  # pragma: no cover
+
+    def identity_no_cache_keyword(self) -> str:
+        """The dialect's spelling of ``NO CACHE``.
+
+        Defaults to the SQL-standard ``NO CACHE``; a dialect whose grammar
+        spells the negative form differently (Oracle's ``NOCACHE``) overrides
+        this hook.
         """
         ...  # pragma: no cover
 

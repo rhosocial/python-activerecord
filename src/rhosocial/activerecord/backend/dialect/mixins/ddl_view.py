@@ -67,6 +67,10 @@ class ViewMixin:
         """Whether storage options for materialized views are supported (defaults to False)."""
         return False
 
+    def supports_materialized_view_restrict(self) -> bool:
+        """Whether DROP MATERIALIZED VIEW RESTRICT is supported (defaults to False)."""
+        return False
+
     def supports_if_exists_view(self) -> bool:
         """Whether DROP VIEW IF EXISTS is supported (defaults to False)."""
         return False
@@ -77,6 +81,10 @@ class ViewMixin:
 
     def supports_cascade_view(self) -> bool:
         """Whether DROP VIEW CASCADE is supported (defaults to False)."""
+        return False
+
+    def supports_restrict_view(self) -> bool:
+        """Whether DROP VIEW RESTRICT is supported (defaults to False)."""
         return False
 
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
@@ -171,9 +179,19 @@ class ViewMixin:
                 self.name, "DROP VIEW CASCADE",
                 f"{self.name} does not support DROP VIEW CASCADE."
             )
+        if expr.restrict and not self.supports_restrict_view():
+            raise UnsupportedFeatureError(
+                self.name, "DROP VIEW RESTRICT",
+                f"{self.name} does not support DROP VIEW RESTRICT."
+            )
         if_exists_part = "IF EXISTS " if expr.if_exists else ""
-        cascade_part = " CASCADE" if expr.cascade else ""
-        sql = f"DROP VIEW {if_exists_part}{expr.view.to_sql()[0]}{cascade_part}"
+        if expr.cascade:
+            behavior_part = " CASCADE"
+        elif expr.restrict:
+            behavior_part = " RESTRICT"
+        else:
+            behavior_part = ""
+        sql = f"DROP VIEW {if_exists_part}{expr.view.to_sql()[0]}{behavior_part}"
         return sql.strip(), ()
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
@@ -221,7 +239,7 @@ class ViewMixin:
 
         if expr.with_data:
             parts.append("WITH DATA")
-        else:
+        elif expr.no_data:
             parts.append("WITH NO DATA")
 
         return " ".join(parts), query_params
@@ -256,6 +274,13 @@ class ViewMixin:
         parts.append(expr.view.to_sql()[0])
         if expr.cascade:
             parts.append("CASCADE")
+        elif expr.restrict:
+            if not self.supports_materialized_view_restrict():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP MATERIALIZED VIEW RESTRICT",
+                    f"{self.name} does not support DROP MATERIALIZED VIEW RESTRICT."
+                )
+            parts.append("RESTRICT")
         return " ".join(parts), ()
 
     def format_refresh_materialized_view_statement(
@@ -288,8 +313,10 @@ class ViewMixin:
         if expr.concurrent:
             parts.append("CONCURRENTLY")
         parts.append(expr.view.to_sql()[0])
-        if expr.with_data is not None:
-            parts.append("WITH DATA" if expr.with_data else "WITH NO DATA")
+        if expr.with_data:
+            parts.append("WITH DATA")
+        elif expr.no_data:
+            parts.append("WITH NO DATA")
         return " ".join(parts), ()
 
 
@@ -316,6 +343,10 @@ class TruncateMixin:
         """Whether the CASCADE option is supported (defaults to False)."""
         return False
 
+    def supports_truncate_restrict(self) -> bool:
+        """Whether the RESTRICT option is supported (defaults to False)."""
+        return False
+
     def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
         """Format a TRUNCATE statement.
 
@@ -337,20 +368,34 @@ class TruncateMixin:
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
-        if expr.restart_identity and not self.supports_truncate_restart_identity():
+        if (expr.restart_identity or expr.continue_identity) and not self.supports_truncate_restart_identity():
+            feature = (
+                "TRUNCATE RESTART IDENTITY"
+                if expr.restart_identity
+                else "TRUNCATE CONTINUE IDENTITY"
+            )
             raise UnsupportedFeatureError(
-                self.name, "TRUNCATE RESTART IDENTITY",
-                f"{self.name} does not support TRUNCATE with RESTART IDENTITY."
+                self.name, feature,
+                f"{self.name} does not support TRUNCATE with identity continuation."
             )
         if expr.cascade and not self.supports_truncate_cascade():
             raise UnsupportedFeatureError(
                 self.name, "TRUNCATE CASCADE",
                 f"{self.name} does not support TRUNCATE with CASCADE."
             )
+        if expr.restrict and not self.supports_truncate_restrict():
+            raise UnsupportedFeatureError(
+                self.name, "TRUNCATE RESTRICT",
+                f"{self.name} does not support TRUNCATE with RESTRICT."
+            )
         table_sql = expr.table.to_sql()[0]
         sql = f"TRUNCATE TABLE {table_sql}"
         if expr.restart_identity:
             sql += " RESTART IDENTITY"
+        elif expr.continue_identity:
+            sql += " CONTINUE IDENTITY"
         if expr.cascade:
             sql += " CASCADE"
+        elif expr.restrict:
+            sql += " RESTRICT"
         return sql, ()

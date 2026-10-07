@@ -122,3 +122,26 @@ class TestIdentityColumnProtocol:
                 f"SQLiteDialect re-declares {probe}; the mixin default is right"
             )
             assert getattr(SQLiteDialect(), probe)() is False
+
+
+class TestIdentitySpellingHooks:
+    """Spelling is per form, and the negative form has its own hook.
+
+    ``identity_cycle_keyword`` / ``identity_order_keyword`` take a bool because
+    they are internal spelling selectors, not node parameters. The cache pair
+    is split the same way: ``identity_cache_keyword`` spells a positive count
+    and ``identity_no_cache_keyword`` spells NO CACHE -- there is no sentinel
+    count (``cache=0``) anywhere.
+    """
+
+    def test_defaults_are_the_sql_standard_spellings(self):
+        class GenericDialect(IdentityColumnMixin):
+            pass
+
+        dialect = GenericDialect()
+        assert dialect.identity_cycle_keyword(True) == "CYCLE"
+        assert dialect.identity_cycle_keyword(False) == "NO CYCLE"
+        assert dialect.identity_order_keyword(True) == "ORDER"
+        assert dialect.identity_order_keyword(False) == "NO ORDER"
+        assert dialect.identity_cache_keyword(10) == "CACHE 10"
+        assert dialect.identity_no_cache_keyword() == "NO CACHE"

@@ -128,6 +128,9 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
 
         if isinstance(attr, IdentityAttribute):
+            # The AR-layer IdentityAttribute keeps its tri-state until the AR
+            # layer's exposure of the split is decided (out of scope for this
+            # round); translate it to the expression layer's two parameters.
             clause = IdentityClause(
                 self,
                 attr.generation,
@@ -135,7 +138,8 @@ class DDLColumnMixin:
                 increment=attr.increment,
                 minvalue=attr.minvalue,
                 maxvalue=attr.maxvalue,
-                cycle=attr.cycle,
+                cycle=attr.cycle is True,
+                no_cycle=attr.cycle is False,
             )
             return self.format_identity_clause(clause)
         if isinstance(attr, CollationAttribute):
@@ -317,11 +321,12 @@ class DDLColumnMixin:
         return bool(checker())
 
     def _format_constraint_enforcement(self, constraint: Any) -> str:
-        enforced = getattr(constraint, "enforced", None)
-        if enforced is None:
+        enforced = getattr(constraint, "enforced", False)
+        not_enforced = getattr(constraint, "not_enforced", False)
+        if not enforced and not not_enforced:
             return ""
-        if not isinstance(enforced, bool):
-            raise TypeError("constraint enforced must be a bool or None")
+        if not isinstance(enforced, bool) or not isinstance(not_enforced, bool):
+            raise TypeError("constraint enforced/not_enforced must be bools")
         from ...expression.statements import TableConstraintType
 
         constraint_type = normalize_table_constraint_type(
@@ -452,11 +457,15 @@ class DDLColumnMixin:
             ColumnConstraintType.UNIQUE: " UNIQUE",
         }
         if ctype in simple_constraints:
-            if getattr(constraint, "enforced", None) is not None:
+            if getattr(constraint, "enforced", False) or getattr(
+                constraint, "not_enforced", False
+            ):
                 self._format_constraint_enforcement(constraint)
             return simple_constraints[ctype], ()
         if ctype == ColumnConstraintType.DEFAULT:
-            if getattr(constraint, "enforced", None) is not None:
+            if getattr(constraint, "enforced", False) or getattr(
+                constraint, "not_enforced", False
+            ):
                 self._format_constraint_enforcement(constraint)
             return self.format_default_constraint(constraint)
         if ctype == ColumnConstraintType.CHECK:
@@ -605,15 +614,17 @@ class DDLColumnMixin:
                     f"{self.name} does not support ON UPDATE for foreign keys."
                 )
             result += f" ON UPDATE {on_update}"
-        if expr.deferrable is True:
-            if expr.initially_deferred is True:
-                result += " DEFERRABLE INITIALLY DEFERRED"
-            elif expr.initially_deferred is False:
-                result += " DEFERRABLE INITIALLY IMMEDIATE"
-            else:
-                result += " DEFERRABLE"
-        elif expr.deferrable is False:
-            result += " NOT DEFERRABLE"
+        if expr.deferrable or expr.not_deferrable:
+            result += " DEFERRABLE" if expr.deferrable else " NOT DEFERRABLE"
+        # INITIALLY ... is an independent constraint attribute in the SQL
+        # grammar (PostgreSQL accepts it alone), so it is rendered whenever it
+        # was requested rather than dropped when DEFERRABLE is absent.
+        if expr.initially_deferred or expr.initially_immediate:
+            result += (
+                " INITIALLY DEFERRED"
+                if expr.initially_deferred
+                else " INITIALLY IMMEDIATE"
+            )
         return result, ()
 
     @staticmethod
@@ -662,7 +673,9 @@ class DDLColumnMixin:
             on_delete=constraint.on_delete,
             on_update=constraint.on_update,
             deferrable=constraint.deferrable,
+            not_deferrable=constraint.not_deferrable,
             initially_deferred=constraint.initially_deferred,
+            initially_immediate=constraint.initially_immediate,
         )
         ref_sql, ref_params = self.format_references_clause(references)
         enforcement = self._format_constraint_enforcement(constraint)
@@ -757,7 +770,9 @@ class DDLColumnMixin:
             on_update=on_update,
             match_type=match_type,
             deferrable=t_const.deferrable,
+            not_deferrable=t_const.not_deferrable,
             initially_deferred=t_const.initially_deferred,
+            initially_immediate=t_const.initially_immediate,
         )
         ref_sql, ref_params = self.format_references_clause(references)
         return f"FOREIGN KEY ({cols_str}) {ref_sql}", tuple(ref_params)

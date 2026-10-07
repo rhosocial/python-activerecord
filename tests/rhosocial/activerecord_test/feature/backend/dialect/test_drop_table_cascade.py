@@ -5,9 +5,10 @@ TableMixin helper.
 
 Covers:
 - TableMixin default capability switch values (True/True optimistic).
-- Gating: cascade=True/False raising UnsupportedFeatureError when unsupported.
-- Gating: cascade=None (omit) is always allowed, even on dialects that reject
-  the keywords.
+- Gating: cascade=True / restrict=True raising UnsupportedFeatureError when
+  unsupported.
+- Gating: neither spelling set (unspecified) is always allowed, even on
+  dialects that reject the keywords.
 - Real SQLite dialect (False/False) confirms gating does not depend on subclass
   of DummyDialect.
 - Serialization round-trip of a DropTableExpression with cascade=True.
@@ -58,7 +59,7 @@ class TestDropTableCascadeCapabilitySwitches:
     def test_dummy_dialect_renders_restrict(self):
         """DummyDialect renders the standard RESTRICT token when supported."""
         dialect = DummyDialect()
-        expr = DropTableExpression(dialect, table=Table(dialect, 'users'), cascade=False)
+        expr = DropTableExpression(dialect, table=Table(dialect, 'users'), restrict=True)
         sql, params = expr.to_sql()
         assert sql.endswith(" RESTRICT")
         assert "CASCADE" not in sql
@@ -72,20 +73,29 @@ class TestDropTableCascadeCapabilitySwitches:
             expr.to_sql()
 
     def test_no_cascade_dialect_rejects_restrict(self):
-        """cascade=False raises UnsupportedFeatureError when unsupported."""
+        """restrict=True raises UnsupportedFeatureError when unsupported."""
         dialect = NoCascadeDialect()
-        expr = DropTableExpression(dialect, table=Table(dialect, 'users'), cascade=False)
+        expr = DropTableExpression(dialect, table=Table(dialect, 'users'), restrict=True)
         with pytest.raises(UnsupportedFeatureError, match="DROP TABLE ... RESTRICT"):
             expr.to_sql()
 
-    def test_cascade_none_always_allowed(self):
-        """cascade=None is always allowed, even on dialects that reject keywords."""
+    def test_unset_behavior_always_allowed(self):
+        """Neither spelling set is always allowed, even on rejecting dialects."""
         dialect = NoCascadeDialect()
-        expr = DropTableExpression(dialect, table=Table(dialect, 'users'), cascade=None)
+        expr = DropTableExpression(dialect, table=Table(dialect, 'users'))
         sql, params = expr.to_sql()
         assert "CASCADE" not in sql
         assert "RESTRICT" not in sql
         assert params == ()
+
+    def test_both_spellings_are_refused(self):
+        dialect = DummyDialect()
+        with pytest.raises(
+            ValueError, match="cascade and restrict are mutually exclusive"
+        ):
+            DropTableExpression(
+                dialect, table=Table(dialect, 'users'), cascade=True, restrict=True
+            )
 
     def test_real_sqlite_dialect_rejects_cascade(self):
         """The real SQLite dialect (False/False) confirms gating without subclassing.
@@ -101,7 +111,7 @@ class TestDropTableCascadeCapabilitySwitches:
             expr.to_sql()
 
     def test_real_sqlite_dialect_plain_drop_still_works(self):
-        """A plain DROP TABLE on SQLite (cascade=None) renders normally."""
+        """A plain DROP TABLE on SQLite (neither spelling set) renders normally."""
         dialect = SQLiteDialect()
         expr = DropTableExpression(dialect, table=Table(dialect, 'users'), if_exists=True)
         sql, params = expr.to_sql()
@@ -127,13 +137,14 @@ class TestDropTableCascadeSerialization:
         assert sql == expected_sql
         assert params == expected_params
 
-    def test_cascade_false_serialization_roundtrip(self):
+    def test_restrict_serialization_roundtrip(self):
         dialect = DummyDialect()
-        expr = DropTableExpression(dialect, table=Table(dialect, 'users'), cascade=False)
+        expr = DropTableExpression(dialect, table=Table(dialect, 'users'), restrict=True)
 
         expected_sql, expected_params = expr.to_sql()
 
         spec = serialize(expr)
+        assert spec["params"]["restrict"] is True
         assert spec["params"]["cascade"] is False
 
         restored = deserialize(spec, dialect)

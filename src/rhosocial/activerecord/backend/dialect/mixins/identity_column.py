@@ -130,14 +130,24 @@ class IdentityColumnMixin:
         return "ORDER" if order else "NO ORDER"
 
     def identity_cache_keyword(self, cache: int) -> str:
-        """The dialect's spelling of an explicit cache setting.
+        """The dialect's spelling of a positive cache setting.
 
-        Defaults to the SQL-standard spelling, ``NO CACHE`` with the space,
-        and follows the sequence node's precedent for a falsy count: ``cache=0``
-        means ``NO CACHE``, not ``CACHE 0``. Dialects with a different negative
-        form override this hook.
+        Defaults to the SQL-standard ``CACHE n`` with the space. The negative
+        spelling (``NO CACHE``) has its own hook,
+        :meth:`identity_no_cache_keyword`; there is no sentinel count for it.
+        Dialects with a different negative form override that hook.
         """
-        return f"CACHE {cache}" if cache else "NO CACHE"
+        return f"CACHE {cache}"
+
+    def identity_no_cache_keyword(self) -> str:
+        """The dialect's spelling of ``NO CACHE``.
+
+        Defaults to the SQL-standard spelling, ``NO CACHE`` with the space.
+        A dialect whose grammar spells the negative form differently (Oracle's
+        ``NOCACHE``) overrides this hook; the formatter keeps gating and calls
+        the hook only for spelling.
+        """
+        return "NO CACHE"
 
     def format_identity_clause(self, expr: "IdentityClause") -> Tuple[str, Tuple]:
         """Format the SQL-standard identity clause.
@@ -219,7 +229,7 @@ class IdentityColumnMixin:
                     f"{self.name} does not support the MAXVALUE identity option."
                 )
             attributes.append(f"MAXVALUE {expr.maxvalue}")
-        if expr.cycle is not None:
+        if expr.cycle or expr.no_cycle:
             if not self.supports_identity_cycle():
                 raise UnsupportedFeatureError(
                     self.name, "IDENTITY CYCLE",
@@ -233,7 +243,14 @@ class IdentityColumnMixin:
                     f"{self.name} does not support the CACHE identity option."
                 )
             attributes.append(self.identity_cache_keyword(expr.cache))
-        if expr.order is not None:
+        if expr.no_cache:
+            if not self.supports_identity_cache():
+                raise UnsupportedFeatureError(
+                    self.name, "IDENTITY CACHE",
+                    f"{self.name} does not support the CACHE identity option."
+                )
+            attributes.append(self.identity_no_cache_keyword())
+        if expr.order or expr.no_order:
             if not self.supports_identity_order():
                 raise UnsupportedFeatureError(
                     self.name, "IDENTITY ORDER",

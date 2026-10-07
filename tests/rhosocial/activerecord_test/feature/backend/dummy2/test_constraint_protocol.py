@@ -281,13 +281,13 @@ class TestConstraintEnforcementAndValidation:
             TableConstraintType.CHECK,
             name="age_check",
             check_condition=condition,
-            enforced=False,
+            not_enforced=True,
         )
         column_constraint = ColumnConstraint(
             dialect,
             ColumnConstraintType.CHECK,
             check_condition=condition,
-            enforced=False,
+            not_enforced=True,
         )
         expression = CreateTableExpression(
             dialect,
@@ -331,7 +331,7 @@ class TestConstraintEnforcementAndValidation:
             dialect,
             ColumnConstraintType.CHECK,
             check_condition=condition,
-            enforced=False,
+            not_enforced=True,
         )
         with pytest.raises(UnsupportedFeatureError):
             constraint.to_sql()
@@ -350,7 +350,7 @@ class TestConstraintEnforcementAndValidation:
         action = AlterConstraint(
             dialect,
             "age_check",
-            False,
+            not_enforced=True,
             constraint_type=ColumnConstraintType.CHECK,
         )
         assert action.constraint_type is TableConstraintType.CHECK

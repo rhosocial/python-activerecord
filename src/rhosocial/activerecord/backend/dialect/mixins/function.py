@@ -144,6 +144,10 @@ class FunctionMixin:
         """Whether DROP FUNCTION CASCADE is supported (defaults to False)."""
         return False
 
+    def supports_drop_function_restrict(self) -> bool:
+        """Whether DROP FUNCTION RESTRICT is supported (defaults to False)."""
+        return False
+
     def supports_functions(self) -> Dict[str, bool]:
         """Return supported SQL functions as function_name -> bool mapping.
 
@@ -279,5 +283,12 @@ class FunctionMixin:
                     f"{self.name} does not support DROP FUNCTION CASCADE."
                 )
             parts.append("CASCADE")
+        elif expr.restrict:
+            if not self.supports_drop_function_restrict():
+                raise UnsupportedFeatureError(
+                    self.name, "DROP FUNCTION RESTRICT",
+                    f"{self.name} does not support DROP FUNCTION RESTRICT."
+                )
+            parts.append("RESTRICT")
 
         return " ".join(parts), ()

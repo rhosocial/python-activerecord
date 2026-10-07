@@ -34,11 +34,21 @@ class SQLiteTransactionMixin:
         return True
 
     def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
-        """Format BEGIN TRANSACTION statement for SQLite."""
+        """Format BEGIN TRANSACTION statement for SQLite.
+
+        SQLite has no DEFERRABLE transaction mode; a requested spelling is
+        refused rather than silently dropped.
+        """
         from rhosocial.activerecord.backend.errors import UnsupportedTransactionModeError
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
         from rhosocial.activerecord.backend.transaction import IsolationLevel, TransactionMode
 
         params = expr.get_params()
+        if params.get("deferrable") or params.get("not_deferrable"):
+            raise UnsupportedFeatureError(
+                self.name, "DEFERRABLE transaction",
+                "SQLite does not support DEFERRABLE transactions.",
+            )
         mode = params.get("mode")
 
         if mode == TransactionMode.READ_ONLY:

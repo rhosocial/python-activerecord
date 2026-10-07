@@ -17,6 +17,17 @@ class CreateSequenceExpression(BaseExpression):
     Sequences are used for generating unique numbers, typically for
     auto-increment columns. Not all databases support standalone sequences.
 
+    Each spellable alternative has its own parameter, and "unspecified" is the
+    state where none of a pair's parameters is set:
+
+    * ``cycle`` / ``no_cycle`` -- CYCLE and NO CYCLE are two spellings;
+    * ``cache`` / ``no_cache`` -- CACHE n and NO CACHE are two spellings;
+    * ``order`` / ``no_order`` -- ORDER and NO ORDER are two spellings.
+
+    Setting both parameters of a pair raises ``ValueError`` (API misuse, not a
+    capability question). ``cache`` must be a positive count: ``0`` is not a
+    spelling of NO CACHE -- use ``no_cache=True``.
+
     Examples:
         # Basic sequence
         create_seq = CreateSequenceExpression(
@@ -32,7 +43,7 @@ class CreateSequenceExpression(BaseExpression):
             increment=1,
             minvalue=1000,
             maxvalue=999999,
-            cycle=False
+            no_cycle=True
         )
 
         # Sequence with cache
@@ -54,11 +65,24 @@ class CreateSequenceExpression(BaseExpression):
         minvalue: Optional[int] = None,
         maxvalue: Optional[int] = None,
         cycle: bool = False,
+        no_cycle: bool = False,
         cache: Optional[int] = None,
+        no_cache: bool = False,
         order: bool = False,
+        no_order: bool = False,
         owned_by: Optional[str] = None,
     ):
         super().__init__(dialect)
+        if cycle and no_cycle:
+            raise ValueError("cycle and no_cycle are mutually exclusive options")
+        if cache is not None and no_cache:
+            raise ValueError("cache and no_cache are mutually exclusive options")
+        if order and no_order:
+            raise ValueError("order and no_order are mutually exclusive options")
+        if cache is not None and cache <= 0:
+            raise ValueError(
+                "cache must be a positive integer; use no_cache=True to spell NO CACHE"
+            )
         self.sequence = sequence
         self.if_not_exists = if_not_exists
         self.start = start
@@ -66,8 +90,11 @@ class CreateSequenceExpression(BaseExpression):
         self.minvalue = minvalue
         self.maxvalue = maxvalue
         self.cycle = cycle
+        self.no_cycle = no_cycle
         self.cache = cache
+        self.no_cache = no_cache
         self.order = order
+        self.no_order = no_order
         self.owned_by = owned_by
 
     @property
@@ -138,6 +165,12 @@ class AlterSequenceExpression(BaseExpression):
             maxvalue=1000000,
             cycle=True
         )
+
+    Like :class:`CreateSequenceExpression`, each alternative of a two-spelling
+    clause has its own parameter: ``cycle`` / ``no_cycle``, ``cache`` /
+    ``no_cache``, ``order`` / ``no_order``. Setting both of a pair raises
+    ``ValueError``; ``cache`` must be a positive count (``no_cache=True``
+    spells NO CACHE).
     """
 
     def __init__(
@@ -149,12 +182,25 @@ class AlterSequenceExpression(BaseExpression):
         increment: Optional[int] = None,
         minvalue: Optional[int] = None,
         maxvalue: Optional[int] = None,
-        cycle: Optional[bool] = None,
+        cycle: bool = False,
+        no_cycle: bool = False,
         cache: Optional[int] = None,
-        order: Optional[bool] = None,
+        no_cache: bool = False,
+        order: bool = False,
+        no_order: bool = False,
         owned_by: Optional[str] = None,
     ):
         super().__init__(dialect)
+        if cycle and no_cycle:
+            raise ValueError("cycle and no_cycle are mutually exclusive options")
+        if cache is not None and no_cache:
+            raise ValueError("cache and no_cache are mutually exclusive options")
+        if order and no_order:
+            raise ValueError("order and no_order are mutually exclusive options")
+        if cache is not None and cache <= 0:
+            raise ValueError(
+                "cache must be a positive integer; use no_cache=True to spell NO CACHE"
+            )
         self.sequence = sequence
         self.restart = restart
         self.start = start
@@ -162,8 +208,11 @@ class AlterSequenceExpression(BaseExpression):
         self.minvalue = minvalue
         self.maxvalue = maxvalue
         self.cycle = cycle
+        self.no_cycle = no_cycle
         self.cache = cache
+        self.no_cache = no_cache
         self.order = order
+        self.no_order = no_order
         self.owned_by = owned_by
 
     @property

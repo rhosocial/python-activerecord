@@ -237,9 +237,11 @@ class TestDummyProtocolSupport:
         assert dialect.supports_refresh_materialized_view() is True
         assert dialect.supports_materialized_view_tablespace() is True
         assert dialect.supports_materialized_view_storage_options() is True
+        assert dialect.supports_materialized_view_restrict() is True
         assert dialect.supports_if_exists_view() is True
         assert dialect.supports_view_check_option() is True
         assert dialect.supports_cascade_view() is True
+        assert dialect.supports_restrict_view() is True
 
     # endregion
 
@@ -250,6 +252,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_truncate_table_keyword() is True
         assert dialect.supports_truncate_restart_identity() is True
         assert dialect.supports_truncate_cascade() is True
+        assert dialect.supports_truncate_restrict() is True
 
     # endregion
 
@@ -261,6 +264,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_schema_if_not_exists() is True
         assert dialect.supports_schema_if_exists() is True
         assert dialect.supports_schema_cascade() is True
+        assert dialect.supports_schema_restrict() is True
         assert dialect.supports_schema_authorization() is True
 
     # endregion
@@ -336,6 +340,8 @@ class TestDummyProtocolSupport:
         assert dialect.supports_drop_function() is True
         assert dialect.supports_function_or_replace() is True
         assert dialect.supports_function_parameters() is True
+        assert dialect.supports_drop_function_cascade() is True
+        assert dialect.supports_drop_function_restrict() is True
 
     # endregion
 
