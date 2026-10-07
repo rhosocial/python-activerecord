@@ -79,6 +79,11 @@ class SQLiteViewMixin:
         """SQLite does not support CASCADE for DROP VIEW."""
         return False
 
+    def supports_with_data_clause(self) -> bool:
+        """SQLite has no WITH [NO] DATA clause (no materialized views, and
+        ``CREATE TABLE ... AS`` is always populated)."""
+        return False
+
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """Format CREATE VIEW statement for SQLite."""
         parts = ["CREATE"]

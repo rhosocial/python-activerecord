@@ -197,6 +197,18 @@ class TestDummyProtocolSupport:
 
     # endregion
 
+    # region Transaction Control Support
+    def test_transaction_control_support_methods(self, dialect):
+        """Test TransactionControlSupport protocol methods."""
+        assert dialect.supports_transaction_mode() is True
+        assert dialect.supports_isolation_level_in_begin() is True
+        assert dialect.supports_read_only_transaction() is True
+        assert dialect.supports_deferrable_transaction() is True
+        assert dialect.supports_transaction_wait() is True
+        assert dialect.supports_savepoint() is True
+
+    # endregion
+
     # region Table DDL Support
     def test_table_support_methods(self, dialect):
         """Test TableObjectSupport protocol methods."""
@@ -238,6 +250,7 @@ class TestDummyProtocolSupport:
         assert dialect.supports_materialized_view_tablespace() is True
         assert dialect.supports_materialized_view_storage_options() is True
         assert dialect.supports_materialized_view_restrict() is True
+        assert dialect.supports_with_data_clause() is True
         assert dialect.supports_if_exists_view() is True
         assert dialect.supports_view_check_option() is True
         assert dialect.supports_cascade_view() is True

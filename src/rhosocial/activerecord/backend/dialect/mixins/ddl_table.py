@@ -260,6 +260,17 @@ class TableMixin:
         """
         return True
 
+    def supports_with_data_clause(self) -> bool:
+        """Whether ``WITH [NO] DATA`` is supported on CTAS.
+
+        The clause is shared with materialized views (where
+        :class:`MaterializedViewSupport` declares the same probe); the CTAS
+        renderer consults it too, so a dialect whose grammar has no such clause
+        refuses the request by name instead of emitting server-rejected SQL.
+        Defaults to ``False``.
+        """
+        return False
+
     def supports_create_table_clone(self) -> bool:
         """Whether ``CREATE TABLE ... CLONE/COPY`` is supported.
 
@@ -672,6 +683,13 @@ class TableMixin:
 
         if not self.supports_create_table_as():
             raise UnsupportedFeatureError(self.name, "CREATE TABLE ... AS")
+
+        if (expr.with_data or expr.no_data) and not self.supports_with_data_clause():
+            feature = "WITH DATA" if expr.with_data else "WITH NO DATA"
+            raise UnsupportedFeatureError(
+                self.name, feature,
+                f"{self.name} does not support {feature} for CREATE TABLE AS."
+            )
 
         all_params: List[Any] = []
         temp_part = "TEMPORARY " if expr.temporary else ""

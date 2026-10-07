@@ -79,6 +79,18 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_transaction_wait(self) -> bool:
+        """Whether the transaction lock-wait clause (``WAIT`` / ``NO WAIT``) is supported.
+
+        Firebird-specific: ``SET TRANSACTION ... [WAIT | NO WAIT]``.  The probe
+        answers the capability question; ``wait`` / ``no_wait`` on
+        :class:`~....expression.transaction.BeginTransactionExpression` and
+        :class:`~....expression.transaction.SetTransactionExpression` select
+        the spelling.  Defaults to False for dialects whose grammar has no
+        such clause.
+        """
+        ...  # pragma: no cover
+
     def supports_savepoint(self) -> bool:
         """Whether savepoints are supported.
 

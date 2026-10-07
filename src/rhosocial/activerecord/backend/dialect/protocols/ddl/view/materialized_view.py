@@ -61,6 +61,20 @@ class MaterializedViewSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def supports_with_data_clause(self) -> bool:
+        """Whether the ``WITH [NO] DATA`` population clause is supported.
+
+        The clause is shared by ``CREATE TABLE ... AS`` (whose renderer is
+        declared by :class:`CreateTableAsSupport`), ``CREATE MATERIALIZED
+        VIEW`` and ``REFRESH MATERIALIZED VIEW``.  The probe is declared once,
+        here, and consulted by all three renderers; the parameters
+        ``with_data`` / ``no_data`` select the spelling.
+
+        Defaults to ``False``; a dialect that accepts the clause returns
+        ``True``.
+        """
+        ...  # pragma: no cover
+
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
         """Render a :class:`~....expression.statements.CreateMaterializedViewExpression`.
 

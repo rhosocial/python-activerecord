@@ -29,6 +29,10 @@ class SQLiteTransactionMixin:
         """SQLite does not support DEFERRABLE mode."""
         return False
 
+    def supports_transaction_wait(self) -> bool:
+        """SQLite has no WAIT / NO WAIT transaction clause."""
+        return False
+
     def supports_savepoint(self) -> bool:
         """SQLite supports savepoints."""
         return True
@@ -48,6 +52,12 @@ class SQLiteTransactionMixin:
             raise UnsupportedFeatureError(
                 self.name, "DEFERRABLE transaction",
                 "SQLite does not support DEFERRABLE transactions.",
+            )
+        if params.get("wait") or params.get("no_wait"):
+            feature = "WAIT" if params.get("wait") else "NO WAIT"
+            raise UnsupportedFeatureError(
+                self.name, f"transaction {feature}",
+                f"SQLite does not support the {feature} transaction clause.",
             )
         mode = params.get("mode")
 

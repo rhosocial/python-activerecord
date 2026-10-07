@@ -1115,6 +1115,10 @@ class DummyDialect(
     def supports_materialized_view_restrict(self) -> bool:
         return True
 
+    def supports_with_data_clause(self) -> bool:
+        """Dummy renders the clause on CTAS and materialized views."""
+        return True
+
     def supports_if_exists_view(self) -> bool:
         return True
 
@@ -1509,6 +1513,10 @@ class DummyDialect(
         """Dummy backend supports DEFERRABLE transactions."""
         return True
 
+    def supports_transaction_wait(self) -> bool:
+        """Dummy backend supports the WAIT / NO WAIT transaction clause."""
+        return True
+
     def supports_savepoint(self) -> bool:
         """Dummy backend supports savepoints."""
         return True
@@ -1537,6 +1545,17 @@ class DummyDialect(
             parts.append("DEFERRABLE")
         elif not_deferrable:
             parts.append("NOT DEFERRABLE")
+
+        wait = params.get("wait")
+        no_wait = params.get("no_wait")
+        if wait or no_wait:
+            if not self.supports_transaction_wait():
+                feature = "WAIT" if wait else "NO WAIT"
+                raise UnsupportedFeatureError(
+                    self.name, f"transaction {feature}",
+                    f"{self.name} does not support the {feature} transaction clause.",
+                )
+            parts.append("WAIT" if wait else "NO WAIT")
 
         return " ".join(parts), ()
 
@@ -1594,6 +1613,17 @@ class DummyDialect(
             options.append("DEFERRABLE")
         elif params.get("not_deferrable"):
             options.append("NOT DEFERRABLE")
+
+        wait = params.get("wait")
+        no_wait = params.get("no_wait")
+        if wait or no_wait:
+            if not self.supports_transaction_wait():
+                feature = "WAIT" if wait else "NO WAIT"
+                raise UnsupportedFeatureError(
+                    self.name, f"transaction {feature}",
+                    f"{self.name} does not support the {feature} transaction clause.",
+                )
+            options.append("WAIT" if wait else "NO WAIT")
 
         if options:
             parts.append(" ".join(options))

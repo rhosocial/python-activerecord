@@ -71,6 +71,16 @@ class ViewMixin:
         """Whether DROP MATERIALIZED VIEW RESTRICT is supported (defaults to False)."""
         return False
 
+    def supports_with_data_clause(self) -> bool:
+        """Whether the ``WITH [NO] DATA`` population clause is supported.
+
+        The clause is shared by ``CREATE TABLE ... AS``, ``CREATE MATERIALIZED
+        VIEW`` and ``REFRESH MATERIALIZED VIEW``; the probe is declared once, by
+        :class:`MaterializedViewSupport`, and consulted by all three consumers.
+        Defaults to False.
+        """
+        return False
+
     def supports_if_exists_view(self) -> bool:
         """Whether DROP VIEW IF EXISTS is supported (defaults to False)."""
         return False
@@ -218,6 +228,12 @@ class ViewMixin:
             )
         if not self.supports_materialized_view():
             raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW")
+        if (expr.with_data or expr.no_data) and not self.supports_with_data_clause():
+            feature = "WITH DATA" if expr.with_data else "WITH NO DATA"
+            raise UnsupportedFeatureError(
+                self.name, feature,
+                f"{self.name} does not support {feature} for materialized views."
+            )
 
         parts = ["CREATE MATERIALIZED VIEW"]
         parts.append(expr.view.to_sql()[0])
@@ -308,6 +324,12 @@ class ViewMixin:
             )
         if not self.supports_refresh_materialized_view():
             raise UnsupportedFeatureError(self.name, "REFRESH MATERIALIZED VIEW")
+        if (expr.with_data or expr.no_data) and not self.supports_with_data_clause():
+            feature = "WITH DATA" if expr.with_data else "WITH NO DATA"
+            raise UnsupportedFeatureError(
+                self.name, feature,
+                f"{self.name} does not support {feature} for materialized views."
+            )
 
         parts = ["REFRESH MATERIALIZED VIEW"]
         if expr.concurrent:
@@ -359,8 +381,8 @@ class TruncateMixin:
         Raises:
             TypeError: ``TruncateExpression.table`` is not a Table. Another object
             kind would have had its own name rendered after TRUNCATE.
-            UnsupportedFeatureError: If the dialect does not support
-                RESTART IDENTITY or CASCADE for TRUNCATE.
+            UnsupportedFeatureError: If the dialect does not support TRUNCATE,
+                or does not support RESTART IDENTITY or CASCADE for TRUNCATE.
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
@@ -368,6 +390,11 @@ class TruncateMixin:
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
+        if not self.supports_truncate():
+            raise UnsupportedFeatureError(
+                self.name, "TRUNCATE",
+                f"{self.name} does not support TRUNCATE.",
+            )
         if (expr.restart_identity or expr.continue_identity) and not self.supports_truncate_restart_identity():
             feature = (
                 "TRUNCATE RESTART IDENTITY"

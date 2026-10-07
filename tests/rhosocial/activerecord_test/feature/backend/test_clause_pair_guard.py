@@ -151,6 +151,28 @@ def _column_fk(d, **kw):
     )
 
 
+#: Switchboard dialects for the probe gates: DummyDialect declares every
+#: capability True, so flipping exactly one probe to False isolates the gate.
+class _NoMaterializedCTE(DummyDialect):
+    def supports_materialized_cte(self) -> bool:
+        return False
+
+
+class _NoTruncate(DummyDialect):
+    def supports_truncate(self) -> bool:
+        return False
+
+
+class _NoWithDataClause(DummyDialect):
+    def supports_with_data_clause(self) -> bool:
+        return False
+
+
+class _NoTransactionWait(DummyDialect):
+    def supports_transaction_wait(self) -> bool:
+        return False
+
+
 class PairCase:
     """One two-spelling clause and how to render it in each state."""
 
@@ -460,6 +482,25 @@ PAIR_CASES = (
         r"(?<!NOT )DEFERRABLE\b",
         r"NOT DEFERRABLE\b",
     ),
+    # Firebird's two-spelling transaction lock-wait clause. The parameter was
+    # missing from the expression layer entirely, so the dead dialect helper
+    # (_format_begin_sql(wait=...)) could never be reached.
+    PairCase(
+        "BeginTransactionExpression.wait",
+        lambda d, **kw: BeginTransactionExpression(d, **kw),
+        "wait",
+        "no_wait",
+        r"(?<!NO )WAIT\b",
+        r"NO WAIT\b",
+    ),
+    PairCase(
+        "SetTransactionExpression.wait",
+        lambda d, **kw: SetTransactionExpression(d, **kw),
+        "wait",
+        "no_wait",
+        r"(?<!NO )WAIT\b",
+        r"NO WAIT\b",
+    ),
 )
 
 PAIR_IDS = [case.case_id for case in PAIR_CASES]
@@ -585,6 +626,110 @@ class TestSilentIgnoresAreRefusedOrMadeLegal:
             BeginTransactionExpression(sqlite, not_deferrable=True).to_sql()
 
 
+class TestDeclaredProbeGatesTheClause:
+    """A clause the dialect's probe declines is refused by name, never dropped.
+
+    Three clauses had no gate at all before this round:
+
+    * ``MATERIALIZED`` / ``NOT MATERIALIZED`` on a CTE must consult
+      ``supports_materialized_cte()``;
+    * ``TRUNCATE`` itself must consult ``supports_truncate()``;
+    * ``WITH [NO] DATA`` (CTAS, CREATE/REFRESH MATERIALIZED VIEW) must consult
+      the clause probe ``supports_with_data_clause()``.
+
+    ``DummyDialect`` declares every capability ``True``, so a subclass that
+    flips one probe to ``False`` is the switchboard for the refusal path.
+    """
+
+    def test_materialized_cte_is_refused_without_the_probe(self):
+        d = _NoMaterializedCTE()
+        assert d.supports_materialized_cte() is False
+        with pytest.raises(UnsupportedFeatureError, match="MATERIALIZED CTE"):
+            CTEExpression(d, "c", _query(d), materialized=True).to_sql()
+        with pytest.raises(UnsupportedFeatureError, match="NOT MATERIALIZED CTE"):
+            CTEExpression(d, "c", _query(d), not_materialized=True).to_sql()
+        # Neither spelling requested: the probe is not consulted, nothing refused.
+        sql, _params = CTEExpression(d, "c", _query(d)).to_sql()
+        assert "MATERIALIZED" not in sql
+
+    def test_truncate_is_refused_without_the_probe(self):
+        d = _NoTruncate()
+        assert d.supports_truncate() is False
+        with pytest.raises(UnsupportedFeatureError, match="TRUNCATE"):
+            TruncateExpression(d, _table(d)).to_sql()
+
+    def test_with_data_is_refused_without_the_probe(self):
+        d = _NoWithDataClause()
+        assert d.supports_with_data_clause() is False
+        for builder, kwargs, feature in (
+            (
+                lambda dd, **kw: CreateTableAsExpression(dd, _table(dd), _query(dd), **kw),
+                {"with_data": True},
+                "WITH DATA",
+            ),
+            (
+                lambda dd, **kw: CreateTableAsExpression(dd, _table(dd), _query(dd), **kw),
+                {"no_data": True},
+                "WITH NO DATA",
+            ),
+            (
+                lambda dd, **kw: CreateMaterializedViewExpression(
+                    dd, MaterializedView(dd, "mv"), _query(dd), **kw
+                ),
+                {"with_data": True},
+                "WITH DATA",
+            ),
+            (
+                lambda dd, **kw: CreateMaterializedViewExpression(
+                    dd, MaterializedView(dd, "mv"), _query(dd), **kw
+                ),
+                {"no_data": True},
+                "WITH NO DATA",
+            ),
+            (
+                lambda dd, **kw: RefreshMaterializedViewExpression(
+                    dd, MaterializedView(dd, "mv"), **kw
+                ),
+                {"with_data": True},
+                "WITH DATA",
+            ),
+            (
+                lambda dd, **kw: RefreshMaterializedViewExpression(
+                    dd, MaterializedView(dd, "mv"), **kw
+                ),
+                {"no_data": True},
+                "WITH NO DATA",
+            ),
+        ):
+            with pytest.raises(UnsupportedFeatureError, match=feature):
+                builder(d, **kwargs).to_sql()
+
+    def test_transaction_wait_is_refused_without_the_probe(self):
+        d = _NoTransactionWait()
+        assert d.supports_transaction_wait() is False
+        with pytest.raises(UnsupportedFeatureError, match="WAIT"):
+            BeginTransactionExpression(d, wait=True).to_sql()
+        with pytest.raises(UnsupportedFeatureError, match="NO WAIT"):
+            BeginTransactionExpression(d, no_wait=True).to_sql()
+        with pytest.raises(UnsupportedFeatureError, match="WAIT"):
+            SetTransactionExpression(d, wait=True).to_sql()
+        with pytest.raises(UnsupportedFeatureError, match="NO WAIT"):
+            SetTransactionExpression(d, no_wait=True).to_sql()
+
+    def test_sqlite_refuses_wait_it_declines(self):
+        """SQLite answers supports_transaction_wait() False: refuse by name."""
+        sqlite = SQLiteDialect()
+        assert sqlite.supports_transaction_wait() is False
+        with pytest.raises(UnsupportedFeatureError, match="WAIT"):
+            BeginTransactionExpression(sqlite, wait=True).to_sql()
+        with pytest.raises(UnsupportedFeatureError, match="NO WAIT"):
+            BeginTransactionExpression(sqlite, no_wait=True).to_sql()
+        # SQLite has no SET TRANSACTION statement at all, so the clause is
+        # subsumed by that refusal (NotImplementedError from the core mixin).
+        with pytest.raises((UnsupportedFeatureError, NotImplementedError)):
+            SetTransactionExpression(sqlite, no_wait=True).to_sql()
+
+
 class TestGuardIsNotVacuous:
     """Guards so the checks above cannot pass by accident."""
 
@@ -593,7 +738,7 @@ class TestGuardIsNotVacuous:
             assert case.a != case.b, case.case_id
 
     def test_every_pair_is_covered(self):
-        """The 30 core gaps are all in this table (plus the same-family carriers)."""
+        """The audited core pairs are all in this table (plus same-family carriers)."""
         expected = {
             "CreateSequenceExpression.cycle",
             "CreateSequenceExpression.order",
@@ -623,6 +768,8 @@ class TestGuardIsNotVacuous:
             "ColumnConstraint.enforced",
             "SetOperationExpression.all_",
             "BeginTransactionExpression.deferrable",
+            "BeginTransactionExpression.wait",
+            "SetTransactionExpression.wait",
         }
         covered = {case.case_id for case in PAIR_CASES}
         missing = expected - covered

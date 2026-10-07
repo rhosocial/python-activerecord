@@ -22,6 +22,11 @@ class CreateTableAsSupport(Protocol):
 
     One protocol per statement expression: the ``format_*`` methods below are
     the counterparts of the ``format_method`` those expressions declare.
+
+    The optional ``WITH [NO] DATA`` population clause is gated by
+    :meth:`MaterializedViewSupport.supports_with_data_clause`, which is
+    declared once for the clause's three consumers (CTAS, CREATE MATERIALIZED
+    VIEW, REFRESH MATERIALIZED VIEW).
     """
 
     def supports_create_table_as(self) -> bool:

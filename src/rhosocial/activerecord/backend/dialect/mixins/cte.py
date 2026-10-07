@@ -51,8 +51,25 @@ class CTEMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the CTE definition.
+
+        Raises:
+            UnsupportedFeatureError: If a ``MATERIALIZED`` / ``NOT MATERIALIZED``
+                hint was requested and the dialect's ``supports_materialized_cte``
+                probe declines it.
         """
         from ...expression import bases
+
+        if expr.materialized or expr.not_materialized:
+            if not self.supports_materialized_cte():
+                feature = (
+                    "MATERIALIZED CTE" if expr.materialized else "NOT MATERIALIZED CTE"
+                )
+                from ..exceptions import UnsupportedFeatureError
+
+                raise UnsupportedFeatureError(
+                    self.name, feature,
+                    f"{self.name} does not support the {feature} hint.",
+                )
 
         query = expr.query
         if isinstance(query, bases.BaseExpression):
