@@ -197,9 +197,21 @@ class TestDummyProtocolSupport:
 
     # endregion
 
+    # region Transaction Control Support
+    def test_transaction_control_support_methods(self, dialect):
+        """Test TransactionControlSupport protocol methods."""
+        assert dialect.supports_transaction_mode() is True
+        assert dialect.supports_isolation_level_in_begin() is True
+        assert dialect.supports_read_only_transaction() is True
+        assert dialect.supports_deferrable_transaction() is True
+        assert dialect.supports_transaction_wait() is True
+        assert dialect.supports_savepoint() is True
+
+    # endregion
+
     # region Table DDL Support
     def test_table_support_methods(self, dialect):
-        """Test TableSupport protocol methods."""
+        """Test TableObjectSupport protocol methods."""
         assert dialect.supports_create_table() is True
         assert dialect.supports_drop_table() is True
         assert dialect.supports_alter_table() is True
@@ -228,7 +240,7 @@ class TestDummyProtocolSupport:
 
     # region View DDL Support
     def test_view_support_methods(self, dialect):
-        """Test ViewSupport protocol methods."""
+        """Test ViewObjectSupport protocol methods."""
         assert dialect.supports_create_view() is True
         assert dialect.supports_drop_view() is True
         assert dialect.supports_or_replace_view() is True
@@ -237,9 +249,12 @@ class TestDummyProtocolSupport:
         assert dialect.supports_refresh_materialized_view() is True
         assert dialect.supports_materialized_view_tablespace() is True
         assert dialect.supports_materialized_view_storage_options() is True
+        assert dialect.supports_materialized_view_restrict() is True
+        assert dialect.supports_with_data_clause() is True
         assert dialect.supports_if_exists_view() is True
         assert dialect.supports_view_check_option() is True
         assert dialect.supports_cascade_view() is True
+        assert dialect.supports_restrict_view() is True
 
     # endregion
 
@@ -250,24 +265,26 @@ class TestDummyProtocolSupport:
         assert dialect.supports_truncate_table_keyword() is True
         assert dialect.supports_truncate_restart_identity() is True
         assert dialect.supports_truncate_cascade() is True
+        assert dialect.supports_truncate_restrict() is True
 
     # endregion
 
     # region Schema DDL Support
     def test_schema_support_methods(self, dialect):
-        """Test SchemaSupport protocol methods."""
+        """Test CreateSchemaSupport protocol methods."""
         assert dialect.supports_create_schema() is True
         assert dialect.supports_drop_schema() is True
         assert dialect.supports_schema_if_not_exists() is True
         assert dialect.supports_schema_if_exists() is True
         assert dialect.supports_schema_cascade() is True
+        assert dialect.supports_schema_restrict() is True
         assert dialect.supports_schema_authorization() is True
 
     # endregion
 
     # region Index DDL Support
     def test_index_support_methods(self, dialect):
-        """Test IndexSupport protocol methods."""
+        """Test IndexObjectSupport protocol methods."""
         assert dialect.supports_create_index() is True
         assert dialect.supports_drop_index() is True
         assert dialect.supports_unique_index() is True
@@ -295,13 +312,18 @@ class TestDummyProtocolSupport:
 
     # region Sequence DDL Support
     def test_sequence_support_methods(self, dialect):
-        """Test SequenceSupport protocol methods."""
+        """Test SequenceObjectSupport protocol methods."""
         assert dialect.supports_sequence() is True
         assert dialect.supports_create_sequence() is True
         assert dialect.supports_drop_sequence() is True
         assert dialect.supports_alter_sequence() is True
         assert dialect.supports_sequence_if_not_exists() is True
         assert dialect.supports_sequence_if_exists() is True
+        assert dialect.supports_sequence_start() is True
+        assert dialect.supports_alter_sequence_start() is True
+        assert dialect.supports_sequence_increment() is True
+        assert dialect.supports_sequence_minvalue() is True
+        assert dialect.supports_sequence_maxvalue() is True
         assert dialect.supports_sequence_cycle() is True
         assert dialect.supports_sequence_cache() is True
         assert dialect.supports_sequence_order() is True
@@ -311,7 +333,7 @@ class TestDummyProtocolSupport:
 
     # region Trigger DDL Support
     def test_trigger_support_methods(self, dialect):
-        """Test TriggerSupport protocol methods."""
+        """Test TriggerObjectSupport protocol methods."""
         assert dialect.supports_trigger() is True
         assert dialect.supports_create_trigger() is True
         assert dialect.supports_drop_trigger() is True
@@ -325,23 +347,41 @@ class TestDummyProtocolSupport:
 
     # region Function DDL Support
     def test_function_support_methods(self, dialect):
-        """Test FunctionSupport protocol methods."""
+        """Test RoutineObjectSupport protocol methods."""
         assert dialect.supports_function() is True
         assert dialect.supports_create_function() is True
         assert dialect.supports_drop_function() is True
         assert dialect.supports_function_or_replace() is True
         assert dialect.supports_function_parameters() is True
+        assert dialect.supports_drop_function_cascade() is True
+        assert dialect.supports_drop_function_restrict() is True
 
     # endregion
 
-    # region Auto Increment Support
+    # region Identity / Auto Increment Support
     def test_auto_increment_support_methods(self, dialect):
-        """Test AutoIncrementSupport protocol methods.
+        """Test AutoIncrementColumnSupport protocol methods.
 
-        DummyDialect composes AutoIncrementMixin and inherits the generic
-        behaviour without overriding it (override discipline).
+        DummyDialect composes AutoIncrementMixin and overrides the probe to
+        True: the generic mixin fails closed, and Dummy is the switchboard.
         """
-        assert dialect.supports_auto_increment() is True
+        assert dialect.supports_auto_increment_column() is True
+
+    def test_identity_support_methods(self, dialect):
+        """Test IdentityColumnSupport protocol methods.
+
+        DummyDialect overrides all nine identity probes to True so both core
+        rendering paths are reachable without a database.
+        """
+        assert dialect.supports_identity_column() is True
+        assert dialect.supports_identity_generation_always() is True
+        assert dialect.supports_identity_start() is True
+        assert dialect.supports_identity_increment() is True
+        assert dialect.supports_identity_minvalue() is True
+        assert dialect.supports_identity_maxvalue() is True
+        assert dialect.supports_identity_cycle() is True
+        assert dialect.supports_identity_order() is True
+        assert dialect.supports_identity_cache() is True
 
     # endregion
 
@@ -388,17 +428,24 @@ class TestDummyProtocolCompleteness:
             GraphSupport,
             JoinSupport,
             SetOperationSupport,
-            # DDL Protocols
-            TableSupport,
-            ViewSupport,
-            TruncateSupport,
-            SchemaSupport,
-            IndexSupport,
-            SequenceSupport,
-            TriggerSupport,
-            FunctionSupport,
             ILIKESupport,
+            # Named-object protocols
+            NamespaceSupport,
+            TableObjectSupport,
+            ViewObjectSupport,
+            MaterializedViewObjectSupport,
+            ForeignTableObjectSupport,
+            IndexObjectSupport,
+            SequenceObjectSupport,
+            TriggerObjectSupport,
+            RoutineObjectSupport,
+            TypeObjectSupport,
+            SynonymObjectSupport,
+            # DDL statement protocols
+            TruncateSupport,
+            CreateSchemaSupport,
         )
+
 
         # Verify all protocols are implemented
         assert isinstance(dialect, SQLXMLSupport)
@@ -426,15 +473,21 @@ class TestDummyProtocolCompleteness:
         assert isinstance(dialect, JoinSupport)
         assert isinstance(dialect, SetOperationSupport)
         assert isinstance(dialect, ILIKESupport)
-        # DDL Protocols
-        assert isinstance(dialect, TableSupport)
-        assert isinstance(dialect, ViewSupport)
+        # Named-object protocols
+        assert isinstance(dialect, NamespaceSupport)
+        assert isinstance(dialect, TableObjectSupport)
+        assert isinstance(dialect, ViewObjectSupport)
+        assert isinstance(dialect, MaterializedViewObjectSupport)
+        assert isinstance(dialect, ForeignTableObjectSupport)
+        assert isinstance(dialect, IndexObjectSupport)
+        assert isinstance(dialect, SequenceObjectSupport)
+        assert isinstance(dialect, TriggerObjectSupport)
+        assert isinstance(dialect, RoutineObjectSupport)
+        assert isinstance(dialect, TypeObjectSupport)
+        assert isinstance(dialect, SynonymObjectSupport)
+        # DDL statement protocols
         assert isinstance(dialect, TruncateSupport)
-        assert isinstance(dialect, SchemaSupport)
-        assert isinstance(dialect, IndexSupport)
-        assert isinstance(dialect, SequenceSupport)
-        assert isinstance(dialect, TriggerSupport)
-        assert isinstance(dialect, FunctionSupport)
+        assert isinstance(dialect, CreateSchemaSupport)
 
     def test_dialect_implements_all_runtime_checkable_protocols(self, dialect):
         """Verify DummyDialect implements ALL @runtime_checkable protocols defined in protocols.py.

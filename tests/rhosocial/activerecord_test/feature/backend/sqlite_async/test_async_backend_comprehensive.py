@@ -1172,6 +1172,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     DeleteExpression,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect  # noqa: E402
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestAsyncReturning:
@@ -1195,7 +1196,7 @@ class TestAsyncReturning:
         # 2. Create an InsertExpression with a ReturningClause
         insert_expr = InsertExpression(
             dialect=dialect,
-            into="users",
+            into=Table(dialect, 'users'),
             columns=["name"],
             source=ValuesSource(dialect, values_list=[[Literal(dialect, "test")]]),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "id")]),
@@ -1228,7 +1229,7 @@ class TestAsyncReturning:
         # Create an InsertExpression with a ReturningClause
         insert_expr = InsertExpression(
             dialect=dialect,
-            into="users",
+            into=Table(dialect, 'users'),
             columns=["name", "email"],
             source=ValuesSource(
                 dialect, values_list=[[Literal(dialect, "Alice"), Literal(dialect, "alice@example.com")]]
@@ -1273,7 +1274,7 @@ class TestAsyncReturning:
         # Update with RETURNING
         update_expr = UpdateExpression(
             dialect=dialect,
-            table="users",
+            table=Table(dialect, 'users'),
             assignments={"name": Literal(dialect, "Updated"), "email": Literal(dialect, "new@example.com")},
             where=Column(dialect, "id") == Literal(dialect, 1),
             returning=ReturningClause(
@@ -1315,7 +1316,7 @@ class TestAsyncReturning:
         # Delete with RETURNING
         delete_expr = DeleteExpression(
             dialect=dialect,
-            tables="users",
+            tables=Table(dialect, 'users'),
             where=Column(dialect, "id") == Literal(dialect, 1),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "name")]),
         )
@@ -1352,7 +1353,7 @@ class TestAsyncReturning:
         # Create an InsertExpression with an invalid column in the ReturningClause
         insert_expr = InsertExpression(
             dialect=dialect,
-            into="users",
+            into=Table(dialect, 'users'),
             columns=["name"],
             source=ValuesSource(dialect, values_list=[[Literal(dialect, "test")]]),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "invalid_column")]),
@@ -1401,7 +1402,7 @@ class TestAsyncReturning:
         # Update multiple rows with RETURNING
         update_expr = UpdateExpression(
             dialect=dialect,
-            table="users",
+            table=Table(dialect, 'users'),
             assignments={"active": Literal(dialect, 0)},
             where=Column(dialect, "active") == Literal(dialect, 1),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name")]),
@@ -1437,7 +1438,7 @@ class TestAsyncReturning:
         async with backend.transaction():
             insert_expr = InsertExpression(
                 dialect=dialect,
-                into="users",
+                into=Table(dialect, 'users'),
                 columns=["name"],
                 source=ValuesSource(dialect, values_list=[[Literal(dialect, "TransUser")]]),
                 returning=ReturningClause(dialect, expressions=[Column(dialect, "id")]),

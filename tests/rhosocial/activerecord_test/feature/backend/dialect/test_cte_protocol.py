@@ -7,8 +7,10 @@ the CTE support flag methods properly report lack of CTE support.
 """
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase, CTEMixin, CTESupport
-from rhosocial.activerecord.backend.expression import Column, QueryExpression, TableExpression
+from rhosocial.activerecord.backend.expression import Column, QueryExpression
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import CTEExpression, WithQueryExpression
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class NoCTEDialect(SQLDialectBase, CTEMixin, CTESupport):
@@ -51,7 +53,7 @@ def test_cte_expression_integration_reports_no_support():
 
     # Create a simple query to use in CTE
     query = QueryExpression(
-        dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=TableExpression(dialect, "users")
+        dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=NamedRelationRef(dialect, Table(dialect, "users"))
     )
 
     # Create CTE expression
@@ -67,14 +69,14 @@ def test_with_query_expression_integration_reports_no_support():
 
     # Create a simple query to use in CTE
     query = QueryExpression(
-        dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=TableExpression(dialect, "users")
+        dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=NamedRelationRef(dialect, Table(dialect, "users"))
     )
 
     # Create CTE
     cte = CTEExpression(dialect, name="user_cte", query=query, columns=["id", "name"])
 
     # Create main query that uses the CTE
-    main_query = QueryExpression(dialect, select=[Column(dialect, "id")], from_=TableExpression(dialect, "user_cte"))
+    main_query = QueryExpression(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "user_cte")))
 
     # Create WithQueryExpression
     WithQueryExpression(dialect, ctes=[cte], main_query=main_query)

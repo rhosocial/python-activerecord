@@ -9,7 +9,7 @@ and holds construction parameters. Rendering is centralized in
 
 from typing import TYPE_CHECKING, Any
 
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams
+from .bases import BaseExpression, SQLPredicate
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression

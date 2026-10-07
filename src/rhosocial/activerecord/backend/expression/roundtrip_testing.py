@@ -21,7 +21,7 @@ import importlib
 import inspect
 import pkgutil
 import warnings
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, Optional, Type
 
 from .bases import BaseExpression
 from .serialization import (

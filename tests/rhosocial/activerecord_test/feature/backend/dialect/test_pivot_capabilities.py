@@ -43,9 +43,16 @@ class TestPivot:
 
 
 class TestUnpivot:
-    def test_renders_exclude_nulls(self):
+    def test_renders_unspecified_without_nulls_clause(self):
+        """Neither spelling set: no INCLUDE/EXCLUDE NULLS clause at all."""
         dialect = DummyDialect()
         expr = UnpivotExpression(dialect, "val", "col", ["a", "b"])
+        sql, _ = expr.to_sql()
+        assert sql == 'UNPIVOT ("val" FOR "col" IN ("a", "b"))'
+
+    def test_renders_explicit_exclude_nulls(self):
+        dialect = DummyDialect()
+        expr = UnpivotExpression(dialect, "val", "col", ["a", "b"], exclude_nulls=True)
         sql, _ = expr.to_sql()
         assert sql == 'UNPIVOT EXCLUDE NULLS ("val" FOR "col" IN ("a", "b"))'
 
@@ -54,6 +61,15 @@ class TestUnpivot:
         expr = UnpivotExpression(dialect, "val", "col", ["a", "b"], include_nulls=True, alias="u")
         sql, _ = expr.to_sql()
         assert sql == 'UNPIVOT INCLUDE NULLS ("val" FOR "col" IN ("a", "b")) "u"'
+
+    def test_both_null_spellings_are_refused(self):
+        dialect = DummyDialect()
+        with pytest.raises(
+            ValueError, match="include_nulls and exclude_nulls are mutually exclusive"
+        ):
+            UnpivotExpression(
+                dialect, "val", "col", ["a"], include_nulls=True, exclude_nulls=True
+            )
 
     def test_raises_when_unsupported(self):
         dialect = NoPivotDialect()

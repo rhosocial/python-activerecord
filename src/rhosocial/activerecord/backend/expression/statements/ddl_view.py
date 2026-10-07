@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..objects import MaterializedView, View
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -53,11 +54,6 @@ class ViewOptions:
 
 
 class CreateViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_view_statement"
     """
     Represents a CREATE VIEW statement supporting full SQL standard features and extensions.
 
@@ -69,25 +65,25 @@ class CreateViewExpression(BaseExpression):
         # Basic view creation
         basic_view = CreateViewExpression(
             dialect,
-            view_name="customer_info",
+            view=View(dialect, "customer_info"),
             query=QueryExpression(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
-                from_=TableExpression(dialect, "customers")
+                from_=NamedRelationRef(dialect, Table(dialect, "customers"))
             )
         )
 
         # View with column aliases
         aliased_view = CreateViewExpression(
             dialect,
-            view_name="user_summary",
+            view=View(dialect, "user_summary"),
             query=QueryExpression(
                 dialect,
                 select=[
                     Column(dialect, "user_id").alias("id"),
                     FunctionCall(dialect, "COUNT", Column(dialect, "order_id")).alias("total_orders")
                 ],
-                from_=TableExpression(dialect, "orders"),
+                from_=NamedRelationRef(dialect, Table(dialect, "orders")),
                 group_by=[Column(dialect, "user_id")]
             ),
             column_aliases=["id", "total_orders"]
@@ -96,7 +92,7 @@ class CreateViewExpression(BaseExpression):
         # MySQL-style view with algorithm
         mysql_view = CreateViewExpression(
             dialect,
-            view_name="optimized_view",
+            view=View(dialect, "optimized_view"),
             query=some_query,
             options=ViewOptions(algorithm=ViewAlgorithm.MERGE)
         )
@@ -105,7 +101,7 @@ class CreateViewExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        view_name: str,
+        view: "View",
         query: "QueryExpression",
         column_aliases: Optional[List[Union[str, ColumnAlias]]] = None,
         replace: bool = False,  # CREATE OR REPLACE
@@ -114,7 +110,7 @@ class CreateViewExpression(BaseExpression):
         options: Optional[ViewOptions] = None,
     ):
         super().__init__(dialect)
-        self.view_name = view_name
+        self.view = view
         self.query = query
         self.column_aliases = column_aliases or []
         self.replace = replace  # Whether to use CREATE OR REPLACE semantics
@@ -129,11 +125,6 @@ class CreateViewExpression(BaseExpression):
 
 
 class DropViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_view_statement"
     """
     Represents a DROP VIEW statement supporting standard and extended features.
 
@@ -141,34 +132,45 @@ class DropViewExpression(BaseExpression):
 
     Examples:
         # Basic view drop
-        drop_view = DropViewExpression(dialect, view_name="old_view")
+        drop_view = DropViewExpression(dialect, view=View(dialect, "old_view"))
 
         # Drop with IF EXISTS
         drop_safe = DropViewExpression(
             dialect,
-            view_name="possibly_missing_view",
+            view=View(dialect, "possibly_missing_view"),
             if_exists=True
         )
 
         # Cascade drop (drops dependent objects)
         drop_cascade = DropViewExpression(
             dialect,
-            view_name="master_view",
+            view=View(dialect, "master_view"),
             cascade=True
+        )
+
+        # Restrict drop (refuses if objects depend on the view)
+        drop_restrict = DropViewExpression(
+            dialect,
+            view=View(dialect, "master_view"),
+            restrict=True
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        view_name: str,
+        view: "View",
         if_exists: bool = False,  # DROP VIEW IF EXISTS
         cascade: bool = False,
-    ):  # DROP VIEW ... CASCADE (drops dependent objects)
+        restrict: bool = False,
+    ):  # DROP VIEW ... CASCADE | RESTRICT (dependent-object handling)
         super().__init__(dialect)
-        self.view_name = view_name
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
+        self.view = view
         self.if_exists = if_exists
         self.cascade = cascade
+        self.restrict = restrict
 
     @property
     def format_method(self) -> str:
@@ -177,11 +179,6 @@ class DropViewExpression(BaseExpression):
 
 
 class CreateMaterializedViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_materialized_view_statement"
     """
     Represents a CREATE MATERIALIZED VIEW statement.
 
@@ -201,14 +198,14 @@ class CreateMaterializedViewExpression(BaseExpression):
         # Basic materialized view
         create_mv = CreateMaterializedViewExpression(
             dialect,
-            view_name="user_order_summary",
+            view=MaterializedView(dialect, "user_order_summary"),
             query=QueryExpression(
                 dialect,
                 select=[
                     Column(dialect, "user_id"),
                     FunctionCall(dialect, "COUNT", Column(dialect, "order_id"))
                 ],
-                from_=TableExpression(dialect, "orders"),
+                from_=NamedRelationRef(dialect, Table(dialect, "orders")),
                 group_by_having=GroupByHavingClause(
                     dialect,
                     group_by=[Column(dialect, "user_id")]
@@ -219,7 +216,7 @@ class CreateMaterializedViewExpression(BaseExpression):
         # Materialized view with storage options
         create_mv = CreateMaterializedViewExpression(
             dialect,
-            view_name="sales_summary",
+            view=MaterializedView(dialect, "sales_summary"),
             query=sales_query,
             tablespace="slow_storage",
             with_data=True  # Populate immediately
@@ -229,19 +226,23 @@ class CreateMaterializedViewExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        view_name: str,
+        view: "MaterializedView",
         query: "QueryExpression",
         column_aliases: Optional[List[str]] = None,
         tablespace: Optional[str] = None,
-        with_data: bool = True,  # Whether to populate immediately
+        with_data: bool = False,  # Whether to populate immediately
+        no_data: bool = False,  # Whether to leave the view unpopulated
         storage_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        self.view_name = view_name
+        if with_data and no_data:
+            raise ValueError("with_data and no_data are mutually exclusive options")
+        self.view = view
         self.query = query
         self.column_aliases = column_aliases or []
         self.tablespace = tablespace
         self.with_data = with_data
+        self.no_data = no_data
         self.storage_options = storage_options or {}
 
     @property
@@ -251,11 +252,6 @@ class CreateMaterializedViewExpression(BaseExpression):
 
 
 class DropMaterializedViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_materialized_view_statement"
     """
     Represents a DROP MATERIALIZED VIEW statement.
 
@@ -263,35 +259,46 @@ class DropMaterializedViewExpression(BaseExpression):
         # Basic drop
         drop_mv = DropMaterializedViewExpression(
             dialect,
-            view_name="old_summary"
+            view=MaterializedView(dialect, "old_summary")
         )
 
         # Drop with IF EXISTS
         drop_mv = DropMaterializedViewExpression(
             dialect,
-            view_name="possibly_missing",
+            view=MaterializedView(dialect, "possibly_missing"),
             if_exists=True
         )
 
         # Cascade drop
         drop_mv = DropMaterializedViewExpression(
             dialect,
-            view_name="parent_view",
+            view=MaterializedView(dialect, "parent_view"),
             cascade=True
+        )
+
+        # Restrict drop
+        drop_mv = DropMaterializedViewExpression(
+            dialect,
+            view=MaterializedView(dialect, "parent_view"),
+            restrict=True
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        view_name: str,
+        view: "MaterializedView",
         if_exists: bool = False,
         cascade: bool = False,
+        restrict: bool = False,
     ):
         super().__init__(dialect)
-        self.view_name = view_name
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
+        self.view = view
         self.if_exists = if_exists
         self.cascade = cascade
+        self.restrict = restrict
 
     @property
     def format_method(self) -> str:
@@ -300,11 +307,6 @@ class DropMaterializedViewExpression(BaseExpression):
 
 
 class RefreshMaterializedViewExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_refresh_materialized_view_statement"
     """
     Represents a REFRESH MATERIALIZED VIEW statement.
 
@@ -315,35 +317,39 @@ class RefreshMaterializedViewExpression(BaseExpression):
         # Basic refresh
         refresh_mv = RefreshMaterializedViewExpression(
             dialect,
-            view_name="sales_summary"
+            view=MaterializedView(dialect, "sales_summary")
         )
 
         # Refresh with concurrent option (PostgreSQL)
         refresh_mv = RefreshMaterializedViewExpression(
             dialect,
-            view_name="user_stats",
+            view=MaterializedView(dialect, "user_stats"),
             concurrent=True
         )
 
         # Refresh without data (PostgreSQL)
         refresh_mv = RefreshMaterializedViewExpression(
             dialect,
-            view_name="empty_view",
-            with_data=False
+            view=MaterializedView(dialect, "empty_view"),
+            no_data=True
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        view_name: str,
+        view: "MaterializedView",
         concurrent: bool = False,  # Refresh concurrently (PostgreSQL)
-        with_data: Optional[bool] = None,  # WITH DATA or WITH NO DATA
+        with_data: bool = False,  # WITH DATA
+        no_data: bool = False,  # WITH NO DATA
     ):
         super().__init__(dialect)
-        self.view_name = view_name
+        if with_data and no_data:
+            raise ValueError("with_data and no_data are mutually exclusive options")
+        self.view = view
         self.concurrent = concurrent
         self.with_data = with_data
+        self.no_data = no_data
 
     @property
     def format_method(self) -> str:

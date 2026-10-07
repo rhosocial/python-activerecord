@@ -23,6 +23,7 @@ from rhosocial.activerecord.backend.migration import (
     AsyncNamedMigration,
     AsyncMigrationContext,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 # --- DDL named expressions ------------------------------------------------
@@ -32,7 +33,7 @@ def create_users_table(dialect):
     """CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)."""
     return CreateTableExpression(
         dialect,
-        table="users",
+        table=Table(dialect, 'users'),
         columns=[
             ColumnDefinition(dialect, 
                 "id", SQLiteIntegerType(dialect),
@@ -46,14 +47,14 @@ def create_users_table(dialect):
 
 def drop_users_table(dialect):
     """DROP TABLE IF EXISTS users."""
-    return DropTableExpression(dialect, table="users", if_exists=True)
+    return DropTableExpression(dialect, table=Table(dialect, 'users'), if_exists=True)
 
 
 def create_posts_table(dialect):
     """CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT, user_id INTEGER)."""
     return CreateTableExpression(
         dialect,
-        table="posts",
+        table=Table(dialect, 'posts'),
         columns=[
             ColumnDefinition(dialect, 
                 "id", SQLiteIntegerType(dialect),
@@ -67,7 +68,7 @@ def create_posts_table(dialect):
 
 def drop_posts_table(dialect):
     """DROP TABLE IF EXISTS posts."""
-    return DropTableExpression(dialect, table="posts", if_exists=True)
+    return DropTableExpression(dialect, table=Table(dialect, 'posts'), if_exists=True)
 
 
 # --- NamedMigration classes -------------------------------------------------

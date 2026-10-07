@@ -49,7 +49,6 @@ backend.execute(sql, params)
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import CreateIndexExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 
 create_idx = CreateIndexExpression(
     dialect=dialect,

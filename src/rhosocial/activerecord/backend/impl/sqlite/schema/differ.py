@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/schema/differ.py
 """SQLite schema differ — FK matching by content instead of name."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from ....schema.differ import ColumnDiff, SchemaDiffer, TableDiff
 

@@ -4,7 +4,6 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    TableExpression,
     QueryExpression,
     CaseExpression,
     ExistsExpression,
@@ -12,15 +11,16 @@ from rhosocial.activerecord.backend.expression import (
     AllExpression,
     SelectModifier,
     ForUpdateClause,
-    # Window-related classes
     WindowFrameSpecification,
     WindowSpecification,
     WindowDefinition,
     WindowClause,
     WindowFunctionCall,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestAdvancedFunctionWindow:
@@ -103,7 +103,7 @@ class TestAdvancedFunctionWindow:
         subquery = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "orders"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
             where=WhereClause(
                 dummy_dialect, condition=Column(dummy_dialect, "user_id") == Column(dummy_dialect, "id", "u")
             ),
@@ -163,7 +163,7 @@ class TestAdvancedFunctionWindow:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "category")],
-            from_=TableExpression(dummy_dialect, "products"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products")),
             select_modifier=modifier,
         )
         sql, params = query.to_sql()
@@ -180,7 +180,7 @@ class TestAdvancedFunctionWindow:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
             for_update=for_update_clause,
         )
         sql, params = query.to_sql()
@@ -195,7 +195,7 @@ class TestAdvancedFunctionWindow:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "locks"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "locks")),
             for_update=for_update_clause,
         )
         sql, params = query.to_sql()
@@ -312,7 +312,7 @@ class TestAdvancedFunctionWindow:
                 # In a real query, these would reference the named windows
                 WindowFunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking"),
             ],
-            from_=TableExpression(dummy_dialect, "employees"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "employees")),
             # Note: The WindowClause would need to be integrated into QueryExpression to be fully functional
         )
 

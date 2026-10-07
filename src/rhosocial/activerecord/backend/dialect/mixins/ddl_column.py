@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from ...expression.bases import BaseExpression, ToSQLProtocol
 from ...expression.core import Literal
+from ...expression.objects import Index, Table
 from .ddl_table import normalize_column_constraint_type, normalize_table_constraint_type
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -30,7 +31,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ColumnConstraint,
         ColumnDefinition,
         DefaultValueClause,
-        IdentityClause,
         IndexDefinition,
         ReferencesClause,
         StorageOptionsExpression,
@@ -108,9 +108,17 @@ class DDLColumnMixin:
     def format_column_attribute(self, attr: "Any") -> Tuple[str, Tuple]:
         """Render one selected column attribute as a definition fragment.
 
-        Identity reuses :meth:`format_identity_clause` (per-backend syntax);
-        collation renders the SQL-standard ``COLLATE <name>``. Backend-only
-        kinds (or unknown kinds) raise ``UnsupportedFeatureError``.
+        Identity reuses :meth:`IdentityColumnMixin.format_identity_clause`
+        (per-backend syntax, capability-gated); collation renders the
+        SQL-standard ``COLLATE <name>``. Backend-only kinds (or unknown kinds)
+        raise ``UnsupportedFeatureError``.
+
+        Known coupling, recorded but not fixed here: ``attr`` is an AR-layer
+        ``IdentityAttribute`` because ``ColumnDefinition.attributes`` accepts
+        only AR-layer attribute objects -- passing an expression-layer
+        ``IdentityClause`` directly raises ``UnsupportedFeatureError``. This
+        reverse dependency (expression layer -> AR layer) predates the
+        identity split and removing it would touch the AR layer.
         """
         from ....base.ddl import (
             CollationAttribute,
@@ -120,6 +128,9 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
 
         if isinstance(attr, IdentityAttribute):
+            # The AR-layer IdentityAttribute keeps its tri-state until the AR
+            # layer's exposure of the split is decided (out of scope for this
+            # round); translate it to the expression layer's two parameters.
             clause = IdentityClause(
                 self,
                 attr.generation,
@@ -127,7 +138,8 @@ class DDLColumnMixin:
                 increment=attr.increment,
                 minvalue=attr.minvalue,
                 maxvalue=attr.maxvalue,
-                cycle=attr.cycle,
+                cycle=attr.cycle is True,
+                no_cycle=attr.cycle is False,
             )
             return self.format_identity_clause(clause)
         if isinstance(attr, CollationAttribute):
@@ -194,37 +206,6 @@ class DDLColumnMixin:
         override this to return ``True``.
         """
         return False
-
-    def format_identity_clause(self, expr: "IdentityClause") -> Tuple[str, Tuple]:
-        """Format the SQL-standard identity clause.
-
-        Renders `` GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY`` with optional
-        ``(START WITH ... INCREMENT BY ... MINVALUE ... MAXVALUE ... CYCLE ...)``.
-        Backends with different syntax (MySQL ``AUTO_INCREMENT``, SQL Server
-        ``IDENTITY(seed, inc)``, SQLite ``AUTOINCREMENT``) override this.
-
-        Args:
-            expr: The ``IdentityClause`` carrying the identity parameters.
-
-        Returns:
-            A ``(sql, params)`` tuple with a leading space.
-        """
-        generation = (expr.generation or "BY DEFAULT").upper()
-        sql = f" GENERATED {generation} AS IDENTITY"
-        attributes: List[str] = []
-        if expr.start is not None:
-            attributes.append(f"START WITH {expr.start}")
-        if expr.increment is not None:
-            attributes.append(f"INCREMENT BY {expr.increment}")
-        if expr.minvalue is not None:
-            attributes.append(f"MINVALUE {expr.minvalue}")
-        if expr.maxvalue is not None:
-            attributes.append(f"MAXVALUE {expr.maxvalue}")
-        if expr.cycle is not None:
-            attributes.append("CYCLE" if expr.cycle else "NO CYCLE")
-        if attributes:
-            sql += f" ({' '.join(attributes)})"
-        return sql, ()
 
     def format_column_attributes(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
         """Render all of a column's attributes as one definition fragment.
@@ -340,11 +321,12 @@ class DDLColumnMixin:
         return bool(checker())
 
     def _format_constraint_enforcement(self, constraint: Any) -> str:
-        enforced = getattr(constraint, "enforced", None)
-        if enforced is None:
+        enforced = getattr(constraint, "enforced", False)
+        not_enforced = getattr(constraint, "not_enforced", False)
+        if not enforced and not not_enforced:
             return ""
-        if not isinstance(enforced, bool):
-            raise TypeError("constraint enforced must be a bool or None")
+        if not isinstance(enforced, bool) or not isinstance(not_enforced, bool):
+            raise TypeError("constraint enforced/not_enforced must be bools")
         from ...expression.statements import TableConstraintType
 
         constraint_type = normalize_table_constraint_type(
@@ -453,7 +435,19 @@ class DDLColumnMixin:
         Returns:
             A ``(sql, params)`` tuple. The ``sql`` value is prefixed with a
             leading space so it can be appended directly to a column definition.
+
+        Raises:
+            TypeError: ``ColumnConstraint.foreign_key_reference`` is not a Table.
+            The referenced relation would be named by whichever object kind it
+            actually was, so the FK would point somewhere else.
         """
+        reference = constraint.foreign_key_reference
+        if reference is not None and not isinstance(reference[0], Table):
+            raise TypeError(
+                f"ColumnConstraint.foreign_key_reference must pair a Table "
+                f"with its columns, got "
+                f"{type(reference[0]).__name__}"
+            )
         from ...expression.statements import ColumnConstraintType
         ctype = normalize_column_constraint_type(constraint.constraint_type)
         simple_constraints = {
@@ -463,11 +457,15 @@ class DDLColumnMixin:
             ColumnConstraintType.UNIQUE: " UNIQUE",
         }
         if ctype in simple_constraints:
-            if getattr(constraint, "enforced", None) is not None:
+            if getattr(constraint, "enforced", False) or getattr(
+                constraint, "not_enforced", False
+            ):
                 self._format_constraint_enforcement(constraint)
             return simple_constraints[ctype], ()
         if ctype == ColumnConstraintType.DEFAULT:
-            if getattr(constraint, "enforced", None) is not None:
+            if getattr(constraint, "enforced", False) or getattr(
+                constraint, "not_enforced", False
+            ):
                 self._format_constraint_enforcement(constraint)
             return self.format_default_constraint(constraint)
         if ctype == ColumnConstraintType.CHECK:
@@ -559,13 +557,21 @@ class DDLColumnMixin:
             A ``(sql, params)`` tuple (params is always empty for DDL).
 
         Raises:
+            TypeError: ``ReferencesClause.referenced_table`` is not a Table. Another
+            object kind would have had its own name rendered as the referenced
+            relation.
             ValueError: If the referenced table has no columns.
         """
+        if not isinstance(expr.referenced_table, Table):
+            raise TypeError(
+                f"ReferencesClause.referenced_table must be a Table, "
+                f"got {type(expr.referenced_table).__name__}"
+            )
         from ...expression.statements import ReferentialAction
         if not expr.referenced_columns:
             raise ValueError("REFERENCES clause requires at least one referenced column.")
         ref_cols_str = ", ".join(self.format_identifier(col) for col in expr.referenced_columns)
-        result = f"REFERENCES {self.format_identifier(expr.referenced_table)}({ref_cols_str})"
+        result = f"REFERENCES {expr.referenced_table.to_sql()[0]}({ref_cols_str})"
         if expr.match_type is not None:
             if not isinstance(expr.match_type, str):
                 raise ValueError("FOREIGN KEY MATCH type must be a string")
@@ -608,15 +614,17 @@ class DDLColumnMixin:
                     f"{self.name} does not support ON UPDATE for foreign keys."
                 )
             result += f" ON UPDATE {on_update}"
-        if expr.deferrable is True:
-            if expr.initially_deferred is True:
-                result += " DEFERRABLE INITIALLY DEFERRED"
-            elif expr.initially_deferred is False:
-                result += " DEFERRABLE INITIALLY IMMEDIATE"
-            else:
-                result += " DEFERRABLE"
-        elif expr.deferrable is False:
-            result += " NOT DEFERRABLE"
+        if expr.deferrable or expr.not_deferrable:
+            result += " DEFERRABLE" if expr.deferrable else " NOT DEFERRABLE"
+        # INITIALLY ... is an independent constraint attribute in the SQL
+        # grammar (PostgreSQL accepts it alone), so it is rendered whenever it
+        # was requested rather than dropped when DEFERRABLE is absent.
+        if expr.initially_deferred or expr.initially_immediate:
+            result += (
+                " INITIALLY DEFERRED"
+                if expr.initially_deferred
+                else " INITIALLY IMMEDIATE"
+            )
         return result, ()
 
     @staticmethod
@@ -665,7 +673,9 @@ class DDLColumnMixin:
             on_delete=constraint.on_delete,
             on_update=constraint.on_update,
             deferrable=constraint.deferrable,
+            not_deferrable=constraint.not_deferrable,
             initially_deferred=constraint.initially_deferred,
+            initially_immediate=constraint.initially_immediate,
         )
         ref_sql, ref_params = self.format_references_clause(references)
         enforcement = self._format_constraint_enforcement(constraint)
@@ -760,7 +770,9 @@ class DDLColumnMixin:
             on_update=on_update,
             match_type=match_type,
             deferrable=t_const.deferrable,
+            not_deferrable=t_const.not_deferrable,
             initially_deferred=t_const.initially_deferred,
+            initially_immediate=t_const.initially_immediate,
         )
         ref_sql, ref_params = self.format_references_clause(references)
         return f"FOREIGN KEY ({cols_str}) {ref_sql}", tuple(ref_params)
@@ -777,7 +789,17 @@ class DDLColumnMixin:
         Returns:
             A ``(sql, params)`` tuple; ``sql`` is empty when no clause parts
             are produced.
+
+        Raises:
+            TypeError: ``TableConstraint.foreign_key_table`` is not a Table. Another
+            object kind would have had its own name rendered as the referenced
+            relation.
         """
+        if expr.foreign_key_table is not None and not isinstance(expr.foreign_key_table, Table):
+            raise TypeError(
+                f"TableConstraint.foreign_key_table must be a Table, "
+                f"got {type(expr.foreign_key_table).__name__}"
+            )
         from ...expression.statements import TableConstraintType
         body_parts = []
         params: Tuple = ()
@@ -1099,24 +1121,31 @@ class DDLColumnMixin:
         Emits ``DROP INDEX IF EXISTS`` when the action requests it.
 
         Args:
-            action: The action carrying the index name to drop.
+            action: The action carrying the index to drop.
 
         Returns:
             A ``(sql, params)`` tuple with empty parameters.
 
         Raises:
+            TypeError: ``DropIndex.index`` is not an Index. Another object kind
+            would have had its own name rendered as the index's.
             UnsupportedFeatureError: If the dialect does not support
                 ``ALTER TABLE DROP INDEX``.
         """
+        if not isinstance(action.index, Index):
+            raise TypeError(
+                f"DropIndex.index must be an Index, "
+                f"got {type(action.index).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
         if not self.supports_alter_table_index_actions():
             raise UnsupportedFeatureError(
                 self.name, "ALTER TABLE DROP INDEX",
                 f"{self.name} does not support ALTER TABLE DROP INDEX.",
             )
-        if hasattr(action, "if_exists") and action.if_exists:
-            return f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}", ()
-        return f"DROP INDEX {self.format_identifier(action.index_name)}", ()
+        index_sql, index_params = action.index.to_sql()
+        head = "DROP INDEX IF EXISTS" if action.if_exists else "DROP INDEX"
+        return f"{head} {index_sql}", index_params
 
     def format_rename_column_action(self, action: "RenameObject") -> Tuple[str, Tuple]:
         """Format a ``RENAME COLUMN`` ALTER TABLE action.

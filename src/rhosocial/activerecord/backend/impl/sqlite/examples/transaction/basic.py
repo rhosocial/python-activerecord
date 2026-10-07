@@ -12,15 +12,15 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
     UpdateExpression,
     QueryExpression,
-    TableExpression,
     WhereClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
@@ -31,6 +31,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
 from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
 from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
+from .....expression.objects import Table
 
 create_table = CreateTableExpression(
     dialect=dialect,
@@ -60,7 +61,7 @@ backend.execute(sql, params)
 
 insert = InsertExpression(
     dialect=dialect,
-    into="accounts",
+    into=Table(dialect, 'accounts'),
     columns=["name", "balance"],
     source=ValuesSource(
         dialect,
@@ -86,7 +87,7 @@ dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 with backend.transaction():
     update_expr = UpdateExpression(
         dialect=dialect,
-        table="accounts",
+        table=Table(dialect, 'accounts'),
         assignments={"balance": Literal(dialect, 50)},
         where=WhereClause(
             dialect,
@@ -105,7 +106,7 @@ with backend.transaction():
 query = QueryExpression(
     dialect=dialect,
     select=[Column(dialect, "balance")],
-    from_=TableExpression(dialect, "accounts"),
+    from_=NamedRelationRef(dialect, Table(dialect, "accounts")),
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(

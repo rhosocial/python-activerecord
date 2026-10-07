@@ -14,13 +14,13 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
@@ -67,7 +67,7 @@ employees_data = [
 for manager_id, name, dept in employees_data:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="employees",
+        into=Table(dialect, 'employees'),
         columns=["manager_id", "name", "department"],
         source=ValuesSource(dialect, [[Literal(dialect, manager_id), Literal(dialect, name), Literal(dialect, dept)]]),
     )
@@ -97,7 +97,7 @@ dept_count_cte = CTEExpression(
             Column(dialect, "department"),
             FunctionCall(dialect, "COUNT", Column(dialect, "id"), alias="headcount"),
         ],
-        from_=TableExpression(dialect, "employees"),
+        from_=NamedRelationRef(dialect, Table(dialect, "employees")),
         group_by_having=GroupByHavingClause(
             dialect,
             group_by=[Column(dialect, "department")],
@@ -114,7 +114,7 @@ basic_cte_query = WithQueryExpression(
             Column(dialect, "department"),
             Column(dialect, "headcount"),
         ],
-        from_=TableExpression(dialect, "dept_counts"),
+        from_=NamedRelationRef(dialect, Table(dialect, "dept_counts")),
     ),
 )
 
@@ -137,7 +137,7 @@ base_query = QueryExpression(
         Column(dialect, "department"),
         Literal(dialect, 0),
     ],
-    from_=TableExpression(dialect, "employees"),
+    from_=NamedRelationRef(dialect, Table(dialect, "employees")),
     where=IsNullPredicate(dialect, Column(dialect, "manager_id")),
 )
 
@@ -145,12 +145,12 @@ base_query = QueryExpression(
 # Use a JOIN between the CTE result and employees table
 from rhosocial.activerecord.backend.expression import JoinClause  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 join_expr = JoinClause(
     dialect=dialect,
-    left_table=TableExpression(dialect, "org_chart", alias="oc"),
-    right_table=TableExpression(dialect, "employees", alias="e"),
+    left_table=NamedRelationRef(dialect, Table(dialect, "org_chart"), alias="oc"),
+    right_table=NamedRelationRef(dialect, Table(dialect, "employees"), alias="e"),
     join_type="INNER JOIN",
     condition=ComparisonPredicate(dialect, "=", Column(dialect, "id", "oc"), Column(dialect, "manager_id", "e")),
 )
@@ -195,7 +195,7 @@ recursive_cte_query = WithQueryExpression(
             Column(dialect, "department"),
             Column(dialect, "level"),
         ],
-        from_=TableExpression(dialect, "org_chart"),
+        from_=NamedRelationRef(dialect, Table(dialect, "org_chart")),
     ),
     recursive=True,
 )

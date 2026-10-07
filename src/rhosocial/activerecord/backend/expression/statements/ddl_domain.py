@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate, SQLValueExpression
+from ..objects import Domain
 from ..mixins import ComparisonMixin, StringMixin, TypeCastingMixin
 from ..types import DataType
 from .ddl_table import DefaultValueClause
@@ -185,7 +186,7 @@ class CreateDomainExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        domain_name: str,
+        domain: "Domain",
         data_type: DataType,
         *,
         default: Any = None,
@@ -194,7 +195,6 @@ class CreateDomainExpression(BaseExpression):
         collation: Optional[str] = None,
     ) -> None:
         super().__init__(dialect)
-        _validate_name(domain_name, "domain_name")
         if not isinstance(data_type, DataType):
             raise TypeError(
                 f"data_type must be a DataType instance, got {type(data_type).__name__}"
@@ -226,13 +226,8 @@ class CreateDomainExpression(BaseExpression):
         for check in check_items:
             if isinstance(check, SQLPredicate):
                 check = DomainCheckConstraint(dialect, check)
-            if not isinstance(check, DomainCheckConstraint):
-                raise TypeError(
-                    f"checks must contain DomainCheckConstraint instances, got "
-                    f"{type(check).__name__}"
-                )
             normalized_checks.append(check)
-        self.domain_name = domain_name
+        self.domain = domain
         self.data_type = data_type
         self.default = default
         self.nullability = nullability
@@ -241,7 +236,7 @@ class CreateDomainExpression(BaseExpression):
 
     @property
     def name(self) -> str:
-        return self.domain_name
+        return self.domain.name
 
     @property
     def default_value(self) -> Optional[BaseExpression]:
@@ -258,25 +253,19 @@ class AlterDomainExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        domain_name: str,
+        domain: "Domain",
         actions: Sequence[DomainAlterAction],
     ) -> None:
         super().__init__(dialect)
-        _validate_name(domain_name, "domain_name")
         action_list = list(actions or [])
         if not action_list:
             raise ValueError("actions must contain at least one DomainAlterAction")
-        for action in action_list:
-            if not isinstance(action, DomainAlterAction):
-                raise TypeError(
-                    f"actions must contain DomainAlterAction instances, got {type(action).__name__}"
-                )
-        self.domain_name = domain_name
+        self.domain = domain
         self.actions = action_list
 
     @property
     def name(self) -> str:
-        return self.domain_name
+        return self.domain.name
 
     @property
     def format_method(self) -> str:
@@ -289,15 +278,14 @@ class DropDomainExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        domain_name: str,
+        domain: "Domain",
     ) -> None:
         super().__init__(dialect)
-        _validate_name(domain_name, "domain_name")
-        self.domain_name = domain_name
+        self.domain = domain
 
     @property
     def name(self) -> str:
-        return self.domain_name
+        return self.domain.name
 
     @property
     def format_method(self) -> str:

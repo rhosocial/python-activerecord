@@ -9,6 +9,7 @@ including virtual table creation, point-in-polygon queries, and area calculation
 from typing import List, Optional, TYPE_CHECKING
 
 from ....expression.bases import BaseExpression, SQLQueryAndParams
+from rhosocial.activerecord.backend.expression.objects import Table
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
@@ -20,12 +21,22 @@ class SQLiteGeopolyCreateVirtualTable(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
-        content_table: Optional[str] = None,
+        table: "Table",
+        content_table: Optional["Table"] = None,
         extra_columns: Optional[List[str]] = None,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        if not isinstance(table, Table):
+            raise TypeError(
+                f"table must be a Table, "
+                f"got {type(table).__name__}"
+            )
+        self.table = table
+        if content_table is not None and not isinstance(content_table, Table):
+            raise TypeError(
+                f"content_table must be a Table, "
+                f"got {type(content_table).__name__}"
+            )
         self.content_table = content_table
         self.extra_columns = extra_columns or []
 
@@ -39,12 +50,17 @@ class SQLiteGeopolyContainsExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: "Table",
         longitude: float,
         latitude: float,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        if not isinstance(table, Table):
+            raise TypeError(
+                f"table must be a Table, "
+                f"got {type(table).__name__}"
+            )
+        self.table = table
         self.longitude = longitude
         self.latitude = latitude
 
@@ -58,10 +74,15 @@ class SQLiteGeopolyAreaExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: "Table",
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        if not isinstance(table, Table):
+            raise TypeError(
+                f"table must be a Table, "
+                f"got {type(table).__name__}"
+            )
+        self.table = table
 
     def to_sql(self) -> SQLQueryAndParams:
         return self.dialect.format_geopoly_area_expression(self)

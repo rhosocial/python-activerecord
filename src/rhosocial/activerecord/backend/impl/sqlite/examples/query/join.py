@@ -85,7 +85,7 @@ users = [("Alice",), ("Bob",)]
 for user in users:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="users",
+        into=Table(dialect, 'users'),
         columns=["name"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in user]]),
     )
@@ -100,7 +100,7 @@ orders = [
 for row in orders:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="orders",
+        into=Table(dialect, 'orders'),
         columns=["user_id", "amount"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
     )
@@ -110,19 +110,19 @@ for row in orders:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     Column,
     JoinClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
+from .....expression.objects import Table
 
 join_expr = JoinClause(
     dialect=dialect,
-    left_table=TableExpression(dialect, "users", alias="u"),
-    right_table=TableExpression(dialect, "orders", alias="o"),
+    left_table=NamedRelationRef(dialect, Table(dialect, "users"), alias="u"),
+    right_table=NamedRelationRef(dialect, Table(dialect, "orders"), alias="o"),
     join_type="LEFT JOIN",
     condition=ComparisonPredicate(
         dialect,

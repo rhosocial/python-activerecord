@@ -7,7 +7,6 @@ excluded from the framework.  These tests verify the metadata-building
 blocks that application code uses to implement its own strategy.
 """
 
-import pytest
 
 from pydantic import BaseModel
 

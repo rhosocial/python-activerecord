@@ -1,7 +1,9 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_query_sources_set_operation.py
-from rhosocial.activerecord.backend.expression import Column, Subquery, QueryExpression, TableExpression
+from rhosocial.activerecord.backend.expression import Column, Subquery, QueryExpression
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import SetOperationExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestSQLiteSetOperationExpression:
@@ -92,7 +94,7 @@ class TestSQLiteSetOperationExpression:
     def test_set_operation_with_complex_queries(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test set operation with more complex query structures."""
         # Create complex left query
-        left_table = TableExpression(sqlite_dialect_3_8_0, "users")
+        left_table = NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"))
         left_query = QueryExpression(
             sqlite_dialect_3_8_0,
             select=[Column(sqlite_dialect_3_8_0, "id"), Column(sqlite_dialect_3_8_0, "name")],
@@ -100,7 +102,7 @@ class TestSQLiteSetOperationExpression:
         )
 
         # Create complex right query
-        right_table = TableExpression(sqlite_dialect_3_8_0, "customers")
+        right_table = NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "customers"))
         right_query = QueryExpression(
             sqlite_dialect_3_8_0,
             select=[Column(sqlite_dialect_3_8_0, "id"), Column(sqlite_dialect_3_8_0, "name")],

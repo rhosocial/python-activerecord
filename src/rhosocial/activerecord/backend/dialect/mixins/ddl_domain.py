@@ -3,7 +3,12 @@
 
 from typing import Tuple, Type, TYPE_CHECKING
 
-from ...expression.statements.ddl_domain import DomainNullability
+from ...expression.objects import Domain
+from ...expression.statements.ddl_domain import (
+    DomainAlterAction,
+    DomainCheckConstraint,
+    DomainNullability,
+)
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
@@ -102,13 +107,33 @@ class DomainMixin:
         self,
         expr: "CreateDomainExpression",
     ) -> Tuple[str, tuple]:
-        """Format a standard CREATE DOMAIN statement."""
+        """Format a standard CREATE DOMAIN statement.
+
+        Raises:
+            TypeError: ``CreateDomainExpression.domain`` is not a Domain. Another
+            object kind would have had its own name rendered as the domain's.
+            TypeError: An entry of ``CreateDomainExpression.checks`` is not a
+            DomainCheckConstraint. An entry of another kind has no check clause to
+            render, so its CHECK would silently disappear.
+        """
+        if not isinstance(expr.domain, Domain):
+            raise TypeError(
+                f"CreateDomainExpression.domain must be a Domain, "
+                f"got {type(expr.domain).__name__}"
+            )
+
+        for position, entry in enumerate(expr.checks):
+            if not isinstance(entry, DomainCheckConstraint):
+                raise TypeError(
+                    f"CreateDomainExpression.checks must hold DomainCheckConstraint instances, "
+                    f"got {type(entry).__name__} at position {position}"
+                )
         if not self.supports_domains() or not self.supports_create_domain():
             raise UnsupportedFeatureError(self.name, "CREATE DOMAIN")
         type_sql, type_params = expr.data_type.to_sql()
         parts = [
             "CREATE DOMAIN",
-            self.format_identifier(expr.domain_name),
+            expr.domain.to_sql()[0],
             "AS",
             type_sql,
         ]
@@ -158,7 +183,30 @@ class DomainMixin:
         self,
         expr: "AlterDomainExpression",
     ) -> Tuple[str, tuple]:
-        """Format a standard ALTER DOMAIN statement."""
+        """Format a standard ALTER DOMAIN statement.
+
+        Raises:
+            TypeError: ``AlterDomainExpression.domain`` is not a Domain. Another
+            object kind would have had its own name rendered as the domain's.
+            TypeError: An entry of ``AlterDomainExpression.actions`` is not an
+            implementation of DomainAlterAction. An entry of another kind has no
+            action clause to dispatch on, so nothing would be rendered for it.
+        """
+        if not isinstance(expr.domain, Domain):
+            raise TypeError(
+                f"AlterDomainExpression.domain must be a Domain, "
+                f"got {type(expr.domain).__name__}"
+            )
+
+        # DomainAlterAction is an abstract base and cannot be instantiated, so
+        # this reports that the entry is not an implementation of it
+        # rather than naming a concrete type.
+        for position, entry in enumerate(expr.actions):
+            if not isinstance(entry, DomainAlterAction):
+                raise TypeError(
+                    f"AlterDomainExpression.actions must hold DomainAlterAction implementations, "
+                    f"got {type(entry).__name__} at position {position}"
+                )
         if not self.supports_domains() or not self.supports_alter_domain():
             raise UnsupportedFeatureError(self.name, "ALTER DOMAIN")
         if len(expr.actions) > 1 and not self.supports_multiple_domain_alter_actions():
@@ -175,7 +223,7 @@ class DomainMixin:
             action_parts.append(action_sql)
             action_params.extend(params)
         return (
-            f"ALTER DOMAIN {self.format_identifier(expr.domain_name)} "
+            f"ALTER DOMAIN {expr.domain.to_sql()[0]} "
             f"{', '.join(action_parts)}",
             tuple(action_params),
         )
@@ -184,10 +232,20 @@ class DomainMixin:
         self,
         expr: "DropDomainExpression",
     ) -> Tuple[str, tuple]:
-        """Format a standard DROP DOMAIN statement."""
+        """Format a standard DROP DOMAIN statement.
+
+        Raises:
+            TypeError: ``DropDomainExpression.domain`` is not a Domain. Another
+            object kind would have had its own name rendered as the domain's.
+        """
+        if not isinstance(expr.domain, Domain):
+            raise TypeError(
+                f"DropDomainExpression.domain must be a Domain, "
+                f"got {type(expr.domain).__name__}"
+            )
         if not self.supports_domains() or not self.supports_drop_domain():
             raise UnsupportedFeatureError(self.name, "DROP DOMAIN")
-        return f"DROP DOMAIN {self.format_identifier(expr.domain_name)}", ()
+        return f"DROP DOMAIN {expr.domain.to_sql()[0]}", ()
 
     def format_domain_value_expression(
         self,

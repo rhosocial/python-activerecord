@@ -30,17 +30,14 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     WildcardSupport,
     JoinSupport,
     SetOperationSupport,
-    ViewSupport,
-    # DDL Protocols
-    TableSupport,
+    # DDL statement protocols
     ConstraintSupport,
     TruncateSupport,
-    SchemaSupport,
-    IndexSupport,
-    SequenceSupport,
-    TriggerSupport,
+    CreateSchemaSupport,
+    DropSchemaSupport,
     GeneratedColumnSupport,
-    AutoIncrementSupport,
+    AutoIncrementColumnSupport,
+    IdentityColumnSupport,
     ColumnAttributeSupport,
     # Introspection Protocol
     IntrospectionSupport,
@@ -50,11 +47,29 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SQLFunctionSupport,
     # Type Support Protocol
     DataTypeSupport,
-    UserDefinedTypeSupport,
-    DomainSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
-    AutoIncrementMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
+    RelationSourceMixin,
+    SchemaNameMixin,
+    # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
+    NamespaceMixin,
+    TableNameMixin,
+    ViewNameMixin,
+    MaterializedViewNameMixin,
+    ForeignTableNameMixin,
+    IndexNameMixin,
+    SequenceNameMixin,
+    TriggerNameMixin,
+    FunctionNameMixin,
+    ProcedureNameMixin,
+    TypeNameMixin,
+    DomainNameMixin,
+    SynonymNameMixin,
+    SchemaNameMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
     CollationMixin,
     CTEMixin,
 
@@ -77,9 +92,9 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     CommentOnMixin,
     SchemaMixin,
     IndexMixin,
-    SequenceMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    IdentityColumnMixin,
     PartitionMixin,
     # New Mixins
     PredicateMixin,
@@ -98,7 +113,6 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression import bases
     from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression, OrderedSetAggregation
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
@@ -136,6 +150,7 @@ from .mixins import (
     SQLiteGeopolyMixin,
     SQLiteTypeSupportMixin,
 )
+from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
 # Module-level constants for error suggestions (SonarCloud S1192)
 _SUGGESTION_ARRAY_TYPES = "SQLite does not support native array types. Consider using JSON or comma-separated values."
@@ -149,6 +164,24 @@ _SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or
 
 class SQLiteDialect(
     SQLDialectBase,
+    RelationSourceMixin,
+    # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
+    TableNameMixin,
+    ViewNameMixin,
+    MaterializedViewNameMixin,
+    ForeignTableNameMixin,
+    IndexNameMixin,
+    SequenceNameMixin,
+    TriggerNameMixin,
+    FunctionNameMixin,
+    ProcedureNameMixin,
+    TypeNameMixin,
+    DomainNameMixin,
+    SynonymNameMixin,
+    SchemaNameMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
+    NamespaceMixin,
     # Include mixins for features that SQLite supports (with version-dependent implementations)
     CTEMixin,
 
@@ -172,9 +205,21 @@ class SQLiteDialect(
     CommentOnMixin,
     SchemaMixin,
     IndexMixin,
-    SequenceMixin,
+    # No SequenceMixin here, and its absence is deliberate: SQLite has no
+    # sequence object. It numbers rows with AUTOINCREMENT/ROWID, so CREATE,
+    # DROP and ALTER SEQUENCE are not statements the engine parses. Leaving the
+    # mixin out makes the absence structural -- the dispatch finds no formatter
+    # and raises UnsupportedFeatureError naming the dialect and the statement,
+    # rather than rendering SQL SQLite would reject. SequenceNameMixin above
+    # stays: naming a Sequence and creating one are separate jobs.
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    IdentityColumnMixin,
+    # Both new nodes fail closed on SQLite: it has no GENERATED ... AS
+    # IDENTITY grammar, and its AUTOINCREMENT keyword exists only inside an
+    # INTEGER PRIMARY KEY constraint (the existing is_auto_increment path),
+    # not as a standalone column clause. The mixin probes therefore stay at
+    # their False defaults and the formatters refuse the clauses.
     PartitionMixin,
     # New Mixins (without SQLite overrides)
     PredicateMixin,
@@ -233,17 +278,12 @@ class SQLiteDialect(
     WildcardSupport,
     JoinSupport,
     SetOperationSupport,
-    ViewSupport,
-    # DDL Protocols
-    TableSupport,
+    # DDL statement protocols
     ConstraintSupport,
     TruncateSupport,
-    SchemaSupport,
-    IndexSupport,
-    SequenceSupport,
-    TriggerSupport,
     GeneratedColumnSupport,
-    AutoIncrementSupport,
+    AutoIncrementColumnSupport,
+    IdentityColumnSupport,
     ColumnAttributeSupport,
     # SQLite-specific protocols
     SQLiteExtensionSupport,
@@ -263,8 +303,10 @@ class SQLiteDialect(
     SQLFunctionSupport,
     # DataType Support Protocol
     DataTypeSupport,
-    UserDefinedTypeSupport,
-    DomainSupport,
+    # DDL statement protocols follow the DDL mixins: a protocol's empty
+    # body would otherwise win over the mixin that actually renders.
+    CreateSchemaSupport,
+    DropSchemaSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -603,7 +645,7 @@ class SQLiteDialect(
         """Whether VIRTUAL generated columns are supported."""
         return self.supports_generated_columns()
 
-    # TableSupport protocol implementation
+    # CreateTableSupport protocol implementation
     def supports_create_table(self) -> bool:
         """Whether CREATE TABLE is supported."""
         return True
@@ -697,7 +739,7 @@ class SQLiteDialect(
         """SQLite does not support ENFORCED/NOT ENFORCED constraint control."""
         return False
 
-    # IndexSupport protocol implementation
+    # CreateIndexSupport protocol implementation
     def supports_create_index(self) -> bool:
         """Whether CREATE INDEX is supported."""
         return True
@@ -780,6 +822,14 @@ class SQLiteDialect(
 
     def supports_index_include(self) -> bool:
         """Whether INCLUDE clause for indexes is supported."""
+        return False
+
+    # The sequence master switch, stated rather than inherited. SQLite has no
+    # sequence object, so CREATE/DROP/ALTER SEQUENCE are not statements the
+    # engine parses; this class does not mix in SequenceMixin, and this probe
+    # is what tells a caller why. See the base list for the structural half.
+    def supports_sequence(self) -> bool:
+        """Whether sequence objects are supported. SQLite has none."""
         return False
 
     # ILIKESupport protocol implementation

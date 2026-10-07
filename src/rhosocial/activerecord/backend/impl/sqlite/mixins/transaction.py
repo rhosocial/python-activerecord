@@ -29,16 +29,36 @@ class SQLiteTransactionMixin:
         """SQLite does not support DEFERRABLE mode."""
         return False
 
+    def supports_transaction_wait(self) -> bool:
+        """SQLite has no WAIT / NO WAIT transaction clause."""
+        return False
+
     def supports_savepoint(self) -> bool:
         """SQLite supports savepoints."""
         return True
 
     def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
-        """Format BEGIN TRANSACTION statement for SQLite."""
+        """Format BEGIN TRANSACTION statement for SQLite.
+
+        SQLite has no DEFERRABLE transaction mode; a requested spelling is
+        refused rather than silently dropped.
+        """
         from rhosocial.activerecord.backend.errors import UnsupportedTransactionModeError
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
         from rhosocial.activerecord.backend.transaction import IsolationLevel, TransactionMode
 
         params = expr.get_params()
+        if params.get("deferrable") or params.get("not_deferrable"):
+            raise UnsupportedFeatureError(
+                self.name, "DEFERRABLE transaction",
+                "SQLite does not support DEFERRABLE transactions.",
+            )
+        if params.get("wait") or params.get("no_wait"):
+            feature = "WAIT" if params.get("wait") else "NO WAIT"
+            raise UnsupportedFeatureError(
+                self.name, f"transaction {feature}",
+                f"SQLite does not support the {feature} transaction clause.",
+            )
         mode = params.get("mode")
 
         if mode == TransactionMode.READ_ONLY:

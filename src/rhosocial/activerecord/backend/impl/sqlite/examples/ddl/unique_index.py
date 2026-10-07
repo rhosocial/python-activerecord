@@ -17,13 +17,13 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     QueryExpression,
-    TableExpression,
     InsertExpression,
     ValuesSource,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
@@ -67,7 +67,7 @@ backend.execute(sql, params)
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import CreateIndexExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 # 1. CREATE UNIQUE INDEX on a single column
 create_email_idx = CreateIndexExpression(
@@ -111,7 +111,7 @@ print("Index created: idx_users_username_email (UNIQUE on username, email)")
 # Insert initial row
 insert_expr = InsertExpression(
     dialect=dialect,
-    into="users",
+    into=Table(dialect, 'users'),
     columns=["email", "username"],
     source=ValuesSource(
         dialect,
@@ -128,7 +128,7 @@ print("Inserted: alice@example.com / alice")
 try:
     duplicate_insert = InsertExpression(
         dialect=dialect,
-        into="users",
+        into=Table(dialect, 'users'),
         columns=["email", "username"],
         source=ValuesSource(
             dialect,
@@ -147,7 +147,7 @@ except Exception as e:
 verify_query = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 sql, params = verify_query.to_sql()
 result = backend.execute(sql, params)

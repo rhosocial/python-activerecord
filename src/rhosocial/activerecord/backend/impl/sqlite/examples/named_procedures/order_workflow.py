@@ -60,7 +60,7 @@ tables = [
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
-        table=table_name,
+        table=Table(dialect, table_name),
         columns=[_column(name, type_name) for name, type_name in columns],
         if_not_exists=True,
     )
@@ -76,7 +76,7 @@ for table, cols, rows in sample_data:
     for row in rows:
         insert = InsertExpression(
             dialect=dialect,
-            into=table,
+            into=Table(dialect, table),
             columns=cols,
             source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
         )
@@ -197,6 +197,7 @@ if __name__ == "__main__":
 # SECTION: Execution (run the expression)
 # ============================================================
 from rhosocial.activerecord.backend.named_expression import ProcedureRunner, TransactionMode  # noqa: E402
+from rhosocial.activerecord.backend.expression.objects import Table
 
 if __name__ == "__main__":
     runner = ProcedureRunner(

@@ -57,7 +57,7 @@ orders_data = [
 for row in orders_data:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="orders",
+        into=Table(dialect, 'orders'),
         columns=["user_id", "amount", "status"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
     )
@@ -67,14 +67,14 @@ for row in orders_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     Column,
     GroupByHavingClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
+from .....expression.objects import Table
 
 query = QueryExpression(
     dialect=dialect,
@@ -83,7 +83,7 @@ query = QueryExpression(
         FunctionCall(dialect, "SUM", Column(dialect, "amount"), alias="total_amount"),
         FunctionCall(dialect, "COUNT", Column(dialect, "id"), alias="order_count"),
     ],
-    from_=TableExpression(dialect, "orders"),
+    from_=NamedRelationRef(dialect, Table(dialect, "orders")),
     group_by_having=GroupByHavingClause(
         dialect,
         group_by=[Column(dialect, "user_id")],

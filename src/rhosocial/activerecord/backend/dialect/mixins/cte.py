@@ -51,8 +51,25 @@ class CTEMixin:
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the CTE definition.
+
+        Raises:
+            UnsupportedFeatureError: If a ``MATERIALIZED`` / ``NOT MATERIALIZED``
+                hint was requested and the dialect's ``supports_materialized_cte``
+                probe declines it.
         """
         from ...expression import bases
+
+        if expr.materialized or expr.not_materialized:
+            if not self.supports_materialized_cte():
+                feature = (
+                    "MATERIALIZED CTE" if expr.materialized else "NOT MATERIALIZED CTE"
+                )
+                from ..exceptions import UnsupportedFeatureError
+
+                raise UnsupportedFeatureError(
+                    self.name, feature,
+                    f"{self.name} does not support the {feature} hint.",
+                )
 
         query = expr.query
         if isinstance(query, bases.BaseExpression):
@@ -63,9 +80,12 @@ class CTEMixin:
             query_params = tuple(params_input) if isinstance(params_input, list) else params_input
         else:
             query_sql, query_params = str(query), ()
-        materialized_hint = ""
-        if expr.materialized is not None:
-            materialized_hint = "MATERIALIZED " if expr.materialized else "NOT MATERIALIZED "
+        if expr.materialized:
+            materialized_hint = "MATERIALIZED "
+        elif expr.not_materialized:
+            materialized_hint = "NOT MATERIALIZED "
+        else:
+            materialized_hint = ""
         name_part = self.format_identifier(expr.name)
         columns_part = f" ({', '.join(self.format_identifier(c) for c in expr.columns)})" if expr.columns else ""
         sql = f"{name_part}{columns_part} AS {materialized_hint}({query_sql})"

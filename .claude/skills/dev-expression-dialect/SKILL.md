@@ -346,10 +346,14 @@ Rationale:
   asserting `"method_name" not in ConcreteDialect.__dict__` for dialects that
   match the generic behaviour.
 
-Example: `AutoIncrementMixin.supports_auto_increment()` defaults to `True`
-(nearly all databases generate keys server-side). SQLite and the dummy
-dialect simply compose the pair with zero overrides; ClickHouse alone
-overrides it to `False`, which documents its deviation.
+Example: the identity / auto-increment probes fail closed.
+`IdentityColumnMixin` and `AutoIncrementMixin` default every probe to `False`
+(a probe answering `True` by default would let the formatter emit SQL the
+server rejects), so each dialect declares the mechanisms it really has and the
+switchboard `DummyDialect` overrides all of them to `True`. The probes are
+split by mechanism and by option: `IdentityColumnSupport` answers for the
+parameterised `GENERATED ... AS IDENTITY` clause, `AutoIncrementColumnSupport`
+for the parameterless `AUTO_INCREMENT` marker.
 
 ## The Dummy Dialect: Generic Reference and Test Vehicle
 

@@ -20,13 +20,14 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     QueryExpression,
     Subquery,
-    TableExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
     LateralExpression,
     ValuesExpression,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 def _probe_engine_supports_lateral() -> bool:
@@ -137,7 +138,7 @@ class TestLateralJoinUnsupported:
     def test_lateral_subquery_to_sql_raises(self, dialect: SQLiteDialect):
         subquery = Subquery(
             dialect,
-            QueryExpression(dialect, select=[Column(dialect, "id")], from_=TableExpression(dialect, "t")),
+            QueryExpression(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "t"))),
         )
         expr = LateralExpression(dialect, expression=subquery, alias="lat_data")
         with pytest.raises(UnsupportedFeatureError):

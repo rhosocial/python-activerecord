@@ -14,6 +14,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression import (
     CreateVirtualTableExpression,
     DropVirtualTableExpression,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 @pytest.fixture
@@ -31,7 +32,7 @@ class TestCreateVirtualTableExpression:
 
     def test_create_basic(self, dialect):
         expr = CreateVirtualTableExpression(
-            dialect, module="rtree", table_name="places",
+            dialect, module="rtree", table=Table(dialect, "places"),
             columns=["id", "minx", "maxx", "miny", "maxy"]
         )
         sql, params = expr.to_sql()
@@ -44,7 +45,7 @@ class TestCreateVirtualTableExpression:
         with pytest.raises(ValueError, match="Unsafe virtual table module"):
             expr = CreateVirtualTableExpression(
                 dialect, module="bad'; DROP TABLE x; --",
-                table_name="t", columns=["c"]
+                table=Table(dialect, "t"), columns=["c"]
             )
             expr.to_sql()
 
@@ -58,14 +59,14 @@ class TestDropVirtualTableExpression:
     """DropVirtualTableExpression produces correct SQL."""
 
     def test_drop_basic(self, dialect):
-        expr = DropVirtualTableExpression(dialect, table_name="my_table")
+        expr = DropVirtualTableExpression(dialect, table=Table(dialect, "my_table"))
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE "my_table"'
         assert params == ()
 
     def test_drop_if_exists(self, dialect):
         expr = DropVirtualTableExpression(
-            dialect, table_name="my_table", if_exists=True
+            dialect, table=Table(dialect, "my_table"), if_exists=True
         )
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE IF EXISTS "my_table"'

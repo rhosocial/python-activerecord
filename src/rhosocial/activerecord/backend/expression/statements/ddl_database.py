@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..objects import Database
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -42,7 +43,7 @@ class CreateDatabaseExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        database_name: str,
+        database: "Database",
         if_not_exists: bool = False,
         owner: Optional[str] = None,
         encoding: Optional[str] = None,
@@ -54,7 +55,7 @@ class CreateDatabaseExpression(BaseExpression):
         or_replace: bool = False,
     ):
         super().__init__(dialect)
-        self.database_name = database_name
+        self.database = database
         self.if_not_exists = if_not_exists
         self.owner = owner
         self.encoding = encoding
@@ -82,12 +83,12 @@ class DropDatabaseExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        database_name: str,
+        database: "Database",
         if_exists: bool = False,
         force: bool = False,
     ):
         super().__init__(dialect)
-        self.database_name = database_name
+        self.database = database
         self.if_exists = if_exists
         self.force = force
 
@@ -106,14 +107,14 @@ class AlterDatabaseExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        database_name: str,
+        database: "Database",
         action: AlterDatabaseAction,
         target: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
         if_exists: bool = False,
     ):
         super().__init__(dialect)
-        self.database_name = database_name
+        self.database = database
         self.action = action
         self.target = target
         self.properties = properties or {}

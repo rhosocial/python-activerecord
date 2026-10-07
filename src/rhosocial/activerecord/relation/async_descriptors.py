@@ -6,13 +6,12 @@ Provides AsyncBelongsTo, AsyncHasOne, and AsyncHasMany relationship types.
 
 import logging
 
-from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, ClassVar, List, Dict, Tuple
+from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, List, Dict, Tuple
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import IAsyncRelationValidation, IAsyncRelationLoader
 from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..interface import IAsyncActiveRecord, IAsyncActiveQuery
-from ..types import PrimaryKeyDef
 from ..backend.expression.core import Column
 
 U = TypeVar("U", bound=IAsyncActiveRecord)

@@ -3,8 +3,8 @@
 Literal identifiers in SQL expressions.
 """
 
-from typing import TYPE_CHECKING, Optional
-from .bases import SQLQueryAndParams, SQLValueExpression
+from typing import TYPE_CHECKING
+from .bases import SQLValueExpression
 from .mixins import ComparisonMixin
 
 if TYPE_CHECKING:  # pragma: no cover

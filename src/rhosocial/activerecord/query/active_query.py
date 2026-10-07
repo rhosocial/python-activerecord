@@ -13,7 +13,9 @@ from .async_join import AsyncJoinQueryMixin
 from .async_relational import AsyncRelationalQueryMixin
 from .set_operation import SetOperationQuery
 from ..backend.base import StorageBackend, AsyncStorageBackend
-from ..backend.expression import WildcardExpression, TableExpression, statements, LimitOffsetClause, bases
+from ..backend.expression import WildcardExpression, statements, LimitOffsetClause, bases
+from ..backend.expression.objects import Table
+from ..backend.expression.sources import NamedRelationRef
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
 from ..interface.query import (
     IQuery,
@@ -177,8 +179,13 @@ class ActiveQuery(
         dialect = backend.dialect
 
         # Create a temporary QueryExpression with LIMIT 1
-        from_clause = TableExpression(
-            dialect, self.model_class.table_name(), schema_name=self.model_class.schema_name()
+        from_clause = NamedRelationRef(
+            dialect,
+            Table(
+                dialect,
+                self.model_class.table_name(),
+                schema_name=self.model_class.schema_name(),
+            ),
         )
 
         # Create a temporary limit_offset_clause with LIMIT 1
@@ -231,8 +238,13 @@ class ActiveQuery(
         dialect = self.backend().dialect
 
         # Use the model's actual table name
-        from_clause = TableExpression(
-            dialect, self.model_class.table_name(), schema_name=self.model_class.schema_name()
+        from_clause = NamedRelationRef(
+            dialect,
+            Table(
+                dialect,
+                self.model_class.table_name(),
+                schema_name=self.model_class.schema_name(),
+            ),
         )
 
         # Create QueryExpression with all components
@@ -539,8 +551,13 @@ class AsyncActiveQuery(
         dialect = backend.dialect
 
         # Create a temporary QueryExpression with LIMIT 1
-        from_clause = TableExpression(
-            dialect, self.model_class.table_name(), schema_name=self.model_class.schema_name()
+        from_clause = NamedRelationRef(
+            dialect,
+            Table(
+                dialect,
+                self.model_class.table_name(),
+                schema_name=self.model_class.schema_name(),
+            ),
         )
 
         # Create a temporary limit_offset_clause with LIMIT 1
@@ -596,8 +613,13 @@ class AsyncActiveQuery(
         dialect = self.backend().dialect
 
         # Use the model's actual table name
-        from_clause = TableExpression(
-            dialect, self.model_class.table_name(), schema_name=self.model_class.schema_name()
+        from_clause = NamedRelationRef(
+            dialect,
+            Table(
+                dialect,
+                self.model_class.table_name(),
+                schema_name=self.model_class.schema_name(),
+            ),
         )
 
         # Create QueryExpression with all components

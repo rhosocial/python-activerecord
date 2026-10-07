@@ -9,8 +9,6 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     concat_op,
     QueryExpression,
-    TableExpression,
-    # Import other functions to test
     count,
     lower,
     upper,
@@ -20,7 +18,9 @@ from rhosocial.activerecord.backend.expression import (
     abs_,
     round_,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestSQLiteConcatOp:
@@ -72,7 +72,7 @@ class TestSQLiteConcatOp:
         )
 
         query = QueryExpression(
-            sqlite_dialect_3_8_0, select=[full_name_expr], from_=TableExpression(sqlite_dialect_3_8_0, "users")
+            sqlite_dialect_3_8_0, select=[full_name_expr], from_=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"))
         )
 
         sql, params = query.to_sql()

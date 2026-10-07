@@ -67,6 +67,19 @@ from rhosocial.activerecord.backend.expression.statements.ddl_type import (
 )
 from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
 from rhosocial.activerecord.backend.dialect.protocols import (
+    # Named-object protocols
+    TableObjectSupport,
+    ViewObjectSupport,
+    MaterializedViewObjectSupport,
+    ForeignTableObjectSupport,
+    IndexObjectSupport,
+    SequenceObjectSupport,
+    TriggerObjectSupport,
+    RoutineObjectSupport,
+    TypeObjectSupport,
+    SynonymObjectSupport,
+    NamespaceSupport,
+    # DDL statement protocols
     DataTypeSupport,
     SQLXMLSupport,
     SQLXMLParsingSupport,
@@ -96,33 +109,78 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     JoinSupport,
     SetOperationSupport,
     ILIKESupport,
-    # DDL Protocols
-    TableSupport,
     PartitionSupport,
     AlterTableModifierSupport,
     ConstraintSupport,
-    ViewSupport,
     TruncateSupport,
-    SchemaSupport,
-    IndexSupport,
-    SequenceSupport,
-    TriggerSupport,
-    FunctionSupport,
+    CreateSchemaSupport,
+    DropSchemaSupport,
     GeneratedColumnSupport,
-    AutoIncrementSupport,
+    AutoIncrementColumnSupport,
+    IdentityColumnSupport,
     ColumnAttributeSupport,
     CommentSupport,
-    DatabaseSupport,
+    CreateDatabaseSupport,
+    DropDatabaseSupport,
+    AlterDatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
-    UserDefinedTypeSupport,
-    DomainSupport,
+    # One protocol per DDL statement expression.
+    CreateTableSupport,
+    CreateTableLikeSupport,
+    CreateTableAsSupport,
+    CreateTableCloneSupport,
+    CreateTableUsingTemplateSupport,
+    DropTableSupport,
+    AlterTableSupport,
+    CreateViewSupport,
+    DropViewSupport,
+    MaterializedViewSupport,
+    CreateIndexSupport,
+    DropIndexSupport,
+    FulltextIndexSupport,
+    CreateSequenceSupport,
+    DropSequenceSupport,
+    AlterSequenceSupport,
+    CreateTriggerSupport,
+    DropTriggerSupport,
+    CreateRoutineSupport,
+    DropRoutineSupport,
+    CreateTypeSupport,
+    AlterTypeSupport,
+    DropTypeSupport,
+    CreateDomainSupport,
+    AlterDomainSupport,
+    DropDomainSupport,
+    DateTimeSupport,
+    DqlOrderSupport,
+    PivotSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
+    RelationSourceMixin,
+    SchemaNameMixin,
+    NamespaceMixin,
+    TableNameMixin,
+    ViewNameMixin,
+    MaterializedViewNameMixin,
+    ForeignTableNameMixin,
+    IndexNameMixin,
+    SequenceNameMixin,
+    TriggerNameMixin,
+    FunctionNameMixin,
+    ProcedureNameMixin,
+    TypeNameMixin,
+    DomainNameMixin,
+    SynonymNameMixin,
+    SchemaNameMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
     SQLXMLMixin,
     SQLXMLParsingMixin,
     SQLXMLSerializationMixin,
@@ -159,6 +217,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     FunctionMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    IdentityColumnMixin,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
@@ -192,6 +251,40 @@ if TYPE_CHECKING:
 
 class DummyDialect(
     SQLDialectBase,
+    RelationSourceMixin,
+    # The object tree: each *NameMixin renders one object kind and inherits
+    # NamespaceMixin for the namespace levels, so they precede it. The object
+    # protocols name the format_*_object methods and inherit NamespaceSupport,
+    # so they precede it too. Both groups sit ahead of the DDL mixins because
+    # naming an object and changing one are independent capabilities.
+    TableNameMixin,
+    ViewNameMixin,
+    MaterializedViewNameMixin,
+    ForeignTableNameMixin,
+    IndexNameMixin,
+    SequenceNameMixin,
+    TriggerNameMixin,
+    FunctionNameMixin,
+    ProcedureNameMixin,
+    TypeNameMixin,
+    DomainNameMixin,
+    SynonymNameMixin,
+    SchemaNameMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
+    NamespaceMixin,
+    TableObjectSupport,
+    ViewObjectSupport,
+    MaterializedViewObjectSupport,
+    ForeignTableObjectSupport,
+    IndexObjectSupport,
+    SequenceObjectSupport,
+    TriggerObjectSupport,
+    RoutineObjectSupport,
+    TypeObjectSupport,
+    SynonymObjectSupport,
+    NamespaceSupport,
+    # One protocol per DDL statement expression.
     SQLXMLMixin,
     SQLXMLParsingMixin,
     SQLXMLSerializationMixin,
@@ -228,6 +321,7 @@ class DummyDialect(
     FunctionMixin,
     GeneratedColumnMixin,
     AutoIncrementMixin,
+    IdentityColumnMixin,
     DatabaseMixin,
     # Introspection Mixin
     IntrospectionMixin,
@@ -241,8 +335,6 @@ class DummyDialect(
     UserDefinedTypeMixin,
     DomainMixin,
     DataTypeSupport,
-    UserDefinedTypeSupport,
-    DomainSupport,
     DDLColumnMixin,
     TransactionControlMixin,
     # Protocols for type checking
@@ -275,28 +367,57 @@ class DummyDialect(
     SetOperationSupport,
     ILIKESupport,
     # DDL Protocols
-    TableSupport,
     PartitionSupport,
     AlterTableModifierSupport,
     ConstraintSupport,
-    ViewSupport,
     TruncateSupport,
-    SchemaSupport,
-    IndexSupport,
-    SequenceSupport,
-    TriggerSupport,
-    FunctionSupport,
     GeneratedColumnSupport,
-    AutoIncrementSupport,
+    AutoIncrementColumnSupport,
+    IdentityColumnSupport,
     ColumnAttributeSupport,
     CommentSupport,
-    DatabaseSupport,
     # Introspection Protocols
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
     # Function Support Protocol
     SQLFunctionSupport,
+    # DDL statement protocols follow the DDL mixins: a protocol's empty
+    # body would otherwise win over the mixin that actually renders.
+    CreateRoutineSupport,
+    DropRoutineSupport,
+    PivotSupport,
+    CreateTableSupport,
+    CreateTableLikeSupport,
+    CreateTableAsSupport,
+    CreateTableCloneSupport,
+    CreateTableUsingTemplateSupport,
+    DropTableSupport,
+    AlterTableSupport,
+    CreateViewSupport,
+    DropViewSupport,
+    MaterializedViewSupport,
+    CreateIndexSupport,
+    DropIndexSupport,
+    FulltextIndexSupport,
+    CreateSequenceSupport,
+    DropSequenceSupport,
+    AlterSequenceSupport,
+    CreateTriggerSupport,
+    DropTriggerSupport,
+    CreateTypeSupport,
+    AlterTypeSupport,
+    DropTypeSupport,
+    CreateDomainSupport,
+    AlterDomainSupport,
+    DropDomainSupport,
+    DateTimeSupport,
+    DqlOrderSupport,
+    CreateSchemaSupport,
+    DropSchemaSupport,
+    CreateDatabaseSupport,
+    DropDatabaseSupport,
+    AlterDatabaseSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
@@ -776,6 +897,16 @@ class DummyDialect(
     def supports_graph_table(self) -> bool:
         return True
 
+    # The generic row-source renderers inherited from RelationSourceMixin are
+    # exercised end-to-end, so the two capability probes that default to False
+    # (a VALUES row source and a table function) are switched on here. A
+    # derived table needs no probe: it is universal SQL.
+    def supports_values_table_constructor(self) -> bool:
+        return True
+
+    def supports_table_function(self) -> bool:
+        return True
+
     def supports_inner_join(self) -> bool:
         return True
 
@@ -981,6 +1112,13 @@ class DummyDialect(
     def supports_materialized_view_storage_options(self) -> bool:
         return True
 
+    def supports_materialized_view_restrict(self) -> bool:
+        return True
+
+    def supports_with_data_clause(self) -> bool:
+        """Dummy renders the clause on CTAS and materialized views."""
+        return True
+
     def supports_if_exists_view(self) -> bool:
         return True
 
@@ -988,6 +1126,9 @@ class DummyDialect(
         return True
 
     def supports_cascade_view(self) -> bool:
+        return True
+
+    def supports_restrict_view(self) -> bool:
         return True
 
     # endregion
@@ -1003,6 +1144,9 @@ class DummyDialect(
         return True
 
     def supports_truncate_cascade(self) -> bool:
+        return True
+
+    def supports_truncate_restrict(self) -> bool:
         return True
 
     # endregion
@@ -1021,6 +1165,9 @@ class DummyDialect(
         return True
 
     def supports_schema_cascade(self) -> bool:
+        return True
+
+    def supports_schema_restrict(self) -> bool:
         return True
 
     def supports_schema_authorization(self) -> bool:
@@ -1098,6 +1245,21 @@ class DummyDialect(
     def supports_sequence_if_exists(self) -> bool:
         return True
 
+    def supports_sequence_start(self) -> bool:
+        return True
+
+    def supports_alter_sequence_start(self) -> bool:
+        return True
+
+    def supports_sequence_increment(self) -> bool:
+        return True
+
+    def supports_sequence_minvalue(self) -> bool:
+        return True
+
+    def supports_sequence_maxvalue(self) -> bool:
+        return True
+
     def supports_sequence_cycle(self) -> bool:
         return True
 
@@ -1164,6 +1326,9 @@ class DummyDialect(
     def supports_drop_function_cascade(self) -> bool:
         return True
 
+    def supports_drop_function_restrict(self) -> bool:
+        return True
+
     # endregion
 
     # region Generated Column Support
@@ -1174,6 +1339,44 @@ class DummyDialect(
         return True
 
     def supports_virtual_generated_columns(self) -> bool:
+        return True
+
+    # endregion
+
+    # region Identity / Auto-Increment Column Support
+    # Dummy is the reference switchboard, not a product simulation. The
+    # generic mixins default every probe to False (fail-closed), so Dummy
+    # overrides each to True to exercise both core rendering paths: the
+    # SQL-standard GENERATED ... AS IDENTITY clause and the bare
+    # AUTO_INCREMENT marker.
+    def supports_identity_column(self) -> bool:
+        return True
+
+    def supports_identity_generation_always(self) -> bool:
+        return True
+
+    def supports_identity_start(self) -> bool:
+        return True
+
+    def supports_identity_increment(self) -> bool:
+        return True
+
+    def supports_identity_minvalue(self) -> bool:
+        return True
+
+    def supports_identity_maxvalue(self) -> bool:
+        return True
+
+    def supports_identity_cycle(self) -> bool:
+        return True
+
+    def supports_identity_order(self) -> bool:
+        return True
+
+    def supports_identity_cache(self) -> bool:
+        return True
+
+    def supports_auto_increment_column(self) -> bool:
         return True
 
     # endregion
@@ -1310,6 +1513,10 @@ class DummyDialect(
         """Dummy backend supports DEFERRABLE transactions."""
         return True
 
+    def supports_transaction_wait(self) -> bool:
+        """Dummy backend supports the WAIT / NO WAIT transaction clause."""
+        return True
+
     def supports_savepoint(self) -> bool:
         """Dummy backend supports savepoints."""
         return True
@@ -1333,10 +1540,22 @@ class DummyDialect(
                 parts.append("READ WRITE")
 
         deferrable = params.get("deferrable")
-        if deferrable is not None and isolation:
-            isolation_name = isolation.name if hasattr(isolation, "name") else str(isolation)
-            if isolation_name == "SERIALIZABLE":
-                parts.append("DEFERRABLE" if deferrable else "NOT DEFERRABLE")
+        not_deferrable = params.get("not_deferrable")
+        if deferrable:
+            parts.append("DEFERRABLE")
+        elif not_deferrable:
+            parts.append("NOT DEFERRABLE")
+
+        wait = params.get("wait")
+        no_wait = params.get("no_wait")
+        if wait or no_wait:
+            if not self.supports_transaction_wait():
+                feature = "WAIT" if wait else "NO WAIT"
+                raise UnsupportedFeatureError(
+                    self.name, f"transaction {feature}",
+                    f"{self.name} does not support the {feature} transaction clause.",
+                )
+            parts.append("WAIT" if wait else "NO WAIT")
 
         return " ".join(parts), ()
 
@@ -1390,8 +1609,21 @@ class DummyDialect(
                 options.append("READ WRITE")
 
         deferrable = params.get("deferrable")
-        if deferrable is not None:
-            options.append("DEFERRABLE" if deferrable else "NOT DEFERRABLE")
+        if deferrable:
+            options.append("DEFERRABLE")
+        elif params.get("not_deferrable"):
+            options.append("NOT DEFERRABLE")
+
+        wait = params.get("wait")
+        no_wait = params.get("no_wait")
+        if wait or no_wait:
+            if not self.supports_transaction_wait():
+                feature = "WAIT" if wait else "NO WAIT"
+                raise UnsupportedFeatureError(
+                    self.name, f"transaction {feature}",
+                    f"{self.name} does not support the {feature} transaction clause.",
+                )
+            options.append("WAIT" if wait else "NO WAIT")
 
         if options:
             parts.append(" ".join(options))
@@ -1458,7 +1690,7 @@ class DummyDialect(
                 ref_cols_str = ", ".join(self.format_identifier(col) for col in ref_cols)
                 enforcement = self._format_constraint_enforcement(constraint)
                 suffix = f" {enforcement}" if enforcement else ""
-                col_sql += f" REFERENCES {self.format_identifier(ref_table)}({ref_cols_str}){suffix}"
+                col_sql += f" REFERENCES {ref_table.to_sql()[0]}({ref_cols_str}){suffix}"
 
         if col_def.generated_expression is not None:
             gen_sql, gen_params = col_def.generated_expression.to_sql()

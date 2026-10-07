@@ -3,7 +3,6 @@
 
 import pytest
 from rhosocial.activerecord.testsuite.utils import (
-    requires_protocol,
     requires_functions,
     requires_window_functions,
 )

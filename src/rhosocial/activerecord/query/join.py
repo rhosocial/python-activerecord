@@ -4,7 +4,9 @@
 from typing import List, Union, Type, Optional, Iterable
 
 from ..interface import IQuery, IActiveRecord
-from ..backend.expression import SQLPredicate, TableExpression, RawSQLPredicate, JoinExpression
+from ..backend.expression import SQLPredicate, RawSQLPredicate, JoinExpression
+from ..backend.expression.objects import Table
+from ..backend.expression.sources import NamedRelationRef
 from .utils import convert_qmark_placeholder
 
 
@@ -24,20 +26,36 @@ class JoinQueryMixin:
     join_clause: Optional[JoinExpression]
 
     def _resolve_right_table(
-        self, right: Union[str, Type["IActiveRecord"], TableExpression], alias: Optional[str]
-    ) -> Union[TableExpression, JoinExpression]:
-        """Helper method to resolve the right-hand side of a join into a TableExpression."""
+        self,
+        right: Union[str, Type["IActiveRecord"], Table, NamedRelationRef],
+        alias: Optional[str],
+    ) -> Union[NamedRelationRef, JoinExpression]:
+        """Resolve the right-hand side of a join into a row source.
+
+        A name becomes a source over a plain table object; a model class becomes
+        a source over the table that class names, carrying the model's own
+        namespace. The alias belongs to the source either way -- only applied
+        when explicitly requested, since a forced alias would turn every range
+        into an aliased one and break schema-qualified column references
+        emitted from plain field accessors.
+        """
         dialect = self.backend().dialect
         if isinstance(right, str):
-            return TableExpression(dialect, right, alias=alias)
+            return NamedRelationRef(dialect, Table(dialect, right), alias=alias)
         # Check if it's a model class (an actual class object, not an instance)
         if isinstance(right, type) and issubclass(right, IActiveRecord):
-            table_name = right.table_name()
-            # Only alias when explicitly requested. Forced aliases would turn
-            # every range into an aliased one, breaking schema-qualified column
-            # references emitted from plain field accessors.
-            return TableExpression(dialect, table_name, schema_name=right.schema_name(), alias=alias)
-        if isinstance(right, (TableExpression, JoinExpression)):
+            return NamedRelationRef(
+                dialect,
+                Table(
+                    dialect,
+                    right.table_name(),
+                    schema_name=right.schema_name(),
+                ),
+                alias=alias,
+            )
+        if isinstance(right, Table):
+            return NamedRelationRef(dialect, right, alias=alias)
+        if isinstance(right, (NamedRelationRef, JoinExpression)):
             # If an alias is provided, apply it to the expression
             if alias:
                 return right.as_(alias)
@@ -63,7 +81,7 @@ class JoinQueryMixin:
     def _perform_join(
         self,
         join_type: str,
-        right: Union[str, Type["IActiveRecord"], TableExpression],
+        right: Union[str, Type["IActiveRecord"], NamedRelationRef],
         on: Optional[Union[str, SQLPredicate]],
         alias: Optional[str],
         natural: bool = False,
@@ -79,10 +97,13 @@ class JoinQueryMixin:
             # First join. The left table is the main model's table.
             # No implicit alias: plain (schema-qualified) column references in
             # ON/WHERE predicates must stay resolvable against this range.
-            left_table = TableExpression(
+            left_table = NamedRelationRef(
                 dialect,
-                self.model_class.table_name(),
-                schema_name=self.model_class.schema_name(),
+                Table(
+                    dialect,
+                    self.model_class.table_name(),
+                    schema_name=self.model_class.schema_name(),
+                ),
             )
             self.join_clause = JoinExpression(
                 dialect=dialect,
@@ -103,7 +124,7 @@ class JoinQueryMixin:
 
     def join(
         self,
-        right: Union[str, Type["IActiveRecord"], TableExpression],
+        right: Union[str, Type["IActiveRecord"], NamedRelationRef],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
@@ -127,7 +148,7 @@ class JoinQueryMixin:
 
     def inner_join(
         self,
-        right: Union[str, Type["IActiveRecord"], TableExpression],
+        right: Union[str, Type["IActiveRecord"], NamedRelationRef],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
@@ -140,7 +161,7 @@ class JoinQueryMixin:
 
     def left_join(
         self,
-        right: Union[str, Type["IActiveRecord"], TableExpression],
+        right: Union[str, Type["IActiveRecord"], NamedRelationRef],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
@@ -153,7 +174,7 @@ class JoinQueryMixin:
 
     def right_join(
         self,
-        right: Union[str, Type["IActiveRecord"], TableExpression],
+        right: Union[str, Type["IActiveRecord"], NamedRelationRef],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
@@ -166,7 +187,7 @@ class JoinQueryMixin:
 
     def full_join(
         self,
-        right: Union[str, Type["IActiveRecord"], TableExpression],
+        right: Union[str, Type["IActiveRecord"], NamedRelationRef],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
@@ -179,7 +200,7 @@ class JoinQueryMixin:
 
     def straight_join(
         self,
-        right: Union[str, Type["IActiveRecord"], TableExpression],
+        right: Union[str, Type["IActiveRecord"], NamedRelationRef],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
         on_params: Optional[Iterable] = None,
@@ -194,7 +215,7 @@ class JoinQueryMixin:
         return self._perform_join("STRAIGHT_JOIN", right, on, alias, on_params=on_params)
 
     def cross_join(
-        self, right: Union[str, Type["IActiveRecord"], TableExpression], alias: Optional[str] = None
+        self, right: Union[str, Type["IActiveRecord"], NamedRelationRef], alias: Optional[str] = None
     ) -> "IQuery[IActiveRecord]":
         """
         Adds a CROSS JOIN clause to the query.
@@ -203,7 +224,7 @@ class JoinQueryMixin:
 
     def natural_join(
         self,
-        right: Union[str, Type["IActiveRecord"], TableExpression],
+        right: Union[str, Type["IActiveRecord"], NamedRelationRef],
         join_type: str = "JOIN",
         alias: Optional[str] = None,
     ) -> "IQuery[IActiveRecord]":
@@ -218,7 +239,7 @@ class JoinQueryMixin:
 
         Args:
             right: The right-hand side of the join. Can be a table name (str), a IActiveRecord class,
-                   or a TableExpression.
+                   or a NamedRelationRef.
             join_type: The type of join to perform (e.g., "JOIN", "INNER JOIN"). Defaults to "JOIN".
             alias: An optional alias for the joined result.
 

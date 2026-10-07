@@ -14,6 +14,7 @@ from rhosocial.activerecord.backend.transaction import IsolationLevel, Transacti
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.errors import UnsupportedTransactionModeError
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 
 class TestBeginTransactionExpression:
@@ -71,17 +72,48 @@ class TestBeginTransactionExpression:
     def test_begin_not_deferrable(self, dummy_dialect: DummyDialect):
         """Test BEGIN with NOT DEFERRABLE."""
         expr = BeginTransactionExpression(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).deferrable(False)
+        expr.isolation_level(IsolationLevel.SERIALIZABLE).not_deferrable()
         sql, params = expr.to_sql()
         assert "NOT DEFERRABLE" in sql
         assert params == ()
 
-    def test_begin_deferrable_without_serializable(self, dummy_dialect: DummyDialect):
-        """Test DEFERRABLE without SERIALIZABLE is ignored."""
+    def test_begin_wait(self, dummy_dialect: DummyDialect):
+        """Test BEGIN with the WAIT lock-wait spelling."""
+        expr = BeginTransactionExpression(dummy_dialect)
+        expr.isolation_level(IsolationLevel.SERIALIZABLE).wait()
+        sql, params = expr.to_sql()
+        assert "ISOLATION LEVEL SERIALIZABLE" in sql
+        assert sql.endswith("WAIT")
+        assert "NO WAIT" not in sql
+        assert params == ()
+
+    def test_begin_no_wait(self, dummy_dialect: DummyDialect):
+        """Test BEGIN with the NO WAIT lock-wait spelling."""
+        expr = BeginTransactionExpression(dummy_dialect)
+        expr.no_wait()
+        sql, params = expr.to_sql()
+        assert sql == "BEGIN NO WAIT"
+        assert params == ()
+
+    def test_begin_wait_constructor_kwarg(self, dummy_dialect: DummyDialect):
+        """The pair is also settable at construction."""
+        assert BeginTransactionExpression(dummy_dialect, wait=True).to_sql()[0] == "BEGIN WAIT"
+
+    def test_begin_wait_pair_is_mutually_exclusive(self, dummy_dialect: DummyDialect):
+        with pytest.raises(ValueError, match="wait and no_wait are mutually exclusive"):
+            BeginTransactionExpression(dummy_dialect, wait=True, no_wait=True)
+
+    def test_begin_deferrable_without_serializable_is_rendered(self, dummy_dialect: DummyDialect):
+        """[NOT] DEFERRABLE is an independent transaction mode, not dropped.
+
+        It is only *effective* for SERIALIZABLE transactions, but the grammar
+        accepts it alone, so the request must be carried through rather than
+        silently ignored.
+        """
         expr = BeginTransactionExpression(dummy_dialect)
         expr.isolation_level(IsolationLevel.READ_COMMITTED).deferrable()
         sql, params = expr.to_sql()
-        assert "DEFERRABLE" not in sql
+        assert "DEFERRABLE" in sql
         assert "READ COMMITTED" in sql
 
     def test_method_chaining(self, dummy_dialect: DummyDialect):
@@ -283,10 +315,30 @@ class TestSetTransactionExpression:
     def test_set_transaction_not_deferrable(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION NOT DEFERRABLE."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).deferrable(False)
+        expr.isolation_level(IsolationLevel.SERIALIZABLE).not_deferrable()
         sql, params = expr.to_sql()
         assert "NOT DEFERRABLE" in sql
         assert params == ()
+
+    def test_set_transaction_wait(self, dummy_dialect: DummyDialect):
+        """Test SET TRANSACTION with the WAIT lock-wait spelling."""
+        expr = SetTransactionExpression(dummy_dialect)
+        expr.isolation_level(IsolationLevel.SERIALIZABLE).wait()
+        sql, params = expr.to_sql()
+        assert sql == "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE WAIT"
+        assert params == ()
+
+    def test_set_transaction_no_wait(self, dummy_dialect: DummyDialect):
+        """Test SET TRANSACTION with the NO WAIT lock-wait spelling."""
+        expr = SetTransactionExpression(dummy_dialect)
+        expr.no_wait()
+        sql, params = expr.to_sql()
+        assert sql == "SET TRANSACTION NO WAIT"
+        assert params == ()
+
+    def test_set_transaction_wait_pair_is_mutually_exclusive(self, dummy_dialect: DummyDialect):
+        with pytest.raises(ValueError, match="wait and no_wait are mutually exclusive"):
+            SetTransactionExpression(dummy_dialect, wait=True, no_wait=True)
 
     def test_set_transaction_all_options(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION with all options."""
@@ -325,7 +377,15 @@ class TestSetTransactionExpression:
         """Test get_params returns defaults when nothing set."""
         expr = SetTransactionExpression(dummy_dialect)
         params = expr.get_params()
-        assert params == {"isolation_level": None, "mode": None, "session": False, "deferrable": None}
+        assert params == {
+            "isolation_level": None,
+            "mode": None,
+            "session": False,
+            "deferrable": False,
+            "not_deferrable": False,
+            "wait": False,
+            "no_wait": False,
+        }
 
 
 class TestAllIsolationLevels:
@@ -366,6 +426,10 @@ class TestDummyDialectTransactionCapabilities:
     def test_supports_deferrable_transaction(self, dummy_dialect: DummyDialect):
         """Test supports_deferrable_transaction returns True."""
         assert dummy_dialect.supports_deferrable_transaction() is True
+
+    def test_supports_transaction_wait(self, dummy_dialect: DummyDialect):
+        """Test supports_transaction_wait returns True."""
+        assert dummy_dialect.supports_transaction_wait() is True
 
     def test_supports_savepoint(self, dummy_dialect: DummyDialect):
         """Test supports_savepoint returns True."""
@@ -415,6 +479,17 @@ class TestSQLiteDialectTransactionCapabilities:
     def test_not_supports_deferrable_transaction(self, sqlite_dialect: SQLiteDialect):
         """Test supports_deferrable_transaction returns False for SQLite."""
         assert sqlite_dialect.supports_deferrable_transaction() is False
+
+    def test_not_supports_transaction_wait(self, sqlite_dialect: SQLiteDialect):
+        """Test supports_transaction_wait returns False for SQLite."""
+        assert sqlite_dialect.supports_transaction_wait() is False
+
+    def test_begin_refuses_wait(self, sqlite_dialect: SQLiteDialect):
+        """SQLite has no WAIT / NO WAIT clause; the request is refused by name."""
+        with pytest.raises(UnsupportedFeatureError, match="WAIT"):
+            BeginTransactionExpression(sqlite_dialect, wait=True).to_sql()
+        with pytest.raises(UnsupportedFeatureError, match="NO WAIT"):
+            BeginTransactionExpression(sqlite_dialect, no_wait=True).to_sql()
 
     def test_supports_savepoint(self, sqlite_dialect: SQLiteDialect):
         """Test supports_savepoint returns True for SQLite."""

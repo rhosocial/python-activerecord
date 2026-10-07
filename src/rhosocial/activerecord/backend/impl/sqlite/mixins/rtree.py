@@ -56,17 +56,19 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
             cols.append(self.format_identifier(f"min{i}"))
             cols.append(self.format_identifier(f"max{i}"))
 
-        table = self.format_identifier(expr.table_name)
+        table = expr.table.to_sql()[0]
         cols_str = ", ".join(cols)
 
         parts = []
 
-        if expr.content_rowid and not expr.content_table:
+        if expr.content_rowid and expr.content_table is None:
             self._validate_safe_identifier(expr.content_rowid)
 
-        if expr.content_table:
-            self._validate_safe_identifier(expr.content_table)
-            parts.append(f"content='{self._escape_sql_string(expr.content_table)}'")
+        if expr.content_table is not None:
+            self._validate_safe_identifier(expr.content_table.name)
+            parts.append(
+                f"content='{self._escape_sql_string(expr.content_table.name)}'"
+            )
             if expr.content_rowid:
                 self._validate_safe_identifier(expr.content_rowid)
                 parts.append(f"content_rowid='{self._escape_sql_string(expr.content_rowid)}'")
@@ -88,7 +90,7 @@ class SQLiteRTreeMixin(SQLiteExtensionMixin):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        table = self.format_identifier(expr.table_name)
+        table = expr.table.to_sql()[0]
         conditions = []
         params = []
         for i, (min_val, max_val) in enumerate(expr.ranges):

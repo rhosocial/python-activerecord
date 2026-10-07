@@ -30,6 +30,26 @@ from rhosocial.activerecord.backend.expression.statements import (
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
+
+
+class SchemaDialect(DummyDialect):
+    """A dialect that has a schema namespace.
+
+    ``Dummy`` declares none, so a qualified name there is refused rather than
+    rendered -- which is correct, and is what the refusal path covers. The one
+    test here that needs a qualified object needs a dialect that agrees to spell
+    one.
+    """
+
+    def supports_schema_qualification(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def schema_dummy():
+    """A dialect that will render a schema-qualified object name."""
+    return SchemaDialect()
 
 
 @pytest.fixture
@@ -95,7 +115,7 @@ def test_generic_create_table_table_comment_spacing(dummy):
     col = ColumnDefinition(dummy, "id", IntegerType(dummy))
     expr = CreateTableExpression(
         dummy,
-        "t",
+        Table(dummy, 't'),
         [col],
         table_options=CreateTableOptions(
             dummy, comment=TableCommentClause(dummy, "hello world")
@@ -120,7 +140,7 @@ def test_table_comment_clause_gated(sqlite):
 
 def test_comment_on_table(dummy):
     sql, params = CommentOnExpression(
-        dummy, CommentObjectType.TABLE, "t", "meta"
+        dummy, CommentObjectType.TABLE, Table(dummy, "t"), "meta"
     ).to_sql()
     assert sql == 'COMMENT ON TABLE "t" IS \'meta\''
     assert params == ()
@@ -128,41 +148,50 @@ def test_comment_on_table(dummy):
 
 def test_comment_on_column_dotted_target(dummy):
     sql, _ = CommentOnExpression(
-        dummy, CommentObjectType.COLUMN, "t.c", "col"
+        dummy, CommentObjectType.COLUMN, Table(dummy, "t"), "col", column="c"
     ).to_sql()
     assert sql == 'COMMENT ON COLUMN "t"."c" IS \'col\''
 
 
-def test_comment_on_schema_qualified(dummy):
+def test_comment_on_schema_qualified(schema_dummy):
     sql, _ = CommentOnExpression(
-        dummy, CommentObjectType.TABLE, "t", "x", schema="s"
+        schema_dummy,
+        CommentObjectType.TABLE,
+        Table(schema_dummy, "t", schema_name="s"),
+        "x",
     ).to_sql()
     assert sql == 'COMMENT ON TABLE "s"."t" IS \'x\''
 
 
 def test_comment_on_null_clears(dummy):
-    sql, params = CommentOnExpression(dummy, CommentObjectType.TABLE, "t", None).to_sql()
+    sql, params = CommentOnExpression(
+        dummy, CommentObjectType.TABLE, Table(dummy, "t"), None
+    ).to_sql()
     assert sql == 'COMMENT ON TABLE "t" IS NULL'
     assert params == ()
 
 
 def test_comment_on_escapes_apostrophe(dummy):
-    sql, _ = CommentOnExpression(dummy, CommentObjectType.TABLE, "t", "it's").to_sql()
+    sql, _ = CommentOnExpression(
+        dummy, CommentObjectType.TABLE, Table(dummy, "t"), "it's"
+    ).to_sql()
     assert sql == "COMMENT ON TABLE \"t\" IS 'it''s'"
 
 
 def test_comment_on_accepts_string_object_type(dummy):
-    sql, _ = CommentOnExpression(dummy, "TABLE", "t", "x").to_sql()
+    sql, _ = CommentOnExpression(dummy, "TABLE", Table(dummy, "t"), "x").to_sql()
     assert sql == 'COMMENT ON TABLE "t" IS \'x\''
 
 
 def test_comment_on_empty_object_name_rejected(dummy):
-    with pytest.raises(ValueError, match="object_name"):
-        CommentOnExpression(dummy, CommentObjectType.TABLE, "   ", "x")
+    with pytest.raises(ValueError, match="name"):
+        CommentOnExpression(dummy, CommentObjectType.TABLE, Table(dummy, "   "), "x")
 
 
 def test_comment_on_gated_by_default(sqlite):
     """A dialect without COMMENT ON raises a clean UnsupportedFeatureError."""
     assert sqlite.supports_comment_on() is False
     with pytest.raises(UnsupportedFeatureError, match="COMMENT ON"):
-        CommentOnExpression(sqlite, CommentObjectType.TABLE, "t", "x").to_sql()
+        CommentOnExpression(
+            sqlite, CommentObjectType.TABLE, Table(sqlite, "t"), "x"
+        ).to_sql()

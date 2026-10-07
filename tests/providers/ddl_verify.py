@@ -7,7 +7,6 @@ DDL 表达式 vs 现有 schema 文件验证工具
 """
 
 import re
-import os
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 

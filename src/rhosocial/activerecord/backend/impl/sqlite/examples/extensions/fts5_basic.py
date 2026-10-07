@@ -22,6 +22,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression import (
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)

@@ -3,7 +3,7 @@
 Core SQL expression components like columns, literals, function calls, and subqueries.
 """
 
-from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING, Union
+from typing import Any, Tuple, Optional, TYPE_CHECKING, Union
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression, is_sql_query_and_params
 from .mixins import (
@@ -238,40 +238,6 @@ class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixi
                 # Default: treat as string
                 self.query_input = str(query)
                 self.query_params = ()
-
-
-class TableExpression(AliasableMixin, BaseExpression):
-    """Represents a table or view in a SQL query, optionally with schema and alias.
-
-    Per-role quoting fields (all default to ``True``):
-    - ``name_need_quote`` ↔ ``name``
-    - ``schema_need_quote`` ↔ ``schema_name``
-    - ``alias_need_quote`` ↔ ``alias``
-    """
-
-    @property
-    def format_method(self) -> str:
-        return "format_table"
-
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        name: str,
-        schema_name: Optional[str] = None,
-        alias: Optional[str] = None,
-        temporal_options: Optional[Dict[str, Any]] = None,
-        name_need_quote: bool = True,
-        alias_need_quote: bool = True,
-        schema_need_quote: bool = True,
-    ):
-        super().__init__(dialect)
-        self.name_need_quote = name_need_quote
-        self.alias_need_quote = alias_need_quote
-        self.schema_need_quote = schema_need_quote
-        self.name = name
-        self.schema_name = schema_name
-        self.alias = alias
-        self.temporal_options = temporal_options or {}
 
 
 class QualifiedIdentifierExpression(BaseExpression):

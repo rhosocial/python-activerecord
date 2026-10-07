@@ -2,7 +2,6 @@
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    TableExpression,
     ComparisonPredicate,
     MergeExpression,
     MergeAction,
@@ -10,6 +9,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.query_sources import ValuesExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestMergeStatements:
@@ -19,7 +19,7 @@ class TestMergeStatements:
         """Tests a basic MERGE statement with WHEN MATCHED UPDATE and WHEN NOT MATCHED INSERT."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "products", alias="p")
+        target_table = Table(dummy_dialect, "products")
         source_values = ValuesExpression(
             dummy_dialect, [(1, "New Product A", 15.0)], "new_prods", ["id", "name", "price"]
         )
@@ -53,7 +53,7 @@ class TestMergeStatements:
         )
         sql, params = merge_expr.to_sql()
         expected_sql = (
-            'MERGE INTO "products" AS "p" USING (VALUES (?, ?, ?)) AS "new_prods"("id", "name", "price") ON "p"."id" = "new_prods"."id" '  # noqa: E501
+            'MERGE INTO "products" USING (VALUES (?, ?, ?)) AS "new_prods"("id", "name", "price") ON "p"."id" = "new_prods"."id" '  # noqa: E501
             'WHEN MATCHED THEN UPDATE SET "name" = "new_prods"."name", "price" = "new_prods"."price" '
             'WHEN NOT MATCHED THEN INSERT ("id", "name", "price") VALUES ("new_prods"."id", "new_prods"."name", "new_prods"."price")'  # noqa: E501
         )
@@ -64,7 +64,7 @@ class TestMergeStatements:
         """Tests MERGE with UPDATE action in WHEN MATCHED clause."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "products", alias="p")
+        target_table = Table(dummy_dialect, "products")
         source_values = ValuesExpression(
             dummy_dialect, [(1, "Updated Product", 25.0)], "new_prods", ["id", "name", "price"]
         )
@@ -97,7 +97,7 @@ class TestMergeStatements:
         """Tests MERGE with INSERT action in WHEN NOT MATCHED clause."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "products", alias="p")
+        target_table = Table(dummy_dialect, "products")
         source_values = ValuesExpression(
             dummy_dialect, [(2, "New Product B", 35.0)], "new_prods", ["id", "name", "price"]
         )
@@ -131,7 +131,7 @@ class TestMergeStatements:
         """Tests MERGE with DELETE action in WHEN MATCHED clause."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "orders", alias="ord")
+        target_table = Table(dummy_dialect, "orders")
         source_values = ValuesExpression(dummy_dialect, [(555,)], "cancel_orders", ["order_id"])
         on_condition = ComparisonPredicate(
             dummy_dialect,
@@ -167,7 +167,7 @@ class TestMergeStatements:
         """Tests MERGE with conditions in WHEN clauses."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "employees", alias="emp")
+        target_table = Table(dummy_dialect, "employees")
         source_values = ValuesExpression(
             dummy_dialect, [(101, "John Doe", 60000)], "new_emps", ["id", "name", "salary"]
         )
@@ -225,7 +225,7 @@ class TestMergeStatements:
         """Tests MERGE with DELETE action in WHEN MATCHED clause."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "orders", alias="ord")
+        target_table = Table(dummy_dialect, "orders")
         source_cancel = ValuesExpression(dummy_dialect, [(555,)], "cancel_orders", ["order_id"])
         on_condition = ComparisonPredicate(
             dummy_dialect,
@@ -264,7 +264,7 @@ class TestMergeNotMatchedBySource:
 
     def test_merge_with_not_matched_by_source_delete(self, dummy_dialect: DummyDialect):
         """Tests MERGE with WHEN NOT MATCHED BY SOURCE DELETE action."""
-        target_table = TableExpression(dummy_dialect, "existing_products", alias="ep")
+        target_table = Table(dummy_dialect, "existing_products")
         source_values = ValuesExpression(
             dummy_dialect,
             values=[
@@ -310,14 +310,14 @@ class TestMergeNotMatchedBySource:
         # Verify that the SQL contains the NOT MATCHED BY SOURCE clause
         assert "WHEN NOT MATCHED BY SOURCE THEN DELETE" in sql
         assert (
-            'MERGE INTO "existing_products" AS "ep" USING (VALUES (?, ?), (?, ?)) AS "new_prods"("id", "name") ON "ep"."id" = "new_prods"."id"'  # noqa: E501
+            'MERGE INTO "existing_products" USING (VALUES (?, ?), (?, ?)) AS "new_prods"("id", "name") ON "ep"."id" = "new_prods"."id"'  # noqa: E501
             in sql
         )
         assert params == (1, "Product A", 2, "Product B")
 
     def test_merge_with_not_matched_by_source_update(self, dummy_dialect: DummyDialect):
         """Tests MERGE with WHEN NOT MATCHED BY SOURCE UPDATE action."""
-        target_table = TableExpression(dummy_dialect, "customers", alias="c")
+        target_table = Table(dummy_dialect, "customers")
         source_values = ValuesExpression(
             dummy_dialect,
             values=[
@@ -354,7 +354,7 @@ class TestMergeNotMatchedBySource:
 
     def test_merge_with_not_matched_by_source_and_condition(self, dummy_dialect: DummyDialect):
         """Tests MERGE with WHEN NOT MATCHED BY SOURCE and additional condition."""
-        target_table = TableExpression(dummy_dialect, "inventory", alias="inv")
+        target_table = Table(dummy_dialect, "inventory")
         source_values = ValuesExpression(
             dummy_dialect,
             values=[

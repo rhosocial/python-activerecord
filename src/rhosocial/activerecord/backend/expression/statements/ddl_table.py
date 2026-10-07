@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams
-from ..core import TableExpression
+from ..objects import Table
 from ..types import DataType
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -44,16 +44,27 @@ class ColumnConstraint(BaseExpression):
         constraint_type: ColumnConstraintType,
         name: Optional[str] = None,
         check_condition: Optional["SQLPredicate"] = None,
-        foreign_key_reference: Optional[Tuple[str, List[str]]] = None,
+        foreign_key_reference: Optional[Tuple["Table", List[str]]] = None,
         default_value: Any = None,
         is_auto_increment: bool = False,
         on_delete: Optional["ReferentialAction"] = None,
         on_update: Optional["ReferentialAction"] = None,
-        deferrable: Optional[bool] = None,
-        initially_deferred: Optional[bool] = None,
-        enforced: Optional[bool] = None,
+        deferrable: bool = False,
+        not_deferrable: bool = False,
+        initially_deferred: bool = False,
+        initially_immediate: bool = False,
+        enforced: bool = False,
+        not_enforced: bool = False,
     ):
         super().__init__(dialect)
+        if deferrable and not_deferrable:
+            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
+        if initially_deferred and initially_immediate:
+            raise ValueError(
+                "initially_deferred and initially_immediate are mutually exclusive options"
+            )
+        if enforced and not_enforced:
+            raise ValueError("enforced and not_enforced are mutually exclusive options")
         self.constraint_type = constraint_type
         self.name = name
         self.check_condition = check_condition
@@ -63,8 +74,11 @@ class ColumnConstraint(BaseExpression):
         self.on_delete = on_delete
         self.on_update = on_update
         self.deferrable = deferrable
+        self.not_deferrable = not_deferrable
         self.initially_deferred = initially_deferred
+        self.initially_immediate = initially_immediate
         self.enforced = enforced
+        self.not_enforced = not_enforced
 
 
 class DefaultValueClause(BaseExpression):
@@ -89,18 +103,30 @@ class DefaultValueClause(BaseExpression):
 
 
 class IdentityClause(BaseExpression):
-    """The identity/auto-increment clause of a column definition.
+    """The SQL-standard identity clause of a column definition.
 
     A DDL clause node rendered through the dialect's ``format_identity_clause``.
     It carries the identity **parameters** (generation, start, increment,
-    bounds, cycle) so the syntax differences between backends live in one
-    place: MySQL/MariaDB ``AUTO_INCREMENT``, SQL Server ``IDENTITY(seed, inc)``,
-    PostgreSQL/Oracle/Firebird ``GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY
-    (START WITH ... INCREMENT BY ...)``, SQLite ``AUTOINCREMENT``.
+    bounds, cycle) for the SQL-standard
+    ``GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY (START WITH ... INCREMENT BY ...)``
+    grammar. SQL Server and Snowflake override the formatter to render their
+    own ``IDENTITY(seed, inc)`` spelling.
+
+    ``AUTO_INCREMENT`` is **not** this node: it has no parameter space (its
+    seed is a table-level option), so it is a different mechanism carried by
+    :class:`AutoIncrementClause`. ``SERIAL`` is a *type*, not a column clause,
+    and stays in the PostgreSQL type family.
 
     ``generation`` is ``"ALWAYS"`` or ``"BY DEFAULT"`` (``None`` defaults to
-    ``BY DEFAULT``); ``start``/``increment``/``minvalue``/``maxvalue``/``cycle``
-    are optional sequence attributes.
+    ``BY DEFAULT``); ``start``/``increment``/``minvalue``/``maxvalue`` are
+    optional sequence attributes. Every option is gated by its own probe in the
+    formatter; an option the dialect cannot express is refused by name, not
+    dropped.
+
+    Each two-spelling option has one parameter per spelling: ``cycle`` /
+    ``no_cycle``, ``order`` / ``no_order``, ``cache`` / ``no_cache``. Setting
+    both of a pair raises ``ValueError``; ``cache`` is a positive count and
+    ``no_cache=True`` spells NO CACHE (``cache=0`` is not a spelling).
     """
 
     @property
@@ -117,15 +143,60 @@ class IdentityClause(BaseExpression):
         increment: Optional[int] = None,
         minvalue: Optional[int] = None,
         maxvalue: Optional[int] = None,
-        cycle: Optional[bool] = None,
+        cycle: bool = False,
+        no_cycle: bool = False,
+        order: bool = False,
+        no_order: bool = False,
+        cache: Optional[int] = None,
+        no_cache: bool = False,
     ):
         super().__init__(dialect)
+        if cycle and no_cycle:
+            raise ValueError("cycle and no_cycle are mutually exclusive options")
+        if cache is not None and no_cache:
+            raise ValueError("cache and no_cache are mutually exclusive options")
+        if order and no_order:
+            raise ValueError("order and no_order are mutually exclusive options")
+        if cache is not None and cache <= 0:
+            raise ValueError(
+                "cache must be a positive integer; use no_cache=True to spell NO CACHE"
+            )
         self.generation = generation
         self.start = start
         self.increment = increment
         self.minvalue = minvalue
         self.maxvalue = maxvalue
         self.cycle = cycle
+        self.no_cycle = no_cycle
+        self.order = order
+        self.no_order = no_order
+        self.cache = cache
+        self.no_cache = no_cache
+
+
+class AutoIncrementClause(BaseExpression):
+    """The bare ``AUTO_INCREMENT`` marker of a column definition.
+
+    A DDL clause node rendered through the dialect's
+    ``format_auto_increment_clause``. It carries **no parameters**, and that is
+    the point: ``AUTO_INCREMENT`` has no column-level parameter space. Its seed
+    and increment are table-level options (``AUTO_INCREMENT = 100``), a
+    different mechanism that is out of scope for this node. A parameterised
+    identity column is expressed with :class:`IdentityClause` instead.
+
+    The node names the generic mechanism — "this column's value is generated
+    by the server, with no parameters" — and the dialect decides the spelling:
+    core renders `` AUTO_INCREMENT``; a dialect that cannot express the
+    mechanism refuses through its ``supports_auto_increment_column()`` probe.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_auto_increment_clause"
+
+    def __init__(self, dialect: "SQLDialectBase"):
+        super().__init__(dialect)
 
 
 class ReferencesClause(BaseExpression):
@@ -150,23 +221,33 @@ class ReferencesClause(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        referenced_table: str,
+        referenced_table: "Table",
         referenced_columns: List[str],
         *,
         on_delete: Optional["ReferentialAction"] = None,
         on_update: Optional["ReferentialAction"] = None,
         match_type: Optional[str] = None,
-        deferrable: Optional[bool] = None,
-        initially_deferred: Optional[bool] = None,
+        deferrable: bool = False,
+        not_deferrable: bool = False,
+        initially_deferred: bool = False,
+        initially_immediate: bool = False,
     ):
         super().__init__(dialect)
+        if deferrable and not_deferrable:
+            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
+        if initially_deferred and initially_immediate:
+            raise ValueError(
+                "initially_deferred and initially_immediate are mutually exclusive options"
+            )
         self.referenced_table = referenced_table
         self.referenced_columns = list(referenced_columns or [])
         self.on_delete = on_delete
         self.on_update = on_update
         self.match_type = match_type
         self.deferrable = deferrable
+        self.not_deferrable = not_deferrable
         self.initially_deferred = initially_deferred
+        self.initially_immediate = initially_immediate
 
 
 class GeneratedColumnType(Enum):
@@ -362,14 +443,25 @@ class TableConstraint(BaseExpression):
         name: Optional[str] = None,
         columns: Optional[List[str]] = None,
         check_condition: Optional["SQLPredicate"] = None,
-        foreign_key_table: Optional[str] = None,
+        foreign_key_table: Optional["Table"] = None,
         foreign_key_columns: Optional[List[str]] = None,
-        deferrable: Optional[bool] = None,
-        initially_deferred: Optional[bool] = None,
+        deferrable: bool = False,
+        not_deferrable: bool = False,
+        initially_deferred: bool = False,
+        initially_immediate: bool = False,
         validation: Optional[ConstraintValidation] = None,
-        enforced: Optional[bool] = None,
+        enforced: bool = False,
+        not_enforced: bool = False,
     ):
         super().__init__(dialect)
+        if deferrable and not_deferrable:
+            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
+        if initially_deferred and initially_immediate:
+            raise ValueError(
+                "initially_deferred and initially_immediate are mutually exclusive options"
+            )
+        if enforced and not_enforced:
+            raise ValueError("enforced and not_enforced are mutually exclusive options")
         self.constraint_type = constraint_type
         self.name = name
         self.columns = columns
@@ -377,11 +469,14 @@ class TableConstraint(BaseExpression):
         self.foreign_key_table = foreign_key_table
         self.foreign_key_columns = foreign_key_columns
         self.deferrable = deferrable
+        self.not_deferrable = not_deferrable
         self.initially_deferred = initially_deferred
+        self.initially_immediate = initially_immediate
         # PostgreSQL: NOT VALID for an added constraint (None = default VALIDATE).
         self.validation = validation
         # MariaDB/SQL Server: CHECK ... [NOT] ENFORCED (None = backend default).
         self.enforced = enforced
+        self.not_enforced = not_enforced
 
 
 class ForeignKeyConstraint(TableConstraint):
@@ -396,16 +491,19 @@ class ForeignKeyConstraint(TableConstraint):
         self,
         dialect: "SQLDialectBase",
         columns: Optional[List[str]] = None,
-        foreign_key_table: Optional[str] = None,
+        foreign_key_table: Optional["Table"] = None,
         foreign_key_columns: Optional[List[str]] = None,
         on_delete: "ReferentialAction" = ReferentialAction.NO_ACTION,
         on_update: "ReferentialAction" = ReferentialAction.NO_ACTION,
         match_type: Optional[str] = None,
         name: Optional[str] = None,
-        deferrable: Optional[bool] = None,
-        initially_deferred: Optional[bool] = None,
+        deferrable: bool = False,
+        not_deferrable: bool = False,
+        initially_deferred: bool = False,
+        initially_immediate: bool = False,
         validation: Optional[ConstraintValidation] = None,
-        enforced: Optional[bool] = None,
+        enforced: bool = False,
+        not_enforced: bool = False,
     ):
         super().__init__(
             dialect,
@@ -415,9 +513,12 @@ class ForeignKeyConstraint(TableConstraint):
             foreign_key_table=foreign_key_table,
             foreign_key_columns=foreign_key_columns,
             deferrable=deferrable,
+            not_deferrable=not_deferrable,
             initially_deferred=initially_deferred,
+            initially_immediate=initially_immediate,
             validation=validation,
             enforced=enforced,
+            not_enforced=not_enforced,
         )
         self.on_delete = on_delete
         self.on_update = on_update
@@ -432,8 +533,9 @@ class IndexDefinition(BaseExpression):
 
     Statement-level options (§5.16, plan 方案 A) are carried per index so the
     standalone ``CREATE INDEX`` / ``DROP INDEX`` statements can differ one by
-    one. ``None`` means "not explicitly declared" — an explicit declaration
-    wins over entry-level parameters. They are ignored by the inline path
+    one. ``if_exists`` / ``if_not_exists`` are present-or-absent clauses, so
+    they are plain ``bool`` flags: ``None`` (the model-layer marker's "not
+    declared") is coerced to ``False``. They are ignored by the inline path
     (an index riding inside CREATE TABLE cannot carry statement options; the
     deriver raises on the inline path instead).
     """
@@ -452,9 +554,9 @@ class IndexDefinition(BaseExpression):
         type: Optional[str] = None,
         partial_condition: Optional["SQLPredicate"] = None,
         include_columns: Optional[List[str]] = None,
-        if_not_exists: Optional[bool] = None,
+        if_not_exists: bool = False,
         tablespace: Optional[str] = None,
-        if_exists: Optional[bool] = None,
+        if_exists: bool = False,
         concurrent: Optional[bool] = None,
     ):
         super().__init__(dialect)
@@ -466,10 +568,11 @@ class IndexDefinition(BaseExpression):
         self.include_columns = include_columns
         # Statement-level options (§5.16): ``if_not_exists`` (create path),
         # ``tablespace`` (create path), ``if_exists`` (drop path) and
-        # ``concurrent`` (create/drop shared).
-        self.if_not_exists = if_not_exists
+        # ``concurrent`` (create/drop shared). Present-or-absent clauses: a
+        # plain bool, never a tri-state.
+        self.if_not_exists = bool(if_not_exists)
         self.tablespace = tablespace
-        self.if_exists = if_exists
+        self.if_exists = bool(if_exists)
         self.concurrent = concurrent
 
 
@@ -536,7 +639,7 @@ class CreateTableExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "Table",
         columns: List[ColumnDefinition],  # List of column definitions with constraints
         indexes: Optional[List[IndexDefinition]] = None,  # Table indexes
         table_constraints: Optional[List[TableConstraint]] = None,  # Table-level constraints
@@ -550,12 +653,7 @@ class CreateTableExpression(BaseExpression):
         table_options: Optional["CreateTableOptions"] = None,  # CREATE header modifiers
     ):
         super().__init__(dialect)
-        if isinstance(table, str):
-            self.table = TableExpression(dialect, table)
-        elif isinstance(table, TableExpression):
-            self.table = table
-        else:
-            raise TypeError(f"table must be str or TableExpression, got {type(table).__name__}")
+        self.table = table
         self.columns = columns  # List of column definitions with embedded constraints
         self.indexes = indexes or []  # List of indexes to create
         self.table_constraints = table_constraints or []  # List of table-level constraints
@@ -581,30 +679,6 @@ class CreateTableExpression(BaseExpression):
         return "format_create_table_statement"
 
 
-def _normalize_table_reference(
-    dialect: "SQLDialectBase",
-    ref: Union[str, "TableExpression", Tuple[str, str]],
-) -> "TableExpression":
-    """Normalize a table reference into a :class:`TableExpression`.
-
-    Accepts the three forms used across the CREATE TABLE family:
-
-    * ``str`` -- bare table name (``"users"``);
-    * ``TableExpression`` -- already structured (returned unchanged);
-    * ``tuple`` -- ``(schema_name, table_name)`` pair.
-    """
-    if isinstance(ref, TableExpression):
-        return ref
-    if isinstance(ref, str):
-        return TableExpression(dialect, ref)
-    if isinstance(ref, tuple) and len(ref) == 2:
-        return TableExpression(dialect, ref[1], schema_name=ref[0])
-    raise TypeError(
-        f"table reference must be str, TableExpression or (schema, table) tuple, "
-        f"got {type(ref).__name__}"
-    )
-
-
 class CreateTableAsExpression(BaseExpression):
     """Represents ``CREATE TABLE ... AS <query>`` (CTAS).
 
@@ -625,17 +699,20 @@ class CreateTableAsExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "Table",
         as_query: "QueryExpression",
         *,
         columns: Optional[List[ColumnDefinition]] = None,
         temporary: bool = False,
         if_not_exists: bool = False,
         storage_options: Optional["StorageOptionsExpression"] = None,
-        with_data: Optional[bool] = None,
+        with_data: bool = False,
+        no_data: bool = False,
     ):
         super().__init__(dialect)
-        self.table = _normalize_table_reference(dialect, table)
+        if with_data and no_data:
+            raise ValueError("with_data and no_data are mutually exclusive options")
+        self.table = table
         if as_query is None:
             raise ValueError("as_query is required for CreateTableAsExpression")
         self.as_query = as_query
@@ -644,6 +721,7 @@ class CreateTableAsExpression(BaseExpression):
         self.if_not_exists = if_not_exists
         self.storage_options = storage_options
         self.with_data = with_data
+        self.no_data = no_data
 
     @property
     def table_name(self) -> str:
@@ -678,16 +756,16 @@ class CreateTableLikeExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
-        like_table: Union[str, "TableExpression", Tuple[str, str]],
+        table: "Table",
+        like_table: "Table",
         *,
         temporary: bool = False,
         if_not_exists: bool = False,
         like_options: Optional[Any] = None,
     ):
         super().__init__(dialect)
-        self.table = _normalize_table_reference(dialect, table)
-        self.like_table = _normalize_table_reference(dialect, like_table)
+        self.table = table
+        self.like_table = like_table
         self.temporary = temporary
         self.if_not_exists = if_not_exists
         # PostgreSQL-specific INCLUDING/EXCLUDING options (dict or list).
@@ -727,8 +805,8 @@ class CreateTableCloneExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
-        source_table: Union[str, "TableExpression", Tuple[str, str]],
+        table: "Table",
+        source_table: "Table",
         *,
         mode: CreateTableCloneMode = CreateTableCloneMode.CLONE,
         temporary: bool = False,
@@ -740,8 +818,8 @@ class CreateTableCloneExpression(BaseExpression):
         super().__init__(dialect)
         if not isinstance(mode, CreateTableCloneMode):
             raise TypeError(f"mode must be a CreateTableCloneMode, got {type(mode).__name__}")
-        self.table = _normalize_table_reference(dialect, table)
-        self.source_table = _normalize_table_reference(dialect, source_table)
+        self.table = table
+        self.source_table = source_table
         self.mode = mode
         self.temporary = temporary
         self.if_not_exists = if_not_exists
@@ -772,14 +850,14 @@ class CreateTableFromTemplateExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "Table",
         template: "QueryExpression",
         *,
         temporary: bool = False,
         if_not_exists: bool = False,
     ):
         super().__init__(dialect)
-        self.table = _normalize_table_reference(dialect, table)
+        self.table = table
         if template is None:
             raise ValueError("template is required for CreateTableFromTemplateExpression")
         self.template = template
@@ -802,6 +880,9 @@ class DropTableExpression(BaseExpression):
     - CASCADE: Automatically drops dependent objects (views, foreign keys)
     - RESTRICT: Refuses to drop if dependencies exist (default in SQL standard)
 
+    Each spelling has its own parameter (``cascade`` / ``restrict``); leaving
+    both unset omits the clause, and setting both raises ``ValueError``.
+
     Capability gating is enforced by the dialect's ``format_drop_table_statement``
     helper via the protocol switches ``supports_drop_table_cascade()`` and
     ``supports_drop_table_restrict()``: asking for a behavior the dialect does
@@ -823,18 +904,16 @@ class DropTableExpression(BaseExpression):
 
     Args:
         dialect: The SQL dialect to use for formatting
-        table_name: The table name (string) or TableExpression object
+        table: The Table being dropped
         if_exists: Add IF EXISTS clause to avoid error if table doesn't exist
-        cascade: Optional cascade behavior:
-            - None: Omit from SQL (use database default)
-            - True: Generate CASCADE (or dialect-specific equivalent form)
-            - False: Generate RESTRICT (or raise if unsupported)
+        cascade: Emit CASCADE (or the dialect-specific equivalent form)
+        restrict: Emit RESTRICT (or raise if unsupported)
         purge: Oracle PURGE via a typed flag which, combined with cascade=True,
             appends PURGE after the dialect-specific cascade form.
 
     Examples:
         # Simple drop
-        DropTableExpression(dialect, "users")
+        DropTableExpression(dialect, Table(dialect, "users"))
         # -> DROP TABLE users
 
         # With IF EXISTS
@@ -850,7 +929,7 @@ class DropTableExpression(BaseExpression):
         # -> DROP TABLE users CASCADE CONSTRAINTS PURGE
 
         # With schema-qualified table
-        DropTableExpression(dialect, TableExpression(dialect, "users", schema_name="public"))
+        DropTableExpression(dialect, Table(dialect, "users", schema_name="public"))
         # -> DROP TABLE public.users
     """
     
@@ -862,20 +941,19 @@ class DropTableExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "Table",
         if_exists: bool = False,
-        cascade: Optional[bool] = None,
+        cascade: bool = False,
+        restrict: bool = False,
         purge: bool = False,
     ):
         super().__init__(dialect)
-        if isinstance(table, str):
-            self.table = TableExpression(dialect, table)
-        elif isinstance(table, TableExpression):
-            self.table = table
-        else:
-            raise TypeError(f"table must be str or TableExpression, got {type(table).__name__}")
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
+        self.table = table
         self.if_exists = if_exists
         self.cascade = cascade
+        self.restrict = restrict
         self.purge = purge
 
 

@@ -17,8 +17,8 @@ import sys
 import logging
 from typing import Type, List
 
-from rhosocial.activerecord.backend.expression import DropTableExpression, TableExpression
-from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
+from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.model import ActiveRecord
 
 # Setup logging for fixture selection debugging
 logger = logging.getLogger(__name__)
@@ -92,6 +92,7 @@ from rhosocial.activerecord.testsuite.feature.events.interfaces import IEventsSy
 
 # ...and the scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario  # noqa: E402
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class EventsProviderBase:
@@ -175,9 +176,6 @@ class EventsSyncProvider(EventsProviderBase, IEventsSyncProvider):
         backend_class, original_config = get_scenario(scenario_name)
 
         # Check if this is a file-based scenario, and if so, generate a unique filename
-        import os
-        import tempfile
-        import uuid
 
         config = original_config  # default to the original config
 
@@ -211,7 +209,7 @@ class EventsSyncProvider(EventsProviderBase, IEventsSyncProvider):
         try:
             drop_expr = DropTableExpression(
                 dialect=model_class.__backend__.dialect,
-                table=TableExpression(model_class.__backend__.dialect, table_name),
+                table=Table(model_class.__backend__.dialect, table_name),
                 if_exists=True,
             )
             model_class.__backend__.execute(
@@ -309,9 +307,6 @@ class EventsAsyncProvider(EventsProviderBase, IEventsAsyncProvider):
         backend_class = AsyncSQLiteBackend
         _, original_config = get_scenario(scenario_name)
 
-        import os
-        import tempfile
-        import uuid
 
         config = original_config
 
@@ -336,7 +331,7 @@ class EventsAsyncProvider(EventsProviderBase, IEventsAsyncProvider):
         try:
             drop_expr = DropTableExpression(
                 dialect=model_class.__backend__.dialect,
-                table=TableExpression(model_class.__backend__.dialect, table_name),
+                table=Table(model_class.__backend__.dialect, table_name),
                 if_exists=True,
             )
             await model_class.__backend__.execute(

@@ -313,9 +313,15 @@ class UseConstraint(DDLAnnotation):
             is_auto_increment=is_auto_increment,
             on_delete=on_delete,
             on_update=on_update,
-            deferrable=deferrable,
-            initially_deferred=initially_deferred,
-            enforced=enforced,
+            # The AR-layer marker keeps its tri-state until the AR layer's
+            # exposure of the split is decided (out of scope for this round);
+            # translate it to the expression layer's two parameters.
+            deferrable=deferrable is True,
+            not_deferrable=deferrable is False,
+            initially_deferred=initially_deferred is True,
+            initially_immediate=initially_deferred is False,
+            enforced=enforced is True,
+            not_enforced=enforced is False,
         )
 
     def __repr__(self) -> str:

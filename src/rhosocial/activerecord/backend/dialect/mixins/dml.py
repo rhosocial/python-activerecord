@@ -8,6 +8,7 @@ from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 from ...expression.bases import BaseExpression
+from ...expression.objects import Table
 
 if TYPE_CHECKING:
     from ...expression.statements.dml import (
@@ -170,11 +171,17 @@ class DMLMixin:
             parameters.
 
         Raises:
+            TypeError: ``InsertExpression.into`` is not a Table. Another object kind
+            would have had its own name rendered as the INTO target.
             UnsupportedFeatureError: If a RETURNING clause is requested but the
                 dialect does not support it.
         """
+        if not isinstance(expr.into, Table):
+            raise TypeError(
+                f"InsertExpression.into must be a Table, "
+                f"got {type(expr.into).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
-        from ...expression.statements import DefaultValuesSource, ValuesSource, SelectSource
         if self.strict_validation:
             expr.validate(strict=True)
         all_params: List[Any] = []
@@ -183,24 +190,8 @@ class DMLMixin:
         columns_sql = ""
         if expr.columns:
             columns_sql = "(" + ", ".join([self.format_identifier(c) for c in expr.columns]) + ")"
-        source_sql = ""
-        if isinstance(expr.source, DefaultValuesSource):
-            source_sql = "DEFAULT VALUES"
-        elif isinstance(expr.source, ValuesSource):
-            all_rows_sql = []
-            for row in expr.source.values_list:
-                row_sql, row_params = [], []
-                for val in row:
-                    s, p = val.to_sql()
-                    row_sql.append(s)
-                    row_params.extend(p)
-                all_rows_sql.append(f"({', '.join(row_sql)})")
-                all_params.extend(row_params)
-            source_sql = "VALUES " + ", ".join(all_rows_sql)
-        elif isinstance(expr.source, SelectSource):
-            s_sql, s_params = expr.source.select_query.to_sql()
-            source_sql = s_sql
-            all_params.extend(s_params)
+        source_sql, source_params = expr.source.to_sql()
+        all_params.extend(source_params)
         sql = f"INSERT INTO {table_sql} {columns_sql} {source_sql}".strip()
         if expr.on_conflict:
             conflict_sql, conflict_params = self.format_on_conflict_clauses(expr)
@@ -217,6 +208,51 @@ class DMLMixin:
             sql += f" {returning_sql}"
             all_params.extend(returning_params)
         return sql, tuple(all_params)
+
+    def format_insert_values_source(self, expr) -> Tuple[str, tuple]:
+        """Render a ``VALUES`` list as an INSERT's data source.
+
+        Args:
+            expr: The :class:`ValuesSource` holding the rows to insert.
+
+        Returns:
+            A ``(sql, params)`` tuple; the placeholders in ``sql`` line up with
+            the parameters in the order the rows and columns are written.
+        """
+        rows_sql: List[str] = []
+        all_params: List[Any] = []
+        for row in expr.values_list:
+            cells_sql, cell_params = [], []
+            for value in row:
+                cell_sql, cell_value_params = value.to_sql()
+                cells_sql.append(cell_sql)
+                cell_params.extend(cell_value_params)
+            rows_sql.append(f"({', '.join(cells_sql)})")
+            all_params.extend(cell_params)
+        return "VALUES " + ", ".join(rows_sql), tuple(all_params)
+
+    def format_insert_select_source(self, expr) -> Tuple[str, tuple]:
+        """Render the query an INSERT selects its rows from.
+
+        Args:
+            expr: The :class:`SelectSource` carrying the query.
+
+        Returns:
+            The query's own ``(sql, params)``.
+        """
+        return expr.select_query.to_sql()
+
+    def format_insert_default_values_source(self, expr) -> Tuple[str, tuple]:
+        """Render the ``DEFAULT VALUES`` keyword.
+
+        Args:
+            expr: The :class:`DefaultValuesSource`; it carries nothing, and the
+                keyword is the whole of it.
+
+        Returns:
+            ``("DEFAULT VALUES", ())``.
+        """
+        return "DEFAULT VALUES", ()
 
     def format_on_conflict_clauses(self, expr: "InsertExpression") -> Tuple[str, tuple]:
         """Format one or more ON CONFLICT clauses, gated by capability switches.
@@ -268,9 +304,16 @@ class DMLMixin:
             parameters.
 
         Raises:
+            TypeError: ``UpdateExpression.table`` is not a Table. Another object
+            kind would have had its own name rendered as the UPDATE target.
             UnsupportedFeatureError: If a RETURNING clause is requested but the
                 dialect does not support it.
         """
+        if not isinstance(expr.table, Table):
+            raise TypeError(
+                f"UpdateExpression.table must be a Table, "
+                f"got {type(expr.table).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import QueryExpression
         all_params: List[Any] = []
@@ -340,9 +383,18 @@ class DMLMixin:
             parameters.
 
         Raises:
+            TypeError: An entry of ``DeleteExpression.tables`` is not a Table.
+            Another object kind would have had its own name rendered after DELETE
+            FROM.
             UnsupportedFeatureError: If a RETURNING clause is requested but the
                 dialect does not support it.
         """
+        for position, entry in enumerate(expr.tables):
+            if not isinstance(entry, Table):
+                raise TypeError(
+                    f"DeleteExpression.tables must hold Table instances, "
+                    f"got {type(entry).__name__} at position {position}"
+                )
         from ..exceptions import UnsupportedFeatureError
         from ...expression.statements import QueryExpression
         if self.strict_validation:

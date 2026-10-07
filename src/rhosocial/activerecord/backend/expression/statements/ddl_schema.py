@@ -4,17 +4,13 @@
 from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..objects import Schema
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
 class CreateSchemaExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_create_schema_statement"
     """
     Represents a CREATE SCHEMA statement.
 
@@ -28,20 +24,20 @@ class CreateSchemaExpression(BaseExpression):
         # Basic schema creation
         create_schema = CreateSchemaExpression(
             dialect,
-            schema_name="my_schema"
+            schema=Schema(dialect, "my_schema")
         )
 
         # Schema with authorization
         create_schema = CreateSchemaExpression(
             dialect,
-            schema_name="app_schema",
+            schema=Schema(dialect, "app_schema"),
             authorization="app_user"
         )
 
         # Safe schema creation
         create_schema = CreateSchemaExpression(
             dialect,
-            schema_name="reporting",
+            schema=Schema(dialect, "reporting"),
             if_not_exists=True
         )
     """
@@ -49,12 +45,12 @@ class CreateSchemaExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        schema_name: str,
+        schema: "Schema",
         if_not_exists: bool = False,
         authorization: Optional[str] = None,
     ):
         super().__init__(dialect)
-        self.schema_name = schema_name
+        self.schema = schema
         self.if_not_exists = if_not_exists
         self.authorization = authorization
 
@@ -65,11 +61,6 @@ class CreateSchemaExpression(BaseExpression):
 
 
 class DropSchemaExpression(BaseExpression):
-
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_drop_schema_statement"
     """
     Represents a DROP SCHEMA statement.
 
@@ -77,35 +68,46 @@ class DropSchemaExpression(BaseExpression):
         # Basic schema drop
         drop_schema = DropSchemaExpression(
             dialect,
-            schema_name="old_schema"
+            schema=Schema(dialect, "old_schema")
         )
 
         # Safe drop with IF EXISTS
         drop_schema = DropSchemaExpression(
             dialect,
-            schema_name="test_schema",
+            schema=Schema(dialect, "test_schema"),
             if_exists=True
         )
 
         # Cascade drop (removes all objects in schema)
         drop_schema = DropSchemaExpression(
             dialect,
-            schema_name="legacy",
+            schema=Schema(dialect, "legacy"),
             cascade=True
+        )
+
+        # Restrict drop (refuses if objects depend on the schema)
+        drop_schema = DropSchemaExpression(
+            dialect,
+            schema=Schema(dialect, "legacy"),
+            restrict=True
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        schema_name: str,
+        schema: "Schema",
         if_exists: bool = False,
         cascade: bool = False,
+        restrict: bool = False,
     ):
         super().__init__(dialect)
-        self.schema_name = schema_name
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
+        self.schema = schema
         self.if_exists = if_exists
         self.cascade = cascade
+        self.restrict = restrict
 
     @property
     def format_method(self) -> str:

@@ -14,7 +14,6 @@ from providers.fixtures.events import (
     create_event_tests_table,
     create_event_test_models_table,
     create_event_tracking_models_table,
-    TABLE_EXPRESSIONS,
 )
 from providers.ddl_verify import verify_table
 

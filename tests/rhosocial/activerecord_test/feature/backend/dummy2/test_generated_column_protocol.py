@@ -12,6 +12,7 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.dialect.protocols import GeneratedColumnSupport
 from rhosocial.activerecord.backend.dialect.mixins import GeneratedColumnMixin
 from rhosocial.activerecord.backend.expression.types import DecimalType, IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestGeneratedColumnProtocol:
@@ -101,7 +102,7 @@ class TestGeneratedColumnBasic:
             ),
         ]
 
-        create_table = CreateTableExpression(dummy_dialect, table="users", columns=columns)
+        create_table = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=columns)
         sql, params = create_table.to_sql()
 
         assert 'CREATE TABLE "users"' in sql
@@ -126,7 +127,7 @@ class TestGeneratedColumnBasic:
             ),
         ]
 
-        create_table = CreateTableExpression(dummy_dialect, table="order_items", columns=columns)
+        create_table = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'order_items'), columns=columns)
         sql, params = create_table.to_sql()
 
         assert 'CREATE TABLE "order_items"' in sql
@@ -147,7 +148,7 @@ class TestGeneratedColumnBasic:
             ),
         ]
 
-        create_table = CreateTableExpression(dummy_dialect, table="test_table", columns=columns)
+        create_table = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=columns)
         sql, params = create_table.to_sql()
 
         assert '"computed" INTEGER GENERATED ALWAYS AS' in sql
@@ -173,7 +174,7 @@ class TestGeneratedColumnWithConstraints:
             ),
         ]
 
-        create_table = CreateTableExpression(dummy_dialect, table="test_table", columns=columns)
+        create_table = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=columns)
         sql, params = create_table.to_sql()
 
         assert '"value" INTEGER NOT NULL GENERATED ALWAYS AS' in sql
@@ -198,7 +199,7 @@ class TestGeneratedColumnExpressions:
             ),
         ]
 
-        create_table = CreateTableExpression(dummy_dialect, table="math_table", columns=columns)
+        create_table = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'math_table'), columns=columns)
         sql, params = create_table.to_sql()
 
         assert '"sum_result" INTEGER GENERATED ALWAYS AS' in sql
@@ -220,7 +221,7 @@ class TestGeneratedColumnExpressions:
             ),
         ]
 
-        create_table = CreateTableExpression(dummy_dialect, table="names", columns=columns)
+        create_table = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'names'), columns=columns)
         sql, params = create_table.to_sql()
 
         assert '"full" VARCHAR(101) GENERATED ALWAYS AS' in sql

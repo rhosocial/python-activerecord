@@ -34,7 +34,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table="articles",
+    table=Table(dialect, 'articles'),
     columns=[
         ColumnDefinition(dialect, 
             "id",
@@ -67,7 +67,7 @@ articles = [
 for title, author in articles:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="articles",
+        into=Table(dialect, 'articles'),
         columns=["title", "author"],
         source=ValuesSource(dialect, [[Literal(dialect, title), Literal(dialect, author)]]),
     )
@@ -77,20 +77,20 @@ for title, author in articles:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     LimitOffsetClause,
     OrderByClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Column, WildcardExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 # 1. Basic LIMIT - get first N rows
 query_limit = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, "articles"),
+    from_=NamedRelationRef(dialect, Table(dialect, "articles")),
     order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
     limit_offset=LimitOffsetClause(dialect, limit=3),
 )
@@ -110,7 +110,7 @@ offset = (page_number - 1) * page_size
 query_page = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, "articles"),
+    from_=NamedRelationRef(dialect, Table(dialect, "articles")),
     order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
     limit_offset=LimitOffsetClause(dialect, limit=page_size, offset=offset),
 )
@@ -143,7 +143,7 @@ for page in range(1, total_pages + 1):
     query = QueryExpression(
         dialect=dialect,
         select=[WildcardExpression(dialect)],
-        from_=TableExpression(dialect, "articles"),
+        from_=NamedRelationRef(dialect, Table(dialect, "articles")),
         order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
         limit_offset=LimitOffsetClause(dialect, limit=page_size, offset=offset),
     )
@@ -154,7 +154,7 @@ for page in range(1, total_pages + 1):
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table="articles", if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'articles'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

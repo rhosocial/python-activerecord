@@ -61,7 +61,7 @@ users = [
 for row in users:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="users",
+        into=Table(dialect, 'users'),
         columns=["name", "age", "status"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
     )
@@ -71,17 +71,17 @@ for row in users:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     Column,
     WhereClause,
     OrderByClause,
     LimitOffsetClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 query = QueryExpression(
     dialect=dialect,
@@ -90,7 +90,7 @@ query = QueryExpression(
         Column(dialect, "name"),
         Column(dialect, "age"),
     ],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(

@@ -22,7 +22,7 @@ import tempfile
 import logging
 from typing import Type, List, Tuple
 
-from rhosocial.activerecord.backend.expression import DropTableExpression, TableExpression
+from rhosocial.activerecord.backend.expression import DropTableExpression
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
 # Setup logging for fixture selection debugging
@@ -141,6 +141,7 @@ from rhosocial.activerecord.testsuite.core.protocols import WorkerTestProtocol  
 
 # Scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario  # noqa: E402
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class QueryProviderBase:
@@ -274,7 +275,7 @@ class QuerySyncProvider(QueryProviderBase, IQuerySyncProvider, WorkerTestProtoco
         options = ExecutionOptions(stmt_type=StatementType.DDL)
         drop_expr = DropTableExpression(
             dialect=model_class.__backend__.dialect,
-            table=TableExpression(model_class.__backend__.dialect, table_name),
+            table=Table(model_class.__backend__.dialect, table_name),
             if_exists=True,
         )
         model_class.__backend__.execute(*drop_expr.to_sql(), options=options)
@@ -392,7 +393,7 @@ class QuerySyncProvider(QueryProviderBase, IQuerySyncProvider, WorkerTestProtoco
         try:
             drop_expr = DropTableExpression(
                 dialect=OrderItemBase.__backend__.dialect,
-                table=TableExpression(OrderItemBase.__backend__.dialect, "order_items"),
+                table=Table(OrderItemBase.__backend__.dialect, 'order_items'),
                 if_exists=True,
             )
             OrderItemBase.__backend__.execute(*drop_expr.to_sql(), options=options)
@@ -572,7 +573,7 @@ class QueryAsyncProvider(QueryProviderBase, IQueryAsyncProvider):
         options = ExecutionOptions(stmt_type=StatementType.DDL)
         drop_expr = DropTableExpression(
             dialect=model_class.__backend__.dialect,
-            table=TableExpression(model_class.__backend__.dialect, table_name),
+            table=Table(model_class.__backend__.dialect, table_name),
             if_exists=True,
         )
         await model_class.__backend__.execute(*drop_expr.to_sql(), options=options)
@@ -746,7 +747,7 @@ class QueryAsyncProvider(QueryProviderBase, IQueryAsyncProvider):
         try:
             drop_expr = DropTableExpression(
                 dialect=AsyncOrderItemBase.__backend__.dialect,
-                table=TableExpression(AsyncOrderItemBase.__backend__.dialect, "order_items"),
+                table=Table(AsyncOrderItemBase.__backend__.dialect, 'order_items'),
                 if_exists=True,
             )
             await AsyncOrderItemBase.__backend__.execute(*drop_expr.to_sql(), options=options)

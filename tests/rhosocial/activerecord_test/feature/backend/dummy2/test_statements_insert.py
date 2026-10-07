@@ -5,7 +5,6 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     RawSQLExpression,
     QueryExpression,
-    TableExpression,
     InsertExpression,
     ValuesSource,
     SelectSource,
@@ -13,8 +12,10 @@ from rhosocial.activerecord.backend.expression import (
     OnConflictClause,
     ReturningClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestInsertStatements:
@@ -82,7 +83,7 @@ class TestInsertStatements:
             # --- Single row inserts ---
             # Basic insert with str table, columns, no returning, no conflict
             pytest.param(
-                "users",
+                Table(None, "users"),
                 ["name", "email"],
                 None,
                 None,
@@ -91,20 +92,20 @@ class TestInsertStatements:
                 ("John Doe", "john@example.com"),
                 id="single_row_basic_insert",
             ),
-            # Basic insert with TableExpression, columns, no returning, no conflict
+            # Basic insert with NamedRelationRef, columns, no returning, no conflict
             pytest.param(
-                TableExpression(None, "products", alias="p"),
+                Table(None, "products"),
                 ["product_name"],
                 None,
                 None,
                 1,
-                'INSERT INTO "products" AS "p" ("product_name") VALUES (?)',
+                'INSERT INTO "products" ("product_name") VALUES (?)',
                 ("Laptop",),
                 id="single_row_table_expr_insert",
             ),
             # Insert with columns=None (valid for ValuesSource)
             pytest.param(
-                "log_events",
+                Table(None, "log_events"),
                 None,
                 None,
                 None,
@@ -115,7 +116,7 @@ class TestInsertStatements:
             ),
             # Insert with returning
             pytest.param(
-                "orders",
+                Table(None, "orders"),
                 ["amount"],
                 [Column(None, "id")],
                 None,
@@ -126,7 +127,7 @@ class TestInsertStatements:
             ),
             # Insert with on_conflict DO NOTHING
             pytest.param(
-                "items",
+                Table(None, "items"),
                 ["item_id"],
                 None,
                 OnConflictClause(None, conflict_target=["item_id"], do_nothing=True),
@@ -137,7 +138,7 @@ class TestInsertStatements:
             ),
             # Insert with on_conflict DO UPDATE
             pytest.param(
-                "metrics",
+                Table(None, "metrics"),
                 ["key", "value"],
                 None,
                 OnConflictClause(
@@ -151,7 +152,7 @@ class TestInsertStatements:
             # --- Multi row inserts ---
             # Multi-row with str table, columns, no returning, no conflict
             pytest.param(
-                "users",
+                Table(None, "users"),
                 ["name", "email"],
                 None,
                 None,
@@ -160,20 +161,20 @@ class TestInsertStatements:
                 ("Jane Doe", "jane@example.com", "Peter Pan", "peter@example.com"),
                 id="multi_row_basic_insert",
             ),
-            # Multi-row with TableExpression, columns, returning
+            # Multi-row with NamedRelationRef, columns, returning
             pytest.param(
-                TableExpression(None, "transactions", alias="t"),
+                Table(None, "transactions"),
                 ["txn_id", "status"],
                 [Column(None, "id")],
                 None,
                 2,
-                'INSERT INTO "transactions" AS "t" ("txn_id", "status") VALUES (?, ?), (?, ?) RETURNING "id"',
+                'INSERT INTO "transactions" ("txn_id", "status") VALUES (?, ?), (?, ?) RETURNING "id"',
                 ("TXN001", "success", "TXN002", "pending"),
                 id="multi_row_table_expr_insert_returning",
             ),
             # Multi-row with on_conflict DO UPDATE with WHERE
             pytest.param(
-                "products",
+                Table(None, "products"),
                 ["p_id", "qty"],
                 None,
                 OnConflictClause(
@@ -232,6 +233,10 @@ class TestInsertStatements:
                 set_dialect_recursive(expr.value, dialect)
             if hasattr(expr, "subquery"):  # For Exists, Subquery
                 set_dialect_recursive(expr.subquery, dialect)
+            if isinstance(expr, NamedRelationRef):
+                # A row source renders through the object it points at,
+                # and that object needs the dialect as much as the source.
+                set_dialect_recursive(expr.relation, dialect)
             # Specific for OnConflictClause's update_assignments and update_where
             if hasattr(expr, "update_assignments") and isinstance(expr.update_assignments, dict):
                 for _k, v in expr.update_assignments.items():
@@ -245,7 +250,7 @@ class TestInsertStatements:
 
         # --- Prepare dynamic parameters with dummy_dialect ---
         # into parameter
-        if isinstance(into_param, TableExpression):
+        if isinstance(into_param, Table):
             into_param._dialect = dummy_dialect
 
         # columns for VALUES source
@@ -304,10 +309,8 @@ class TestInsertStatements:
 
         # --- Assertions ---
         # Basic check for table and columns
-        if isinstance(into_param, TableExpression):
+        if isinstance(into_param, Table):
             assert f'INSERT INTO "{into_param.name}"' in sql
-            if into_param.alias:
-                assert f'AS "{into_param.alias}"' in sql
         else:
             assert f'INSERT INTO "{into_param}"' in sql
 
@@ -315,8 +318,8 @@ class TestInsertStatements:
         import re
 
         # Get the table name representation in SQL
-        if isinstance(into_param, TableExpression):
-            # If into_param is a TableExpression, call its to_sql() method to get the string representation.
+        if isinstance(into_param, Table):
+            # If into_param is a NamedRelationRef, call its to_sql() method to get the string representation.
             table_sql_part = into_param.to_sql()[0]
         else:
             # If into_param is a string, format it as an identifier.
@@ -378,11 +381,11 @@ class TestInsertStatements:
         select_query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "email")],
-            from_=TableExpression(dummy_dialect, "old_users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "old_users")),
             where=where_clause,
         )
         source = SelectSource(dummy_dialect, select_query=select_query)
-        insert_expr = InsertExpression(dummy_dialect, into="new_users", columns=["name", "email"], source=source)
+        insert_expr = InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'new_users'), columns=["name", "email"], source=source)
         sql, params = insert_expr.to_sql()
         expected_select = 'SELECT "name", "email" FROM "old_users" WHERE "status" = ?'
         assert sql == f'INSERT INTO "new_users" ("name", "email") {expected_select}'
@@ -391,7 +394,7 @@ class TestInsertStatements:
     def test_insert_with_default_values_source(self, dummy_dialect: DummyDialect):
         """Tests INSERT ... DEFAULT VALUES using DefaultValuesSource."""
         source = DefaultValuesSource(dummy_dialect)
-        insert_expr = InsertExpression(dummy_dialect, into="settings", source=source)
+        insert_expr = InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'settings'), source=source)
         sql, params = insert_expr.to_sql()
         assert sql == 'INSERT INTO "settings"  DEFAULT VALUES'
         assert params == ()
@@ -403,7 +406,7 @@ class TestInsertStatements:
             dummy_dialect, expressions=[Column(dummy_dialect, "id"), RawSQLExpression(dummy_dialect, "created_at")]
         )
         insert_expr = InsertExpression(
-            dummy_dialect, into="users", columns=["name"], source=source, returning=returning_clause
+            dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name"], source=source, returning=returning_clause
         )
         sql, params = insert_expr.to_sql()
         assert sql == 'INSERT INTO "users" ("name") VALUES (?) RETURNING "id", created_at'
@@ -414,7 +417,7 @@ class TestInsertStatements:
         source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, 1), Literal(dummy_dialect, "test")]])
         on_conflict = OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True)
         insert_expr = InsertExpression(
-            dummy_dialect, into="products", columns=["id", "name"], source=source, on_conflict=on_conflict
+            dummy_dialect, into=Table(dummy_dialect, 'products'), columns=["id", "name"], source=source, on_conflict=on_conflict
         )
         sql, params = insert_expr.to_sql()
         assert sql == 'INSERT INTO "products" ("id", "name") VALUES (?, ?) ON CONFLICT ("id") DO NOTHING'
@@ -434,7 +437,7 @@ class TestInsertStatements:
             },
         )
         insert_expr = InsertExpression(
-            dummy_dialect, into="products", columns=["id", "name"], source=source, on_conflict=on_conflict
+            dummy_dialect, into=Table(dummy_dialect, 'products'), columns=["id", "name"], source=source, on_conflict=on_conflict
         )
         sql, params = insert_expr.to_sql()
         expected_sql = (
@@ -457,7 +460,7 @@ class TestInsertStatements:
             update_where=Column(dummy_dialect, "is_active", "products") == Literal(dummy_dialect, True),
         )
         insert_expr = InsertExpression(
-            dummy_dialect, into="products", columns=["id", "name"], source=source, on_conflict=on_conflict
+            dummy_dialect, into=Table(dummy_dialect, 'products'), columns=["id", "name"], source=source, on_conflict=on_conflict
         )
         sql, params = insert_expr.to_sql()
         expected_sql = (
@@ -471,26 +474,26 @@ class TestInsertStatements:
     def test_insert_validation_error_default_values_with_cols(self, dummy_dialect: DummyDialect):
         """Tests validation for using DefaultValuesSource with columns."""
         with pytest.raises(ValueError, match="'DEFAULT VALUES' source cannot be used with 'columns'."):
-            InsertExpression(dummy_dialect, into="settings", source=DefaultValuesSource(dummy_dialect), columns=["id"])
+            InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'settings'), source=DefaultValuesSource(dummy_dialect), columns=["id"])
 
     def test_insert_validation_error_on_conflict_with_invalid_source(self, dummy_dialect: DummyDialect):
         """Tests that 'on_conflict' raises an error with an unsupported source like DefaultValuesSource."""
         with pytest.raises(ValueError, match="'on_conflict' is only supported for 'VALUES' or 'SELECT' sources."):
             InsertExpression(
                 dummy_dialect,
-                into="settings",
+                into=Table(dummy_dialect, 'settings'),
                 source=DefaultValuesSource(dummy_dialect),
                 on_conflict=OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True),
             )
 
     def test_insert_with_table_expression(self, dummy_dialect: DummyDialect):
-        """Tests that 'into' can be a TableExpression."""
+        """Tests that 'into' can be a NamedRelationRef."""
         source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
         insert_expr = InsertExpression(
-            dummy_dialect, into=TableExpression(dummy_dialect, "users", alias="u"), columns=["name"], source=source
+            dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name"], source=source
         )
         sql, params = insert_expr.to_sql()
-        assert sql == 'INSERT INTO "users" AS "u" ("name") VALUES (?)'
+        assert sql == 'INSERT INTO "users" ("name") VALUES (?)'
         assert params == ("test",)
 
     # region Extreme Value Tests
@@ -516,7 +519,7 @@ class TestInsertStatements:
         """Tests inserting empty string values."""
         values_list_expr = [[Literal(dummy_dialect, val) for val in row] for row in values_data]
         source = ValuesSource(dummy_dialect, values_list=values_list_expr)
-        insert_expr = InsertExpression(dummy_dialect, into="test_table", columns=columns_param, source=source)
+        insert_expr = InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'test_table'), columns=columns_param, source=source)
         sql, params = insert_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params
@@ -549,7 +552,7 @@ class TestInsertStatements:
         """Tests inserting explicit NULL values."""
         values_list_expr = [[Literal(dummy_dialect, val) for val in row] for row in values_data]
         source = ValuesSource(dummy_dialect, values_list=values_list_expr)
-        insert_expr = InsertExpression(dummy_dialect, into="test_table", columns=columns_param, source=source)
+        insert_expr = InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'test_table'), columns=columns_param, source=source)
         sql, params = insert_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params
@@ -568,7 +571,7 @@ class TestInsertStatements:
 
         values_list_expr = [[Literal(dummy_dialect, val) for val in values]]
         source = ValuesSource(dummy_dialect, values_list=values_list_expr)
-        insert_expr = InsertExpression(dummy_dialect, into="large_table", columns=columns, source=source)
+        insert_expr = InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'large_table'), columns=columns, source=source)
 
         expected_columns_sql = ", ".join([f'"{c}"' for c in columns])
         expected_placeholders = ", ".join(["?" for _ in range(num_columns)])
@@ -593,7 +596,7 @@ class TestInsertStatements:
 
         values_list_expr = [[Literal(dummy_dialect, long_string)]]
         source = ValuesSource(dummy_dialect, values_list=values_list_expr)
-        insert_expr = InsertExpression(dummy_dialect, into="long_string_table", columns=["text_col"], source=source)
+        insert_expr = InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'long_string_table'), columns=["text_col"], source=source)
 
         expected_sql = 'INSERT INTO "long_string_table" ("text_col") VALUES (?)'
         expected_params = (long_string,)
@@ -616,7 +619,7 @@ class TestInsertStatements:
         )
         on_conflict = OnConflictClause(dummy_dialect, conflict_target=["col1", "col2"], do_nothing=True)
         insert_expr = InsertExpression(
-            dummy_dialect, into="users", columns=["id", "email", "name"], source=source, on_conflict=on_conflict
+            dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["id", "email", "name"], source=source, on_conflict=on_conflict
         )
         sql, params = insert_expr.to_sql()
         expected_sql = (
@@ -638,7 +641,7 @@ class TestInsertStatements:
             do_nothing=True,
         )
         insert_expr = InsertExpression(
-            dummy_dialect, into="users", columns=["id", "email"], source=source, on_conflict=on_conflict
+            dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["id", "email"], source=source, on_conflict=on_conflict
         )
         sql, params = insert_expr.to_sql()
         # The dialect should format the expression target with parentheses if needed
@@ -667,7 +670,7 @@ class TestInsertStatements:
             },
         )
         insert_expr = InsertExpression(
-            dummy_dialect, into="users", columns=["id", "name", "new_score"], source=source, on_conflict=on_conflict
+            dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["id", "name", "new_score"], source=source, on_conflict=on_conflict
         )
         sql, params = insert_expr.to_sql()
         # Expecting score = users.score + excluded.new_score
@@ -696,7 +699,7 @@ class TestInsertStatements:
             & (Column(dummy_dialect, "priority", "excluded") > Column(dummy_dialect, "priority", "users")),
         )
         insert_expr = InsertExpression(
-            dummy_dialect, into="users", columns=["id", "status", "priority"], source=source, on_conflict=on_conflict
+            dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["id", "status", "priority"], source=source, on_conflict=on_conflict
         )
         sql, params = insert_expr.to_sql()
         expected_sql = (
@@ -724,7 +727,7 @@ class TestInsertStatements:
         )
         insert_expr = InsertExpression(
             dummy_dialect,
-            into="products",
+            into=Table(dummy_dialect, 'products'),
             columns=["id", "name"],
             source=source,
             on_conflict=[clause1, clause2],
@@ -747,7 +750,7 @@ class TestInsertStatements:
             OnConflictClause(dummy_dialect, conflict_target=["col_c"], do_nothing=True),
         ]
         insert_expr = InsertExpression(
-            dummy_dialect, into="t", columns=["val"], source=source, on_conflict=clauses
+            dummy_dialect, into=Table(dummy_dialect, 't'), columns=["val"], source=source, on_conflict=clauses
         )
         sql, params = insert_expr.to_sql()
         assert sql.count("ON CONFLICT") == 3
@@ -773,7 +776,7 @@ class TestInsertStatements:
         )
         insert_expr = InsertExpression(
             dummy_dialect,
-            into="products",
+            into=Table(dummy_dialect, 'products'),
             columns=["id", "qty"],
             source=source,
             on_conflict=[clause1, clause2],
@@ -793,7 +796,7 @@ class TestInsertStatements:
         source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, 1)]])
         clause = OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True)
         insert_expr = InsertExpression(
-            dummy_dialect, into="t", columns=["val"], source=source, on_conflict=clause
+            dummy_dialect, into=Table(dummy_dialect, 't'), columns=["val"], source=source, on_conflict=clause
         )
         sql, params = insert_expr.to_sql()
         assert sql == 'INSERT INTO "t" ("val") VALUES (?) ON CONFLICT ("id") DO NOTHING'
@@ -803,28 +806,29 @@ class TestInsertStatements:
     # endregion Multiple ON CONFLICT Clauses Tests
 
     # --- Validation failure tests ---
-    # Note: into parameter is automatically converted in the constructor,
-    # so we focus on parameters that are not automatically converted
+    # Note: ``into`` is checked by the dialect formatter that renders the INTO
+    # target, so it is asserted at render time; the remaining parameters below
+    # are checked by the expression's own validate().
 
     def test_insert_expression_invalid_into_type_after_construction(self, dummy_dialect: DummyDialect):
-        """Tests that InsertExpression raises TypeError for invalid into parameter type after construction."""
-        # Since 'into' is converted in constructor, we need to manually assign invalid type after construction
+        """Tests that the INSERT formatter raises TypeError for a non-Table ``into``.
+
+        Construction succeeds: the statement keeps what it was given, and the
+        dialect that would render it as an INTO target is the one that refuses.
+        """
         insert_expr = InsertExpression(
             dummy_dialect,
-            into="users",  # Valid initial value
+            into=123,
             source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
         )
-        # Manually assign invalid type to trigger validation error
-        insert_expr.into = 123  # Invalid type - should be str or TableExpression
-
-        with pytest.raises(TypeError, match=r"into must be str or TableExpression, got <class 'int'>"):
-            insert_expr.validate(strict=True)
+        with pytest.raises(TypeError, match=r"into must be a Table, got int"):
+            insert_expr.to_sql()
 
     def test_insert_expression_invalid_source_type(self, dummy_dialect: DummyDialect):
         """Tests that InsertExpression raises TypeError for invalid source parameter type."""
         insert_expr = InsertExpression(
             dummy_dialect,
-            into="users",
+            into=Table(dummy_dialect, 'users'),
             source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type to trigger validation error
@@ -837,7 +841,7 @@ class TestInsertStatements:
         """Tests that InsertExpression raises TypeError for invalid columns parameter type."""
         insert_expr = InsertExpression(
             dummy_dialect,
-            into="users",
+            into=Table(dummy_dialect, 'users'),
             source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type to trigger validation error
@@ -850,7 +854,7 @@ class TestInsertStatements:
         """Tests that InsertExpression raises TypeError for invalid on_conflict parameter type."""
         insert_expr = InsertExpression(
             dummy_dialect,
-            into="users",
+            into=Table(dummy_dialect, 'users'),
             source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type to trigger validation error
@@ -863,7 +867,7 @@ class TestInsertStatements:
         """Tests that InsertExpression raises TypeError when on_conflict is not a clause or list of clauses."""
         source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
         with pytest.raises(TypeError, match=r"on_conflict must be OnConflictClause or list of OnConflictClause"):
-            InsertExpression(dummy_dialect, into="users", source=source, on_conflict=123)
+            InsertExpression(dummy_dialect, into=Table(dummy_dialect, 'users'), source=source, on_conflict=123)
 
     def test_insert_expression_invalid_on_conflict_list_item(self, dummy_dialect: DummyDialect):
         """Tests that InsertExpression raises TypeError when a list item is not an OnConflictClause."""
@@ -871,7 +875,7 @@ class TestInsertStatements:
         with pytest.raises(TypeError, match=r"on_conflict\[1\] must be OnConflictClause, got <class 'int'>"):
             InsertExpression(
                 dummy_dialect,
-                into="users",
+                into=Table(dummy_dialect, 'users'),
                 source=source,
                 on_conflict=[
                     OnConflictClause(dummy_dialect, conflict_target=["id"], do_nothing=True),
@@ -883,7 +887,7 @@ class TestInsertStatements:
         """Tests that InsertExpression raises TypeError for invalid returning parameter type."""
         insert_expr = InsertExpression(
             dummy_dialect,
-            into="users",
+            into=Table(dummy_dialect, 'users'),
             source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type to trigger validation error
@@ -896,7 +900,7 @@ class TestInsertStatements:
         """Tests that InsertExpression.validate with strict=False skips validation."""
         insert_expr = InsertExpression(
             dummy_dialect,
-            into="users",
+            into=Table(dummy_dialect, 'users'),
             source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
         )
         # Manually assign invalid type that would normally cause an error
@@ -908,7 +912,7 @@ class TestInsertStatements:
         # Also test with valid parameters and strict=False
         insert_expr_valid = InsertExpression(
             dummy_dialect,
-            into="products",
+            into=Table(dummy_dialect, 'products'),
             source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "widget")]]),
         )
         insert_expr_valid.validate(strict=False)  # Should not raise any exception

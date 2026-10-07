@@ -11,7 +11,6 @@ dispatcher joins plain strings -> TypeError. The column-level handler is now
 renamed ``format_column_unique_constraint``; these tests pin both levels.
 """
 
-import pytest
 
 from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
@@ -25,6 +24,7 @@ from rhosocial.activerecord.backend.expression.types import (
     IntegerType, TextType,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 _dialect = SQLiteDialect()
@@ -34,7 +34,7 @@ dialect = _dialect
 def _make_table(ctype, *, named=None):
     return CreateTableExpression(
         dialect=SQLiteDialect(),
-        table="demo",
+        table=Table(SQLiteDialect(), 'demo'),
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect)),
             ColumnDefinition(dialect, "code", TextType(dialect),

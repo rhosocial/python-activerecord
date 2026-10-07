@@ -27,9 +27,9 @@ generic syntax for a partition boundary (``VALUES LESS THAN`` /
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING, Union
+from typing import Optional, Sequence, Type, TYPE_CHECKING, Union
 
-from ..bases import BaseExpression, SQLQueryAndParams
+from ..bases import BaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

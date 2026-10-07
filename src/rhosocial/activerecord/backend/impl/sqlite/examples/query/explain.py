@@ -18,10 +18,10 @@ from rhosocial.activerecord.backend.expression import (
     InsertExpression,
     ValuesSource,
     QueryExpression,
-    TableExpression,
     ExplainExpression,
     CreateIndexExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, Column
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
@@ -31,6 +31,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 from rhosocial.activerecord.backend.expression.statements.explain import ExplainType, ExplainOptions
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
@@ -80,7 +81,7 @@ users = [
 for name, email in users:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="users",
+        into=Table(dialect, 'users'),
         columns=["name", "email"],
         source=ValuesSource(dialect, [[Literal(dialect, name), Literal(dialect, email)]]),
     )
@@ -95,7 +96,7 @@ for name, email in users:
 query1 = QueryExpression(
     dialect=dialect,
     select=[Column(dialect, "*")],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
     where=ComparisonPredicate(
         dialect,
         "=",
@@ -119,7 +120,7 @@ for row in result.data:
 query2 = QueryExpression(
     dialect=dialect,
     select=[Column(dialect, "*")],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
     where=ComparisonPredicate(
         dialect,
         "=",

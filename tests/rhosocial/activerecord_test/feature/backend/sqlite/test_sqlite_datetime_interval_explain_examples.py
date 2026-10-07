@@ -9,8 +9,8 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     LogicalPredicate,
     QueryExpression,
-    TableExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.functions import date_add, date_diff, extract
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 from rhosocial.activerecord.backend.expression.statements import ExplainOptions, ExplainType
@@ -18,6 +18,7 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainQueryPlanResult
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 _SETUP_STATEMENTS = [
@@ -91,7 +92,7 @@ def test_created_at_range_uses_datetime_index(temporal_backend, query_plan_optio
     query = QueryExpression(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "created_at")],
-        from_=TableExpression(dialect, "temporal_events"),
+        from_=NamedRelationRef(dialect, Table(dialect, "temporal_events")),
         where=_range_filter(
             dialect,
             "created_at",
@@ -115,7 +116,7 @@ def test_started_at_range_uses_composite_datetime_index(temporal_backend, query_
     query = QueryExpression(
         dialect,
         select=[Column(dialect, "started_at"), Column(dialect, "ended_at")],
-        from_=TableExpression(dialect, "temporal_events"),
+        from_=NamedRelationRef(dialect, Table(dialect, "temporal_events")),
         where=_range_filter(
             dialect,
             "started_at",
@@ -144,7 +145,7 @@ def test_datetime_interval_expressions_work_with_indexed_filter(temporal_backend
                 "duration_minutes"
             ),
         ],
-        from_=TableExpression(dialect, "temporal_events"),
+        from_=NamedRelationRef(dialect, Table(dialect, "temporal_events")),
         where=_category_created_filter(dialect),
         order_by=OrderByClause(dialect, [(Column(dialect, "id"), "ASC")]),
     )

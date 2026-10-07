@@ -9,7 +9,7 @@ from enum import Enum, auto
 from typing import TypeVar, Any, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..query import IQuery
+    from .query import IQuery
 
 # Define interface type variables
 QueryT = TypeVar("QueryT", bound="IQuery")

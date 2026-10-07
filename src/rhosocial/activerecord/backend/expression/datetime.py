@@ -5,7 +5,7 @@ import math
 from enum import Enum
 from typing import Any, Dict, TYPE_CHECKING, Union
 
-from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
+from .bases import BaseExpression, SQLValueExpression
 from .mixins import AliasableMixin, ArithmeticMixin, ComparisonMixin, StringMixin, TypeCastingMixin
 
 if TYPE_CHECKING:  # pragma: no cover

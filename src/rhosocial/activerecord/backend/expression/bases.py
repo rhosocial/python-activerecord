@@ -7,12 +7,11 @@ have no dependencies on other modules within the `expression` package
 to prevent circular imports.
 """
 
-import abc
 import inspect
 import sys
 import warnings
 from enum import Enum
-from typing import Dict, Any, List, Optional, Tuple, Protocol, TYPE_CHECKING, Union
+from typing import Dict, Any, Optional, Tuple, Protocol, TYPE_CHECKING, Union
 from typing import runtime_checkable
 
 if sys.version_info >= (3, 10):
@@ -194,7 +193,7 @@ class BaseExpression:
         setter, so the declaration cannot be mutated at runtime).
 
         :class:`BaseExpression.to_sql` resolves the name against the bound
-        dialect and raises ``AttributeError`` if the dialect does not
+        dialect and raises ``UnsupportedFeatureError`` if the dialect does not
         provide it. An expression class that does not override this getter
         is not renderable: reading it raises ``NotImplementedError``.
         """
@@ -218,24 +217,79 @@ class BaseExpression:
 
         1. Resolve this class's declared formatting method name
            (:attr:`format_method`; undeclared → ``NotImplementedError``) and
-           look it up on the bound dialect (missing → ``AttributeError``;
-           unbound dialect → ``ValueError`` from :attr:`dialect`).
+           look it up on the bound dialect (missing →
+           ``UnsupportedFeatureError``, matching how every other capability gap
+           in the tree is reported; unbound dialect → ``ValueError`` from
+           :attr:`dialect`).
         2. Call the formatting function with **this** expression —
            formatting functions receive expression instances only.
+        3. Check what came back. This step exists because a lookup that found
+           *something* callable is not the same as finding a formatter.
+
+        The check in step 3 is not defensive padding. A ``runtime_checkable``
+        protocol is satisfied by its own ``...`` bodies, so a probe-only
+        protocol sitting in a dialect's base list answers ``getattr`` and
+        passes the callable test while returning ``None``. Three backends hit
+        that independently -- ``CreateFunctionExpression(...).to_sql()``
+        answering ``None``, ``Domain.to_sql()`` answering ``None``, a
+        formatter returning a bare string instead of a pair -- and each was
+        invisible because nothing inspected the result. A formatting method
+        that answers with the wrong shape is not a formatting method.
 
         Returns:
             A tuple containing:
             - str: The SQL string
             - tuple: The parameter values for prepared statement execution
+
+        Raises:
+            UnsupportedFeatureError: The dialect has no such formatting method.
+            ProtocolNotImplementedError: What answered the lookup was a
+                protocol rather than a formatter, so the dialect has not
+                implemented the feature.
+            TypeError: A formatting method answered with something other than
+                ``(sql, params)``.
         """
+        from ..dialect.exceptions import (
+            ProtocolNotImplementedError,
+            UnsupportedFeatureError,
+        )
+
         formatter_name = self.format_method
         formatter = getattr(self.dialect, formatter_name, None)
         if formatter is None or not callable(formatter):
-            raise AttributeError(
-                f"{type(self.dialect).__name__} has no formatting method "
-                f"'{formatter_name}' (required by {type(self).__name__})."
+            raise UnsupportedFeatureError(
+                dialect_name=self.dialect.name,
+                feature_name=f"the '{formatter_name}' statement",
+                suggestion=(
+                    f"{type(self.dialect).__name__} declares no "
+                    f"'{formatter_name}', which {type(self).__name__} needs; "
+                    f"mix in the mixin that provides it, or override "
+                    f"format_method on {type(self).__name__} to name one this "
+                    f"dialect has"
+                ),
             )
-        return formatter(self)
+        rendered = formatter(self)
+        if rendered is None:
+            raise ProtocolNotImplementedError(
+                dialect_name=self.dialect.name,
+                protocol_name=formatter_name,
+                required_by=type(self).__name__,
+            )
+        if not (
+            isinstance(rendered, tuple)
+            and len(rendered) == 2
+            and isinstance(rendered[0], str)
+        ):
+            raise TypeError(
+                f"{type(self.dialect).__name__}.{formatter_name} returned "
+                f"{type(rendered).__name__} for {type(self).__name__}, but a "
+                f"formatting method must return (sql, params). A protocol "
+                f"declaring '{formatter_name}' satisfies isinstance "
+                f"structurally, so putting one in a dialect's base list can "
+                f"answer a lookup that meant a formatter; and a formatter "
+                f"returning a bare string silently loses its bind parameters."
+            )
+        return rendered
 
     def validate(self, strict: bool = True) -> None:
         """Validate expression parameters according to SQL standard.

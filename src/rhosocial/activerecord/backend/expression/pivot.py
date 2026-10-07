@@ -53,7 +53,12 @@ class PivotExpression(BaseExpression):
 
 
 class UnpivotExpression(BaseExpression):
-    """An UNPIVOT clause expression (column-to-row transformation)."""
+    """An UNPIVOT clause expression (column-to-row transformation).
+
+    ``include_nulls`` / ``exclude_nulls`` are the two spellings of the null
+    handling; leaving both unset omits the clause, and setting both raises
+    ``ValueError``.
+    """
 
     def __init__(
         self,
@@ -62,13 +67,17 @@ class UnpivotExpression(BaseExpression):
         pivot_column: str,
         columns: Optional[List[str]] = None,
         include_nulls: bool = False,
+        exclude_nulls: bool = False,
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
+        if include_nulls and exclude_nulls:
+            raise ValueError("include_nulls and exclude_nulls are mutually exclusive options")
         self.value_column = value_column
         self.pivot_column = pivot_column
         self.columns = list(columns) if columns else []
         self.include_nulls = include_nulls
+        self.exclude_nulls = exclude_nulls
         self.alias = alias
 
     @property

@@ -5,14 +5,13 @@ Provides BelongsTo, HasOne, and HasMany relationship types.
 """
 
 import logging
-from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, ClassVar, List, Dict, Tuple
+from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, List, Dict, Tuple
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import IRelationValidation, IRelationManagement, IRelationLoader
 from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..backend.expression.core import Column
 from ..interface import IActiveRecord, IActiveQuery
-from ..types import PrimaryKeyDef
 
 T = TypeVar("T", bound=IActiveRecord)
 

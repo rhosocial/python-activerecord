@@ -6,9 +6,11 @@ from enum import Enum
 from typing import Dict, List, Optional, Union, TYPE_CHECKING
 
 from ..bases import BaseExpression, SQLPredicate
-from ..core import TableExpression, Subquery
+from ..core import Subquery
 from ..query_parts import WhereClause
 from ...schema import StatementType
+from ..objects import Table
+from ..sources import NamedRelationRef
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -100,9 +102,9 @@ class MergeExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        target_table: Union[str, "TableExpression"],
+        target_table: "Table",
         source: Union[
-            "Subquery", "TableExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"
+            "Subquery", "NamedRelationRef", "ValuesExpression", "TableFunctionExpression", "LateralExpression"
         ],
         on_condition: "SQLPredicate",  # The main matching condition
         when_matched: Optional[List[MergeAction]] = None,  # WHEN MATCHED THEN ...
@@ -110,9 +112,7 @@ class MergeExpression(BaseExpression):
         when_not_matched_by_source: Optional[List[MergeAction]] = None,
     ):  # WHEN NOT MATCHED BY SOURCE THEN ... (not supported by all DBs)
         super().__init__(dialect)
-        self.target_table = (
-            target_table if isinstance(target_table, TableExpression) else TableExpression(dialect, str(target_table))
-        )
+        self.target_table = target_table
         self.source = source
         self.on_condition = on_condition
         self.when_matched = when_matched or []
@@ -201,17 +201,17 @@ class DeleteExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        tables: Union[str, "TableExpression", List[Union[str, "TableExpression"]]],
+        tables: Union["Table", List["Table"]],
         *,  # Enforce keyword-only arguments for optional parameters
         using: Optional[
             Union[
-                "TableExpression",
+                "NamedRelationRef",
                 "Subquery",
                 "SetOperationExpression",
                 "JoinClause",
                 List[
                     Union[
-                        "TableExpression",
+                        "NamedRelationRef",
                         "Subquery",
                         "SetOperationExpression",
                         "JoinClause",
@@ -227,20 +227,16 @@ class DeleteExpression(BaseExpression):
     ):
         super().__init__(dialect)
 
-        # Normalize the target table(s) to a list of TableExpression objects
+        # A DELETE names the relations it removes from.  They are objects, not
+        # spellings: the caller said which catalogue entries it meant, and each
+        # one renders itself through its own ``format_*_object``.  The kind of
+        # each entry is checked by the formatter that renders them.
         if isinstance(tables, list):
             if not tables:
                 raise ValueError("Table list cannot be empty for a DELETE statement.")
-            self.tables = []
-            for t in tables:
-                if isinstance(t, TableExpression):
-                    self.tables.append(t)
-                else:
-                    self.tables.append(TableExpression(dialect, str(t)))
+            self.tables = list(tables)
         else:
-            # Single table
-            single_table = tables if isinstance(tables, TableExpression) else TableExpression(dialect, str(tables))
-            self.tables = [single_table]
+            self.tables = [tables]
 
         self.using = using
 
@@ -270,19 +266,14 @@ class DeleteExpression(BaseExpression):
         if not strict:
             return
 
-        # Validate tables parameter (already normalized in constructor)
-        if not isinstance(self.tables, list):
-            raise TypeError(f"tables must be a list of tables, got {type(self.tables)}")
+        # Validate tables parameter (the constructor checked each entry's type)
         if not self.tables:
             raise ValueError("Tables cannot be empty for a DELETE statement.")
-        for i, table in enumerate(self.tables):
-            if not isinstance(table, TableExpression):
-                raise TypeError(f"tables[{i}] must be TableExpression, got {type(table)}")
 
         # Validate using parameter
         if self.using is not None:
             # Check if it's one of the valid types using isinstance with type names
-            valid_types = (str, TableExpression, Subquery)
+            valid_types = (str, NamedRelationRef, Subquery)
             if not isinstance(self.using, valid_types) and not isinstance(self.using, list):
                 # For complex types, check their type names
                 using_type_name = type(self.using).__name__
@@ -296,7 +287,7 @@ class DeleteExpression(BaseExpression):
                 ]
                 if using_type_name not in valid_type_names:
                     raise TypeError(
-                        f"using must be one of: str, TableExpression, Subquery, SetOperationExpression, "
+                        f"using must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, QueryExpression, got {type(self.using)}"
                     )
@@ -337,7 +328,7 @@ class UpdateExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression"],
+        table: "Table",
         assignments: Dict[str, "BaseExpression"],
         *,  # Enforce keyword-only arguments for optional parameters
         from_: Optional[
@@ -345,13 +336,13 @@ class UpdateExpression(BaseExpression):
                 # SQLite's UPDATE FROM is more restrictive, typically allowing only
                 # a comma-separated list of table-or-subquery or a single JOIN clause.
                 # More advanced SQL dialects (e.g., PostgreSQL) allow richer FROM sources.
-                "TableExpression",
+                "NamedRelationRef",
                 "Subquery",
                 "SetOperationExpression",
                 "JoinClause",
                 List[
                     Union[
-                        "TableExpression",
+                        "NamedRelationRef",
                         "Subquery",
                         "SetOperationExpression",
                         "JoinClause",
@@ -371,8 +362,9 @@ class UpdateExpression(BaseExpression):
         if not assignments:
             raise ValueError("Assignments cannot be empty for an UPDATE statement.")
 
-        # Normalize the target table to a TableExpression
-        self.table = table if isinstance(table, TableExpression) else TableExpression(dialect, str(table))
+        # The UPDATE names the relation it writes to; the FROM side is a set of
+        # row sources and stays spelled in terms of NamedRelationRef.
+        self.table = table
         self.assignments = assignments
         self.from_ = from_
 
@@ -401,8 +393,8 @@ class UpdateExpression(BaseExpression):
         if not strict:
             return
 
-        # Note: The table parameter is normalized in the constructor to always be a TableExpression,
-        # so we don't need to validate its type here.
+        # Note: The table parameter is checked by the constructor, so there is
+        # nothing left to verify here.
 
         # Validate assignments parameter
         if not isinstance(self.assignments, dict):
@@ -411,7 +403,7 @@ class UpdateExpression(BaseExpression):
         # Validate from_ parameter
         if self.from_ is not None:
             # Check if it's one of the valid types using isinstance with type names
-            valid_types = (str, TableExpression, Subquery)
+            valid_types = (str, NamedRelationRef, Subquery)
             if not isinstance(self.from_, valid_types) and not isinstance(self.from_, list):
                 # For complex types, check their type names
                 from_type_name = type(self.from_).__name__
@@ -424,7 +416,7 @@ class UpdateExpression(BaseExpression):
                 ]
                 if from_type_name not in valid_type_names:
                     raise TypeError(
-                        f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, "
+                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, got {type(self.from_)}"
                     )
@@ -452,19 +444,17 @@ class UpdateExpression(BaseExpression):
 
 
 # region Insert Statement
-class InsertDataSource(abc.ABC):
+class InsertDataSource(BaseExpression):
     """
     Abstract base class for an INSERT statement's data source.
     Implementations represent the source of data, such as a VALUES clause,
     a SELECT query, or the DEFAULT VALUES keyword.
+
+    These are expressions like any other: each concrete kind declares the one
+    dialect method that renders it, and the statement asks the source for its
+    SQL rather than picking a branch per kind. Being an expression is also what
+    lets one survive a serialization round-trip.
     """
-
-    def __init__(self, dialect: "SQLDialectBase"):
-        self._dialect = dialect
-
-    @property
-    def dialect(self) -> "SQLDialectBase":
-        return self._dialect
 
 
 class ValuesSource(InsertDataSource):
@@ -500,6 +490,11 @@ class ValuesSource(InsertDataSource):
             raise ValueError("All rows in 'values_list' must have the same number of columns.")
         self.values_list = values_list
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_insert_values_source"
+
 
 class SelectSource(InsertDataSource):
     """Represents a data source from a SELECT subquery."""
@@ -508,11 +503,19 @@ class SelectSource(InsertDataSource):
         super().__init__(dialect)
         self.select_query = select_query
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_insert_select_source"
+
 
 class DefaultValuesSource(InsertDataSource):
     """Represents the DEFAULT VALUES data source."""
 
-    pass
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_insert_default_values_source"
 
 
 class OnConflictClause(BaseExpression):
@@ -556,7 +559,7 @@ class InsertExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        into: Union[str, "TableExpression"],
+        into: "Table",
         source: InsertDataSource,
         columns: Optional[List[str]] = None,
         *,
@@ -565,7 +568,7 @@ class InsertExpression(BaseExpression):
     ):
         super().__init__(dialect)
 
-        self.into = into if isinstance(into, TableExpression) else TableExpression(dialect, str(into))
+        self.into = into
         self.source = source
         self.columns = columns
         self.on_conflict = self._normalize_on_conflict(on_conflict)
@@ -614,9 +617,8 @@ class InsertExpression(BaseExpression):
         if not strict:
             return
 
-        # Validate into parameter
-        if not isinstance(self.into, (str, TableExpression)):
-            raise TypeError(f"into must be str or TableExpression, got {type(self.into)}")
+        # Note: The into parameter is checked by the constructor, so there is
+        # nothing left to verify here.
 
         # Validate source parameter
         if not isinstance(self.source, InsertDataSource):

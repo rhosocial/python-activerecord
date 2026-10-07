@@ -51,18 +51,18 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     InsertExpression,
     ValuesSource,
-    TableExpression,
     QueryExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 insert_expr = InsertExpression(
     dialect=dialect,
-    into=TableExpression(dialect, "users"),
+    into=Table(dialect, 'users'),
     source=ValuesSource(
         dialect,
         [
@@ -88,7 +88,7 @@ print(f"Affected rows: {result.affected_rows}")
 verify_query = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 options = ExecutionOptions(stmt_type=StatementType.DQL)
 sql, params = verify_query.to_sql()

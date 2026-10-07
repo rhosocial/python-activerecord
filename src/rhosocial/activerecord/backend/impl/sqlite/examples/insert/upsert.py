@@ -19,13 +19,13 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     ValuesSource,
     QueryExpression,
-    TableExpression,
     CreateTableExpression,
     DropTableExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.sqlite.expression.dml import (  # noqa: E402
     SQLiteInsertExpression,
 )
@@ -35,10 +35,11 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraint,
     ColumnConstraintType,
 )
+from .....expression.objects import Table
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table="users",
+    table=Table(dialect, 'users'),
     columns=[
         ColumnDefinition(dialect, 
             "id",
@@ -74,7 +75,7 @@ backend.execute(sql, params)
 # Insert initial data
 insert_initial = InsertExpression(
     dialect=dialect,
-    into="users",
+    into=Table(dialect, 'users'),
     columns=["username", "email", "login_count"],
     source=ValuesSource(
         dialect,
@@ -91,7 +92,7 @@ backend.execute(sql, params)
 verify_query = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 options = ExecutionOptions(stmt_type=StatementType.DQL)
 sql, params = verify_query.to_sql()
@@ -178,7 +179,7 @@ for row in result.data or []:
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table="users", if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

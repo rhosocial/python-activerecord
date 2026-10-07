@@ -10,6 +10,7 @@ import sys
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 @pytest.fixture
@@ -365,9 +366,9 @@ def test_sudoku_exists_expression(sqlite_backend):
         Literal,
         FunctionCall,
         QueryExpression,
-        TableExpression,
         ExistsExpression,
     )
+    from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
     dialect = sqlite_backend.dialect
 
@@ -375,7 +376,7 @@ def test_sudoku_exists_expression(sqlite_backend):
     subquery = QueryExpression(
         dialect,
         select=[Literal(dialect, 1)],  # SELECT 1
-        from_=TableExpression(dialect, "digits", alias="lp"),
+        from_=NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp"),
         where=(
             Column(dialect, "z", table="z")
             == FunctionCall(dialect, "SUBSTR", Column(dialect, "s", table="x"), Literal(dialect, 1))
@@ -398,10 +399,10 @@ def test_sudoku_not_exists_expression(sqlite_backend):
     from rhosocial.activerecord.backend.expression import (
         Literal,
         QueryExpression,
-        TableExpression,
         ExistsExpression,
         LogicalPredicate,
     )
+    from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
     dialect = sqlite_backend.dialect
 
@@ -409,7 +410,7 @@ def test_sudoku_not_exists_expression(sqlite_backend):
     subquery = QueryExpression(
         dialect,
         select=[Literal(dialect, 1)],  # SELECT 1
-        from_=TableExpression(dialect, "digits", alias="lp"),
+        from_=NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp"),
     )
 
     # Create EXISTS expression and negate it with NOT
@@ -431,7 +432,6 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         Literal,
         ValuesExpression,
         QueryExpression,
-        TableExpression,
         Column,
         FunctionCall,
         CTEExpression,
@@ -439,6 +439,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         SetOperationExpression,
         concat_op,
     )
+    from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
     from rhosocial.activerecord.backend.expression.functions import cast
 
     backend = sqlite_backend
@@ -470,7 +471,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     initial_digits_values = ValuesExpression(dialect=dialect, values=[("1", 1)], alias=None, column_names=None)
 
     # Recursive part
-    digits_table = TableExpression(dialect, "digits")
+    digits_table = NamedRelationRef(dialect, Table(dialect, "digits"))
     lp_column = Column(dialect, "lp", table="digits")
 
     # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
@@ -511,7 +512,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     initial_digits_values = ValuesExpression(dialect=dialect, values=[("1", 1)], alias=None, column_names=None)
 
     # Recursive part
-    digits_table = TableExpression(dialect, "digits")
+    digits_table = NamedRelationRef(dialect, Table(dialect, "digits"))
     lp_column = Column(dialect, "lp", table="digits")
 
     # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
@@ -531,14 +532,14 @@ def test_sudoku_full_cte_expression(sqlite_backend):
 
     # Build the x CTE: x(s, ind) AS (SELECT sud, instr(sud, '.') FROM input UNION ALL ...)
     # Initial part
-    input_table = TableExpression(dialect, "input")
+    input_table = NamedRelationRef(dialect, Table(dialect, "input"))
     sud_column = Column(dialect, "sud", table="input")
     instr_call = FunctionCall(dialect, "INSTR", sud_column, Literal(dialect, "."))
 
     initial_x_query = QueryExpression(dialect=dialect, select=[sud_column, instr_call], from_=input_table)
 
     # Recursive part - simplified for demonstration
-    x_table = TableExpression(dialect, "x")
+    x_table = NamedRelationRef(dialect, Table(dialect, "x"))
     s_column = Column(dialect, "s", table="x")
     ind_column = Column(dialect, "ind", table="x")
     z_column = Column(dialect, "z", table="z")
@@ -554,15 +555,15 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     # Build the NOT EXISTS subquery
     from rhosocial.activerecord.backend.expression import (
         QueryExpression,
-        TableExpression,
         Column,
         Literal,
         FunctionCall,
     )
+    from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
     from rhosocial.activerecord.backend.expression.advanced_functions import ExistsExpression
 
     # Subquery for NOT EXISTS: SELECT 1 FROM digits AS lp WHERE ...
-    lp_table = TableExpression(dialect, "digits", alias="lp")
+    lp_table = NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp")
     z_z_column = Column(dialect, "z", table="z")  # From outer query
     s_column_outer = Column(dialect, "s", table="x")  # From outer query
     ind_column_outer = Column(dialect, "ind", table="x")  # From outer query
@@ -605,7 +606,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     not_exists_expr = ExistsExpression(dialect, not_exists_subquery, is_not=True)
 
     # FROM x, digits AS z (cross join using list)
-    from_clause = [x_table, TableExpression(dialect, "digits", alias="z")]
+    from_clause = [x_table, NamedRelationRef(dialect, Table(dialect, "digits"), alias="z")]
 
     recursive_x_query = QueryExpression(
         dialect=dialect,
@@ -625,7 +626,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     final_query = QueryExpression(
         dialect=dialect,
         select=[Column(dialect, "s")],
-        from_=TableExpression(dialect, "x"),
+        from_=NamedRelationRef(dialect, Table(dialect, "x")),
         where=(Column(dialect, "ind") == Literal(dialect, 0)),
     )
 
@@ -774,13 +775,13 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             Literal,
             ValuesExpression,
             QueryExpression,
-            TableExpression,
             Column,
             FunctionCall,
             CTEExpression,
             WithQueryExpression,
             SetOperationExpression,
         )
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         backend = sqlite_backend
 
@@ -799,7 +800,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         initial_xaxis_values = ValuesExpression(dialect=dialect, values=[(-2.0,)], alias=None, column_names=None)
 
         # Recursive part
-        xaxis_table = TableExpression(dialect, "xaxis")
+        xaxis_table = NamedRelationRef(dialect, Table(dialect, "xaxis"))
         x_col = Column(dialect, "x", table="xaxis")
 
         # SELECT x+0.05 FROM xaxis WHERE x<1.2
@@ -826,7 +827,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         initial_yaxis_values = ValuesExpression(dialect=dialect, values=[(-1.0,)], alias=None, column_names=None)
 
         # Recursive part
-        yaxis_table = TableExpression(dialect, "yaxis")
+        yaxis_table = NamedRelationRef(dialect, Table(dialect, "yaxis"))
         y_col = Column(dialect, "y", table="yaxis")
 
         # SELECT y+0.1 FROM yaxis WHERE y<1.0
@@ -864,11 +865,11 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
                 Literal(dialect, 0.0),  # x
                 Literal(dialect, 0.0),  # y
             ],
-            from_=[TableExpression(dialect, "xaxis"), TableExpression(dialect, "yaxis")],  # Cross join
+            from_=[NamedRelationRef(dialect, Table(dialect, "xaxis")), NamedRelationRef(dialect, Table(dialect, "yaxis"))],  # Cross join
         )
 
         # Recursive part
-        m_table = TableExpression(dialect, "m")
+        m_table = NamedRelationRef(dialect, Table(dialect, "m"))
         iter_col = Column(dialect, "iter", table="m")
         cx_col = Column(dialect, "cx", table="m")
         cy_col = Column(dialect, "cy", table="m")
@@ -898,7 +899,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         # Build the m2 CTE: m2(iter, cx, cy) AS (
         #   SELECT max(iter), cx, cy FROM m GROUP BY cx, cy
         # )
-        m2_from = TableExpression(dialect, "m")
+        m2_from = NamedRelationRef(dialect, Table(dialect, "m"))
         max_iter = FunctionCall(dialect, "MAX", Column(dialect, "iter", table="m"))
         m2_cx = Column(dialect, "cx", table="m")
         m2_cy = Column(dialect, "cy", table="m")
@@ -922,7 +923,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         #   SELECT group_concat( substr(' .+*#', 1+min(iter/7,4), 1), '')
         #   FROM m2 GROUP BY cy
         # )
-        a_from = TableExpression(dialect, "m2")
+        a_from = NamedRelationRef(dialect, Table(dialect, "m2"))
         # substr(' .+*#', 1+min(iter/7,4), 1)
         substr_expr = FunctionCall(
             dialect,
@@ -948,7 +949,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         a_cte = CTEExpression(dialect=dialect, name="a", query=a_query, columns=["t"])
 
         # Final query: SELECT group_concat(rtrim(t),x'0a') FROM a
-        final_from = TableExpression(dialect, "a")
+        final_from = NamedRelationRef(dialect, Table(dialect, "a"))
         rtrim_expr = FunctionCall(dialect, "RTRIM", Column(dialect, "t", table="a"))
         final_group_concat = FunctionCall(
             dialect, "GROUP_CONCAT", rtrim_expr, Literal(dialect, "\n")

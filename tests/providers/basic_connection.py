@@ -7,8 +7,6 @@ ActiveRecord context awareness.
 """
 
 import os
-import tempfile
-import uuid
 from typing import Type, Tuple, Optional
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord

@@ -23,8 +23,9 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     Column,
     Literal,
-    TableExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from .....expression.objects import Table
 
 
 def demo_json_array_insert(dialect, position: int = 0, value: str = "new_item"):
@@ -63,5 +64,5 @@ def demo_json_array_insert(dialect, position: int = 0, value: str = "new_item"):
                 Literal(dialect, value),
             ).as_("modified_tags"),
         ],
-        from_=TableExpression(dialect, "users"),
+        from_=NamedRelationRef(dialect, Table(dialect, "users")),
     )

@@ -16,11 +16,11 @@ from rhosocial.activerecord.backend.expression import (
     DropTableExpression,
     InsertExpression,
     QueryExpression,
-    TableExpression,
     UpdateExpression,
     ValuesSource,
     WhereClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Column, Literal
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements import (
@@ -53,7 +53,7 @@ def execute_expression(expression, options=None):
 def update_balance(name, amount):
     return UpdateExpression(
         dialect=dialect,
-        table="accounts",
+        table=Table(dialect, 'accounts'),
         assignments={
             "balance": Literal(dialect, amount),
         },
@@ -73,14 +73,14 @@ def fetch_balances():
     query = QueryExpression(
         dialect=dialect,
         select=[Column(dialect, "name"), Column(dialect, "balance")],
-        from_=TableExpression(dialect, "accounts"),
+        from_=NamedRelationRef(dialect, Table(dialect, "accounts")),
     )
     return execute_expression(query, dql_options).data
 
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table="accounts",
+    table=Table(dialect, 'accounts'),
     columns=[
         ColumnDefinition(dialect, 
             "id",
@@ -100,7 +100,7 @@ execute_expression(create_table, ddl_options)
 
 insert = InsertExpression(
     dialect=dialect,
-    into="accounts",
+    into=Table(dialect, 'accounts'),
     columns=["name", "balance"],
     source=ValuesSource(
         dialect,
@@ -133,7 +133,7 @@ print(f"After IMMEDIATE transaction: {fetch_balances()}")
 # - BEGIN EXCLUSIVE: exclusive lock only for this transaction
 # - PRAGMA locking_mode=EXCLUSIVE: persistent lock across all transactions
 from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
+from .....expression.objects import Table
 
 exclusive_begin = BeginTransactionExpression(dialect).begin_type("EXCLUSIVE")
 sql, params = exclusive_begin.to_sql()
@@ -171,7 +171,7 @@ print(f"Journal mode: {journal_mode}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_table = DropTableExpression(dialect=dialect, table="accounts", if_exists=True)
+drop_table = DropTableExpression(dialect=dialect, table=Table(dialect, 'accounts'), if_exists=True)
 execute_expression(drop_table, ddl_options)
 backend.disconnect()
 

@@ -22,7 +22,8 @@ from rhosocial.activerecord.backend.explain import (
     SyncExplainBackendMixin,
     AsyncExplainBackendMixin,
 )
-from rhosocial.activerecord.backend.expression.core import TableExpression, WildcardExpression
+from rhosocial.activerecord.backend.expression import WildcardExpression
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import (
     ExplainOptions,
     ExplainType,
@@ -38,6 +39,7 @@ from rhosocial.activerecord.backend.impl.sqlite.explain import (
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +71,7 @@ def query_expr(dialect):
     return QueryExpression(
         dialect,
         select=[WildcardExpression(dialect)],
-        from_=TableExpression(dialect, "items"),
+        from_=NamedRelationRef(dialect, Table(dialect, "items")),
     )
 
 

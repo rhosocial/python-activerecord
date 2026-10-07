@@ -141,7 +141,7 @@ class SQLiteDDLColumnMixin:
             raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
         referenced_table, referenced_columns = constraint.foreign_key_reference
         ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-        result = f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+        result = f" REFERENCES {referenced_table.to_sql()[0]}({ref_cols_str})"
 
         if constraint.on_delete is not None and constraint.on_delete != ReferentialAction.NO_ACTION:
             result += f" ON DELETE {constraint.on_delete.value}"

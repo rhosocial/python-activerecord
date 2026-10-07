@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_table.py
 import inspect
-from typing import List, Set, Tuple
+from typing import Set, Tuple
 
 import pytest
 from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -22,6 +22,7 @@ from rhosocial.activerecord.backend.expression import (
     TableCommentClause,
     IndexDefinition,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import (
     TableConstraint,
     TableConstraintType,
@@ -35,13 +36,30 @@ from rhosocial.activerecord.backend.expression.statements import (
     StorageOptionsExpression,
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
-from rhosocial.activerecord.backend.expression.core import TableExpression
-from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, DDLColumnMixin, TableMixin, ExpressionMixin, DataTypeMixin
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.dialect.mixins import (
+    PartitionMixin,
+    DDLColumnMixin,
+    TableNameMixin,
+    NamespaceMixin,
+    TableMixin,
+    ExpressionMixin,
+    DataTypeMixin,
+)
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import CustomType, DateType, DecimalType, IntegerType, SmallIntType, TextType, TimestampType, VarCharType
 
 
-class PartitionTestDialect(SQLDialectBase, ExpressionMixin, DDLColumnMixin, DataTypeMixin, TableMixin, PartitionMixin):
+class PartitionTestDialect(
+    SQLDialectBase,
+    ExpressionMixin,
+    DDLColumnMixin,
+    DataTypeMixin,
+    PartitionMixin,
+    TableNameMixin,
+    NamespaceMixin,
+    TableMixin,
+):
     """Minimal dialect for core PartitionClause success-path tests."""
 
     def supports_table_partitioning(self) -> bool:
@@ -170,7 +188,7 @@ class TestCreateTableStatements:
             ColumnDefinition(dummy_dialect, "email", TextType(dummy_dialect)),
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="users", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=columns)
         sql, params = create_table_expr.to_sql()
 
         assert sql.startswith('CREATE TABLE "users"')
@@ -183,7 +201,7 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE with IF NOT EXISTS flag."""
         columns = [ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)])]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="products", columns=columns, if_not_exists=True)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'products'), columns=columns, if_not_exists=True)
         sql, params = create_table_expr.to_sql()
 
         assert "CREATE TABLE IF NOT EXISTS" in sql
@@ -199,7 +217,7 @@ class TestCreateTableStatements:
             ColumnDefinition(dummy_dialect, "data", TextType(dummy_dialect)),
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="temp_sessions", columns=columns, temporary=True)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'temp_sessions'), columns=columns, temporary=True)
         sql, params = create_table_expr.to_sql()
 
         assert "CREATE TEMPORARY TABLE" in sql
@@ -214,7 +232,7 @@ class TestCreateTableStatements:
             ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.UNIQUE)]),
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="users", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=columns)
         sql, params = create_table_expr.to_sql()
 
         assert '"username" VARCHAR(50) UNIQUE' in sql
@@ -240,7 +258,7 @@ class TestCreateTableStatements:
             ),
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="users", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=columns)
         sql, params = create_table_expr.to_sql()
 
         # DDL clauses accept no bind parameters: DEFAULT literal values are
@@ -262,7 +280,7 @@ class TestCreateTableStatements:
             ),
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="people", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'people'), columns=columns)
         sql, params = create_table_expr.to_sql()
 
         assert '"age" INTEGER CHECK ("age" > 0)' in sql
@@ -276,13 +294,13 @@ class TestCreateTableStatements:
                 "user_id",
                 IntegerType(dummy_dialect),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))
+                    ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dummy_dialect, "users"), ["id"]))
                 ],
             ),
             ColumnDefinition(dummy_dialect, "product_name", VarCharType(dummy_dialect, 100)),
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="orders", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'orders'), columns=columns)
         sql, params = create_table_expr.to_sql()
 
         assert '"user_id" INTEGER REFERENCES "users"("id")' in sql
@@ -311,7 +329,7 @@ class TestCreateTableStatements:
             TableConstraint(dummy_dialect, constraint_type=TableConstraintType.PRIMARY_KEY, columns=["id"]),
             TableConstraint(dummy_dialect, constraint_type=TableConstraintType.UNIQUE, columns=["name"]),
             ForeignKeyConstraint(dummy_dialect, 
-                foreign_key_table="categories",
+                foreign_key_table=Table(dummy_dialect, "categories"),
                 foreign_key_columns=["id"],
                 columns=["category_id"],
                 on_delete=ReferentialAction.CASCADE,
@@ -319,7 +337,7 @@ class TestCreateTableStatements:
         ]
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="products", columns=columns, table_constraints=table_constraints
+            dummy_dialect, table=Table(dummy_dialect, 'products'), columns=columns, table_constraints=table_constraints
         )
         sql, params = create_table_expr.to_sql()
 
@@ -340,7 +358,7 @@ class TestCreateTableStatements:
         )
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="documents", columns=columns, storage_options=storage_opts
+            dummy_dialect, table=Table(dummy_dialect, 'documents'), columns=columns, storage_options=storage_opts
         )
         sql, params = create_table_expr.to_sql()
 
@@ -361,7 +379,7 @@ class TestCreateTableStatements:
         ]
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="large_table", columns=columns, tablespace="fast_ssd"
+            dummy_dialect, table=Table(dummy_dialect, 'large_table'), columns=columns, tablespace="fast_ssd"
         )
         sql, params = create_table_expr.to_sql()
 
@@ -378,11 +396,13 @@ class TestCreateTableStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
             where=where_clause,
         )
 
-        create_table_expr = CreateTableAsExpression(dummy_dialect, table="active_users", as_query=query)
+        create_table_expr = CreateTableAsExpression(
+            dummy_dialect, table=Table(dummy_dialect, "active_users"), as_query=query
+        )
         sql, params = create_table_expr.to_sql()
 
         # Query is rendered without parentheses (portable form).
@@ -398,14 +418,18 @@ class TestCreateTableStatements:
             dummy_dialect,
             select=[Literal(dummy_dialect, 1)],
         )
-        expr = CreateTableAsExpression(dummy_dialect, table="t", as_query=query, with_data=False)
+        expr = CreateTableAsExpression(dummy_dialect, table=Table(dummy_dialect, "t"), as_query=query, no_data=True)
         sql, params = expr.to_sql()
         assert sql.endswith("WITH NO DATA")
         assert params == (1,)
 
     def test_create_table_like_generic_render(self, dummy_dialect: DummyDialect):
         """Dummy advertises LIKE, so the generic reusable renderer is exercised."""
-        expr = CreateTableLikeExpression(dummy_dialect, table="copy", like_table="users")
+        expr = CreateTableLikeExpression(
+            dummy_dialect,
+            table=Table(dummy_dialect, "copy"),
+            like_table=Table(dummy_dialect, "users"),
+        )
         sql, params = expr.to_sql()
         assert sql.startswith("CREATE TABLE")
         assert "LIKE" in sql
@@ -418,22 +442,45 @@ class TestCreateTableStatements:
 
         dialect = SQLiteDialect()
         assert dialect.supports_create_table_like() is False
-        expr = CreateTableLikeExpression(dialect, table="copy", like_table="users")
+        expr = CreateTableLikeExpression(dialect, table=Table(dialect, "copy"), like_table=Table(dialect, "users"))
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
 
-    def test_create_table_like_normalizes_references(self, dummy_dialect: DummyDialect):
-        """Source may be a str, TableExpression, or (schema, table) tuple."""
+    def test_create_table_like_carries_namespace(self, dummy_dialect: DummyDialect):
+        """The Table object reaches the statement intact, namespace included."""
         expr = CreateTableLikeExpression(
-            dummy_dialect, table="copy", like_table=("sales", "users")
+            dummy_dialect,
+            table=Table(dummy_dialect, "copy"),
+            like_table=Table(dummy_dialect, "users", schema_name="sales"),
         )
         assert expr.table_name == "copy"
         assert expr.like_table.schema_name == "sales"
         assert expr.like_table.name == "users"
 
+    def test_create_table_like_rejects_bare_string(self, dummy_dialect: DummyDialect):
+        """A bare name is refused instead of guessed at.
+
+        The class used to accept a str, a NamedRelationRef or a (schema, table)
+        tuple and normalise between them. That polymorphism is what made the
+        statement's real target unknowable at the call site; naming the object
+        removes the guessing, and a str is no longer one of the accepted forms.
+
+        The refusal comes from the formatter that renders ``LIKE <source>``,
+        before it checks whether the dialect supports the form at all -- a str
+        named in place of a table is wrong regardless of the dialect.
+        """
+        expr = CreateTableLikeExpression(
+            dummy_dialect, table=Table(dummy_dialect, "copy"), like_table="users"
+        )
+        with pytest.raises(TypeError, match=r"like_table must be a Table, got str"):
+            expr.to_sql()
+
     def test_create_table_clone_generic_render(self, dummy_dialect: DummyDialect):
         expr = CreateTableCloneExpression(
-            dummy_dialect, table="clone_t", source_table="src", copy_grants=True
+            dummy_dialect,
+            table=Table(dummy_dialect, "clone_t"),
+            source_table=Table(dummy_dialect, "src"),
+            copy_grants=True,
         )
         sql, params = expr.to_sql()
         assert "CLONE" in sql
@@ -445,15 +492,15 @@ class TestCreateTableStatements:
 
         dialect = SQLiteDialect()
         assert dialect.supports_create_table_clone() is False
-        expr = CreateTableCloneExpression(dialect, table="clone_t", source_table="src")
+        expr = CreateTableCloneExpression(dialect, table=Table(dialect, "clone_t"), source_table=Table(dialect, "src"))
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
 
     def test_create_table_clone_mode_selects_copy(self, dummy_dialect: DummyDialect):
         expr = CreateTableCloneExpression(
             dummy_dialect,
-            table="copy_t",
-            source_table="src",
+            table=Table(dummy_dialect, "copy_t"),
+            source_table=Table(dummy_dialect, "src"),
             mode=CreateTableCloneMode.COPY,
         )
         sql, _ = expr.to_sql()
@@ -462,7 +509,7 @@ class TestCreateTableStatements:
 
     def test_create_table_from_template_generic_render(self, dummy_dialect: DummyDialect):
         query = QueryExpression(dummy_dialect, select=[Literal(dummy_dialect, 1)])
-        expr = CreateTableFromTemplateExpression(dummy_dialect, table="t", template=query)
+        expr = CreateTableFromTemplateExpression(dummy_dialect, table=Table(dummy_dialect, "t"), template=query)
         sql, params = expr.to_sql()
         assert "USING TEMPLATE" in sql
         assert params == (1,)
@@ -473,20 +520,20 @@ class TestCreateTableStatements:
         dialect = SQLiteDialect()
         assert dialect.supports_create_table_using_template() is False
         query = QueryExpression(dialect, select=[Literal(dialect, 1)])
-        expr = CreateTableFromTemplateExpression(dialect, table="t", template=query)
+        expr = CreateTableFromTemplateExpression(dialect, table=Table(dialect, "t"), template=query)
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
 
     def test_create_table_clone_mode_requires_type(self, dummy_dialect: DummyDialect):
         with pytest.raises(TypeError):
             CreateTableCloneExpression(
-                dummy_dialect, table="t", source_table="src", mode="CLONE"
+                dummy_dialect, table=Table(dummy_dialect, "t"), source_table=Table(dummy_dialect, "src"), mode="CLONE"
             )
 
     def test_create_table_options_or_replace(self, dummy_dialect: DummyDialect):
         expr = CreateTableExpression(
             dummy_dialect,
-            table="t",
+            table=Table(dummy_dialect, 't'),
             columns=[],
             table_options=CreateTableOptions(dummy_dialect, or_replace=True),
         )
@@ -496,7 +543,7 @@ class TestCreateTableStatements:
     def test_create_table_options_or_replace(self, dummy_dialect: DummyDialect):
         expr = CreateTableExpression(
             dummy_dialect,
-            table="t",
+            table=Table(dummy_dialect, 't'),
             columns=[],
             table_options=CreateTableOptions(dummy_dialect, or_replace=True),
         )
@@ -533,7 +580,7 @@ class TestCreateTableStatements:
         assert dialect.supports_create_or_replace_table() is False
         expr = CreateTableExpression(
             dialect,
-            table="t",
+            table=Table(dialect, 't'),
             columns=[],
             table_options=CreateTableOptions(dialect, or_replace=True),
         )
@@ -553,7 +600,7 @@ class TestCreateTableStatements:
             IndexDefinition(dummy_dialect, "idx_users_created", ["created_at"], unique=False),
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="users", columns=columns, indexes=indexes)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=columns, indexes=indexes)
 
         # Inline indexes are a dialect convenience (MySQL/MariaDB/ClickHouse);
         # the SQL-standard behavior is a standalone CREATE INDEX, so the generic
@@ -574,7 +621,7 @@ class TestCreateTableStatements:
             ColumnDefinition(dummy_dialect, "age", IntegerType(dummy_dialect)),  # No constraints - uses database default
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="profiles", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'profiles'), columns=columns)
         sql, params = create_table_expr.to_sql()
 
         assert '"profiles"' in sql
@@ -594,7 +641,7 @@ class TestCreateTableStatements:
             ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 100), comment=ColumnCommentClause(dummy_dialect, "User's display name")),
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="users_with_comments", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'users_with_comments'), columns=columns)
         sql, params = create_table_expr.to_sql()
 
         assert '"users_with_comments"' in sql
@@ -611,7 +658,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table="log_entries",
+            table=Table(dummy_dialect, 'log_entries'),
             columns=columns,
             partition=PartitionClause(
                 dialect=dummy_dialect,
@@ -633,7 +680,7 @@ class TestCreateTableStatements:
         )
         create_table_expr = CreateTableExpression(
             dialect,
-            table="events",
+            table=Table(dialect, 'events'),
             columns=[ColumnDefinition(dialect, "tenant", TextType(dialect))],
             partition=partition,
         )
@@ -660,7 +707,7 @@ class TestCreateTableStatements:
         with pytest.raises(TypeError, match="partition must be a PartitionClause"):
             CreateTableExpression(
                 dummy_dialect,
-                table="invalid_partition",
+                table=Table(dummy_dialect, 'invalid_partition'),
                 columns=columns,
                 partition="RANGE",
             )
@@ -762,7 +809,7 @@ class TestCreateTableStatements:
         columns = [ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect)), ColumnDefinition(dummy_dialect, "extra_field", VarCharType(dummy_dialect, 50))]
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="child_table", columns=columns, inherits=["parent_table", "audit_table"]
+            dummy_dialect, table=Table(dummy_dialect, 'child_table'), columns=columns, inherits=["parent_table", "audit_table"]
         )
         sql, params = create_table_expr.to_sql()
 
@@ -786,7 +833,7 @@ class TestCreateTableStatements:
                 "user_id",
                 IntegerType(dummy_dialect),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))
+                    ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dummy_dialect, "users"), ["id"]))
                 ],
                 comment=ColumnCommentClause(dummy_dialect, "Reference to users table"),
             ),
@@ -825,7 +872,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table="orders",
+            table=Table(dummy_dialect, 'orders'),
             columns=columns,
             table_constraints=table_constraints,
             if_not_exists=True,
@@ -859,7 +906,7 @@ class TestCreateTableStatements:
             )
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="test_table", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=columns)
 
         with pytest.raises(ValueError, match=r"DEFAULT constraint must have a default value specified."):
             create_table_expr.to_sql()
@@ -880,7 +927,7 @@ class TestCreateTableStatements:
             )
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="test_table", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=columns)
 
         with pytest.raises(ValueError, match=r"CHECK constraint must have a check condition specified."):
             create_table_expr.to_sql()
@@ -901,7 +948,7 @@ class TestCreateTableStatements:
             )
         ]
 
-        create_table_expr = CreateTableExpression(dummy_dialect, table="orders", columns=columns)
+        create_table_expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'orders'), columns=columns)
 
         with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have a foreign key reference specified."):
             create_table_expr.to_sql()
@@ -920,7 +967,7 @@ class TestCreateTableStatements:
         ]
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="test_table", columns=[], table_constraints=table_constraints
+            dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=[], table_constraints=table_constraints
         )
 
         with pytest.raises(ValueError, match=r"PRIMARY KEY constraint must have at least one column specified."):
@@ -938,7 +985,7 @@ class TestCreateTableStatements:
         ]
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="test_table", columns=[], table_constraints=table_constraints
+            dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=[], table_constraints=table_constraints
         )
 
         with pytest.raises(ValueError, match=r"UNIQUE constraint must have at least one column specified."):
@@ -956,7 +1003,7 @@ class TestCreateTableStatements:
         ]
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="test_table", columns=[], table_constraints=table_constraints
+            dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=[], table_constraints=table_constraints
         )
 
         with pytest.raises(ValueError, match=r"CHECK constraint must have a check condition specified."):
@@ -971,14 +1018,14 @@ class TestCreateTableStatements:
         table_constraints = [
             TableConstraint(dummy_dialect, 
                 constraint_type=TableConstraintType.FOREIGN_KEY,
-                foreign_key_table="users",
+                foreign_key_table=Table(dummy_dialect, "users"),
                 foreign_key_columns=["id"],
                 # Missing local columns (columns parameter)
             )
         ]
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="orders", columns=[], table_constraints=table_constraints
+            dummy_dialect, table=Table(dummy_dialect, 'orders'), columns=[], table_constraints=table_constraints
         )
 
         with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have at least one local column specified."):
@@ -994,13 +1041,13 @@ class TestCreateTableStatements:
             TableConstraint(dummy_dialect, 
                 constraint_type=TableConstraintType.FOREIGN_KEY,
                 columns=["user_id"],
-                foreign_key_table="users",
+                foreign_key_table=Table(dummy_dialect, "users"),
                 # Missing foreign_key_columns parameter
             )
         ]
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="orders", columns=[], table_constraints=table_constraints
+            dummy_dialect, table=Table(dummy_dialect, 'orders'), columns=[], table_constraints=table_constraints
         )
 
         with pytest.raises(
@@ -1024,7 +1071,7 @@ class TestCreateTableStatements:
         ]
 
         create_table_expr = CreateTableExpression(
-            dummy_dialect, table="orders", columns=[], table_constraints=table_constraints
+            dummy_dialect, table=Table(dummy_dialect, 'orders'), columns=[], table_constraints=table_constraints
         )
 
         with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have a foreign key table specified."):

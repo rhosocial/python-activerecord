@@ -17,9 +17,9 @@ IDE introspection, static analysis, and MCP service integration. Parameters
 can be provided at construction time or modified via fluent API methods.
 """
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
-from .bases import BaseExpression, SQLQueryAndParams
+from .bases import BaseExpression
 
 if TYPE_CHECKING:
     from ..dialect import SQLDialectBase

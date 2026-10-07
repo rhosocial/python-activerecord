@@ -4,6 +4,7 @@
 from typing import Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ..objects import Table
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -43,25 +44,40 @@ class TruncateExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: "Table",
         restart_identity: bool = False,  # RESTART IDENTITY option (PostgreSQL)
+        continue_identity: bool = False,  # CONTINUE IDENTITY option (PostgreSQL)
         cascade: bool = False,  # CASCADE option (PostgreSQL)
-        schema: Optional[str] = None,
+        restrict: bool = False,  # RESTRICT option (PostgreSQL)
     ):
         """
         Initialize a TRUNCATE expression with the specified parameters.
 
         Args:
             dialect: The SQL dialect instance that determines query generation rules
-            table_name: Name of the table to truncate
+            table: The Table being truncated; a schema-qualified table carries
+                its own namespace, so no separate schema argument is needed
             restart_identity: Whether to restart identity counters (PostgreSQL-specific)
+            continue_identity: Whether to continue identity counters (PostgreSQL-specific)
             cascade: Whether to truncate dependent tables as well (PostgreSQL-specific)
+            restrict: Whether to refuse truncation when dependent tables exist
+
+        Raises:
+            ValueError: If both spellings of a pair are set.
+            TypeError: If the table is not a Table
         """
         super().__init__(dialect)
-        self.table_name = table_name
-        self.restart_identity = restart_identity  # For PostgreSQL-style RESTART IDENTITY
-        self.cascade = cascade  # For PostgreSQL-style CASCADE
-        self.schema = schema
+        if restart_identity and continue_identity:
+            raise ValueError(
+                "restart_identity and continue_identity are mutually exclusive options"
+            )
+        if cascade and restrict:
+            raise ValueError("cascade and restrict are mutually exclusive options")
+        self.table = table
+        self.restart_identity = restart_identity
+        self.continue_identity = continue_identity
+        self.cascade = cascade
+        self.restrict = restrict
 
     @property
     def format_method(self) -> str:

@@ -12,7 +12,6 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     CreateTableExpression,
     DropTableExpression,
     InsertExpression,
@@ -20,6 +19,7 @@ from rhosocial.activerecord.backend.expression import (
     UpdateExpression,
     WhereClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, Column
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
@@ -33,6 +33,7 @@ from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
+from .....expression.objects import Table
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
@@ -47,7 +48,7 @@ ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table="accounts",
+    table=Table(dialect, 'accounts'),
     columns=[
         ColumnDefinition(dialect, 
             "id",
@@ -68,7 +69,7 @@ backend.execute(sql, params, options=ddl_options)
 
 insert = InsertExpression(
     dialect=dialect,
-    into="accounts",
+    into=Table(dialect, 'accounts'),
     columns=["name", "balance"],
     source=ValuesSource(
         dialect,
@@ -119,7 +120,7 @@ print(f"SQLite supports FOR UPDATE SKIP LOCKED: {dialect.supports_for_update_ski
 query_with_for_update = QueryExpression(
     dialect=dialect,
     select=[Column(dialect, "name"), Column(dialect, "balance")],
-    from_=TableExpression(dialect, "accounts"),
+    from_=NamedRelationRef(dialect, Table(dialect, "accounts")),
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
@@ -161,7 +162,7 @@ if dialect.supports_for_update():
     query = QueryExpression(
         dialect=dialect,
         select=[Column(dialect, "name"), Column(dialect, "balance")],
-        from_=TableExpression(dialect, "accounts"),
+        from_=NamedRelationRef(dialect, Table(dialect, "accounts")),
         where=WhereClause(
             dialect,
             condition=ComparisonPredicate(
@@ -184,7 +185,7 @@ else:
         query = QueryExpression(
             dialect=dialect,
             select=[Column(dialect, "name"), Column(dialect, "balance")],
-            from_=TableExpression(dialect, "accounts"),
+            from_=NamedRelationRef(dialect, Table(dialect, "accounts")),
             where=WhereClause(
                 dialect,
                 condition=ComparisonPredicate(
@@ -203,7 +204,7 @@ else:
         # Update within the same transaction
         update_expr = UpdateExpression(
             dialect=dialect,
-            table="accounts",
+            table=Table(dialect, 'accounts'),
             assignments={"balance": Literal(dialect, 950)},
             where=WhereClause(
                 dialect,
@@ -226,7 +227,7 @@ backend.transaction_manager.begin_type = None
 query = QueryExpression(
     dialect=dialect,
     select=[Column(dialect, "name"), Column(dialect, "balance")],
-    from_=TableExpression(dialect, "accounts"),
+    from_=NamedRelationRef(dialect, Table(dialect, "accounts")),
 )
 sql, params = query.to_sql()
 result = backend.execute(sql, params, options=dql_options)
@@ -236,7 +237,7 @@ for row in result.data:
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_table = DropTableExpression(dialect=dialect, table="accounts", if_exists=True)
+drop_table = DropTableExpression(dialect=dialect, table=Table(dialect, 'accounts'), if_exists=True)
 sql, params = drop_table.to_sql()
 backend.execute(sql, params, options=ddl_options)
 backend.disconnect()

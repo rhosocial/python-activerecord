@@ -13,7 +13,8 @@ Targets:
 """
 
 from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.expression.core import Column, Literal, TableExpression
+from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements.dml import (
     InsertExpression,
@@ -31,6 +32,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
 from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnDefinition
 from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
 from rhosocial.activerecord.backend.expression.types import VarCharType
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestDmlStatementTypes:
@@ -39,7 +41,7 @@ class TestDmlStatementTypes:
     def test_insert_statement_type(self, dummy_dialect):
         expr = InsertExpression(
             dummy_dialect,
-            into=TableExpression(dummy_dialect, "users"),
+            into=Table(dummy_dialect, 'users'),
             source=[Literal(dummy_dialect, "Alice")],
             columns=["name"],
         )
@@ -48,7 +50,7 @@ class TestDmlStatementTypes:
     def test_update_statement_type(self, dummy_dialect):
         expr = UpdateExpression(
             dummy_dialect,
-            table=TableExpression(dummy_dialect, "users"),
+            table=Table(dummy_dialect, 'users'),
             assignments={"name": Literal(dummy_dialect, "Bob")},
         )
         assert expr.statement_type == StatementType.UPDATE
@@ -56,7 +58,7 @@ class TestDmlStatementTypes:
     def test_delete_statement_type(self, dummy_dialect):
         expr = DeleteExpression(
             dummy_dialect,
-            tables=TableExpression(dummy_dialect, "users"),
+            tables=Table(dummy_dialect, 'users'),
         )
         assert expr.statement_type == StatementType.DELETE
 
@@ -65,8 +67,8 @@ class TestDmlStatementTypes:
         condition = ComparisonPredicate(dummy_dialect, "=", col, Literal(dummy_dialect, 1))
         expr = MergeExpression(
             dummy_dialect,
-            target_table=TableExpression(dummy_dialect, "users"),
-            source=TableExpression(dummy_dialect, "new_users"),
+            target_table=Table(dummy_dialect, 'users'),
+            source=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "new_users")),
             on_condition=condition,
         )
         assert expr.statement_type == StatementType.MERGE
@@ -79,7 +81,7 @@ class TestDqlStatementType:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
         assert query.statement_type == StatementType.DQL
 
@@ -91,7 +93,7 @@ class TestExplainStatementType:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
         explain = ExplainExpression(dummy_dialect, query)
         assert explain.statement_type == StatementType.EXPLAIN
@@ -131,7 +133,7 @@ class TestAlterTableModifyChangeColumn:
         action = ModifyColumn(dummy_dialect, column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,
-            table_name="users",
+            table=Table(dummy_dialect, "users"),
             actions=[action],
         )
         with patch.object(dummy_dialect, "format_modify_column_action", return_value=("MODIFY name VARCHAR(255)", ())):
@@ -145,7 +147,7 @@ class TestAlterTableModifyChangeColumn:
         action = ChangeColumn(dummy_dialect, old_name="old_name", column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,
-            table_name="users",
+            table=Table(dummy_dialect, "users"),
             actions=[action],
         )
         with patch.object(

@@ -54,11 +54,11 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
                 getattr(self, "name", "sqlite"), "Geopoly", "Geopoly requires SQLite 3.26.0 or later."
             )
 
-        table = self.format_identifier(expr.table_name)
+        table = expr.table.to_sql()[0]
         cols = ", ".join(self.format_identifier(c) for c in expr.extra_columns) if expr.extra_columns else ""
-        if expr.content_table:
-            self._validate_safe_identifier(expr.content_table)
-            sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols}, content='{self._escape_sql_string(expr.content_table)}')"
+        if expr.content_table is not None:
+            self._validate_safe_identifier(expr.content_table.name)
+            sql = f"CREATE VIRTUAL TABLE {table} USING geopoly({cols}, content='{self._escape_sql_string(expr.content_table.name)}')"
             return sql, ()
         elif not cols:
             sql = f"CREATE VIRTUAL TABLE {table} USING geopoly()"
@@ -76,7 +76,7 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        table = self.format_identifier(expr.table_name)
+        table = expr.table.to_sql()[0]
         sql = f"SELECT * FROM {table} WHERE geopoly_contains_point(_shape, {self.p()}, {self.p()})"
         return sql, (expr.longitude, expr.latitude)
 
@@ -89,6 +89,6 @@ class SQLiteGeopolyMixin(SQLiteExtensionMixin):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        table = self.format_identifier(expr.table_name)
+        table = expr.table.to_sql()[0]
         sql = f"SELECT *, geopoly_area(_shape) as area FROM {table}"
         return sql, ()

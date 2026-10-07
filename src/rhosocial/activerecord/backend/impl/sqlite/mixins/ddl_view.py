@@ -79,6 +79,11 @@ class SQLiteViewMixin:
         """SQLite does not support CASCADE for DROP VIEW."""
         return False
 
+    def supports_with_data_clause(self) -> bool:
+        """SQLite has no WITH [NO] DATA clause (no materialized views, and
+        ``CREATE TABLE ... AS`` is always populated)."""
+        return False
+
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """Format CREATE VIEW statement for SQLite."""
         parts = ["CREATE"]
@@ -90,7 +95,7 @@ class SQLiteViewMixin:
             parts.append("VIEW IF NOT EXISTS")
         else:
             parts.append("VIEW")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(expr.view.to_sql()[0])
 
         if expr.column_aliases:
             cols = ", ".join(self.format_identifier(c) for c in expr.column_aliases)
@@ -112,11 +117,25 @@ class SQLiteViewMixin:
         return " ".join(parts), query_params
 
     def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
-        """Format DROP VIEW statement for SQLite."""
+        """Format DROP VIEW statement for SQLite.
+
+        SQLite does not accept CASCADE or RESTRICT on DROP VIEW; asking for
+        either raises rather than dropping the request.
+        """
+        if expr.cascade:
+            raise UnsupportedFeatureError(
+                self.name, "DROP VIEW CASCADE",
+                "SQLite does not support DROP VIEW CASCADE.",
+            )
+        if expr.restrict:
+            raise UnsupportedFeatureError(
+                self.name, "DROP VIEW RESTRICT",
+                "SQLite does not support DROP VIEW RESTRICT.",
+            )
         parts = ["DROP VIEW"]
         if expr.if_exists:
             parts.append("IF EXISTS")
-        parts.append(self.format_identifier(expr.view_name))
+        parts.append(expr.view.to_sql()[0])
         return " ".join(parts), ()
 
     def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:

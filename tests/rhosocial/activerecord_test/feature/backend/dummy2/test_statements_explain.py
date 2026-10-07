@@ -3,17 +3,18 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    TableExpression,
     QueryExpression,
     InsertExpression,
     UpdateExpression,
     DeleteExpression,
     ExplainExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import ExplainOptions, ExplainType, ExplainFormat
 from rhosocial.activerecord.backend.expression.statements import ValuesSource
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestExplainStatements:
@@ -25,7 +26,7 @@ class TestExplainStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
-            from_=TableExpression(dummy_dialect, "users"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
 
         explain_expr = ExplainExpression(dummy_dialect, statement=query)
@@ -47,7 +48,7 @@ class TestExplainStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
-            from_=TableExpression(dummy_dialect, "products"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products")),
             where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "price") > Literal(dummy_dialect, 100)),
         )
 
@@ -71,7 +72,7 @@ class TestExplainStatements:
     def test_explain_with_formats(self, dummy_dialect: DummyDialect, format_type, expected_format_clause):
         """Tests EXPLAIN with different output formats."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "name")], from_=TableExpression(dummy_dialect, "employees")
+            dummy_dialect, select=[Column(dummy_dialect, "name")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "employees"))
         )
 
         # Create EXPLAIN options with specific format
@@ -88,7 +89,7 @@ class TestExplainStatements:
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "total")],
-            from_=TableExpression(dummy_dialect, "orders"),
+            from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
             where=WhereClause(
                 dummy_dialect, condition=Column(dummy_dialect, "order_date") > Literal(dummy_dialect, "2024-01-01")
             ),
@@ -116,25 +117,25 @@ class TestExplainStatements:
         """Tests EXPLAIN with different types of SQL statements."""
         if statement_type == "SELECT":
             stmt = QueryExpression(
-                dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "test_table")
+                dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "test_table"))
             )
         elif statement_type == "INSERT":
             stmt = InsertExpression(
                 dummy_dialect,
-                into=TableExpression(dummy_dialect, "test_table"),
+                into=Table(dummy_dialect, 'test_table'),
                 source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
             )
         elif statement_type == "UPDATE":
             stmt = UpdateExpression(
                 dummy_dialect,
-                table=TableExpression(dummy_dialect, "test_table"),
+                table=Table(dummy_dialect, 'test_table'),
                 assignments={"name": Literal(dummy_dialect, "updated")},
                 where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1),
             )
         elif statement_type == "DELETE":
             stmt = DeleteExpression(
                 dummy_dialect,
-                tables=TableExpression(dummy_dialect, "test_table"),
+                tables=Table(dummy_dialect, 'test_table'),
                 where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1),
             )
 
@@ -158,7 +159,7 @@ class TestExplainStatements:
     def test_explain_with_extended_options(self, dummy_dialect: DummyDialect, buffers, costs, timing, verbose):
         """Tests EXPLAIN with extended options like BUFFERS, COSTS, TIMING, VERBOSE."""
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "perf_test")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "perf_test"))
         )
 
         # Create EXPLAIN options with extended settings
@@ -190,7 +191,7 @@ class TestExplainStatements:
         from rhosocial.activerecord.backend.expression.statements import ExplainOptions
 
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
 
         # Test initialization with no options (None)
@@ -222,7 +223,7 @@ class TestExplainStatements:
         from rhosocial.activerecord.backend.expression.statements import ExplainOptions
 
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "name")], from_=TableExpression(dummy_dialect, "products")
+            dummy_dialect, select=[Column(dummy_dialect, "name")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"))
         )
 
         options = ExplainOptions(analyze=True, format=ExplainFormat.TEXT)
@@ -241,10 +242,11 @@ class TestExplainStatements:
     def test_explain_with_settings_option(self, dummy_dialect: DummyDialect):
         """Tests EXPLAIN with SETTINGS option."""
         from rhosocial.activerecord.backend.expression.statements import ExplainOptions, QueryExpression
-        from rhosocial.activerecord.backend.expression.core import TableExpression, Column
+        from rhosocial.activerecord.backend.expression import Column
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
 
         explain_options = ExplainOptions(settings=True)
@@ -258,10 +260,11 @@ class TestExplainStatements:
     def test_explain_with_wal_option(self, dummy_dialect: DummyDialect):
         """Tests EXPLAIN with WAL option."""
         from rhosocial.activerecord.backend.expression.statements import ExplainOptions, QueryExpression
-        from rhosocial.activerecord.backend.expression.core import TableExpression, Column
+        from rhosocial.activerecord.backend.expression import Column
+        from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         query = QueryExpression(
-            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=TableExpression(dummy_dialect, "users")
+            dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
 
         explain_options = ExplainOptions(wal=True)

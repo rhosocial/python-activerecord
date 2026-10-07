@@ -8,7 +8,6 @@ Each action must be executed separately.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
-from rhosocial.activerecord.backend.expression.types import TextType
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
@@ -56,7 +55,7 @@ backend.execute(sql, params)
 
 insert_expr = InsertExpression(
     dialect=dialect,
-    into="users",
+    into=Table(dialect, 'users'),
     columns=["name"],
     source=ValuesSource(dialect, [[Literal(dialect, "Alice")]]),
 )
@@ -74,6 +73,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # 
     AddColumn,
     RenameObject,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 # Add a new column (separate statement for SQLite)
 add_col_action = AddColumn(

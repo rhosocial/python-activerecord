@@ -25,9 +25,9 @@ from dataclasses import is_dataclass
 from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING
 
 from .bases import BaseExpression
+from .codec import register_codec
 from .codec import decode_value as _codec_decode_value
 from .codec import encode_value as _codec_encode_value
-from .codec import register_codec
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -265,7 +265,6 @@ class ExpressionSerializer:
 
     def _deserialize_dataclass(self, payload: Any, dialect: "SQLDialectBase", depth: int) -> Any:
         """Reconstruct a dataclass encoded via the ``__vdc__`` reserved key."""
-        import dataclasses
         import importlib
 
         fqn, fields = payload

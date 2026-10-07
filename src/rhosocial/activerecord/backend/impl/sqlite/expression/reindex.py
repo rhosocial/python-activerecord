@@ -8,6 +8,7 @@ This module provides SQLiteReindexExpression for rebuilding indexes.
 from typing import Optional, TYPE_CHECKING
 
 from ....expression.bases import BaseExpression, SQLQueryAndParams
+from ....expression.objects import Index, Table
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
@@ -24,10 +25,10 @@ class SQLiteReindexExpression(BaseExpression):
 
     Examples:
         # Rebuild all indexes on a table
-        reindex = SQLiteReindexExpression(dialect, table_name="users")
+        reindex = SQLiteReindexExpression(dialect, table=Table(dialect, "users"))
 
         # Rebuild a specific index
-        reindex = SQLiteReindexExpression(dialect, index_name="idx_users_email")
+        reindex = SQLiteReindexExpression(dialect, index=Index(dialect, "idx_users_email"))
 
         # Rebuild all expression indexes (SQLite 3.53.0+)
         reindex = SQLiteReindexExpression(dialect, expressions=True)
@@ -39,31 +40,41 @@ class SQLiteReindexExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        index_name: Optional[str] = None,
-        table_name: Optional[str] = None,
+        index: Optional["Index"] = None,
+        table: Optional["Table"] = None,
         expressions: bool = False,
     ):
         """Initialize a REINDEX expression.
 
         Args:
             dialect: The SQL dialect instance.
-            index_name: Optional specific index name to rebuild.
-            table_name: Optional table name to rebuild all indexes for.
+            index: Optional index to rebuild.
+            table: Optional table to rebuild all indexes for.
             expressions: If True, rebuild all expression indexes (SQLite 3.53.0+).
-                Mutually exclusive with index_name and table_name.
+                Mutually exclusive with index and table.
 
         Raises:
-            ValueError: If both index_name and table_name are specified,
+            ValueError: If both index and table are specified,
                 or if expressions is True with other parameters.
         """
-        if expressions and (index_name or table_name):
-            raise ValueError("REINDEX EXPRESSIONS cannot be combined with index_name or table_name")
-        if index_name and table_name:
-            raise ValueError("Cannot specify both index_name and table_name for REINDEX")
+        if expressions and (index or table):
+            raise ValueError("REINDEX EXPRESSIONS cannot be combined with index or table")
+        if index and table:
+            raise ValueError("Cannot specify both index and table for REINDEX")
 
         super().__init__(dialect)
-        self.index_name = index_name
-        self.table_name = table_name
+        if index is not None and not isinstance(index, Index):
+            raise TypeError(
+                f"index must be an Index, "
+                f"got {type(index).__name__}"
+            )
+        self.index = index
+        if table is not None and not isinstance(table, Table):
+            raise TypeError(
+                f"table must be a Table, "
+                f"got {type(table).__name__}"
+            )
+        self.table = table
         self.expressions = expressions
 
     def to_sql(self) -> SQLQueryAndParams:

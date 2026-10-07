@@ -67,61 +67,258 @@ def get_own_protocol_methods(proto: type) -> set:
 
 
 SQLITE_PROTOCOLS = [
+
+
+    # A trigger names the routine it calls, so spelling a routine object is
+    # required even by a dialect that cannot create one. Whether SQLite
+    # *manages* routines is asked separately, by CreateRoutineSupport and
+    # DropRoutineSupport in SQLITE_NOT_IMPLEMENTED.
+    dialect_protocols.RoutineObjectSupport,
+
     sqlite_protocols.SQLiteVirtualTableSupport,
+
+
     sqlite_protocols.SQLitePragmaSupport,
+
+
     sqlite_protocols.SQLiteExtensionSupport,
+
+
     sqlite_protocols.SQLiteReindexSupport,
+
+
     sqlite_protocols.SQLiteMaintenanceSupport,
+
+
     dialect_protocols.CTESupport,
+
+
     dialect_protocols.FilterClauseSupport,
+
+
     dialect_protocols.WindowFunctionSupport,
+
+
     dialect_protocols.JSONSupport,
+
+
     dialect_protocols.ReturningSupport,
+
+
     dialect_protocols.AdvancedGroupingSupport,
+
+
     dialect_protocols.ArraySupport,
+
+
     dialect_protocols.ExplainSupport,
+
+
     dialect_protocols.GraphSupport,
+
+
     dialect_protocols.LockingSupport,
+
+
     dialect_protocols.MergeSupport,
+
+
     dialect_protocols.OrderedSetAggregationSupport,
+
+
     dialect_protocols.QualifyClauseSupport,
+
+
     dialect_protocols.TemporalTableSupport,
+
+
     dialect_protocols.UpsertSupport,
+
+
     dialect_protocols.LateralJoinSupport,
+
+
     dialect_protocols.WildcardSupport,
+
+
     dialect_protocols.JoinSupport,
+
+
     dialect_protocols.SetOperationSupport,
-    dialect_protocols.ViewSupport,
-    dialect_protocols.TableSupport,
+
+
+    dialect_protocols.NamespaceSupport,
+
+
+    dialect_protocols.TableObjectSupport,
+
+
+    dialect_protocols.ViewObjectSupport,
+
+
+    dialect_protocols.MaterializedViewObjectSupport,
+
+
+    dialect_protocols.ForeignTableObjectSupport,
+
+
+    dialect_protocols.IndexObjectSupport,
+
+
+    dialect_protocols.SequenceObjectSupport,
+
+
+    dialect_protocols.TriggerObjectSupport,
+
+
+    dialect_protocols.TypeObjectSupport,
+
+
+    dialect_protocols.SynonymObjectSupport,
+
+
     dialect_protocols.ConstraintSupport,
+
+
     dialect_protocols.TruncateSupport,
-    dialect_protocols.SchemaSupport,
-    dialect_protocols.IndexSupport,
-    dialect_protocols.SequenceSupport,
-    dialect_protocols.TriggerSupport,
+
+
+    dialect_protocols.CreateSchemaSupport,
+
+
+    dialect_protocols.DropSchemaSupport,
+
+
     dialect_protocols.GeneratedColumnSupport,
+
+
     dialect_protocols.IntrospectionSupport,
+
+
     dialect_protocols.TransactionControlSupport,
+
+
     dialect_protocols.SQLFunctionSupport,
-    # Generic protocols that SQLite also satisfies (previously omitted).
+
+
     dialect_protocols.AlterTableModifierSupport,
-    dialect_protocols.AutoIncrementSupport,
+
+
+    dialect_protocols.AutoIncrementColumnSupport,
+
+
+    dialect_protocols.IdentityColumnSupport,
+
+
     dialect_protocols.CollationSupport,
+
+
     dialect_protocols.DataTypeSupport,
-    dialect_protocols.UserDefinedTypeSupport,
-    dialect_protocols.DomainSupport,
+
+
     dialect_protocols.PartitionSupport,
+
+
     dialect_protocols.ColumnAttributeSupport,
+
+
     dialect_protocols.CommentSupport,
+
+
+    dialect_protocols.CreateTableSupport,
+
+
+    dialect_protocols.CreateTableLikeSupport,
+
+
+    dialect_protocols.CreateTableAsSupport,
+
+
+    dialect_protocols.CreateTableCloneSupport,
+
+
+    dialect_protocols.CreateTableUsingTemplateSupport,
+
+
+    dialect_protocols.DropTableSupport,
+
+
+    dialect_protocols.AlterTableSupport,
+
+
+    dialect_protocols.CreateViewSupport,
+
+
+    dialect_protocols.DropViewSupport,
+
+
+    dialect_protocols.MaterializedViewSupport,
+
+
+    dialect_protocols.CreateIndexSupport,
+
+
+    dialect_protocols.DropIndexSupport,
+
+
+    dialect_protocols.FulltextIndexSupport,
+
+
+    dialect_protocols.CreateTriggerSupport,
+
+
+    dialect_protocols.DropTriggerSupport,
+
+
+    dialect_protocols.CreateTypeSupport,
+
+
+    dialect_protocols.AlterTypeSupport,
+
+
+    dialect_protocols.DropTypeSupport,
+
+
+    dialect_protocols.CreateDomainSupport,
+
+
+    dialect_protocols.AlterDomainSupport,
+
+
+    dialect_protocols.DropDomainSupport,
+
+
+    dialect_protocols.DateTimeSupport,
+
+
+    dialect_protocols.DqlOrderSupport,
+
+
 ]
+
 
 # Generic protocols SQLiteDialect intentionally does NOT implement.
 # Listing them explicitly makes the omission a deliberate, tested contract:
 # if SQLite ever gains one of these by accident, the negative test fails and
 # forces a conscious decision (and update of this list).
 SQLITE_NOT_IMPLEMENTED = [
-    dialect_protocols.DatabaseSupport,
-    dialect_protocols.FunctionSupport,
+    dialect_protocols.CreateDatabaseSupport,
+    dialect_protocols.DropDatabaseSupport,
+    dialect_protocols.AlterDatabaseSupport,
+    # SQLite has no sequence object -- it numbers rows with AUTOINCREMENT/ROWID
+    # -- so CREATE/DROP/ALTER SEQUENCE are not statements the engine parses.
+    # SQLiteDialect therefore mixes in no base providing those formatters, and
+    # these three protocols name formatters that do not exist. SequenceObjectSupport
+    # above is a different capability and is still met: naming a Sequence is
+    # untouched, so Sequence(dialect, "s").to_sql() renders.
+    dialect_protocols.CreateSequenceSupport,
+    dialect_protocols.DropSequenceSupport,
+    dialect_protocols.AlterSequenceSupport,
+    # RoutineObjectSupport is absent here on purpose, and it used to be present.
+    # It asks whether a routine *object* can be spelled, and a trigger names the
+    # routine it calls -- so a dialect with triggers must be able to spell one.
+    # SQLite has no CREATE FUNCTION, but that is a different question, and
+    # CreateRoutineSupport / DropRoutineSupport below are where it is asked.
     dialect_protocols.GraphTableSupport,
     dialect_protocols.ILIKESupport,
     dialect_protocols.SQLXMLSupport,
@@ -130,7 +327,11 @@ SQLITE_NOT_IMPLEMENTED = [
     dialect_protocols.SQLXMLConstructionSupport,
     dialect_protocols.SQLXMLAggregationSupport,
     dialect_protocols.SQLXMLQueryingSupport,
+    dialect_protocols.CreateRoutineSupport,
+    dialect_protocols.DropRoutineSupport,
+    dialect_protocols.PivotSupport,
 ]
+
 
 
 def get_all_generic_protocols() -> set:
@@ -192,7 +393,12 @@ class TestSQLiteDialectProtocolConformance:
         generic protocol must be placed into exactly one of the two lists.
         """
         all_protos = get_all_generic_protocols()
-        positive = {p.__name__ for p in SQLITE_PROTOCOLS if p.__module__ == dialect_protocols.__name__}
+        # Each protocol lives in a submodule of the protocols package, so the
+        # generic ones are identified by the package they live in rather than by
+        # an exact module path.
+        generic = [p for p in SQLITE_PROTOCOLS
+                   if p.__module__.startswith(dialect_protocols.__name__ + ".")]
+        positive = {p.__name__ for p in generic}
         negative = {p.__name__ for p in SQLITE_NOT_IMPLEMENTED}
 
         overlap = positive & negative
@@ -218,7 +424,9 @@ class TestProtocolNonOverlap:
 
     def test_no_interface_overlap_between_protocols(self):
         """No two protocols should share the same method name."""
-        member_map = {proto.__name__: get_all_protocol_methods(proto) for proto in SQLITE_PROTOCOLS}
+        # Own members only: the named-object protocols share NamespaceSupport by
+        # design, and shared base members are not a collision.
+        member_map = {proto.__name__: get_own_protocol_methods(proto) for proto in SQLITE_PROTOCOLS}
 
         for name, members in member_map.items():
             assert len(members) > 0, f"Protocol {name} has no members defined"
@@ -315,10 +523,10 @@ class TestProtocolMethodSignatureConformance:
         ("OrderedSetAggregationSupport", "format_ordered_set_aggregation"),
         # QualifyClauseSupport: Mixin uses expr instead of clause
         ("QualifyClauseSupport", "format_qualify_clause"),
-        # ViewSupport: Materialized view methods use expr instead of named params
-        ("ViewSupport", "format_create_materialized_view_statement"),
-        ("ViewSupport", "format_drop_materialized_view_statement"),
-        ("ViewSupport", "format_refresh_materialized_view_statement"),
+        # ViewObjectSupport: Materialized view methods use expr instead of named params
+        ("ViewObjectSupport", "format_create_materialized_view_statement"),
+        ("ViewObjectSupport", "format_drop_materialized_view_statement"),
+        ("ViewObjectSupport", "format_refresh_materialized_view_statement"),
     }
 
     @pytest.fixture

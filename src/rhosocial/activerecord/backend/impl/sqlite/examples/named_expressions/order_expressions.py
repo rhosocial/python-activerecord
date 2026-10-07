@@ -57,7 +57,7 @@ tables = [
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
-        table=table_name,
+        table=Table(dialect, table_name),
         columns=[_column(name, type_name) for name, type_name in columns],
         if_not_exists=True,
     )
@@ -72,7 +72,7 @@ for table, data in [
     for row in data:
         insert = InsertExpression(
             dialect=dialect,
-            into=table,
+            into=Table(dialect, table),
             columns=[name for name, _ in tables[[t for t, _ in tables].index(table)][1]],
             source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
         )
@@ -82,7 +82,8 @@ for table, data in [
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression, TableExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
 
 def get_order(dialect, order_id: int):
@@ -90,7 +91,7 @@ def get_order(dialect, order_id: int):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "status"), Column(dialect, "user_id")],
-        from_=TableExpression(dialect, "orders"),
+        from_=NamedRelationRef(dialect, Table(dialect, "orders")),
         where=Column(dialect, "id") == Literal(dialect, order_id),
     )
 
@@ -100,7 +101,7 @@ def check_inventory(dialect, order_id: int):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "available")],
-        from_=TableExpression(dialect, "inventory"),
+        from_=NamedRelationRef(dialect, Table(dialect, "inventory")),
         where=Column(dialect, "order_id") == Literal(dialect, order_id),
     )
 
@@ -110,7 +111,7 @@ def reserve_inventory(dialect, order_id: int):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "reserved")],
-        from_=TableExpression(dialect, "inventory"),
+        from_=NamedRelationRef(dialect, Table(dialect, "inventory")),
         where=Column(dialect, "order_id") == Literal(dialect, order_id),
     )
 
@@ -120,7 +121,7 @@ def send_notification(dialect, user_id: int, type: str):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "id")],
-        from_=TableExpression(dialect, "notifications"),
+        from_=NamedRelationRef(dialect, Table(dialect, "notifications")),
         where=Column(dialect, "user_id") == Literal(dialect, user_id),
     )
 
@@ -130,7 +131,7 @@ def process_payment(dialect, order_id: int, amount: float):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "status"), Column(dialect, "transaction_id")],
-        from_=TableExpression(dialect, "payments"),
+        from_=NamedRelationRef(dialect, Table(dialect, "payments")),
         where=Column(dialect, "order_id") == Literal(dialect, order_id),
     )
 
@@ -140,7 +141,7 @@ def release_inventory(dialect, order_id: int):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "id")],
-        from_=TableExpression(dialect, "inventory"),
+        from_=NamedRelationRef(dialect, Table(dialect, "inventory")),
         where=Column(dialect, "order_id") == Literal(dialect, order_id),
     )
 
@@ -150,7 +151,7 @@ def create_order_record(dialect, order_id: int, user_id: int, amount: float):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "created_at")],
-        from_=TableExpression(dialect, "order_records"),
+        from_=NamedRelationRef(dialect, Table(dialect, "order_records")),
         where=Column(dialect, "order_id") == Literal(dialect, order_id),
     )
 
@@ -160,7 +161,7 @@ def confirm_inventory(dialect, order_id: int):
     return QueryExpression(
         dialect,
         select=[Column(dialect, "id")],
-        from_=TableExpression(dialect, "inventory"),
+        from_=NamedRelationRef(dialect, Table(dialect, "inventory")),
         where=Column(dialect, "order_id") == Literal(dialect, order_id),
     )
 
@@ -189,6 +190,7 @@ if __name__ == "__main__":
 # ============================================================
 from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
 from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
+from .....expression.objects import Table
 
 if __name__ == "__main__":
     query = get_order(dialect, order_id=1)

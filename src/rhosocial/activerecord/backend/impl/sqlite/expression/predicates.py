@@ -11,7 +11,7 @@ from typing import List, Optional, TYPE_CHECKING
 from ....expression.bases import SQLPredicate
 
 if TYPE_CHECKING:
-    from .....backend.dialect.base import SQLDialectBase
+    from ......dialect.base import SQLDialectBase
     from ....expression.bases import SQLQueryAndParams
 
 

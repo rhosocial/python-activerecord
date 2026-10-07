@@ -8,6 +8,7 @@ This module provides expression classes for CREATE/DROP virtual table operations
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ....expression.bases import BaseExpression, SQLQueryAndParams
+from ....expression.objects import Table
 
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
@@ -20,13 +21,18 @@ class CreateVirtualTableExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         module: str,
-        table_name: str,
+        table: "Table",
         columns: List[str],
         options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
         self.module = module
-        self.table_name = table_name
+        if not isinstance(table, Table):
+            raise TypeError(
+                f"table must be a Table, "
+                f"got {type(table).__name__}"
+            )
+        self.table = table
         self.columns = columns
         self.options = options
 
@@ -44,11 +50,16 @@ class DropVirtualTableExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: str,
+        table: "Table",
         if_exists: bool = False,
     ):
         super().__init__(dialect)
-        self.table_name = table_name
+        if not isinstance(table, Table):
+            raise TypeError(
+                f"table must be a Table, "
+                f"got {type(table).__name__}"
+            )
+        self.table = table
         self.if_exists = if_exists
 
     @property

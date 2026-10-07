@@ -10,7 +10,6 @@ Note: This file should only be imported and used in Python 3.11+ environments.
 """
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Self
 
 from pydantic import Field

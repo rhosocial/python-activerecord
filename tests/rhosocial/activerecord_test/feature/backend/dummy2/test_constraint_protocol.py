@@ -5,6 +5,7 @@ import pytest
 from rhosocial.activerecord.backend.dialect.protocols import ConstraintSupport
 from rhosocial.activerecord.backend.dialect.mixins import ConstraintMixin
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestConstraintProtocol:
@@ -215,7 +216,7 @@ class TestConstraintSQLFormatting:
             dialect,
             constraint=ForeignKeyConstraint(dialect, 
                 columns=["user_id"],
-                foreign_key_table="users",
+                foreign_key_table=Table(dialect, "users"),
                 foreign_key_columns=["id"],
             ),
         )
@@ -280,17 +281,17 @@ class TestConstraintEnforcementAndValidation:
             TableConstraintType.CHECK,
             name="age_check",
             check_condition=condition,
-            enforced=False,
+            not_enforced=True,
         )
         column_constraint = ColumnConstraint(
             dialect,
             ColumnConstraintType.CHECK,
             check_condition=condition,
-            enforced=False,
+            not_enforced=True,
         )
         expression = CreateTableExpression(
             dialect,
-            "people",
+            Table(dialect, 'people'),
             [ColumnDefinition(dialect, "age", IntegerType(dialect), [column_constraint])],
             table_constraints=[table_constraint],
         )
@@ -330,7 +331,7 @@ class TestConstraintEnforcementAndValidation:
             dialect,
             ColumnConstraintType.CHECK,
             check_condition=condition,
-            enforced=False,
+            not_enforced=True,
         )
         with pytest.raises(UnsupportedFeatureError):
             constraint.to_sql()
@@ -349,7 +350,7 @@ class TestConstraintEnforcementAndValidation:
         action = AlterConstraint(
             dialect,
             "age_check",
-            False,
+            not_enforced=True,
             constraint_type=ColumnConstraintType.CHECK,
         )
         assert action.constraint_type is TableConstraintType.CHECK

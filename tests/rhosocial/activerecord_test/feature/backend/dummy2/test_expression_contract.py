@@ -32,12 +32,17 @@ KNOWN_NON_AUTO_CONSTRUCTIBLE = {
     # class FQN suffix : reason
     "types.enum_.EnumType": "requires non-empty `values` (structural "
                             "construction check raises ValueError on None/[])",
-    "statements.ddl_type.CreateTypeExpression": "requires a concrete TypeDefinition",
-    "statements.ddl_type.AlterTypeExpression": "requires at least one concrete TypeAlterAction",
-    "statements.ddl_domain.AddDomainCheckAction": "requires a concrete DomainCheckConstraint",
-    "statements.ddl_domain.AlterDomainExpression": "requires at least one concrete DomainAlterAction",
     "statements.ddl_alter.AlterConstraint": "requires a non-empty constraint name",
     "statements.ddl_alter.ValidateConstraint": "requires a non-empty constraint name",
+    "statements.ddl_domain.AddDomainCheckAction": "requires a concrete DomainCheckConstraint",
+    "statements.ddl_domain.DomainCheckConstraint": "requires a concrete check condition",
+    # The XML constructors take a sequence of their own item types, and an
+    # empty one is structurally meaningless -- there is no value to check and
+    # nothing to render.
+    "expression.xml.XMLAttributesExpression": "requires a non-empty attribute list",
+    "expression.xml.XMLForestExpression": "requires a non-empty forest item list",
+    "expression.xml.XMLConcatExpression": "requires a non-empty part list",
+    "expression.xml.XMLTableExpression": "requires a row-specifying context item",
 }
 
 

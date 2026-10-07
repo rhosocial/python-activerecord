@@ -9,6 +9,8 @@ probes to reflect their real feature set; the formatters raise
 
 from typing import Tuple, TYPE_CHECKING
 
+from ...expression.objects import Function, Table, Trigger
+
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
         CreateTriggerExpression,
@@ -97,8 +99,32 @@ class TriggerMixin:
             A ``(sql, params)`` tuple.
 
         Raises:
+            TypeError: ``CreateTriggerExpression.trigger`` is not a Trigger. Another
+            object kind would have had its own name rendered as the trigger's.
+            TypeError: ``CreateTriggerExpression.table`` is not a Table. Another
+            object kind would have had its own name rendered as the watched table's.
+            TypeError: ``CreateTriggerExpression.function`` is not a Function.
+            Another object kind would have had its own name rendered as the trigger
+            body's.
             UnsupportedFeatureError: If the dialect does not support triggers.
         """
+        if not isinstance(expr.trigger, Trigger):
+            raise TypeError(
+                f"CreateTriggerExpression.trigger must be a Trigger, "
+                f"got {type(expr.trigger).__name__}"
+            )
+
+        if not isinstance(expr.table, Table):
+            raise TypeError(
+                f"CreateTriggerExpression.table must be a Table, "
+                f"got {type(expr.table).__name__}"
+            )
+
+        if not isinstance(expr.function, Function):
+            raise TypeError(
+                f"CreateTriggerExpression.function must be a Function, "
+                f"got {type(expr.function).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_trigger():
@@ -114,7 +140,7 @@ class TriggerMixin:
                 )
             parts.append("IF NOT EXISTS")
 
-        parts.append(self.format_identifier(expr.trigger_name))
+        parts.append(expr.trigger.to_sql()[0])
 
         parts.append(expr.timing.value)
 
@@ -126,7 +152,7 @@ class TriggerMixin:
         parts.append(events_str)
 
         parts.append("ON")
-        parts.append(self.format_identifier(expr.table_name))
+        parts.append(expr.table.to_sql()[0])
 
         if expr.referencing:
             if not self.supports_trigger_referencing():
@@ -150,7 +176,7 @@ class TriggerMixin:
             all_params.extend(cond_params)
 
         parts.append("EXECUTE")
-        parts.append(self.format_identifier(expr.function_name))
+        parts.append(expr.function.to_sql()[0])
 
         return " ".join(parts), tuple(all_params)
 
@@ -165,8 +191,23 @@ class TriggerMixin:
             A ``(sql, params)`` tuple.
 
         Raises:
+            TypeError: ``DropTriggerExpression.trigger`` is not a Trigger. Another
+            object kind would have had its own name rendered as the trigger's.
+            TypeError: ``DropTriggerExpression.table`` is not a Table. Another
+            object kind would have had its own name rendered as the table's.
             UnsupportedFeatureError: If the dialect does not support triggers.
         """
+        if not isinstance(expr.trigger, Trigger):
+            raise TypeError(
+                f"DropTriggerExpression.trigger must be a Trigger, "
+                f"got {type(expr.trigger).__name__}"
+            )
+
+        if expr.table is not None and not isinstance(expr.table, Table):
+            raise TypeError(
+                f"DropTriggerExpression.table must be a Table, "
+                f"got {type(expr.table).__name__}"
+            )
         from ..exceptions import UnsupportedFeatureError
 
         if not self.supports_trigger():
@@ -182,10 +223,10 @@ class TriggerMixin:
                 )
             parts.append("IF EXISTS")
 
-        parts.append(self.format_identifier(expr.trigger_name))
+        parts.append(expr.trigger.to_sql()[0])
 
-        if expr.table_name:
+        if expr.table:
             parts.append("ON")
-            parts.append(self.format_identifier(expr.table_name))
+            parts.append(expr.table.to_sql()[0])
 
         return " ".join(parts), ()

@@ -65,7 +65,7 @@ sales_data = [
 for row in sales_data:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="sales",
+        into=Table(dialect, 'sales'),
         columns=["salesperson", "region", "amount", "sale_date"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
     )
@@ -75,16 +75,17 @@ for row in sales_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     QueryExpression,
-    TableExpression,
     Column,
     OrderByClause,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.advanced_functions import (  # noqa: E402
     WindowFunctionCall,
     WindowSpecification,
 )
+from .....expression.objects import Table
 
 window_spec = WindowSpecification(
     dialect,
@@ -107,7 +108,7 @@ query = QueryExpression(
         Column(dialect, "sale_date"),
         window_func,
     ],
-    from_=TableExpression(dialect, "sales"),
+    from_=NamedRelationRef(dialect, Table(dialect, "sales")),
     order_by=OrderByClause(
         dialect,
         expressions=[(Column(dialect, "salesperson"), "ASC"), (Column(dialect, "sale_date"), "ASC")],

@@ -39,6 +39,7 @@ from .ddl_table import (
     ColumnConstraint,
     DefaultValueClause,
     IdentityClause,
+    AutoIncrementClause,
     ReferencesClause,
     ColumnCommentClause,
     TableCommentClause,
@@ -175,6 +176,7 @@ from .fulltext_match import FulltextMatchExpression
 
 # Re-export shared type alias
 from ._types import FromSourceType
+from ..objects import Table
 
 __all__ = [
     # DQL
@@ -206,6 +208,7 @@ __all__ = [
     "ColumnConstraint",
     "DefaultValueClause",
     "IdentityClause",
+    "AutoIncrementClause",
     "ReferencesClause",
     "ColumnCommentClause",
     "TableCommentClause",

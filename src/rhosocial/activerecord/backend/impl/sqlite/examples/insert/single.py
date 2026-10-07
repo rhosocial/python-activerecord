@@ -16,12 +16,12 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,
     QueryExpression,
-    TableExpression,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
@@ -31,7 +31,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table="users",
+    table=Table(dialect, 'users'),
     columns=[
         ColumnDefinition(dialect, 
             "id",
@@ -53,11 +53,11 @@ backend.execute(sql, params)
 # SECTION: Single INSERT (using InsertExpression)
 # ============================================================
 from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from .....expression.objects import Table
 
 insert_expr = InsertExpression(
     dialect=dialect,
-    into="users",
+    into=Table(dialect, 'users'),
     columns=["name"],
     source=ValuesSource(
         dialect,
@@ -74,7 +74,7 @@ backend.execute(sql, params)
 verify_query = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, "users"),
+    from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 sql, params = verify_query.to_sql()
 result = backend.execute(sql, params)
@@ -83,7 +83,7 @@ print(f"Result: {result.data}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table="users", if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

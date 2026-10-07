@@ -26,19 +26,20 @@ dialect = backend.dialect
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
+from rhosocial.activerecord.backend.expression import (
     Column,
     InsertExpression,
     ValuesSource,
     QueryExpression,
-    TableExpression,
     FunctionCall,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteMatchPredicate,  # noqa: E402
     CreateVirtualTableExpression,  # noqa: E402
 )
+from .....expression.objects import Table
 
 # Create FTS4 virtual table using the dialect's generic virtual table
 # formatting method. For FTS4, module='fts4' and tokenizer options
@@ -65,7 +66,7 @@ documents = [
 for title, content in documents:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into="documents",
+        into=Table(dialect, 'documents'),
         columns=["title", "content"],
         source=ValuesSource(
             dialect,
@@ -98,7 +99,7 @@ offsets_query = QueryExpression(
         Column(dialect, "title", table="documents"),
         FunctionCall(dialect, "offsets", [Column(dialect, "documents")]).as_("offsets"),
     ],
-    from_=TableExpression(dialect, "documents"),
+    from_=NamedRelationRef(dialect, Table(dialect, "documents")),
     where=offsets_pred,
 )
 sql, params = offsets_query.to_sql()

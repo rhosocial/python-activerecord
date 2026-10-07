@@ -11,17 +11,17 @@ from rhosocial.activerecord.backend.expression.types import IntegerType, TextTyp
 from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,
-    TableExpression,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
 )
+from rhosocial.activerecord.backend.expression.objects import Table
 
 
 def create_event_tests_table(dialect, table_name: str = "event_tests") -> CreateTableExpression:
     return CreateTableExpression(
         dialect=dialect,
-        table=table_name,
+        table=Table(dialect, table_name),
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
@@ -48,7 +48,7 @@ def create_event_tests_table(dialect, table_name: str = "event_tests") -> Create
 def create_event_test_models_table(dialect, table_name: str = "event_test_models") -> CreateTableExpression:
     return CreateTableExpression(
         dialect=dialect,
-        table=table_name,
+        table=Table(dialect, table_name),
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
@@ -68,7 +68,7 @@ def create_event_test_models_table(dialect, table_name: str = "event_test_models
 def create_event_tracking_models_table(dialect, table_name: str = "event_tracking_models") -> CreateTableExpression:
     return CreateTableExpression(
         dialect=dialect,
-        table=table_name,
+        table=Table(dialect, table_name),
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
@@ -87,7 +87,7 @@ def create_event_tracking_models_table(dialect, table_name: str = "event_trackin
 def drop_table(dialect, table_name: str) -> DropTableExpression:
     return DropTableExpression(
         dialect=dialect,
-        table=TableExpression(dialect, table_name),
+        table=Table(dialect, table_name),
         if_exists=True,
     )
 
