@@ -42,7 +42,10 @@ from rhosocial.activerecord.base.field_proxy import (
 from rhosocial.activerecord.base.fields import UseColumnType
 from rhosocial.activerecord.model import ActiveRecord
 
-from column_helpers import build_column, resolve_column_class
+from rhosocial.activerecord_test.feature.query.column_helpers import (
+    build_column,
+    resolve_column_class,
+)
 
 
 def column_class_for(annotation, dialect=None):

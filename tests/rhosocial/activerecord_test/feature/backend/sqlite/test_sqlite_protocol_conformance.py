@@ -221,6 +221,11 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.DataTypeSupport,
 
 
+    # Column classes: which operations a value carries, where DataTypeSupport
+    # answers how it is stored.
+    dialect_protocols.ColumnTypeSupport,
+
+
     dialect_protocols.PartitionSupport,
 
 

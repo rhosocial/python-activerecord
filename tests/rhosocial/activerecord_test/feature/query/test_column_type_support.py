@@ -56,7 +56,11 @@ from rhosocial.activerecord.base.field_proxy import (
 from rhosocial.activerecord.base.fields import DDLAnnotation, UseColumnType, UseSqlType
 from rhosocial.activerecord.model import ActiveRecord
 
-from column_helpers import COMMON_TYPES, build_column, resolve_column_class
+from rhosocial.activerecord_test.feature.query.column_helpers import (
+    COMMON_TYPES,
+    build_column,
+    resolve_column_class,
+)
 
 
 def sqlite_dialect(version=(3, 46, 1)):

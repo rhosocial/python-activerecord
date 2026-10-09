@@ -69,7 +69,7 @@ def dialect():
 
 @pytest.fixture
 def columns(dialect):
-    from column_helpers import build_column
+    from rhosocial.activerecord_test.feature.query.column_helpers import build_column
 
     return {
         "string": build_column(dialect, "s", str),

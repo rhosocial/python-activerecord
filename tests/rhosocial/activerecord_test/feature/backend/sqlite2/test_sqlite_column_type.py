@@ -39,8 +39,10 @@ from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.mixins.column_type import (
     SQLITE_COLUMN_TYPES,
 )
-
-from column_helpers import COMMON_TYPES, resolve_column_class
+from rhosocial.activerecord_test.feature.query.column_helpers import (
+    COMMON_TYPES,
+    resolve_column_class,
+)
 
 
 def sqlite_dialect(version=(3, 46, 1)):

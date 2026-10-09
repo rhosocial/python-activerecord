@@ -48,6 +48,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SQLFunctionSupport,
     # Type Support Protocol
     DataTypeSupport,
+    # Column Class Support Protocol
+    ColumnTypeSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     DatabaseNameMixin,
@@ -319,6 +321,8 @@ class SQLiteDialect(
     SQLFunctionSupport,
     # DataType Support Protocol
     DataTypeSupport,
+    # Column Class Support Protocol
+    ColumnTypeSupport,
     # DDL statement protocols follow the DDL mixins: a protocol's empty
     # body would otherwise win over the mixin that actually renders.
     CreateSchemaSupport,

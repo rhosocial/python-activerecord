@@ -82,6 +82,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     NamespaceSupport,
     # DDL statement protocols
     DataTypeSupport,
+    # Column Class Support Protocol
+    ColumnTypeSupport,
     SQLXMLSupport,
     SQLXMLParsingSupport,
     SQLXMLSerializationSupport,
@@ -434,6 +436,7 @@ class DummyDialect(
     UserDefinedTypeMixin,
     DomainMixin,
     DataTypeSupport,
+    ColumnTypeSupport,
     DDLColumnMixin,
     TransactionControlMixin,
     # Protocols for type checking

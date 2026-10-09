@@ -24,7 +24,7 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression import functions as string_functions
 
-from column_helpers import build_column
+from rhosocial.activerecord_test.feature.query.column_helpers import build_column
 
 
 @pytest.fixture
