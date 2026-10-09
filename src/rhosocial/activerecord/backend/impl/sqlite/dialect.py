@@ -106,6 +106,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     PartitionMixin,
     # New Mixins
     PredicateMixin,
+    TrimMixin,
     ExpressionMixin,
     DQLMixin,
     DateTimeMixin,
@@ -236,6 +237,7 @@ class SQLiteDialect(
     PartitionMixin,
     # New Mixins (without SQLite overrides)
     PredicateMixin,
+    TrimMixin,
     ExpressionMixin,
     DQLMixin,
     # SQLite-specific mixins (BEFORE generic mixins they override)
@@ -687,6 +689,31 @@ class SQLiteDialect(
         return self._with_alias(
             f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr
         ), left_params + right_params
+
+    def format_trim_expression(self, expr) -> Tuple[str, tuple]:
+        """Render TRIM as SQLite's function form.
+
+        SQLite parses no ``trim(<chars> from <string>)`` syntax at all -- the
+        standard spelling is a syntax error there, measured 2026-10-09 -- so the
+        node is rendered as the function form instead: ``TRIM(x[, chars])`` for
+        BOTH, ``LTRIM`` for LEADING and ``RTRIM`` for TRAILING. A one-character
+        set, which is all the core contract allows, means the same thing in both
+        spellings, so this is a spelling difference and never a semantic one.
+        """
+        target_sql, target_params = expr.expr.to_sql()
+        function_name = {"BOTH": "TRIM", "LEADING": "LTRIM", "TRAILING": "RTRIM"}[
+            expr.direction
+        ]
+        if expr.chars is not None:
+            chars_sql, chars_params = expr.chars.to_sql()
+            sql = f"{function_name}({target_sql}, {chars_sql})"
+            params = tuple(target_params) + tuple(chars_params)
+        else:
+            sql = f"{function_name}({target_sql})"
+            params = tuple(target_params)
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, params
 
     def format_values_expression(self, expr) -> Tuple[str, Tuple]:
         """SQLite override: VALUES does not support ``AS alias(col, ...)`` syntax.

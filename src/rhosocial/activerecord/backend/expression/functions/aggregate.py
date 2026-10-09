@@ -12,7 +12,6 @@ from ..core import (
     IntegerValueExpression,
     NumericValueExpression,
 )
-from ..operators import RawSQLExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -72,7 +71,7 @@ def count(
     """
     # Check if the passed expression is the string "*"
     if expr == "*" and isinstance(expr, str):
-        target_expr = RawSQLExpression(dialect, "*")
+        target_expr = WildcardExpression(dialect)
     # Check if the passed expression is a WildcardExpression
     elif isinstance(expr, WildcardExpression):
         target_expr = expr

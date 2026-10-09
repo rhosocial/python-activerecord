@@ -69,7 +69,6 @@ def test_the_edge_where_the_backends_disagree_is_refused(name, method, args):
         ("left", (0,), 'LEFT("name", ?)', (0,)),
         ("repeat", (0,), 'REPEAT("name", ?)', (0,)),
         ("substr", (1, 0), 'SUBSTRING("name", ?, ?)', (1, 0)),
-        ("trim", ("x",), 'TRIM(BOTH ? FROM "name")', ("x",)),
     ],
 )
 def test_the_edge_every_backend_agrees_on_renders(name, method, args, expected_sql, expected_params):
@@ -79,6 +78,34 @@ def test_the_edge_every_backend_agrees_on_renders(name, method, args, expected_s
     sql, params = getattr(name, method)(*args).to_sql()
     assert sql == expected_sql
     assert params == expected_params
+
+
+@pytest.mark.parametrize(
+    "direction,expected_sql,expected_params",
+    [
+        ("BOTH", 'TRIM("name", ?)', ("x",)),
+        ("LEADING", 'LTRIM("name", ?)', ("x",)),
+        ("TRAILING", 'RTRIM("name", ?)', ("x",)),
+    ],
+)
+def test_sqlite_spells_trim_as_its_function_form(direction, expected_sql, expected_params):
+    """SQLite parses no ``trim(<chars> from <string>)`` syntax, so the node
+    renders as the function form there. Same node, dialect-chosen spelling --
+    which is why the factory builds a TrimExpression and not a SQL string."""
+    dialect = SQLiteDialect()
+    dialect.version = (3, 46, 1)
+    column = StringColumn(dialect, "name")
+    sql, params = column.trim("x", direction).to_sql()
+    assert sql == expected_sql
+    assert params == expected_params
+
+
+def test_the_default_spelling_is_the_standard_form():
+    """A dialect that speaks the standard form renders it, unchanged from what
+    the raw SQL used to produce."""
+    column = StringColumn(DummyDialect(), "name")
+    assert column.trim().to_sql() == ('TRIM(BOTH FROM "name")', ())
+    assert column.trim("x").to_sql() == ('TRIM(BOTH ? FROM "name")', ("x",))
 
 
 def test_lpad_defaults_to_a_space_and_passes_it_explicitly(name):

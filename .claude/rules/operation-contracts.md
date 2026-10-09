@@ -93,8 +93,14 @@ never a silent substitution of a different question:
 - Construction-time refusal: the core factory that builds the node
   (`functions/string.py`, `functions/math.py`), so every caller meets the same
   error before SQL exists.
-- Rendering overrides: the dialect's `format_*` hook (the only one for scalar
-  function calls is `format_function_call`; pattern, comparison and null-test
-  nodes have their own hooks).
+- Rendering overrides: the dialect's `format_*` hook. **A factory that needs a
+  dialect's help builds a node, never a SQL string**: `raw SQL` is text by the
+  time anyone could vote on it, so no hook can reach it. The worked example is
+  `TrimExpression` -- the core factory builds the node, `TrimMixin` renders the
+  standard form, and SQLite overrides `format_trim_expression` because it parses
+  no `trim(... from ...)` syntax at all. `ILIKEExpression` and `ArrayExpression`
+  follow the same shape. A factory reaching for `RawSQLExpression` (or a
+  `WildcardExpression` standing in for `COUNT(*)`'s star) is a bug in review
+  terms, not a shortcut.
 - Capability statements: this file, plus the docstring of the method that
   makes the statement.

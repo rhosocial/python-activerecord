@@ -4,13 +4,16 @@ Advanced SQL functions and expressions like CASE, EXISTS, ANY/ALL, Window functi
 JSON operations, and Array operations.
 """
 from enum import Enum
-from typing import Any, List, Optional, Union, TYPE_CHECKING
+from typing import List, Optional, Union, TYPE_CHECKING
 
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     JSONAccessorMixin,
+    NotANumberMixin,
+    StringPatternPredicateMixin,
+    StringToIntegerMixin,
     StringValueMixin,
     TypeCastingMixin,
 )
@@ -443,6 +446,56 @@ class ArrayExpression(
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_array_expression"
+
+
+class TrimExpression(
+    AliasableMixin,
+    ComparisonMixin,
+    StringToIntegerMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
+    TypeCastingMixin,
+    NotANumberMixin,
+    SQLValueExpression,
+):
+    """Represents a ``TRIM`` expression as a node, not as assembled SQL.
+
+    The node exists for one reason: the standard form is a syntax error on
+    SQLite, so the spelling has to be a dialect decision. When the factory
+    built a raw SQL string instead, no dialect hook could reach it -- the
+    string was already text by the time anyone could vote. As a node, the
+    standard form is the default rendering and SQLite overrides
+    ``format_trim_expression`` with its function forms.
+
+    Attributes:
+        expr: The string expression to trim.
+        chars: Optional trim set; the core contract allows exactly one
+            character, and ``None`` means spaces.
+        direction: ``BOTH`` (default), ``LEADING`` or ``TRAILING``.
+
+    Example:
+        >>> TrimExpression(dialect, Column(dialect, "name"), Literal(dialect, "x")).to_sql()
+        ("TRIM(BOTH ? FROM \"name\")", ('x',))
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expr: "BaseExpression",
+        chars: Optional["BaseExpression"] = None,
+        direction: str = "BOTH",
+        alias: Optional[str] = None,
+    ):
+        super().__init__(dialect)
+        self.expr = expr
+        self.chars = chars
+        self.direction = direction
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_trim_expression"
 
 
 class OrderedSetAggregation(

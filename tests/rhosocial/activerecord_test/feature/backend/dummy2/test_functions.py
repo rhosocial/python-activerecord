@@ -80,7 +80,6 @@ from rhosocial.activerecord.backend.expression import (
     cube,  # Added grouping functions
     concat_op,  # Added string concatenation operator function
 )
-from rhosocial.activerecord.backend.expression import StringValueExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -236,9 +235,11 @@ class TestStringFunctionFactories:
         """Test TRIM function with default direction."""
         func = trim(dummy_dialect, "name")
         sql, params = func.to_sql()
-        # Typed as a string value, not a raw node: the result carries the
-        # string surface, which is the point of typing the factories.
-        assert isinstance(func, StringValueExpression)
+        # Trim is a node with its own dialect hook rather than a typed
+        # function call, which is what lets a dialect without the standard
+        # syntax (SQLite) override the spelling. What is asserted is that the
+        # result still carries the string surface.
+        assert hasattr(func, "upper") and hasattr(func, "substr")
         assert "TRIM(BOTH FROM" in sql
 
     def test_trim_function_with_chars(self, dummy_dialect: DummyDialect):

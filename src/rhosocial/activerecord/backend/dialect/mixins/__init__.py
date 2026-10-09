@@ -20,6 +20,7 @@ from .cte import CTEMixin
 from .upsert import UpsertMixin
 from .join import LateralJoinMixin, JoinMixin
 from .array import ArrayMixin
+from .trim import TrimMixin
 from .json import JSONMixin
 from .uuid import UUIDMixin
 from .explain import ExplainMixin
@@ -77,8 +78,7 @@ __all__ = [
     "SQLXMLParsingMixin",
     "SQLXMLSerializationMixin",
     "SQLXMLConstructionMixin",
-    "SQLXMLAggregationMixin",
-    "SQLXMLQueryingMixin",
+    "SQLXMLAggregationMixin",    "SQLXMLQueryingMixin",
     "SQLXMLMixin",
     "CollationMixin",
     "WindowFunctionMixin",
@@ -144,4 +144,6 @@ __all__ = [
     "DomainMixin",
     "DatabaseMixin",
     "TransactionControlMixin",
+    "ArrayMixin",
+    "TrimMixin",
 ]

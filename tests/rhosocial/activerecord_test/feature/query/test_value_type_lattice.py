@@ -17,7 +17,6 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import (
     IntegerValueExpression,
-    StringValueExpression,
 )
 
 
@@ -95,7 +94,16 @@ def _call(name, method):
     "method", ["upper", "lower", "substr", "trim", "concat", "replace", "left", "initcap"]
 )
 def test_string_result_keeps_the_string_surface(name, method):
-    assert isinstance(_call(name, method), StringValueExpression)
+    """The result is a string and *says* so by offering the next operation.
+
+    What is asserted is the surface, not one class: most of these return a
+    StringValueExpression, but a node with its own dialect hook -- TRIM, whose
+    standard spelling is a syntax error on SQLite -- is its own class and
+    carries the same mixins, which is what makes ``col.trim().upper()`` legal.
+    """
+    result = _call(name, method)
+    assert hasattr(result, "upper"), f"{method} did not return a string value"
+    assert hasattr(result, "substr"), f"{method} did not return a string value"
 
 
 @pytest.mark.parametrize(

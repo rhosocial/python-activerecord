@@ -228,6 +228,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     IntrospectionMixin,
     # New Mixins
     PredicateMixin,
+    TrimMixin,
     ExpressionMixin,
     DateTimeMixin,
     DQLMixin,
@@ -427,6 +428,7 @@ class DummyDialect(
     IntrospectionMixin,
     # New Mixins
     PredicateMixin,
+    TrimMixin,
     ExpressionMixin,
     DateTimeMixin,
     DQLMixin,
@@ -623,6 +625,10 @@ class DummyDialect(
         return True
 
     def format_data_type_real(self, data_type: RealType) -> Tuple[str, tuple]:
+        # REAL is refused for unsigned for the same reason as every other
+        # numeric here: the grammar this dialect renders has no UNSIGNED
+        # modifier, so the flag cannot be honoured and must not be dropped.
+        self._refuse_unsigned(data_type, "REAL")
         return "REAL", ()
 
     def supports_data_type_double(self) -> bool:

@@ -10,10 +10,11 @@ from ..core import (
     Literal,
     StringValueExpression,
 )
-from ..operators import BinaryExpression, RawSQLExpression, StringConcatExpression
+from ..operators import BinaryExpression, StringConcatExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+    from ..advanced_functions import TrimExpression
 
 
 def concat(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "StringValueExpression":
@@ -133,9 +134,9 @@ def trim(
     expr: Union[str, "BaseExpression"],
     chars: Optional[Union[str, "BaseExpression"]] = None,
     direction: str = "BOTH",
-) -> "StringValueExpression":
+) -> "TrimExpression":
     """
-    Creates a TRIM scalar function call.
+    Creates a TRIM node.
 
     Usage rules:
     - To generate TRIM(BOTH FROM column), pass a Column object: trim(dialect, Column(dialect, "column_name"))
@@ -150,8 +151,8 @@ def trim(
         direction: Direction of trim operation (BOTH, LEADING, TRAILING). Default is BOTH.
 
     Returns:
-        A StringValueExpression wrapping the TRIM call, so the result is
-        still a string and the value operations stay available on it.
+        A :class:`~...expression.advanced_functions.TrimExpression` node, which
+        the dialect renders through its ``format_trim_expression`` hook.
 
     Raises:
         ValueError: An unknown *direction*, or a trim set that is not exactly
@@ -165,8 +166,9 @@ def trim(
         Snowflake, a whole string repeated on MySQL, MariaDB and Firebird, and
         ``ORA-30001`` on Oracle -- so it is refused at construction instead of
         rendered into whichever of the three the backend happens to implement.
-        Backends whose parser has no ``trim(... from ...)`` form (SQLite, among
-        them) override the rendering with their function forms.
+        The node, not a raw SQL string, is what makes the dialect's spelling a
+        formatter's decision: SQLite overrides the hook because it parses no
+        ``trim(... from ...)`` syntax at all.
     """
     # Validate direction: only allow known trim directions.
     valid_directions = frozenset({"BOTH", "LEADING", "TRAILING"})
@@ -179,22 +181,13 @@ def trim(
             "set means three different things across the backends"
         )
 
-    target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    target_sql, target_params = target_expr.to_sql()
+    from ..advanced_functions import TrimExpression
 
+    target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
+    chars_expr: Optional[BaseExpression] = None
     if chars is not None:
         chars_expr = chars if isinstance(chars, BaseExpression) else Literal(dialect, chars)
-        chars_sql, chars_params = chars_expr.to_sql()
-        formatted_sql = f"TRIM({direction} {chars_sql} FROM {target_sql})"
-        all_params = target_params + chars_params
-        return StringValueExpression(
-            dialect, RawSQLExpression(dialect, formatted_sql, all_params)
-        )
-    else:
-        formatted_sql = f"TRIM({direction} FROM {target_sql})"
-        return StringValueExpression(
-            dialect, RawSQLExpression(dialect, formatted_sql, target_params)
-        )
+    return TrimExpression(dialect, target_expr, chars_expr, direction)
 
 
 def replace(

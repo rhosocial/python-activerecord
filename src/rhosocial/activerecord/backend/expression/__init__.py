@@ -126,6 +126,7 @@ from .predicates import (
 from .advanced_functions import (
     CaseExpression,
     ExistsExpression,
+    TrimExpression,
     AnyExpression,
     AllExpression,
     WindowFrameSpecification,
@@ -547,6 +548,7 @@ __all__ = [
     # Advanced functions
     "CaseExpression",
     "ExistsExpression",
+    "TrimExpression",
     "AnyExpression",
     "AllExpression",
     "WindowFrameSpecification",
