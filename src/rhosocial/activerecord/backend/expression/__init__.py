@@ -535,6 +535,7 @@ __all__ = [
     "XMLWhitespaceOption",
     # Predicates
     "ComparisonPredicate",
+    "DistinctFromPredicate",
     "LogicalPredicate",
     "LikePredicate",
     "ILIKEExpression",
