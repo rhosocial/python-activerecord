@@ -372,12 +372,13 @@ class BooleanLogicExpression(
     dialect entry point (``format_logical_predicate``).
     """
 
-    def __init__(self, dialect: Any, op: str, *operands: Any):
+    def __init__(self, dialect: Any, op: str, *predicates: Any):
         super().__init__(dialect)
         self.op = op
-        # The attribute name is the renderer's: the dialect formatter reads
-        # ``op`` and ``predicates`` whatever class carried them in.
-        self.predicates = list(operands)
+        # The names are the renderer's: the dialect formatter reads ``op`` and
+        # ``predicates`` whatever class carried them in, and the expression
+        # contract stores every ``__init__`` parameter under its own name.
+        self.predicates = list(predicates)
 
     @property
     def format_method(self) -> str:
