@@ -3,7 +3,7 @@
 
 from .base import BaseActiveRecord, AsyncBaseActiveRecord
 from .query_mixin import QueryMixin, AsyncQueryMixin
-from .field_proxy import FieldProxy
+from .field_proxy import FieldProxy, FieldAccessor, ColumnTypeResolutionError
 from .column_name_mixin import ColumnNameMixin, ColumnNameAnnotationHandler
 from .field_adapter_mixin import FieldAdapterMixin, AdapterAnnotationHandler
 from .derived_field_mixin import DerivedFieldMixin
@@ -20,7 +20,6 @@ from .fields import (
     UseIndex,
     UseSqlType,
     UseColumnType,
-    declared_column_type,
 )
 from .ddl import (
     CharacterSetAttribute,
@@ -28,6 +27,7 @@ from .ddl import (
     ColumnAttribute,
     ColumnOptions,
     DDLAnnotationHandler,
+    DDLColumnDataType,
     DDLColumnType,
     DDLFieldMetadata,
     DDLGeneratedColumn,
@@ -44,6 +44,8 @@ __all__ = [
     "QueryMixin",
     "AsyncQueryMixin",
     "FieldProxy",
+    "FieldAccessor",
+    "ColumnTypeResolutionError",
     "ColumnNameMixin",
     "ColumnNameAnnotationHandler",
     "FieldAdapterMixin",
@@ -60,13 +62,13 @@ __all__ = [
     "UseIndex",
     "UseSqlType",
     "UseColumnType",
-    "declared_column_type",
     "DerivedField",
     "CharacterSetAttribute",
     "CollationAttribute",
     "ColumnAttribute",
     "ColumnOptions",
     "DDLAnnotationHandler",
+    "DDLColumnDataType",
     "DDLColumnType",
     "DDLFieldMetadata",
     "DDLGeneratedColumn",

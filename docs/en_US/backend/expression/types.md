@@ -186,7 +186,7 @@ for name, dt_cls in dialect.supports_data_types().items():
 
 ### Integration with Model Fields
 
-A plain Python annotation is not converted into a `DataType` by `DDLSourceMixin`. Without `UseSqlType`, `column_type()` returns `None`. Use `UseSqlType` for an explicit declaration; it preserves candidates in declaration order:
+A plain Python annotation is not converted into a `DataType` by `DDLSourceMixin`. Without `UseSqlType`, `column_data_type()` returns `None`. Use `UseSqlType` for an explicit declaration; it preserves candidates in declaration order:
 
 ```python
 from typing import Annotated

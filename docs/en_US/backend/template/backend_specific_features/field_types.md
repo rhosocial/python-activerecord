@@ -4,7 +4,7 @@
 
 rhosocial-activerecord's type system has two layers:
 
-1. **Core DataType hierarchy** — Generic type classes (`IntegerType`, `VarCharType`, `BooleanType`, etc.) in `rhosocial.activerecord.backend.expression.types` define common behavior. A field's Python annotation does **not** select one for you: without an explicit `UseSqlType(...)`, `column_type()` returns `None` and nothing is inferred. The "Python Type" column below is the type you would annotate a field with, not a mapping the framework performs.
+1. **Core DataType hierarchy** — Generic type classes (`IntegerType`, `VarCharType`, `BooleanType`, etc.) in `rhosocial.activerecord.backend.expression.types` define common behavior. A field's Python annotation does **not** select one for you: without an explicit `UseSqlType(...)`, `column_data_type()` returns `None` and nothing is inferred. The "Python Type" column below is the type you would annotate a field with, not a mapping the framework performs.
 
 2. **Backend-specific DataType subclasses** — Each backend extends core types with database-specific behavior. For example, `MySQLIntType` adds AUTO_INCREMENT support, and `PostgresUUIDType` maps to PostgreSQL's native UUID type. Backend types are in `rhosocial.activerecord.backend.impl.{backend}.expression.types`.
 

@@ -3,14 +3,14 @@
 
 The column a model field resolves to depends on the field's Python
 annotation, so a numeric field offers arithmetic and no ``.like()``, a JSON
-field offers path access, and so on. These tests pin the dispatch table, the
-narrowing it produces, and the guarantees that make it safe to rely on.
+field offers path access, and so on. These tests pin the selection the field
+accessor makes, the narrowing it produces, and the guarantees that make it
+safe to rely on.
 
 No database is involved — every assertion is on the expression tree or the
 SQL a dialect produces from it — so no provider fixture is required.
 """
 
-# tests/rhosocial/activerecord_test/feature/query/test_typed_columns.py
 import datetime
 import decimal
 import typing
@@ -26,40 +26,37 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     ColumnBase,
     DateTimeColumn,
-    DecimalColumn,
-    FloatColumn,
-    JSONColumn,
     IntegerColumn,
+    JSONColumn,
     NumericColumn,
     StringColumn,
     UUIDColumn,
     build_json_path,
 )
-from rhosocial.activerecord.backend.expression.column_suggestions import (
-    ColumnTypeResolutionError,
-    strip_annotation,
-)
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.base.field_proxy import FieldProxy
+from rhosocial.activerecord.base.field_proxy import (
+    ColumnTypeResolutionError,
+    FieldAccessor,
+    FieldProxy,
+)
 from rhosocial.activerecord.base.fields import UseColumnType
 from rhosocial.activerecord.model import ActiveRecord
 
-from column_helpers import build_column
+from column_helpers import build_column, resolve_column_class
 
 
 def column_class_for(annotation, dialect=None):
-    """The column class for *annotation* on *dialect*.
+    """The class the field accessor's selection picks for *annotation*.
 
-    A one-line shim so the cases below read as "resolve this annotation" the way
-    the model layer does it. There is no module-level equivalent any more --
-    resolution is a dialect method
-    (:meth:`~rhosocial.activerecord.backend.dialect.mixins.column_suggestion.ColumnSuggestionMixin.column_class_for`),
-    and a free function would have to invent a dialect or reach for core's
-    static table, which is exactly the core-side answer the ruling removed.
+    A one-line shim so the cases below read as "resolve this annotation" the
+    way ``Model.c.<field>`` does it. The selection lives on
+    :class:`FieldAccessor`; a free framework-level function would have to
+    invent a backend or reach for a core-side table, which is the
+    core-authority shape the architecture removed.
     """
     if dialect is None:
         dialect = sqlite_dialect()
-    return dialect.column_class_for(annotation)
+    return resolve_column_class(dialect, annotation)
 
 
 def sqlite_dialect():
@@ -75,22 +72,22 @@ def sqlite_dialect():
 
 
 # ---------------------------------------------------------------------------
-# Dispatch: annotation -> column class
+# Selection: annotation -> column class
 # ---------------------------------------------------------------------------
 
 _DISPATCH = [
     (str, StringColumn),
     (int, IntegerColumn),
-    (float, FloatColumn),
+    (float, NumericColumn),
     (bool, BooleanColumn),
     (bytes, BinaryColumn),
     (dict, JSONColumn),
     # No array type exists in SQLite, so a `list` field is a JSON document here
     # rather than an ArrayColumn. The same model on PostgreSQL gets a real array;
     # that divergence is the protocol working, not a bug (see
-    # `test_column_suggestion_protocol.py`).
+    # `test_column_type_support.py`).
     (list, JSONColumn),
-    (decimal.Decimal, DecimalColumn),
+    (decimal.Decimal, NumericColumn),
     (datetime.datetime, DateTimeColumn),
     (datetime.date, DateTimeColumn),
     (datetime.timedelta, NumericColumn),
@@ -150,9 +147,10 @@ def test_optional_and_annotated_are_stripped():
     if Annotated is None:
         pytest.skip("typing.Annotated requires Python 3.9+")
 
-    assert strip_annotation(Optional[dict]) is dict
-    assert strip_annotation(Annotated[str, "some-marker"]) is str
-    assert strip_annotation(Optional[Annotated[str, "m"]]) is str
+    strip = FieldAccessor._strip_annotation
+    assert strip(Optional[dict]) is dict
+    assert strip(Annotated[str, "some-marker"]) is str
+    assert strip(Optional[Annotated[str, "m"]]) is str
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +195,6 @@ def test_permissive_column_keeps_every_operation():
     assert hasattr(col, "like")
     assert hasattr(col, "__add__")
     assert hasattr(col, "json_path")
-    assert col.value_type is None
 
 
 # ---------------------------------------------------------------------------
@@ -321,8 +318,8 @@ def _model(dialect):
         tags: list
         uid: uuid.UUID
         flag: bool
-        # `Any` is not an entry, so this field has to say what its value can do.
-        # The declaration is the whole point: without it the field does not
+        # `Any` is not classifiable, so this field has to say what its value can
+        # do. The declaration is the whole point: without it the field does not
         # resolve at all, which is the "全量或失败" ruling applied to a model.
         meta: Annotated[Any, UseColumnType(JSONColumn)]
 
@@ -336,7 +333,7 @@ def _model(dialect):
         ("id", IntegerColumn),
         ("name", StringColumn),
         ("qty", IntegerColumn),
-        ("price", DecimalColumn),
+        ("price", NumericColumn),
         ("created", DateTimeColumn),
         ("settings", JSONColumn),
         ("tags", JSONColumn),

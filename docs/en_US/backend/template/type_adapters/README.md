@@ -24,7 +24,7 @@ from rhosocial.activerecord.backend.expression.types import (
 
 These core types are **backend-agnostic** — they define the logical type without specifying exact SQL syntax.
 
-A plain Python annotation is **not** turned into a core `DataType` for you. Declaring a field as `str`, `int` or `bool` says nothing about the column's SQL type; without an explicit `UseSqlType(...)` the collector's `column_type()` returns `None`, and it is the later dialect consumer that decides what to do about it. To state a type, say so:
+A plain Python annotation is **not** turned into a core `DataType` for you. Declaring a field as `str`, `int` or `bool` says nothing about the column's SQL type; without an explicit `UseSqlType(...)` the collector's `column_data_type()` returns `None`, and it is the later dialect consumer that decides what to do about it. To state a type, say so:
 
 ```python
 from typing import Annotated

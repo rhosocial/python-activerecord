@@ -32,7 +32,7 @@ assert isinstance(User, DDLSource)
 
 `DDLSourceMixin` 的返回值可能是 `UseSqlType`、`ColumnConstraint`、`IndexDefinition`、`TableConstraint` 或后端自己的表达式类实例。它们在收集阶段通常不绑定方言；后续如何选择候选类型、绑定方言、检查能力并构造可渲染表达式，属于外部 DDL 消费者和后端方言的职责。
 
-当前实现不会根据普通 Python 类型自动生成 `DataType`。没有 `UseSqlType` 时，`column_type()` 返回 `None`；有 `UseSqlType` 时，它返回完整的 `UseSqlType` 标记，候选类型位于 `marker.data_types` 中，声明顺序保持不变。
+当前实现不会根据普通 Python 类型自动生成 `DataType`。没有 `UseSqlType` 时，`column_data_type()` 返回 `None`；有 `UseSqlType` 时，它返回完整的 `UseSqlType` 标记，候选类型位于 `marker.data_types` 中，声明顺序保持不变。
 
 ## 声明如何进入收集器
 
@@ -55,7 +55,7 @@ assert isinstance(User, DDLSource)
 
 | 标记 | 收集结果 | 顺序规则 |
 |------|----------|----------|
-| `UseSqlType(*types)` | `column_type()` 返回 `UseSqlType` 标记 | 标记内部候选类型按声明顺序保存并去重；多个标记只取第一个。 |
+| `UseSqlType(*types)` | `column_data_type()` 返回 `UseSqlType` 标记 | 标记内部候选类型按声明顺序保存并去重；多个标记只取第一个。 |
 | `UseConstraint(...)` | `column_constraints()` 返回 `ColumnConstraint` 序列 | 所有标记按声明顺序展开。 |
 | `UseIndex(...)` | `column_indexes()` 返回新建的 `IndexDefinition` 序列 | 每个标记生成一个定义，并把 Python 字段名换成物理列名。 |
 | `UseColumnAttributes(...)` | `column_attributes()` 返回 `ColumnAttribute` 序列 | 标记按声明顺序展开；单个标记内部先去重。 |
@@ -106,7 +106,8 @@ class Report(ActiveRecord):
 | `field_python_type(field)` | `type` | 读取字段元数据；`Optional[T]` 解包为 `T`。未知字段抛出 `KeyError`。 |
 | `field_is_optional(field)` | `bool` | `Optional[T]` 或默认值为 `None` 时为 `True`。 |
 | `column_name(field)` | `str` | 使用 `ColumnNameMixin`；有 `UseColumn` 时返回物理列名，否则返回字段名。 |
-| `column_type(field)` | `Optional[UseSqlType]` | 返回第一个 `UseSqlType` 标记；没有标记时为 `None`。不在此处选择候选类型。 |
+| `column_data_type(field)` | `Optional[UseSqlType]` | 返回第一个 `UseSqlType` 标记；没有标记时为 `None`。不在此处选择候选类型。 |
+| `column_type(field)` | `Optional[UseColumnType、列类或其序列]` | 原样呈现列类型声明：`UseColumnType` 标记（含候选）、单个列类或类序列；未声明为 `None`；**方言无关**，选型由字段代理完成。 |
 | `column_constraints(field)` | `Sequence[ColumnConstraint]` | 先放显式约束，再应用主键和非空规则。 |
 | `column_attributes(field)` | `Sequence[ColumnAttribute]` | 按标记顺序展开属性；不做方言筛选。 |
 | `column_indexes(field)` | `Sequence[IndexDefinition]` | 为每个 `UseIndex` 建立定义，并使用物理列名。 |
@@ -121,6 +122,8 @@ class Report(ActiveRecord):
 | `table_constraints()` | `Sequence[TableConstraint]` | 显式表约束的浅副本；复合主键按规则补充或复用显式定义。 |
 | `table_inherits()` | `Optional[List[str]]` | 默认 `None`；覆盖方法的结果原样返回。 |
 | `table_tablespace()` | `Optional[str]` | 默认 `None`；覆盖方法的结果原样返回。 |
+
+`column_type()` 与 `column_data_type()` 都是**方言无关**的声明访问器：不做推断、不回退。后端所答的列类选型发生在字段代理（`Model.c.<field>`），不在 source 中。
 
 ### `column_constraints()` 的组合规则
 
@@ -140,7 +143,7 @@ class Report(ActiveRecord):
 以下方法不是独立的 DDL source 接口，而是对模型字段的便捷包装：
 
 - `columns_name()`
-- `columns_type()`
+- `columns_data_type()`
 - `columns_constraints()`
 - `columns_attributes()`
 - `columns_indexes()`
@@ -248,7 +251,7 @@ class Account(ActiveRecord):
 print(Account.table_name())
 print(Account.ddl_field_names())
 print(Account.column_name("account_id"))
-print(Account.column_type("display_name").data_types)
+print(Account.column_data_type("display_name").data_types)
 print(Account.column_indexes("display_name"))
 print(Account.column_comment("display_name"))
 print(Account.table_indexes())

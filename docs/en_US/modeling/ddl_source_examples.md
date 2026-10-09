@@ -68,7 +68,7 @@ PlainAccount.primary_key_columns()
 PlainAccount.ddl_field_names()
 # ('id', 'name', 'note')
 
-PlainAccount.column_type("id")
+PlainAccount.column_data_type("id")
 # None
 
 PlainAccount.column_options("id")
@@ -99,20 +99,20 @@ PlainAccount.column_constraints("note")
 # []
 ```
 
-The absence of `UseSqlType` means that `column_type()` is `None`. The source still composes the primary-key and non-null constraints for required fields.
+The absence of `UseSqlType` means that `column_data_type()` is `None`. The source still composes the primary-key and non-null constraints for required fields.
 
 A consumer cannot construct a typed column from `None`:
 
 ```python
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
 
-ColumnDefinition(dialect, "id", PlainAccount.column_type("id"))
+ColumnDefinition(dialect, "id", PlainAccount.column_data_type("id"))
 # TypeError: data_type must be a DataType instance, got NoneType
 ```
 
 The same source-level result applies to every backend:
 
-| Backend | `column_type("name")` | Default table declarations | Consumer responsibility |
+| Backend | `column_data_type("name")` | Default table declarations | Consumer responsibility |
 |---------|------------------------|----------------------------|-------------------------|
 | SQLite | `None` | `None` / empty sequences | Choose an explicit core type such as `INTEGER` or `TEXT`. |
 | MySQL | `None` | `None` / empty sequences | MySQL does not invent `INT` or `VARCHAR` for the source. |
@@ -169,7 +169,7 @@ The source preserves the declared objects and order:
 CoreDeclared.column_name("id")
 # 'record_id'
 
-CoreDeclared.column_type("name").data_types
+CoreDeclared.column_data_type("name").data_types
 # (VarCharType(length=64),)
 
 CoreDeclared.column_indexes("name")[0].columns
@@ -506,7 +506,7 @@ class ForeignOnly(ActiveRecord):
     value: Annotated[str, UseSqlType(ForeignType())]
 ```
 
-The class definition and `column_type("value")` can succeed. The failure appears only when a consumer binds the candidate to the active dialect and renders it. The following table records the foreign type used in each probe:
+The class definition and `column_data_type("value")` can succeed. The failure appears only when a consumer binds the candidate to the active dialect and renders it. The following table records the foreign type used in each probe:
 
 | Active dialect | Only declared expression | Collection phase | Render phase |
 |----------------|---------------------------|------------------|--------------|

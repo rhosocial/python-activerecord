@@ -32,7 +32,7 @@ model class definition
 
 Returned values may be `UseSqlType`, `ColumnConstraint`, `IndexDefinition`, `TableConstraint`, or backend-owned expression instances. They are normally unbound while they are being collected. Candidate selection, dialect binding, capability checks, and expression construction belong to an external DDL consumer and the backend dialect.
 
-The current implementation does not infer a `DataType` from a plain Python annotation. Without `UseSqlType`, `column_type()` returns `None`. With `UseSqlType`, it returns the complete marker; ordered candidates are available in `marker.data_types`.
+The current implementation does not infer a `DataType` from a plain Python annotation. Without `UseSqlType`, `column_data_type()` returns `None`. With `UseSqlType`, it returns the complete marker; ordered candidates are available in `marker.data_types`.
 
 ## How Declarations Enter the Collector
 
@@ -55,7 +55,7 @@ Field declarations use `typing.Annotated`. The collector reads both `Annotated` 
 
 | Marker | Collected result | Ordering rule |
 |--------|------------------|---------------|
-| `UseSqlType(*types)` | `column_type()` returns the `UseSqlType` marker | Candidates keep declaration order and are deduplicated; only the first marker is used. |
+| `UseSqlType(*types)` | `column_data_type()` returns the `UseSqlType` marker | Candidates keep declaration order and are deduplicated; only the first marker is used. |
 | `UseConstraint(...)` | `column_constraints()` returns `ColumnConstraint` objects | All markers are expanded in declaration order. |
 | `UseIndex(...)` | `column_indexes()` returns newly built `IndexDefinition` objects | One definition is built per marker, using the physical column name. |
 | `UseColumnAttributes(...)` | `column_attributes()` returns `ColumnAttribute` objects | Markers are expanded in order; each marker is internally deduplicated. |
@@ -106,7 +106,8 @@ The table below describes the default `DDLSourceMixin` implementation. A custom 
 | `field_python_type(field)` | `type` | Reads field metadata and unwraps `Optional[T]` to `T`; unknown fields raise `KeyError`. |
 | `field_is_optional(field)` | `bool` | True for `Optional[T]` or a default of `None`. |
 | `column_name(field)` | `str` | Uses `ColumnNameMixin`; returns the physical name for `UseColumn`, otherwise the field name. |
-| `column_type(field)` | `Optional[UseSqlType]` | Returns the first `UseSqlType` marker, or `None`; candidate selection does not happen here. |
+| `column_data_type(field)` | `Optional[UseSqlType]` | Returns the first `UseSqlType` marker, or `None`; candidate selection does not happen here. |
+| `column_type(field)` | `Optional[UseColumnType, class, or class sequence]` | Presents the column-type declaration as written — a `UseColumnType` marker (candidates included), a `ColumnBase` subclass, or a sequence — or `None`; dialect-free, so the backend that selects the class is the field accessor's concern. |
 | `column_constraints(field)` | `Sequence[ColumnConstraint]` | Starts with explicit constraints, then applies primary-key and nullability rules. |
 | `column_attributes(field)` | `Sequence[ColumnAttribute]` | Expands markers in order without dialect filtering. |
 | `column_indexes(field)` | `Sequence[IndexDefinition]` | Builds one definition per `UseIndex` and substitutes the physical column name. |
@@ -121,6 +122,8 @@ The table below describes the default `DDLSourceMixin` implementation. A custom 
 | `table_constraints()` | `Sequence[TableConstraint]` | Shallow copy of explicit constraints; a composite primary key is reused or completed according to the source rules. |
 | `table_inherits()` | `Optional[List[str]]` | `None` by default; an override is returned unchanged. |
 | `table_tablespace()` | `Optional[str]` | `None` by default; an override is returned unchanged. |
+
+`column_type()` and `column_data_type()` are **dialect-free** declaration accessors: neither infers nor falls back. Selecting the column class a backend answers happens in the field accessor (`Model.c.<field>`), never in the source.
 
 ### `column_constraints()` composition
 
@@ -140,7 +143,7 @@ The collector does not store one final constraint list at class creation time. I
 These methods are convenience wrappers, not additional DDL source interfaces:
 
 - `columns_name()`
-- `columns_type()`
+- `columns_data_type()`
 - `columns_constraints()`
 - `columns_attributes()`
 - `columns_indexes()`
@@ -248,7 +251,7 @@ class Account(ActiveRecord):
 print(Account.table_name())
 print(Account.ddl_field_names())
 print(Account.column_name("account_id"))
-print(Account.column_type("display_name").data_types)
+print(Account.column_data_type("display_name").data_types)
 print(Account.column_indexes("display_name"))
 print(Account.column_comment("display_name"))
 print(Account.table_indexes())

@@ -47,7 +47,7 @@ class LegacyUser(ActiveRecord):
 
 ## 指定 SQL 列类型 (UseSqlType)
 
-`ActiveRecord` 不会因为 Python 字段类型而自动生成 DDL `DataType`。`DDLSourceMixin.column_type()` 在没有 `UseSqlType` 时返回 `None`；需要声明 SQL 类型时，请显式使用 `UseSqlType`。完整的收集规则见 [DDLSource 声明收集](ddl_source.md)。
+`ActiveRecord` 不会因为 Python 字段类型而自动生成 DDL `DataType`。`DDLSourceMixin.column_data_type()` 在没有 `UseSqlType` 时返回 `None`；需要声明 SQL 类型时，请显式使用 `UseSqlType`。完整的收集规则见 [DDLSource 声明收集](ddl_source.md)。
 
 `UseSqlType` 接受一个或多个 `DataType` 实例：
 

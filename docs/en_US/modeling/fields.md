@@ -47,7 +47,7 @@ class LegacyUser(ActiveRecord):
 
 ## Specifying SQL Column Types (UseSqlType)
 
-`ActiveRecord` does not generate a DDL `DataType` from a plain Python annotation. `DDLSourceMixin.column_type()` returns `None` when `UseSqlType` is absent; use `UseSqlType` when a SQL type must be declared explicitly. See [DDLSource Declarations](ddl_source.md) for the complete collection rules.
+`ActiveRecord` does not generate a DDL `DataType` from a plain Python annotation. `DDLSourceMixin.column_data_type()` returns `None` when `UseSqlType` is absent; use `UseSqlType` when a SQL type must be declared explicitly. See [DDLSource Declarations](ddl_source.md) for the complete collection rules.
 
 `UseSqlType` accepts one or more `DataType` instances:
 

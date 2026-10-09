@@ -11,16 +11,35 @@ Supports:
 - Predefined table aliases
 - Column aliases
 - Self-join queries
+
+The accessor also owns the **selection** of a field's column class: the model
+presents the field's column-type declaration, and the accessor picks the class
+that fits the active backend.
 """
 
-from typing import TYPE_CHECKING
+import enum
+import types
+import typing
+from typing import Any, Type, TYPE_CHECKING
 
+from ..backend.expression.column_types import ColumnBase
 from ..backend.expression.core import Column
-from .fields import declared_column_type, resolve_column_class
+from .fields import UseColumnType
 
 if TYPE_CHECKING:
     from ..backend.dialect.base import SQLDialectBase
     from ..model import ActiveRecord
+
+
+class ColumnTypeResolutionError(TypeError):
+    """No column class could be chosen for a field, and none may be guessed.
+
+    Raised by the field accessor when the field's column-type declaration
+    (or, absent one, its annotation) cannot be resolved against the model's
+    backend. A ``TypeError`` because the wrong *thing* was asked for: a field
+    the framework cannot type is a mistake in the model, and finding it where
+    the field is read costs nothing next to a driver error naming a column.
+    """
 
 
 class FieldProxy:
@@ -80,8 +99,8 @@ class FieldProxy:
         Descriptor method to return a field accessor for the given model class.
 
         This method is called when accessing the field proxy attribute on a class
-        (e.g., when accessing User.c). It returns a _FieldAccessor instance that
-        can be used to access individual fields.
+        (e.g., when accessing User.c). It returns a :class:`FieldAccessor`
+        instance that can be used to access individual fields.
 
         Args:
             instance: The instance that the attribute was accessed from (None when
@@ -89,138 +108,314 @@ class FieldProxy:
             owner: The class that owns this descriptor (e.g., User class)
 
         Returns:
-            _FieldAccessor: An object that allows field-by-field access
+            FieldAccessor: An object that allows field-by-field access
         """
+        return FieldAccessor(owner, self._table_alias)
 
-        # Return a dynamic field accessor
-        class _FieldAccessor:
-            """
-            Internal class that provides field access functionality for a specific model.
 
-            This class is instantiated for each model class that uses FieldProxy.
-            It handles the translation of field names to column names and creates
-            appropriate SQL expression objects.
-            """
+class FieldAccessor:
+    """Field accessor for one model class, the result of ``Model.c``.
 
-            def __init__(self, model_class: "ActiveRecord", static_table_alias: str = None):
-                """
-                Initialize the field accessor for a specific model class.
+    An instance is created for each access to the proxy on a model class. It
+    translates a field name to its column name, selects the column class the
+    field's column-type declaration means on the active backend, and creates
+    the column expression.
+    """
 
-                Args:
-                    model_class: The ActiveRecord model class this accessor is for
-                    static_table_alias: Optional table alias to use for all columns
-                """
-                self._model_class = model_class
-                self._table_alias = static_table_alias  # Could be set during initialization
+    def __init__(self, model_class: "ActiveRecord", static_table_alias: str = None):
+        """
+        Initialize the field accessor for a specific model class.
 
-            def with_table_alias(self, alias: str):
-                """
-                Create a new field accessor with the specified table alias.
+        Args:
+            model_class: The ActiveRecord model class this accessor is for
+            static_table_alias: Optional table alias to use for all columns
+        """
+        self._model_class = model_class
+        self._table_alias = static_table_alias  # Could be set during initialization
 
-                This method is useful for creating aliased versions of the same table
-                in self-joins or complex queries.
+    def with_table_alias(self, alias: str):
+        """
+        Create a new field accessor with the specified table alias.
 
-                Aliased columns are static ``alias.column`` references: an
-                aliased range can only be addressed by its alias, so schema/
-                table qualifiers and later ``__table_name__`` changes do not
-                apply to them. Pair this with ``join(..., alias=...)`` using
-                the same alias name.
+        This method is useful for creating aliased versions of the same table
+        in self-joins or complex queries.
 
-                Args:
-                    alias: The table alias to use
+        Aliased columns are static ``alias.column`` references: an
+        aliased range can only be addressed by its alias, so schema/
+        table qualifiers and later ``__table_name__`` changes do not
+        apply to them. Pair this with ``join(..., alias=...)`` using
+        the same alias name.
 
-                Returns:
-                    _FieldAccessor: A new accessor instance with the specified alias
+        Args:
+            alias: The table alias to use
 
-                Example:
-                    # For self-join queries: give the joined range an explicit
-                    # alias via join(alias=...), then address it through a
-                    # matching with_table_alias accessor.
-                    subs = User.c.with_table_alias('subordinates')
-                    managers = User.query().join(
-                        User,
-                        on=User.c.reports_to_id == subs.id,
-                        alias='subordinates',
-                    ).select(
-                        User.c.name.as_('manager'),
-                        subs.name.as_('subordinate')
-                    ).all()
-                """
-                new_accessor = _FieldAccessor(self._model_class, alias)
-                return new_accessor
+        Returns:
+            FieldAccessor: A new accessor instance with the specified alias
 
-            def __getattr__(self, field_name: str):
-                """
-                Dynamically create a column expression for the requested field.
+        Example:
+            # For self-join queries: give the joined range an explicit
+            # alias via join(alias=...), then address it through a
+            # matching with_table_alias accessor.
+            subs = User.c.with_table_alias('subordinates')
+            managers = User.query().join(
+                User,
+                on=User.c.reports_to_id == subs.id,
+                alias='subordinates',
+            ).select(
+                User.c.name.as_('manager'),
+                subs.name.as_('subordinate')
+            ).all()
+        """
+        return FieldAccessor(self._model_class, alias)
 
-                This method is called when accessing a specific field (e.g., User.c.name).
-                It looks up the field in the model's field definitions, resolves the
-                appropriate column name (handling UseColumn annotations), and creates
-                a Column expression object.
+    def __getattr__(self, field_name: str):
+        """
+        Dynamically create a column expression for the requested field.
 
-                Qualifier binding:
-                    schema/table are captured from the model's CURRENT state at
-                    access time. If ``__schema_name__`` / ``__table_name__``
-                    change afterwards, rebuild the condition (or build it after
-                    the change); already-built expressions keep their original
-                    qualifiers. Hand-written ``Column`` objects behave the same
-                    way and are never rewritten by the framework.
+        This method is called when accessing a specific field (e.g., User.c.name).
+        It looks up the field in the model's field definitions, resolves the
+        appropriate column name (handling UseColumn annotations), selects the
+        column class from the field's column-type declaration, and creates a
+        column expression object.
 
-                Args:
-                    field_name: The name of the field to access
+        Qualifier binding:
+            schema/table are captured from the model's CURRENT state at
+            access time. If ``__schema_name__`` / ``__table_name__``
+            change afterwards, rebuild the condition (or build it after
+            the change); already-built expressions keep their original
+            qualifiers. Hand-written ``Column`` objects behave the same
+            way and are never rewritten by the framework.
 
-                Returns:
-                    Column: A SQL expression object representing the field
+        Args:
+            field_name: The name of the field to access
 
-                Raises:
-                    AttributeError: If the field doesn't exist on the model
+        Returns:
+            Column: A SQL expression object representing the field
 
-                Example:
-                    # Accessing User.c.name returns a column expression usable in queries
-                    where_clause = User.c.name == 'John'  # Creates a comparison predicate
-                    where_clause = User.c.age > 18        # Creates a comparison predicate
-                    where_clause = User.c.email.like('%@gmail.com')  # Creates a LIKE predicate
-                """
-                # Use Pydantic's model_fields to get field information
-                if field_name not in self._model_class.model_fields:
-                    raise AttributeError(f"Field '{field_name}' does not exist on model '{self._model_class.__name__}'")
+        Raises:
+            AttributeError: If the field doesn't exist on the model
+            ColumnTypeResolutionError: If no column class can be chosen for
+                the field's column-type declaration or annotation
 
-                # Use ColumnNameMixin's method to get the correct column name
-                # This properly handles UseColumn annotations, returning custom column name
-                # if UseColumn is used, otherwise field name
-                column_name = self._model_class.get_column_name(field_name)
+        Example:
+            # Accessing User.c.name returns a column expression usable in queries
+            where_clause = User.c.name == 'John'  # Creates a comparison predicate
+            where_clause = User.c.age > 18        # Creates a comparison predicate
+            where_clause = User.c.email.like('%@gmail.com')  # Creates a LIKE predicate
+        """
+        # Use Pydantic's model_fields to get field information
+        if field_name not in self._model_class.model_fields:
+            raise AttributeError(f"Field '{field_name}' does not exist on model '{self._model_class.__name__}'")
 
-                # Use table alias (if set) as table name
-                table_name = self._table_alias if self._table_alias else self._model_class.table_name()
+        # Use ColumnNameMixin's method to get the correct column name
+        # This properly handles UseColumn annotations, returning custom column name
+        # if UseColumn is used, otherwise field name
+        column_name = self._model_class.get_column_name(field_name)
 
-                # Only pass model's explicit schema_name; do not add default schema.
-                # The backend dialect decides how to format schema references.
-                schema_name = None if self._table_alias else self._model_class.schema_name()
+        # Use table alias (if set) as table name
+        table_name = self._table_alias if self._table_alias else self._model_class.table_name()
 
-                # Create column expression object using the real dialect.
-                # The lookup order is the model layer's: an explicit
-                # UseColumnType answers first, then the dialect's common-type
-                # table, then its extra table. A field neither of those can
-                # classify raises ColumnTypeResolutionError here, at the
-                # access, rather than yielding a permissive column.
-                backend = self._model_class.backend()
-                dialect: "SQLDialectBase" = backend.dialect
-                field_info = self._model_class.model_fields[field_name]
-                annotation = field_info.annotation
-                # Pydantic splits an `Annotated` field into the bare annotation
-                # and a marker list, so the UseColumnType is in the latter and
-                # the annotation alone would not carry it.
-                column_type = declared_column_type(getattr(field_info, "metadata", None))
-                column_class = resolve_column_class(dialect, annotation, column_type)
-                if column_class is Column:
-                    # The untyped column keeps its own narrower constructor and
-                    # can now only arrive by being declared explicitly, never
-                    # as a fallback.
-                    return Column(dialect, column_name, table=table_name, schema_name=schema_name)
-                return column_class(
-                    dialect,
-                    column_name,
-                    table=table_name,
-                    schema_name=schema_name,
+        # Only pass model's explicit schema_name; do not add default schema.
+        # The backend dialect decides how to format schema references.
+        schema_name = None if self._table_alias else self._model_class.schema_name()
+
+        # The model presents the field's column type as a declaration
+        # (dialect-free); choosing the class this backend answers is this
+        # accessor's own business.
+        backend = self._model_class.backend()
+        dialect: "SQLDialectBase" = backend.dialect
+        field_info = self._model_class.model_fields[field_name]
+        declared = self._model_class.column_type(field_name)
+        column_class = self._select_column_class(dialect, field_info.annotation, declared)
+        if column_class is Column:
+            # The untyped column keeps its own narrower constructor and can
+            # now only arrive by being declared explicitly, never as a
+            # fallback.
+            return Column(dialect, column_name, table=table_name, schema_name=schema_name)
+        return column_class(
+            dialect,
+            column_name,
+            table=table_name,
+            schema_name=schema_name,
+        )
+
+    # -- column-class selection -------------------------------------------
+    #
+    # ``Model.column_type(field)`` presents the declaration as written -- a
+    # ``UseColumnType`` marker (candidates included), a class, or a sequence
+    # -- and leaves the consumption to the caller. These methods are that
+    # consumption: pick the class the active backend answers.
+
+    @classmethod
+    def _select_column_class(
+        cls,
+        dialect: "SQLDialectBase",
+        annotation: Any,
+        declared: Any,
+    ) -> Type["ColumnBase"]:
+        """Choose the column class for *annotation* on *dialect*.
+
+        Order: an explicit declaration answers first; otherwise the backend's
+        common-type table keyed by the normalised annotation, then its extra
+        table keyed by the annotation itself; neither ->
+        :class:`ColumnTypeResolutionError`.
+        """
+        if declared is not None:
+            return cls._class_from_declaration(declared)
+
+        table = dialect.suggested_column_types()
+        entry = cls._table_entry_for(annotation, table)
+
+        if entry is not None:
+            if entry not in table:
+                # Reachable only through the enum branch: the subclass walk
+                # can only return a key the table already has.
+                raise ColumnTypeResolutionError(
+                    f"{type(dialect).__name__}.suggested_column_types() does "
+                    f"not answer for {cls._entry_name(entry)}, which is one "
+                    f"of the common types. Every entry must be answered -- "
+                    f"with a column class, or with None when the backend "
+                    f"genuinely has no workaround."
                 )
-        return _FieldAccessor(owner, self._table_alias)
+            suggested = table[entry]
+            if suggested is None:
+                raise ColumnTypeResolutionError(
+                    f"{type(dialect).__name__} has no column class for "
+                    f"{cls._entry_name(entry)}. Declare one explicitly with "
+                    f"UseColumnType(SomeColumn) if this field's value supports "
+                    f"operations this backend has no class for."
+                )
+            return cls._require_column_class(
+                type(dialect).__name__, "suggested_column_types", entry, suggested
+            )
+
+        extras = dialect.suggested_extra_column_types()
+        suggested = extras.get(cls._strip_annotation(annotation))
+        if suggested is not None:
+            return cls._require_column_class(
+                type(dialect).__name__,
+                "suggested_extra_column_types",
+                annotation,
+                suggested,
+            )
+
+        raise ColumnTypeResolutionError(
+            f"Cannot choose a column class for "
+            f"{cls._describe_annotation(annotation)}: it is not one of the "
+            f"types this backend answers and no UseColumnType declares one. "
+            f"The types it answers are: "
+            f"{', '.join(cls._entry_name(key) for key in table)}. Declare the "
+            f"operations this field's value carries with "
+            f"UseColumnType(SomeColumn), or annotate the field with one of the "
+            f"types above."
+        )
+
+    @classmethod
+    def _class_from_declaration(cls, declared: Any) -> Type["ColumnBase"]:
+        """The single class a column-type declaration names.
+
+        Any of the forms ``Model.column_type()`` may present: a
+        ``UseColumnType`` marker (its class answers), a ``ColumnBase``
+        subclass, or a sequence of subclasses. A sequence longer than one is
+        refused for now: choosing among candidates means asking a dialect
+        whether it covers every operation of a class, and there is no answer
+        to read yet.
+        """
+        if isinstance(declared, UseColumnType):
+            return declared.column_class
+        if isinstance(declared, type) and issubclass(declared, ColumnBase):
+            return declared
+        if isinstance(declared, (list, tuple)):
+            classes = list(declared)
+            if len(classes) == 1:
+                return cls._class_from_declaration(classes[0])
+            if not classes:
+                raise ColumnTypeResolutionError(
+                    "The column-type declaration is an empty sequence."
+                )
+            raise ColumnTypeResolutionError(
+                f"The column-type declaration has {len(classes)} candidates; "
+                f"multi-candidate resolution needs the capability declaration "
+                f"mechanism, which does not exist yet. Declare a single "
+                f"column class."
+            )
+        raise ColumnTypeResolutionError(
+            f"{declared!r} is not a column-type declaration: expected a "
+            f"UseColumnType marker, a ColumnBase subclass, or a sequence of "
+            f"subclasses."
+        )
+
+    @classmethod
+    def _strip_annotation(cls, annotation: Any) -> Any:
+        """Peel ``Annotated`` and ``Optional`` off *annotation*."""
+        # `typing.get_origin(Annotated[...])` returns the `Annotated` special
+        # form on 3.9+, but on 3.8 `typing` has no `Annotated` attribute, so
+        # the identity check raises AttributeError. The presence of
+        # `__metadata__` marks an annotated alias on every supported version.
+        while hasattr(annotation, "__metadata__"):
+            annotation = typing.get_args(annotation)[0]
+
+        origin = typing.get_origin(annotation)
+        if origin is typing.Union or origin is getattr(types, "UnionType", None):
+            members = [a for a in typing.get_args(annotation) if a is not type(None)]
+            if len(members) == 1:
+                return cls._strip_annotation(members[0])
+        return annotation
+
+    @classmethod
+    def _table_entry_for(cls, annotation: Any, keys: Any) -> Any:
+        """The table key *annotation* normalises to, or ``None``.
+
+        Three rules and the pydantic bridge: exact key match, ``enum.Enum``
+        subclass, then a subclass walk in *keys* order (``class MyStr(str)``
+        -> ``str``). The bridge is consulted last, so it can turn a failure
+        into an answer and can never change an answer that already existed;
+        its result is re-checked against the same keys.
+        """
+        peeled = cls._strip_annotation(annotation)
+        if peeled in keys:
+            return peeled
+
+        if isinstance(peeled, type):
+            if issubclass(peeled, enum.Enum):
+                # Checked before the walk: an enum that also subclasses
+                # something else (`class Weekday(int, Enum)`) stays an enum.
+                return enum.Enum
+            for key in keys:
+                if (
+                    isinstance(key, type)
+                    and key is not peeled
+                    and issubclass(peeled, key)
+                ):
+                    return key
+
+        from .pydantic_fields import normalize_pydantic_annotation
+
+        bridged = normalize_pydantic_annotation(peeled)
+        if bridged is not None and bridged in keys:
+            return bridged
+        return None
+
+    @classmethod
+    def _require_column_class(
+        cls, dialect_name: str, table: str, key: Any, suggested: Any
+    ) -> Type["ColumnBase"]:
+        if not (isinstance(suggested, type) and issubclass(suggested, ColumnBase)):
+            raise ColumnTypeResolutionError(
+                f"{dialect_name}.{table}()[{cls._entry_name(key)}] is "
+                f"{suggested!r}, which is not a ColumnBase subclass."
+            )
+        return suggested
+
+    @staticmethod
+    def _entry_name(entry: Any) -> str:
+        module = getattr(entry, "__module__", None)
+        name = getattr(entry, "__name__", None) or repr(entry)
+        if module and module not in ("builtins",):
+            return f"{module}.{name}"
+        return name
+
+    @staticmethod
+    def _describe_annotation(annotation: Any) -> str:
+        name = getattr(annotation, "__name__", None) or repr(annotation)
+        return f"{name!r} (the annotation {annotation!r})"

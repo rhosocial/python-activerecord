@@ -189,7 +189,7 @@ for name, dt_cls in dialect.supports_data_types().items():
 
 ### 与模型字段的集成
 
-普通 Python 注解不会由 `DDLSourceMixin` 自动转换为 `DataType`。没有 `UseSqlType` 时，`column_type()` 返回 `None`。显式声明使用 `UseSqlType`，它会按声明顺序保留候选：
+普通 Python 注解不会由 `DDLSourceMixin` 自动转换为 `DataType`。没有 `UseSqlType` 时，`column_data_type()` 返回 `None`。显式声明使用 `UseSqlType`，它会按声明顺序保留候选：
 
 ```python
 from typing import Annotated
