@@ -83,29 +83,6 @@ class TestCastRendersItsTarget:
         for leak in LEAKS:
             assert leak not in sql, f"{leak!r} leaked into {sql!r}"
 
-    def test_a_backend_type_renders_its_own_sql_name(self):
-        """``name`` is the dispatch key; the SQL spelling drops the prefix.
-
-        Run against PostgreSQL rather than the shared fixture, because a
-        backend type is rendered by that backend -- asking another one to render
-        CITEXT tests nothing but the wrong thing.
-        """
-        types = pytest.importorskip(
-            "rhosocial.activerecord.backend.impl.postgres.expression.types"
-        )
-        pytest.importorskip(
-            "rhosocial.activerecord.backend.impl.postgres.dialect"
-        )
-        from rhosocial.activerecord.backend.impl.postgres.dialect import (
-            PostgresDialect,
-        )
-
-        pg = PostgresDialect()
-        pg._version = (16, 2, 0)
-        citext = types.PostgresCitextType(pg)
-        assert citext.name == "postgres_citext"
-        assert "CITEXT" in Column(pg, "c", table="t").cast(citext).to_sql()[0]
-
     def test_a_custom_type_renders_its_name(self, dialect):
         sql, _ = column(dialect).cast(
             CustomType(dialect, raw="FLOAT8")

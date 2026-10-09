@@ -32,41 +32,30 @@ import pytest
 from rhosocial.activerecord.backend.expression.types import DataType
 
 _DIALECTS = (
-    ("postgres", "PostgresDialect"),
-    ("mysql", "MySQLDialect"),
-    ("mariadb", "MariaDBDialect"),
-    ("oracle", "OracleDialect"),
-    ("sqlserver", "SQLServerDialect"),
-    ("firebird", "FirebirdDialect"),
-    ("clickhouse", "ClickHouseDialect"),
-    ("snowflake", "SnowflakeDialect"),
-    ("bigquery", "BigQueryDialect"),
+    ("dummy", "DummyDialect"),
     ("sqlite", "SQLiteDialect"),
 )
 
 
 def _load(backend, class_name):
-    # The nine dialects live in nine separate distributions, and this repository
-    # does not depend on any of them -- so in its own CI every one of them is
-    # absent. That import happens at collection time, because _dialects() feeds
-    # parametrize, and an exception raised during collection aborts the whole
-    # run rather than failing one test. So a missing backend has to be a skip,
-    # not an error: the guard still runs over whatever dialects are installed,
-    # which in core is sqlite.
-    try:
-        module = importlib.import_module(
-            f"rhosocial.activerecord.backend.impl.{backend}.dialect")
-    except ImportError as exc:                      # ModuleNotFoundError is one
-        pytest.skip(f"{backend} is not installed: {exc}")
+    #: Only the two dialects this repository owns are enumerated here. The nine
+    #: other backends are their own distributions with their own suites: a
+    #: project tests its own code, and importing a sibling from this one would
+    #: both test someone else's project and fill the process-wide expression
+    #: registry with classes this suite has no allowlist for -- which is how
+    #: ``test_all_builtin_expressions`` used to fail on a developer machine with
+    #: all nine installed and pass in this repository's CI with none of them.
+    #: A backend listed here but missing is a broken checkout, not a skip.
+    module = importlib.import_module(
+        f"rhosocial.activerecord.backend.impl.{backend}.dialect")
     cls = getattr(module, class_name, None)
-    if cls is None:                                  # optional dependency
-        pytest.skip(f"{backend} is not available")
+    assert cls is not None, f"{class_name} missing from {module.__name__}"
     for kwargs in ({}, {"version": (23, 0, 0)}, {"version": (16, 0, 0)}):
         try:
             return cls(**kwargs)
         except TypeError:
             continue
-    pytest.skip(f"{class_name} could not be constructed")
+    raise AssertionError(f"{class_name} could not be constructed")
 
 
 def _dialects():
