@@ -10,12 +10,13 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
     ExistsExpression,
     AnyExpression,
     AllExpression,
-    JSONExpression,
+    JSONDocumentExpression,
     ArrayExpression,
     OrderedSetAggregation,
 )
 from rhosocial.activerecord.backend.expression.core import Subquery
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType
 
 
 class TestCaseExpression:
@@ -73,7 +74,7 @@ class TestCastMethod:
     def test_cast_method_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic CAST via cast() method."""
         col = Column(sqlite_dialect_3_8_0, "price")
-        cast_expr = col.cast("INTEGER")
+        cast_expr = col.cast(IntegerType(sqlite_dialect_3_8_0))
         sql, params = cast_expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
@@ -129,11 +130,11 @@ class TestAnyAllExpression:
 
 
 class TestJSONExpression:
-    """Tests for JSONExpression class."""
+    """Tests for JSONDocumentExpression class."""
 
     def test_json_extract_path(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test JSON path extraction."""
-        json_expr = JSONExpression(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.name")
+        json_expr = JSONDocumentExpression(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.name")
         sql, params = json_expr.to_sql()
         # In SQLite, this uses the -> operator with the path embedded as a literal
         assert sql == '"data"->\'$.name\''
@@ -141,7 +142,7 @@ class TestJSONExpression:
 
     def test_json_extract_as_text(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test JSON path extraction as text."""
-        json_expr = JSONExpression(
+        json_expr = JSONDocumentExpression(
             sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "metadata"), "$.settings.theme", operation="->>"
         )
         sql, params = json_expr.to_sql()

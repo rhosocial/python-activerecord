@@ -21,6 +21,7 @@ from .upsert import UpsertMixin
 from .join import LateralJoinMixin, JoinMixin
 from .array import ArrayMixin
 from .json import JSONMixin
+from .uuid import UUIDMixin
 from .explain import ExplainMixin
 from .graph import GraphMixin, GraphTableMixin
 from .merge import MergeMixin
@@ -65,6 +66,7 @@ from .dql import DQLMixin
 from .dml import DMLMixin
 from .ddl_column import DDLColumnMixin
 from .data_type import DataTypeMixin
+from .column_type import ColumnTypeMixin
 from .ddl_type import DDLTypeMixin
 from .user_defined_type import UserDefinedTypeMixin
 from .ddl_domain import DomainMixin
@@ -86,6 +88,7 @@ __all__ = [
     "JoinMixin",
     "ArrayMixin",
     "JSONMixin",
+    "UUIDMixin",
     "ExplainMixin",
     "GraphMixin",
     "GraphTableMixin",
@@ -135,6 +138,7 @@ __all__ = [
     "DMLMixin",
     "DDLColumnMixin",
     "DataTypeMixin",
+    "ColumnTypeMixin",
     "DDLTypeMixin",
     "UserDefinedTypeMixin",
     "DomainMixin",

@@ -7,10 +7,12 @@ from .version import OptimisticLockMixin, DefaultOptimisticLockMixin
 from .soft_delete import SoftDeleteMixin, DefaultSoftDeleteMixin, AsyncSoftDeleteMixin, DefaultAsyncSoftDeleteMixin
 from .uuid import UUIDMixin
 from .composite_pk import CompositePKMixin
+from .field_config import FieldConfigValidationHandler
 
 __all__ = [
     "IntegerPKMixin", "TimestampMixin", "DefaultTimestampMixin", "OptimisticLockMixin",
     "DefaultOptimisticLockMixin",
     "SoftDeleteMixin", "DefaultSoftDeleteMixin", "AsyncSoftDeleteMixin",
     "DefaultAsyncSoftDeleteMixin", "UUIDMixin", "CompositePKMixin",
+    "FieldConfigValidationHandler",
 ]

@@ -84,6 +84,7 @@ from .query.dql_order import DqlOrderSupport
 from .query.advanced_grouping import AdvancedGroupingSupport
 from .query.array import ArraySupport
 from .query.collation import CollationSupport
+from .query.column_type import ColumnTypeSupport
 from .query.cte import CTESupport
 from .query.data_type import DataTypeSupport
 from .query.explain import ExplainSupport
@@ -103,6 +104,7 @@ from .query.set_operation import SetOperationSupport
 from .query.sql_function import SQLFunctionSupport
 from .query.temporal import TemporalTableSupport
 from .query.upsert import UpsertSupport
+from .query.uuid import UUIDSupport
 from .query.wildcard import WildcardSupport
 from .query.window import WindowFunctionSupport
 
@@ -153,6 +155,7 @@ __all__ = [
     "CreateTypeSupport",
     "CreateViewSupport",
     "DDLTypeSupport",
+    "ColumnTypeSupport",
     "DataTypeSupport",
     "DateTimeSupport",
     "DqlOrderSupport",
@@ -208,6 +211,7 @@ __all__ = [
     "TruncateSupport",
     "TypeObjectSupport",
     "UpsertSupport",
+    "UUIDSupport",
     "ViewObjectSupport",
     "WildcardSupport",
     "WindowFunctionSupport",

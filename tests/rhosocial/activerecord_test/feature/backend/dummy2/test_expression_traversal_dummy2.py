@@ -41,7 +41,6 @@ from rhosocial.activerecord.backend.expression import (
     BetweenPredicate,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.expression.query_parts import (
     WhereClause,
     OrderByClause,
@@ -70,12 +69,11 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
     ArrayExpression,
     CaseExpression,
     ExistsExpression,
-    JSONExpression,
+    JSONDocumentExpression,
     OrderedSetAggregation,
     WindowClause,
     WindowDefinition,
     WindowFrameSpecification,
-    WindowFunctionCall,
     WindowSpecification,
 )
 from rhosocial.activerecord.backend.expression.core import Subquery
@@ -174,9 +172,9 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(dialect=d, expr=Column(d, "age"), low=Literal(d, 18), high=Literal(d, 65)),
     ),
     dict(
-        name="AggregateFunctionCall",
-        cls=AggregateFunctionCall,
-        params_func=lambda d: dict(dialect=d, func_name="SUM", args=(Column(d, "amount"),)),
+        name="FunctionCallAggregate",
+        cls=FunctionCall,
+        params_func=lambda d: dict(dialect=d, func_name="SUM", args=(Column(d, "amount"),), is_aggregate=True),
     ),
     dict(
         name="WhereClause",
@@ -322,8 +320,8 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(dialect=d, subquery=Subquery(d, "SELECT 1")),
     ),
     dict(
-        name="JSONExpression",
-        cls=JSONExpression,
+        name="JSONDocumentExpression",
+        cls=JSONDocumentExpression,
         params_func=lambda d: dict(dialect=d, column=Column(d, "data"), path="$.key", operation="->"),
     ),
     dict(
@@ -367,9 +365,9 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(dialect=d, frame_type="RANGE", start_frame="UNBOUNDED PRECEDING"),
     ),
     dict(
-        name="WindowFunctionCall",
-        cls=WindowFunctionCall,
-        params_func=lambda d: dict(dialect=d, function_name="ROW_NUMBER", window_spec="w"),
+        name="FunctionCallWindow",
+        cls=FunctionCall,
+        params_func=lambda d: dict(dialect=d, func_name="ROW_NUMBER", window_spec="w"),
     ),
     dict(
         name="WindowSpecification",

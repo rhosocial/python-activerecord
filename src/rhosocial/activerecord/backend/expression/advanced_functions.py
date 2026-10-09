@@ -6,19 +6,52 @@ JSON operations, and Array operations.
 from enum import Enum
 from typing import Any, List, Optional, Union, TYPE_CHECKING
 
-from .bases import BaseExpression, SQLPredicate, SQLValueExpression
-from .core import Column, Subquery
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    StringMixin,
+    JSONAccessorMixin,
+    StringValueMixin,
     TypeCastingMixin,
 )
+
+from .bases import BaseExpression, SQLPredicate, SQLValueExpression
+from .core import (
+    Column,
+    JSONValueExpression,
+    StringValueExpression,
+    Subquery,
+)
+
 from .query_parts import OrderByClause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
+
+
+class DeclaredValueType:
+    """Render this node itself rather than the call a value class would wrap.
+
+    The typed value classes in :mod:`..core` are *wrappers*: they hold a node
+    and delegate ``to_sql`` to it, which is what lets one class stand for
+    ``length(x)``, ``min(name)`` and ``CURRENT_USER`` alike. The nodes here are
+    not wrappers -- ``EXTRACT``, ``col->'$.a'`` and ``CASE`` each have their own
+    formatter and their own fields -- so when such a node class declares the
+    value type it *is*, it needs the base implementation back rather than the
+    wrapper's delegation to a node it does not hold.
+
+    Inheriting the value class is what makes the result readable off the
+    object: ``isinstance(expr, TimestampValueExpression)`` holds because the
+    class says so, not because a tag was attached after construction.
+    """
+
+    def to_sql(self):
+        """Render through this node's own ``format_method``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        return BaseExpression.to_sql(self)
 
 
 class JSONPathMode(Enum):
@@ -44,8 +77,102 @@ class JSONPathMode(Enum):
         raise TypeError(f"mode must be None, str, or JSONPathMode; got {type(value).__name__}")
 
 
-class CaseExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
-    """Represents a CASE expression (e.g., CASE WHEN condition THEN result ELSE result END)."""
+#: Value class -> the class standing for both a CASE and that value class.
+#: Populated on first use by :meth:`CaseExpression._class_for`; see there for
+#: why it is built at all and why it is kept.
+_CASE_VALUE_CLASSES = {}
+
+
+class CaseExpression(
+    DeclaredValueType,
+    ArithmeticMixin,
+    ComparisonMixin,
+    SQLValueExpression,
+):
+    """Represents a CASE expression (e.g., CASE WHEN condition THEN result ELSE result END).
+
+    A CASE answers with whatever its branches answer with, so the branches
+    decide it -- not the factory, which is handed the whole list rather than the
+    individual results. What each branch is is read off its own class, so
+    :func:`~...expression.column_types.value_class_of` is the question asked of
+    each one.
+
+    **Agreement is over the branches, and a branch that says nothing is not a
+    contradiction.** ``CASE WHEN i THEN literal ELSE i`` is still an integer:
+    a ``Literal`` declares no kind, so it neither agrees nor disagrees, and what
+    matters is that the branches which *do* declare a kind declare the same one.
+
+    When they agree, the node is built as an instance of the agreed value class
+    so the answer is readable off the object. When they disagree -- integer here
+    and float there -- the CASE is legal SQL that answers with neither kind, so
+    no typed wrapper is offered and the bare class stands for it. Guessing the
+    first branch or the widest would promise a surface the database does not
+    have, and "unknown" is a result the caller can handle.
+
+    That is why this class declares no single value type of its own: the answer
+    is per-instance, and :class:`DeclaredValueType` keeps it rendering itself
+    whichever it turns out to be.
+    """
+
+    def __new__(cls, dialect=None, value=None, cases=None, else_result=None, alias=None):
+        """Build as the agreed value class, when the branches declare one.
+
+        Returns an instance of a class that *is* both this CASE and the agreed
+        value class, or of ``cls`` alone when the branches disagree or none of
+        them declares a kind. :meth:`__init__` then runs against whichever came
+        back, so the state is set the same way either way.
+
+        ``dialect`` is optional and the branches are optional because
+        ``copy.copy`` reconstructs through this: ``as_()`` returns a copy, and
+        that copy must not re-run the consensus check on branches it already
+        agreed about. Reconstruction passes no branches, so the copy keeps the
+        class it was made from -- which is the correct answer anyway, since
+        nothing about it changed.
+        """
+        if cases is None and else_result is None and value is None:
+            return super().__new__(cls)
+
+        from .column_types import value_class_of
+
+        branches = [result for _condition, result in cases] + [else_result]
+        declared = {value_class_of(branch) for branch in branches} - {None}
+        if len(declared) != 1:
+            return super().__new__(cls)
+        agreed = declared.pop()
+        combined = cls._class_for(agreed)
+        # object.__new__, not combined.__new__: `combined` inherits this very
+        # __new__, which would recurse back through the consensus check.
+        return object.__new__(combined)
+
+    @classmethod
+    def _class_for(cls, value_class):
+        """The class standing for both this CASE and *value_class*.
+
+        Built once per value class and kept, because building it per expression
+        would make ``type(x)`` differ between two CASE expressions that answer
+        with the same thing -- which is the thing being fixed.
+
+        The bases are ordered so that ``CaseExpression`` supplies the CASE
+        state and ``format_method``, :class:`DeclaredValueType` supplies the
+        rendering, and *value_class* supplies the operations and the value type.
+        The value class's own ``to_sql`` is deliberately *not* reached: it is a
+        wrapper delegating to a node this does not hold.
+        """
+        try:
+            return _CASE_VALUE_CLASSES[value_class]
+        except KeyError:
+            combined = type(
+                f"Case{value_class.__name__}",
+                (cls, DeclaredValueType, value_class),
+                {
+                    "__doc__": (
+                        f"A CASE whose branches agree the answer is a "
+                        f"{value_class.__name__}, so it is one."
+                    )
+                },
+            )
+            _CASE_VALUE_CLASSES[value_class] = combined
+            return combined
 
     def __init__(
         self,
@@ -55,7 +182,9 @@ class CaseExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         else_result: Optional["BaseExpression"] = None,
         alias: Optional[str] = None,
     ):
-        super().__init__(dialect)
+        # BaseExpression rather than super(): the agreed value class, when there
+        # is one, is a wrapper and would want a node to hold -- this is the node.
+        BaseExpression.__init__(self, dialect)
         self.value = value
         self.cases = cases or []
         self.else_result = else_result
@@ -207,53 +336,32 @@ class WindowClause(BaseExpression):
         return "format_window_clause"
 
 
-class WindowFunctionCall(
-    AliasableMixin,
+class JSONDocumentExpression(
+    DeclaredValueType,
+    JSONValueExpression,
     ArithmeticMixin,
-    ComparisonMixin,
-    TypeCastingMixin,
+    JSONAccessorMixin,
     SQLValueExpression,
 ):
-    """
-    Window function call, supporting inline window specification or named window reference
-    """
+    """A JSON document reached by path -- ``->``.
 
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        function_name: str,
-        args: Optional[List[Union["BaseExpression", Any]]] = None,
-        window_spec: Optional[Union[WindowSpecification, str]] = None,
-        alias: Optional[str] = None,
-    ):
-        super().__init__(dialect)
-        self.function_name = function_name
-        self.args = args or []
-        self.window_spec = window_spec
-        self.alias = alias
+    :meth:`~...expression.mixins.JSONAccessorMixin.json_value` returns one of
+    these and ``.json_value("b")`` must work on it, so the accessor mixin is
+    here as well as on :class:`~...expression.column_types.JSONColumn`.
 
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_window_function_call"
+    Not available: ``like`` / ``ilike``. Those apply to the text a scalar path
+    access returns, not to the document it navigated. Use
+    :meth:`~...expression.mixins.JSONAccessorMixin.json_path` for the text
+    form, which arrives as :class:`JSONTextExpression`.
 
+    Split from that sibling rather than sharing one class: the two operations
+    yield different types, and a single class could only offer the union of
+    their operations to both.
 
-class JSONExpression(
-    AliasableMixin,
-    ArithmeticMixin,
-    ComparisonMixin,
-    StringMixin,
-    TypeCastingMixin,
-    SQLValueExpression,
-):
-    """Represents JSON operations like json->, json->>.
-
-    The *mode* parameter controls how the expression is rendered:
-    - ``JSONPathMode.AUTO`` (default / None): use arrow operators if the
-      dialect supports them, otherwise fall back to function-based formatting.
-    - ``JSONPathMode.ARROW``: force arrow operators (-> / ->>); raises
-      UnsupportedFeatureError if the dialect does not support them.
-    - ``JSONPathMode.FUNCTION``: force function-based formatting (e.g. JSON_EXTRACT).
+    It is a :class:`~...expression.core.JSONValueExpression` because that is what
+    a document is. It is not a *wrapper* holding one -- it has its own formatter
+    and its own fields -- so it says so with
+    :class:`DeclaredValueType` rather than inheriting the delegation.
     """
 
     def __init__(
@@ -265,7 +373,9 @@ class JSONExpression(
         alias: Optional[str] = None,
         mode: Union[None, str, "JSONPathMode"] = None,
     ):
-        super().__init__(dialect)
+        # BaseExpression rather than super(): the value class this inherits is a
+        # wrapper and wants a node to hold, and this class is the node.
+        BaseExpression.__init__(self, dialect)
         self.column = column
         self.path = path
         self.operation = operation
@@ -276,6 +386,32 @@ class JSONExpression(
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_json_expression"
+
+
+class JSONTextExpression(
+    JSONDocumentExpression,
+    StringValueExpression,
+):
+    """A JSON path access that yielded **text** -- ``->>``.
+
+    The sibling of :class:`JSONDocumentExpression`, and the reason that one is
+    split from this: ``->`` hands back a document and ``->>`` hands back a
+    scalar, and they are different types with different operations. It used to
+    be one class whose ``operation`` decided the answer at construction, which
+    meant the operations on offer could not be read off the class -- a JSON
+    document would offer ``like``, because the one class could be either.
+
+    Text is the narrower of the two, so chaining continues: ``->>`` yields a
+    scalar and a scalar cannot be navigated further. ``->`` yields a document
+    and can be, which is why this is the class that gains
+    :class:`~...expression.core.StringValueExpression` and its operations.
+
+    One consequence of inheriting the document class is that the JSON accessors
+    stay reachable here too: ``DeclaredValueType`` renders the node and this
+    class does not hold one, so it cannot drop the mixin without also losing
+    ``json_value``. That is a known over-offer -- a scalar is not navigable --
+    and it is stated in the test that covers it rather than papered over.
+    """
 
 
 class ArrayExpression(

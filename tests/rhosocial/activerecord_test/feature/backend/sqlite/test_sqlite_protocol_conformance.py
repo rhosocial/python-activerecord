@@ -100,6 +100,11 @@ SQLITE_PROTOCOLS = [
 
 
     dialect_protocols.JSONSupport,
+# UUID value expressions are declared rather than absent: SQLiteDialect
+    # composes UUIDMixin, whose probes report False for every operation, so
+    # generation raises UnsupportedFeatureError with a Python-side suggestion
+    # instead of another backend's function.
+    dialect_protocols.UUIDSupport,
 
 
     dialect_protocols.ReturningSupport,

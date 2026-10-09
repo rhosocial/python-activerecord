@@ -715,6 +715,16 @@ UNCONSTRUCTIBLE = (
     # ENUM type. Its `values` list is keyword-only behind a defaulted positional,
     # so the introspective constructor skips it and the type declares no members.
     "rhosocial.activerecord.backend.expression.types.enum_.EnumType",
+    # CUSTOM type. `raw` names the SQL type string and carries a default, so the
+    # introspective constructor skips it and builds a type with no spelling. The
+    # default cannot help: the class declares `dialect` first and `raw` after it,
+    # so a required `raw` behind that default is not expressible as a signature.
+    "rhosocial.activerecord.backend.expression.types.custom.CustomType",
+    # UUID constant. `which` must name a constant kind -- 'nil' or 'max' -- and
+    # __init__ rejects anything else, so the guess's "x" is refused at
+    # construction. There is no value the filler could offer that is both a valid
+    # constant and not a guess about which one the caller wanted.
+    "rhosocial.activerecord.backend.expression.uuid.UUIDConstantExpression",
 )
 # XMLTABLE used to be a fifth entry, needing a row source document, a COLUMNS list
 # of typed projections and a pass-through clause. Its `columns` and `passing`
@@ -796,13 +806,6 @@ LEGITIMATE_NON_RENDERS = {
     "rhosocial.activerecord.backend.expression.types._base.DataType": (
         TypeError,
         "does not declare a valid generic type name",
-    ),
-    # A core type the Dummy dialect has no `format_data_type_uuid` for. Dummy is
-    # the SQL-generation switch board and deliberately models the mainstream
-    # types only; UUID is not one of them. A Dummy capability gap, not a defect.
-    "rhosocial.activerecord.backend.expression.types.uuid_.UUIDType": (
-        TypeError,
-        "does not support the generic type 'uuid'",
     ),
 }
 

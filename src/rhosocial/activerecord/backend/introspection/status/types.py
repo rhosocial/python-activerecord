@@ -534,12 +534,38 @@ class ServerOverview:
         archive: Archive information (PostgreSQL specific)
         security: Security information
         extensions: List of installed extensions (PostgreSQL specific)
-        innodb: InnoDB storage engine information (MySQL specific)
-        binary_log: Binary log information (MySQL specific)
+        innodb: InnoDB storage engine information — **MySQL only, ``None``
+            everywhere else**
+        binary_log: Binary log information — **MySQL only, ``None`` everywhere
+            else**
         processes: List of current running processes (MySQL specific)
-        slow_query: Slow query log configuration (MySQL specific)
-        mysql_replication: MySQL replication status (MySQL specific)
+        slow_query: Slow query log configuration — **MySQL only, ``None``
+            everywhere else**
+        mysql_replication: MySQL replication status — **MySQL only, ``None``
+            everywhere else**
         extra: Additional backend-specific information
+
+    **On the four MySQL-named slots.** They are declared here, so every
+    backend carries them, and on any other server they are permanently
+    ``None`` — a ClickHouse or Oracle or Firebird introspector cannot fill an
+    ``InnoDBInfo``, because that engine does not exist there. The name is a
+    false claim about the backend in the same way a prefixed dispatch key is a
+    false claim about a type: it asserts the backend has something it does not.
+
+    Renaming them is a cross-repository API break — ``to_dict()`` would lose or
+    change those four keys, every ``get_overview()`` that passes them breaks,
+    and the ``cli/status.py`` of four backends reads them. That needs its own
+    change with its own release note, not a drive-by edit here.
+
+    Until then the rule is: **a backend must not name these at all.** The
+    ClickHouse introspector used to take an ``innodb: Optional[InnoDBInfo] =
+    None`` parameter and pass ``None`` on every call, which put the false claim
+    into a *signature* rather than only into this file; it no longer does, and
+    a test there asserts ``"innodb"`` is absent from the builder's local
+    variable names. A backend with its own engine-level facts puts them in
+    ``extra`` — ClickHouse's storage engines, Oracle's tablespaces, SQL
+    Server's filegroups — which is where a vendor-neutral shape belongs and
+    needs no new core field per vendor.
     """
 
     server_version: str

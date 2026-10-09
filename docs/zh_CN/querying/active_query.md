@@ -239,18 +239,17 @@ window_spec = WindowSpecification(
     order_by=OrderByClause(Post.backend().dialect, [(Post.c.views, "DESC")])
 )
 
-# 创建窗口函数调用
-rank_col = rank(Post.backend().dialect).as_('rank')
-rank_col.window_spec = window_spec
+# 创建窗口函数调用并附加窗口规范
+rank_col = rank(Post.backend().dialect).over(window_spec).as_('rank')
 
 results = Post.query().select(Post.c.title, rank_col).aggregate()
 ```
 
 * **注意事项**：
 * 窗口函数需要从 `rhosocial.activerecord.backend.expression` 导入，而不是旧的 `window` 子模块。
-* `rank`、`row_number`、`dense_rank` 等函数返回 `WindowFunctionCall` 对象。
+* `rank`、`row_number`、`dense_rank` 等函数返回包装了 `FunctionCall` 的带类型值表达式。
 * 窗口规范通过 `WindowSpecification` 类创建，需要传入 `dialect`、`partition_by` 和 `order_by` 参数。
-* 设置窗口规范的方法是直接赋值：`rank_col.window_spec = window_spec`。
+* 附加窗口规范请使用 `.over(window_spec)`。直接赋值 `rank_col.window_spec = window_spec` 是静默无效的：带类型的包装器会吞掉这次写入，而渲染读取的是它持有的调用节点。
 
 ## JoinQueryMixin (连接查询)
 

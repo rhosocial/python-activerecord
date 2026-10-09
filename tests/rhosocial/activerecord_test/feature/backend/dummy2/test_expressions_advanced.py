@@ -4,19 +4,24 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
+    FunctionCall,
     Subquery,
     ComparisonPredicate,
     CaseExpression,
     ExistsExpression,
     AnyExpression,
     AllExpression,
-    WindowFunctionCall,
     WindowSpecification,
     WindowFrameSpecification,
-    JSONExpression,
     ArrayExpression,
+    JSONDocumentExpression,
+    JSONTextExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import (
+    DateType,
+    IntegerType,
+)
 
 
 class TestAdvancedExpressions:
@@ -61,7 +66,7 @@ class TestAdvancedExpressions:
     def test_cast_column(self, dummy_dialect: DummyDialect):
         """Tests cast() method on Column."""
         col = Column(dummy_dialect, "price")
-        cast_expr = col.cast("INTEGER")
+        cast_expr = col.cast(IntegerType(dummy_dialect))
         sql, params = cast_expr.to_sql()
         assert sql == 'CAST("price" AS INTEGER)'
         assert params == ()
@@ -69,7 +74,7 @@ class TestAdvancedExpressions:
     def test_cast_literal(self, dummy_dialect: DummyDialect):
         """Tests cast() method on Literal."""
         lit = Literal(dummy_dialect, "2023-01-01")
-        cast_expr = lit.cast("DATE")
+        cast_expr = lit.cast(DateType(dummy_dialect))
         sql, params = cast_expr.to_sql()
         assert sql == "CAST(? AS DATE)"
         assert params == ("2023-01-01",)
@@ -124,7 +129,7 @@ class TestAdvancedExpressions:
         assert sql == '("item_id" = ANY(SELECT product_id FROM top_sellers WHERE category = ?))'
         assert params == ("electronics",)
 
-    # --- WindowFunctionCall ---
+    # --- FunctionCall with a window specification ---
     def test_window_function_basic(self, dummy_dialect: DummyDialect):
         """Tests a basic window function with PARTITION BY and ORDER BY."""
         # Create window specification
@@ -136,7 +141,7 @@ class TestAdvancedExpressions:
             order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")]),
         )
         # Create window function call
-        window_expr = WindowFunctionCall(dummy_dialect, function_name="RANK", window_spec=window_spec)
+        window_expr = FunctionCall(dummy_dialect, "RANK", window_spec=window_spec)
         sql, params = window_expr.to_sql()
         expected = 'RANK() OVER (PARTITION BY "department" ORDER BY "salary" DESC)'
         assert sql == expected
@@ -158,10 +163,10 @@ class TestAdvancedExpressions:
             frame=frame_spec,
         )
         # Create window function call
-        window_expr = WindowFunctionCall(
+        window_expr = FunctionCall(
             dummy_dialect,
-            function_name="SUM",
-            args=[Column(dummy_dialect, "amount")],
+            "SUM",
+            Column(dummy_dialect, "amount"),
             window_spec=window_spec,
             alias="running_total",
         )
@@ -170,7 +175,7 @@ class TestAdvancedExpressions:
         assert sql == expected
         assert params == ()
 
-    # --- JSONExpression ---
+    # --- JSONDocumentExpression ---
     @pytest.mark.parametrize(
         "col_name, path, operation, expected_sql, expected_params",
         [
@@ -183,7 +188,7 @@ class TestAdvancedExpressions:
     ):
         """Tests JSON path extraction operations."""
         json_col = Column(dummy_dialect, col_name)
-        json_expr = JSONExpression(dummy_dialect, json_col, path, operation=operation)
+        json_expr = JSONDocumentExpression(dummy_dialect, json_col, path, operation=operation)
         sql, params = json_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params

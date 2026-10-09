@@ -52,10 +52,10 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 from rhosocial.activerecord.backend.expression import Literal
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
-    DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
-    IntType, IntegerType, IntervalType, JsonBType, JsonType,
+    DataType, DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
+    IntegerType, IntervalType, JsonBType, JsonType,
     RealType, SmallIntType, TextType, TimeType, TimeTzType,
-    TimestampType, TimestampTzType, TinyIntType, VarBinaryType, VarCharType,
+    TimestampType, TimestampTzType, TinyIntType, UUIDType, VarBinaryType, VarCharType, XmlType,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
     DomainAlterAction,
@@ -66,6 +66,7 @@ from rhosocial.activerecord.backend.expression.statements.ddl_type import (
     TypeDefinition,
 )
 from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
+from .column_type import DummyColumnTypeMixin
 from rhosocial.activerecord.backend.dialect.protocols import (
     # Named-object protocols
     TableObjectSupport,
@@ -97,6 +98,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     LateralJoinSupport,
     ArraySupport,
     JSONSupport,
+    UUIDSupport,
     ExplainSupport,
     FilterClauseSupport,
     OrderedSetAggregationSupport,
@@ -194,6 +196,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     LateralJoinMixin,
     ArrayMixin,
     JSONMixin,
+    UUIDMixin,
     ExplainMixin,
     MergeMixin,
     TemporalTableMixin,
@@ -235,6 +238,100 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 )
 
 _COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+# ---------------------------------------------------------------------------
+# parse_type: the closed vocabulary this dialect can read back
+# ---------------------------------------------------------------------------
+#
+# DummyDialect renders SQL-standard type names (the ``format_data_type_*``
+# family on the class below), so those names are exactly what it can parse.
+# The point of parsing at all is canonicality: **one concept in, exactly one
+# class out, carrying the spelling it was written with**.  ``character varying``
+# must come back as the variable-length concept and never as the fixed-length
+# one, and ``DOUBLE`` and ``DOUBLE PRECISION`` must come back as the same class
+# — the whole reason ``SPELLINGS`` exists is that a second class per synonym
+# would make the differ report a change that is not there.
+#
+# The table is derived from the classes' own ``SPELLINGS`` rather than written
+# out, so it cannot drift from the closed list the formatters validate against.
+
+#: The core concepts ``parse_type`` recognises.  ``IntervalType`` is handled
+#: before the table lookup because its qualifier is a suffix rather than a name.
+#: ``EnumType`` is absent because ``ENUM('a','b')`` is a value list, not a type
+#: name — the part that says which values is not the part that says which type,
+#: and ``CustomType`` keeps it verbatim.
+_PARSE_CONCEPTS = (
+    BigIntType, BinaryType, BlobType, BooleanType, CharType, DateTimeType,
+    DateType, DecimalType, DoubleType, FloatType, IntegerType, JsonBType,
+    JsonType, RealType, SmallIntType, TextType, TimeType, TimeTzType,
+    TimestampType, TimestampTzType, TinyIntType, UUIDType, VarBinaryType,
+    VarCharType, XmlType,
+)
+
+#: ``{UPPER-CASED type name: concept}``.  A concept with several spellings
+#: contributes each of them and a concept with one contributes that one, so
+#: ``CHAR`` and ``CHARACTER`` land on ``CharType`` while ``CHARACTER VARYING``
+#: lands on ``VarCharType`` — three names, two concepts, no ambiguity.
+_PARSE_VOCABULARY: Dict[str, Type] = {
+    spelling.upper(): concept
+    for concept in _PARSE_CONCEPTS
+    for spelling in (concept.SPELLINGS or (concept.name,))
+}
+
+#: The four names the zoned concepts are *written* as.  Their dispatch names are
+#: ``timetz`` / ``timestamptz``, which is what PostgreSQL calls them; the
+#: standard spells them out and dummy renders the standard form, so both reach
+#: the concept.  ``WITHOUT TIME ZONE`` is the standard's name for the
+#: un-suffixed type, so it lands on the un-zoned concept.
+_PARSE_VOCABULARY.update({
+    "TIME WITH TIME ZONE": TimeTzType,
+    "TIMESTAMP WITH TIME ZONE": TimestampTzType,
+    "TIME WITHOUT TIME ZONE": TimeType,
+    "TIMESTAMP WITHOUT TIME ZONE": TimestampType,
+})
+
+#: Which constructor keyword each numeric parameter of a type name fills, in
+#: the order the numbers are written.  A concept absent from this table takes no
+#: numbers, so ``INT(11)`` is *not* silently read as ``INT`` — a width the type
+#: cannot carry is not a type name dummy writes, and it is reported as the raw
+#: text instead.
+_PARSE_NUMERIC_PARAMS: Dict[Type, Tuple[str, ...]] = {
+    BinaryType: ("length",),
+    CharType: ("length",),
+    DateTimeType: ("precision",),
+    DecimalType: ("precision", "scale"),
+    FloatType: ("precision",),
+    TimeType: ("precision",),
+    TimeTzType: ("precision",),
+    TimestampType: ("precision",),
+    TimestampTzType: ("precision",),
+    VarBinaryType: ("length",),
+    VarCharType: ("length",),
+}
+
+#: One precision group, digits only, wherever it appears in the name: the
+#: standard writes it before the zone suffix (``TIMESTAMP(3) WITH TIME ZONE``)
+#: as well as at the end (``DECIMAL(10,2)``).
+_PARSE_PRECISION_RE = re.compile(r"\(\s*(\d+(?:\s*,\s*\d+)*)?\s*\)")
+
+#: A trailing array marker, one per dimension.
+_PARSE_ARRAY_MARKER_RE = re.compile(r"\[\s*\]\s*$")
+
+
+def _split_precision(raw: str) -> Tuple[str, Tuple[int, ...]]:
+    """Split ``TIMESTAMP(3) WITH TIME ZONE`` into its name and its numbers.
+
+    Returns the name with the precision group removed and the numbers as ints,
+    in the order they were written.  A name with no precision group comes back
+    unchanged with no numbers.
+    """
+    match = _PARSE_PRECISION_RE.search(raw)
+    if match is None:
+        return raw, ()
+    written = match.group(1) or ""
+    numbers = tuple(int(part) for part in written.split(",")) if written.strip() else ()
+    return (raw[:match.start()] + raw[match.end():]).strip(), numbers
+
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.collation import CollateExpression
@@ -298,6 +395,7 @@ class DummyDialect(
     LateralJoinMixin,
     ArrayMixin,
     JSONMixin,
+    UUIDMixin,
     ExplainMixin,
     MergeMixin,
     TemporalTableMixin,
@@ -332,6 +430,7 @@ class DummyDialect(
     DQLMixin,
     DMLMixin,
     DataTypeMixin,
+    DummyColumnTypeMixin,
     UserDefinedTypeMixin,
     DomainMixin,
     DataTypeSupport,
@@ -354,6 +453,7 @@ class DummyDialect(
     LateralJoinSupport,
     ArraySupport,
     JSONSupport,
+    UUIDSupport,
     ExplainSupport,
     FilterClauseSupport,
     OrderedSetAggregationSupport,
@@ -433,34 +533,87 @@ class DummyDialect(
     # DataType formatters (core types — for to_sql() testing)
     # ------------------------------------------------------------------
 
+    def _refuse_unsigned(self, data_type, word: str) -> None:
+        """Refuse ``unsigned=True``, because the standard grammar dummy renders
+        has no ``UNSIGNED`` attribute.
+
+        Signedness is a **field** on every numeric concept — the four integer
+        widths and the three ``DECIMAL`` / ``FLOAT`` / ``DOUBLE`` concepts — so
+        ``DecimalType(unsigned=True)`` is constructible and the flag reaches the
+        formatter.  Dummy renders the SQL-standard type names, and the standard
+        has no ``UNSIGNED``:
+
+        * MySQL's own manual calls the attribute *nonstandard*: "All integer
+          types can have an optional (nonstandard) UNSIGNED attribute."
+          https://dev.mysql.com/doc/refman/9.7/en/numeric-type-attributes.html
+        * PostgreSQL, which does conform, has nothing to place after a type name:
+          its numeric-types chapter enumerates each integer with one symmetric
+          range and no unsigned variant anywhere in it.
+          https://www.postgresql.org/docs/current/datatype-numeric.html
+
+        So there is not even a spelling that would parse.  Writing bare
+        ``DECIMAL`` or ``INTEGER`` for an unsigned request would create a column
+        that accepts the negatives the caller declared it would not, and report
+        success: the same silent loss as accepting the flag and discarding it,
+        which is what this replaces.
+
+        ``word`` is the concept the caller asked for, so the message can say
+        *which* type was refused.  ``UnsupportedFeatureError``, not
+        ``ValueError``: the declaration is not a wrong value, it is a
+        declaration this grammar cannot express at all, and the two exceptions
+        do not share a base class.
+        """
+        if not getattr(data_type, "unsigned", False):
+            return
+        raise UnsupportedFeatureError(
+            self.name,
+            f"an unsigned {word} column "
+            f"(dummy renders the SQL-standard type names, and the standard has "
+            f"no UNSIGNED attribute to place after a type name; MySQL calls its "
+            f"own UNSIGNED nonstandard, and PostgreSQL's numeric-types chapter "
+            f"lists no unsigned variant)",
+            suggestion=(
+                "Declare the column signed and enforce the range with a CHECK "
+                "constraint if negatives must be rejected."
+            ),
+        )
+
     def supports_data_type_tinyint(self) -> bool:
         return True
 
     def format_data_type_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(data_type, "TINYINT")
         return "TINYINT", ()
 
     def supports_data_type_smallint(self) -> bool:
         return True
 
     def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(data_type, "SMALLINT")
         return "SMALLINT", ()
-
-    def supports_data_type_int(self) -> bool:
-        return True
-
-    def format_data_type_int(self, data_type: IntType) -> Tuple[str, tuple]:
-        return "INT", ()
 
     def supports_data_type_integer(self) -> bool:
         return True
 
     def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
-        return "INTEGER", ()
+        """The dummy dialect renders every spelling of this one type verbatim,
+        which is what makes it useful for testing dispatch.
+
+        ``unsigned`` is refused rather than ignored; see
+        :meth:`_refuse_unsigned`."""
+        if data_type.spelling not in IntegerType.SPELLINGS:
+            raise TypeError(
+                f"{type(self).__name__} cannot render {data_type.spelling!r}; "
+                f"it accepts {', '.join(IntegerType.SPELLINGS)}."
+            )
+        self._refuse_unsigned(data_type, "INTEGER")
+        return "INT" if data_type.spelling == "int" else "INTEGER", ()
 
     def supports_data_type_bigint(self) -> bool:
         return True
 
     def format_data_type_bigint(self, data_type: BigIntType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(data_type, "BIGINT")
         return "BIGINT", ()
 
     def supports_data_type_real(self) -> bool:
@@ -473,6 +626,7 @@ class DummyDialect(
         return True
 
     def format_data_type_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(data_type, "DOUBLE PRECISION")
         return "DOUBLE PRECISION", ()
 
     def supports_data_type_text(self) -> bool:
@@ -511,6 +665,18 @@ class DummyDialect(
     def format_data_type_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
         return "JSONB", ()
 
+    def supports_data_type_xml(self) -> bool:
+        return True
+
+    def format_data_type_xml(self, data_type: XmlType) -> Tuple[str, tuple]:
+        return "XML", ()
+
+    def supports_data_type_uuid(self) -> bool:
+        return True
+
+    def format_data_type_uuid(self, data_type: UUIDType) -> Tuple[str, tuple]:
+        return "UUID", ()
+
     def supports_data_type_char(self) -> bool:
         return True
 
@@ -539,19 +705,23 @@ class DummyDialect(
         return True
 
     def format_data_type_enum(self, data_type: EnumType) -> Tuple[str, tuple]:
-        values = ",".join(f"'{value}'" for value in data_type.values)
-        return f"ENUM({values}), "[: -2] + "" if False else f"ENUM({values})", ()
+        # format_literal rather than an f-string of quotes: it is the dialect's
+        # own escaping, so a value containing a quote survives.
+        values = ",".join(self.format_literal(value) for value in data_type.values)
+        return f"ENUM({values})", ()
 
     def supports_data_type_float(self) -> bool:
         return True
 
     def format_data_type_float(self, data_type: FloatType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(data_type, "FLOAT")
         return (f"FLOAT({data_type.precision})" if data_type.precision is not None else "FLOAT"), ()
 
     def supports_data_type_decimal(self) -> bool:
         return True
 
     def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
+        self._refuse_unsigned(data_type, "DECIMAL")
         if data_type.precision is not None and data_type.scale is not None:
             return f"DECIMAL({data_type.precision},{data_type.scale})", ()
         if data_type.precision is not None:
@@ -609,10 +779,71 @@ class DummyDialect(
         element_sql, _ = self.format_data_type(data_type.element_type)
         return element_sql + "[]" * data_type.dimensions, ()
 
-    def parse_type(self, raw: str) -> CustomType:
-        """Parse a raw SQL type string — dummy dialect always returns CustomType."""
-        from rhosocial.activerecord.backend.expression.types import CustomType
-        return CustomType(raw.strip())
+    def parse_type(self, raw: str) -> DataType:
+        """Parse a SQL type name back into the concept it names.
+
+        Dummy renders SQL-standard type names, so those names are exactly what
+        it can read back, and the answer is **canonical**: one concept in,
+        exactly one class out, carrying the spelling it was written with.
+
+        That last part is what keeps the schema differ honest.
+        ``parse_type("character varying")`` is a ``VarCharType`` — the
+        variable-length concept — and never a ``CharType``: they are different
+        storage, and a parser that conflated them would report a column as
+        changed when nothing about it had.  Conversely ``parse_type("DOUBLE")``
+        and ``parse_type("DOUBLE PRECISION")`` are the *same* class, because
+        they are the same type written two ways.
+
+        A name this dialect does not render comes back as ``CustomType``.  That
+        is the honest answer for a type the framework has no class for, and it
+        is what lets an introspected schema be written back verbatim; it is
+        *not* an answer for a name in the table above, which is why the table
+        is checked against every core ``SPELLINGS`` entry by
+        ``tests/.../dummy2/test_type_spelling_parse.py``.
+        """
+        stripped = raw.strip()
+        if not stripped:
+            return CustomType(self, stripped)
+
+        # Array markers are not part of the element's name: ``VARCHAR(30)[]`` is
+        # one-dimensional and ``VARCHAR(30)[][]`` two.
+        element_name = stripped
+        dimensions = 0
+        while True:
+            marker = _PARSE_ARRAY_MARKER_RE.search(element_name)
+            if marker is None:
+                break
+            element_name = element_name[:marker.start()]
+            dimensions += 1
+
+        name, numbers = _split_precision(element_name)
+        upper = name.upper()
+
+        # ``INTERVAL`` carries a qualifier rather than a name, so it is matched
+        # as a prefix.  IntervalType validates the qualifier itself.
+        if upper == "INTERVAL" or upper.startswith("INTERVAL "):
+            element = IntervalType(
+                self, fields=name[len("INTERVAL"):].strip() or None,
+            )
+        else:
+            concept = _PARSE_VOCABULARY.get(upper)
+            fields = _PARSE_NUMERIC_PARAMS.get(concept, ()) if concept else ()
+            if concept is None or len(numbers) > len(fields):
+                # Either a name dummy does not render, or numbers the concept
+                # cannot carry (``INT(11)``). Both are reported verbatim rather
+                # than guessed at.
+                element = CustomType(self, stripped)
+            else:
+                kwargs = dict(zip(fields, numbers))
+                if concept.SPELLINGS:
+                    kwargs["spelling"] = upper.lower()
+                element = concept(self, **kwargs)
+
+        if not dimensions:
+            return element
+        return ArrayType(
+            self, element_type=element, dimensions=dimensions,
+        )
 
     def supports_type_objects(self) -> bool:
         return True

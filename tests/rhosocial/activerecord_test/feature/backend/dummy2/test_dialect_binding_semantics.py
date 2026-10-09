@@ -192,7 +192,7 @@ class TestDialectOptionsRemoved:
         with pytest.raises(TypeError):
             VarCharType(dummy_dialect, 255, dialect_options={"unsigned": True})
 
-    def test_equality_uses_type_params_only(self, dummy_dialect: DummyDialect):
+    def test_equality_uses_declared_identity_only(self, dummy_dialect: DummyDialect):
         assert VarCharType(dummy_dialect, 255) == VarCharType(dummy_dialect, 255)
         assert VarCharType(dummy_dialect, 255) != VarCharType(dummy_dialect, 10)
 

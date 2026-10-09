@@ -22,7 +22,20 @@ from rhosocial.activerecord.backend.expression.types import (
 )
 ```
 
-These core types are **backend-agnostic** — they define the logical type without specifying exact SQL syntax. When you declare a field as `str`, `int`, or `bool` on a model, the framework maps it to the appropriate core DataType.
+These core types are **backend-agnostic** — they define the logical type without specifying exact SQL syntax.
+
+A plain Python annotation is **not** turned into a core `DataType` for you. Declaring a field as `str`, `int` or `bool` says nothing about the column's SQL type; without an explicit `UseSqlType(...)` the collector's `column_type()` returns `None`, and it is the later dialect consumer that decides what to do about it. To state a type, say so:
+
+```python
+from typing import Annotated
+from rhosocial.activerecord.base import UseSqlType
+from rhosocial.activerecord.backend.expression.types import IntegerType
+
+class Order(ActiveRecord):
+    quantity: Annotated[int, UseSqlType(IntegerType())]
+```
+
+See [DDLSource Declarations](../../../modeling/ddl_source.md) for what the collector does and does not decide.
 
 ### Layer 2: Backend-Specific DataType Subclasses
 

@@ -20,7 +20,17 @@ from .bases import (
     is_sql_query_and_params,
 )
 from .executable import Executable
-from .mixins import AliasableMixin
+from .mixins import (
+    AliasableMixin,
+    ArrayMixin,
+    DateTimeMixin,
+    IntegerValueMixin,
+    JSONAccessorMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
+    TranscendentalMixin,
+    build_json_path,
+)
 from .literals import (
     Identifier,
 )
@@ -32,9 +42,30 @@ from .operators import (
     RawSQLPredicate,
     BinaryArithmeticExpression,
 )
+from .column_types import (
+    ColumnBase,
+    StringColumn,
+    IntegerColumn,
+    NumericColumn,
+    DateTimeColumn,
+    BooleanColumn,
+    BinaryColumn,
+    UUIDColumn,
+    JSONColumn,
+    ArrayColumn,
+    XMLColumn,
+)
+from .uuid import (
+    UUIDGenerationExpression,
+    UUIDConstantExpression,
+    UUIDCastExpression,
+)
 from .core import (
     Column,
     FunctionCall,
+    IntegerValueExpression,
+    StringValueExpression,
+    XMLValueExpression,
     Subquery,
     Literal,
     WildcardExpression,
@@ -90,9 +121,6 @@ from .predicates import (
     IsNullPredicate,
     IsBooleanPredicate,
 )
-from .aggregates import (
-    AggregateFunctionCall,
-)
 from .advanced_functions import (
     CaseExpression,
     ExistsExpression,
@@ -102,8 +130,8 @@ from .advanced_functions import (
     WindowSpecification,
     WindowDefinition,
     WindowClause,
-    WindowFunctionCall,
-    JSONExpression,
+    JSONDocumentExpression,
+    JSONTextExpression,
     JSONPathMode,
     ArrayExpression,
     OrderedSetAggregation,
@@ -422,6 +450,14 @@ __all__ = [
     "Executable",
     # Mixins
     "AliasableMixin",
+    "ArrayMixin",
+    "StringPatternPredicateMixin",
+    "StringValueMixin",
+    "TranscendentalMixin",
+    "IntegerValueMixin",
+    "DateTimeMixin",
+    "JSONAccessorMixin",
+    "build_json_path",
     # Literals
     "Identifier",
     # Operators
@@ -433,9 +469,28 @@ __all__ = [
     "BinaryArithmeticExpression",
     # Core expressions
     "Column",
+    # UUID value expressions
+    "UUIDGenerationExpression",
+    "UUIDConstantExpression",
+    "UUIDCastExpression",
+    # Type-narrowed column expressions
+    "ColumnBase",
+    "StringColumn",
+    "IntegerColumn",
+    "NumericColumn",
+    "DateTimeColumn",
+    "BooleanColumn",
+    "BinaryColumn",
+    "UUIDColumn",
+    "JSONColumn",
+    "ArrayColumn",
+    "XMLColumn",
     "FunctionCall",
     "Subquery",
     "Literal",
+    "StringValueExpression",
+    "IntegerValueExpression",
+    "XMLValueExpression",
     "WildcardExpression",
     "QualifiedIdentifierExpression",
     # Collation expressions
@@ -484,8 +539,7 @@ __all__ = [
     "BetweenPredicate",
     "IsNullPredicate",
     "IsBooleanPredicate",
-    # Aggregates
-    "AggregateFunctionCall",
+    # Aggregates and windows are FunctionCall; see core.
     # Advanced functions
     "CaseExpression",
     "ExistsExpression",
@@ -495,8 +549,8 @@ __all__ = [
     "WindowSpecification",
     "WindowDefinition",
     "WindowClause",
-    "WindowFunctionCall",
-    "JSONExpression",
+    "JSONDocumentExpression",
+    "JSONTextExpression",
     "JSONPathMode",
     "ArrayExpression",
     "OrderedSetAggregation",

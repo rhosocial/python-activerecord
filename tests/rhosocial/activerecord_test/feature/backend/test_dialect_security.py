@@ -126,21 +126,39 @@ def test_column_definition_rejects_string_data_type(dialect):
 
 
 def test_format_cast_expression_valid(dialect):
-    """Test that CAST expression validates target_type."""
+    """A cast renders the type it was handed."""
     from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+    from rhosocial.activerecord.backend.expression.types import IntegerType
 
-    expr = CastExpression(dialect, Column(dialect, "column"), "INTEGER")
+    expr = CastExpression(dialect, Column(dialect, "column"),
+                          IntegerType(dialect))
     sql, params = dialect.format_cast_expression(expr)
     assert "INTEGER" in sql
 
 
 def test_format_cast_expression_rejects_injection(dialect):
-    """Test that malicious target_type is rejected."""
+    """A malicious type name is refused at construction, not at render.
+
+    The type position of a cast cannot take a bound parameter, so nothing can
+    sanitise a string there later. Refusing it where it enters is the only
+    point at which the refusal is still guaranteed.
+    """
     from rhosocial.activerecord.backend.expression.core import CastExpression, Column
 
-    expr = CastExpression(dialect, Column(dialect, "column"), "INTEGER; DROP TABLE users--")
-    with pytest.raises(ValueError, match="Invalid target type"):
-        dialect.format_cast_expression(expr)
+    with pytest.raises(TypeError):
+        CastExpression(dialect, Column(dialect, "column"),
+                       "INTEGER; DROP TABLE users--")
+
+
+def test_custom_type_rejects_injection(dialect):
+    """CustomType is the way through, so it validates what it is given."""
+    from rhosocial.activerecord.backend.expression.types import (
+        CustomType,
+        InvalidTypeNameError,
+    )
+
+    with pytest.raises(InvalidTypeNameError):
+        CustomType(dialect, raw="INTEGER; DROP TABLE users--")
 
 
 def test_trim_direction_validation(dialect):

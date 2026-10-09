@@ -80,7 +80,7 @@ Tuples use `__tuple__` marker:
 | `tuple` | object | Use `__tuple__` marker |
 | `BaseExpression` | object | Use `__expr__` marker |
 | `set` | - | Not supported, convert to list |
-| Other custom objects | - | Must handle in `get_params()` |
+| Other custom objects | object | Via a registered `__value__` codec, or converted in `__init__` |
 
 ## Serialization Flow
 

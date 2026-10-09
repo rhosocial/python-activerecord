@@ -277,8 +277,14 @@ class TestHandleNamedProcedureDryRun:
 class TestHandleNamedProcedureExecute:
     """Tests for handle_named_procedure normal execution."""
 
-    def test_execute_procedure_success(self, mock_dialect):
-        """Test executing a procedure successfully."""
+    def test_execute_procedure_success(self, capsys):
+        """A procedure that does not abort completes and exits 0.
+
+        The complement of test_abort_procedure: that one drives the same path
+        with ``aborted=True`` and asserts SystemExit(1), this one with the
+        default ``aborted=False`` and asserts the success print and that no
+        exit happened at all.
+        """
         provider = ProviderMock()
 
         args = TestCliProcedureArgs.create(
@@ -296,26 +302,32 @@ class TestHandleNamedProcedureExecute:
         mock_result.logs = []
 
         mock_runner = MagicMock()
+        # handle_named_procedure resolves the runner as
+        # ProcedureRunner(name).load(), so the mock has to chain through load
+        # before run() is reachable. Wiring only mock_runner.run leaves the
+        # handler talking to mock_runner.load.return_value.run() -- a fresh
+        # MagicMock whose truthy .aborted makes the handler exit 1.
+        mock_runner.load.return_value = mock_runner
         mock_runner.run.return_value = mock_result
 
         backend = None
-
-        def get_dialect(b):
-            return mock_dialect
 
         with patch(
             "rhosocial.activerecord.backend.named_expression.cli_procedure.ProcedureRunner",
             return_value=mock_runner,
         ):
-            try:
-                handle_named_procedure(
-                    args,
-                    provider,
-                    lambda: backend,
-                    disconnect=lambda: None,
-                )
-            except SystemExit:
-                pass
+            handle_named_procedure(
+                args,
+                provider,
+                lambda: backend,
+                disconnect=lambda: None,
+            )
+
+        mock_runner.run.assert_called_once()
+        # --param KEY=VALUE reaches the runner as a parsed dict, not as the
+        # raw string list argparse produced.
+        assert mock_runner.run.call_args.args[1] == {"name": "World"}
+        assert "[OK] Procedure completed." in capsys.readouterr().out
 
 
 class TestHandleNamedProcedureAbort:
@@ -440,8 +452,16 @@ class TestParseParams:
         assert user_params == {"month": "2026-03", "threshold": "100", "name": "test"}
 
 
-class TestHandleNamedProcedureExecute:  # noqa: F811
-    """Tests for handle_named_procedure execution paths."""
+class TestNamedProcedureCliSurface:
+    """Parser-choice and namespace round-trip checks.
+
+    These were filed under ``TestHandleNamedProcedureExecute``, shadowing the
+    class of that name and so becoming the only tests collected under it. None
+    of them exercise execution: three re-check the ``--transaction`` choices
+    that ``TestTransactionModeChoices`` already covers (differing only in the
+    positional argument argparse ignores), and three assert that
+    ``argparse.Namespace`` hands back the kwargs it was built from.
+    """
 
     def test_parser_transaction_auto(self):
         """Test parser accepts --transaction auto."""

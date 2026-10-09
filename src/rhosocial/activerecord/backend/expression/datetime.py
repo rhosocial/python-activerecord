@@ -5,8 +5,20 @@ import math
 from enum import Enum
 from typing import Any, Dict, TYPE_CHECKING, Union
 
-from .bases import BaseExpression, SQLValueExpression
-from .mixins import AliasableMixin, ArithmeticMixin, ComparisonMixin, StringMixin, TypeCastingMixin
+from .mixins import (
+    AliasableMixin,
+    ComparisonMixin,
+    TypeCastingMixin,
+)
+
+from .advanced_functions import DeclaredValueType
+from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
+from .core import (
+    IntegerValueExpression,
+    IntervalValueExpression,
+    NumericValueExpression,
+    TimestampValueExpression,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -126,17 +138,49 @@ def validate_interval_value(value: Union[int, float]) -> Union[int, float]:
 
 class _TemporalValueExpression(
     AliasableMixin,
-    ArithmeticMixin,
     ComparisonMixin,
-    StringMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
-    pass
+    """Shared base for the temporal operation nodes.
+
+    No ``StringPatternPredicateMixin``: a date, a time, a timestamp and a span
+    are not text, so ``like`` is not an operation any of them offers. The same
+    goes for arithmetic here — these nodes render, they do not compose — so the
+    surface is what every value can do and nothing more.
+
+    Each node below also names the value type it *produces*, by inheriting that
+    type's class alongside this one. Two consequences, both wanted:
+
+    * What the operation yields is readable off the object — ``EXTRACT`` is a
+      :class:`~...expression.core.NumericValueExpression` because it derives
+      from one, not because a tag said so and a tag could disagree with the
+      class it sat on.
+    * The operations follow from it. ``extract("year") + 1`` composes because a
+      number composes, and ``date_trunc`` results can be truncated again because
+      a timestamp is a timestamp.
+
+    Being a value class is not the same as being a *wrapper* of one. The value
+    classes hold a node and delegate rendering to it; these nodes are the nodes,
+    with their own formatters and their own fields, so each carries
+    :class:`~...expression.advanced_functions.DeclaredValueType` to keep the base
+    rendering and each binds its dialect through
+    :meth:`BaseExpression.__init__` rather than through ``super()``.
+    """
 
 
-class ExtractExpression(_TemporalValueExpression):
-    """Represents extraction of a datetime field from an expression."""
+class ExtractExpression(_TemporalValueExpression, DeclaredValueType, NumericValueExpression):
+    """``EXTRACT(field FROM source)`` -- a number.
+
+    Numeric rather than integral because ``EXTRACT(EPOCH FROM ts)`` is
+    fractional. Widening here is deliberate: claiming a whole number would offer
+    ``bit_length`` on a value that may be a million and a half.
+
+    It is a :class:`~...expression.core.NumericValueExpression` because that is
+    what it is, and that is why ``extract("year") + 1`` composes. The class
+    declares the type rather than a tag recording it, so ``isinstance`` answers
+    from the class alone.
+    """
 
     def __init__(
         self,
@@ -145,7 +189,7 @@ class ExtractExpression(_TemporalValueExpression):
         source: BaseExpression,
         alias: str = None,
     ):
-        super().__init__(dialect)
+        BaseExpression.__init__(self, dialect)
         self.field = normalize_datetime_field(field)
         self.source = source
         self.alias = alias
@@ -156,8 +200,14 @@ class ExtractExpression(_TemporalValueExpression):
         return "format_extract_expression"
 
 
-class DatePartExpression(_TemporalValueExpression):
-    """Represents backend-specific date part extraction."""
+class DatePartExpression(_TemporalValueExpression, DeclaredValueType, NumericValueExpression):
+    """The SQL-standard spelling of :class:`ExtractExpression`, and a number too.
+
+    Separate because a backend may render it differently, and because a caller
+    writing standard SQL should say so. Same answer, same class family: some
+    parts of a timestamp are whole numbers, but the unit decides, and a unit
+    this cannot rule out being fractional exists.
+    """
 
     def __init__(
         self,
@@ -166,7 +216,7 @@ class DatePartExpression(_TemporalValueExpression):
         source: BaseExpression,
         alias: str = None,
     ):
-        super().__init__(dialect)
+        BaseExpression.__init__(self, dialect)
         self.field = normalize_datetime_field(field)
         self.source = source
         self.alias = alias
@@ -177,8 +227,13 @@ class DatePartExpression(_TemporalValueExpression):
         return "format_date_part_expression"
 
 
-class DateTruncExpression(_TemporalValueExpression):
-    """Represents truncating a datetime expression to a field."""
+class DateTruncExpression(_TemporalValueExpression, DeclaredValueType, TimestampValueExpression):
+    """Truncating a timestamp to a field gives a timestamp.
+
+    Not an integer: the parts are dropped, not rounded away, so what comes back
+    is still a point in time and can still be compared, truncated again, or
+    added to.
+    """
 
     def __init__(
         self,
@@ -187,7 +242,7 @@ class DateTruncExpression(_TemporalValueExpression):
         source: BaseExpression,
         alias: str = None,
     ):
-        super().__init__(dialect)
+        BaseExpression.__init__(self, dialect)
         self.field = normalize_datetime_field(field)
         self.source = source
         self.alias = alias
@@ -198,8 +253,14 @@ class DateTruncExpression(_TemporalValueExpression):
         return "format_date_trunc_expression"
 
 
-class IntervalExpression(_TemporalValueExpression):
-    """Represents a structured interval value."""
+class IntervalExpression(_TemporalValueExpression, DeclaredValueType, IntervalValueExpression):
+    """A structured interval value -- a span of time, its own type.
+
+    Not a timestamp and not a number: `
+ow() + INTERVAL '1 day'`` is a
+    timestamp, and that is the operation the span exists to take part in. Its
+    own class is what says so, which is why ``date_add`` takes one.
+    """
 
     def __init__(
         self,
@@ -208,7 +269,7 @@ class IntervalExpression(_TemporalValueExpression):
         unit: Union[str, IntervalUnit],
         alias: str = None,
     ):
-        super().__init__(dialect)
+        BaseExpression.__init__(self, dialect)
         self.value = validate_interval_value(value)
         self.unit = normalize_interval_unit(unit)
         self.alias = alias
@@ -219,8 +280,14 @@ class IntervalExpression(_TemporalValueExpression):
         return "format_interval_expression"
 
 
-class DateTimeAddExpression(_TemporalValueExpression):
-    """Represents adding an interval to a datetime expression."""
+class DateTimeAddExpression(_TemporalValueExpression, DeclaredValueType, TimestampValueExpression):
+    """Adding an interval to a timestamp gives a timestamp.
+
+    Shifting time keeps it time. The result is a point in time, not a count of
+    anything, so it takes the same class the operand did -- which is what makes
+    `
+ow().date_add(1, "day").date_trunc("day")`` chain.
+    """
 
     def __init__(
         self,
@@ -229,7 +296,7 @@ class DateTimeAddExpression(_TemporalValueExpression):
         interval: IntervalExpression,
         alias: str = None,
     ):
-        super().__init__(dialect)
+        BaseExpression.__init__(self, dialect)
         self.source = source
         self.interval = interval
         self.alias = alias
@@ -240,8 +307,12 @@ class DateTimeAddExpression(_TemporalValueExpression):
         return "format_datetime_add_expression"
 
 
-class DateTimeSubtractExpression(_TemporalValueExpression):
-    """Represents subtracting an interval from a datetime expression."""
+class DateTimeSubtractExpression(_TemporalValueExpression, DeclaredValueType, TimestampValueExpression):
+    """Subtracting an interval from a timestamp gives a timestamp.
+
+    The mirror of :class:`DateTimeAddExpression`, and the same answer: going back
+    in time leaves you at a point in time.
+    """
 
     def __init__(
         self,
@@ -250,7 +321,7 @@ class DateTimeSubtractExpression(_TemporalValueExpression):
         interval: IntervalExpression,
         alias: str = None,
     ):
-        super().__init__(dialect)
+        BaseExpression.__init__(self, dialect)
         self.source = source
         self.interval = interval
         self.alias = alias
@@ -261,8 +332,16 @@ class DateTimeSubtractExpression(_TemporalValueExpression):
         return "format_datetime_subtract_expression"
 
 
-class DateTimeDiffExpression(_TemporalValueExpression):
-    """Represents the difference between two datetime expressions."""
+class DateTimeDiffExpression(_TemporalValueExpression, DeclaredValueType, IntegerValueExpression):
+    """The difference between two timestamps, counted in whole units.
+
+    This is the one temporal operation that is not a temporal value: `
+ow() -
+    now()`` is a count, not a point in time. Whole rather than fractional
+    because the unit is named -- ``DATEDIFF(day, a, b)`` counts days crossed, so
+    there is nothing here to be half of. The class is what says so, rather than a
+    tag distinguishing it from the operations that stay time.
+    """
 
     def __init__(
         self,
@@ -272,7 +351,7 @@ class DateTimeDiffExpression(_TemporalValueExpression):
         end: BaseExpression,
         alias: str = None,
     ):
-        super().__init__(dialect)
+        BaseExpression.__init__(self, dialect)
         self.unit = normalize_interval_unit(unit)
         self.start = start
         self.end = end

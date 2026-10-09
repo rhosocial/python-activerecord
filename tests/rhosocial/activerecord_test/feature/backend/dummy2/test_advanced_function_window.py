@@ -1,9 +1,11 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_advanced_function_window.py
 import pytest
 
+from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
+    FunctionCall,
     QueryExpression,
     CaseExpression,
     ExistsExpression,
@@ -15,12 +17,12 @@ from rhosocial.activerecord.backend.expression import (
     WindowSpecification,
     WindowDefinition,
     WindowClause,
-    WindowFunctionCall,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_parts import OrderByClause, WhereClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import DecimalType
 
 
 class TestAdvancedFunctionWindow:
@@ -84,7 +86,7 @@ class TestAdvancedFunctionWindow:
         else:
             return
 
-        cast_expr = expr.cast(target_type)
+        cast_expr = expr.cast(CustomType(dummy_dialect, raw=target_type))
         sql, params = cast_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params
@@ -92,7 +94,7 @@ class TestAdvancedFunctionWindow:
     def test_cast_method_on_arithmetic_result(self, dummy_dialect: DummyDialect):
         """Tests cast() method on arithmetic expression result (applied to operand)."""
         col = Column(dummy_dialect, "value")
-        casted = col.cast("DECIMAL(10,2)")
+        casted = col.cast(DecimalType(dummy_dialect, precision=10, scale=2))
         sql, params = casted.to_sql()
         assert sql == 'CAST("value" AS DECIMAL(10,2))'
         assert params == ()
@@ -204,7 +206,7 @@ class TestAdvancedFunctionWindow:
 
     # --- Window Functions ---
     def test_window_function_call_inline_spec(self, dummy_dialect: DummyDialect):
-        """Tests WindowFunctionCall with inline window specification."""
+        """Tests FunctionCall with inline window specification."""
         # Create a window specification
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 
@@ -215,8 +217,8 @@ class TestAdvancedFunctionWindow:
         )
 
         # Create the window function call
-        window_func = WindowFunctionCall(
-            dummy_dialect, function_name="ROW_NUMBER", window_spec=window_spec, alias="row_num"
+        window_func = FunctionCall(
+            dummy_dialect, "ROW_NUMBER", window_spec=window_spec, alias="row_num"
         )
 
         sql, params = window_func.to_sql()
@@ -225,7 +227,7 @@ class TestAdvancedFunctionWindow:
         assert params == ()
 
     def test_window_function_call_with_frame_specification(self, dummy_dialect: DummyDialect):
-        """Tests WindowFunctionCall with frame specification."""
+        """Tests FunctionCall with frame specification."""
         # Create a frame specification
         frame_spec = WindowFrameSpecification(
             dummy_dialect, frame_type="ROWS", start_frame="UNBOUNDED PRECEDING", end_frame="CURRENT ROW"
@@ -242,10 +244,10 @@ class TestAdvancedFunctionWindow:
         )
 
         # Create a window function call
-        window_func = WindowFunctionCall(
+        window_func = FunctionCall(
             dummy_dialect,
-            function_name="SUM",
-            args=[Column(dummy_dialect, "amount")],
+            "SUM",
+            Column(dummy_dialect, "amount"),
             window_spec=window_spec,
             alias="running_total",
         )
@@ -256,12 +258,12 @@ class TestAdvancedFunctionWindow:
         assert params == ()
 
     def test_window_function_call_with_named_window_reference(self, dummy_dialect: DummyDialect):
-        """Tests WindowFunctionCall with reference to named window."""
+        """Tests FunctionCall with reference to named window."""
         # Create a window function that references a named window (this would be used in a query
         # where the WINDOW clause defines the named window)
-        window_func = WindowFunctionCall(
+        window_func = FunctionCall(
             dummy_dialect,
-            function_name="RANK",
+            "RANK",
             window_spec="sales_window",  # Reference to named window
             alias="sales_rank",
         )
@@ -310,7 +312,7 @@ class TestAdvancedFunctionWindow:
             select=[
                 Column(dummy_dialect, "employee_name"),
                 # In a real query, these would reference the named windows
-                WindowFunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking"),
+                FunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking"),
             ],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "employees")),
             # Note: The WindowClause would need to be integrated into QueryExpression to be fully functional
@@ -324,34 +326,57 @@ class TestAdvancedFunctionWindow:
         )
         assert window_params == ()
 
-    def test_window_function_call_with_literal_args(self, dummy_dialect: DummyDialect):
-        """Tests a window function call with literal arguments (covering the else branch for non-BaseExpression args)."""  # noqa: E501
-        from rhosocial.activerecord.backend.expression import WindowSpecification, WindowFunctionCall, Column
+    def test_window_function_call_refuses_a_value_that_is_not_an_expression(
+        self, dummy_dialect: DummyDialect
+    ):
+        """The renderer does not decide what an argument meant.
 
-        # Test with literal arguments that are not BaseExpression instances
-        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
-
+        A bare value used to be turned into a bind parameter at render time,
+        which is the formatter manufacturing the expression it was asked to
+        render. Whether ``"test"`` is a value or a column name is the factory's
+        question, so the formatter refuses and the caller writes ``Literal``.
+        """
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
             order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")]),
         )
-        # Pass literal values directly (not as BaseExpression objects) to trigger the else branch
-        window_func = WindowFunctionCall(
+        window_func = FunctionCall(
             dummy_dialect,
-            function_name="RANK",
-            args=[1, "test", 3.14],  # Literal values, not BaseExpression instances
+            "RANK",
+            1,
+            "test",
+            3.14,  # Literal values, not BaseExpression instances
+            window_spec=window_spec,
+            alias="rank_val",
+        )
+
+        with pytest.raises(AttributeError):
+            window_func.to_sql()
+
+    def test_window_function_call_takes_literal_expressions(self, dummy_dialect: DummyDialect):
+        """Literal arguments render as bind parameters and keep the window clause."""
+        window_spec = WindowSpecification(
+            dummy_dialect,
+            partition_by=[Column(dummy_dialect, "department")],
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")]),
+        )
+        window_func = FunctionCall(
+            dummy_dialect,
+            "RANK",
+            Literal(dummy_dialect, 1),
+            Literal(dummy_dialect, "test"),
+            Literal(dummy_dialect, 3.14),
             window_spec=window_spec,
             alias="rank_val",
         )
 
         sql, params = window_func.to_sql()
-        # Should have placeholders for literal args
         assert "RANK(?, ?, ?)" in sql
         assert "OVER" in sql
         assert "PARTITION BY" in sql
         assert "ORDER BY" in sql
-        assert params == (1, "test", 3.14)  # Should have the literal values as params
+        assert params == (1, "test", 3.14)
 
     def test_window_clause_with_empty_definitions_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that WindowClause with empty definitions raises ValueError."""

@@ -13,7 +13,6 @@ Covers:
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.expression.core import (
     Column,
     FunctionCall,
@@ -175,7 +174,19 @@ class TestReturningUnsupportedFeatures:
     def test_aggregate_rejected(self):
         dialect = DummyDialect()
         clause = ReturningClause(
-            dialect, expressions=[AggregateFunctionCall(dialect, "COUNT", Column(dialect, "id"))]
+            dialect, expressions=[FunctionCall(dialect, "COUNT", Column(dialect, "id"), is_aggregate=True)]
+        )
+        with pytest.raises(UnsupportedFeatureError, match="aggregate/subquery in RETURNING"):
+            dialect.format_returning_clause(clause)
+
+    def test_typed_aggregate_rejected(self):
+        """The factory returns a typed wrapper; it forwards ``is_aggregate``
+        to the node it holds, so the RETURNING check must read through it."""
+        from rhosocial.activerecord.backend.expression import count
+
+        dialect = DummyDialect()
+        clause = ReturningClause(
+            dialect, expressions=[count(dialect, Column(dialect, "id"))]
         )
         with pytest.raises(UnsupportedFeatureError, match="aggregate/subquery in RETURNING"):
             dialect.format_returning_clause(clause)

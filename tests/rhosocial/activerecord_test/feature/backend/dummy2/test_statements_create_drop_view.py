@@ -411,7 +411,7 @@ class TestCreateDropViewStatements:
 
     def test_create_view_with_window_function(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with a query that includes window functions."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification, WindowFunctionCall
+        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
 
         # Create a window specification
         window_spec = WindowSpecification(
@@ -421,8 +421,8 @@ class TestCreateDropViewStatements:
         )
 
         # Create a window function call
-        rank_func = WindowFunctionCall(
-            dummy_dialect, function_name="ROW_NUMBER", window_spec=window_spec, alias="rank_in_dept"
+        rank_func = FunctionCall(
+            dummy_dialect, "ROW_NUMBER", window_spec=window_spec, alias="rank_in_dept"
         )
 
         query = QueryExpression(

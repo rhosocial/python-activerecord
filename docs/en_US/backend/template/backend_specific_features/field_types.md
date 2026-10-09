@@ -4,7 +4,7 @@
 
 rhosocial-activerecord's type system has two layers:
 
-1. **Core DataType hierarchy** — Generic type classes (`IntegerType`, `VarCharType`, `BooleanType`, etc.) in `rhosocial.activerecord.backend.expression.types` define common behavior. When you declare a field as `str`, `int`, or `bool` on a model, the framework maps it to the appropriate core DataType.
+1. **Core DataType hierarchy** — Generic type classes (`IntegerType`, `VarCharType`, `BooleanType`, etc.) in `rhosocial.activerecord.backend.expression.types` define common behavior. A field's Python annotation does **not** select one for you: without an explicit `UseSqlType(...)`, `column_type()` returns `None` and nothing is inferred. The "Python Type" column below is the type you would annotate a field with, not a mapping the framework performs.
 
 2. **Backend-specific DataType subclasses** — Each backend extends core types with database-specific behavior. For example, `MySQLIntType` adds AUTO_INCREMENT support, and `PostgresUUIDType` maps to PostgreSQL's native UUID type. Backend types are in `rhosocial.activerecord.backend.impl.{backend}.expression.types`.
 
@@ -90,7 +90,7 @@ email_type = VarCharType()
 | `DateTimeType` | `datetime` | `precision: Optional[int]` | Date + time (MySQL/SQLite) |
 | `TimestampType` | `datetime` | `precision: Optional[int]` | Timestamp (SQL standard) |
 | `TimestampTzType` | `datetime` | `precision: Optional[int]` | Timestamp with timezone |
-| `IntervalType` | — | `fields: Optional[str]` | Time span (e.g., `'YEAR'`, `'DAY TO SECOND'`) |
+| `IntervalType` | — | `fields: Optional[IntervalQualifier]` | Time span; `fields` is the resolution, from a closed vocabulary |
 
 The `precision` parameter on time types controls sub-second precision (0-9 digits):
 
@@ -106,6 +106,31 @@ ts_type = TimestampType(precision=0)
 
 # TIMESTAMP(6) — microsecond precision
 ts_micro_type = TimestampType(precision=6)
+```
+
+`IntervalType.fields` is a **closed vocabulary**, not a free string, because it
+reaches DDL in a position that cannot take a bound parameter:
+
+```python
+from rhosocial.activerecord.backend.expression.types import (
+    INTERVAL_QUALIFIERS,
+    IntervalQualifier,
+    IntervalType,
+)
+
+# The thirteen SQL:2016 qualifiers: one field, or one field TO a later one,
+# each optionally with a leading precision.
+IntervalType(dialect, fields="YEAR TO MONTH")      # INTERVAL YEAR TO MONTH
+IntervalType(dialect, fields="DAY(2) TO SECOND(6)")  # INTERVAL DAY(2) TO SECOND(6)
+IntervalType(dialect)                              # unqualified INTERVAL
+
+# Anything else is refused, and the message names both the value and the set.
+IntervalType(dialect, fields="DAY TO SECOND); DROP TABLE t--")
+# InvalidIntervalQualifierError: 'DAY TO SECOND); DROP TABLE t--' is not a SQL
+# interval qualifier. ... DAY TO SECOND, DAY TO HOUR, ...
+
+# ``fields`` holds an IntervalQualifier, a ``str``, so it still renders as itself.
+isinstance(IntervalQualifier("YEAR TO MONTH"), str)  # True
 ```
 
 ### Binary Types

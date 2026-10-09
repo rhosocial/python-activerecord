@@ -4,20 +4,28 @@
 
 ## 概述
 
-`functions` 模块提供了简化 SQL 函数调用创建的工厂函数。您可以使用这些助手函数来代替手动实例化 `FunctionCall` 或 `AggregateFunctionCall` 对象，它们处理类型转换并提供更符合 Python 习惯的接口。
+`functions` 模块提供了简化 SQL 函数调用创建的工厂函数。您可以使用这些助手函数来代替手动实例化 `FunctionCall` 对象，它们处理类型转换并提供更符合 Python 习惯的接口。
 
 ## 聚合函数 (Aggregate Functions)
 
-### AggregateFunctionCall
+### FunctionCall（聚合用法）
 
-表示 SQL 聚合函数调用。支持 `FILTER` (WHERE) 子句。
+聚合调用就是 `FunctionCall`；聚合工厂会在构造时设置其 `is_aggregate` 事实。它支持 `FILTER` (WHERE) 子句和 `OVER (...)` 窗口子句。
 
 ```python
-class AggregateFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args, is_distinct: bool = False, alias: Optional[str] = None): ...
+class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringPatternPredicateMixin, mixins.TypeCastingMixin, mixins.ResultTypeMixin, bases.SQLValueExpression):
+    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args,
+                 is_distinct: bool = False, alias: Optional[str] = None,
+                 niladic: bool = False, filter_predicate: "SQLPredicate" = None,
+                 window_spec: Union["WindowSpecification", str] = None,
+                 is_aggregate: bool = False): ...
 
-    def filter(self, predicate: "SQLPredicate") -> 'AggregateFunctionCall':
+    def filter(self, predicate: "SQLPredicate") -> 'FunctionCall':
         """应用 FILTER (WHERE ...) 子句到聚合表达式。"""
+        ...
+
+    def over(self, window_spec: Union["WindowSpecification", str]) -> 'FunctionCall':
+        """为调用附加 OVER (...) 子句。"""
         ...
 ```
 
@@ -47,7 +55,7 @@ sql, params = high_value_sum.to_sql()
 创建 `COUNT` 聚合函数调用。
 
 ```python
-def count(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"] = "*", is_distinct: bool = False, alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall": ...
+def count(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"] = "*", is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 **使用规则:**
@@ -75,7 +83,7 @@ sql, params = c2.to_sql()
 创建 `SUM` 聚合函数调用。注意尾随下划线以避免与 Python 内置的 `sum` 冲突。
 
 ```python
-def sum_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall": ...
+def sum_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 **示例:**
@@ -91,7 +99,7 @@ sql, params = s.to_sql()
 创建 `AVG` 聚合函数调用。
 
 ```python
-def avg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall": ...
+def avg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 **示例:**
@@ -107,7 +115,7 @@ sql, params = a.to_sql()
 创建 `MIN` 聚合函数调用。注意尾随下划线。
 
 ```python
-def min_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall": ...
+def min_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 **示例:**
@@ -123,7 +131,7 @@ sql, params = m.to_sql()
 创建 `MAX` 聚合函数调用。注意尾随下划线。
 
 ```python
-def max_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall": ...
+def max_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 **示例:**
@@ -713,7 +721,7 @@ sql, params = l.to_sql()
 创建 `ROW_NUMBER` 窗口函数调用。
 
 ```python
-def row_number(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "advanced_functions.WindowFunctionCall": ...
+def row_number(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 **示例:**
@@ -729,8 +737,8 @@ sql, params = r.to_sql()
 创建 `RANK` 和 `DENSE_RANK` 窗口函数调用。
 
 ```python
-def rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "advanced_functions.WindowFunctionCall": ...
-def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "advanced_functions.WindowFunctionCall": ...
+def rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.FunctionCall": ...
+def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 ### lag, lead
@@ -738,8 +746,8 @@ def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "advan
 创建 `LAG` 和 `LEAD` 窗口函数调用。
 
 ```python
-def lag(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], offset: Optional[int] = 1, default: Optional[Union[str, "bases.BaseExpression"]] = None, alias: Optional[str] = None) -> "advanced_functions.WindowFunctionCall": ...
-def lead(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], offset: Optional[int] = 1, default: Optional[Union[str, "bases.BaseExpression"]] = None, alias: Optional[str] = None) -> "advanced_functions.WindowFunctionCall": ...
+def lag(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], offset: Optional[int] = 1, default: Optional[Union[str, "bases.BaseExpression"]] = None, alias: Optional[str] = None) -> "core.FunctionCall": ...
+def lead(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], offset: Optional[int] = 1, default: Optional[Union[str, "bases.BaseExpression"]] = None, alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 ### first_value, last_value, nth_value
@@ -747,9 +755,9 @@ def lead(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], of
 创建值窗口函数调用。
 
 ```python
-def first_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "advanced_functions.WindowFunctionCall": ...
-def last_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "advanced_functions.WindowFunctionCall": ...
-def nth_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], n: int, alias: Optional[str] = None) -> "advanced_functions.WindowFunctionCall": ...
+def first_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
+def last_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], alias: Optional[str] = None) -> "core.FunctionCall": ...
+def nth_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], n: int, alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 ## JSON 函数 (JSON Functions)
@@ -791,8 +799,8 @@ def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseE
 创建 JSON 聚合函数调用。
 
 ```python
-def json_objectagg(dialect: "SQLDialectBase", key_expr: Union[str, "bases.BaseExpression"], value_expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall": ...
-def json_arrayagg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall": ...
+def json_objectagg(dialect: "SQLDialectBase", key_expr: Union[str, "bases.BaseExpression"], value_expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
+def json_arrayagg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 ## 数组函数 (Array Functions)
@@ -802,7 +810,7 @@ def json_arrayagg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpress
 创建 `ARRAY_AGG` 聚合函数调用。
 
 ```python
-def array_agg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall": ...
+def array_agg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], is_distinct: bool = False, alias: Optional[str] = None) -> "core.FunctionCall": ...
 ```
 
 ### unnest

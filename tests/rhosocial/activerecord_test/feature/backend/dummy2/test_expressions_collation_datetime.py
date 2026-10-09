@@ -15,6 +15,7 @@ from enum import Enum
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
+    Literal,
     Column,
     DateTimeAddExpression,
     DateTimeDiffExpression,
@@ -38,6 +39,7 @@ from rhosocial.activerecord.backend.expression.datetime import (
     validate_interval_value,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import TextType
 
 
 class DummyCollation(Enum):
@@ -78,7 +80,7 @@ class TestCollateExpression:
         assert params == ()
 
     def test_collate_with_cast(self, dialect):
-        expr = Column(dialect, "name").collate("NOCASE").cast("TEXT")
+        expr = Column(dialect, "name").collate("NOCASE").cast(TextType(dialect))
         sql, params = expr.to_sql()
         assert "COLLATE NOCASE" in sql
         assert params == ()
@@ -120,7 +122,7 @@ class TestExtractDatePartDateTrunc:
         assert params == ()
 
     def test_extract_factory_with_column_name(self, dialect):
-        expr = extract(dialect, "year", "created_at")
+        expr = extract(dialect, "year", Column(dialect, "created_at"))
         assert isinstance(expr, ExtractExpression)
         sql, params = expr.to_sql()
         assert sql == 'EXTRACT(YEAR FROM "created_at")'
@@ -169,7 +171,7 @@ class TestIntervalAndDateTimeArithmetic:
         assert params == ()
 
     def test_date_add_factory_numeric(self, dialect):
-        expr = date_add(dialect, "created_at", 1, "day")
+        expr = date_add(dialect, Column(dialect, "created_at"), 1, "day")
         assert isinstance(expr, DateTimeAddExpression)
         sql, params = expr.to_sql()
         assert sql == '"created_at" + INTERVAL \'1\' DAY'
@@ -181,7 +183,7 @@ class TestIntervalAndDateTimeArithmetic:
         assert isinstance(expr, DateTimeAddExpression)
 
     def test_date_sub_factory_numeric(self, dialect):
-        expr = date_sub(dialect, "created_at", 1, "day")
+        expr = date_sub(dialect, Column(dialect, "created_at"), 1, "day")
         assert isinstance(expr, DateTimeSubtractExpression)
         sql, params = expr.to_sql()
         assert sql == '"created_at" - INTERVAL \'1\' DAY'
@@ -194,14 +196,14 @@ class TestIntervalAndDateTimeArithmetic:
 
     def test_ensure_interval_unit_conflict(self, dialect):
         with pytest.raises(ValueError):
-            date_add(dialect, "created_at", IntervalExpression(dialect, 1, IntervalUnit.DAY), "day")
+            date_add(dialect, Column(dialect, "created_at"), IntervalExpression(dialect, 1, IntervalUnit.DAY), "day")
 
     def test_ensure_interval_missing_unit(self, dialect):
         with pytest.raises(ValueError):
-            date_add(dialect, "created_at", 1)
+            date_add(dialect, Column(dialect, "created_at"), 1)
 
     def test_date_diff_factory_constructs(self, dialect):
-        expr = date_diff(dialect, "day", "created_at", "updated_at")
+        expr = date_diff(dialect, "day", "created_at", Literal(dialect, "updated_at"))
         assert isinstance(expr, DateTimeDiffExpression)
 
     def test_date_diff_to_sql_unsupported(self, dialect):

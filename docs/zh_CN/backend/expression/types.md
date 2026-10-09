@@ -54,7 +54,7 @@ class Product(ActiveRecord):
 
 ## 值对象语义
 
-`DataType` 实例是**值对象**：同一类的两个实例只要逻辑参数相同就**相等且哈希相同**，与是否携带方言引用无关。相等性比较类型的逻辑参数（`_type_params()`）加上 `dialect_options`；哈希只覆盖类型标识与类型参数。绑定的方言对二者都不产生影响——绑定（或重新绑定）方言绝不会改变 `==` 与 `hash` 的结果。
+`DataType` 实例是**值对象**：同一类的两个实例只要逻辑参数相同就**相等且哈希相同**，与是否携带方言引用无关。相等性比较类型**声明过的身份**——即类常量 `PARAMETERS` 里列出的那些属性；哈希覆盖类型的类本身加上同一组属性。绑定的方言对二者都不产生影响——绑定（或重新绑定）方言绝不会改变 `==` 与 `hash` 的结果。
 
 ```python
 a = IntegerType()
@@ -63,23 +63,56 @@ assert a == b          # 值对象：相等（忽略方言）
 assert hash(a) == hash(b)
 ```
 
-`dialect_options` 是随类型实例携带、由后端格式化器消费的**后端专属特殊参数**字典（如 `{'unsigned': True}`、字符集、长度语义等）。它参与**相等性**比较，但刻意**不参与**哈希——可变的选项映射因此不会破坏哈希。
+数据类型的**类上并不存在**所谓的"后端专属选项字典"。后端在该概念自身参数之外需要的一切，都是类上**声明过的字段**——`CharType.length`、`DecimalType.precision`/`scale`、`EnumType.values`、`ArrayType.element_type`/`dimensions`，以及四个整数类上的 `unsigned: bool`——它们都列在该类的 `PARAMETERS` 里，因而同时参与 `==` 与 `hash`。
+
+## 拼写 (Spellings)
+
+有些概念存在不止一种合法写法。这些是**同一个类的拼写**，不是各自的类：该类带一个封闭的 `SPELLINGS` 元组与 `spelling` 关键字参数，其中**第一项**是默认值。
+
+```python
+IntegerType()                          # 拼写 "integer"
+IntegerType(spelling="int")            # 同一个类，另一个词
+assert IntegerType() != IntegerType(spelling="int")   # 两种不同的声明
+```
+
+为什么是一个类而不是两个：`INT` 与 `INTEGER` 是同一个类型，所以需要判断"这是不是整数列"的代码不该去枚举拼写，schema diff 也不该把两者报成差异。
+
+**为什么拼写不参与 `==`。** 看似站得住的说法是：拼写属于当初声明的内容，所以它有差别就该报出来。但 schema diff 比较的**不是两份 DDL 脚本**，而是**数据库现在报什么** 对 **当初声明了什么**；而无论你当初写的是哪个词，数据库都只报它自己那一个词。PostgreSQL 对每一个 `varchar(30)` 列都报 `character varying(30)`，SQL Server 对声明为 `NUMERIC` 的列也报 `DECIMAL`。把拼写算进身份，就会在**唯一必须判对的那次比较**上，为每一个这类列报出一个根本没发生过的变更。
+
+拼写的差异并没有丢：它仍然进渲染 SQL——差别真正存在且看得见的地方就是那里：
+
+```python
+IntegerType()                        # 渲染为 INTEGER
+IntegerType(spelling="int")          # 渲染为 INT
+```
+
+它也仍然通过 `get_params()` 完成序列化往返，因为序列化问的是另一个问题——不是"这个值是什么"，而是"重建这个对象需要什么"——答案是构造签名。`get_params()` 是所有表达式唯一的序列化路径，任何类都不得覆写它。
+
+某个**具体后端**接受哪些拼写是后端自己的事，并在后端的 formatter 里检查：不写 `CLOB` 的方言会抛错，而不是把调用方要求的 `CLOB` 悄悄改写成 `TEXT`。默认拼写始终可渲染——后端可以把它归一化成自己的写法，但绝不拒绝它。
 
 ## 通用类型 (Core Types)
 
-通用类型定义在 `rhosocial.activerecord.backend.expression.types`，覆盖绝大多数数据库共有的 SQL 类型：
+通用类型定义在 `rhosocial.activerecord.backend.expression.types`，覆盖绝大多数数据库共有的 SQL 类型。有多种拼写的概念列出拼写；只有一种拼写的概念**根本没有** `spelling` 参数。
 
-| 分类 | 类型类 |
-|------|--------|
-| 整数 | `TinyIntType`、`SmallIntType`、`IntType`、`IntegerType`、`BigIntType` |
-| 数值 | `FloatType`、`RealType`、`DoubleType`、`DecimalType` |
-| 字符串 | `CharType`、`VarCharType`、`TextType` |
-| 布尔 | `BooleanType` |
-| 二进制 | `BlobType`、`BinaryType`、`VarBinaryType` |
-| 枚举 | `EnumType`（values 必填） |
-| 日期时间 | `DateType`、`TimeType`、`TimeTzType`、`DateTimeType`、`TimestampType`、`TimestampTzType`、`IntervalType` |
-| JSON | `JsonType`、`JsonBType` |
-| 网络 | `InetType`、`CidrType`、`MacAddrType` |
+| 分类 | 类型类 | 拼写 |
+|------|--------|------|
+| 整数 | `TinyIntType`、`SmallIntType`、`IntegerType`、`BigIntType` | `tinyint`/`int1`、`smallint`/`int2`、`integer`/`int`、`bigint`/`int8` |
+| 数值 | `FloatType`、`RealType`、`DoubleType`、`DecimalType` | `double`/`double precision`、—、—、`decimal`/`numeric`/`dec` |
+| 字符串 | `CharType`、`VarCharType`、`TextType` | `char`/`character`、`varchar`/`character varying`、`text`/`clob` |
+| 布尔 | `BooleanType` | `boolean`/`bool` |
+| 二进制 | `BlobType`、`BinaryType`、`VarBinaryType` | `blob`/`bytea`、—、— |
+| 枚举 | `EnumType`（values 必填） | — |
+| 日期时间 | `DateType`、`TimeType`、`TimeTzType`、`DateTimeType`、`TimestampType`、`TimestampTzType`、`IntervalType` | — |
+| JSON | `JsonType`、`JsonBType`、`XmlType` | — |
+| UUID | `UUIDType` | — |
+| 数组 | `ArrayType` | — |
+| 自定义 | `CustomType` | — |
+
+`TinyIntType`、`SmallIntType`、`IntegerType`、`BigIntType` 各自接受 `unsigned: bool`。有符号与无符号是**同一个类**——范围由参数携带——原因有二：线性的继承链装不下（宽度 × 符号性）这张网格；而且没有无符号整数的后端会选择加宽，而不是凭空造一个类。
+
+`RealType`、`DoubleType`、`FloatType` 刻意是三个类：它们的取值范围与存储都不同，schema diff 必须看出这个差别；`DateTimeType` 与 `TimestampType` 同理。`JsonType` 与 `XmlType` 分开，是因为 SQL/JSON 与 SQL/XML 的操作集不同、标准不同，实现了其中一个的后端并不都实现另一个。
+
+通用类型可以不带方言构造（延迟绑定），但绑定之前无法渲染。
 | UUID | `UUIDType` |
 | 数组 | `ArrayType` |
 | 自定义 | `CustomType` |
@@ -92,11 +125,13 @@ assert hash(a) == hash(b)
 
 | 后端 | 示例 |
 |------|------|
-| SQLite | `SQLiteIntegerType(IntegerType)`、`SQLiteTextType(TextType)`、`SQLiteBlobType(BlobType)` |
-| MySQL | `MySQLIntType(IntegerType)`、`MySQLTinyIntType(TinyIntType)`、`MySQLEnumType(DataType)`、`MySQLSetType(DataType)`、`MySQLGeometryType(DataType)` |
-| PostgreSQL | `PostgresSerialType(DataType)`、`PostgresUUIDType(DataType)`、`PostgresTSVectorType(DataType)`、`PostgresJsonPathType(DataType)` |
+| SQLite | `SQLiteIntegerType(IntegerType)`、`SQLiteTextType(TextType)`、`SQLiteBlobType(BlobType)`、`SQLiteNumericType(DataType)` |
+| MySQL | `MySQLIntType(IntegerType)`、`MySQLTinyIntType(TinyIntType)`、`MySQLEnumType(EnumType)`、`MySQLSetType(DataType)`、`MySQLGeometryType(DataType)` |
+| PostgreSQL | `PostgresSerialType(IntegerType)`、`PostgresUUIDType(UUIDType)`、`PostgresXMLType(XmlType)`、`PostgresTSVectorType(DataType)`、`PostgresJsonPathType(DataType)` |
 
-后端特定类型通常继承对应的通用类型，仅当该类型是后端独有时（如 MySQL `ENUM`、PostgreSQL `SERIAL`）才直接继承 `DataType`。
+只要存在对应的通用概念，后端类型就**继承该概念的核心类型**——正是这一点让 `isinstance(col.data_type, IntegerType)` 对 PostgreSQL 的 `SERIAL` 列为真，而不必让每个调用方都记住各后端的私有类名。只有当概念确实是后端专属时才直接继承 `DataType`，此时 docstring 必须写清**为什么**没有对应的核心概念。
+
+继承表达的是**同一性**——"这个类**就是**那个 SQL 类型"。它不用于把类型归入族系：SQL 的类型*分类*（数值、字符串、日期时间）是归属关系而非子类型关系，本框架没有任何地方会问"这是不是数值类型"。继承链是线性的：没有多继承，没有菱形边。
 
 每个后端定义的类型都声明**带命名空间前缀的通用类型名**——以后端标识作为前缀（如 `SQLiteIntegerType.name == "sqlite_integer"`）。该前缀在类定义时（`__init_subclass__`）被强制校验：定义在核心 types 包之外、名称缺少后端前缀的类型会被直接拒绝，从而保证不同后端的分发键互不冲突。
 
@@ -172,14 +207,28 @@ class Product(ActiveRecord):
 
 方言实现 `parse_type(raw)`（`DataTypeSupport` 协议）时，可将数据库返回的原始类型字符串解析回 `DataType` 对象，用于 schema 内省与比对。未实现该接口的方言回退为 `CustomType(raw=raw)`。旧名 `DDLTypeSupport` / `DDLTypeMixin` 仅作为对应新名的 deprecated 兼容别名保留。
 
-## 等价性与同义词
+`parse_type` 的结果必须是**规范**的，其两半都由 `tests/.../dummy2/test_type_spelling_parse.py` 强制：
 
-`synonyms()` 与 `is_equivalent()` 仅用于**方言内**的 schema 比较归一化（例如 SQLite 的亲和性折叠），**绝不**注册跨方言等价关系——渲染保持严格忠实，方言差异必须显式存在。
+- **覆盖** —— 核心 `SPELLINGS` 中的每一个拼写都必须解析成某个类型。`CustomType` 只对框架根本没有概念的名字才是诚实答案；若用在 `INT1`、`CHARACTER`、`DEC`、`BOOL` 上，就会把框架自己声明的类型报成厂商类型，并把原文写回 DDL。
+- **一个概念进、一个类出** —— 同一概念的所有拼写解析到同一个类，且 `character varying`（变长）绝不解析到定长的 `CharType`。每个同义词一个类正是 `spelling` 参数要消除的东西，而把两者混为一谈的解析器会报出并不存在的 schema 变更。
+
+解析成哪个类由方言决定，而不是由拼写决定：存储层无法区分两个概念的后端，可以用代表该共享存储的类作答。core 内的例子就是 SQLite —— `TINYINT` 与 `BIGINT` 同属 INTEGER affinity 这一格，把它们区分开来反而会报出数据库本身并不做的区分。
+
+## 比较两个声明
+
+`==` 就是全部。两份声明是同一个类型，当且仅当它们是同一个类且逻辑内容相同 —— 这正是值对象的 `==` 已经表达的含义。
 
 ```python
-# 仅在同一后端的 schema 比对场景使用
-if type_a.is_equivalent(type_b):
-    ...
+if old_type != new_type:
+    ...   # schema 确实变了
+```
+
+不存在更宽松的"它们等价吗"这个问题，而且这是刻意的。原来的 `synonyms()` / `is_equivalent()` 一对机制存在的目的，是为**同义词类**兜底；而同义词现在由 `spelling` 参数表达，两个拼写就是同一个类，于是等价表已经没有工作可做了。在 9 个方言 × 11 组同义词（共 99 次比较）上实测，`is_equivalent()` 与 `==` 从未出现分歧 —— 它是一个不再承担任何职责的机制。
+
+`==` 确实回答不了的一个问题是"这个数组列存的东西和那个是不是同一种"，而这个答案**应当**忽略数组有几个维度。那是另一个问题，有它自己的名字：`is_element_type_equivalent`。
+
+```python
+two_d.is_element_type_equivalent(one_d)   # True —— 两者存的都是整数
 ```
 
 ## 相关文档

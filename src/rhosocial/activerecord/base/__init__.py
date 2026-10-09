@@ -19,6 +19,8 @@ from .fields import (
     UseGeneratedColumn,
     UseIndex,
     UseSqlType,
+    UseColumnType,
+    declared_column_type,
 )
 from .ddl import (
     CharacterSetAttribute,
@@ -57,6 +59,8 @@ __all__ = [
     "UseGeneratedColumn",
     "UseIndex",
     "UseSqlType",
+    "UseColumnType",
+    "declared_column_type",
     "DerivedField",
     "CharacterSetAttribute",
     "CollationAttribute",

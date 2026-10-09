@@ -11,13 +11,17 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    JSONExpression,
+    JSONDocumentExpression,
     ArrayExpression,
     OrderedSetAggregation,
 )
-from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import (
+    CustomType,
+    DecimalType,
+    TextType,
+)
 
 
 class TestAliasableMixin:
@@ -72,16 +76,20 @@ class TestAliasableMixin:
         assert params == ()
 
     def test_aggregate_function_call_alias_initialization(self, dummy_dialect: DummyDialect):
-        """Test AggregateFunctionCall with alias specified during initialization."""
-        agg = AggregateFunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "*"), alias="total_count")
+        """Test FunctionCall (aggregate) with alias specified during initialization."""
+        agg = FunctionCall(
+            dummy_dialect, "COUNT", Column(dummy_dialect, "*"), alias="total_count", is_aggregate=True
+        )
         assert agg.alias == "total_count"
         sql, params = agg.to_sql()
         assert sql == 'COUNT("*") AS "total_count"'
         assert params == ()
 
     def test_aggregate_function_call_alias_with_as_method(self, dummy_dialect: DummyDialect):
-        """Test AggregateFunctionCall with alias specified using as_() method."""
-        agg = AggregateFunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "*")).as_("total_count")
+        """Test FunctionCall (aggregate) with alias specified using as_() method."""
+        agg = FunctionCall(
+            dummy_dialect, "COUNT", Column(dummy_dialect, "*"), is_aggregate=True
+        ).as_("total_count")
         assert agg.alias == "total_count"
         sql, params = agg.to_sql()
         assert sql == 'COUNT("*") AS "total_count"'
@@ -89,7 +97,7 @@ class TestAliasableMixin:
 
     def test_cast_expression_alias_initialization(self, dummy_dialect: DummyDialect):
         """Test cast() method with alias specified during initialization."""
-        cast = Column(dummy_dialect, "id", alias="id_text").cast("TEXT")
+        cast = Column(dummy_dialect, "id", alias="id_text").cast(TextType(dummy_dialect))
         assert cast.alias == "id_text"
         sql, params = cast.to_sql()
         assert sql == 'CAST("id" AS TEXT) AS "id_text"'
@@ -97,23 +105,23 @@ class TestAliasableMixin:
 
     def test_cast_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
         """Test cast() method with alias specified using as_() method."""
-        cast = Column(dummy_dialect, "id").as_("id_text").cast("TEXT")
+        cast = Column(dummy_dialect, "id").as_("id_text").cast(TextType(dummy_dialect))
         assert cast.alias == "id_text"
         sql, params = cast.to_sql()
         assert sql == 'CAST("id" AS TEXT) AS "id_text"'
         assert params == ()
 
     def test_json_expression_alias_initialization(self, dummy_dialect: DummyDialect):
-        """Test JSONExpression with alias specified during initialization."""
-        json_expr = JSONExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name", alias="name_field")
+        """Test JSONDocumentExpression with alias specified during initialization."""
+        json_expr = JSONDocumentExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name", alias="name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
         assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'
         assert params == ()
 
     def test_json_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
-        """Test JSONExpression with alias specified using as_() method."""
-        json_expr = JSONExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name").as_("name_field")
+        """Test JSONDocumentExpression with alias specified using as_() method."""
+        json_expr = JSONDocumentExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name").as_("name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
         assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'
@@ -241,7 +249,7 @@ class TestAliasNonContamination:
         assert a is not b
 
     def test_chained_as_then_cast_keeps_alias(self, dummy_dialect: DummyDialect):
-        cast = Column(dummy_dialect, "id").as_("id_text").cast("TEXT")
+        cast = Column(dummy_dialect, "id").as_("id_text").cast(TextType(dummy_dialect))
         assert cast.alias == "id_text"
         assert cast.to_sql()[0] == 'CAST("id" AS TEXT) AS "id_text"'
 
@@ -292,7 +300,7 @@ class TestAliasNonContamination:
         # identically, and the original column stays untouched.
         col = Column(dummy_dialect, "id")
         aliased = col.as_("id_text")
-        casted = aliased.cast("TEXT")
+        casted = aliased.cast(TextType(dummy_dialect))
         assert casted.to_sql()[0] == 'CAST("id" AS TEXT) AS "id_text"'
         assert col.to_sql()[0] == '"id"'
         assert col.alias is None
@@ -303,9 +311,9 @@ class TestAliasNonContamination:
     def test_cast_on_original_does_not_leak_to_aliased_copy(
         self, dummy_dialect: DummyDialect
     ):
-        col = Column(dummy_dialect, "amount").cast("MONEY")
+        col = Column(dummy_dialect, "amount").cast(CustomType(dummy_dialect, raw='MONEY'))
         aliased = col.as_("m")
-        deeper = aliased.cast("NUMERIC")
+        deeper = aliased.cast(CustomType(dummy_dialect, raw="NUMERIC"))
         # as_() hoists the alias off the inner node onto the new cast; the
         # later cast wraps that aliased node, alias moving outward again.
         assert aliased.to_sql()[0] == 'CAST("amount" AS MONEY)'

@@ -10,6 +10,7 @@ expression is, not by a DDL statement.
 """
 
 from .collation import CollationSupport
+from .column_type import ColumnTypeSupport
 from .data_type import DataTypeSupport
 from .cte import CTESupport
 from .window import WindowFunctionSupport
@@ -21,6 +22,7 @@ from .lateral_join import LateralJoinSupport
 from .join import JoinSupport
 from .array import ArraySupport
 from .json import JSONSupport
+from .uuid import UUIDSupport
 from .explain import ExplainSupport
 from .graph import GraphSupport
 from .graph_table import GraphTableSupport
@@ -39,6 +41,7 @@ __all__ = [
     "ArraySupport",
     "CTESupport",
     "CollationSupport",
+    "ColumnTypeSupport",
     "DataTypeSupport",
     "ExplainSupport",
     "FilterClauseSupport",
@@ -57,6 +60,7 @@ __all__ = [
     "SetOperationSupport",
     "TemporalTableSupport",
     "UpsertSupport",
+    "UUIDSupport",
     "WildcardSupport",
     "WindowFunctionSupport",
 ]

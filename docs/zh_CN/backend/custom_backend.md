@@ -282,7 +282,7 @@ JSONTableExpression(
 
 ### 关注格式化函数
 
-混入协议后，请验证相应的格式化方法。例如，如果您混入了 `WindowFunctionMixin`，请检查 Mixin/基类中的 `format_window_function_call`。
+混入协议后，请验证相应的格式化方法。例如，如果您混入了 `WindowFunctionMixin`，请检查 Mixin/基类中的 `format_window_specification`；`OVER (...)` 子句本身由所有函数调用共用的 `format_function_call` 组装。
 
 *   如果您的数据库遵循标准 SQL（例如 `OVER (...)`），默认实现即可工作。
 *   如果有差异，请覆盖该特定方法。

@@ -47,7 +47,8 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DataTypeMixin,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.types import CustomType, DateType, DecimalType, IntegerType, SmallIntType, TextType, TimestampType, VarCharType
+from rhosocial.activerecord.backend.expression.types import DateType, DecimalType, IntegerType, SmallIntType, TextType, TimestampType, VarCharType
+from rhosocial.activerecord.backend.expression.types import CustomType
 
 
 class PartitionTestDialect(

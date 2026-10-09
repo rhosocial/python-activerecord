@@ -12,7 +12,6 @@ from rhosocial.activerecord.backend.expression import (
     WindowSpecification,
     WindowDefinition,
     WindowClause,
-    WindowFunctionCall,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_parts import (
@@ -84,7 +83,7 @@ class TestQueryStatements:
 
     # --- Window Functions ---
     def test_window_function_call_inline_spec(self, dummy_dialect: DummyDialect):
-        """Tests WindowFunctionCall with inline window specification."""
+        """Tests FunctionCall with inline window specification."""
         # Create a window specification
         from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 
@@ -95,8 +94,8 @@ class TestQueryStatements:
         )
 
         # Create the window function call
-        window_func = WindowFunctionCall(
-            dummy_dialect, function_name="ROW_NUMBER", window_spec=window_spec, alias="row_num"
+        window_func = FunctionCall(
+            dummy_dialect, "ROW_NUMBER", window_spec=window_spec, alias="row_num"
         )
 
         sql, params = window_func.to_sql()
@@ -105,7 +104,7 @@ class TestQueryStatements:
         assert params == ()
 
     def test_window_function_call_with_frame_specification(self, dummy_dialect: DummyDialect):
-        """Tests WindowFunctionCall with frame specification."""
+        """Tests FunctionCall with frame specification."""
         # Create a frame specification
         frame_spec = WindowFrameSpecification(
             dummy_dialect, frame_type="ROWS", start_frame="UNBOUNDED PRECEDING", end_frame="CURRENT ROW"
@@ -122,10 +121,10 @@ class TestQueryStatements:
         )
 
         # Create a window function call
-        window_func = WindowFunctionCall(
+        window_func = FunctionCall(
             dummy_dialect,
-            function_name="SUM",
-            args=[Column(dummy_dialect, "amount")],
+            "SUM",
+            Column(dummy_dialect, "amount"),
             window_spec=window_spec,
             alias="running_total",
         )
@@ -136,12 +135,12 @@ class TestQueryStatements:
         assert params == ()
 
     def test_window_function_call_with_named_window_reference(self, dummy_dialect: DummyDialect):
-        """Tests WindowFunctionCall with reference to named window."""
+        """Tests FunctionCall with reference to named window."""
         # Create a window function that references a named window (this would be used in a query
         # where the WINDOW clause defines the named window)
-        window_func = WindowFunctionCall(
+        window_func = FunctionCall(
             dummy_dialect,
-            function_name="RANK",
+            "RANK",
             window_spec="sales_window",  # Reference to named window
             alias="sales_rank",
         )
@@ -190,7 +189,7 @@ class TestQueryStatements:
             select=[
                 Column(dummy_dialect, "employee_name"),
                 # In a real query, these would reference the named windows
-                WindowFunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking"),
+                FunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking"),
             ],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "employees")),
             # Note: The WindowClause would need to be integrated into QueryExpression to be fully functional

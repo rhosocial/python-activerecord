@@ -15,6 +15,7 @@ machinery with deeply nested recursive structures.
 import pytest
 import sqlite3
 
+from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
@@ -145,7 +146,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     digits_seed = ValuesExpression(d, [("1", 1)])
     digits_step = QueryExpression(
         d,
-        select=[cast(d, Column(d, "lp") + Literal(d, 1), "TEXT"), Column(d, "lp") + Literal(d, 1)],
+        select=[cast(d, Column(d, "lp") + Literal(d, 1), CustomType(d, raw="TEXT")), Column(d, "lp") + Literal(d, 1)],
         from_=NamedRelationRef(d, Table(d, "digits")),
         where=Column(d, "lp") < Literal(d, 9),
     )

@@ -9,9 +9,18 @@ from ._base import DataType
 
 
 class BlobType(DataType):
-    """BLOB / BYTEA / VARBINARY — binary large object."""
+    """BLOB / BYTEA — binary large object.
+
+    ``BYTEA`` is PostgreSQL's name for the same unbounded byte storage.
+    """
 
     name = "blob"
+
+    SPELLINGS = ("blob", "bytea")
+
+    def __init__(self, dialect=None, *, spelling: str = "blob"):
+        super().__init__(dialect)
+        self.spelling = spelling
 
 
 class BinaryType(DataType):
@@ -26,9 +35,7 @@ class BinaryType(DataType):
         super().__init__(dialect)
         self.length = length
 
-    def _type_params(self) -> tuple:
-        return (self.length,)
-
+    PARAMETERS = ("length",)
 
 class VarBinaryType(DataType):
     """VARBINARY(n) — variable-length byte string."""
@@ -42,5 +49,4 @@ class VarBinaryType(DataType):
         super().__init__(dialect)
         self.length = length
 
-    def _type_params(self) -> tuple:
-        return (self.length,)
+    PARAMETERS = ("length",)

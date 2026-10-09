@@ -19,7 +19,7 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeAlias  # pragma: no cover
 
-from .mixins import LogicalMixin
+from .mixins import AliasableMixin, LogicalMixin
 
 # Type alias for the return type of to_sql() method
 # This alias represents the standard return format for all SQL expression objects:
@@ -353,7 +353,9 @@ class BaseExpression:
                 warnings.warn(
                     f"{self.__class__.__name__}.get_params(): cannot find attribute "
                     f"'_{name}' or '{name}' for parameter '{name}'. "
-                    "Override get_params() if the naming convention differs.",
+                    "Store it under the parameter's name in __init__ - "
+                    "get_params() is the single serialization path and is not "
+                    "meant to be overridden.",
                     stacklevel=2,
                 )
                 continue
@@ -381,9 +383,15 @@ class BaseExpression:
         return params
 
 
-class SQLPredicate(LogicalMixin, BaseExpression):
-    """
-    Abstract base class for SQL expressions that return a boolean value (predicates).
+class SQLPredicate(LogicalMixin, AliasableMixin, BaseExpression):
+    """Base class for SQL expressions that return a boolean value.
+
+    Carries :class:`AliasableMixin` because a predicate is not confined to a
+    WHERE clause. ``LIKE`` and its relatives also appear in a SELECT list
+    (``SELECT name LIKE 'a%' AS is_apple``), inside ``CASE WHEN``, in a
+    ``JOIN ... ON`` condition, and in DDL as a ``CHECK`` constraint or a
+    partial-index predicate. In the projection case the result needs a name
+    like any other column, so the alias has to survive to the formatter.
     """
 
     pass

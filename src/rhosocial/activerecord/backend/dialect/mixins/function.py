@@ -28,12 +28,17 @@ class FunctionCallMixin:
     """
 
     def format_function_call(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
-        """Format a scalar or aggregate function call expression.
+        """Format a function call expression, scalar or aggregate.
 
-        Renders ``NAME(args)`` with optional ``DISTINCT`` and a trailing
-        ``FILTER (WHERE ...)`` clause. ``COUNT(*)`` is special-cased so that
-        a wildcard argument renders as ``*``. Niladic functions with no
-        arguments and no ``DISTINCT`` omit the parentheses.
+        Renders ``NAME(args)`` with optional ``DISTINCT``, a trailing
+        ``FILTER (WHERE ...)`` clause and a trailing ``OVER (...)`` window
+        clause, in that order, followed by ``AS alias``. ``COUNT(*)`` is
+        special-cased so that a wildcard argument renders as ``*``. Niladic
+        functions with no arguments and no ``DISTINCT`` omit the parentheses.
+        Every argument must be an expression: a bare value fails to render
+        rather than being turned into a bind parameter here, because the
+        renderer does not decide what a caller meant. A value goes through
+        :class:`~...expression.core.Literal` at the call site.
 
         Args:
             expr: The function call expression to render.
@@ -43,14 +48,14 @@ class FunctionCallMixin:
 
         Raises:
             UnsupportedFeatureError: If a ``FILTER`` clause is requested on a
-                dialect that does not support it.
+                dialect that does not support it, or an ``OVER`` clause is
+                requested on a dialect that does not support window functions.
         """
-        from ...expression import aggregates, core, operators
+        from ...expression import core, operators
         from ..protocols import FilterClauseSupport
 
         if (
-            isinstance(expr, aggregates.AggregateFunctionCall)
-            and expr.func_name.upper() == "COUNT"
+            expr.func_name.upper() == "COUNT"
             and len(expr.args) == 1
             and (
                 (isinstance(expr.args[0], operators.RawSQLExpression) and expr.args[0].expression == "*")
@@ -63,6 +68,9 @@ class FunctionCallMixin:
             args_sql = []
             args_params = []
             for arg in expr.args:
+                # A factory that accepts a bare value is deciding what it
+                # meant; the renderer refuses instead of manufacturing the
+                # Literal the caller should have written (see the docstring).
                 sql_part, params_part = arg.to_sql()
                 args_sql.append(sql_part)
                 args_params.append(params_part)
@@ -81,20 +89,12 @@ class FunctionCallMixin:
 
         filter_predicate = getattr(expr, "filter_predicate", None)
         if filter_predicate:
-            if isinstance(self, FilterClauseSupport):
-                if self.supports_filter_clause():
-                    from ...expression.statements.filter_clause import FilterClauseExpression
-                    filter_expr = FilterClauseExpression(self, condition=filter_predicate)
-                    filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_expr)
-                    func_call_sql += f" {filter_clause_sql}"
-                    all_params.extend(filter_clause_params)
-                else:
-                    from ..exceptions import UnsupportedFeatureError
-                    raise UnsupportedFeatureError(
-                        self.name,
-                        "FILTER clause in aggregate functions",
-                        "Use a CASE expression inside the aggregate function instead.",
-                    )
+            if isinstance(self, FilterClauseSupport) and self.supports_filter_clause():
+                from ...expression.statements.filter_clause import FilterClauseExpression
+                filter_expr = FilterClauseExpression(self, condition=filter_predicate)
+                filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_expr)
+                func_call_sql += f" {filter_clause_sql}"
+                all_params.extend(filter_clause_params)
             else:
                 from ..exceptions import UnsupportedFeatureError
                 raise UnsupportedFeatureError(
@@ -102,6 +102,24 @@ class FunctionCallMixin:
                     "FILTER clause in aggregate functions",
                     "Use a CASE expression inside the aggregate function instead.",
                 )
+
+        window_spec = getattr(expr, "window_spec", None)
+        if window_spec is not None:
+            # Guarded through getattr(): a dialect that does not compose
+            # WindowFunctionMixin has neither the probe nor the formatter, and
+            # must refuse the clause rather than fail resolving a method.
+            supports_window_functions = getattr(self, "supports_window_functions", None)
+            if supports_window_functions is None or not supports_window_functions():
+                from ..exceptions import UnsupportedFeatureError
+                raise UnsupportedFeatureError(self.name, "window functions")
+            if isinstance(window_spec, str):
+                # Reference to a named window definition.
+                window_part = self.format_identifier(window_spec)
+            else:
+                window_spec_sql, window_spec_params = self.format_window_specification(window_spec)
+                window_part = f"({window_spec_sql})" if window_spec_sql else "()"
+                all_params.extend(window_spec_params)
+            func_call_sql = f"{func_call_sql} OVER {window_part}"
 
         if expr.alias:
             func_call_sql = f"{func_call_sql} AS {self.format_identifier(expr.alias)}"

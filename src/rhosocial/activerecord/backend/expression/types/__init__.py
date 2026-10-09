@@ -47,8 +47,9 @@ Usage::
 from ._base import DataType
 from .array import ArrayType
 from .custom import CustomType
+from ..type_name import InvalidTypeNameError
 from .enum_ import EnumType
-from .integer import TinyIntType, SmallIntType, IntType, IntegerType, BigIntType
+from .integer import TinyIntType, SmallIntType, IntegerType, BigIntType
 from .numeric import FloatType, RealType, DoubleType, DecimalType
 from .string import CharType, VarCharType, TextType
 from .boolean import BooleanType
@@ -61,9 +62,15 @@ from .datetime_ import (
     TimestampType,
     TimestampTzType,
     IntervalType,
+    INTERVAL_QUALIFIERS,
+    InvalidIntervalQualifierError,
+    IntervalQualifier,
+    is_valid_interval_qualifier,
+    validate_interval_qualifier,
 )
 from .uuid_ import UUIDType
 from .json_ import JsonType, JsonBType
+from .xml_ import XmlType
 
 __all__ = [
     "DataType",
@@ -72,7 +79,6 @@ __all__ = [
     # integer
     "TinyIntType",
     "SmallIntType",
-    "IntType",
     "IntegerType",
     "BigIntType",
     # numeric
@@ -80,6 +86,7 @@ __all__ = [
     "RealType",
     "DoubleType",
     "DecimalType",
+    "InvalidTypeNameError",
     # string
     "CharType",
     "VarCharType",
@@ -101,7 +108,16 @@ __all__ = [
     "TimestampType",
     "TimestampTzType",
     "IntervalType",
+    "INTERVAL_QUALIFIERS",
+    "InvalidIntervalQualifierError",
+    "IntervalQualifier",
+    "is_valid_interval_qualifier",
+    "validate_interval_qualifier",
     # json
     "JsonType",
     "JsonBType",
+    # xml
+    "XmlType",
+    # uuid
+    "UUIDType",
 ]

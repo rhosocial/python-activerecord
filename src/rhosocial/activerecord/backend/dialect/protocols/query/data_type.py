@@ -70,6 +70,45 @@ class DataTypeSupport(Protocol):
 
     Core never enumerates backend families; it only fixes the shape of
     the dispatch and the merge.
+
+    Concept coverage (D9)
+    ---------------------
+
+    The honesty principle above governs *how* a dialect says
+    "unsupported"; this rule governs *whether it has said anything at
+    all*.  Every concrete concept in
+    :mod:`rhosocial.activerecord.backend.expression.types` must receive
+    one of two explicit answers from every dialect that implements this
+    protocol:
+
+    * the concept is **rendered** — its ``format_data_type_<name>`` /
+      ``supports_data_type_<name>`` pair exists.  (The formatter may
+      still refuse *particular declarations* with
+      ``UnsupportedFeatureError`` plus a ``suggestion`` — a concept the
+      dialect models but cannot express every declaration of; that is a
+      refusal answer, not an absence.)
+    * the concept is **substituted** — an entry in
+      :meth:`suggested_data_types` names the class this dialect really
+      stores for it, so the caller reads the substitution instead of a
+      bare ``TypeError``.
+
+    The two sets are disjoint: a rendered concept needs no substitute.
+    **Silence is not an answer.**  A concept that is neither rendered nor
+    substituted reaches the caller as a ``TypeError`` with no route
+    forward, and the hole is invisible until someone happens to declare
+    that concept.
+
+    This completeness is **per dialect and deliberately not audited by
+    core**: backends differ too much for one shared shape (a closed
+    short type list, a wide list with substitutes, semantic refusals).
+    Each backend's own test file should walk the core concepts —
+    **discovered, not listed**, so a concept added to core later cannot
+    slip past a stale list — and assert: the coverage above; that
+    rendered and substituted keys are disjoint; that every substitute
+    actually renders on the dialect; and that every suggested key still
+    names an existing concept, so a core rename cannot leave dead
+    entries.  BigQuery's ``test_every_core_concept_is_declared`` is the
+    pattern to copy.
     """
 
 
@@ -138,8 +177,16 @@ class DataTypeSupport(Protocol):
 
         Contract: suggested keys and supported keys are **disjoint** — a
         type this dialect renders needs no suggestion. Suggestions only —
-        the user layer (ActiveRecord) decides whether to adopt them. Return
-        an empty dict when there is nothing to suggest (honesty principle).
+        the user layer (ActiveRecord) decides whether to adopt them.
+
+        This map is one half of the **concept coverage** rule (D9, see the
+        class docstring): every core concept must be rendered or listed
+        here, and silence is not an answer.  It is therefore **not**
+        optional politeness — an entry here is how a caller who declares a
+        concept this dialect stores some other way learns what to declare
+        instead.  Return an empty dict when there is nothing to suggest —
+        which, under D9, says "this dialect renders every core concept it
+        was asked about", not "not yet filled in".
         """
         ...  # pragma: no cover
 

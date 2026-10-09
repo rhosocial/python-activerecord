@@ -12,10 +12,10 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     ComparisonPredicate,
+    FunctionCall,
     JSONPathMode,
     ArrayExpression,
 )
-from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.expression.functions import count, sum_
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType,
@@ -24,7 +24,6 @@ from rhosocial.activerecord.backend.expression.types import (
     DateTimeType,
     DecimalType,
     FloatType,
-    IntType,
     IntegerType,
     IntervalType,
     TimeType,
@@ -91,7 +90,7 @@ class TestDataTypeValueSemantics:
             IntegerType().to_sql()
 
     def test_data_type_to_sql_with_dialect_arg(self, dialect):
-        assert IntType(dialect=dialect).to_sql() == ("INT", ())
+        assert IntegerType(dialect=dialect, spelling="int").to_sql() == ("INT", ())
 
     def test_cross_type_inequality(self):
         assert IntegerType() != CharType(None, 10)
@@ -108,18 +107,30 @@ class TestArrayType:
         assert hash(ArrayType(None, IntegerType())) == hash(ArrayType(None, IntegerType()))
 
     def test_array_is_equivalent(self):
-        assert ArrayType(None, IntegerType()).is_equivalent(ArrayType(None, IntegerType()))
-        assert not ArrayType(None, IntegerType(), dimensions=2).is_equivalent(ArrayType(None, IntegerType()))
+        assert ArrayType(None, IntegerType()) == ArrayType(None, IntegerType())
+        assert ArrayType(None, IntegerType(), dimensions=2) != ArrayType(None, IntegerType())
 
     def test_array_is_element_type_equivalent_with_array(self):
+        """``is_element_type_equivalent`` answers a different question from
+        ``==``: not "is this the same declaration" but "does this array store
+        the same kind of thing", so dimensions are ignored."""
         assert ArrayType(None, IntegerType()).is_element_type_equivalent(ArrayType(None, IntegerType(), dimensions=2))
 
     def test_array_is_element_type_equivalent_with_plain_type(self):
         assert ArrayType(None, IntegerType()).is_element_type_equivalent(IntegerType())
         assert not ArrayType(None, IntegerType()).is_element_type_equivalent(CharType(None, 10))
 
-    def test_array_type_params(self):
-        assert ArrayType(None, IntegerType(), dimensions=2)._type_params() == (IntegerType(), 2)
+    def test_array_declares_its_identity_fields(self):
+        """An array's identity is its element type and its dimensionality.
+
+        Declared as a class constant rather than a method, so ``__eq__``,
+        ``__hash__`` and ``repr`` cannot each answer the question differently.
+        """
+        assert ArrayType.PARAMETERS == ("element_type", "dimensions")
+        arr = ArrayType(None, IntegerType(), dimensions=2)
+        assert arr.identity() == (IntegerType(), 2)
+        # and a dimensionality change is a change of declaration
+        assert arr != ArrayType(None, IntegerType(), dimensions=1)
 
     def test_array_repr(self):
         assert "ArrayType" in repr(ArrayType(None, IntegerType()))
@@ -157,7 +168,7 @@ class TestJSONPathMode:
 
 
 class TestAggregateGetParamsWithFilter:
-    """AggregateFunctionCall.get_params() includes the filter predicate."""
+    """FunctionCall.get_params() includes the filter predicate."""
 
     def test_get_params_with_filter(self, dialect):
         agg = count(dialect, "*", alias="active_count").filter(
@@ -173,13 +184,13 @@ class TestAggregateGetParamsWithFilter:
         assert params.get("filter_predicate") is None
 
     def test_filter_returns_self(self, dialect):
-        agg = AggregateFunctionCall(dialect, "COUNT", "*")
+        agg = FunctionCall(dialect, "COUNT", "*", is_aggregate=True)
         predicate = Column(dialect, "status") == Literal(dialect, "active")
         assert agg.filter(predicate) is agg
         assert agg.get_params()["filter_predicate"] is predicate
 
     def test_chained_filters_combine(self, dialect):
-        agg = AggregateFunctionCall(dialect, "COUNT", "*")
+        agg = FunctionCall(dialect, "COUNT", "*", is_aggregate=True)
         agg.filter(Column(dialect, "a") == Literal(dialect, 1))
         agg.filter(Column(dialect, "b") == Literal(dialect, 2))
         assert "AND" in agg.get_params()["filter_predicate"].to_sql()[0]

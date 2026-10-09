@@ -16,6 +16,7 @@ Supports:
 from typing import TYPE_CHECKING
 
 from ..backend.expression.core import Column
+from .fields import declared_column_type, resolve_column_class
 
 if TYPE_CHECKING:
     from ..backend.dialect.base import SQLDialectBase
@@ -196,8 +197,30 @@ class FieldProxy:
                 # The backend dialect decides how to format schema references.
                 schema_name = None if self._table_alias else self._model_class.schema_name()
 
-                # Create column expression object using the real dialect
+                # Create column expression object using the real dialect.
+                # The lookup order is the model layer's: an explicit
+                # UseColumnType answers first, then the dialect's common-type
+                # table, then its extra table. A field neither of those can
+                # classify raises ColumnTypeResolutionError here, at the
+                # access, rather than yielding a permissive column.
                 backend = self._model_class.backend()
                 dialect: "SQLDialectBase" = backend.dialect
-                return Column(dialect, column_name, table=table_name, schema_name=schema_name)
+                field_info = self._model_class.model_fields[field_name]
+                annotation = field_info.annotation
+                # Pydantic splits an `Annotated` field into the bare annotation
+                # and a marker list, so the UseColumnType is in the latter and
+                # the annotation alone would not carry it.
+                column_type = declared_column_type(getattr(field_info, "metadata", None))
+                column_class = resolve_column_class(dialect, annotation, column_type)
+                if column_class is Column:
+                    # The untyped column keeps its own narrower constructor and
+                    # can now only arrive by being declared explicitly, never
+                    # as a fallback.
+                    return Column(dialect, column_name, table=table_name, schema_name=schema_name)
+                return column_class(
+                    dialect,
+                    column_name,
+                    table=table_name,
+                    schema_name=schema_name,
+                )
         return _FieldAccessor(owner, self._table_alias)

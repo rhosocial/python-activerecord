@@ -33,7 +33,6 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     LimitOffsetClause,
     ForUpdateClause,
 )
-from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.expression.serialization import (
     serialize,
@@ -169,7 +168,9 @@ class TestAggregateRoundtrip:
     """T5: Aggregate function round-trip test."""
 
     def test_aggregate_function_roundtrip(self, dummy_dialect):
-        expr = AggregateFunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount"), alias="total")
+        expr = FunctionCall(
+            dummy_dialect, "SUM", Column(dummy_dialect, "amount"), alias="total", is_aggregate=True
+        )
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
 
@@ -653,7 +654,7 @@ class TestQueryPartsRoundtrip:
     """Query parts round-trip tests."""
 
     def test_group_by_having_roundtrip(self, dummy_dialect):
-        agg = AggregateFunctionCall(dummy_dialect, "COUNT")
+        agg = FunctionCall(dummy_dialect, "COUNT", is_aggregate=True)
         pred = ComparisonPredicate(dummy_dialect, ">", agg, Literal(dummy_dialect, 10))
         expr = GroupByHavingClause(
             dummy_dialect,

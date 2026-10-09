@@ -3,6 +3,9 @@
 This module provides classes and functions related to field definitions and annotations.
 """
 
+import enum
+import types
+import typing
 from typing import Any, Callable, List, Optional, Type, Union, TYPE_CHECKING
 
 from ..backend.expression.statements.ddl_table import (
@@ -15,6 +18,7 @@ from ..backend.type_adapter import SQLTypeAdapter
 
 if TYPE_CHECKING:
     from ..backend.expression.bases import BaseExpression, SQLDialectBase, SQLPredicate
+    from ..backend.expression.column_types import ColumnBase
     from ..backend.expression.statements.ddl_table import (
         ReferentialAction,
     )
@@ -170,6 +174,293 @@ class UseSqlType(DDLAnnotation):
 
     def __repr__(self) -> str:
         return f"UseSqlType({', '.join(repr(t) for t in self.data_types)})"
+
+
+class UseColumnType:
+    """Marker for ``Annotated[T, UseColumnType(*column_classes)]``.
+
+    Declares which **column class** (the operation set a value offers) a model
+    field's expressions use, instead of letting the backend suggest one. It is
+    the column-side twin of :class:`UseSqlType`, and the two are **strictly
+    independent**:
+
+    * ``UseSqlType`` serves the DDL only -- which ``DataType`` the column is
+      created with -- and takes no part in CRUD or expression rendering;
+    * ``UseColumnType`` serves the column operations only -- what
+      ``Model.c.<field>`` can do -- and never influences DDL.
+
+    A model may declare either, both, or neither, and the framework does not
+    check them against each other. A field may say ``age: int`` with
+    ``UseSqlType(VarCharType())`` or ``UseColumnType(StringColumn())`` and both
+    are honoured: the first decides the stored type, the second decides the
+    operations, and neither is inferred from the other. This is deliberate --
+    "which operations does this value support" and "how is it stored" are
+    different questions, and a model that wants an unusual answer to either one
+    should be able to give it without having to lie about the other.
+
+    It is **not** a :class:`DDLAnnotation`: the DDL collector must not see it,
+    or the strict independence above would be one refactor away from being
+    false.
+
+    Exactly one column class may be declared for now. The signature is variadic
+    (``UseSqlType`` is too, and for the same reason: declaration order is the
+    candidate order) but multi-candidate selection needs the operation-capability
+    declaration to answer "does this backend cover every operation of this
+    class", which does not exist yet -- so rather than silently taking the first
+    candidate and pretending the negotiation happened, a multi-candidate
+    declaration is refused here, at the point of the mistake, and says what it
+    is waiting for.
+
+    Examples::
+
+        # A plain text value that is stored as something other than text
+        label: Annotated[str, UseColumnType(StringColumn)]
+        blob: Annotated[bytes, UseColumnType(BinaryColumn)]
+
+        # Both sides declared independently: stored as an integer, offered as
+        # arithmetic on a whole number -- same thing here, and deliberately not
+        # cross-checked
+        qty: Annotated[int, UseSqlType(IntType()), UseColumnType(IntegerColumn)]
+
+    Raises:
+        TypeError: No column class was given, or one of them is not a
+            :class:`~...backend.expression.column_types.ColumnBase` subclass.
+    """
+
+    def __init__(self, *column_classes: Type["ColumnBase"]):
+        from ..backend.expression.column_types import ColumnBase
+
+        if not column_classes:
+            raise TypeError(
+                "UseColumnType requires at least one ColumnBase subclass, "
+                "e.g. UseColumnType(StringColumn)."
+            )
+        for column_class in column_classes:
+            if not (isinstance(column_class, type) and issubclass(column_class, ColumnBase)):
+                # Class objects only: a column class is a type, never an
+                # instance. One that carried state would make the value a
+                # declaration rather than a class, and the resolution layer
+                # would have no way to hand the same class to every expression.
+                raise TypeError(
+                    f"UseColumnType expects ColumnBase subclasses (classes "
+                    f"derived from ColumnBase), got "
+                    f"{column_class!r}. Column classes name operations, not "
+                    f"values, so pass the class itself rather than an "
+                    f"instance of it."
+                )
+        if len(column_classes) > 1:
+            # Refused rather than resolved first-wins. Choosing among several
+            # candidates is a negotiation with the backend's capability
+            # declaration ("does this dialect cover every operation of this
+            # class"), and taking the first without asking would make the
+            # declaration a lie the caller cannot see. See the multi-candidate
+            # ruling in column-type-refactor.md (议题 2).
+            raise TypeError(
+                f"UseColumnType was given {len(column_classes)} column "
+                f"classes ({', '.join(c.__name__ for c in column_classes)}), "
+                f"but multi-candidate resolution needs the capability "
+                f"declaration mechanism, which does not exist yet: choosing "
+                f"among candidates means asking the dialect whether it covers "
+                f"every operation of a class, and there is no answer to read "
+                f"yet. Declare a single column class for now; when the "
+                f"capability declaration lands, this signature keeps its "
+                f"variadic shape and the candidates will be ordered by "
+                f"declaration order as UseSqlType's are."
+            )
+        self.column_classes: tuple = tuple(column_classes)
+        #: The declared class — a convenience alias, since only one may be
+        #: declared. Present for the same reason as ``UseSqlType.data_type``:
+        #: the single-candidate case is what readers ask for, and it is what
+        #: the resolution layer reads.
+        self.column_class: Type[ColumnBase] = self.column_classes[0]
+
+    def __repr__(self) -> str:
+        return f"UseColumnType({', '.join(c.__name__ for c in self.column_classes)})"
+
+
+def declared_column_type(metadata: Any) -> Optional[UseColumnType]:
+    """The :class:`UseColumnType` among an ``Annotated`` field's markers, if any.
+
+    A reader and nothing else: it looks at what pydantic collected and returns
+    the declaration, or ``None``. It does not resolve anything. Choosing the
+    column class is the model layer's lookup (:func:`resolve_column_class`),
+    and the marker being here at all is only about *where pydantic puts it*:
+    ``FieldInfo.annotation`` is the bare type with ``Annotated`` already split
+    off, and the markers live in ``FieldInfo.metadata``. A model layer that
+    looked at the annotation directly would not find this declaration at all,
+    which is why the read is explicit here rather than buried in resolution.
+
+    Args:
+        metadata: Pydantic's ``FieldInfo.metadata`` -- the marker list an
+            ``Annotated`` field was decomposed into.
+
+    Returns:
+        The declared :class:`UseColumnType`, or ``None``.
+
+    Raises:
+        TypeError: More than one declaration on the same field. A field says
+        once what its column class is; two markers would mean picking one
+            silently, and the caller cannot see which was chosen.
+    """
+    found = [item for item in (metadata or ()) if isinstance(item, UseColumnType)]
+    if len(found) > 1:
+        raise TypeError(
+            f"{len(found)} UseColumnType declarations on a single field. A field "
+            f"declares the column class it uses once; a model that wants a "
+            f"different one declares it on a different model."
+        )
+    return found[0] if found else None
+
+
+class ColumnTypeResolutionError(TypeError):
+    """No column class could be chosen for an annotation, and none may be guessed.
+
+    Raised by :func:`resolve_column_class` when the annotation is outside the
+    tables a dialect answers, or when the dialect answered ``None`` for it.
+    A ``TypeError`` because the wrong *thing* was asked for: a field the
+    framework cannot type is a mistake in the model, and finding it where the
+    field is read costs nothing next to a driver error naming a column.
+    """
+
+
+def strip_annotation(annotation: Any) -> Any:
+    """Peel ``Annotated`` and ``Optional`` off *annotation*.
+
+    ``Annotated[str, UseColumn("name")]`` -> ``str``; ``Optional[dict]`` ->
+    ``dict``. Declaration markers are not consulted here: they describe
+    storage, constraints and the operation set, not the Python value.
+    """
+    # `typing.get_origin(Annotated[...])` returns the `Annotated` special form
+    # on 3.9+, but on 3.8 `typing` has no `Annotated` attribute at all, so the
+    # identity check raises AttributeError. The presence of `__metadata__` is
+    # how the runtime marks an annotated alias on every supported version.
+    while hasattr(annotation, "__metadata__"):
+        annotation = typing.get_args(annotation)[0]
+
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union or origin is getattr(types, "UnionType", None):
+        members = [a for a in typing.get_args(annotation) if a is not type(None)]
+        if len(members) == 1:
+            return strip_annotation(members[0])
+    return annotation
+
+
+def resolve_column_class(
+    dialect: "SQLDialectBase",
+    annotation: Any,
+    declared: Optional[UseColumnType] = None,
+) -> Type["ColumnBase"]:
+    """The column class to use for *annotation* on *dialect*.
+
+    The model layer's lookup, in order:
+
+    ① an explicit ``UseColumnType`` (*declared*) answers without reading any
+       table -- naming a column class is what makes it the escape hatch for an
+       annotation no table can classify;
+    ② the common-type table (``dialect.suggested_column_types()``), keyed by
+       the normalised entry: exact match, then ``enum.Enum``, then a subclass
+       walk over the table's keys in their declared order, then the pydantic
+       bridge;
+    ③ the backend's extra table (``dialect.suggested_extra_column_types()``),
+       keyed by the annotation itself;
+    ④ neither -> :class:`ColumnTypeResolutionError`, naming what is missing.
+    """
+    if declared is not None:
+        return declared.column_class
+
+    table = dialect.suggested_column_types()
+    entry = _column_entry_for(annotation, table)
+
+    if entry is not None:
+        if entry not in table:
+            # Reachable only through the enum branch: the subclass walk can
+            # only return a key the table already has.
+            raise ColumnTypeResolutionError(
+                f"{type(dialect).__name__}.suggested_column_types() does not "
+                f"answer for {_entry_name(entry)}, which is one of the common "
+                f"types. Every entry must be answered -- with a column class, "
+                f"or with None when the backend genuinely has no workaround."
+            )
+        suggested = table[entry]
+        if suggested is None:
+            raise ColumnTypeResolutionError(
+                f"{type(dialect).__name__} has no column class for "
+                f"{_entry_name(entry)}. Declare one explicitly with "
+                f"UseColumnType(SomeColumn) if this field's value supports "
+                f"operations this backend has no class for."
+            )
+        _require_column_class(type(dialect).__name__, "suggested_column_types", entry, suggested)
+        return suggested
+
+    extras = dialect.suggested_extra_column_types()
+    suggested = extras.get(strip_annotation(annotation))
+    if suggested is not None:
+        _require_column_class(
+            type(dialect).__name__, "suggested_extra_column_types", annotation, suggested
+        )
+        return suggested
+
+    raise ColumnTypeResolutionError(
+        f"Cannot choose a column class for {_describe_annotation(annotation)}: "
+        f"it is not one of the common types and no UseColumnType declares one. "
+        f"The types this backend answers are: "
+        f"{', '.join(_entry_name(key) for key in table)}. Declare the "
+        f"operations this field's value carries with UseColumnType(SomeColumn), "
+        f"or annotate the field with one of the types above."
+    )
+
+
+def _column_entry_for(annotation: Any, keys: Any) -> Optional[Any]:
+    """The table key *annotation* normalises to, or ``None``.
+
+    Three rules and the pydantic bridge: exact key match, ``enum.Enum``
+    subclass, then a subclass walk in *keys* order (``class MyStr(str)`` ->
+    ``str``). The bridge is consulted last, so it can turn a failure into an
+    answer and can never change an answer that already existed; its result is
+    re-checked against the same keys.
+    """
+    peeled = strip_annotation(annotation)
+    if peeled in keys:
+        return peeled
+
+    if isinstance(peeled, type):
+        if issubclass(peeled, enum.Enum):
+            # Checked before the walk: an enum that also subclasses something
+            # else (`class Weekday(int, Enum)`) must stay an enum.
+            return enum.Enum
+        for key in keys:
+            if isinstance(key, type) and key is not peeled and issubclass(peeled, key):
+                return key
+
+    from .pydantic_fields import normalize_pydantic_annotation
+
+    bridged = normalize_pydantic_annotation(peeled)
+    if bridged is not None and bridged in keys:
+        return bridged
+    return None
+
+
+def _require_column_class(dialect_name: str, table: str, key: Any, suggested: Any) -> None:
+    from ..backend.expression.column_types import ColumnBase
+
+    if not (isinstance(suggested, type) and issubclass(suggested, ColumnBase)):
+        raise ColumnTypeResolutionError(
+            f"{dialect_name}.{table}()[{_entry_name(key)}] is {suggested!r}, "
+            f"which is not a ColumnBase subclass."
+        )
+
+
+def _entry_name(entry: Any) -> str:
+    module = getattr(entry, "__module__", None)
+    name = getattr(entry, "__name__", None) or repr(entry)
+    if module and module not in ("builtins",):
+        return f"{module}.{name}"
+    return name
+
+
+def _describe_annotation(annotation: Any) -> str:
+    name = getattr(annotation, "__name__", None) or repr(annotation)
+    return f"{name!r} (the annotation {annotation!r})"
 
 
 class UseIndex(DDLAnnotation):

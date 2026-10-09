@@ -105,12 +105,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
             partition_by=[Column(dialect, "department")],
             order_by=[(Column(dialect, "salary"), "DESC")]
         )
-        window_func = WindowFunctionCall(
-            dialect,
-            function_name="ROW_NUMBER",
-            window_spec=window_spec,
-            alias="row_num"
-        )
+        window_func = FunctionCall(dialect, "ROW_NUMBER", window_spec=window_spec, alias="row_num")
 
         window_query = QueryExpression(
             dialect,

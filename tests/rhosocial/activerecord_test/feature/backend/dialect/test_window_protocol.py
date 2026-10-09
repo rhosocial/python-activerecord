@@ -14,9 +14,10 @@ from rhosocial.activerecord.backend.dialect import (
     WindowFunctionSupport,
     UnsupportedFeatureError,
 )
+from rhosocial.activerecord.backend.dialect.mixins.function import FunctionCallMixin
 
 
-class NoWindowDialect(SQLDialectBase, WindowFunctionMixin, WindowFunctionSupport):
+class NoWindowDialect(SQLDialectBase, FunctionCallMixin, WindowFunctionMixin, WindowFunctionSupport):
     """Dialect that does not support window functions."""
 
     def supports_window_functions(self) -> bool:
@@ -24,6 +25,10 @@ class NoWindowDialect(SQLDialectBase, WindowFunctionMixin, WindowFunctionSupport
 
     def supports_window_frame_clause(self) -> bool:
         return False
+
+
+class NoWindowMixinDialect(SQLDialectBase, FunctionCallMixin):
+    """Dialect that does not even compose the window-function mixin."""
 
 
 def test_no_window_dialect_does_not_support_window_features():
@@ -36,23 +41,31 @@ def test_no_window_dialect_does_not_support_window_features():
     assert not dialect.supports_window_frame_clause()
 
 
-def test_format_window_function_call_raises_error():
-    """Test that format_window_function_call method raises error in no-window dialect."""
+def test_format_function_call_with_over_raises_error():
+    """An OVER clause must be refused when window functions are unsupported.
+
+    ``format_function_call`` is the single renderer for function calls, so it
+    is the method that sees the ``window_spec`` and raises.
+    """
+    from rhosocial.activerecord.backend.expression.core import FunctionCall
+
     dialect = NoWindowDialect()
+    call = FunctionCall(dialect, "ROW_NUMBER", window_spec="w")
 
-    # Create a mock window function call
-    class MockWindowFunctionCall:
-        def __init__(self):
-            self.function_name = "ROW_NUMBER"
-            self.args = []
-            self.window_spec = None
-            self.alias = None
-
-    mock_call = MockWindowFunctionCall()
-
-    # This should raise an error
     with pytest.raises(UnsupportedFeatureError):
-        dialect.format_window_function_call(mock_call)
+        dialect.format_function_call(call)
+
+
+def test_format_function_call_with_over_refused_without_window_mixin():
+    """A dialect without ``WindowFunctionMixin`` has neither the probe nor the
+    specification formatter; the renderer must refuse the clause cleanly."""
+    from rhosocial.activerecord.backend.expression.core import FunctionCall
+
+    dialect = NoWindowMixinDialect()
+    call = FunctionCall(dialect, "ROW_NUMBER", window_spec="w")
+
+    with pytest.raises(UnsupportedFeatureError):
+        dialect.format_function_call(call)
 
 
 def test_format_window_specification_raises_error():

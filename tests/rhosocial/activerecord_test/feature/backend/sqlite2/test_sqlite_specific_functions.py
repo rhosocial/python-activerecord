@@ -11,7 +11,7 @@ This test file covers SQLite-specific functions:
 - BLOB functions: zeroblob, randomblob
 """
 
-from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.impl.sqlite.functions import (
     substr,
     instr,
@@ -333,7 +333,7 @@ class TestSQLiteSystemFunctions:
 
     def test_sign_function(self, sqlite_dialect_3_44_0: SQLiteDialect):
         """Test SIGN function (SQLite 3.44.0+)."""
-        func = sign(sqlite_dialect_3_44_0, 42)
+        func = sign(sqlite_dialect_3_44_0, Literal(sqlite_dialect_3_44_0, 42))
         sql, params = func.to_sql()
         assert "SIGN(" in sql
         assert params == (42,)

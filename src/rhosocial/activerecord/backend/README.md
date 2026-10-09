@@ -64,7 +64,6 @@ backend/
 │   ├── operators.py             # Operator expressions
 │   ├── core.py                  # Core expressions (Column, FunctionCall, etc.)
 │   ├── predicates.py            # Predicate expressions
-│   ├── aggregates.py            # Aggregate functions
 │   ├── advanced_functions.py    # Advanced functions (window, JSON, array, etc.)
 │   ├── functions.py             # Function factories
 │   ├── query_parts.py           # Query components
@@ -277,7 +276,7 @@ SQL expression building blocks, following the Expression-Dialect separation patt
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, FunctionCall,
     QueryExpression, InsertExpression, UpdateExpression,
-    WindowFunctionCall, CTEExpression,
+    CTEExpression,
     # Function factories
     count, sum_, avg, row_number, rank,
     json_extract, array_agg,

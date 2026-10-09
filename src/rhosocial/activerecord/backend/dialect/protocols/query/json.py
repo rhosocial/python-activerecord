@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Protocol, TYPE_CHECKING, Tuple, runtime_
 from ....expression import bases
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression import JSONExpression
+    from ....expression import JSONDocumentExpression
 
 
 @runtime_checkable
@@ -48,7 +48,7 @@ class JSONSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_json_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
+    def format_json_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
         """
         Format JSON expression.
 
@@ -60,14 +60,14 @@ class JSONSupport(Protocol):
         - ``JSONPathMode.AUTO``:     use arrow if supported, else function-based
 
         Args:
-            expr: JSONExpression node carrying column, path, and operation info.
+            expr: JSONDocumentExpression node carrying column, path, and operation info.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
         ...  # pragma: no cover
 
-    def format_json_arrow_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
+    def format_json_arrow_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
         """
         Force-arrow JSON path formatting.
 
@@ -77,7 +77,7 @@ class JSONSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_json_function_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
+    def format_json_function_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
         """
         Force-function JSON path formatting.
 

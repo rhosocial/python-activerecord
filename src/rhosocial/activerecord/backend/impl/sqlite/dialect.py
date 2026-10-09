@@ -15,6 +15,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     FilterClauseSupport,
     WindowFunctionSupport,
     JSONSupport,
+    UUIDSupport,
     ReturningSupport,
     AdvancedGroupingSupport,
     ArraySupport,
@@ -71,10 +72,15 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DatabaseNameMixin,
     PropertyGraphNameMixin,
     CollationMixin,
+    # Column types. SQLiteColumnTypeMixin (from .mixins, below) states
+    # SQLite's own table; there is no generic table in core to compose.
     CTEMixin,
 
     WindowFunctionMixin,
     JSONMixin,
+    # SQLite has no UUID-generating function; UUIDMixin reports honest
+    # absence so UUIDGenerationExpression raises with a Python-side hint.
+    UUIDMixin,
 
     ArrayMixin,
     ExplainMixin,
@@ -149,6 +155,10 @@ from .mixins import (
     SQLiteRTreeMixin,
     SQLiteGeopolyMixin,
     SQLiteTypeSupportMixin,
+    # Column types. SQLite states its own full table: the four sequence entries
+    # take JSONColumn (there is no array type here) and float/Decimal both take
+    # NumericColumn. There is no generic table in core to compose.
+    SQLiteColumnTypeMixin,
 )
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
@@ -187,6 +197,7 @@ class SQLiteDialect(
 
     WindowFunctionMixin,
     JSONMixin,
+    UUIDMixin,
     # Include mixins for features that SQLite does NOT support but need the methods to exist
 
     ArrayMixin,
@@ -249,6 +260,10 @@ class SQLiteDialect(
     DomainMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
     CollationMixin,
+    # Column types. SQLite states its own full table: the four sequence entries
+    # take JSONColumn (there is no array type here), and float/Decimal both take
+    # NumericColumn.
+    SQLiteColumnTypeMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)
     DateTimeMixin,
     DDLColumnMixin,
@@ -263,6 +278,7 @@ class SQLiteDialect(
     FilterClauseSupport,
     WindowFunctionSupport,
     JSONSupport,
+    UUIDSupport,
     ReturningSupport,
     AdvancedGroupingSupport,
     ArraySupport,
@@ -374,12 +390,16 @@ class SQLiteDialect(
         value type as :meth:`supports_data_types`). Suggestions reflect
         SQLite's real storage model:
 
-        - ``uuid`` / ``enum``: no native types — both degrade to TEXT
-          affinity, so the suggested replacement is ``SQLiteTextType``.
+        - ``uuid`` / ``enum`` / ``xml``: no native types — ``uuid`` and ``enum``
+          degrade to TEXT affinity, and SQLite stores an XML document as text
+          with no validation, so all three are suggested as ``SQLiteTextType``.
         - ``binary`` / ``varbinary``: no fixed/variable-length byte-string
           types — everything is BLOB affinity (the same mapping
           ``parse_type`` applies to ``BINARY`` / ``VARBINARY`` type
           strings), so the suggested replacement is ``SQLiteBlobType``.
+        - ``array``: SQLite has no array type. An array column is stored as
+          text (or as a JSON document in it), so ``SQLiteTextType`` is what
+          this backend actually stores.
 
         Types the type mixin does render (``json``, ``jsonb``, ``varchar``,
         ``date``, …) are deliberately absent: they already have a rendering
@@ -391,6 +411,8 @@ class SQLiteDialect(
         return {
             "uuid": SQLiteTextType,
             "enum": SQLiteTextType,
+            "xml": SQLiteTextType,
+            "array": SQLiteTextType,
             "binary": SQLiteBlobType,
             "varbinary": SQLiteBlobType,
         }
@@ -447,6 +469,38 @@ class SQLiteDialect(
     def supports_json_arrow_operators(self) -> bool:
         """SQLite supports -> and ->> operators from version 3.38.0+."""
         return self.version >= (3, 38, 0)
+
+    def format_json_function_expression(self, expr) -> Tuple[str, tuple]:
+        """Render a JSON path access with SQLite's own JSON1 functions.
+
+        Without this, ``JSONPathMode.FUNCTION`` fell through to the core
+        default, which emits MySQL's ``JSON_UNQUOTE(JSON_EXTRACT(...))``.
+        SQLite has ``json_extract`` but has no ``JSON_UNQUOTE`` at all, so
+        FUNCTION mode produced SQL the server rejects.
+
+        Args:
+            expr: The JSONDocumentExpression node.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression import bases
+
+        if isinstance(expr.column, bases.BaseExpression):
+            col_sql, col_params = expr.column.to_sql()
+        else:
+            col_sql, col_params = self.format_identifier(str(expr.column)), ()
+
+        escaped_path = self._escape_sql_string(expr.path)
+        # json_extract returns SQL NULL for a missing path and a
+        # JSON-quoted string for text, so it stands in for ->> without a
+        # separate unquote step — SQLite has no JSON_UNQUOTE to call.
+        sql = f"json_extract({col_sql}, '{escaped_path}')"
+        params = col_params
+
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, params
 
     def get_json_access_operator(self) -> str:
         """SQLite uses '->' for JSON access."""

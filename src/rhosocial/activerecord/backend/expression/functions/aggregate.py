@@ -4,12 +4,44 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..aggregates import AggregateFunctionCall
-from ..core import Column, WildcardExpression
+from ..column_types import value_class_of
+from ..core import (
+    Column,
+    WildcardExpression,
+    FunctionCall,
+    IntegerValueExpression,
+    NumericValueExpression,
+)
 from ..operators import RawSQLExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+
+
+def _typed(call: FunctionCall, target: BaseExpression):
+    """Wrap *call* in the value class matching *target*, when there is one.
+
+    A reduction answers with the kind of thing it was given: the minimum of an
+    integer is an integer, the minimum of a float is a number, the minimum of a
+    string is a string and can still be compared and matched. The column class
+    already says which that is, so it is read off the class rather than off an
+    attribute duplicating it -- see
+    :func:`~...expression.column_types.value_class_of`.
+
+    ``COUNT`` is the exception and always wraps in
+    :class:`IntegerValueExpression`, because a count is a count however wide the
+    thing counted. So is ``AVG``, which always wraps in
+    :class:`NumericValueExpression` because averaging whole numbers gives a
+    fraction; neither of those two goes through here.
+
+    A target that says nothing -- a ``Literal``, an untyped ``Column`` -- leaves
+    the call untyped. That is the honest answer: the database decides, and the
+    caller who needs a specific type says so with ``cast()``.
+    """
+    value_class = value_class_of(target)
+    if value_class is not None:
+        return value_class(call._dialect, call)
+    return call
 
 
 def count(
@@ -17,7 +49,7 @@ def count(
     expr: Union[str, "BaseExpression"] = "*",
     is_distinct: bool = False,
     alias: Optional[str] = None,
-) -> "AggregateFunctionCall":
+) -> "FunctionCall":
     """
     Creates a COUNT aggregate function call.
 
@@ -36,7 +68,7 @@ def count(
         alias: Optional alias for the result
 
     Returns:
-        An AggregateFunctionCall instance representing the COUNT function
+        A FunctionCall instance representing the COUNT function
     """
     # Check if the passed expression is the string "*"
     if expr == "*" and isinstance(expr, str):
@@ -46,7 +78,10 @@ def count(
         target_expr = expr
     else:
         target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "COUNT", target_expr, is_distinct=is_distinct, alias=alias)
+    return IntegerValueExpression(
+        dialect,
+        FunctionCall(dialect, "COUNT", target_expr, is_distinct=is_distinct, alias=alias, is_aggregate=True),
+    )
 
 
 def sum_(
@@ -54,7 +89,7 @@ def sum_(
     expr: Union[str, "BaseExpression"],
     is_distinct: bool = False,
     alias: Optional[str] = None,
-) -> "AggregateFunctionCall":
+) -> "FunctionCall":
     """
     Creates a SUM aggregate function call.
 
@@ -70,10 +105,20 @@ def sum_(
         alias: Optional alias for the result
 
     Returns:
-        An AggregateFunctionCall instance representing the SUM function
+        A FunctionCall instance representing the SUM function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "SUM", target_expr, is_distinct=is_distinct, alias=alias)
+    return _typed(
+        FunctionCall(
+            dialect,
+            "SUM",
+            target_expr,
+            is_distinct=is_distinct,
+            alias=alias,
+            is_aggregate=True,
+        ),
+        target_expr,
+    )
 
 
 def avg(
@@ -81,7 +126,7 @@ def avg(
     expr: Union[str, "BaseExpression"],
     is_distinct: bool = False,
     alias: Optional[str] = None,
-) -> "AggregateFunctionCall":
+) -> "FunctionCall":
     """
     Creates an AVG aggregate function call.
 
@@ -97,15 +142,18 @@ def avg(
         alias: Optional alias for the result
 
     Returns:
-        An AggregateFunctionCall instance representing the AVG function
+        A FunctionCall instance representing the AVG function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "AVG", target_expr, is_distinct=is_distinct, alias=alias)
+    return NumericValueExpression(
+        dialect,
+        FunctionCall(dialect, "AVG", target_expr, is_distinct=is_distinct, alias=alias, is_aggregate=True),
+    )
 
 
 def min_(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], alias: Optional[str] = None
-) -> "AggregateFunctionCall":
+) -> "FunctionCall":
     """
     Creates a MIN aggregate function call.
 
@@ -120,15 +168,15 @@ def min_(
         alias: Optional alias for the result
 
     Returns:
-        An AggregateFunctionCall instance representing the MIN function
+        A FunctionCall instance representing the MIN function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "MIN", target_expr, alias=alias)
+    return _typed(FunctionCall(dialect, "MIN", target_expr, alias=alias, is_aggregate=True), target_expr)
 
 
 def max_(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], alias: Optional[str] = None
-) -> "AggregateFunctionCall":
+) -> "FunctionCall":
     """
     Creates a MAX aggregate function call.
 
@@ -143,7 +191,7 @@ def max_(
         alias: Optional alias for the result
 
     Returns:
-        An AggregateFunctionCall instance representing the MAX function
+        A FunctionCall instance representing the MAX function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "MAX", target_expr, alias=alias)
+    return _typed(FunctionCall(dialect, "MAX", target_expr, alias=alias, is_aggregate=True), target_expr)

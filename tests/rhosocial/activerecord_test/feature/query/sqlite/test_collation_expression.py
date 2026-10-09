@@ -11,6 +11,7 @@ from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.mixins import CollationMixin, ExpressionMixin, DDLColumnMixin
 from rhosocial.activerecord.backend.expression import Column, Literal, collate
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import TextType
 
 
 class StandardCollationDialect(SQLDialectBase, ExpressionMixin, DDLColumnMixin, CollationMixin):
@@ -69,7 +70,7 @@ class TestSQLiteCollationExpression:
         assert params == ("alice",)
 
     def test_collate_supports_alias_and_cast(self, dialect):
-        expr = Column(dialect, "name").collate("NOCASE").cast("TEXT").as_("normalized_name")
+        expr = Column(dialect, "name").collate("NOCASE").cast(TextType(dialect)).as_("normalized_name")
 
         sql, params = expr.to_sql()
 

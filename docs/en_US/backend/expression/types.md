@@ -54,7 +54,7 @@ Model classes define their field type annotations at **import time**, when the m
 
 ## Value-Object Semantics
 
-`DataType` instances are **value objects**: two instances of the same class with the same logical parameters are **equal and hash-equal**, regardless of whether they carry a dialect reference. Equality compares the type's logical parameters (`_type_params()`) plus its `dialect_options`; the hash covers type identity and type params only. The bound dialect is ignored by both — binding (or re-binding) a dialect never affects `==` or `hash`.
+`DataType` instances are **value objects**: two instances of the same class with the same logical parameters are **equal and hash-equal**, regardless of whether they carry a dialect reference. Equality compares the type's **declared identity** — the attributes listed in the class constant `PARAMETERS` — and the hash covers the type's class plus those same attributes. The bound dialect is ignored by both — binding (or re-binding) a dialect never affects `==` or `hash`.
 
 ```python
 a = IntegerType()
@@ -63,26 +63,54 @@ assert a == b          # value object: equal (dialect ignored)
 assert hash(a) == hash(b)
 ```
 
-`dialect_options` is the dict of **backend-specific exotic parameters** (e.g. `{'unsigned': True}`, charset, length semantics) that travels with the type instance and is consumed by the backend's formatters. It participates in **equality** but deliberately **not** in the hash, so mutable option mappings cannot break hashing.
+There is no separate bag of "backend-specific options" hanging off a data type. Anything a backend needs beyond the concept's own parameters is a **declared field** on the class — `CharType.length`, `DecimalType.precision`/`scale`, `EnumType.values`, `ArrayType.element_type`/`dimensions`, and `unsigned: bool` on the four integer classes — and it is listed in the class's `PARAMETERS`, hence in both `==` and `hash`.
+
+## Spellings
+
+Several concepts have more than one legitimate written form. Those are **spellings of one class**, not separate classes: the class carries a closed `SPELLINGS` tuple and a `spelling` keyword, and the *first* entry is the default.
+
+```python
+IntegerType()                          # spelling "integer"
+IntegerType(spelling="int")            # the same class, the other word
+assert IntegerType() == IntegerType(spelling="int")   # the same value
+```
+
+Why one class rather than two: `INT` and `INTEGER` are the same type, so code that has to ask "is this an integer column?" must not have to enumerate the spellings.
+
+**Why the spelling is *not* part of `==`.** The tempting argument is that it was part of what was declared, so a difference in it is a difference worth reporting. But the schema differ does not compare two DDL scripts — it compares **what the database reports now** against **what was declared**, and a database reports its own house spelling no matter which word was typed. PostgreSQL reports `character varying(30)` for every `varchar(30)` column that exists, and SQL Server reports `DECIMAL` for a column declared as `NUMERIC`. Counting the spelling would therefore report a change on every such column that was never touched: a false positive on the one comparison that has to be right.
+
+Nothing is lost. The spelling still reaches the rendered SQL — that is where the difference is real and visible:
+
+```python
+IntegerType()                        # renders INTEGER
+IntegerType(spelling="int")          # renders INT
+```
+
+and it still round-trips through `get_params()` for serialization, because serialization asks a different question — not "what is this value" but "what is needed to rebuild this object" — and that answer is the constructor signature. `get_params()` is the single serialization path for all expressions and is not overridden on any of them.
+
+Which spellings a *particular backend* renders is the backend's business, and it is checked in the backend's formatter: a dialect that does not write `CLOB` raises rather than silently emitting `TEXT` for a caller who asked for `CLOB`. The default spelling always renders — a backend may normalise it to its own word, never refuse it.
 
 ## Core Types
 
-Core types are defined in `rhosocial.activerecord.backend.expression.types` and cover the SQL types shared by most databases:
+Core types are defined in `rhosocial.activerecord.backend.expression.types` and cover the SQL types shared by most databases. A concept with several spellings lists them; a concept with one has no `spelling` argument at all.
 
-| Category | Type classes |
-|----------|--------------|
-| Integer | `TinyIntType`, `SmallIntType`, `IntType`, `IntegerType`, `BigIntType` |
-| Numeric | `FloatType`, `RealType`, `DoubleType`, `DecimalType` |
-| String | `CharType`, `VarCharType`, `TextType` |
-| Boolean | `BooleanType` |
-| Binary | `BlobType`, `BinaryType`, `VarBinaryType` |
-| Enum | `EnumType` (values required) |
-| Date/time | `DateType`, `TimeType`, `TimeTzType`, `DateTimeType`, `TimestampType`, `TimestampTzType`, `IntervalType` |
-| JSON | `JsonType`, `JsonBType` |
-| Network | `InetType`, `CidrType`, `MacAddrType` |
-| UUID | `UUIDType` |
-| Array | `ArrayType` |
-| Custom | `CustomType` |
+| Category | Type classes | Spellings |
+|----------|--------------|-----------|
+| Integer | `TinyIntType`, `SmallIntType`, `IntegerType`, `BigIntType` | `tinyint`/`int1`, `smallint`/`int2`, `integer`/`int`, `bigint`/`int8` |
+| Numeric | `FloatType`, `RealType`, `DoubleType`, `DecimalType` | `double`/`double precision`, —, —, `decimal`/`numeric`/`dec` |
+| String | `CharType`, `VarCharType`, `TextType` | `char`/`character`, `varchar`/`character varying`, `text`/`clob` |
+| Boolean | `BooleanType` | `boolean`/`bool` |
+| Binary | `BlobType`, `BinaryType`, `VarBinaryType` | `blob`/`bytea`, —, — |
+| Enum | `EnumType` (values required) | — |
+| Date/time | `DateType`, `TimeType`, `TimeTzType`, `DateTimeType`, `TimestampType`, `TimestampTzType`, `IntervalType` | — |
+| JSON | `JsonType`, `JsonBType`, `XmlType` | — |
+| UUID | `UUIDType` | — |
+| Array | `ArrayType` | — |
+| Custom | `CustomType` | — |
+
+`TinyIntType`, `SmallIntType`, `IntegerType` and `BigIntType` each take `unsigned: bool`. Signed and unsigned are the *same class* — the range is what the parameter carries — because a linear inheritance chain cannot hold a (width × signedness) grid, and because a backend that has no unsigned integers widens rather than inventing a class.
+
+`RealType`, `DoubleType` and `FloatType` are three classes on purpose. They have different ranges and different storage, and a schema diff must see the difference; `DateTimeType` and `TimestampType` likewise. `JsonType` and `XmlType` are separate because SQL/JSON and SQL/XML have different operations and different standards, and the backends that implement one do not reliably implement the other.
 
 Core types can be instantiated without a dialect (deferred binding), but cannot render until one is bound.
 
@@ -92,11 +120,13 @@ Each backend defines its own subtypes on top of the core types, **named with the
 
 | Backend | Examples |
 |---------|----------|
-| SQLite | `SQLiteIntegerType(IntegerType)`, `SQLiteTextType(TextType)`, `SQLiteBlobType(BlobType)` |
-| MySQL | `MySQLIntType(IntegerType)`, `MySQLTinyIntType(TinyIntType)`, `MySQLEnumType(DataType)`, `MySQLSetType(DataType)`, `MySQLGeometryType(DataType)` |
-| PostgreSQL | `PostgresSerialType(DataType)`, `PostgresUUIDType(DataType)`, `PostgresTSVectorType(DataType)`, `PostgresJsonPathType(DataType)` |
+| SQLite | `SQLiteIntegerType(IntegerType)`, `SQLiteTextType(TextType)`, `SQLiteBlobType(BlobType)`, `SQLiteNumericType(DataType)` |
+| MySQL | `MySQLIntType(IntegerType)`, `MySQLTinyIntType(TinyIntType)`, `MySQLEnumType(EnumType)`, `MySQLSetType(DataType)`, `MySQLGeometryType(DataType)` |
+| PostgreSQL | `PostgresSerialType(IntegerType)`, `PostgresUUIDType(UUIDType)`, `PostgresXMLType(XmlType)`, `PostgresTSVectorType(DataType)`, `PostgresJsonPathType(DataType)` |
 
-Backend-specific types usually inherit the corresponding core type; they inherit `DataType` directly only when the type is backend-exclusive (e.g. MySQL `ENUM`, PostgreSQL `SERIAL`).
+A backend type **derives from the core type of the concept it is**, whenever there is one — that is what makes `isinstance(col.data_type, IntegerType)` true for a PostgreSQL `SERIAL` column instead of forcing every caller to know each backend's private class list. It inherits `DataType` directly only when the concept is genuinely backend-exclusive, and then its docstring must say *why* there is no core concept.
+
+Inheritance means **identity** — "this class *is* that SQL type". It is not used to group types into families: SQL's data-type categories (numeric, string, date/time) are membership, not subtyping, and nothing in this framework asks "is this numeric". The chain is linear: no multiple inheritance, no diamond edges.
 
 Each backend-defined type declares a **namespaced generic type name** — the backend slug as prefix (e.g. `SQLiteIntegerType.name == "sqlite_integer"`). This prefix is enforced at class-definition time (`__init_subclass__`): a type defined outside the core types package whose name lacks the backend prefix is rejected, keeping the dispatch keys of different backends isolated.
 
@@ -174,14 +204,28 @@ class Product(ActiveRecord):
 
 When a dialect implements `parse_type(raw)` (the `DataTypeSupport` protocol), it can parse a raw type string returned by the database back into a `DataType` object for schema introspection and comparison. Dialects without this interface fall back to `CustomType(raw=raw)`. The former names `DDLTypeSupport` and `DDLTypeMixin` remain deprecated compatibility aliases for `DataTypeSupport` and `DataTypeMixin`.
 
-## Equivalence and Synonyms
+A `parse_type` answer has to be **canonical**, and both halves of that are enforced by `tests/.../dummy2/test_type_spelling_parse.py`:
 
-`synonyms()` and `is_equivalent()` are used **only** for intra-dialect schema-comparison normalization (e.g. SQLite affinity collapse). **Never** register cross-dialect equivalences — rendering stays strictly faithful and dialect differences must remain explicit.
+- **Coverage** — every entry of every core `SPELLINGS` tuple reaches a type. `CustomType` is the honest answer only for a name the framework has no concept for; used on `INT1`, `CHARACTER`, `DEC` or `BOOL` it would report a type the framework itself declares as a vendor-specific one, and write the raw text back.
+- **One concept in, one class out** — all spellings of one concept reach the same class, and `character varying` (variable length) never reaches the fixed-length `CharType`. Two classes per synonym is what the `spelling` parameter exists to prevent, and a parser that conflated the two would report a schema change that is not there.
+
+Which class is the dialect's answer, not the spelling's: a backend whose storage cannot tell two concepts apart may answer with the class that stands for that shared storage. SQLite is the case in core — `TINYINT` and `BIGINT` are one INTEGER-affinity cell, and reporting them apart would report a distinction the database does not make.
+
+## Comparing Two Declared Types
+
+`==` is the whole comparison. Two declarations are the same type when they are the same class with the same logical content, which is what a value object's `==` already means.
 
 ```python
-# Only for schema-comparison scenarios within the same backend
-if type_a.is_equivalent(type_b):
-    ...
+if old_type != new_type:
+    ...   # the schema really did change
+```
+
+There is no looser "are these equivalent" question to ask, and that is deliberate. The old `synonyms()`/`is_equivalent()` pair existed to paper over synonym *classes*, which is what this design removes: with synonyms expressed as a `spelling` parameter, two spellings are one class, so there is nothing left for an equivalence table to reconcile. Measured across 9 dialects × 11 synonym pairs (99 comparisons), `is_equivalent()` and `==` never disagreed — it was a mechanism with no remaining work to do.
+
+One question `==` genuinely cannot answer is "does this array column store the same kind of thing as that one", where the answer should ignore how many axes the array has. That is a different question, it has its own name, and it is spelled `is_element_type_equivalent`:
+
+```python
+two_d.is_element_type_equivalent(one_d)   # True — both hold integers
 ```
 
 ## Related Documentation

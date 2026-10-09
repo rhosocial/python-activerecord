@@ -169,9 +169,11 @@ attribute cannot be resolved from the import's source module. Resolution is atte
 against the **source module**, not the class inventory, because dialect classes such as
 `SQLDialectBase` are not exported by expression modules and that is normal, not a defect.
 Only a module that imports cleanly while the attribute is missing is genuinely dangling.
-These are runtime-inert but break mypy, IDE resolution and any static tool. Firebird's
-`mixins/window.py` imports `WindowFunctionCallExpression` while core defines
-`WindowFunctionCall`.
+These are runtime-inert but break mypy, IDE resolution and any static tool. The case
+that motivated the check — Firebird's `mixins/window.py` importing
+`WindowFunctionCallExpression` while core defined `WindowFunctionCall` — is gone: the
+node was unified into `FunctionCall` and the stale importer deleted, so the check
+currently reports nothing. It is kept because the same shape recurs with every rename.
 
 > Relative-import resolution must go through `importlib.util.resolve_name` with the
 > module's `__package__`. Hand-rolled level arithmetic is wrong: level 0 is already

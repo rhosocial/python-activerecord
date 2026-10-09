@@ -8,6 +8,12 @@ from rhosocial.activerecord.backend.expression import Column, Literal, Subquery
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
 from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import (
+    CustomType,
+    DecimalType,
+    IntegerType,
+    TextType,
+)
 
 
 class TestColumnSchemaName:
@@ -31,13 +37,13 @@ class TestLiteralCastTypes:
 
     def test_literal_with_single_cast(self, dummy_dialect):
         lit = Literal(dummy_dialect, 42)
-        expr = lit.cast("INTEGER")
+        expr = lit.cast(IntegerType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST" in sql or "INTEGER" in sql
 
     def test_literal_with_chained_casts(self, dummy_dialect):
         lit = Literal(dummy_dialect, "100")
-        expr = lit.cast("money").cast("numeric")
+        expr = lit.cast(CustomType(dummy_dialect, raw='money')).cast(DecimalType(dummy_dialect))
         sql, params = expr.to_sql()
         assert sql  # Verify it doesn't crash
 
@@ -47,7 +53,7 @@ class TestSubqueryCastTypes:
 
     def test_subquery_with_cast(self, dummy_dialect):
         subquery = Subquery(dummy_dialect, "SELECT id FROM users")
-        expr = subquery.cast("TEXT")
+        expr = subquery.cast(TextType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST" in sql or "TEXT" in sql
 
@@ -59,7 +65,7 @@ class TestBinaryArithmeticCastTypes:
         left = Column(dummy_dialect, "price")
         right = Literal(dummy_dialect, 10)
         expr = BinaryArithmeticExpression(dummy_dialect, "+", left, right)
-        casted = expr.cast("DECIMAL")
+        casted = expr.cast(DecimalType(dummy_dialect))
         sql, params = casted.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
 

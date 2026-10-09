@@ -9,12 +9,13 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
     ExistsExpression,
     AnyExpression,
     AllExpression,
-    JSONExpression,
+    JSONDocumentExpression,
     ArrayExpression,
     OrderedSetAggregation,
 )
-from rhosocial.activerecord.backend.expression.core import Subquery
+from rhosocial.activerecord.backend.expression.core import FunctionCall, Subquery
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType
 
 
 class TestCaseExpression:
@@ -82,7 +83,7 @@ class TestCastExpression:
     def test_cast_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic CAST expression functionality."""
         col = Column(dummy_dialect, "id")
-        expr = col.cast("INTEGER")
+        expr = col.cast(IntegerType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
@@ -90,7 +91,7 @@ class TestCastExpression:
     def test_cast_expression_with_literal(self, dummy_dialect: DummyDialect):
         """Test CAST expression with literal value."""
         literal = Literal(dummy_dialect, "123")
-        expr = literal.cast("INTEGER")
+        expr = literal.cast(IntegerType(dummy_dialect))
         sql, params = expr.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
@@ -163,12 +164,12 @@ class TestAllExpression:
 
 
 class TestJSONExpression:
-    """Tests for JSONExpression class."""
+    """Tests for JSONDocumentExpression class."""
 
     def test_json_extract_expression(self, dummy_dialect: DummyDialect):
         """Test JSON extract falls back to function-based formatting (-> operation)."""
         col = Column(dummy_dialect, "json_col")
-        json_expr = JSONExpression(dummy_dialect, col, "$.name", operation="->")
+        json_expr = JSONDocumentExpression(dummy_dialect, col, "$.name", operation="->")
         sql, params = json_expr.to_sql()
         assert "JSON_EXTRACT" in sql
         assert params == ()
@@ -176,7 +177,7 @@ class TestJSONExpression:
     def test_json_extract_text_expression(self, dummy_dialect: DummyDialect):
         """Test JSON extract text falls back to function-based formatting (->> operation)."""
         col = Column(dummy_dialect, "json_col")
-        json_expr = JSONExpression(dummy_dialect, col, "$.name", operation="->>")
+        json_expr = JSONDocumentExpression(dummy_dialect, col, "$.name", operation="->>")
         sql, params = json_expr.to_sql()
         assert "JSON_UNQUOTE" in sql
         assert "JSON_EXTRACT" in sql
@@ -184,7 +185,7 @@ class TestJSONExpression:
 
     def test_json_extract_with_string_column(self, dummy_dialect: DummyDialect):
         """Test JSON extract with string column name."""
-        json_expr = JSONExpression(dummy_dialect, "json_col", "$.name", operation="->")
+        json_expr = JSONDocumentExpression(dummy_dialect, "json_col", "$.name", operation="->")
         sql, params = json_expr.to_sql()
         assert "JSON_EXTRACT" in sql
         assert params == ()
@@ -302,13 +303,13 @@ class TestWindowClasses:
         # The exact output depends on the dialect implementation
 
     def test_window_function_call(self, dummy_dialect: DummyDialect):
-        """Test WindowFunctionCall functionality."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification, WindowFunctionCall
+        """Test FunctionCall with a window specification."""
+        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
 
         partition_cols = [Column(dummy_dialect, "department")]
         window_spec = WindowSpecification(dummy_dialect, partition_by=partition_cols)
-        window_func = WindowFunctionCall(
-            dummy_dialect, "ROW_NUMBER", [Column(dummy_dialect, "id")], window_spec=window_spec
+        window_func = FunctionCall(
+            dummy_dialect, "ROW_NUMBER", Column(dummy_dialect, "id"), window_spec=window_spec
         )
         sql, params = window_func.to_sql()
         # The exact output depends on the dialect implementation

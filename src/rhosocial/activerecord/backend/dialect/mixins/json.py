@@ -10,7 +10,7 @@ from ..exceptions import UnsupportedFeatureError
 from ...expression import bases
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.advanced_functions import JSONExpression
+    from ...expression.advanced_functions import JSONDocumentExpression
 
 
 class JSONMixin:
@@ -24,6 +24,25 @@ class JSONMixin:
     def supports_json_type(self) -> bool:
         """Whether JSON type is supported. Defaults to False."""
         return False
+
+    def supports_json_path(self) -> bool:
+        """Whether a JSON path can be rendered at all.
+
+        Separate from :meth:`supports_json_type` on purpose. A dialect can
+        have the functions that read a path without having a native JSON type
+        — MySQL 5.7.0 has JSON_EXTRACT, and the JSON *type* arrived in 5.7.8 —
+        and it can have a JSON type with no way to read a path, which is
+        Firebird's situation with JSON_ARRAY and JSON_OBJECT.
+
+        Conflating the two makes a backend refuse a query its server would
+        have answered, and the refusal looks like a missing feature rather
+        than a wrong gate.
+
+        Defaults to True because a dialect that says nothing is expected to
+        render paths; a dialect whose server has no such function should
+        override this to False and refuse with a suggestion.
+        """
+        return True
 
     def supports_json_arrow_operators(self) -> bool:
         """Whether JSON arrow operators (-> and ->>) are supported.
@@ -53,14 +72,14 @@ class JSONMixin:
     # Arrow-operator formatting (-> / ->>)
     # ------------------------------------------------------------------
 
-    def format_json_arrow_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
+    def format_json_arrow_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
         """Format JSON expression using arrow operators (-> / ->>).
 
         This method always uses arrow operator syntax. If the dialect does
         not support arrow operators, it raises UnsupportedFeatureError.
 
         Args:
-            expr: The JSONExpression node with column, path, operation, and
+            expr: The JSONDocumentExpression node with column, path, operation, and
                 optional alias.
 
         Returns:
@@ -95,7 +114,7 @@ class JSONMixin:
     # Function-based formatting (JSON_EXTRACT / JSON_UNQUOTE etc.)
     # ------------------------------------------------------------------
 
-    def format_json_function_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
+    def format_json_function_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
         """Format JSON expression using function-based equivalents.
 
         Default implementation uses JSON_EXTRACT for -> and
@@ -105,7 +124,7 @@ class JSONMixin:
         method to provide the correct function-based SQL.
 
         Args:
-            expr: The JSONExpression node with column, path, operation, and
+            expr: The JSONDocumentExpression node with column, path, operation, and
                 optional alias.
 
         Returns:
@@ -137,7 +156,7 @@ class JSONMixin:
     # Dispatch entry point
     # ------------------------------------------------------------------
 
-    def format_json_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
+    def format_json_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, Tuple]:
         """Format JSON expression, dispatching on mode and capability.
 
         Dispatches to arrow-operator or function-based formatting depending
@@ -150,17 +169,53 @@ class JSONMixin:
         The default mode is ``JSONPathMode.AUTO``.
 
         Args:
-            expr: The JSONExpression node to format.
+            expr: The JSONDocumentExpression node to format.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the expression.
 
         Raises:
-            UnsupportedFeatureError: If arrow mode is requested but arrow
-                operators are not supported.
+            UnsupportedFeatureError: If the dialect declares no JSON support
+                at all, or if arrow mode is requested but arrow operators are
+                not supported.
         """
         from ...expression.advanced_functions import JSONPathMode
 
+        # A dialect whose server has no way to read a JSON path must not be
+        # handed JSON SQL. The docstring below has always promised this
+        # refusal and the code did not keep it: rendering went straight to the
+        # function-based fallback, which is MySQL's shape, so Snowflake and
+        # BigQuery answered a JSON path with JSON_EXTRACT — a function neither
+        # has.
+        #
+        # The gate is supports_json_path, not supports_json_type: those are two
+        # capabilities, and MySQL 5.7.0 reads paths through JSON_EXTRACT while
+        # having no native JSON type until 5.7.8. Gating on the type would
+        # refuse queries the server answers.
+        if not self.supports_json_path():
+            raise UnsupportedFeatureError(
+                dialect_name=type(self).__name__,
+                feature_name="JSON path expressions",
+                suggestion=(
+                    "This dialect has no function for reading a JSON path on "
+                    "this server version. Store the value as text and parse it "
+                    "in Python, or use a backend that declares "
+                    "supports_json_path()."
+                ),
+            )
+
+        # Dispatch note: the function-based fallback below emits JSON_EXTRACT /
+        # JSON_UNQUOTE(JSON_EXTRACT(...)), which is MySQL's shape. It is
+        # nonetheless the documented default for any dialect without arrow
+        # operators, and the core does not second-guess that here: a dialect
+        # whose server has no such functions must override
+        # format_json_function_expression with its own syntax (JSON_VALUE,
+        # GET_PATH, ...). Refusing in the core instead would break every
+        # dialect that legitimately relies on the default, which is a
+        # documented and tested behaviour.
+        #
+        # A dialect that forces ARROW on a backend without arrows still gets an
+        # error, from format_json_arrow_expression below.
         mode: JSONPathMode = getattr(expr, "mode", JSONPathMode.AUTO)
 
         if mode is JSONPathMode.ARROW:

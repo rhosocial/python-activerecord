@@ -25,6 +25,7 @@ from ..backend.expression import ComparisonPredicate, Literal
 from ..interface import ModelEvent
 from ..interface.update import IDeleteBehavior
 from ..query import ActiveQuery
+from .field_config import FieldConfigValidationHandler
 
 
 class SoftDeleteMixin(IDeleteBehavior):
@@ -32,19 +33,25 @@ class SoftDeleteMixin(IDeleteBehavior):
 
     The model (or a subclass like :class:`DefaultSoftDeleteMixin`) declares
     a datetime field and announces it via ``__deleted_at_field__``; it must
-    exist or instantiation fails fast.
+    exist or the class is rejected at definition time.
     """
 
     __deleted_at_field__: ClassVar[str] = "deleted_at"
 
+    _feature_handlers = [FieldConfigValidationHandler]
+
     def __init__(self, **data):
         super().__init__(**data)
-        self.__class__._validate_soft_delete_config()
         self.on(ModelEvent.BEFORE_DELETE, self._mark_as_deleted)
 
     @classmethod
-    def _validate_soft_delete_config(cls) -> None:
-        """Fail fast when the configured field name does not exist."""
+    def _validate_model_config(cls) -> None:
+        """Fail fast when the configured field name does not exist.
+
+        Invoked by :class:`FieldConfigValidationHandler` from the metaclass,
+        so it runs once at class definition — see that module for why this
+        cannot live in ``__init__``.
+        """
         field_name = cls.__deleted_at_field__
         if field_name not in cls.model_fields:
             raise TypeError(

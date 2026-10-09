@@ -140,7 +140,7 @@ class TestJsonArrayInsertFunction:
     def test_json_array_insert_basic(self):
         """Test basic json_array_insert function call."""
         dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = json_array_insert(dialect, "data", "new_value")
+        expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
         assert len(params) == 3  # json_array, default path '$', and value are parameterized
@@ -148,7 +148,7 @@ class TestJsonArrayInsertFunction:
     def test_json_array_insert_with_position(self):
         """Test json_array_insert with position parameter."""
         dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = json_array_insert(dialect, "data", "new_value", position=0)
+        expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"), position=0)
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
         assert len(params) == 3  # json_array, value, and position are parameterized
@@ -167,7 +167,7 @@ class TestJsonbArrayInsertFunction:
     def test_jsonb_array_insert_basic(self):
         """Test basic jsonb_array_insert function call."""
         dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = jsonb_array_insert(dialect, "data", "new_value")
+        expr = jsonb_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
         assert len(params) == 3  # jsonb_array, default path '$', and value are parameterized
@@ -175,7 +175,7 @@ class TestJsonbArrayInsertFunction:
     def test_jsonb_array_insert_with_position(self):
         """Test jsonb_array_insert with position parameter."""
         dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = jsonb_array_insert(dialect, "data", "new_value", position=2)
+        expr = jsonb_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"), position=2)
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
         assert len(params) == 3  # jsonb_array, value, and position are parameterized
