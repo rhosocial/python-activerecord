@@ -1161,9 +1161,10 @@ def _literal(dialect, value):
 class NumericValueMixin:
     """Operations on a **fractional**-valued expression.
 
-    Distinct from :class:`IntegerValueMixin` because ``ceil``/``floor``/
-    ``truncate`` of a whole number is a whole number, while ``sqrt``/``log``/
-    ``abs`` of one may not be. SQL makes the same distinction: a backend
+    Distinct from the integer value family (:class:`IntegerValueExpression`)
+    because ``ceil``/``floor``/``truncate`` of a whole number is a whole
+    number, while ``sqrt``/``log``/``abs`` of one may not be. SQL makes the
+    same distinction: a backend
     returns ``numeric`` for ``ABS(numeric)`` and ``double precision`` for
     ``ABS(double precision)``, so the family depends on the operand.
 
@@ -1211,7 +1212,7 @@ class NumericValueMixin:
         """
         return self._numeric_op("abs_")
 
-    def sign(self) -> "IntegerValueMixin":
+    def sign(self) -> "IntegerValueExpression":
         """Sign of the value: -1, 0 or 1. ``SIGN(col)``"""
         return self._numeric_op("sign")
 
@@ -1374,59 +1375,100 @@ class TranscendentalMixin:
         return self._transcendental_op("tan")
 
 
-class IntegerValueMixin:
-    """Operations on an **integer**-valued expression.
+class StringToIntegerMixin:
+    """Operations that read a **string** and produce an integer.
 
-    Separate from :class:`StringValueMixin` because these *return* an integer
-    rather than accept one. ``"name".length()`` is a legal string operation
-    whose result is a number, and that number must not carry string
-    operations — ``LENGTH(name).upper()`` is a type error in every backend.
-    Putting the result in its own family is what makes the rule checkable
-    instead of a convention.
+    Named for both ends of the direction: these accept a string and *return* a
+    number. ``"name".length()`` is a legal string operation whose result is a
+    number, and that number must not carry string operations —
+    ``LENGTH(name).upper()`` is a type error in every backend; putting the
+    result in its own family (:class:`IntegerValueExpression`) is what makes
+    the rule checkable instead of a convention. Because the receiver is a
+    string, the mixin is attached to the string classes only: an integer never
+    grows these methods, so ``LENGTH(name).length()`` cannot be constructed.
 
-    Members are the SQL integer functions that read a value and produce a
-    count or a code. Arithmetic is on :class:`ArithmeticMixin`, which the
-    integer value expression also carries.
+    Members are the SQL integer functions that read a string and produce a
+    count or a code. Arithmetic on the result comes from
+    :class:`ArithmeticMixin`, which the integer value expression also carries.
     """
 
     if TYPE_CHECKING:  # pragma: no cover
         from .core import IntegerValueExpression
-
-    def length(self) -> "IntegerValueExpression":
-        """Number of characters. ``LENGTH(expr)``"""
-        from .functions import string as _string
-
-        return _string.length(self._dialect, self)
-
-    def ascii(self) -> "IntegerValueExpression":
-        """Code of the first character. ``ASCII(expr)``"""
-        from .functions import string as _string
-
-        return _string.ascii(self._dialect, self)
-
-    def octet_length(self) -> "IntegerValueExpression":
-        """Length in bytes. ``OCTET_LENGTH(expr)``"""
-        from .functions import string as _string
-
-        return _string.octet_length(self._dialect, self)
-
-    def bit_length(self) -> "IntegerValueExpression":
-        """Length in bits. ``BIT_LENGTH(expr)``"""
-        from .functions import string as _string
-
-        return _string.bit_length(self._dialect, self)
-
-    def strpos(self, substring: str) -> "IntegerValueExpression":
-        """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``"""
-        from .functions import string as _string
-
-        return _string.strpos(self._dialect, self, substring)
 
     def position(self, substring: str) -> "IntegerValueExpression":
         """1-based position of *substring*. ``POSITION(substring IN expr)``"""
         from .functions import string as _string
 
         return _string.position(self._dialect, substring, self)
+
+    # --- operations that read a string and produce a number ---
+
+    def _integer_op(self, factory_name: str, *args):
+        """Call a string factory whose result is an integer.
+
+        Args:
+            factory_name: Name of the function in ``functions.string``.
+            args: Positional arguments forwarded to the factory.
+
+        Returns:
+            An :class:`IntegerValueExpression`.
+        """
+        from . import functions as _functions
+
+        factory = getattr(_functions, factory_name)
+        return factory(self._dialect, self, *args)
+
+    def length(self) -> "IntegerValueExpression":
+        """Length of the string, in **whatever unit the backend's ``LENGTH`` uses**.
+
+        ``LENGTH(expr)`` — and that unit is not characters everywhere, which is
+        the discipline this docstring exists to state rather than leave to be
+        discovered from a wrong answer.
+
+        Measured per backend (``suggested-pairing-string-enum.md``, the S-length
+        row):
+
+        * PostgreSQL, Oracle, Firebird — **characters**, so a 5-character string
+          reports 5 whatever its encoding;
+        * MySQL, MariaDB, ClickHouse — **bytes**, so the same string reports its
+          encoded length and a multi-byte character counts for more than one;
+        * SQL Server — **UTF-16 code units**, so a 5-character string holding
+          astral characters reports 10. There is no portable fix here: this
+          backend maps both ``LENGTH`` and ``CHAR_LENGTH`` to ``LEN``, and
+          ``LEN`` is what counts code units.
+
+        Only the first group agrees with what this method's old one-line
+        docstring promised. A caller who needs a *character* count on every
+        backend therefore cannot use ``length`` alone; :meth:`octet_length` is
+        the honest byte count where the backend distinguishes them, and a
+        character count on MySQL-family backends needs the backend's own
+        ``CHAR_LENGTH`` spelled out through the function layer rather than
+        assumed here.
+
+        What this method does **not** do is pick a unit and pretend it is
+        portable. The word ``LENGTH`` is the one every backend here has, so it
+        is the one written, and the difference is a property of the backends
+        rather than of the operation — the same shape as the ``= 1`` boolean
+        literal, where the framework refuses the non-portable spelling instead
+        of rendering it and hoping.
+        """
+        return self._integer_op("length")
+
+    def ascii(self) -> "IntegerValueExpression":
+        """Code of the first character. ``ASCII(expr)``"""
+        return self._integer_op("ascii")
+
+    def octet_length(self) -> "IntegerValueExpression":
+        """Length in bytes. ``OCTET_LENGTH(expr)``"""
+        return self._integer_op("octet_length")
+
+    def bit_length(self) -> "IntegerValueExpression":
+        """Length in bits. ``BIT_LENGTH(expr)``"""
+        return self._integer_op("bit_length")
+
+    def strpos(self, substring: str) -> "IntegerValueExpression":
+        """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``"""
+        return self._integer_op("strpos", substring)
 
 
 class StringValueMixin:
@@ -1522,83 +1564,6 @@ class StringValueMixin:
     def replace(self, pattern: str, replacement: str) -> "StringValueMixin":
         """Replace every occurrence. ``REPLACE(col, pattern, replacement)``"""
         return self._string_op("replace", pattern, replacement)
-
-    def position(self, substring: str) -> "IntegerValueExpression":
-        """Position of *substring* within the string.
-
-        A legal string operation whose result is a number, so the result is an
-        integer value and carries integer operations, not string ones.
-        """
-        return self._integer_op("position", substring)
-
-    # --- operations that read a string and produce a number ---
-
-    def _integer_op(self, factory_name: str, *args):
-        """Call a string factory whose result is an integer.
-
-        Args:
-            factory_name: Name of the function in ``functions.string``.
-            args: Positional arguments forwarded to the factory.
-
-        Returns:
-            An :class:`IntegerValueExpression`.
-        """
-        from . import functions as _functions
-
-        factory = getattr(_functions, factory_name)
-        return factory(self._dialect, self, *args)
-
-    def length(self) -> "IntegerValueExpression":
-        """Length of the string, in **whatever unit the backend's ``LENGTH`` uses**.
-
-        ``LENGTH(expr)`` — and that unit is not characters everywhere, which is
-        the discipline this docstring exists to state rather than leave to be
-        discovered from a wrong answer.
-
-        Measured per backend (``suggested-pairing-string-enum.md``, the S-length
-        row):
-
-        * PostgreSQL, Oracle, Firebird — **characters**, so a 5-character string
-          reports 5 whatever its encoding;
-        * MySQL, MariaDB, ClickHouse — **bytes**, so the same string reports its
-          encoded length and a multi-byte character counts for more than one;
-        * SQL Server — **UTF-16 code units**, so a 5-character string holding
-          astral characters reports 10. There is no portable fix here: this
-          backend maps both ``LENGTH`` and ``CHAR_LENGTH`` to ``LEN``, and
-          ``LEN`` is what counts code units.
-
-        Only the first group agrees with what this method's old one-line
-        docstring promised. A caller who needs a *character* count on every
-        backend therefore cannot use ``length`` alone; :meth:`octet_length` is
-        the honest byte count where the backend distinguishes them, and a
-        character count on MySQL-family backends needs the backend's own
-        ``CHAR_LENGTH`` spelled out through the function layer rather than
-        assumed here.
-
-        What this method does **not** do is pick a unit and pretend it is
-        portable. The word ``LENGTH`` is the one every backend here has, so it
-        is the one written, and the difference is a property of the backends
-        rather than of the operation — the same shape as the ``= 1`` boolean
-        literal, where the framework refuses the non-portable spelling instead
-        of rendering it and hoping.
-        """
-        return self._integer_op("length")
-
-    def ascii(self) -> "IntegerValueExpression":
-        """Code of the first character. ``ASCII(expr)``"""
-        return self._integer_op("ascii")
-
-    def octet_length(self) -> "IntegerValueExpression":
-        """Length in bytes. ``OCTET_LENGTH(expr)``"""
-        return self._integer_op("octet_length")
-
-    def bit_length(self) -> "IntegerValueExpression":
-        """Length in bits. ``BIT_LENGTH(expr)``"""
-        return self._integer_op("bit_length")
-
-    def strpos(self, substring: str) -> "IntegerValueExpression":
-        """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``"""
-        return self._integer_op("strpos", substring)
 
     # --- whitespace ---
 

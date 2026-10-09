@@ -14,7 +14,7 @@ from .mixins import (
     ComparisonMixin,
     ArrayMixin,
     DateTimeMixin,
-    IntegerValueMixin,
+    StringToIntegerMixin,
     JSONAccessorMixin,
     LogicalMixin,
     NotANumberMixin,
@@ -24,6 +24,7 @@ from .mixins import (
     ResultTypeMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
+    TranscendentalMixin,
     TypeCastingMixin,
     WrappedCallMixin,
 )
@@ -490,6 +491,7 @@ class NumericValueExpression(
     ArithmeticMixin,
     ComparisonMixin,
     NumericValueMixin,
+    TranscendentalMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -538,7 +540,8 @@ class IntegerValueExpression(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    IntegerValueMixin,
+    NumericValueMixin,
+    TranscendentalMixin,
     TypeCastingMixin,
     SQLValueExpression,
 ):
@@ -588,7 +591,7 @@ class StringValueExpression(
     WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
-    IntegerValueMixin,
+    StringToIntegerMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
     TypeCastingMixin,
