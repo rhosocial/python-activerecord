@@ -964,9 +964,56 @@ class NotComparableMixin:
     __hash__ = object.__hash__
 
 
-class LogicalMixin:
+class _LogicalOperators:
+    """The three connectives (``&``, ``|``, ``~``), shared by both receivers.
+
+    The receiver decides the result class, and that is the whole difference: a
+    predicate stays a predicate -- combining predicates is how ``WHERE``
+    clauses are built -- while a truth *value* keeps its value type
+    (:class:`~...core.BooleanLogicExpression`), so the result can be aliased
+    into a ``SELECT`` list, compared, cast, and combined further. Both render
+    through the same dialect entry point (``format_logical_predicate``).
+
+    Deliberately private: the two public mixins below are the vocabulary
+    (predicate receivers / value receivers), and neither is a kind of the
+    other -- a truth value is not a predicate.
+    """
+
+    def __and__(self, other):
+        return self._logical_operation("AND", other)
+
+    def __or__(self, other):
+        return self._logical_operation("OR", other)
+
+    def __invert__(self):
+        return self._logical_operation("NOT")
+
+    def _logical_operation(self, op: str, *others):
+        from .bases import SQLPredicate, SQLValueExpression
+        from .core import Literal
+        from .predicates import LogicalPredicate
+
+        operands = [
+            other
+            if isinstance(other, (SQLValueExpression, SQLPredicate))
+            else Literal(self._dialect, other)
+            for other in others
+        ]
+        if isinstance(self, SQLPredicate):
+            return LogicalPredicate(self._dialect, op, self, *operands)
+
+        from .core import BooleanLogicExpression
+
+        return BooleanLogicExpression(self._dialect, op, self, *operands)
+
+
+class LogicalMixin(_LogicalOperators):
     """
     Provides logical operators (&, |, ~) for SQL predicates.
+
+    The result stays a predicate: this is the receiver for ``WHERE``-building
+    combinations. A truth *value* carries :class:`BooleanLogicMixin` instead,
+    and the two share one implementation (:class:`_LogicalOperators`).
 
     This mixin enables Python's logical operators to generate SQL logical expressions.
     When using these operators, the left operand's dialect is used for the resulting
@@ -987,62 +1034,7 @@ class LogicalMixin:
         >>> negated = ~p1  # Uses p1's dialect, generates: "NOT (status = ?)"
     """
 
-    def __and__(self: "SQLPredicate", other: "SQLPredicate") -> "SQLPredicate":
-        """
-        Implement the logical AND operator (&) to generate SQL logical predicate.
-
-        This method enables expressions like: `predicate1 & predicate2`
-        The resulting LogicalPredicate uses the left operand's dialect for SQL generation.
-
-        Args:
-            other: Right operand, must be another SQLPredicate
-
-        Returns:
-            SQLPredicate representing the logical AND operation
-
-        Example:
-            >>> p1 = Column(dialect, "status") == "active"
-            >>> p2 = Column(dialect, "age") >= 18
-            >>> combined = p1 & p2  # Generates: "(status = ?) AND (age >= ?)"
-        """
-        from .predicates import LogicalPredicate
-
-        return LogicalPredicate(self._dialect, "AND", self, other)
-
-    def __or__(self: "SQLPredicate", other: "SQLPredicate") -> "SQLPredicate":
-        """
-        Implement the logical OR operator (|) to generate SQL logical predicate.
-
-        Args:
-            other: Right operand, must be another SQLPredicate
-
-        Returns:
-            SQLPredicate representing the logical OR operation
-        """
-        from .predicates import LogicalPredicate
-
-        return LogicalPredicate(self._dialect, "OR", self, other)
-
-    def __invert__(self: "SQLPredicate") -> "SQLPredicate":
-        """
-        Implement the logical NOT operator (~) to generate SQL logical predicate.
-
-        Args:
-            self: The predicate to negate
-
-        Returns:
-            SQLPredicate representing the logical NOT operation
-
-        Example:
-            >>> p = Column(dialect, "status") == "active"
-            >>> negated = ~p  # Generates: "NOT (status = ?)"
-        """
-        from .predicates import LogicalPredicate
-
-        return LogicalPredicate(self._dialect, "NOT", self)
-
-
-class BooleanLogicMixin:
+class BooleanLogicMixin(_LogicalOperators):
     """Boolean algebra over a value that is itself a truth value: ``&``/``|``/``~``.
 
     :class:`LogicalMixin` gives the same three operators to a **predicate**,
@@ -1053,11 +1045,13 @@ class BooleanLogicMixin:
         Model.c.flag.is_true() & Model.c.other.is_true()   # renders AND
         ~Model.c.flag.is_true()                            # renders NOT
 
-    Deliberately **not** inherited from :class:`LogicalMixin`: these two are
-    siblings on different hierarchies (a column is a value expression, a
-    predicate is not), and composing them into one base would give every value
-    expression boolean operators it has no meaning for -- ``str`` has no
-    ``AND``. The mixin is mixed into the families whose value *is* a truth value.
+    Neither mixin extends the other: a value expression is not a predicate,
+    and giving every value expression boolean operators would hand ``str`` an
+    ``AND`` it has no meaning for. Both share the private
+    :class:`_LogicalOperators` implementation and differ only in the result
+    class -- this one keeps the value type
+    (:class:`~...core.BooleanLogicExpression`), so ``(a & b)`` can be aliased
+    into a ``SELECT`` list, while :class:`LogicalMixin` keeps the predicate.
 
     ``is_true`` / ``is_false`` are **not** redeclared here. They already come
     from :class:`ComparisonMixin`, which every comparable family carries, and
@@ -1072,75 +1066,6 @@ class BooleanLogicMixin:
         >>> # AND / OR / NOT over boolean columns
         >>> (col.is_true() & other.is_true()).to_sql()   # '"flag" IS TRUE AND ...'
     """
-
-    def __and__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
-        """
-        Implement the logical AND operator (&) for boolean-valued expressions.
-
-        Renders SQL ``AND``, never MySQL's bitwise ``&``: on a value that is a
-        truth value the intent is the connective, and MySQL/SQL Server accept
-        ``AND`` where the bitwise operator would silently compute a different
-        thing. This mirrors :class:`LogicalMixin.__and__`, which is the same
-        connective applied to predicates.
-
-        Args:
-            other: Right operand. A non-expression is wrapped in a ``Literal``.
-
-        Returns:
-            SQLPredicate representing the logical AND operation
-
-        Example:
-            >>> col = Column(dialect, "flag")
-            >>> predicate = col.is_true() & col.is_false()  # "flag IS TRUE AND flag IS FALSE"
-        """
-        from .core import Literal
-        from .predicates import LogicalPredicate
-        from .bases import SQLValueExpression
-
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
-        return LogicalPredicate(self._dialect, "AND", self, other_expr)
-
-    def __or__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
-        """
-        Implement the logical OR operator (|) for boolean-valued expressions.
-
-        Renders SQL ``OR``, never MySQL's bitwise ``|``; same reasoning as
-        :meth:`__and__`.
-
-        Args:
-            other: Right operand. A non-expression is wrapped in a ``Literal``.
-
-        Returns:
-            SQLPredicate representing the logical OR operation
-        """
-        from .core import Literal
-        from .predicates import LogicalPredicate
-        from .bases import SQLValueExpression
-
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
-        return LogicalPredicate(self._dialect, "OR", self, other_expr)
-
-    def __invert__(self: "SQLValueExpression") -> "SQLPredicate":
-        """
-        Implement the logical NOT operator (~) for boolean-valued expressions.
-
-        Renders SQL ``NOT``. Negating the column itself (``~flag``) is NOT
-        ``flag IS FALSE``: SQL's three-valued logic makes ``NOT NULL`` unknown,
-        whereas ``IS FALSE`` matches FALSE only. Callers asking "is it false?"
-        should say so with :meth:`ComparisonMixin.is_false`; ``~`` is the
-        connective, not the test.
-
-        Returns:
-            SQLPredicate representing the logical NOT operation
-
-        Example:
-            >>> col = Column(dialect, "flag")
-            >>> predicate = ~col.is_true()  # "NOT (flag IS TRUE)"
-        """
-        from .predicates import LogicalPredicate
-
-        return LogicalPredicate(self._dialect, "NOT", self)
-
 
 class ResultTypeMixin:
     """Stating a result type that the source cannot settle.

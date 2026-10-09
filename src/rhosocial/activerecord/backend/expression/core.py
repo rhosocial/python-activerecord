@@ -11,12 +11,12 @@ from .column_types import ColumnBase
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
+    BooleanLogicMixin,
     ComparisonMixin,
     ArrayMixin,
     DateTimeMixin,
     StringToIntegerMixin,
     JSONAccessorMixin,
-    LogicalMixin,
     NotANumberMixin,
     NotComparableMixin,
     NullTestMixin,
@@ -312,7 +312,7 @@ class BooleanValueExpression(
     WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
-LogicalMixin,
+    BooleanLogicMixin,
     TypeCastingMixin,
     NotANumberMixin,
     SQLValueExpression,
@@ -320,8 +320,9 @@ LogicalMixin,
     """A true/false value that is not a column reference.
 
     A boolean is a value, not a predicate, so it can be aliased, projected and
-    compared. It does not extend: every operation on it yields a predicate or
-    a boolean, so there is nothing further to chain."""
+    compared. Its connectives keep the value type
+    (:class:`BooleanLogicExpression`), so ``(a & b)`` is still selectable;
+    its comparisons yield predicates."""
 
 
     def __init__(
@@ -349,6 +350,39 @@ LogicalMixin,
             call.alias = alias
             return call.to_sql()
         return self.call.to_sql()
+
+
+class BooleanLogicExpression(
+    AliasableMixin,
+    ComparisonMixin,
+    BooleanLogicMixin,
+    TypeCastingMixin,
+    NotANumberMixin,
+    SQLValueExpression,
+):
+    """``a AND b`` / ``a OR b`` / ``NOT a`` as a boolean **value**.
+
+    A predicate and this expression render the same SQL; what differs is what
+    the caller may do with the result. Combining predicates stays a predicate
+    -- that is how ``WHERE`` clauses are built -- while a truth value keeps
+    its value type: ``(a & b)`` can be aliased into a ``SELECT`` list,
+    compared, cast, and combined further. The class carries the same ``op``
+    and ``predicates`` shape
+    :class:`~...predicates.LogicalPredicate` does, so both go through the one
+    dialect entry point (``format_logical_predicate``).
+    """
+
+    def __init__(self, dialect: Any, op: str, *operands: Any):
+        super().__init__(dialect)
+        self.op = op
+        # The attribute name is the renderer's: the dialect formatter reads
+        # ``op`` and ``predicates`` whatever class carried them in.
+        self.predicates = list(operands)
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_logical_predicate"
 
 
 class BinaryValueExpression(
