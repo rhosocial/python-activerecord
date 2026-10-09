@@ -24,6 +24,7 @@ from .mixins import (
     ResultTypeMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
+    TemporalArithmeticMixin,
     TranscendentalMixin,
     TypeCastingMixin,
     WrappedCallMixin,
@@ -144,8 +145,8 @@ class TemporalValueExpression(
     AliasableMixin,
     ComparisonMixin,
     DateTimeMixin,
+    TemporalArithmeticMixin,
     TypeCastingMixin,
-    NotANumberMixin,
     SQLValueExpression,
 ):
     """Shared base for the four temporal value types.
@@ -153,12 +154,15 @@ class TemporalValueExpression(
     A date, a time, a timestamp and an interval offer the same operations --
     ``date_add``, ``date_sub``, ``date_diff``, ``date_part``, ``extract`` -- and
     none of them supports ``upper``, so the operations live here and the
-    subclasses say only which kind of temporal value they are.
+    subclasses say only which kind of temporal value they are. The arithmetic
+    they share is interval-based (:class:`TemporalArithmeticMixin`): a point in
+    time moves by an interval, two points subtract to an interval, and a plain
+    number never enters.
 
     They are four classes rather than one because they are four types. A
-    timestamp added to an interval is a timestamp; a date added to an interval
-    is not legal in most backends, and nothing about a span says it can be
-    extracted from. With one class and a label those differences would have had
+    timestamp added to an interval is a timestamp; a span minus a span is a
+    span; and a year cannot be extracted from a span the way it is from a
+    point in time. With one class and a label those differences would have had
     to be spelled as data, and the operations a caller could reach would be the
     union of four unrelated ones.
 
@@ -210,11 +214,11 @@ class TimestampValueExpression(TemporalValueExpression):
 class IntervalValueExpression(TemporalValueExpression):
     """A span of time rather than a point in it.
 
-    An interval is not a timestamp and does not add to one, which is why it is
-    its own type here and not a ``date_add`` argument that happens to be
-    special. The arithmetic a span supports is what
-    :class:`~...expression.mixins.ArithmeticMixin` gives every numeric-like
-    value; this class carries the temporal operations that do not apply.
+    An interval is not a timestamp, which is why it is its own type here and
+    not a ``date_add`` argument that happens to be special. Its arithmetic is
+    the span's own: :class:`TemporalArithmeticMixin` adds and subtracts spans
+    into spans and scales one by a number, while a temporal value moves by a
+    span and two temporal values subtract into one.
     """
 
 

@@ -2,8 +2,8 @@
 """What each temporal operation answers with.
 
 A datetime is not one type. ``YEAR(ts)`` is a whole number, ``EXTRACT`` is a
-number, ``NOW() + interval`` is a timestamp again, and ``NOW() - NOW()`` is a
-count of units. Getting these confused is silent — the SQL is still valid and
+number, ``NOW() + interval`` is a timestamp again, and ``NOW() - NOW()`` is an
+interval. Getting these confused is silent — the SQL is still valid and
 the answer is simply the wrong kind of thing — so each one is pinned here.
 
 The result's family is what decides the next operation, so the surface is
@@ -25,14 +25,10 @@ from rhosocial.activerecord.backend.expression.core import (
     IntegerValueExpression,
 )
 from rhosocial.activerecord.backend.expression.datetime import (
-    DatePartExpression,
     DateTimeAddExpression,
-    DateTimeDiffExpression,
     DateTimeSubtractExpression,
-    DateTruncExpression,
-    ExtractExpression,
-    IntervalExpression,
 )
+from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
 
 
 @pytest.fixture
@@ -134,6 +130,63 @@ def test_shifting_time_stays_a_timestamp(dialect, method):
 def test_an_interval_is_its_own_family(dialect):
     """A span is not a point in time, which is why date_add takes one."""
     assert isinstance(datetime_functions.interval(dialect, 1, "day"), IntervalValueExpression)
+
+
+# ---------------------------------------------------------------------------
+# The operators are interval-based; a point in time has no sum
+# ---------------------------------------------------------------------------
+
+
+def test_a_timestamp_moves_by_an_interval(dialect):
+    """Constructed, not rendered: SQLite has no interval node yet (the
+    emulation belongs to the data-type step), and what this test pins is the
+    gate that lets the combination through at all."""
+    now = datetime_functions.now(dialect)
+    one_day = datetime_functions.interval(dialect, 1, "day")
+    expression = now + one_day
+    assert isinstance(expression, BinaryArithmeticExpression)
+
+
+def test_two_points_subtract_to_an_interval(dialect):
+    now = datetime_functions.now(dialect)
+    sql, params = (now - now).to_sql()
+    assert "-" in sql
+
+
+def test_two_points_have_no_sum(dialect):
+    """``created_at + created_at`` used to render and fail only in SQL."""
+    now = datetime_functions.now(dialect)
+    with pytest.raises(AttributeError, match="no sum"):
+        now + now
+
+
+def test_interval_arithmetic_stays_between_intervals(dialect):
+    one_day = datetime_functions.interval(dialect, 1, "day")
+    two_days = datetime_functions.interval(dialect, 2, "day")
+    for expression in (one_day + two_days, one_day - two_days, one_day * 2):
+        assert isinstance(expression, BinaryArithmeticExpression)
+
+
+def test_a_number_does_not_move_a_point_in_time(dialect):
+    now = datetime_functions.now(dialect)
+    with pytest.raises(AttributeError):
+        now + 1
+
+
+def test_a_span_is_not_divided(dialect):
+    one_day = datetime_functions.interval(dialect, 1, "day")
+    with pytest.raises(AttributeError):
+        one_day / 2
+
+
+def test_a_temporal_column_follows_the_same_gate(dialect, timestamp):
+    """The column and the value are the same expression layer, so the gate
+    has to see a temporal *column* as a temporal operand too."""
+    one_day = datetime_functions.interval(dialect, 1, "day")
+    assert isinstance(timestamp + one_day, BinaryArithmeticExpression)
+    assert isinstance(timestamp - timestamp, BinaryArithmeticExpression)
+    with pytest.raises(AttributeError, match="no sum"):
+        timestamp + timestamp
 
 
 # ---------------------------------------------------------------------------

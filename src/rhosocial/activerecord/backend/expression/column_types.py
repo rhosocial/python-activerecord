@@ -33,6 +33,7 @@ from .mixins import (
     BooleanLogicMixin,
     NumericValueMixin,
     TranscendentalMixin,
+    TemporalArithmeticMixin,
     ArrayMixin,
     ComparisonMixin,
     DateTimeMixin,
@@ -157,7 +158,7 @@ class IntegerColumn(NumericColumn):
     """
 
 
-class DateTimeColumn(ComparisonMixin, ArithmeticMixin, DateTimeMixin, ColumnBase):
+class DateTimeColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, ColumnBase):
 
     """A column holding a date/time.
 
@@ -165,6 +166,10 @@ class DateTimeColumn(ComparisonMixin, ArithmeticMixin, DateTimeMixin, ColumnBase
     :meth:`~...mixins.DateTimeMixin.extract`, :meth:`~...mixins.DateTimeMixin.date_add`
     and friends — so ``User.c.created_at.date_trunc("month")`` no longer
     requires threading the dialect into a free function by hand.
+
+    Arithmetic is interval-based: ``created_at + one_day`` is allowed, while
+    ``created_at + created_at`` is refused at construction (see
+    :class:`~...mixins.TemporalArithmeticMixin`).
 
     Not available: ``LIKE`` / ``ILIKE``.
     """

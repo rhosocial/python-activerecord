@@ -27,6 +27,8 @@ ensuring consistent SQL generation across the expression tree.
 """
 
 import copy
+import datetime
+import decimal
 import functools
 from typing import (
     Any,
@@ -771,6 +773,131 @@ class NotANumberMixin:
 
     def __rmod__(self, other):
         raise self._not_a_number("%", "__rmod__")
+
+
+class TemporalArithmeticMixin(NotANumberMixin):
+    """Arithmetic for date, time, timestamp and interval values, gated by operand.
+
+    What temporal arithmetic defines, and the only things this mixin performs:
+
+    * a temporal value ± an interval is that kind of temporal value
+      (``created_at + one_day``, ``now() - one_hour``);
+    * a temporal value − a temporal value is an interval (``finished - started``);
+    * an interval ± an interval is an interval;
+    * an interval × a number is an interval.
+
+    Everything else is refused at construction, in the package's refusal
+    vocabulary (``AttributeError``; see :class:`NotANumberMixin`). The
+    combination this class exists for is ``created_at + created_at``: two
+    points in time have no sum, and without the gate it rendered
+    ``"created_at" + "created_at"`` -- SQL only the database rejected. The
+    failure belongs at the call, where the mistake was made.
+
+    :class:`NotANumberMixin` is inherited for the refusals Python cannot
+    express by omission -- the reflected operators, ``/`` and ``%`` -- so the
+    vocabulary stays one exception type; this class adds the operations that
+    do exist, each checking its operands first.
+    """
+
+    def __add__(self, other):
+        return self._temporal_binary("+", other, subtracting=False)
+
+    def __sub__(self, other):
+        return self._temporal_binary("-", other, subtracting=True)
+
+    def __mul__(self, other):
+        if not self._is_interval_value() or not self._is_number_operand(other):
+            raise self._temporal_refusal(
+                "*", other, "only an interval scales, and only by a number"
+            )
+        return self._build("*", other)
+
+    # -- classification ------------------------------------------------------
+
+    def _is_interval_value(self) -> bool:
+        from .core import IntervalValueExpression
+
+        return isinstance(self, IntervalValueExpression)
+
+    def _is_interval_operand(self, other) -> bool:
+        from .bases import SQLValueExpression
+        from .core import IntervalValueExpression
+
+        if isinstance(other, IntervalValueExpression):
+            return True
+        if isinstance(other, SQLValueExpression):
+            return False
+        return isinstance(other, datetime.timedelta)
+
+    def _is_temporal_operand(self, other) -> bool:
+        from .bases import SQLValueExpression
+        from .core import IntervalValueExpression
+
+        if isinstance(other, SQLValueExpression):
+            # Both a temporal *column* and a temporal *value* carry
+            # DateTimeMixin; an interval does too, and is excluded first.
+            return isinstance(other, DateTimeMixin) and not isinstance(
+                other, IntervalValueExpression
+            )
+        return isinstance(other, (datetime.date, datetime.time, datetime.datetime))
+
+    def _is_number_operand(self, other) -> bool:
+        from .bases import SQLValueExpression
+
+        if isinstance(other, bool):
+            return False
+        if isinstance(other, (int, float, decimal.Decimal)):
+            return True
+        if isinstance(other, SQLValueExpression):
+            return not self._is_temporal_operand(other) and not self._is_interval_operand(other)
+        return False
+
+    # -- building and refusing -----------------------------------------------
+
+    def _temporal_binary(self, symbol: str, other, subtracting: bool):
+        if self._is_interval_value():
+            if self._is_interval_operand(other):
+                return self._build(symbol, other)
+            if subtracting and self._is_temporal_operand(other):
+                reason = (
+                    "an interval cannot have a point in time subtracted from "
+                    "it; subtract the interval from the temporal value instead"
+                )
+            else:
+                reason = "an interval combines with another interval, or scales by a number"
+            raise self._temporal_refusal(symbol, other, reason)
+
+        if self._is_interval_operand(other):
+            return self._build(symbol, other)
+
+        if self._is_temporal_operand(other):
+            if subtracting:
+                return self._build(symbol, other)
+            raise self._temporal_refusal(
+                symbol,
+                other,
+                "two points in time have no sum; subtract one from the other "
+                "for an interval, or move it with an interval",
+            )
+
+        raise self._temporal_refusal(
+            symbol, other, "a temporal value combines with an interval, not with a number"
+        )
+
+    def _build(self, symbol: str, other):
+        from .bases import SQLValueExpression
+        from .core import Literal
+        from .operators import BinaryArithmeticExpression
+
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return BinaryArithmeticExpression(self._dialect, symbol, self, other_expr)
+
+    def _temporal_refusal(self, symbol: str, other, reason: str) -> AttributeError:
+        return AttributeError(
+            f"{type(self).__name__} has no attribute {symbol!r} for "
+            f"{type(other).__name__}: {reason}. Temporal arithmetic is "
+            f"interval-based, so the combination is not declared."
+        )
 
 
 class NotComparableMixin:

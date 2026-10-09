@@ -28,6 +28,7 @@ from .mixins import (
     JSONAccessorMixin,
     StringPatternPredicateMixin,
     StringValueMixin,
+    TemporalArithmeticMixin,
     TranscendentalMixin,
     build_json_path,
 )
@@ -453,6 +454,7 @@ __all__ = [
     "ArrayMixin",
     "StringPatternPredicateMixin",
     "StringValueMixin",
+    "TemporalArithmeticMixin",
     "TranscendentalMixin",
     "StringToIntegerMixin",
     "DateTimeMixin",
