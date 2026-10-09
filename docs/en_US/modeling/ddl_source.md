@@ -125,6 +125,8 @@ The table below describes the default `DDLSourceMixin` implementation. A custom 
 
 `column_type()` and `column_data_type()` are **dialect-free** declaration accessors: neither infers nor falls back. Selecting the column class a backend answers happens in the field accessor (`Model.c.<field>`), never in the source.
 
+Every accessor that takes a field name refuses a name the model does not have with `KeyError`; `None` (or an empty collection) always means "the field exists and declares nothing". The batch accessors (`columns_*`) raise the same way when an explicitly named field is unknown. `column_name()` is a name mapping rather than a declaration reader, so it keeps returning the given name when no `UseColumn` applies.
+
 ### `column_constraints()` composition
 
 The collector does not store one final constraint list at class creation time. It composes the list when the method is called:

@@ -125,6 +125,8 @@ class Report(ActiveRecord):
 
 `column_type()` 与 `column_data_type()` 都是**方言无关**的声明访问器：不做推断、不回退。后端所答的列类选型发生在字段代理（`Model.c.<field>`），不在 source 中。
 
+所有接受字段名的访问器，对模型中不存在的字段一律以 `KeyError` 拒绝；`None`（或空集合）始终表示“字段存在、但未声明相应内容”。批量访问器（`columns_*`）在显式传入未知字段时同样报错。`column_name()` 是名字映射而非声明读取器，在没有 `UseColumn` 时仍返回传入的名字。
+
 ### `column_constraints()` 的组合规则
 
 收集器不是在模型类创建时预先写入一个完整约束列表，而是在读取时组合结果：

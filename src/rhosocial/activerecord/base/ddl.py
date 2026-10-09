@@ -547,9 +547,23 @@ class DDLSourceMixin:
         return cast(Any, cls).get_column_name(field)
 
     @classmethod
+    def _field_metadata(cls, field: str) -> Optional["DDLFieldMetadata"]:
+        """The collected DDL metadata for *field*, or ``None`` if none declared.
+
+        A field the model does not have is refused with ``KeyError``: ``None``
+        is the answer for a real field that declares nothing, and letting a
+        misspelled name produce the same answer would hide the mistake. Every
+        accessor reads its metadata through this one lookup, so the rule is
+        identical for all of them.
+        """
+        if field not in (getattr(cls, "model_fields", {}) or {}):
+            raise KeyError(field)
+        return (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+
+    @classmethod
     def column_data_type(cls, field: str) -> Optional[DDLColumnDataType]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         return metadata.use_sql_type if metadata is not None else None
 
     @classmethod
@@ -564,6 +578,7 @@ class DDLSourceMixin:
         selects the class a backend answers.
 
         Raises:
+            KeyError: The model has no such field.
             TypeError: More than one ``UseColumnType`` declaration on the field.
         """
         field_info = cast(Any, cls).model_fields[field]
@@ -583,7 +598,7 @@ class DDLSourceMixin:
     @classmethod
     def column_constraints(cls, field: str) -> Sequence[ColumnConstraint]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         if metadata is None:
             return []
         constraints = [marker.constraint for marker in metadata.constraints]
@@ -616,7 +631,7 @@ class DDLSourceMixin:
     @classmethod
     def column_attributes(cls, field: str) -> Sequence[ColumnAttribute]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         if metadata is None:
             return []
         return [
@@ -628,7 +643,7 @@ class DDLSourceMixin:
     @classmethod
     def column_indexes(cls, field: str) -> Sequence[IndexDefinition]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         if metadata is None:
             return []
         return [
@@ -639,14 +654,14 @@ class DDLSourceMixin:
     @classmethod
     def column_comment(cls, field: str) -> Optional[str]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         marker = getattr(metadata, "column_comment", None) if metadata else None
         return marker.comment if marker is not None else None
 
     @classmethod
     def generated_column(cls, field: str) -> Optional[DDLGeneratedColumn]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         marker = getattr(metadata, "generated_column", None) if metadata else None
         return marker.expression if marker is not None else None
 
@@ -655,7 +670,7 @@ class DDLSourceMixin:
         cls, field: str
     ) -> Optional[Union[ColumnOptions, Sequence[ColumnOptions]]]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         if metadata is None or not metadata.column_options:
             return None
         options = list(metadata.column_options)
@@ -729,7 +744,8 @@ class DDLSourceMixin:
 
     @classmethod
     def ddl_field_metadata(cls, field: str) -> DDLFieldMetadata:
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        """The DDL metadata for *field*; a field the model lacks raises ``KeyError``."""
+        metadata = cls._field_metadata(field)
         if metadata is None:
             metadata = DDLFieldMetadata(cast(Any, cls).model_fields[field])
         metadata.require_handled()
