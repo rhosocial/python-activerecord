@@ -21,6 +21,7 @@ from .upsert import UpsertMixin
 from .join import LateralJoinMixin, JoinMixin
 from .array import ArrayMixin
 from .trim import TrimMixin
+from .string_ops import LpadMixin, RepeatMixin, RpadMixin
 from .json import JSONMixin
 from .uuid import UUIDMixin
 from .explain import ExplainMixin
@@ -146,4 +147,7 @@ __all__ = [
     "TransactionControlMixin",
     "ArrayMixin",
     "TrimMixin",
+    "LpadMixin",
+    "RepeatMixin",
+    "RpadMixin",
 ]

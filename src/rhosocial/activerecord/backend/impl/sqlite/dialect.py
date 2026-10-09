@@ -107,6 +107,9 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # New Mixins
     PredicateMixin,
     TrimMixin,
+    LpadMixin,
+    RepeatMixin,
+    RpadMixin,
     ExpressionMixin,
     DQLMixin,
     DateTimeMixin,
@@ -236,8 +239,16 @@ class SQLiteDialect(
     # their False defaults and the formatters refuse the clauses.
     PartitionMixin,
     # New Mixins (without SQLite overrides)
+    # SQLiteFunctionMixin rides first among them: it carries the dialect's
+    # function spellings and emulations, and those must win over the generic
+    # formatters ExpressionMixin brings -- the same precedence the comment on
+    # the SQLite-specific group below claims but cannot deliver from there.
+    SQLiteFunctionMixin,
     PredicateMixin,
     TrimMixin,
+    LpadMixin,
+    RepeatMixin,
+    RpadMixin,
     ExpressionMixin,
     DQLMixin,
     # SQLite-specific mixins (BEFORE generic mixins they override)
@@ -253,7 +264,6 @@ class SQLiteDialect(
     SQLiteVirtualTableMixin,
     SQLiteReindexMixin,
     SQLiteMaintenanceMixin,
-    SQLiteFunctionMixin,
     # Extension expression mixins
     SQLiteFTS5Mixin,
     SQLiteRTreeMixin,

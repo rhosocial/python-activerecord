@@ -498,6 +498,134 @@ class TrimExpression(
         return "format_trim_expression"
 
 
+class RepeatExpression(
+    AliasableMixin,
+    ComparisonMixin,
+    StringToIntegerMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
+    TypeCastingMixin,
+    NotANumberMixin,
+    SQLValueExpression,
+):
+    """``REPEAT(expr, count)`` as a node, so the backends without the function
+    can emulate it structurally.
+
+    Measured 2026-10-09: the function exists on PostgreSQL, MySQL, MariaDB,
+    ClickHouse and BigQuery, and on none of Oracle, Firebird or SQLite. The
+    emulation SQLite uses is ``REPLACE(HEX(ZEROBLOB(n)), '00', x)`` -- each
+    two-character ``00`` pair is one copy slot -- which the dialect formatter
+    composes from ordinary nodes. See :meth:`format_repeat_expression`.
+
+    Attributes:
+        expr: The string to repeat.
+        count: Repetition count; negative means the empty string, which the
+            factory settles before a node exists.
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expr: "BaseExpression",
+        count: "BaseExpression",
+        alias: Optional[str] = None,
+    ):
+        super().__init__(dialect)
+        self.expr = expr
+        self.count = count
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_repeat_expression"
+
+
+class LpadExpression(
+    AliasableMixin,
+    ComparisonMixin,
+    StringToIntegerMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
+    TypeCastingMixin,
+    NotANumberMixin,
+    SQLValueExpression,
+):
+    """``LPAD(expr, length, pad)`` as a node, for the backends that lack it.
+
+    Measured 2026-10-09: native on PostgreSQL, MySQL, MariaDB, Oracle, Firebird,
+    ClickHouse, Snowflake and BigQuery; absent on SQL Server and SQLite. The
+    SQLite emulation is a two-branch ``CASE`` (truncate when the string is
+    already long enough, otherwise append the padding and take the last
+    ``length`` characters), composed from ordinary nodes by the formatter -- see
+    :meth:`format_lpad_expression`.
+
+    Attributes:
+        expr: The string to pad.
+        length: Target length; the input is truncated to it when longer.
+        pad: Non-empty padding string; an omitted pad is spelled out as one
+            space by the factory, because MySQL refuses the two-argument form
+            while MariaDB fills with spaces.
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expr: "BaseExpression",
+        length: "BaseExpression",
+        pad: "BaseExpression",
+        alias: Optional[str] = None,
+    ):
+        super().__init__(dialect)
+        self.expr = expr
+        self.length = length
+        self.pad = pad
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_lpad_expression"
+
+
+class RpadExpression(
+    AliasableMixin,
+    ComparisonMixin,
+    StringToIntegerMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
+    TypeCastingMixin,
+    NotANumberMixin,
+    SQLValueExpression,
+):
+    """``RPAD(expr, length, pad)`` as a node, for the backends that lack it.
+
+    The mirror of :class:`LpadExpression`, and the cheaper one to emulate: a
+    single ``SUBSTR(expr || pad, 1, length)`` covers both padding and
+    truncation, because the pad repeats ``length`` times and the substring
+    takes at most that many characters. See :meth:`format_rpad_expression`.
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expr: "BaseExpression",
+        length: "BaseExpression",
+        pad: "BaseExpression",
+        alias: Optional[str] = None,
+    ):
+        super().__init__(dialect)
+        self.expr = expr
+        self.length = length
+        self.pad = pad
+        self.alias = alias
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_rpad_expression"
+
+
 class OrderedSetAggregation(
     AliasableMixin,
     ArithmeticMixin,

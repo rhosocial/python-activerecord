@@ -22,11 +22,12 @@ from rhosocial.activerecord.backend.expression import (
 
 @pytest.fixture
 def dialect():
-    from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+    # The portable baseline: this file pins result *types* and the core
+    # spellings. Which spelling a backend writes is checked in
+    # test_operation_boundaries.py, against SQLite and a real database.
+    from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
-    d = SQLiteDialect()
-    d._version = (3, 46, 1)
-    return d
+    return DummyDialect()
 
 
 @pytest.fixture

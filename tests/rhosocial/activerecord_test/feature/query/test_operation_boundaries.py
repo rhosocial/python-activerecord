@@ -15,7 +15,7 @@ different question.
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.column_types import StringColumn
+from rhosocial.activerecord.backend.expression.column_types import NumericColumn, StringColumn
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -30,6 +30,12 @@ def sqlite_dialect():
 @pytest.fixture
 def name(sqlite_dialect):
     return StringColumn(sqlite_dialect, "name")
+
+
+@pytest.fixture
+def portable_name():
+    """A column on the portable baseline, where the common spellings render."""
+    return StringColumn(DummyDialect(), "name")
 
 
 REFUSALS = [
@@ -71,11 +77,12 @@ def test_the_edge_where_the_backends_disagree_is_refused(name, method, args):
         ("substr", (1, 0), 'SUBSTRING("name", ?, ?)', (1, 0)),
     ],
 )
-def test_the_edge_every_backend_agrees_on_renders(name, method, args, expected_sql, expected_params):
+def test_the_edge_every_backend_agrees_on_renders(portable_name, method, args, expected_sql, expected_params):
     """The inside of the contract: zero-length results, the empty substring,
     the whole-string over-length read and a one-character trim set behave the
-    same on every backend, so they render."""
-    sql, params = getattr(name, method)(*args).to_sql()
+    same on every backend, so they render. Asserted on the portable baseline
+    because what is under test is the core spelling, not a dialect's."""
+    sql, params = getattr(portable_name, method)(*args).to_sql()
     assert sql == expected_sql
     assert params == expected_params
 
@@ -108,10 +115,10 @@ def test_the_default_spelling_is_the_standard_form():
     assert column.trim("x").to_sql() == ('TRIM(BOTH ? FROM "name")', ("x",))
 
 
-def test_lpad_defaults_to_a_space_and_passes_it_explicitly(name):
+def test_lpad_defaults_to_a_space_and_passes_it_explicitly(portable_name):
     """MySQL raises 1582 without a pad and MariaDB supplies one, so the core
     always spells it out instead of letting the backend choose."""
-    sql, params = name.lpad(3).to_sql()
+    sql, params = portable_name.lpad(3).to_sql()
     assert sql == 'LPAD("name", ?, ?)'
     assert params == (3, " ")
 
@@ -147,3 +154,125 @@ def test_sqlite_below_the_gate_refuses_rather_than_substituting():
     column = StringColumn(dialect, "age")
     with pytest.raises(UnsupportedFeatureError):
         column.is_distinct_from(0).to_sql()
+
+
+# ---------------------------------------------------------------------------
+# The per-dialect spellings, and the emulations behind them
+# ---------------------------------------------------------------------------
+
+
+SQLITE_SPELLINGS = [
+    ("left", (2,), 'SUBSTR("name", ?, ?)', (1, 2)),
+    ("right", (2,), 'SUBSTR("name", MAX(LENGTH("name") - ? + ?, ?), ?)', (2, 1, 1, 2)),
+    (
+        "lpad",
+        (4, "xy"),
+        'CASE WHEN ? <= LENGTH("name") THEN SUBSTR("name", ?, ?) '
+        'ELSE SUBSTR(REPLACE(HEX(ZEROBLOB(?)), ?, ?) || "name", - ?) END',
+        (4, 1, 4, 4, "00", "xy", 4),
+    ),
+    (
+        "rpad",
+        (4, "-"),
+        'SUBSTR("name" || REPLACE(HEX(ZEROBLOB(?)), ?, ?), ?, ?)',
+        (4, "00", "-", 1, 4),
+    ),
+    ("repeat", (3,), 'REPLACE(HEX(ZEROBLOB(?)), ?, "name")', (3, "00")),
+    ("ascii", (), 'UNICODE("name")', ()),
+    ("strpos", ("cd",), 'INSTR("name", ?)', ("cd",)),
+    ("position", ("cd",), 'INSTR("name", ?)', ("cd",)),
+]
+
+
+@pytest.mark.parametrize("method,args,expected_sql,expected_params", SQLITE_SPELLINGS)
+def test_sqlite_spells_what_it_lacks(sqlite_dialect, method, args, expected_sql, expected_params):
+    """SQLite has none of these functions and no ``trim(... from ...)`` syntax,
+    so each is either renamed, reordered, or emulated out of ordinary nodes --
+    measured 2026-10-09 and verified against a real database below. Nothing
+    here is assembled as a SQL string."""
+    column = StringColumn(sqlite_dialect, "name")
+    sql, params = getattr(column, method)(*args).to_sql()
+    assert sql == expected_sql
+    assert params == expected_params
+
+
+def test_sqlite_truncates_with_arithmetic_because_trunc_takes_one_argument(sqlite_dialect):
+    """SQLite's ``TRUNC`` is unary, so a precision is carried by scaling,
+    truncating toward zero, and scaling back -- exact for negatives, which
+    rounding would not be."""
+    column = NumericColumn(sqlite_dialect, "n")
+    sql, params = column.truncate(2).to_sql()
+    assert sql == 'TRUNC("n" * POW(?, ?)) / POW(?, ?)'
+    assert params == (10, 2, 10, 2)
+    assert column.truncate().to_sql() == ('TRUNC("n")', ())
+
+
+def test_sqlite_takes_the_log_base_first(sqlite_dialect):
+    """SQLite spells ``log(base, x)`` where the core order is ``log(x, base)``;
+    the one-argument form is the natural logarithm on both."""
+    column = NumericColumn(sqlite_dialect, "n")
+    assert column.log(10).to_sql() == ("LOG(?, \"n\")", (10,))
+    assert column.log().to_sql() == ('LOG("n")', ())
+
+
+STRING_ROUNDTRIPS = [
+    ("left(2)", lambda c: c.left(2), "abcdef", "ab"),
+    ("left(0)", lambda c: c.left(0), "abcdef", ""),
+    ("left(99)", lambda c: c.left(99), "abcdef", "abcdef"),
+    ("right(2)", lambda c: c.right(2), "abcdef", "ef"),
+    ("right(0)", lambda c: c.right(0), "abcdef", ""),
+    ("right(99)", lambda c: c.right(99), "abcdef", "abcdef"),
+    ("lpad(8, 'xy')", lambda c: c.lpad(8, "xy"), "abcdef", "xyabcdef"),
+    ("lpad(3, 'xy')", lambda c: c.lpad(3, "xy"), "abcdef", "abc"),
+    ("lpad(4)", lambda c: c.lpad(4), "ab", "  ab"),
+    ("rpad(8, '-')", lambda c: c.rpad(8, "-"), "abcdef", "abcdef--"),
+    ("rpad(3, '-')", lambda c: c.rpad(3, "-"), "abcdef", "abc"),
+    ("repeat(3)", lambda c: c.repeat(3), "ab", "ababab"),
+    ("repeat(0)", lambda c: c.repeat(0), "ab", ""),
+    ("trim('f')", lambda c: c.trim("f"), "abcdef", "abcde"),
+    ("trim()", lambda c: c.trim(), "  abc  ", "abc"),
+]
+
+NUMERIC_ROUNDTRIPS = [
+    ("truncate(2)", lambda c: c.truncate(2), 3.14159, 3.14),
+    ("truncate(2) negative", lambda c: c.truncate(2), -3.14159, -3.14),
+    ("truncate(0)", lambda c: c.truncate(0), 3.7, 3.0),
+    ("truncate()", lambda c: c.truncate(), -3.7, -3.0),
+]
+
+
+@pytest.mark.parametrize(
+    "label,build,value,expected",
+    STRING_ROUNDTRIPS,
+    ids=[label for label, _build, _value, _expected in STRING_ROUNDTRIPS],
+)
+def test_the_sqlite_emulation_answers_what_the_function_answers(sqlite_dialect, label, build, value, expected):
+    """The spelling checks above prove the SQL is *shaped* right; this proves it
+    *means* right -- each expression is executed against a real SQLite and must
+    produce the answer PostgreSQL, MySQL and ClickHouse give for the same call.
+    A spelling that looks correct and answers something else is the failure this
+    test exists for."""
+    import sqlite3
+
+    connection = sqlite3.connect(":memory:")
+    connection.execute("CREATE TABLE t (s TEXT)")
+    connection.execute("INSERT INTO t VALUES (?)", (value,))
+    column = StringColumn(sqlite_dialect, "s")
+    sql, params = build(column).to_sql()
+    got = connection.execute(f"SELECT {sql} FROM t", tuple(params)).fetchone()[0]
+    assert got == expected, f"{label}: SQLite answered {got!r}, the function answers {expected!r}"
+
+
+@pytest.mark.parametrize("label,build,value,expected", NUMERIC_ROUNDTRIPS)
+def test_the_sqlite_numeric_emulation_answers_what_the_function_answers(
+    sqlite_dialect, label, build, value, expected
+):
+    import sqlite3
+
+    connection = sqlite3.connect(":memory:")
+    connection.execute("CREATE TABLE t (n REAL)")
+    connection.execute("INSERT INTO t VALUES (?)", (value,))
+    column = NumericColumn(sqlite_dialect, "n")
+    sql, params = build(column).to_sql()
+    got = connection.execute(f"SELECT {sql} FROM t", tuple(params)).fetchone()[0]
+    assert got == expected, f"{label}: SQLite answered {got!r}, the function answers {expected!r}"

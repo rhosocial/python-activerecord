@@ -1499,7 +1499,8 @@ class TranscendentalMixin:
         and Snowflake's. The meaning is fixed here; a dialect override swaps the
         spelling or the argument order, never the semantics.
         """
-        return self._transcendental_op("log", _literal(self._dialect, base))
+        base_expr = None if base is None else _literal(self._dialect, base)
+        return self._transcendental_op("log", base_expr)
 
     # --- trigonometry ---
 

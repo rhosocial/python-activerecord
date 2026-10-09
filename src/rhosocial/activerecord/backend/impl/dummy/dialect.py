@@ -229,6 +229,9 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # New Mixins
     PredicateMixin,
     TrimMixin,
+    LpadMixin,
+    RepeatMixin,
+    RpadMixin,
     ExpressionMixin,
     DateTimeMixin,
     DQLMixin,
@@ -429,6 +432,9 @@ class DummyDialect(
     # New Mixins
     PredicateMixin,
     TrimMixin,
+    LpadMixin,
+    RepeatMixin,
+    RpadMixin,
     ExpressionMixin,
     DateTimeMixin,
     DQLMixin,

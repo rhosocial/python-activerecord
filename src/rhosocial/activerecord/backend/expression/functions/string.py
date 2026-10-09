@@ -14,7 +14,12 @@ from ..operators import BinaryExpression, StringConcatExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
-    from ..advanced_functions import TrimExpression
+    from ..advanced_functions import (
+        LpadExpression,
+        RepeatExpression,
+        RpadExpression,
+        TrimExpression,
+    )
 
 
 def concat(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "StringValueExpression":
@@ -348,9 +353,9 @@ def right(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], n: int)
 
 def lpad(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], length: int, pad: Optional[str] = None
-) -> "FunctionCall":
+) -> "LpadExpression":
     """
-    Creates an LPAD scalar function call.
+    Creates a left-padding node.
 
     Usage rules:
     - To generate LPAD(column, length, pad), pass a Column object:
@@ -365,7 +370,11 @@ def lpad(
         pad: Optional padding string, non-empty. Defaults to a single space.
 
     Returns:
-        A FunctionCall instance representing the LPAD function
+        A :class:`~...expression.advanced_functions.LpadExpression` node, which
+        the dialect renders through ``format_lpad_expression`` -- a spelling
+        where the function exists (PostgreSQL, MySQL, MariaDB, Oracle,
+        Firebird, ClickHouse, Snowflake, BigQuery) and an emulation composed
+        from ordinary nodes where it does not (SQLite).
 
     Raises:
         ValueError: A negative *length*, or an empty *pad*.
@@ -388,16 +397,18 @@ def lpad(
             "means (untouched string, empty string or NULL)"
         )
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    length_expr = Literal(dialect, length)
-    pad_expr = Literal(dialect, " " if pad is None else pad)
-    return StringValueExpression(dialect, FunctionCall(dialect, "LPAD", target_expr, length_expr, pad_expr))
+    length_expr = length if isinstance(length, BaseExpression) else Literal(dialect, length)
+    pad_expr = pad if isinstance(pad, BaseExpression) else Literal(dialect, " " if pad is None else pad)
+    from ..advanced_functions import LpadExpression
+
+    return LpadExpression(dialect, target_expr, length_expr, pad_expr)
 
 
 def rpad(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], length: int, pad: Optional[str] = None
-) -> "FunctionCall":
+) -> "RpadExpression":
     """
-    Creates an RPAD scalar function call.
+    Creates a right-padding node.
 
     Usage rules:
     - To generate RPAD(column, length, pad), pass a Column object:
@@ -412,7 +423,9 @@ def rpad(
         pad: Optional padding string, non-empty. Defaults to a single space.
 
     Returns:
-        A FunctionCall instance representing the RPAD function
+        A :class:`~...expression.advanced_functions.RpadExpression` node,
+        rendered through ``format_rpad_expression`` -- a spelling where the
+        function exists and a one-branch emulation where it does not.
 
     Raises:
         ValueError: A negative *length*, or an empty *pad*.
@@ -429,9 +442,11 @@ def rpad(
             "means (untouched string, empty string or NULL)"
         )
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    length_expr = Literal(dialect, length)
-    pad_expr = Literal(dialect, " " if pad is None else pad)
-    return StringValueExpression(dialect, FunctionCall(dialect, "RPAD", target_expr, length_expr, pad_expr))
+    length_expr = length if isinstance(length, BaseExpression) else Literal(dialect, length)
+    pad_expr = pad if isinstance(pad, BaseExpression) else Literal(dialect, " " if pad is None else pad)
+    from ..advanced_functions import RpadExpression
+
+    return RpadExpression(dialect, target_expr, length_expr, pad_expr)
 
 
 def reverse(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -695,11 +710,9 @@ def translate(
     return StringValueExpression(dialect, FunctionCall(dialect, "TRANSLATE", target_expr, from_expr, to_expr))
 
 
-def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count: int) -> "FunctionCall":
+def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count: int) -> "RepeatExpression":
     """
-    Creates a REPEAT function call.
-
-    SQL:2003 standard function repeating a string.
+    Creates a repetition node.
 
     Usage rules:
     - To generate REPEAT(column, 3): repeat(dialect, Column("text"), 3)
@@ -711,7 +724,11 @@ def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count:
         count: Number of repetitions
 
     Returns:
-        A FunctionCall instance representing the REPEAT function
+        A :class:`~...expression.advanced_functions.RepeatExpression` node,
+        rendered through ``format_repeat_expression`` -- a spelling where the
+        function exists (PostgreSQL, MySQL, MariaDB, ClickHouse, BigQuery) and
+        an emulation composed from ordinary nodes where it does not (SQLite,
+        Oracle, Firebird).
 
     Contract:
         ``count >= 0`` repeats, and a negative count is the **empty string**
@@ -724,8 +741,10 @@ def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count:
     if isinstance(count, int) and count < 0:
         return StringValueExpression(dialect, Literal(dialect, ""))
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    count_expr = Literal(dialect, count)
-    return StringValueExpression(dialect, FunctionCall(dialect, "REPEAT", target_expr, count_expr))
+    count_expr = count if isinstance(count, BaseExpression) else Literal(dialect, count)
+    from ..advanced_functions import RepeatExpression
+
+    return RepeatExpression(dialect, target_expr, count_expr)
 
 
 def space(dialect: "SQLDialectBase", count: int) -> "FunctionCall":

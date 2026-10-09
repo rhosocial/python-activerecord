@@ -29,11 +29,15 @@ from rhosocial.activerecord_test.feature.query.column_helpers import build_colum
 
 @pytest.fixture
 def dialect():
-    from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+    # The portable baseline dialect, not SQLite: what this file pins is the
+    # *core* layer -- each operation reaches its factory and the result is a
+    # typed string. Which spelling a given backend then writes is a per-dialect
+    # question and lives in test_operation_boundaries.py, where SQLite's
+    # INSTR/SUBSTR/TRUNC and its pad and repeat emulations are checked against
+    # a real database.
+    from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
-    d = SQLiteDialect()
-    d._version = (3, 46, 1)
-    return d
+    return DummyDialect()
 
 
 @pytest.fixture
