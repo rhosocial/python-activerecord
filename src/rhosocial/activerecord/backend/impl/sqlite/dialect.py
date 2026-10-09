@@ -654,6 +654,40 @@ class SQLiteDialect(
             type(self)._lateral_support = result
         return self._lateral_support
 
+    def supports_distinct_from(self) -> bool:
+        """Whether SQLite accepts ``IS [NOT] DISTINCT FROM`` (3.39.0+)."""
+        return self.version >= (3, 39, 0)
+
+    def format_distinct_from_predicate(self, expr) -> Tuple[str, tuple]:
+        """Format a NULL-safe distinctness check, refusing below SQLite 3.39.0.
+
+        SQLite has had the standard spelling since 3.39.0 (2022-06-25). Below
+        it the framework **refuses** rather than substituting a different
+        question, and the refusal names the version so the caller can decide
+        between upgrading and comparing the nullability of the two sides by
+        hand.
+
+        Args:
+            expr: Distinctness check exposing ``left``, ``right``, ``is_not``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: On SQLite older than 3.39.0.
+        """
+        if not self.supports_distinct_from():
+            raise UnsupportedFeatureError(
+                self.name,
+                "IS [NOT] DISTINCT FROM (SQLite 3.39.0+)",
+            )
+        left_sql, left_params = expr.left.to_sql()
+        right_sql, right_params = expr.right.to_sql()
+        not_str = " NOT" if expr.is_not else ""
+        return self._with_alias(
+            f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr
+        ), left_params + right_params
+
     def format_values_expression(self, expr) -> Tuple[str, Tuple]:
         """SQLite override: VALUES does not support ``AS alias(col, ...)`` syntax.
 

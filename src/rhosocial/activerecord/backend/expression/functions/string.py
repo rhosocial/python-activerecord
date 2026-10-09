@@ -99,7 +99,27 @@ def substring(
 
     Returns:
         A FunctionCall instance representing the SUBSTRING function
+
+    Raises:
+        ValueError: A literal *start* below 1, or a literal *length* below 0.
+
+    Contract:
+        ``start`` is 1-based and ``length`` counts forward. Both edges were
+        measured across the ten backends (2026-10-09) and are refused here
+        rather than rendered, because the backends do not agree on what an
+        out-of-range argument means: a position below 1 is consumed by the
+        length on PostgreSQL, SQL Server, Firebird and SQLite, yields an empty
+        string on MySQL, MariaDB and ClickHouse, and is read as 1 on Oracle; a
+        negative length is an error on some backends, an empty string on
+        MySQL/MariaDB, NULL on Oracle and something unrelated again on
+        ClickHouse.
     """
+    if isinstance(start, int) and start < 1:
+        raise ValueError(
+            f"substring(): start must be >= 1 (positions are 1-based), got {start!r}"
+        )
+    if isinstance(length, int) and length < 0:
+        raise ValueError(f"substring(): length must be >= 0, got {length!r}")
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     start_expr = start if isinstance(start, BaseExpression) else Literal(dialect, start)
     if length is not None:
@@ -125,17 +145,39 @@ def trim(
         dialect: The SQL dialect instance
         expr: The expression to trim. If a string is passed, it's treated as a literal value.
               If a BaseExpression is passed, it's used as-is.
-        chars: Optional characters to trim. If provided, treated as literal value if string.
+        chars: Optional single character to trim. If provided, treated as
+            literal value if string.
         direction: Direction of trim operation (BOTH, LEADING, TRAILING). Default is BOTH.
 
     Returns:
         A StringValueExpression wrapping the TRIM call, so the result is
         still a string and the value operations stay available on it.
+
+    Raises:
+        ValueError: An unknown *direction*, or a trim set that is not exactly
+            one character.
+
+    Contract:
+        The trim set is **one character**, which is what SQL:2016 feature
+        E021-09 (``trim(<char> from ...)``) defines and what every backend
+        agrees on. A multi-character set means three different things in the
+        wild -- a character set on PostgreSQL, SQL Server, ClickHouse and
+        Snowflake, a whole string repeated on MySQL, MariaDB and Firebird, and
+        ``ORA-30001`` on Oracle -- so it is refused at construction instead of
+        rendered into whichever of the three the backend happens to implement.
+        Backends whose parser has no ``trim(... from ...)`` form (SQLite, among
+        them) override the rendering with their function forms.
     """
     # Validate direction: only allow known trim directions.
     valid_directions = frozenset({"BOTH", "LEADING", "TRAILING"})
     if direction not in valid_directions:
         raise ValueError(f"Invalid trim direction '{direction}': must be one of {valid_directions}")
+    if isinstance(chars, str) and len(chars) != 1:
+        raise ValueError(
+            f"Invalid trim set {chars!r}: must be exactly one character -- SQL:2016 "
+            "feature E021-09 defines trim(<char> from ...), and a multi-character "
+            "set means three different things across the backends"
+        )
 
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     target_sql, target_params = target_expr.to_sql()
@@ -260,7 +302,20 @@ def left(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], n: int) 
 
     Returns:
         A FunctionCall instance representing the LEFT function
+
+    Raises:
+        ValueError: If *n* is negative.
+
+    Contract:
+        ``n >= 0``, and everything above it is portable: 0 is the empty string
+        and more than the length is the whole string on every backend. Below 0
+        the backends answer four different ways -- PostgreSQL and ClickHouse
+        drop the trailing ``|n|`` characters, MySQL, MariaDB and Snowflake
+        return an empty string, SQL Server and Firebird raise, and BigQuery
+        raises -- so a negative count is refused rather than rendered.
     """
+    if isinstance(n, int) and n < 0:
+        raise ValueError(f"left(): n must be >= 0, got {n!r}")
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     n_expr = Literal(dialect, n)
     return StringValueExpression(dialect, FunctionCall(dialect, "LEFT", target_expr, n_expr))
@@ -282,7 +337,17 @@ def right(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], n: int)
 
     Returns:
         A FunctionCall instance representing the RIGHT function
+
+    Raises:
+        ValueError: If *n* is negative.
+
+    Contract:
+        The mirror of :func:`left` -- ``n >= 0``, 0 is the empty string, more
+        than the length is the whole string, and a negative count is refused
+        because no two backends agree on it (see :func:`left`).
     """
+    if isinstance(n, int) and n < 0:
+        raise ValueError(f"right(): n must be >= 0, got {n!r}")
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     n_expr = Literal(dialect, n)
     return StringValueExpression(dialect, FunctionCall(dialect, "RIGHT", target_expr, n_expr))
@@ -304,17 +369,35 @@ def lpad(
         expr: The expression to pad. If a string is passed, it's treated as a literal value.
               If a BaseExpression is passed, it's used as-is.
         length: Total length after padding.
-        pad: Optional padding character/string. If provided, treated as literal value.
+        pad: Optional padding string, non-empty. Defaults to a single space.
 
     Returns:
         A FunctionCall instance representing the LPAD function
+
+    Raises:
+        ValueError: A negative *length*, or an empty *pad*.
+
+    Contract:
+        ``length >= 0`` and the pad is non-empty; an omitted pad means one
+        space, and it is always passed explicitly because the backends differ
+        on whether the argument is optional at all (MySQL raises 1582 without
+        it, MariaDB fills with spaces). An empty pad is refused: measured
+        2026-10-09, it leaves the string alone on PostgreSQL/Firebird/Snowflake,
+        returns an empty string on MySQL 8.0, the untouched string on MySQL 26
+        (the same server, two answers), NULL on MariaDB/Oracle and pads with
+        spaces on ClickHouse.
     """
+    if isinstance(length, int) and length < 0:
+        raise ValueError(f"lpad(): length must be >= 0, got {length!r}")
+    if isinstance(pad, str) and pad == "":
+        raise ValueError(
+            "lpad(): empty pad string is refused -- backends disagree on what it "
+            "means (untouched string, empty string or NULL)"
+        )
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     length_expr = Literal(dialect, length)
-    if pad is not None:
-        pad_expr = Literal(dialect, pad)
-        return StringValueExpression(dialect, FunctionCall(dialect, "LPAD", target_expr, length_expr, pad_expr))
-    return StringValueExpression(dialect, FunctionCall(dialect, "LPAD", target_expr, length_expr))
+    pad_expr = Literal(dialect, " " if pad is None else pad)
+    return StringValueExpression(dialect, FunctionCall(dialect, "LPAD", target_expr, length_expr, pad_expr))
 
 
 def rpad(
@@ -333,17 +416,29 @@ def rpad(
         expr: The expression to pad. If a string is passed, it's treated as a literal value.
               If a BaseExpression is passed, it's used as-is.
         length: Total length after padding.
-        pad: Optional padding character/string. If provided, treated as literal value.
+        pad: Optional padding string, non-empty. Defaults to a single space.
 
     Returns:
         A FunctionCall instance representing the RPAD function
+
+    Raises:
+        ValueError: A negative *length*, or an empty *pad*.
+
+    Contract:
+        The mirror of :func:`lpad`: ``length >= 0``, a non-empty pad, an
+        omitted pad spelled out as one space, and an empty pad refused.
     """
+    if isinstance(length, int) and length < 0:
+        raise ValueError(f"rpad(): length must be >= 0, got {length!r}")
+    if isinstance(pad, str) and pad == "":
+        raise ValueError(
+            "rpad(): empty pad string is refused -- backends disagree on what it "
+            "means (untouched string, empty string or NULL)"
+        )
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     length_expr = Literal(dialect, length)
-    if pad is not None:
-        pad_expr = Literal(dialect, pad)
-        return StringValueExpression(dialect, FunctionCall(dialect, "RPAD", target_expr, length_expr, pad_expr))
-    return StringValueExpression(dialect, FunctionCall(dialect, "RPAD", target_expr, length_expr))
+    pad_expr = Literal(dialect, " " if pad is None else pad)
+    return StringValueExpression(dialect, FunctionCall(dialect, "RPAD", target_expr, length_expr, pad_expr))
 
 
 def reverse(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -624,7 +719,17 @@ def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count:
 
     Returns:
         A FunctionCall instance representing the REPEAT function
+
+    Contract:
+        ``count >= 0`` repeats, and a negative count is the **empty string**
+        rather than a refusal -- the native answer on PostgreSQL, MySQL,
+        MariaDB and ClickHouse alike, measured 2026-10-09. SQL Server's
+        ``REPLICATE`` answers NULL for a negative count and Oracle, Firebird
+        and SQLite have no such function at all, so the meaning is settled
+        once here instead of once per backend.
     """
+    if isinstance(count, int) and count < 0:
+        return StringValueExpression(dialect, Literal(dialect, ""))
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     count_expr = Literal(dialect, count)
     return StringValueExpression(dialect, FunctionCall(dialect, "REPEAT", target_expr, count_expr))

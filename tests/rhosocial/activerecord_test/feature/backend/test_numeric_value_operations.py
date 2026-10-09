@@ -18,7 +18,6 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import NumericColumn
 from rhosocial.activerecord.backend.expression.core import (
-    IntegerValueExpression,
     NumericValueExpression,
 )
 
@@ -93,9 +92,11 @@ class TestResultTypes:
         number, which is why these are two classes rather than one."""
         assert isinstance(price.abs(), NumericValueExpression)
 
-    def test_sign_is_always_an_integer(self, price):
-        """Sign is -1, 0 or 1, whatever it was asked about."""
-        assert isinstance(price.sign(), IntegerValueExpression)
+    def test_sign_is_a_number(self, price):
+        """Sign is -1, 0 or 1, but the backends do not answer integers for it:
+        measured on PostgreSQL, an integer argument comes back double and a
+        numeric one numeric, so the result carries the numeric surface."""
+        assert isinstance(price.sign(), NumericValueExpression)
 
     def test_sqrt_is_a_number(self, price):
         assert isinstance(price.sqrt(), NumericValueExpression)

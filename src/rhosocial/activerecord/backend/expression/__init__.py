@@ -114,6 +114,7 @@ from .xml import (
 )
 from .predicates import (
     ComparisonPredicate,
+    DistinctFromPredicate,
     LogicalPredicate,
     LikePredicate,
     ILIKEExpression,

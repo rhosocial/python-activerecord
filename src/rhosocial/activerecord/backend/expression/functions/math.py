@@ -294,6 +294,17 @@ def log(
 
     Returns:
         A FunctionCall instance representing the LOG function
+
+    Contract:
+        ``LOG(expr)`` is the **natural** logarithm and ``LOG(expr, base)`` takes
+        the base second. Measured 2026-10-09, the backends split on both edges:
+        the one-argument ``log`` is base 10 on PostgreSQL and natural on
+        MySQL, MariaDB, ClickHouse, SQL Server, BigQuery, Firebird and SQLite,
+        and the two-argument order is ``(base, expr)`` on PostgreSQL, MySQL,
+        MariaDB, Oracle, Firebird and Snowflake while this order matches SQL
+        Server, ClickHouse and BigQuery. Backends override the rendering; the
+        meaning is fixed here so the override stays a spelling difference and
+        never a semantic one.
     """
     target_expr = expr
     if base is not None:
@@ -407,11 +418,14 @@ def mod(
         dialect, FunctionCall(dialect, "MOD", dividend_expr, divisor_expr))
 
 
-def sign(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpression":
+def sign(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
     """
     Creates a SIGN function call.
 
-    SQL:2003 standard function returning -1, 0, or 1.
+    The value is -1, 0 or 1, but the **result type follows the backend**
+    (measured 2026-10-09): PostgreSQL answers an integer argument with
+    ``double precision`` and a numeric one with ``numeric``, so the node is
+    tagged numeric rather than integer.
 
     Usage rules:
     - To generate SIGN(column): sign(dialect, Column(dialect, "column"))
@@ -425,9 +439,9 @@ def sign(dialect: "SQLDialectBase", expr: "BaseExpression") -> "IntegerValueExpr
         A FunctionCall instance representing the SIGN function
     """
     target_expr = expr
-    from ..core import IntegerValueExpression
+    from ..core import NumericValueExpression
 
-    return IntegerValueExpression(
+    return NumericValueExpression(
         dialect, FunctionCall(dialect, "SIGN", target_expr))
 
 
@@ -471,6 +485,16 @@ def truncate(
 
     Returns:
         A FunctionCall instance representing the TRUNCATE function
+
+    Contract:
+        Truncation toward zero, distinct from :func:`round` on a negative
+        value. The core name stays ``TRUNCATE``; the rendered name is the
+        backend's (measured 2026-10-09): ``TRUNC`` on PostgreSQL, Oracle,
+        Firebird, BigQuery, SQLite and ClickHouse, ``TRUNCATE`` on MySQL,
+        MariaDB and Snowflake, and SQL Server has no scalar truncate at all,
+        spelling it ``ROUND(x, n, 1)``. MariaDB's own ``TRUNC`` returns NULL for
+        a numeric call -- present from 12.2, absent before -- so a gate there
+        has to key on the rendered name rather than the function name.
     """
     from ..core import IntegerValueExpression, NumericValueExpression
 

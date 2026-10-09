@@ -302,7 +302,63 @@ class ComparisonMixin(NullTestMixin):
         >>> # Method-based comparisons
         >>> col1.is_null()  # Generates "age IS NULL"
         >>> col1.in_([1, 2, 3])  # Generates "age IN (?, ?, ?)"
+        >>> col1.is_distinct_from(0)  # NULL-safe: "age IS DISTINCT FROM ?"
     """
+
+    def is_distinct_from(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+        """NULL-safe inequality: true when the two differ, NULL included.
+
+        ``a != b`` answers NULL when either side is NULL, so a query filtering
+        for "not equal" silently drops every NULL row -- the row the caller was
+        most likely looking for. ``IS DISTINCT FROM`` is the NULL-safe spelling
+        and is what :meth:`is_not_distinct_from` negates.
+
+        The renderer is a dialect hook, because the spelling is not universal:
+        PostgreSQL, Firebird, Snowflake, BigQuery, SQL Server (2022+) and
+        SQLite (3.39+) have it, while Oracle answers ``NOT LNNVL(a = b)``,
+        ``IS NOT DISTINCT FROM`` is ``ORA-00908`` there, and an older SQL Server
+        or SQLite has neither. The gate lives with the dialect that has the
+        limit and **refuses** rather than substituting a different question.
+
+        Args:
+            other: Right operand, wrapped as a literal when not an expression.
+
+        Returns:
+            A predicate rendering ``<left> IS DISTINCT FROM <right>``.
+
+        Example:
+            >>> Column(dialect, "name").is_distinct_from("root").to_sql()
+            ('"name" IS DISTINCT FROM ?', ('root',))
+        """
+        from .core import Literal
+        from .predicates import DistinctFromPredicate
+        from .bases import SQLValueExpression
+
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return DistinctFromPredicate(self._dialect, self, other_expr, is_not=False)
+
+    def is_not_distinct_from(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+        """NULL-safe equality: true when the two match, two NULLs included.
+
+        The counterpart of :meth:`is_distinct_from` -- ``IS NOT DISTINCT FROM``
+        is true for two NULLs, where ``=`` is not.
+
+        Args:
+            other: Right operand, wrapped as a literal when not an expression.
+
+        Returns:
+            A predicate rendering ``<left> IS NOT DISTINCT FROM <right>``.
+
+        Example:
+            >>> Column(dialect, "name").is_not_distinct_from("root").to_sql()
+            ('"name" IS NOT DISTINCT FROM ?', ('root',))
+        """
+        from .core import Literal
+        from .predicates import DistinctFromPredicate
+        from .bases import SQLValueExpression
+
+        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        return DistinctFromPredicate(self._dialect, self, other_expr, is_not=True)
 
     def __eq__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
         """
@@ -782,7 +838,14 @@ class TemporalArithmeticMixin(NotANumberMixin):
 
     * a temporal value ± an interval is that kind of temporal value
       (``created_at + one_day``, ``now() - one_hour``);
-    * a temporal value − a temporal value is an interval (``finished - started``);
+    * a temporal value − a temporal value is a **duration**, and the framework
+      does not pretend its type is one thing: measured 2026-10-09, PostgreSQL
+      answers a whole number of days, Firebird a decimal number of days,
+      ClickHouse a number of seconds, Snowflake and BigQuery an interval,
+      Oracle a ``timedelta``-shaped value and MySQL/MariaDB a silent numeric
+      difference. The node keeps the temporal family here and lets each
+      dialect declare what its subtraction yields; only ``timestamp −
+      timestamp`` is an interval nearly everywhere (``finished - started``);
     * an interval ± an interval is an interval;
     * an interval × a number is an interval.
 
@@ -1264,8 +1327,16 @@ class NumericValueMixin:
         """
         return self._numeric_op("abs_")
 
-    def sign(self) -> "IntegerValueExpression":
-        """Sign of the value: -1, 0 or 1. ``SIGN(col)``"""
+    def sign(self) -> "NumericValueMixin":
+        """Sign of the value: -1, 0 or 1. ``SIGN(col)``
+
+        The three answers are whole numbers, but the **result is not declared
+        an integer**, because the backends do not return integers: measured
+        2026-10-09 on PostgreSQL, an integer argument comes back
+        ``double precision`` and a numeric one comes back ``numeric``. A value
+        that carries the numeric surface stays usable for the arithmetic that
+        follows it, which an integer-tagged result would forbid.
+        """
         return self._numeric_op("sign")
 
     # --- rounding ---
@@ -1325,6 +1396,14 @@ class NumericValueMixin:
 
         Not the same as ``round`` for a negative value: truncation drops the
         digits, rounding moves them.
+
+        The core name is ``TRUNCATE``; the rendered one is the backend's, and
+        the backends are not even spelling-compatible among themselves --
+        measured 2026-10-09: ``TRUNC`` on PostgreSQL, Oracle, Firebird,
+        BigQuery, SQLite and ClickHouse, ``TRUNCATE`` on MySQL, MariaDB and
+        Snowflake, and SQL Server has no scalar truncate at all, spelling it
+        ``ROUND(x, n, 1)``. A dialect override therefore renames rather than
+        re-implements.
         """
         return self._numeric_op("truncate", precision)
 
@@ -1409,7 +1488,17 @@ class TranscendentalMixin:
         return self._transcendental_op("exp")
 
     def log(self, base: Optional[Union[int, float, "BaseExpression"]] = None) -> "NumericValueMixin":
-        """Natural logarithm, or logarithm to *base*. ``LOG(col[, base])``"""
+        """Natural logarithm, or logarithm to *base*. ``LOG(col[, base])``
+
+        Two spellings, two settled meanings (measured 2026-10-09 across the ten
+        backends): the one-argument form is the **natural** logarithm -- the one
+        exception is PostgreSQL, where ``log(x)`` is base 10 and ``ln(x)`` is
+        the natural one -- and the two-argument form takes the **base second**,
+        which is the order SQL Server, ClickHouse and BigQuery use natively and
+        the reverse of PostgreSQL's, MySQL's, MariaDB's, Oracle's, Firebird's
+        and Snowflake's. The meaning is fixed here; a dialect override swaps the
+        spelling or the argument order, never the semantics.
+        """
         return self._transcendental_op("log", _literal(self._dialect, base))
 
     # --- trigonometry ---
@@ -1448,7 +1537,16 @@ class StringToIntegerMixin:
         from .core import IntegerValueExpression
 
     def position(self, substring: str) -> "IntegerValueExpression":
-        """1-based position of *substring*. ``POSITION(substring IN expr)``"""
+        """1-based position of *substring*. ``POSITION(substring IN expr)``
+
+        The needle comes first here, matching the standard spelling, while
+        :meth:`strpos` takes the haystack first like its native function. Both
+        are one operation with two spellings, and each backend renders whichever
+        of them it has: PostgreSQL takes only ``POSITION(sub IN s)`` -- its
+        comma form is a syntax error -- SQL Server spells it ``CHARINDEX``,
+        ClickHouse and BigQuery put the haystack first, MySQL and MariaDB
+        ``LOCATE``, Oracle and Firebird ``INSTR``.
+        """
         from .functions import string as _string
 
         return _string.position(self._dialect, substring, self)
@@ -1519,7 +1617,12 @@ class StringToIntegerMixin:
         return self._integer_op("bit_length")
 
     def strpos(self, substring: str) -> "IntegerValueExpression":
-        """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``"""
+        """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``
+
+        The mirror spelling of :meth:`position`: haystack first, as every
+        native ``STRPOS``/``LOCATE``/``INSTR``/``CHARINDEX`` takes it. On
+        backends with no such function a dialect renders the other spelling.
+        """
         return self._integer_op("strpos", substring)
 
 
@@ -1539,7 +1642,7 @@ class StringValueMixin:
     return numbers, and they are not on this mixin.
 
     Example:
-        >>> col.upper().substr(0, 3)      # SUBSTR(UPPER("name"), 1, 3)
+        >>> col.upper().substr(1, 3)      # SUBSTRING(UPPER("name"), 1, 3)
         >>> col.length() > 5              # LENGTH("name") > ?
     """
 
@@ -1584,27 +1687,57 @@ class StringValueMixin:
     # --- slicing and padding ---
 
     def substr(self, start: int, length: Optional[int] = None) -> "StringValueMixin":
-        """Substring, 1-based. ``SUBSTRING(col FROM start [FOR length])``"""
+        """Substring, 1-based. ``SUBSTRING(col, start[, length])``
+
+        ``start >= 1`` and ``length >= 0``; both are refused otherwise, because
+        an out-of-range position is consumed by the length on some backends,
+        yields an empty string on others and is read as 1 on Oracle (see
+        :func:`~...functions.string.substring`).
+        """
         return self._string_op("substring", start, length)
 
     def left(self, n: int) -> "StringValueMixin":
-        """First *n* characters. ``LEFT(col, n)``"""
+        """First *n* characters. ``LEFT(col, n)``
+
+        ``n >= 0``: 0 is the empty string and more than the length is the whole
+        string on every backend. A negative count is refused at construction --
+        the backends answer four different ways to it (see
+        :func:`~...functions.string.left`).
+        """
         return self._string_op("left", n)
 
     def right(self, n: int) -> "StringValueMixin":
-        """Last *n* characters. ``RIGHT(col, n)``"""
+        """Last *n* characters. ``RIGHT(col, n)``
+
+        ``n >= 0``, with 0 and over-length agreeing everywhere; a negative
+        count is refused, same as :meth:`left`.
+        """
         return self._string_op("right", n)
 
     def lpad(self, length: int, pad: Optional[str] = None) -> "StringValueMixin":
-        """Left-pad to *length*. ``LPAD(col, length [, pad])``"""
+        """Left-pad to *length*. ``LPAD(col, length, pad)``
+
+        ``length >= 0`` and a non-empty *pad*; an omitted pad means one space
+        and is always spelled out, because MySQL raises 1582 without it while
+        MariaDB fills with spaces. An empty pad is refused -- the backends
+        answer it as untouched string, empty string or NULL.
+        """
         return self._string_op("lpad", length, pad)
 
     def rpad(self, length: int, pad: Optional[str] = None) -> "StringValueMixin":
-        """Right-pad to *length*. ``RPAD(col, length [, pad])``"""
+        """Right-pad to *length*. ``RPAD(col, length, pad)``
+
+        The mirror of :meth:`lpad`: ``length >= 0``, a non-empty *pad*, an
+        omitted pad spelled as one space, an empty pad refused.
+        """
         return self._string_op("rpad", length, pad)
 
     def repeat(self, count: int) -> "StringValueMixin":
-        """Repeat the string *count* times. ``REPEAT(col, count)``"""
+        """Repeat the string *count* times. ``REPEAT(col, count)``
+
+        A negative *count* is the empty string rather than a refusal -- the
+        native answer on PostgreSQL, MySQL, MariaDB and ClickHouse alike.
+        """
         return self._string_op("repeat", count)
 
     def overlay(self, replacement: str, start: int, length: Optional[int] = None) -> "StringValueMixin":
@@ -1623,7 +1756,12 @@ class StringValueMixin:
         """Trim whitespace or *chars*. ``TRIM([direction] [chars] FROM col)``
 
         Args:
-            chars: Characters to trim; ``None`` trims spaces.
+            chars: One character to trim, or ``None`` for spaces. A
+                multi-character set is refused: SQL:2016 feature E021-09
+                defines a single trim character, and in the field a longer set
+                is a character set on PostgreSQL/SQL Server/ClickHouse/
+                Snowflake, a whole string repeated on MySQL/MariaDB/Firebird
+                and ``ORA-30001`` on Oracle.
             direction: One of ``BOTH`` (default), ``LEADING``, ``TRAILING``.
         """
         return self._string_op("trim", chars=chars, direction=direction)
@@ -1705,11 +1843,19 @@ class StringPatternPredicateMixin:
 
     def like(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
         """
-        Generate a LIKE predicate for pattern matching (case-sensitive).
+        Generate a LIKE predicate for pattern matching.
 
-        This method enables SQL LIKE operations for pattern matching with wildcards:
         - % matches zero or more characters
         - _ matches a single character
+
+        **Case sensitivity is the backend's, not this method's.** Measured
+        2026-10-09: SQLite, MySQL, MariaDB and SQL Server match
+        ``'abc' LIKE 'A%'`` case-insensitively (following their collation),
+        while PostgreSQL, ClickHouse, Oracle and BigQuery are case-sensitive
+        and Firebird follows its collation. Nothing here changes that, and no
+        ``COLLATE`` clause bolted onto the predicate rescues it on SQLite.
+        A predicate that must mean the same thing everywhere is
+        :meth:`ilike`.
 
         Args:
             pattern: Pattern string with SQL LIKE wildcards
@@ -1729,20 +1875,26 @@ class StringPatternPredicateMixin:
 
     def ilike(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
         """
-        Generate an ILIKE predicate for case-insensitive pattern matching.
+        Generate a case-insensitive pattern-matching predicate.
 
-        This method enables SQL ILIKE operations for case-insensitive pattern matching.
-        Not all databases support ILIKE, but it's commonly available in PostgreSQL.
+        This is the one spelling in the framework that *means*
+        case-insensitive, where :meth:`like` makes no such promise (its
+        sensitivity is the backend's). Backends with a native ``ILIKE``
+        (PostgreSQL, ClickHouse, Snowflake) render it; the rest are meant to
+        emulate it as ``LOWER(x) LIKE LOWER(y)`` through the dialect, which
+        folds ASCII rather than the full Unicode case the native operators do.
+        Check the operation-groups survey for the per-backend state before
+        relying on a backend that lacks the native form.
 
         Args:
             pattern: Pattern string with SQL LIKE wildcards
 
         Returns:
-            SQLPredicate representing the ILIKE operation
+            SQLPredicate representing the case-insensitive pattern match
 
         Example:
             >>> col = Column(dialect, "email")
-            >>> predicate = col.ilike("%@gmail.com")  # Matches Gmail addresses regardless of case
+            >>> predicate = col.ilike("%@gmail.com")  # Matches regardless of case
             >>> # Generates: "email ILIKE ?" with params ("%@gmail.com",)
         """
         from .core import Literal

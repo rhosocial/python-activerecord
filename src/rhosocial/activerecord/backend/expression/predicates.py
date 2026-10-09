@@ -168,6 +168,40 @@ class ILIKEExpression(SQLPredicate):
         self.negate = negate
 
 
+class DistinctFromPredicate(SQLPredicate):
+    """Represents a NULL-safe ``IS [NOT] DISTINCT FROM`` comparison.
+
+    ``a != b`` answers NULL when either side is NULL; this predicate asks the
+    question that survives NULL -- "are these two different, NULL included" --
+    which is what a caller filtering for "not equal" usually means. The
+    spelling is a dialect matter (``IS NOT DISTINCT FROM`` is ``ORA-00908`` on
+    Oracle, and SQL Server only learned it in 2022), so the node delegates to
+    the dialect's ``format_distinct_from_predicate`` hook rather than
+    hard-coding the SQL here.
+
+    Attributes:
+        left: Left operand with ``to_sql()``.
+        right: Right operand with ``to_sql()``.
+        is_not: If True, renders ``IS NOT DISTINCT FROM`` instead.
+
+    Example:
+        >>> expr = DistinctFromPredicate(dialect, Column(dialect, "age"), Literal(dialect, 0))
+        >>> expr.to_sql()
+        ('"age" IS DISTINCT FROM ?', (0,))
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_distinct_from_predicate"
+
+    def __init__(self, dialect: "SQLDialectBase", left: Any, right: Any, is_not: bool = False):
+        super().__init__(dialect)
+        self.left = left
+        self.right = right
+        self.is_not = is_not
+
+
 class IsBooleanPredicate(SQLPredicate):
     """Represents an IS TRUE, IS NOT TRUE, IS FALSE, or IS NOT FALSE predicate.
 

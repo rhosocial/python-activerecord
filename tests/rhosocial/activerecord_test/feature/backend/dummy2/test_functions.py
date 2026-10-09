@@ -282,11 +282,17 @@ class TestStringFunctionFactories:
         assert params == ("text", 10, "0")
 
     def test_lpad_function_without_pad(self, dummy_dialect: DummyDialect):
-        """Test LPAD function without pad character."""
+        """Test LPAD function without pad character.
+
+        An omitted pad means one space and is passed **explicitly**, because
+        the backends disagree on whether the argument is optional at all
+        (MySQL raises 1582 without it, MariaDB fills with spaces). Measured
+        2026-10-09, matrix section F.3.
+        """
         func = lpad(dummy_dialect, "text", 10)
         sql, params = func.to_sql()
         assert "LPAD(" in sql
-        assert params == ("text", 10)
+        assert params == ("text", 10, " ")
 
     def test_rpad_function(self, dummy_dialect: DummyDialect):
         """Test RPAD function."""
@@ -296,11 +302,15 @@ class TestStringFunctionFactories:
         assert params == ("text", 10, "0")
 
     def test_rpad_function_without_pad(self, dummy_dialect: DummyDialect):
-        """Test RPAD function without pad character."""
+        """Test RPAD function without pad character.
+
+        Same contract as :meth:`test_lpad_function_without_pad`: an omitted
+        pad is spelled out as one space.
+        """
         func = rpad(dummy_dialect, "text", 10)
         sql, params = func.to_sql()
         assert "RPAD(" in sql
-        assert params == ("text", 10)
+        assert params == ("text", 10, " ")
 
     def test_reverse_function(self, dummy_dialect: DummyDialect):
         """Test REVERSE function."""

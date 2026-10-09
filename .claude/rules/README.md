@@ -7,6 +7,7 @@ stands alone; read the one that concerns the change in front of you.
 |---|---|
 | [expression-direction.md](expression-direction.md) | `expr -> format` and why the reverse direction is where injection and unreviewable inference live. What a factory signature may accept. |
 | [column-and-result-types.md](column-and-result-types.md) | Designing column classes; the core / backend / user layering; stating a result type the source cannot settle, and why it is a mixin rather than a keyword. |
+| [operation-contracts.md](operation-contracts.md) | What each operation promises once the ten-backend survey measured it: the string boundary refusals, the rendering-name contracts, the temporal result types, the value-layer echo, and where version gates refuse. |
 | [static-analysis.md](static-analysis.md) | Making a checker actually check: `py.typed`, a configuration that loads, and the defects that opt out of checking silently. |
 | [anti-patterns.md](anti-patterns.md) | The catalogue, with what each one cost. Read this before adding a runtime lookup, a coercion helper, or a `__getattr__`. |
 

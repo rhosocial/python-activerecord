@@ -10,6 +10,7 @@ from ...expression.advanced_functions import AllExpression, AnyExpression, Exist
 from ...expression.predicates import (
     BetweenPredicate,
     ComparisonPredicate,
+    DistinctFromPredicate,
     InPredicate,
     IsBooleanPredicate,
     IsNullPredicate,
@@ -158,6 +159,27 @@ class PredicateMixin:
         expr_sql, expr_params = expr.expr.to_sql()
         not_str = " NOT" if expr.is_not else ""
         return self._with_alias(f"{expr_sql} IS{not_str} NULL", expr), expr_params
+
+    def format_distinct_from_predicate(self, expr: DistinctFromPredicate) -> Tuple[str, tuple]:
+        """Format a NULL-safe ``IS [NOT] DISTINCT FROM`` predicate.
+
+        The default is the standard spelling, which the backends that have it
+        (PostgreSQL, Firebird, Snowflake, BigQuery, SQL Server 2022+, SQLite
+        3.39+) take as-is. A dialect that spells it differently overrides this
+        -- Oracle answers ``NOT LNNVL(a = b)``, because ``IS NOT DISTINCT FROM``
+        is ``ORA-00908`` there -- and a dialect that has no such operator at all
+        is expected to **refuse** rather than substitute a different question.
+
+        Args:
+            expr: Distinctness check exposing ``left``, ``right`` and ``is_not``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        left_sql, left_params = expr.left.to_sql()
+        right_sql, right_params = expr.right.to_sql()
+        not_str = " NOT" if expr.is_not else ""
+        return self._with_alias(f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr), left_params + right_params
 
     def format_is_boolean_predicate(self, expr: IsBooleanPredicate) -> Tuple[str, tuple]:
         """Format an ``IS [NOT] TRUE/FALSE`` predicate.
