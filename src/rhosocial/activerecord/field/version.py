@@ -151,13 +151,17 @@ class OptimisticLockMixin(IUpdateBehavior):
         """
         if self.is_new_record:
             return []
-        from ..backend.expression.core import Column
+        from ..backend.expression.core import Column, Literal
+        from ..backend.expression.predicates import ComparisonPredicate
 
         backend = self.backend()
-        return [
-            Column(backend.dialect, self._version_column_name())
-            == self._version_snapshot
-        ]
+        dialect = backend.dialect
+        column = Column(dialect, self._version_column_name())
+        # An explicit node, not the column's own operator: the bare Column is a
+        # reference and carries no operations, so ``column == value`` would be
+        # Python's identity answer (False) rather than the optimistic-lock
+        # predicate this is. A silently-always-false check would drop the lock.
+        return [ComparisonPredicate(dialect, "=", column, Literal(dialect, self._version_snapshot))]
 
     def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
         """Add the version increment to the UPDATE SET clause.
@@ -169,10 +173,12 @@ class OptimisticLockMixin(IUpdateBehavior):
         """
         if self.is_new_record:
             return {}
-        from ..backend.expression.core import Column
+        from ..backend.expression.column_types import IntegerColumn
 
         backend = self.backend()
-        column = Column(backend.dialect, self._version_column_name())
+        # A version is always a whole number, so the column carries integer
+        # operations; the bare Column carries none and cannot be incremented.
+        column = IntegerColumn(backend.dialect, self._version_column_name())
         return {self._version_field_name(): column + self._version_increment()}
 
     # ------------------------------------------------------------------

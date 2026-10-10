@@ -18,6 +18,8 @@ import sqlite3
 from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.expression import (
     Column,
+    ComparisonPredicate,
+    NumericColumn,
     Literal,
     FunctionCall,
     QueryExpression,
@@ -43,7 +45,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
 )
 from rhosocial.activerecord.backend.expression.functions.string import concat_op
 from rhosocial.activerecord.backend.expression.functions.type_conversion import cast
-from rhosocial.activerecord.backend.expression.predicates import LikePredicate
+from rhosocial.activerecord.backend.expression.predicates import InPredicate, LikePredicate
 from rhosocial.activerecord.backend.expression.serialization import (
     serialize,
     deserialize,
@@ -70,7 +72,7 @@ def build_mandelbrot(d):
         base = ValuesExpression(d, [(start,)])
         rec = QueryExpression(
             d,
-            select=[Column(d, column) + Literal(d, step)],
+            select=[NumericColumn(d, column) + Literal(d, step)],
             from_=NamedRelationRef(d, Table(d, cte_name)),
             where=Column(d, column) < Literal(d, limit_),
         )
@@ -91,15 +93,19 @@ def build_mandelbrot(d):
     m_step = QueryExpression(
         d,
         select=[
-            Column(d, "iter") + Literal(d, 1),
+            NumericColumn(d, "iter") + Literal(d, 1),
             Column(d, "cx"),
             Column(d, "cy"),
-            Column(d, "x") * Column(d, "x") - Column(d, "y") * Column(d, "y") + Column(d, "cx"),
-            Literal(d, 2.0) * Column(d, "x") * Column(d, "y") + Column(d, "cy"),
+            NumericColumn(d, "x") * NumericColumn(d, "x")
+            - NumericColumn(d, "y") * NumericColumn(d, "y") + NumericColumn(d, "cx"),
+            Literal(d, 2.0) * NumericColumn(d, "x") * NumericColumn(d, "y") + NumericColumn(d, "cy"),
         ],
         from_=NamedRelationRef(d, Table(d, "m")),
-        where=((Column(d, "x") * Column(d, "x") + Column(d, "y") * Column(d, "y")) < Literal(d, 4.0))
-        & (Column(d, "iter") < Literal(d, 28)),
+        where=(
+            (NumericColumn(d, "x") * NumericColumn(d, "x") + NumericColumn(d, "y") * NumericColumn(d, "y"))
+            < Literal(d, 4.0)
+        )
+        & (NumericColumn(d, "iter") < Literal(d, 28)),
     )
     m_cte = CTEExpression(
         d,
@@ -116,7 +122,7 @@ def build_mandelbrot(d):
     )
     m2_cte = CTEExpression(d, name="m2", query=m2_query, columns=["iter", "cx", "cy"])
 
-    min_expr = FunctionCall(d, "MIN", Column(d, "iter") / Literal(d, 7), Literal(d, 4))
+    min_expr = FunctionCall(d, "MIN", NumericColumn(d, "iter") / Literal(d, 7), Literal(d, 4))
     substr_expr = FunctionCall(d, "SUBSTR", Literal(d, " .+*#"), Literal(d, 1) + min_expr, Literal(d, 1))
     a_query = QueryExpression(
         d,
@@ -146,7 +152,10 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     digits_seed = ValuesExpression(d, [("1", 1)])
     digits_step = QueryExpression(
         d,
-        select=[cast(d, Column(d, "lp") + Literal(d, 1), CustomType(d, raw="TEXT")), Column(d, "lp") + Literal(d, 1)],
+        select=[
+            cast(d, NumericColumn(d, "lp") + Literal(d, 1), CustomType(d, raw="TEXT")),
+            NumericColumn(d, "lp") + Literal(d, 1),
+        ],
         from_=NamedRelationRef(d, Table(d, "digits")),
         where=Column(d, "lp") < Literal(d, 9),
     )
@@ -158,7 +167,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     )
 
     s = Column(d, "s")
-    ind = Column(d, "ind")
+    ind = NumericColumn(d, "ind")
     z = Column(d, "z")
 
     x_seed = QueryExpression(
@@ -175,7 +184,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     )
 
     # Build the NOT EXISTS subquery with three OR conditions
-    lp = Column(d, "lp", "lp")
+    lp = NumericColumn(d, "lp", "lp")
     one = Literal(d, 1)
     zero = Literal(d, 0)
     nine = Literal(d, 9)
@@ -254,13 +263,13 @@ def build_bom(d):
         select=[
             Column(d, "child_id", "c"),
             Column(d, "quantity", "c"),
-            Column(d, "total_qty", "b") * Column(d, "quantity", "c"),
+            NumericColumn(d, "total_qty", "b") * NumericColumn(d, "quantity", "c"),
         ],
         from_=[
             NamedRelationRef(d, Table(d, "parts_tree"), alias="c"),
             NamedRelationRef(d, Table(d, "BOM_Explosion"), alias="b"),
         ],
-        where=Column(d, "parent_id", "c") == Column(d, "child_id", "b"),
+        where=ComparisonPredicate(d, "=", Column(d, "parent_id", "c"), Column(d, "child_id", "b")),
     )
     union = SetOperationExpression(d, left=anchor, right=step, operation="UNION", all_=True)
     cte = CTEExpression(
@@ -303,8 +312,8 @@ def build_flight_paths(d):
         d,
         select=[
             Column(d, "destination", "f"),
-            Column(d, "price", "p") + Column(d, "price", "f"),
-            Column(d, "depth", "p") + Literal(d, 1),
+            NumericColumn(d, "price", "p") + NumericColumn(d, "price", "f"),
+            NumericColumn(d, "depth", "p") + Literal(d, 1),
             concat_op(d, Column(d, "path", "p"), Literal(d, " -> "), Column(d, "destination", "f")),
         ],
         from_=[
@@ -344,9 +353,9 @@ def build_game_of_life(d):
     a LEFT JOIN of the live table.
     """
     live = NamedRelationRef(d, Table(d, "live"), alias="l")
-    x = Column(d, "x")
-    y = Column(d, "y")
-    gen = Column(d, "gen")
+    x = NumericColumn(d, "x")
+    y = NumericColumn(d, "y")
+    gen = NumericColumn(d, "gen")
 
     def neighbor(dx, dy):
         return QueryExpression(
@@ -381,14 +390,14 @@ def build_game_of_life(d):
         d,
         cases=[
             (l_x_null & (Column(d, "cnt", "n") == Literal(d, 3)), Literal(d, 1)),
-            ((~l_x_null) & Column(d, "cnt", "n").in_([2, 3]), Literal(d, 1)),
+            ((~l_x_null) & InPredicate(d, Column(d, "cnt", "n"), Literal(d, (2, 3))), Literal(d, 1)),
         ],
         else_result=Literal(d, 0),
     )
     on = (
-        (Column(d, "x", "l") == Column(d, "x", "n"))
-        & (Column(d, "y", "l") == Column(d, "y", "n"))
-        & (Column(d, "gen", "l") == Column(d, "gen", "n"))
+        ComparisonPredicate(d, "=", Column(d, "x", "l"), Column(d, "x", "n"))
+        & ComparisonPredicate(d, "=", Column(d, "y", "l"), Column(d, "y", "n"))
+        & ComparisonPredicate(d, "=", Column(d, "gen", "l"), Column(d, "gen", "n"))
     )
     join = JoinClause(d, left_table=nsub, right_table=live, join_type="LEFT JOIN", condition=on)
     return QueryExpression(
@@ -396,7 +405,7 @@ def build_game_of_life(d):
         select=[
             Column(d, "x", "n"),
             Column(d, "y", "n"),
-            Column(d, "gen", "n") + Literal(d, 1),
+            NumericColumn(d, "gen", "n") + Literal(d, 1),
             alive,
         ],
         from_=join,

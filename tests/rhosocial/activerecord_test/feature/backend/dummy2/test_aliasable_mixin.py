@@ -6,7 +6,7 @@ This tests the as_() method and alias initialization for various expression clas
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery
+from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, ComparisonPredicate
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
@@ -266,7 +266,7 @@ class TestAliasNonContamination:
                 left_table=NamedRelationRef(d, Table(d, "users")),
                 right_table=NamedRelationRef(d, Table(d, "items")),
                 join_type="INNER JOIN",
-                condition=Column(d, "id", "u") == Column(d, "user_id", "i"),
+                condition=ComparisonPredicate(d, "=", Column(d, "id", "u"), Column(d, "user_id", "i")),
             ),
         ],
         ids=["Literal", "Column", "FunctionCall", "Subquery", "NamedRelationRef", "JoinClause"],

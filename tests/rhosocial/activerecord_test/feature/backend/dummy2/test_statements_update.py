@@ -10,6 +10,10 @@ from rhosocial.activerecord.backend.expression import (
     JoinClause,
     LogicalPredicate,
     ReturningClause,
+    BinaryExpression,
+    ComparisonPredicate,
+    NumericColumn,
+    StringColumn,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
@@ -51,7 +55,7 @@ class TestUpdateStatements:
             pytest.param(
                 Table(None, "orders"),
                 {"status": Literal(None, "shipped"), "updated_at": RawSQLExpression(None, "CURRENT_TIMESTAMP")},
-                Column(None, "id") == Literal(None, 1),
+                ComparisonPredicate(None, "=", Column(None, "id"), Literal(None, 1)),
                 None,
                 'UPDATE "orders" SET "status" = ?, "updated_at" = CURRENT_TIMESTAMP WHERE "id" = ?',
                 ("shipped", 1),
@@ -60,7 +64,7 @@ class TestUpdateStatements:
             ),
             pytest.param(
                 Table(None, "items"),
-                {"quantity": Column(None, "quantity") + Literal(None, 1)},
+                {"quantity": BinaryExpression(None, "+", Column(None, "quantity"), Literal(None, 1))},
                 None,
                 [Column(None, "id"), Column(None, "quantity")],
                 'UPDATE "items" SET "quantity" = "quantity" + ? RETURNING "id", "quantity"',
@@ -189,7 +193,7 @@ class TestUpdateStatements:
             pytest.param(
                 NamedRelationRef(None, Table(None, "logs"), alias="l"),
                 {"last_login": Column(None, "login_time", "l")},
-                Column(None, "id", "users") == Column(None, "user_id", "l"),
+                ComparisonPredicate(None, "=", Column(None, "id", "users"), Column(None, "user_id", "l")),
                 'FROM "logs" AS "l"',
                 'UPDATE "users" SET "last_login" = "l"."login_time" %s WHERE "users"."id" = "l"."user_id"',
                 (),  # No extra params, all from expressions
@@ -203,7 +207,7 @@ class TestUpdateStatements:
                     from_=NamedRelationRef(None, Table(None, "sub_users"), alias="s"),
                 ),
                 {"status": Column(None, "status_val", "s")},
-                Column(None, "id", "users") == Column(None, "id", "s"),
+                ComparisonPredicate(None, "=", Column(None, "id", "users"), Column(None, "id", "s")),
                 'FROM (SELECT "s"."id", "s"."status_val" FROM "sub_users" AS "s")',
                 'UPDATE "users" SET "status" = "s"."status_val" %s WHERE "users"."id" = "s"."id"',
                 (),
@@ -213,8 +217,8 @@ class TestUpdateStatements:
             pytest.param(
                 [NamedRelationRef(None, Table(None, "logs"), alias="l"), NamedRelationRef(None, Table(None, "actions"), alias="a")],
                 {"activity_count": Column(None, "count", "a")},
-                (Column(None, "id", "users") == Column(None, "user_id", "l"))
-                & (Column(None, "action_id", "l") == Column(None, "id", "a")),
+                (ComparisonPredicate(None, "=", Column(None, "id", "users"), Column(None, "user_id", "l")))
+                & (ComparisonPredicate(None, "=", Column(None, "action_id", "l"), Column(None, "id", "a"))),
                 'FROM "logs" AS "l", "actions" AS "a"',
                 'UPDATE "users" SET "activity_count" = "a"."count" %s WHERE "users"."id" = "l"."user_id" AND "l"."action_id" = "a"."id"',  # noqa: E501
                 (),
@@ -226,10 +230,15 @@ class TestUpdateStatements:
                     None,
                     NamedRelationRef(None, Table(None, "user_data"), alias="ud"),
                     NamedRelationRef(None, Table(None, "users"), alias="u"),
-                    condition=Column(None, "user_id", "ud") == Column(None, "id", "u"),
+                    condition=ComparisonPredicate(None, "=", Column(None, "user_id", "ud"), Column(None, "id", "u")),
                 ),
                 {"value": Literal(None, 123)},
-                Column(None, "id", "ud") == Column(None, "id", "u"),  # Example WHERE, effectively part of JOIN
+                ComparisonPredicate(
+                    None,
+                    "=",
+                    Column(None, "id", "ud"),
+                    Column(None, "id", "u"),
+                ),  # Example WHERE, effectively part of JOIN
                 'FROM "user_data" AS "ud" JOIN "users" AS "u" ON "ud"."user_id" = "u"."id"',
                 'UPDATE "user_data" SET "value" = ? %s WHERE "ud"."id" = "u"."id"',
                 (123,),
@@ -239,7 +248,7 @@ class TestUpdateStatements:
             pytest.param(
                 "logs_table",  # A bare name is a legal FROM source
                 {"status": Literal(None, "active")},
-                Column(None, "user_id") == Literal(None, 1),
+                ComparisonPredicate(None, "=", Column(None, "user_id"), Literal(None, 1)),
                 'FROM "logs_table"',
                 'UPDATE "users" SET "status" = ? %s WHERE "user_id" = ?',
                 ("active", 1),
@@ -369,7 +378,7 @@ class TestUpdateStatements:
         unsupported_source = 123  # An integer, not a string or BaseExpression
 
         assignments = {"name": Literal(dummy_dialect, "New Name")}
-        where = Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
+        where = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1))
 
         with pytest.raises(TypeError, match=r"Unsupported FROM source type: <class 'int'>"):
             update_expr = UpdateExpression(
@@ -398,7 +407,10 @@ class TestUpdateStatements:
 
         # Create a WhereClause object using comparison operator
         where_clause_obj = WhereClause(
-            dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            dummy_dialect,
+            condition=ComparisonPredicate(
+                dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active"),
+            ),
         )
 
         # Create an UpdateExpression with the WhereClause object
@@ -424,7 +436,7 @@ class TestUpdateStatements:
     )
     def test_update_with_like_condition(self, dummy_dialect: DummyDialect, op, pattern, expected_sql_part):
         """Tests UPDATE with LIKE/ILIKE conditions."""
-        name_col = Column(dummy_dialect, "name")
+        name_col = StringColumn(dummy_dialect, "name")
         if op == "LIKE":
             like_condition = name_col.like(pattern)
         elif op == "ILIKE":
@@ -446,8 +458,8 @@ class TestUpdateStatements:
 
     def test_update_with_combined_like_and_other_conditions(self, dummy_dialect: DummyDialect):
         """Tests UPDATE with LIKE condition combined with other conditions."""
-        name_col = Column(dummy_dialect, "name")
-        age_col = Column(dummy_dialect, "age")
+        name_col = StringColumn(dummy_dialect, "name")
+        age_col = NumericColumn(dummy_dialect, "age")
 
         # Combine LIKE with comparison condition
         like_condition = name_col.like("John%")

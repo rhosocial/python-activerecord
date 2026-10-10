@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_operators.py
-from rhosocial.activerecord.backend.expression import Column, Literal, FunctionCall
+from rhosocial.activerecord.backend.expression import Column, Literal, FunctionCall, NumericColumn
 from rhosocial.activerecord.backend.expression.operators import (
     SQLOperation,
     BinaryExpression,
@@ -167,7 +167,7 @@ class TestBinaryArithmeticExpression:
 
     def test_binary_arithmetic_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic binary arithmetic expression."""
-        left = Column(dummy_dialect, "price")
+        left = NumericColumn(dummy_dialect, "price")
         right = Literal(dummy_dialect, 1.1)
 
         # Use operator overloading instead of direct instantiation
@@ -193,8 +193,8 @@ class TestBinaryArithmeticExpression:
 
     def test_binary_arithmetic_different_operators(self, dummy_dialect: DummyDialect):
         """Test binary arithmetic with different operators."""
-        left = Column(dummy_dialect, "quantity")
-        right = Column(dummy_dialect, "unit_price")
+        left = NumericColumn(dummy_dialect, "quantity")
+        right = NumericColumn(dummy_dialect, "unit_price")
 
         # Test using operator overloading
         add_expr = left + right
@@ -229,8 +229,8 @@ class TestBinaryArithmeticExpressionPrecedence:
     def test_multiplication_precedence_over_addition(self, dummy_dialect: DummyDialect):
         """Test that multiplication has higher precedence than addition."""
         # Expression: (a + b) * c should generate ("a + b") * c
-        left_add = Column(dummy_dialect, "a") + Column(dummy_dialect, "b")
-        right = Column(dummy_dialect, "c")
+        left_add = NumericColumn(dummy_dialect, "a") + NumericColumn(dummy_dialect, "b")
+        right = NumericColumn(dummy_dialect, "c")
         expr = left_add * right
 
         sql, params = expr.to_sql()
@@ -242,8 +242,8 @@ class TestBinaryArithmeticExpressionPrecedence:
     def test_addition_precedence_lower_than_multiplication(self, dummy_dialect: DummyDialect):
         """Test that addition has lower precedence than multiplication."""
         # Expression: a + (b * c) should generate "a + b * c" (no parentheses needed for multiplication)
-        left = Column(dummy_dialect, "a")
-        right_mult = Column(dummy_dialect, "b") * Column(dummy_dialect, "c")
+        left = NumericColumn(dummy_dialect, "a")
+        right_mult = NumericColumn(dummy_dialect, "b") * NumericColumn(dummy_dialect, "c")
         expr = left + right_mult
 
         sql, params = expr.to_sql()
@@ -255,8 +255,8 @@ class TestBinaryArithmeticExpressionPrecedence:
     def test_multiplication_precedence_over_subtraction(self, dummy_dialect: DummyDialect):
         """Test that multiplication has higher precedence than subtraction."""
         # Expression: (a - b) * c should generate ("a - b") * c
-        left_sub = Column(dummy_dialect, "a") - Column(dummy_dialect, "b")
-        right = Column(dummy_dialect, "c")
+        left_sub = NumericColumn(dummy_dialect, "a") - NumericColumn(dummy_dialect, "b")
+        right = NumericColumn(dummy_dialect, "c")
         expr = left_sub * right
 
         sql, params = expr.to_sql()
@@ -268,8 +268,8 @@ class TestBinaryArithmeticExpressionPrecedence:
     def test_division_precedence_over_addition(self, dummy_dialect: DummyDialect):
         """Test that division has higher precedence than addition."""
         # Expression: (a + b) / c should generate ("a + b") / c
-        left_add = Column(dummy_dialect, "a") + Column(dummy_dialect, "b")
-        right = Column(dummy_dialect, "c")
+        left_add = NumericColumn(dummy_dialect, "a") + NumericColumn(dummy_dialect, "b")
+        right = NumericColumn(dummy_dialect, "c")
         expr = left_add / right
 
         sql, params = expr.to_sql()
@@ -281,8 +281,8 @@ class TestBinaryArithmeticExpressionPrecedence:
     def test_same_precedence_left_associative(self, dummy_dialect: DummyDialect):
         """Test that operators with same precedence are left-associative."""
         # Expression: (a * b) / c should generate "a * b / c" (no parentheses needed for left-associative)
-        left_mult = Column(dummy_dialect, "a") * Column(dummy_dialect, "b")
-        right = Column(dummy_dialect, "c")
+        left_mult = NumericColumn(dummy_dialect, "a") * NumericColumn(dummy_dialect, "b")
+        right = NumericColumn(dummy_dialect, "c")
         expr = left_mult / right
 
         sql, params = expr.to_sql()
@@ -294,8 +294,8 @@ class TestBinaryArithmeticExpressionPrecedence:
     def test_addition_subtraction_same_precedence(self, dummy_dialect: DummyDialect):
         """Test that addition and subtraction have same precedence."""
         # Expression: (a - b) + c should generate "a - b + c" (no parentheses needed for left-associative)
-        left_sub = Column(dummy_dialect, "a") - Column(dummy_dialect, "b")
-        right = Column(dummy_dialect, "c")
+        left_sub = NumericColumn(dummy_dialect, "a") - NumericColumn(dummy_dialect, "b")
+        right = NumericColumn(dummy_dialect, "c")
         expr = left_sub + right
 
         sql, params = expr.to_sql()
@@ -308,8 +308,8 @@ class TestBinaryArithmeticExpressionPrecedence:
         """Test the right operand needs parentheses case."""
         # More specifically test right_needs_parens: when right operand has lower precedence than current operator
         # Example: a * (b + c) where addition has lower precedence than multiplication
-        left = Column(dummy_dialect, "a")
-        right_add = Column(dummy_dialect, "b") + Column(dummy_dialect, "c")
+        left = NumericColumn(dummy_dialect, "a")
+        right_add = NumericColumn(dummy_dialect, "b") + NumericColumn(dummy_dialect, "c")
         expr = left * right_add
 
         sql, params = expr.to_sql()
@@ -322,8 +322,8 @@ class TestBinaryArithmeticExpressionPrecedence:
         """Test when right operand has higher precedence than current operator."""
         # Expression: a + (b * c) where multiplication has higher precedence than addition
         # In this case, the right operand (b * c) should NOT need parentheses since it has higher precedence
-        left = Column(dummy_dialect, "a")
-        right_mult = Column(dummy_dialect, "b") * Column(dummy_dialect, "c")
+        left = NumericColumn(dummy_dialect, "a")
+        right_mult = NumericColumn(dummy_dialect, "b") * NumericColumn(dummy_dialect, "c")
         expr = left + right_mult
 
         sql, params = expr.to_sql()

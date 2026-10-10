@@ -57,11 +57,12 @@ def test_format_function_call_filter_path_in_fresh_interpreter():
     body = (
         "import rhosocial.activerecord.backend.dialect.mixins.function  # noqa: F401\n"
         "from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect\n"
-        "from rhosocial.activerecord.backend.expression.core import FunctionCall, Column\n"
+        "from rhosocial.activerecord.backend.expression.core import FunctionCall, Column, Literal\n"
+        "from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate\n"
         "\n"
         "d = DummyDialect()\n"
         "call = FunctionCall(d, 'SUM', Column(d, 'amount'))\n"
-        "call.filter_predicate = (Column(d, 'amount') > 0)\n"
+        "call.filter_predicate = ComparisonPredicate(d, '>', Column(d, 'amount'), Literal(d, 0))\n"
         "sql, params = d.format_function_call(call)\n"
         "assert 'FILTER (WHERE' in sql, sql\n"
     )

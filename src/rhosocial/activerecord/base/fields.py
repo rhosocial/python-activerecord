@@ -372,10 +372,18 @@ class UseConstraint(DDLAnnotation):
 
     Example::
 
-        # Column-level CHECK (SQL-standard, generic)
+        # Column-level CHECK (SQL-standard, generic). The condition is an
+        # explicit InPredicate node: a bare Column reference offers no
+        # operations by design, so the constraint builds the node itself.
+        from rhosocial.activerecord.backend.expression import (
+            Column, InPredicate, Literal,
+        )
+
         status: Annotated[str, UseConstraint(
             ColumnConstraintType.CHECK,
-            check_condition=lambda d: Column(d, "status").in_(["open", "paid"]),
+            check_condition=lambda d: InPredicate(
+                d, Column(d, "status"), Literal(d, ("open", "paid"))
+            ),
         )]
     """
 

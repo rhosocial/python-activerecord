@@ -1167,6 +1167,7 @@ from rhosocial.activerecord.backend.expression import (  # noqa: E402
     ValuesSource,
     Literal,
     Column,
+    ComparisonPredicate,
     ReturningClause,
     UpdateExpression,
     DeleteExpression,
@@ -1276,7 +1277,7 @@ class TestAsyncReturning:
             dialect=dialect,
             table=Table(dialect, 'users'),
             assignments={"name": Literal(dialect, "Updated"), "email": Literal(dialect, "new@example.com")},
-            where=Column(dialect, "id") == Literal(dialect, 1),
+            where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, 1)),
             returning=ReturningClause(
                 dialect, expressions=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")]
             ),
@@ -1317,7 +1318,7 @@ class TestAsyncReturning:
         delete_expr = DeleteExpression(
             dialect=dialect,
             tables=Table(dialect, 'users'),
-            where=Column(dialect, "id") == Literal(dialect, 1),
+            where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, 1)),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "name")]),
         )
         sql, params = delete_expr.to_sql()
@@ -1404,7 +1405,7 @@ class TestAsyncReturning:
             dialect=dialect,
             table=Table(dialect, 'users'),
             assignments={"active": Literal(dialect, 0)},
-            where=Column(dialect, "active") == Literal(dialect, 1),
+            where=ComparisonPredicate(dialect, "=", Column(dialect, "active"), Literal(dialect, 1)),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "id"), Column(dialect, "name")]),
         )
         sql, params = update_expr.to_sql()

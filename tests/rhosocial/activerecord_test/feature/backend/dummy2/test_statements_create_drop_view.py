@@ -3,6 +3,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
+    ComparisonPredicate,
     FunctionCall,
     QueryExpression,
     CreateViewExpression,
@@ -122,7 +123,12 @@ class TestCreateDropViewStatements:
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "status")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "entities")),
             where=WhereClause(
-                dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+                dummy_dialect, condition=ComparisonPredicate(
+                    dummy_dialect,
+                    "=",
+                    Column(dummy_dialect, "status"),
+                    Literal(dummy_dialect, "active")
+                )
             ),
         )
 
@@ -249,7 +255,12 @@ class TestCreateDropViewStatements:
     def test_create_view_with_where_clause_object(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with a query that has a where clause object."""
         WhereClause(
-            dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            dummy_dialect, condition=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "status"),
+                Literal(dummy_dialect, "active")
+            )
         )
         # The where clause would be part of the query object, not as a separate parameter
         query = QueryExpression(
@@ -257,7 +268,12 @@ class TestCreateDropViewStatements:
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
             where=WhereClause(
-                dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+                dummy_dialect, condition=ComparisonPredicate(
+                    dummy_dialect,
+                    "=",
+                    Column(dummy_dialect, "status"),
+                    Literal(dummy_dialect, "active")
+                )
             ),  # Using overloaded operator
         )
 
@@ -328,7 +344,12 @@ class TestCreateDropViewStatements:
         # Create a join between users and profiles
         users_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u")
         profiles_table = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "profiles"), alias="p")
-        join_condition = Column(dummy_dialect, "user_id", "u") == Column(dummy_dialect, "user_id", "p")
+        join_condition = ComparisonPredicate(
+            dummy_dialect,
+            "=",
+            Column(dummy_dialect, "user_id", "u"),
+            Column(dummy_dialect, "user_id", "p")
+        )
         join_expr = JoinClause(
             dummy_dialect,
             left_table=users_table,

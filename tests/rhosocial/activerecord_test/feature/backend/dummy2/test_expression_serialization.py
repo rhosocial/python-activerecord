@@ -307,7 +307,7 @@ class TestErrorHandling:
 
     def test_serialize_deserialize_tuple_in_params(self, dummy_dialect):
         col = Column(dummy_dialect, "status")
-        in_pred = col.in_(["active", "pending", "draft"])
+        in_pred = InPredicate(dummy_dialect, col, Literal(dummy_dialect, ("active", "pending", "draft")))
         spec = serialize(in_pred)
         restored = deserialize(spec, dummy_dialect)
         assert restored.to_sql() == in_pred.to_sql()
@@ -395,7 +395,7 @@ class TestErrorHandling:
 
         serializer = ExpressionSerializer(max_depth=64)
         col = Column(dummy_dialect, "status")
-        in_pred = col.in_(["active", "pending"])
+        in_pred = InPredicate(dummy_dialect, col, Literal(dummy_dialect, ("active", "pending")))
 
         spec = serializer.serialize(in_pred)
         restored = serializer.deserialize(spec, dummy_dialect)
@@ -833,7 +833,10 @@ class TestDDLRoundtrip:
 
         expr = ExplainExpression(dummy_dialect, statement=Column(dummy_dialect, "users"))
         restored = deserialize(serialize(expr), dummy_dialect)
-        assert restored.get_params() == expr.get_params()
+        # A bare Column compares by identity, so equality goes through the
+        # rendered SQL, as in the other roundtrip tests in this file.
+        assert restored.to_sql() == expr.to_sql()
+        assert restored.get_params()["options"] == expr.get_params()["options"]
 
 
 class TestAllowedTypesAllowlist:

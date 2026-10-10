@@ -27,7 +27,7 @@ the choice is static.
 Three layers, each adding to the one above:
 
 1. **Core** -- what the SQL standard defines and what is widely shared.
-   `StringColumn`, `NumericColumn`, `DateTimeColumn`, `BooleanColumn`,
+   `StringColumn`, `NumericColumn`, `TimestampColumn`, `BooleanColumn`,
    `BinaryColumn`, `JSONColumn`, `ArrayColumn`, `UUIDColumn`.
 2. **A backend overrides** what genuinely differs for it. An override replaces a
    method or a rendering; it does not accumulate into a growing subclass.

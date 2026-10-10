@@ -9,6 +9,7 @@ from rhosocial.activerecord.backend.dialect import protocols as dialect_protocol
 from rhosocial.activerecord.backend.expression import (
     Literal,
     Column,
+    ComparisonPredicate,
     FunctionCall,
     CreateTableExpression,
     CreateTableAsExpression,
@@ -271,7 +272,9 @@ class TestCreateTableStatements:
     def test_create_table_with_check_constraint(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with CHECK column constraints."""
         # Create a check predicate for age > 0 (inline literal for DDL)
-        age_check = Column(dummy_dialect, "age") > Literal(dummy_dialect, 0, inline_literals=True)
+        age_check = ComparisonPredicate(
+            dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 0, inline_literals=True)
+        )
 
         columns = [
             ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
@@ -392,7 +395,10 @@ class TestCreateTableStatements:
     def test_create_table_as_query_result(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE AS with a query result (CTAS)."""
         where_clause = WhereClause(
-            dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            dummy_dialect,
+            condition=ComparisonPredicate(
+                dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active")
+            )
         )
         query = QueryExpression(
             dummy_dialect,
@@ -845,8 +851,12 @@ class TestCreateTableStatements:
                     ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL),
                     ColumnConstraint(dummy_dialect, 
                         ColumnConstraintType.CHECK,
-                        check_condition=Column(dummy_dialect, "amount")
-                        >= Literal(dummy_dialect, 0, inline_literals=True),
+                        check_condition=ComparisonPredicate(
+                            dummy_dialect,
+                            ">=",
+                            Column(dummy_dialect, "amount"),
+                            Literal(dummy_dialect, 0, inline_literals=True),
+                        ),
                     ),
                 ],
             ),

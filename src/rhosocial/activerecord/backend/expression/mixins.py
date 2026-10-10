@@ -1968,12 +1968,12 @@ class DateTimeMixin:
     No SQL is built by this mixin, and the expression nodes it constructs
     already exist — this is a thin, dialect-neutral façade over them.
 
-    The mixin is mixed into :class:`~...expression.column_types.DateTimeColumn`
+    The mixin is mixed into :class:`~...expression.column_types.TimestampColumn`
     only, so a numeric or string column cannot reach these operations.
 
     Chaining nests like any other expression::
 
-        >>> col = DateTimeColumn(dialect, "created_at")
+        >>> col = TimestampColumn(dialect, "created_at")
         >>> col.date_trunc("month")
         >>> # -> DATE_TRUNC('month', "created_at")
         >>> col.date_trunc("day").extract("year")

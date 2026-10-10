@@ -17,7 +17,7 @@ no ``AS`` in the output.
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, Literal, NumericColumn, StringColumn
 from rhosocial.activerecord.backend.expression.predicates import (
     IsBooleanPredicate,
     IsNullPredicate,
@@ -33,12 +33,14 @@ def dialect():
 
 @pytest.fixture
 def name(dialect):
-    return Column(dialect, "name", table="t")
+    # Typed: the families below are exercised through the capability mixins
+    # (``LIKE`` / ``ILIKE``), which live on the typed classes only.
+    return StringColumn(dialect, "name", table="t")
 
 
 @pytest.fixture
 def qty(dialect):
-    return Column(dialect, "qty", table="t")
+    return NumericColumn(dialect, "qty", table="t")
 
 
 def ident(dialect, alias):
@@ -130,9 +132,13 @@ def test_projected_predicate_is_named_like_a_column(dialect, name):
     assert params == ("a%",)
 
 
-def test_alias_works_for_a_bare_column_too(dialect, name):
-    """The base behaviour must be unchanged by the predicate change."""
-    sql, _ = name.as_("n").to_sql()
+def test_alias_works_for_a_bare_column_too(dialect):
+    """The base behaviour must be unchanged by the predicate change.
+
+    Deliberately a bare ``Column``: the ``name`` fixture is typed now, and this
+    case is specifically about the untyped reference still aliasing.
+    """
+    sql, _ = Column(dialect, "name", table="t").as_("n").to_sql()
     assert sql == f'"t"."name" AS {ident(dialect, "n")}'
 
 

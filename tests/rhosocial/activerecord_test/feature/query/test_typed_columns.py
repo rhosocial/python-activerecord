@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.expression import (
     BooleanColumn,
     Column,
     ColumnBase,
-    DateTimeColumn,
+    TimestampColumn,
     IntegerColumn,
     JSONColumn,
     NumericColumn,
@@ -91,8 +91,8 @@ _DISPATCH = [
     # `test_column_type_support.py`).
     (list, JSONColumn),
     (decimal.Decimal, NumericColumn),
-    (datetime.datetime, DateTimeColumn),
-    (datetime.date, DateTimeColumn),
+    (datetime.datetime, TimestampColumn),
+    (datetime.date, TimestampColumn),
     (datetime.timedelta, NumericColumn),
     (uuid.UUID, UUIDColumn),
 ]
@@ -192,12 +192,20 @@ def test_uuid_column_offers_no_uuid_specific_operator():
     assert not hasattr(col, "json_path")
 
 
-def test_permissive_column_keeps_every_operation():
-    """The hand-built ``Column`` is the escape hatch and must not narrow."""
+def test_bare_column_offers_no_operation():
+    """The hand-built ``Column`` is a reference, and references do not guess.
+
+    Nothing established what the column holds, so offering an operation
+    would be a promise the database never made — and the previous shape had
+    the failure the typed classes exist to prevent: comparing two of them
+    answered Python's identity question silently. The class renders (its one
+    job), the shared surface answers questions about the *reference* itself,
+    and predicates are built explicitly where the column's type is unknown.
+    """
     col = Column(sqlite_dialect(), "anything")
-    assert hasattr(col, "like")
-    assert hasattr(col, "__add__")
-    assert hasattr(col, "json_path")
+    assert col.to_sql() == ('"anything"', ())
+    for operation in ("like", "__add__", "json_path", "in_", "upper"):
+        assert not hasattr(col, operation), f"a bare column wrongly offers {operation}"
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +213,7 @@ def test_permissive_column_keeps_every_operation():
 # ---------------------------------------------------------------------------
 
 _RENDER_CLASSES = [
-    Column, StringColumn, NumericColumn, DateTimeColumn, BooleanColumn,
+    Column, StringColumn, NumericColumn, TimestampColumn, BooleanColumn,
     BinaryColumn, UUIDColumn, JSONColumn, ArrayColumn,
 ]
 
@@ -337,7 +345,7 @@ def _model(dialect):
         ("name", StringColumn),
         ("qty", IntegerColumn),
         ("price", NumericColumn),
-        ("created", DateTimeColumn),
+        ("created", TimestampColumn),
         ("settings", JSONColumn),
         ("tags", JSONColumn),
         ("uid", UUIDColumn),

@@ -30,7 +30,7 @@ class TestJoinClauseChaining:
             right_table=right_table,
             join_type="INNER JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o"),
             ),
         )
 
@@ -48,7 +48,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"), alias="o"),
             join_type="INNER JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o"),
             ),
         )
 
@@ -57,7 +57,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"), alias="p"),
             join_type="LEFT JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p")
+                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p"),
             ),
         )
 
@@ -77,7 +77,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"), alias="o"),
             join_type="INNER JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o"),
             ),
         )
 
@@ -86,7 +86,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"), alias="p"),
             join_type="LEFT JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p")
+                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p"),
             ),
         )
 
@@ -95,7 +95,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "categories"), alias="c"),
             join_type="INNER JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "category_id", "p"), Column(dummy_dialect, "id", "c")
+                dummy_dialect, "=", Column(dummy_dialect, "category_id", "p"), Column(dummy_dialect, "id", "c"),
             ),
         )
 
@@ -116,7 +116,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"), alias="o"),
             join_type="INNER JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o"),
             ),
         )
 
@@ -124,7 +124,7 @@ class TestJoinClauseChaining:
         chained_join = base_join.left_join(
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"), alias="p"),
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p")
+                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p"),
             ),
         )
 
@@ -132,7 +132,7 @@ class TestJoinClauseChaining:
         final_join = chained_join.inner_join(
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "categories"), alias="c"),
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "category_id", "p"), Column(dummy_dialect, "id", "c")
+                dummy_dialect, "=", Column(dummy_dialect, "category_id", "p"), Column(dummy_dialect, "id", "c"),
             ),
         )
 
@@ -152,7 +152,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"), alias="o"),
             join_type="LEFT JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "c"), Column(dummy_dialect, "customer_id", "o")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "c"), Column(dummy_dialect, "customer_id", "o"),
             ),
         )
 
@@ -160,7 +160,7 @@ class TestJoinClauseChaining:
         second_join = base_join.inner_join(
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "order_items"), alias="oi"),
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "o"), Column(dummy_dialect, "order_id", "oi")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "o"), Column(dummy_dialect, "order_id", "oi"),
             ),
         )
 
@@ -168,7 +168,7 @@ class TestJoinClauseChaining:
         third_join = second_join.right_join(
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"), alias="p"),
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "product_id", "oi"), Column(dummy_dialect, "id", "p")
+                dummy_dialect, "=", Column(dummy_dialect, "product_id", "oi"), Column(dummy_dialect, "id", "p"),
             ),
         )
 
@@ -179,7 +179,7 @@ class TestJoinClauseChaining:
         fifth_join = fourth_join.full_join(
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "warehouses"), alias="w"),
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "p"), Column(dummy_dialect, "product_id", "w")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "p"), Column(dummy_dialect, "product_id", "w"),
             ),
         )
 
@@ -198,14 +198,14 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "departments"), alias="d"),
             join_type="INNER JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "department_id", "e"), Column(dummy_dialect, "id", "d")
+                dummy_dialect, "=", Column(dummy_dialect, "department_id", "e"), Column(dummy_dialect, "id", "d"),
             ),
         )
 
         full_join = base_join.full_join(
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "projects"), alias="p"),
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "e"), Column(dummy_dialect, "employee_id", "p")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "e"), Column(dummy_dialect, "employee_id", "p"),
             ),
         )
 
@@ -248,7 +248,12 @@ class TestJoinClauseChaining:
             left_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"), alias="u"),
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "posts"), alias="p"),
             join_type="LEFT OUTER JOIN",
-            condition=Column(dummy_dialect, "id", "u") == Column(dummy_dialect, "user_id", "p"),
+            condition=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "id", "u"),
+                Column(dummy_dialect, "user_id", "p"),
+            )
         )
         sql, params = join_expr.to_sql()
         assert sql == '"users" AS "u" LEFT OUTER JOIN "posts" AS "p" ON "u"."id" = "p"."user_id"'
@@ -261,7 +266,12 @@ class TestJoinClauseChaining:
             left_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "customers"), alias="c"),
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"), alias="o"),
             join_type="FULL OUTER JOIN",
-            condition=Column(dummy_dialect, "id", "c") == Column(dummy_dialect, "customer_id", "o"),
+            condition=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "id", "c"),
+                Column(dummy_dialect, "customer_id", "o"),
+            )
         )
         sql, params = join_expr.to_sql()
         assert sql == '"customers" AS "c" FULL OUTER JOIN "orders" AS "o" ON "c"."id" = "o"."customer_id"'
@@ -298,7 +308,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders"), alias="o"),
             join_type="INNER JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o"),
             ),
             alias="user_orders",
         )
@@ -307,7 +317,7 @@ class TestJoinClauseChaining:
         chained_join = base_join.left_join(
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"), alias="p"),
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p")
+                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p"),
             ),
             alias="full_join",
         )
@@ -331,8 +341,8 @@ class TestJoinClauseChaining:
                 ComparisonPredicate(
                     dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o")
                 ),
-                ComparisonPredicate(
-                    dummy_dialect, ">", Column(dummy_dialect, "total_amount", "o"), Literal(dummy_dialect, 100)
+        ComparisonPredicate(
+                    dummy_dialect, ">", Column(dummy_dialect, "total_amount", "o"), Literal(dummy_dialect, 100),
                 ),
             ),
         )
@@ -346,8 +356,8 @@ class TestJoinClauseChaining:
                 ComparisonPredicate(
                     dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p")
                 ),
-                ComparisonPredicate(
-                    dummy_dialect, "=", Column(dummy_dialect, "status", "p"), Literal(dummy_dialect, "active")
+        ComparisonPredicate(
+                    dummy_dialect, "=", Column(dummy_dialect, "status", "p"), Literal(dummy_dialect, "active"),
                 ),
             ),
         )
@@ -379,7 +389,7 @@ class TestJoinClauseChaining:
                 dummy_dialect,
                 "=",
                 Column(dummy_dialect, "user_id", "o"),
-                Column(dummy_dialect, "id", ""),  # No table alias for subquery result
+                Column(dummy_dialect, "id", ""),  # No table alias for subquery result,
             ),
         )
 
@@ -408,7 +418,7 @@ class TestJoinClauseChaining:
             right_table=user_summary,
             join_type="LEFT JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", ""),
             ),
         )
 
@@ -416,7 +426,7 @@ class TestJoinClauseChaining:
         chained_join = base_join.inner_join(
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "profiles"), alias="p"),
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "p")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "p"),
             ),
         )
 
@@ -435,7 +445,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "user_profiles"), alias="up"),
             join_type="LEFT JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "up")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "up"),
             ),
         )
 
@@ -446,7 +456,7 @@ class TestJoinClauseChaining:
             right_table=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"), alias="p"),
             join_type="INNER JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p")
+                dummy_dialect, "=", Column(dummy_dialect, "product_id", "o"), Column(dummy_dialect, "id", "p"),
             ),
         )
 
@@ -457,7 +467,7 @@ class TestJoinClauseChaining:
             right_table=second_join,
             join_type="LEFT JOIN",
             condition=ComparisonPredicate(
-                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o")
+                dummy_dialect, "=", Column(dummy_dialect, "id", "u"), Column(dummy_dialect, "user_id", "o"),
             ),
         )
 

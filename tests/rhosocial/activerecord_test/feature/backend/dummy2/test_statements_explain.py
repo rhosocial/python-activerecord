@@ -1,6 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_explain.py
 import pytest
 from rhosocial.activerecord.backend.expression import (
+    ComparisonPredicate,
     Column,
     Literal,
     QueryExpression,
@@ -49,7 +50,12 @@ class TestExplainStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products")),
-            where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "price") > Literal(dummy_dialect, 100)),
+            where=WhereClause(dummy_dialect, condition=ComparisonPredicate(
+                dummy_dialect,
+                ">",
+                Column(dummy_dialect, "price"),
+                Literal(dummy_dialect, 100)),
+            )
         )
 
         # Create EXPLAIN options
@@ -91,7 +97,12 @@ class TestExplainStatements:
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "total")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
             where=WhereClause(
-                dummy_dialect, condition=Column(dummy_dialect, "order_date") > Literal(dummy_dialect, "2024-01-01")
+                dummy_dialect, condition=ComparisonPredicate(
+                    dummy_dialect,
+                    ">",
+                    Column(dummy_dialect, "order_date"),
+                    Literal(dummy_dialect, "2024-01-01")
+                )
             ),
         )
 
@@ -130,13 +141,13 @@ class TestExplainStatements:
                 dummy_dialect,
                 table=Table(dummy_dialect, 'test_table'),
                 assignments={"name": Literal(dummy_dialect, "updated")},
-                where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1),
+                where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
             )
         elif statement_type == "DELETE":
             stmt = DeleteExpression(
                 dummy_dialect,
                 tables=Table(dummy_dialect, 'test_table'),
-                where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1),
+                where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
             )
 
         explain_expr = ExplainExpression(dummy_dialect, statement=stmt)

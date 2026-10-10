@@ -70,7 +70,9 @@ class TestLiteralValueCodecRoundtrip:
         assert restored.value == value
 
     def test_json_nested_expression(self, dummy_dialect):
-        expr = Column(dummy_dialect, "t") > dt.datetime(2026, 1, 1)
+        expr = ComparisonPredicate(
+            dummy_dialect, ">", Column(dummy_dialect, "t"), Literal(dummy_dialect, dt.datetime(2026, 1, 1))
+        )
         restored = deserialize_json(serialize_json(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
 

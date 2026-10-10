@@ -23,7 +23,12 @@ class TestQueryParts:
 
     def test_where_clause_basic(self, dummy_dialect: DummyDialect):
         """Test basic WHERE clause generation."""
-        condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        condition = ComparisonPredicate(
+            dummy_dialect,
+            "=",
+            Column(dummy_dialect, "status"),
+            Literal(dummy_dialect, "active")
+        )
         where_clause = WhereClause(dummy_dialect, condition=condition)
 
         sql, params = where_clause.to_sql()
@@ -33,8 +38,10 @@ class TestQueryParts:
 
     def test_where_clause_complex_condition(self, dummy_dialect: DummyDialect):
         """Test WHERE clause with complex conditions."""
-        condition = (Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)) & (
-            Column(dummy_dialect, "status") == Literal(dummy_dialect, "verified")
+        condition = (
+            ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
+        ) & (
+            ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "verified"))
         )
         where_clause = WhereClause(dummy_dialect, condition=condition)
 
@@ -56,7 +63,12 @@ class TestQueryParts:
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "other_table")),
             where=WhereClause(
-                dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+                dummy_dialect, condition=ComparisonPredicate(
+                    dummy_dialect,
+                    "=",
+                    Column(dummy_dialect, "status"),
+                    Literal(dummy_dialect, "active")
+                )
             ),
         )
 
@@ -400,7 +412,7 @@ class TestQueryParts:
     ):
         """Test that various clause types generate expected SQL fragments."""
         if clause_type == WhereClause:
-            condition = Column(dummy_dialect, "id") > Literal(dummy_dialect, 0)
+            condition = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "id"), Literal(dummy_dialect, 0))
             clause = WhereClause(dummy_dialect, condition=condition)
             sql, params = clause.to_sql()
             assert expected_sql_fragment in sql
@@ -427,8 +439,6 @@ class TestQueryParts:
 
     def test_where_clause_with_like_condition(self, dummy_dialect: DummyDialect):
         """Test WHERE clause with LIKE condition."""
-        condition = Column(dummy_dialect, "name").like(Literal(dummy_dialect, "John%"))  # Assuming like method exists
-        # Since LIKE might not be available directly on Column in this implementation:
         from rhosocial.activerecord.backend.expression.predicates import LikePredicate
 
         condition = LikePredicate(dummy_dialect, "LIKE", Column(dummy_dialect, "name"), Literal(dummy_dialect, "John%"))
@@ -491,7 +501,7 @@ class TestQueryParts:
                 ),
                 (
                     ComparisonPredicate(
-                        dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "standard")
+                        dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "standard"),
                     ),
                     Literal(dummy_dialect, 2),
                 ),
@@ -514,7 +524,12 @@ class TestQueryParts:
         """Test integration of multiple query parts in a single context."""
         # This simulates how these clauses might be used together in a query
         where_clause = WhereClause(
-            dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            dummy_dialect, condition=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "status"),
+                Literal(dummy_dialect, "active")
+            )
         )
 
         group_by_having = GroupByHavingClause(
@@ -580,10 +595,10 @@ class TestQueryParts:
     def test_where_clause_complex_logical_conditions(self, dummy_dialect: DummyDialect):
         """Test WHERE clause with complex logical conditions."""
         condition = (
-            (Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"))
-            & (Column(dummy_dialect, "age") >= Literal(dummy_dialect, 18))
-            & (Column(dummy_dialect, "balance") > Literal(dummy_dialect, 0))
-        ) | (Column(dummy_dialect, "is_vip") == Literal(dummy_dialect, True))
+            (ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active")))
+            & (ComparisonPredicate(dummy_dialect, ">=", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18)))
+            & (ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "balance"), Literal(dummy_dialect, 0)))
+        ) | (ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "is_vip"), Literal(dummy_dialect, True)))
 
         where_clause = WhereClause(dummy_dialect, condition=condition)
         sql, params = where_clause.to_sql()
@@ -596,7 +611,12 @@ class TestQueryParts:
     def test_all_query_parts_return_proper_types(self, dummy_dialect: DummyDialect):
         """Test that all query parts return proper SQL and parameter types."""
         # Test each clause type
-        where_clause = WhereClause(dummy_dialect, condition=Column(dummy_dialect, "id") > Literal(dummy_dialect, 0))
+        where_clause = WhereClause(dummy_dialect, condition=ComparisonPredicate(
+            dummy_dialect,
+            ">",
+            Column(dummy_dialect, "id"),
+            Literal(dummy_dialect, 0))
+        )
         sql, params = where_clause.to_sql()
         assert isinstance(sql, str)
         assert isinstance(params, tuple)
@@ -617,7 +637,12 @@ class TestQueryParts:
         assert isinstance(params, tuple)
 
         qualify_clause = QualifyClause(
-            dummy_dialect, condition=Column(dummy_dialect, "value") > Literal(dummy_dialect, 10)
+            dummy_dialect, condition=ComparisonPredicate(
+                dummy_dialect,
+                ">",
+                Column(dummy_dialect, "value"),
+                Literal(dummy_dialect, 10)
+            )
         )
         sql, params = qualify_clause.to_sql()
         assert isinstance(sql, str)
@@ -631,11 +656,21 @@ class TestQueryParts:
     def test_where_clause_and_method_basic(self, dummy_dialect: DummyDialect):
         """Test the and_() method of WhereClause for adding AND conditions."""
         # Create initial condition
-        initial_condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        initial_condition = ComparisonPredicate(
+            dummy_dialect,
+            "=",
+            Column(dummy_dialect, "status"),
+            Literal(dummy_dialect, "active")
+        )
         where_clause = WhereClause(dummy_dialect, condition=initial_condition)
 
         # Add another condition using and_()
-        additional_condition = Column(dummy_dialect, "age") >= Literal(dummy_dialect, 18)
+        additional_condition = ComparisonPredicate(
+            dummy_dialect,
+            ">=",
+            Column(dummy_dialect, "age"),
+            Literal(dummy_dialect, 18)
+        )
         result = where_clause.and_(additional_condition)
 
         # Verify that the method returns self
@@ -651,13 +686,33 @@ class TestQueryParts:
     def test_where_clause_and_method_chaining(self, dummy_dialect: DummyDialect):
         """Test chaining multiple and_() calls."""
         # Create initial condition
-        initial_condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        initial_condition = ComparisonPredicate(
+            dummy_dialect,
+            "=",
+            Column(dummy_dialect, "status"),
+            Literal(dummy_dialect, "active")
+        )
         where_clause = WhereClause(dummy_dialect, condition=initial_condition)
 
         # Chain multiple and_() calls
-        where_clause.and_(Column(dummy_dialect, "age") >= Literal(dummy_dialect, 18))
-        where_clause.and_(Column(dummy_dialect, "balance") > Literal(dummy_dialect, 0))
-        where_clause.and_(Column(dummy_dialect, "verified") == Literal(dummy_dialect, True))
+        where_clause.and_(ComparisonPredicate(
+            dummy_dialect,
+            ">=",
+            Column(dummy_dialect, "age"),
+            Literal(dummy_dialect, 18))
+        )
+        where_clause.and_(ComparisonPredicate(
+            dummy_dialect,
+            ">",
+            Column(dummy_dialect, "balance"),
+            Literal(dummy_dialect, 0))
+        )
+        where_clause.and_(ComparisonPredicate(
+            dummy_dialect,
+            "=",
+            Column(dummy_dialect, "verified"),
+            Literal(dummy_dialect, True))
+        )
 
         # Verify all conditions are present
         sql, params = where_clause.to_sql()
@@ -671,8 +726,12 @@ class TestQueryParts:
     def test_where_clause_and_method_complex_conditions(self, dummy_dialect: DummyDialect):
         """Test and_() method with complex conditions."""
         # Create initial complex condition
-        initial_condition = (Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")) & (
-            Column(dummy_dialect, "type") != Literal(dummy_dialect, "deleted")
+        initial_condition = (
+            ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active"))
+        ) & (
+            ComparisonPredicate(
+                dummy_dialect, "!=", Column(dummy_dialect, "type"), Literal(dummy_dialect, "deleted")
+            )
         )
         where_clause = WhereClause(dummy_dialect, condition=initial_condition)
 

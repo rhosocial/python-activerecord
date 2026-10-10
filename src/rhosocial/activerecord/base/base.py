@@ -13,6 +13,7 @@ from ..backend.expression import (
     Column,
     ColumnBase,
     ComparisonPredicate,
+    InPredicate,
     Literal,
     SQLPredicate,
 )
@@ -434,9 +435,17 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             else:
                 for key, value in condition.items():
                     if isinstance(key, ColumnBase):
-                        query = query.where(key == value)
+                        # An explicit node, not the column's own operator: the
+                        # key may be a bare Column reference (whose class offers
+                        # no operations by design) and the query must not care.
+                        query = query.where(
+                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                        )
                     elif isinstance(key, str):
-                        query = query.where(getattr(cls.c, key) == value)
+                        column = getattr(cls.c, key)
+                        query = query.where(
+                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                        )
                     else:
                         raise TypeError(
                             f"Invalid key type in condition dictionary: {type(key)}. "
@@ -454,7 +463,10 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         elif not cls.is_composite_pk():
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
-            query = query.where(Column(dialect, pk_field_name) == condition)
+            pk_column = Column(dialect, pk_field_name)
+            query = query.where(
+                ComparisonPredicate(dialect, "=", pk_column, Literal(dialect, condition))
+            )
         else:
             raise TypeError(
                 f"{cls.__name__} has composite primary key; "
@@ -485,9 +497,17 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             else:
                 for key, value in condition.items():
                     if isinstance(key, ColumnBase):
-                        query = query.where(key == value)
+                        # An explicit node, not the column's own operator: the
+                        # key may be a bare Column reference (whose class offers
+                        # no operations by design) and the query must not care.
+                        query = query.where(
+                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                        )
                     elif isinstance(key, str):
-                        query = query.where(getattr(cls.c, key) == value)
+                        column = getattr(cls.c, key)
+                        query = query.where(
+                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                        )
                     else:
                         raise TypeError(
                             f"Invalid key type in condition dictionary: {type(key)}. "
@@ -514,7 +534,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             else:
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
-                query = query.where(Column(dialect, pk_field_name).in_(condition))
+                query = query.where(
+                    InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+                )
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
@@ -523,7 +545,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             if not condition:
                 return []
             dialect = cls.backend().dialect
-            query = query.where(Column(dialect, pk_field_name).in_(condition))
+            query = query.where(
+                InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+            )
         cls._apply_derived_to_query(query, derived, extra_derived)
         return query.all()
 
@@ -1112,9 +1136,17 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             else:
                 for key, value in condition.items():
                     if isinstance(key, ColumnBase):
-                        query = query.where(key == value)
+                        # An explicit node, not the column's own operator: the
+                        # key may be a bare Column reference (whose class offers
+                        # no operations by design) and the query must not care.
+                        query = query.where(
+                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                        )
                     elif isinstance(key, str):
-                        query = query.where(getattr(cls.c, key) == value)
+                        column = getattr(cls.c, key)
+                        query = query.where(
+                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                        )
                     else:
                         raise TypeError(
                             f"Invalid key type in condition dictionary: {type(key)}. "
@@ -1132,7 +1164,10 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         elif not cls.is_composite_pk():
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
-            query = query.where(Column(dialect, pk_field_name) == condition)
+            pk_column = Column(dialect, pk_field_name)
+            query = query.where(
+                ComparisonPredicate(dialect, "=", pk_column, Literal(dialect, condition))
+            )
         else:
             raise TypeError(
                 f"{cls.__name__} has composite primary key; "
@@ -1163,9 +1198,17 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             else:
                 for key, value in condition.items():
                     if isinstance(key, ColumnBase):
-                        query = query.where(key == value)
+                        # An explicit node, not the column's own operator: the
+                        # key may be a bare Column reference (whose class offers
+                        # no operations by design) and the query must not care.
+                        query = query.where(
+                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                        )
                     elif isinstance(key, str):
-                        query = query.where(getattr(cls.c, key) == value)
+                        column = getattr(cls.c, key)
+                        query = query.where(
+                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                        )
                     else:
                         raise TypeError(
                             f"Invalid key type in condition dictionary: {type(key)}. "
@@ -1192,7 +1235,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             else:
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
-                query = query.where(Column(dialect, pk_field_name).in_(condition))
+                query = query.where(
+                    InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+                )
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
@@ -1201,7 +1246,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             if not condition:
                 return []
             dialect = cls.backend().dialect
-            query = query.where(Column(dialect, pk_field_name).in_(condition))
+            query = query.where(
+                InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+            )
         cls._apply_derived_to_query(query, derived, extra_derived)
         return await query.all()
 

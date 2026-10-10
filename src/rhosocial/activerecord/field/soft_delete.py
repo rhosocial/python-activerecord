@@ -21,7 +21,7 @@ from typing import ClassVar, Dict, Any, Optional
 from pydantic import Field
 
 from ..backend.expression.core import Column
-from ..backend.expression import ComparisonPredicate, Literal
+from ..backend.expression import ComparisonPredicate, IsNullPredicate, Literal
 from ..interface import ModelEvent
 from ..interface.update import IDeleteBehavior
 from ..query import ActiveQuery
@@ -84,7 +84,12 @@ class SoftDeleteMixin(IDeleteBehavior):
     def query(cls) -> "ActiveQuery":
         """Return query builder excluding soft-deleted records."""
         backend = cls.backend()
-        non_deleted_condition = Column(backend.dialect, cls._deleted_at_column()).is_null()
+        # An explicit node rather than the column's operator: the reference is
+        # bare (no annotation consulted), and a bare Column offers no
+        # operations by design.
+        non_deleted_condition = IsNullPredicate(
+            backend.dialect, Column(backend.dialect, cls._deleted_at_column())
+        )
         return super().query().where(non_deleted_condition)
 
     @classmethod
@@ -96,7 +101,9 @@ class SoftDeleteMixin(IDeleteBehavior):
     def query_only_deleted(cls) -> "ActiveQuery":
         """Return query for only soft-deleted records."""
         backend = cls.backend()
-        deleted_condition = Column(backend.dialect, cls._deleted_at_column()).is_not_null()
+        deleted_condition = IsNullPredicate(
+            backend.dialect, Column(backend.dialect, cls._deleted_at_column()), is_not=True
+        )
         return super().query().where(deleted_condition)
 
     def _build_restore_condition(self):
@@ -121,7 +128,7 @@ class SoftDeleteMixin(IDeleteBehavior):
         else:
             pk_column = Column(dialect, self.primary_key())
             pk_value = getattr(self, self.primary_key())
-            condition_expr = pk_column == pk_value
+            condition_expr = ComparisonPredicate(dialect, "=", pk_column, Literal(dialect, pk_value))
 
         return condition_expr
 

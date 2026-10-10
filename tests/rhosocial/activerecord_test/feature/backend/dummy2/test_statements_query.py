@@ -8,6 +8,8 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     QueryExpression,
     SelectModifier,
+    NumericColumn,
+    StringColumn,
     WindowFrameSpecification,
     WindowSpecification,
     WindowDefinition,
@@ -412,7 +414,7 @@ class TestQueryStatements:
 
     def test_comparison_mixin_methods(self, dummy_dialect: DummyDialect):
         """Test ComparisonMixin methods that are not directly tested elsewhere."""
-        col = Column(dummy_dialect, "status")
+        col = StringColumn(dummy_dialect, "status")
 
         # Test is_null method
         is_null_pred = col.is_null()
@@ -440,7 +442,7 @@ class TestQueryStatements:
         assert params == ("deleted", "banned")
 
         # Test between method
-        age_col = Column(dummy_dialect, "age")
+        age_col = NumericColumn(dummy_dialect, "age")
         between_pred = age_col.between(18, 65)
         sql, params = between_pred.to_sql()
         assert "BETWEEN" in sql.upper()
@@ -448,7 +450,7 @@ class TestQueryStatements:
 
     def test_arithmetic_mixin_methods(self, dummy_dialect: DummyDialect):
         """Test ArithmeticMixin methods."""
-        price_col = Column(dummy_dialect, "price")
+        price_col = NumericColumn(dummy_dialect, "price")
         tax_rate = Literal(dummy_dialect, 0.1)
 
         # Test arithmetic operations
@@ -475,23 +477,23 @@ class TestQueryStatements:
     def test_logical_mixin_methods(self, dummy_dialect: DummyDialect):
         """Test LogicalMixin methods."""
         # Test logical AND using & operator
-        cond1 = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
-        cond2 = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        cond1 = NumericColumn(dummy_dialect, "age") > Literal(dummy_dialect, 18)
+        cond2 = StringColumn(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         logical_and = cond1 & cond2
         sql, params = logical_and.to_sql()
         assert "AND" in sql.upper()
         assert params == (18, "active")
 
         # Test logical OR using | operator
-        cond3 = Column(dummy_dialect, "score") < Literal(dummy_dialect, 50)
-        cond4 = Column(dummy_dialect, "category") == Literal(dummy_dialect, "low_priority")
+        cond3 = NumericColumn(dummy_dialect, "score") < Literal(dummy_dialect, 50)
+        cond4 = StringColumn(dummy_dialect, "category") == Literal(dummy_dialect, "low_priority")
         logical_or = cond3 | cond4
         sql, params = logical_or.to_sql()
         assert "OR" in sql.upper()
         assert params == (50, "low_priority")
 
         # Test logical NOT using ~ operator
-        status_col = Column(dummy_dialect, "status")
+        status_col = StringColumn(dummy_dialect, "status")
         not_active = ~(status_col == Literal(dummy_dialect, "inactive"))
         sql, params = not_active.to_sql()
         assert "NOT" in sql.upper()
@@ -499,7 +501,7 @@ class TestQueryStatements:
 
     def test_string_mixin_methods(self, dummy_dialect: DummyDialect):
         """Test StringMixin methods."""
-        name_col = Column(dummy_dialect, "name")
+        name_col = StringColumn(dummy_dialect, "name")
 
         # Test LIKE operation
         like_pred = name_col.like("John%")
@@ -515,7 +517,7 @@ class TestQueryStatements:
 
     def test_comparison_operators_direct_usage(self, dummy_dialect: DummyDialect):
         """Test direct usage of comparison operators that may not be covered elsewhere."""
-        age_col = Column(dummy_dialect, "age")
+        age_col = NumericColumn(dummy_dialect, "age")
         value = Literal(dummy_dialect, 25)
 
         # Test all comparison operators
@@ -560,7 +562,7 @@ class TestQueryStatements:
     )
     def test_query_with_like_condition(self, dummy_dialect: DummyDialect, op, pattern, expected_sql_part):
         """Tests query with LIKE/ILIKE conditions."""
-        name_col = Column(dummy_dialect, "name")
+        name_col = StringColumn(dummy_dialect, "name")
         if op == "LIKE":
             like_condition = name_col.like(pattern)
         elif op == "ILIKE":
@@ -578,8 +580,8 @@ class TestQueryStatements:
 
     def test_query_with_combined_like_and_other_conditions(self, dummy_dialect: DummyDialect):
         """Tests query with LIKE condition combined with other conditions."""
-        name_col = Column(dummy_dialect, "name")
-        age_col = Column(dummy_dialect, "age")
+        name_col = StringColumn(dummy_dialect, "name")
+        age_col = NumericColumn(dummy_dialect, "age")
 
         # Combine LIKE with comparison condition
         like_condition = name_col.like("John%")
@@ -720,7 +722,12 @@ class TestQueryStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "email")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "customers")),
-            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"),
+            where=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "status"),
+                Literal(dummy_dialect, "active"),
+            )
         )
         query_valid.validate(strict=False)  # Should not raise any exception
         assert True  # Just to ensure the test passes

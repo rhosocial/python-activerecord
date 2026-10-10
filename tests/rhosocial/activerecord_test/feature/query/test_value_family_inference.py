@@ -112,8 +112,14 @@ def test_every_column_class_has_a_value_class(columns):
     for name in sorted(declared):
         column = getattr(CT, name).__new__(getattr(CT, name))
         assert value_class_of(column) is not None, f"{name} has no value class"
-    # The base itself is the untyped one, and staying unmapped is the point.
-    assert value_class_of(CT.ColumnBase.__new__(CT.ColumnBase)) is None
+    # The base is now an ABC, so there is no "untyped column object" left to
+    # map -- not being able to build one is the stronger form of the same
+    # invariant.  The untyped column that *can* be built is the bare ``Column``,
+    # which lives outside this module, and staying unmapped is still the point.
+    assert inspect.isabstract(CT.ColumnBase), "the typed base must not be instantiable"
+    from rhosocial.activerecord.backend.expression import Column as BareColumn
+
+    assert value_class_of(BareColumn.__new__(BareColumn)) is None
 
 
 def test_every_core_data_type_has_a_value_class_or_is_explicitly_impossible():

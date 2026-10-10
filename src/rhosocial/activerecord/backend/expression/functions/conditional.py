@@ -7,7 +7,7 @@ from ..bases import BaseExpression, SQLValueExpression
 from ..column_types import (
     ArrayColumn,
     BooleanColumn,
-    DateTimeColumn,
+    TimestampColumn,
     IntegerColumn,
     JSONColumn,
     NumericColumn,
@@ -51,7 +51,7 @@ def _result_class_for(expr: object):
         return IntegerValueExpression
     if isinstance(expr, StringColumn):
         return StringValueExpression
-    if isinstance(expr, DateTimeColumn):
+    if isinstance(expr, TimestampColumn):
         return TimestampValueExpression
     if isinstance(expr, JSONColumn):
         return JSONValueExpression

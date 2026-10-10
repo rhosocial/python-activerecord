@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_index.py
 import pytest
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal
 from rhosocial.activerecord.backend.expression.statements import CreateIndexExpression, DropIndexExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Index
@@ -69,7 +69,12 @@ class TestCreateDropIndexStatements:
 
     def test_create_index_with_where_clause(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX with WHERE clause (partial index)."""
-        where_condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active", inline_literals=True)
+        where_condition = ComparisonPredicate(
+            dummy_dialect,
+            "=",
+            Column(dummy_dialect, "status"),
+            Literal(dummy_dialect, "active", inline_literals=True)
+        )
         create_index = CreateIndexExpression(
             dummy_dialect, index=Index(dummy_dialect, "idx_active_users"), table=Table(dummy_dialect, "users"), columns=["email"], where=where_condition
         )
@@ -187,7 +192,12 @@ class TestCreateDropIndexStatements:
 
     def test_create_index_all_options(self, dummy_dialect: DummyDialect):
         """Tests CREATE INDEX with all options."""
-        where_condition = Column(dummy_dialect, "active") == Literal(dummy_dialect, True, inline_literals=True)
+        where_condition = ComparisonPredicate(
+            dummy_dialect,
+            "=",
+            Column(dummy_dialect, "active"),
+            Literal(dummy_dialect, True, inline_literals=True)
+        )
         create_index = CreateIndexExpression(
             dummy_dialect,
             index=Index(dummy_dialect, "idx_complex"),

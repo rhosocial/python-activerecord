@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_generated_columns.py
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression import BinaryExpression, Column, Literal
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
@@ -47,7 +47,12 @@ class TestGeneratedColumnExpression:
         """Test GeneratedColumnExpression.to_sql() for STORED."""
         gen = GeneratedColumnExpression(
             dummy_dialect,
-            expression=Column(dummy_dialect, "price") * Column(dummy_dialect, "qty"),
+            expression=BinaryExpression(
+                dummy_dialect,
+                "*",
+                Column(dummy_dialect, "price"),
+                Column(dummy_dialect, "qty"),
+            ),
             storage_type=GeneratedColumnType.STORED,
         )
         sql, params = gen.to_sql()
@@ -60,7 +65,7 @@ class TestGeneratedColumnExpression:
         """Test GeneratedColumnExpression.to_sql() for VIRTUAL."""
         gen = GeneratedColumnExpression(
             dummy_dialect,
-            expression=Column(dummy_dialect, "a") + Column(dummy_dialect, "b"),
+            expression=BinaryExpression(dummy_dialect, "+", Column(dummy_dialect, "a"), Column(dummy_dialect, "b")),
         )
         sql, params = gen.to_sql()
         assert "GENERATED ALWAYS AS" in sql
@@ -93,9 +98,15 @@ class TestGeneratedColumnBasic:
                 generated_expression=GeneratedColumnExpression(
                     dummy_dialect,
                     expression=(
-                        Column(dummy_dialect, "first_name")
-                        + Literal(dummy_dialect, " ", inline_literals=True)
-                        + Column(dummy_dialect, "last_name")
+                        BinaryExpression(
+                            dummy_dialect,
+                            "+",
+                            BinaryExpression(
+                                dummy_dialect, "+", Column(dummy_dialect, "first_name"),
+                                Literal(dummy_dialect, " ", inline_literals=True),
+                            ),
+                            Column(dummy_dialect, "last_name"),
+                        )
                     ),
                     storage_type=GeneratedColumnType.VIRTUAL,
                 ),
@@ -121,7 +132,12 @@ class TestGeneratedColumnBasic:
                 DecimalType(dummy_dialect, precision=10, scale=2),
                 generated_expression=GeneratedColumnExpression(
                     dummy_dialect,
-                    expression=Column(dummy_dialect, "price") * Column(dummy_dialect, "quantity"),
+                    expression=BinaryExpression(
+                        dummy_dialect,
+                        "*",
+                        Column(dummy_dialect, "price"),
+                        Column(dummy_dialect, "quantity"),
+                    ),
                     storage_type=GeneratedColumnType.STORED,
                 ),
             ),
@@ -138,12 +154,22 @@ class TestGeneratedColumnBasic:
     def test_generated_column_default_virtual(self, dummy_dialect: DummyDialect):
         """Test that generated column defaults to VIRTUAL when type not specified."""
         columns = [
-            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(
+                dummy_dialect,
+                "id",
+                IntegerType(dummy_dialect),
+                constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)],
+            ),
             ColumnDefinition(dummy_dialect,
                 "computed", IntegerType(dummy_dialect),
                 generated_expression=GeneratedColumnExpression(
                     dummy_dialect,
-                    expression=Column(dummy_dialect, "id") + Literal(dummy_dialect, 1),
+                    expression=BinaryExpression(
+                        dummy_dialect,
+                        "+",
+                        Column(dummy_dialect, "id"),
+                        Literal(dummy_dialect, 1),
+                    ),
                 ),
             ),
         ]
@@ -168,7 +194,12 @@ class TestGeneratedColumnWithConstraints:
                 constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)],
                 generated_expression=GeneratedColumnExpression(
                     dummy_dialect,
-                    expression=Column(dummy_dialect, "id") * Literal(dummy_dialect, 2),
+                    expression=BinaryExpression(
+                        dummy_dialect,
+                        "*",
+                        Column(dummy_dialect, "id"),
+                        Literal(dummy_dialect, 2),
+                    ),
                     storage_type=GeneratedColumnType.VIRTUAL,
                 ),
             ),
@@ -193,7 +224,12 @@ class TestGeneratedColumnExpressions:
                 IntegerType(dummy_dialect),
                 generated_expression=GeneratedColumnExpression(
                     dummy_dialect,
-                    expression=Column(dummy_dialect, "a") + Column(dummy_dialect, "b"),
+                    expression=BinaryExpression(
+                        dummy_dialect,
+                        "+",
+                        Column(dummy_dialect, "a"),
+                        Column(dummy_dialect, "b"),
+                    ),
                     storage_type=GeneratedColumnType.VIRTUAL,
                 ),
             ),
@@ -215,7 +251,17 @@ class TestGeneratedColumnExpressions:
                 VarCharType(dummy_dialect, 101),
                 generated_expression=GeneratedColumnExpression(
                     dummy_dialect,
-                    expression=Column(dummy_dialect, "first") + Literal(dummy_dialect, " ") + Column(dummy_dialect, "last"),
+                    expression=BinaryExpression(
+                        dummy_dialect,
+                        "+",
+                        BinaryExpression(
+                            dummy_dialect,
+                            "+",
+                            Column(dummy_dialect, "first"),
+                            Literal(dummy_dialect, " "),
+                        ),
+                        Column(dummy_dialect, "last"),
+                    ),
                     storage_type=GeneratedColumnType.STORED,
                 ),
             ),

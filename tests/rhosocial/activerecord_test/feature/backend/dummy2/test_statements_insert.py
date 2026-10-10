@@ -4,6 +4,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     RawSQLExpression,
+    ComparisonPredicate,
     QueryExpression,
     InsertExpression,
     ValuesSource,
@@ -181,7 +182,12 @@ class TestInsertStatements:
                     None,
                     conflict_target=["p_id"],
                     update_assignments={"qty": RawSQLExpression(None, "excluded.qty")},
-                    update_where=Column(None, "qty", "products") < RawSQLExpression(None, "excluded.qty"),
+                    update_where=ComparisonPredicate(
+                        None,
+                        "<",
+                        Column(None, "qty", "products"),
+                        RawSQLExpression(None, "excluded.qty"),
+                    )
                 ),
                 2,
                 'INSERT INTO "products" ("p_id", "qty") VALUES (?, ?), (?, ?) ON CONFLICT ("p_id") DO UPDATE SET "qty" = excluded.qty WHERE "products"."qty" < excluded.qty',  # noqa: E501
@@ -376,7 +382,13 @@ class TestInsertStatements:
     def test_insert_with_select_source(self, dummy_dialect: DummyDialect):
         """Tests INSERT ... SELECT ... using SelectSource."""
         where_clause = WhereClause(
-            dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            dummy_dialect,
+            condition=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "status"),
+                Literal(dummy_dialect, "active"),
+            )
         )
         select_query = QueryExpression(
             dummy_dialect,
@@ -457,7 +469,12 @@ class TestInsertStatements:
             dummy_dialect,
             conflict_target=["id"],
             update_assignments={"name": Column(dummy_dialect, "name", "excluded")},
-            update_where=Column(dummy_dialect, "is_active", "products") == Literal(dummy_dialect, True),
+            update_where=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "is_active", "products"),
+                Literal(dummy_dialect, True),
+            )
         )
         insert_expr = InsertExpression(
             dummy_dialect, into=Table(dummy_dialect, 'products'), columns=["id", "name"], source=source, on_conflict=on_conflict
@@ -695,8 +712,18 @@ class TestInsertStatements:
                 "status": Column(dummy_dialect, "status", "excluded"),
                 "priority": Column(dummy_dialect, "priority", "excluded"),
             },
-            update_where=(Column(dummy_dialect, "status", "users") == Literal(dummy_dialect, "active"))
-            & (Column(dummy_dialect, "priority", "excluded") > Column(dummy_dialect, "priority", "users")),
+            update_where=(ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "status", "users"),
+                Literal(dummy_dialect, "active"))
+            )
+            & (ComparisonPredicate(
+                dummy_dialect,
+                ">",
+                Column(dummy_dialect, "priority", "excluded"),
+                Column(dummy_dialect, "priority", "users")
+            ))
         )
         insert_expr = InsertExpression(
             dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["id", "status", "priority"], source=source, on_conflict=on_conflict
@@ -772,7 +799,12 @@ class TestInsertStatements:
             dummy_dialect,
             conflict_target=["name"],
             update_assignments={"qty": Column(dummy_dialect, "qty", "excluded")},
-            update_where=Column(dummy_dialect, "qty", "products") > Column(dummy_dialect, "qty", "excluded"),
+            update_where=ComparisonPredicate(
+                dummy_dialect,
+                ">",
+                Column(dummy_dialect, "qty", "products"),
+                Column(dummy_dialect, "qty", "excluded"),
+            )
         )
         insert_expr = InsertExpression(
             dummy_dialect,

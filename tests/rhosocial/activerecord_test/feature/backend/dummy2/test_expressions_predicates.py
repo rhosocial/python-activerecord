@@ -5,6 +5,7 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     RawSQLExpression,
     Subquery,
+    BooleanColumn,
     ComparisonPredicate,
     LogicalPredicate,
     InPredicate,
@@ -195,7 +196,8 @@ class TestPredicateExpressions:
 
     def test_is_boolean_mixin_methods(self, dummy_dialect: DummyDialect):
         """Tests is_true(), is_not_true(), is_false(), is_not_false() methods."""
-        col = Column(dummy_dialect, "flag")
+        # IS TRUE/FALSE lives on ComparisonMixin, so the column must be typed.
+        col = BooleanColumn(dummy_dialect, "flag")
 
         sql, params = col.is_true().to_sql()
         assert sql == '"flag" IS TRUE'
@@ -215,7 +217,7 @@ class TestPredicateExpressions:
 
     def test_is_boolean_with_logical_combination(self, dummy_dialect: DummyDialect):
         """Tests IS TRUE/FALSE combined with logical predicates."""
-        is_active = Column(dummy_dialect, "is_active").is_true()
+        is_active = BooleanColumn(dummy_dialect, "is_active").is_true()
         age_pred = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
 
         combined = LogicalPredicate(dummy_dialect, "AND", is_active, age_pred)

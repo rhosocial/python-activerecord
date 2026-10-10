@@ -41,7 +41,7 @@ The evidence, per entry group (all measured on SQLite 3.50.4)
   pass. One value-layer caveat: sqlite3 decodes fetched BLOB as UTF-8 and
   raises on bytes that are not text.
 * **date / time / datetime** ->
-  :class:`~...column_types.DateTimeColumn`. All are TEXT; microseconds survive
+  :class:`~...column_types.TimestampColumn`. All are TEXT; microseconds survive
   in the text form. The arithmetic domain goes through ``julianday``, whose
   differences carry ~1 ms of floating-point error, and there are no named time
   zones -- documented limits of the backend rather than absent operations.
@@ -82,7 +82,7 @@ from rhosocial.activerecord.backend.expression.column_types import (
     BinaryColumn,
     BooleanColumn,
     ColumnBase,
-    DateTimeColumn,
+    TimestampColumn,
     IntegerColumn,
     JSONColumn,
     NumericColumn,
@@ -103,9 +103,9 @@ SQLITE_COLUMN_TYPES: Dict[Any, Type[ColumnBase]] = {
     str: StringColumn,
     bytes: BinaryColumn,
     bytearray: BinaryColumn,
-    datetime.date: DateTimeColumn,
-    datetime.time: DateTimeColumn,
-    datetime.datetime: DateTimeColumn,
+    datetime.date: TimestampColumn,
+    datetime.time: TimestampColumn,
+    datetime.datetime: TimestampColumn,
     datetime.timedelta: NumericColumn,
     uuid.UUID: UUIDColumn,
     dict: JSONColumn,

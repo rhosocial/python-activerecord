@@ -11,6 +11,7 @@ import pytest
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.expression import (
     Column,
+    ComparisonPredicate,
     Literal,
     FunctionCall,
     QueryExpression,
@@ -412,7 +413,9 @@ class TestSQLiteViewJoins:
         users_table = NamedRelationRef(dialect, Table(dialect, "users"), alias="u")
         orders_table = NamedRelationRef(dialect, Table(dialect, "orders"), alias="o")
 
-        join_condition = Column(dialect, "id", "u") == Column(dialect, "user_id", "o")
+        join_condition = ComparisonPredicate(
+            dialect, "=", Column(dialect, "id", "u"), Column(dialect, "user_id", "o")
+        )
         join_expr = JoinClause(
             dialect, left_table=users_table, right_table=orders_table, condition=join_condition, join_type="INNER JOIN"
         )

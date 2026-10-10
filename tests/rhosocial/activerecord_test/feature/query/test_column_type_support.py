@@ -36,7 +36,7 @@ from rhosocial.activerecord.backend.dialect.protocols import ColumnTypeSupport
 from rhosocial.activerecord.backend.expression.column_types import (
     ArrayColumn,
     ColumnBase,
-    DateTimeColumn,
+    TimestampColumn,
     IntegerColumn,
     JSONColumn,
     NumericColumn,
@@ -161,12 +161,12 @@ def test_date_and_time_are_separate_entries_sharing_a_column_class():
     """They are distinct entries because the framework asks about each of them.
 
     They answer the same column class today, which is a modelling gap the entry
-    list is what will eventually close (splitting ``DateTimeColumn`` by operation
+    list is what will eventually close (splitting ``TimestampColumn`` by operation
     set). Asserting the shared answer keeps that gap visible: when one of them
     splits, this test is what notices.
     """
-    assert resolve(sqlite_dialect(), datetime.date) is DateTimeColumn
-    assert resolve(sqlite_dialect(), datetime.time) is DateTimeColumn
+    assert resolve(sqlite_dialect(), datetime.date) is TimestampColumn
+    assert resolve(sqlite_dialect(), datetime.time) is TimestampColumn
 
 
 # ---------------------------------------------------------------------------

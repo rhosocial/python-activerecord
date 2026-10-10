@@ -8,6 +8,7 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     QueryExpression,
     CaseExpression,
+    ComparisonPredicate,
     ExistsExpression,
     AnyExpression,
     AllExpression,
@@ -31,9 +32,9 @@ class TestAdvancedFunctionWindow:
     # --- CaseExpression ---
     def test_case_searched_expression(self, dummy_dialect: DummyDialect):
         """Tests a searched CASE expression (CASE WHEN ... THEN ... ELSE ... END)."""
-        condition1 = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
+        condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
         result1 = Literal(dummy_dialect, "adult")
-        condition2 = Column(dummy_dialect, "age") <= Literal(dummy_dialect, 18)
+        condition2 = ComparisonPredicate(dummy_dialect, "<=", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
         result2 = Literal(dummy_dialect, "minor")
 
         case_expr = CaseExpression(
@@ -107,7 +108,10 @@ class TestAdvancedFunctionWindow:
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
             where=WhereClause(
-                dummy_dialect, condition=Column(dummy_dialect, "user_id") == Column(dummy_dialect, "id", "u")
+                dummy_dialect,
+        condition=ComparisonPredicate(
+                    dummy_dialect, "=", Column(dummy_dialect, "user_id"), Column(dummy_dialect, "id", "u"),
+                ),
             ),
         )
         exists_expr = ExistsExpression(dummy_dialect, subquery)

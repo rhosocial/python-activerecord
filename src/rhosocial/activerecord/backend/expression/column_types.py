@@ -47,6 +47,8 @@ from .mixins import (
     TypeCastingMixin,
 )
 
+from abc import ABCMeta, abstractmethod
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
@@ -56,6 +58,7 @@ class ColumnBase(
     NullTestMixin,
     TypeCastingMixin,
     SQLValueExpression,
+    metaclass=ABCMeta,
 ):
     """Common base for every column expression.
 
@@ -70,9 +73,11 @@ class ColumnBase(
     :class:`ComparisonMixin` for itself, and the XML family names
     :class:`NotComparableMixin` instead.
 
-    Because it renders through the same ``format_column`` as before, adding
-    this layer required no dialect change and no change to the SQL produced
-    for a plain column reference.
+    The rendering method is **abstract here**. A column class exists to say
+    what it holds, and the spelling it renders as is part of that statement,
+    so each concrete class answers :attr:`format_method` with its one line —
+    a subclass that forgets is a construction-time error rather than a column
+    that silently renders as nothing.
 
     A column's value type is the class itself. There is no tag, no label and
     no per-instance override: ``StringColumn`` holds text, ``IntegerColumn``
@@ -105,9 +110,13 @@ class ColumnBase(
         self.schema_name = schema_name
 
     @property
+    @abstractmethod
     def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_column"
+        """The dialect formatting method that renders this expression.
+
+        Abstract on the base: each concrete column class answers the
+        spelling for itself, next to the family it names.
+        """
 
     def __repr__(self) -> str:
         parts = [repr(self.name)]
@@ -123,6 +132,11 @@ class StringColumn(ComparisonMixin, StringValueMixin, StringPatternPredicateMixi
     database-side type error, so the framework no longer offers it.
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
 
 
 class NumericColumn(ComparisonMixin, ArithmeticMixin, NumericValueMixin, TranscendentalMixin, ColumnBase):
@@ -137,6 +151,11 @@ class NumericColumn(ComparisonMixin, ArithmeticMixin, NumericValueMixin, Transce
 
     Not available: ``LIKE`` / ``ILIKE``.
     """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
 
 
 
@@ -157,8 +176,13 @@ class IntegerColumn(NumericColumn):
     that leaves this mixin out.
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
 
-class DateTimeColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, ColumnBase):
+
+class TimestampColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, ColumnBase):
 
     """A column holding a date/time.
 
@@ -172,7 +196,19 @@ class DateTimeColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, Co
     :class:`~...mixins.TemporalArithmeticMixin`).
 
     Not available: ``LIKE`` / ``ILIKE``.
+
+    Renamed from ``DateTimeColumn``: the column layer models *values*, and the
+    value a ``DATETIME``/``TIMESTAMP`` column hands back is a point in time —
+    ``TimestampValueExpression``'s family. ``datetime`` is one vendor's spelling
+    for it (and the name of the Python type); the four storage flavours the
+    vendors really offer — civil date, civil time, instant, instant with zone —
+    are the DDL layer's ``DataType`` distinction and never read from here.
     """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
 
 
 class BooleanColumn(BooleanLogicMixin, ComparisonMixin, ColumnBase):
@@ -200,10 +236,20 @@ class BooleanColumn(BooleanLogicMixin, ComparisonMixin, ColumnBase):
     spelling explicitly.
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
 
 class BinaryColumn(ComparisonMixin, ColumnBase):
 
     """A column holding raw bytes: comparison, casting, collation."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
 
 
 class UUIDColumn(ComparisonMixin, ColumnBase):
@@ -217,6 +263,11 @@ class UUIDColumn(ComparisonMixin, ColumnBase):
     unambiguous home. Storage is the DDL layer's concern.
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
 
 class JSONColumn(ComparisonMixin, JSONAccessorMixin, ColumnBase):
 
@@ -229,11 +280,21 @@ class JSONColumn(ComparisonMixin, JSONAccessorMixin, ColumnBase):
     text a path access *returns*, not to the document.
     """
 
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
+
 
 class ArrayColumn(ComparisonMixin, ArrayMixin, ColumnBase):
 
     """A column holding an array: :meth:`~...mixins.ArrayMixin.array_length`
     and :meth:`~...mixins.ArrayMixin.unnest`."""
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
 
 
 class XMLColumn(NotComparableMixin, NotANumberMixin, ColumnBase):
@@ -271,6 +332,11 @@ class XMLColumn(NotComparableMixin, NotANumberMixin, ColumnBase):
     dedicated wrapper type, and choosing one is a modelling decision rather
     than a mapping entry.
     """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_column"
 
 
 
@@ -318,12 +384,13 @@ def value_class_of(expr: object):
 #: says so lives beside the map and is why a class added without an entry is a
 #: test failure rather than a silently untyped operation.
 #:
-#: ``DateTimeColumn`` is the one judgement call: a column declared ``DATETIME``
-#: holds a date and a time together, which is what ``TimestampValueExpression``
-#: is. A ``DATE`` or ``TIME`` column is a different storage type in DDL and this
-#: module has no column class for either -- the distinction between the four
-#: temporal types is made where the value is known (see
-#: :class:`~...expression.datetime.ExtractExpression`), not by guessing here.
+#: ``TimestampColumn`` is the one judgement call: a column declared
+#: ``DATETIME`` or ``TIMESTAMP`` holds a date and a time together, which is
+#: what ``TimestampValueExpression`` is. A ``DATE`` or ``TIME`` column is a
+#: different storage type in DDL and this module has no column class for
+#: either -- the distinction between the four temporal types is made where
+#: the value is known (see :class:`~...expression.datetime.ExtractExpression`),
+#: not by guessing here.
 def _value_classes():
     from . import core
 
@@ -336,7 +403,7 @@ def _value_classes():
         BooleanColumn: core.BooleanValueExpression,
         BinaryColumn: core.BinaryValueExpression,
         UUIDColumn: core.UUIDValueExpression,
-        DateTimeColumn: core.TimestampValueExpression,
+        TimestampColumn: core.TimestampValueExpression,
         # XML is a value like the rest: the operations that hand one back (a
         # column, xmlagg, a cast to XmlType) are typed, they just offer the
         # surface an XML value has -- see XMLColumn.
@@ -352,7 +419,7 @@ __all__ = [
     "StringColumn",
     "NumericColumn",
     "IntegerColumn",
-    "DateTimeColumn",
+    "TimestampColumn",
     "BooleanColumn",
     "BinaryColumn",
     "UUIDColumn",

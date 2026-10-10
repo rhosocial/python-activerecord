@@ -309,12 +309,12 @@ def test_sudoku_modulo_division_expression(sqlite_backend):
     """
     Test modulo and division expressions used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import Column, Literal
+    from rhosocial.activerecord.backend.expression import Literal, NumericColumn
 
     dialect = sqlite_backend.dialect
 
     # Test division: (ind-1)/9
-    ind_col = Column(dialect, "ind", table="x")
+    ind_col = NumericColumn(dialect, "ind", table="x")
     div_expr = (ind_col - Literal(dialect, 1)) / Literal(dialect, 9)  # Uses BinaryArithmeticExpression internally
     sql, params = div_expr.to_sql()
 
@@ -335,13 +335,13 @@ def test_sudoku_complex_arithmetic_expression(sqlite_backend):
     """
     Test complex arithmetic expressions used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import Column, Literal
+    from rhosocial.activerecord.backend.expression import Literal, NumericColumn
 
     dialect = sqlite_backend.dialect
 
     # Test complex expression: ((ind-1)/9)*9 + lp
-    ind_col = Column(dialect, "ind", table="x")
-    lp_col = Column(dialect, "lp", table="lp")
+    ind_col = NumericColumn(dialect, "ind", table="x")
+    lp_col = NumericColumn(dialect, "lp", table="lp")
 
     # Build: ((ind-1)/9)*9 + lp
     inner_calc = (ind_col - Literal(dialect, 1)) / Literal(dialect, 9)
@@ -434,6 +434,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         ValuesExpression,
         QueryExpression,
         Column,
+        NumericColumn,
         FunctionCall,
         CTEExpression,
         WithQueryExpression,
@@ -473,7 +474,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
 
     # Recursive part
     digits_table = NamedRelationRef(dialect, Table(dialect, "digits"))
-    lp_column = Column(dialect, "lp", table="digits")
+    lp_column = NumericColumn(dialect, "lp", table="digits")
 
     # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
     # Use the new cast() function which returns expression with cast_types
@@ -514,7 +515,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
 
     # Recursive part
     digits_table = NamedRelationRef(dialect, Table(dialect, "digits"))
-    lp_column = Column(dialect, "lp", table="digits")
+    lp_column = NumericColumn(dialect, "lp", table="digits")
 
     # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
     cast_expr = cast(dialect, lp_column + Literal(dialect, 1), CustomType(dialect, raw="TEXT"))
@@ -542,7 +543,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     # Recursive part - simplified for demonstration
     x_table = NamedRelationRef(dialect, Table(dialect, "x"))
     s_column = Column(dialect, "s", table="x")
-    ind_column = Column(dialect, "ind", table="x")
+    ind_column = NumericColumn(dialect, "ind", table="x")
     z_column = Column(dialect, "z", table="z")
 
     # Build the complex string concatenation: substr(s, 1, ind-1) || z || substr(s, ind+1)
@@ -557,6 +558,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     from rhosocial.activerecord.backend.expression import (
         QueryExpression,
         Column,
+        ComparisonPredicate,
         Literal,
         FunctionCall,
     )
@@ -567,8 +569,8 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     lp_table = NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp")
     z_z_column = Column(dialect, "z", table="z")  # From outer query
     s_column_outer = Column(dialect, "s", table="x")  # From outer query
-    ind_column_outer = Column(dialect, "ind", table="x")  # From outer query
-    lp_column_sub = Column(dialect, "lp", table="lp")  # From subquery
+    ind_column_outer = NumericColumn(dialect, "ind", table="x")  # From outer query
+    lp_column_sub = NumericColumn(dialect, "lp", table="lp")  # From subquery
 
     # Build the three conditions for the NOT EXISTS subquery
     # Condition 1: z.z = substr(s, ((ind-1)/9)*9 + lp, 1)
@@ -628,7 +630,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect,
         select=[Column(dialect, "s")],
         from_=NamedRelationRef(dialect, Table(dialect, "x")),
-        where=(Column(dialect, "ind") == Literal(dialect, 0)),
+        where=ComparisonPredicate(dialect, "=", Column(dialect, "ind"), Literal(dialect, 0)),
     )
 
     # Build the complete WITH query
@@ -777,6 +779,8 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             ValuesExpression,
             QueryExpression,
             Column,
+            NumericColumn,
+            BinaryExpression,
             FunctionCall,
             CTEExpression,
             WithQueryExpression,
@@ -802,7 +806,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
 
         # Recursive part
         xaxis_table = NamedRelationRef(dialect, Table(dialect, "xaxis"))
-        x_col = Column(dialect, "x", table="xaxis")
+        x_col = NumericColumn(dialect, "x", table="xaxis")
 
         # SELECT x+0.05 FROM xaxis WHERE x<1.2
         x_plus_increment = x_col + Literal(dialect, 0.05)
@@ -829,7 +833,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
 
         # Recursive part
         yaxis_table = NamedRelationRef(dialect, Table(dialect, "yaxis"))
-        y_col = Column(dialect, "y", table="yaxis")
+        y_col = NumericColumn(dialect, "y", table="yaxis")
 
         # SELECT y+0.1 FROM yaxis WHERE y<1.0
         y_plus_increment = y_col + Literal(dialect, 0.1)
@@ -871,11 +875,11 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
 
         # Recursive part
         m_table = NamedRelationRef(dialect, Table(dialect, "m"))
-        iter_col = Column(dialect, "iter", table="m")
-        cx_col = Column(dialect, "cx", table="m")
-        cy_col = Column(dialect, "cy", table="m")
-        x_m_col = Column(dialect, "x", table="m")
-        y_m_col = Column(dialect, "y", table="m")
+        iter_col = NumericColumn(dialect, "iter", table="m")
+        cx_col = NumericColumn(dialect, "cx", table="m")
+        cy_col = NumericColumn(dialect, "cy", table="m")
+        x_m_col = NumericColumn(dialect, "x", table="m")
+        y_m_col = NumericColumn(dialect, "y", table="m")
 
         # SELECT iter+1, cx, cy, x*x-y*y + cx, 2.0*x*y + cy FROM m WHERE (x*x + y*y) < 4.0 AND iter<28
         new_iter = iter_col + Literal(dialect, 1)
@@ -930,9 +934,16 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect,
             "SUBSTR",
             Literal(dialect, " .+*#"),
-            Literal(dialect, 1)
-            + FunctionCall(
-                dialect, "MIN", Column(dialect, "iter", table="m2") / Literal(dialect, 7), Literal(dialect, 4)
+            BinaryExpression(
+                dialect,
+                "+",
+                Literal(dialect, 1),
+                FunctionCall(
+                    dialect,
+                    "MIN",
+                    BinaryExpression(dialect, "/", Column(dialect, "iter", table="m2"), Literal(dialect, 7)),
+                    Literal(dialect, 4),
+                ),
             ),
             Literal(dialect, 1),
         )

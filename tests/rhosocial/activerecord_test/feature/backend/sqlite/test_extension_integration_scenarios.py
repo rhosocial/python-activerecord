@@ -31,6 +31,7 @@ from rhosocial.activerecord.backend.impl.sqlite.expression import (
 )
 from rhosocial.activerecord.backend.expression import (
     Column,
+    ComparisonPredicate,
     ColumnConstraint,
     ColumnConstraintType,
     ColumnDefinition,
@@ -166,7 +167,9 @@ class TestGeoDocumentScenario:
                 from_=NamedRelationRef(dialect, Table(dialect, "docs_fts")),
                 where=(
                     SQLiteMatchPredicate(dialect, table="docs_fts", query="office")
-                    & (Column(dialect, "author") == "Alice")
+                    & ComparisonPredicate(
+                        dialect, "=", Column(dialect, "author"), Literal(dialect, "Alice")
+                    )
                 )
             ).to_sql()
         )
@@ -201,8 +204,12 @@ class TestGeoDocumentScenario:
                         ),
                         alias="loc"
                     ),
-                    condition=Column(dialect, "rowid", table="docs_fts")
-                             == Column(dialect, "id", table="loc")
+                    condition=ComparisonPredicate(
+                        dialect,
+                        "=",
+                        Column(dialect, "rowid", table="docs_fts"),
+                        Column(dialect, "id", table="loc"),
+                    )
                 )],
                 where=SQLiteMatchPredicate(dialect, table="docs_fts", query="report")
             ).to_sql()
@@ -365,8 +372,12 @@ class TestGeofencingScenario:
                     dialect,
                     left_table=NamedRelationRef(dialect, Table(dialect, "zones"), alias="z"),
                     right_table=NamedRelationRef(dialect, Table(dialect, "zone_fts"), alias="f"),
-                    condition=Column(dialect, "rowid", table="z")
-                             == Column(dialect, "rowid", table="f")
+                    condition=ComparisonPredicate(
+                        dialect,
+                        "=",
+                        Column(dialect, "rowid", table="z"),
+                        Column(dialect, "rowid", table="f"),
+                    )
                 )],
                 where=(
                     SQLiteMatchPredicate(dialect, table="zone_fts", query="park")
@@ -559,12 +570,20 @@ class TestSpatialCatalogScenario:
                             ),
                             alias="rt"
                         ),
-                        condition=Column(dialect, "rowid", table="features_fts")
-                                 == Column(dialect, "id", table="rt")
+                        condition=ComparisonPredicate(
+                            dialect,
+                            "=",
+                            Column(dialect, "rowid", table="features_fts"),
+                            Column(dialect, "id", table="rt"),
+                        )
                     ),
                     right_table=NamedRelationRef(dialect, Table(dialect, "feature_props")),
-                    condition=Column(dialect, "rowid", table="features_fts")
-                             == Column(dialect, "feature_id", table="feature_props")
+                    condition=ComparisonPredicate(
+                        dialect,
+                        "=",
+                        Column(dialect, "rowid", table="features_fts"),
+                        Column(dialect, "feature_id", table="feature_props"),
+                    )
                 )],
                 where=(
                     SQLiteMatchPredicate(dialect, table="features_fts", query="park")

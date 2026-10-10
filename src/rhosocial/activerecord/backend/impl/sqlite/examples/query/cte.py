@@ -19,6 +19,7 @@ from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
+    BinaryArithmeticExpression,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
@@ -162,7 +163,7 @@ recursive_query = QueryExpression(
         Column(dialect, "name", "e"),
         Column(dialect, "manager_id", "e"),
         Column(dialect, "department", "e"),
-        Column(dialect, "level", "oc") + Literal(dialect, 1),
+        BinaryArithmeticExpression(dialect, "+", Column(dialect, "level", "oc"), Literal(dialect, 1)),
     ],
     from_=join_expr,
 )
