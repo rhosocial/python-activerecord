@@ -9,13 +9,16 @@ file pins the outcome. Edges every backend agrees on render; the rest are
 refused at construction instead of rendered into whatever the dialect happens
 to do. ``is_distinct_from`` is here too: its spelling varies by backend, so it
 is a dialect hook with a gate, and the gate refuses rather than substitutes a
-different question.
+different question. So are the function version floors SQLite records: they
+used to be answerable through ``supports_functions()`` and ignorable at render
+time, and now rendering a call the dialect's version predates refuses.
 """
 
 import pytest
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.column_types import NumericColumn, StringColumn
+from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -154,6 +157,111 @@ def test_sqlite_below_the_gate_refuses_rather_than_substituting():
     column = StringColumn(dialect, "age")
     with pytest.raises(UnsupportedFeatureError):
         column.is_distinct_from(0).to_sql()
+
+
+# ---------------------------------------------------------------------------
+# A recorded function version floor is a gate, not a footnote
+# ---------------------------------------------------------------------------
+
+
+SQLITE_FUNCTION_FLOORS = [
+    ("iif", (3, 32, 0)),
+    ("pow", (3, 35, 0)),
+    ("json_extract", (3, 38, 0)),
+    ("unhex", (3, 45, 0)),
+    ("json_array_insert", (3, 53, 0)),
+    ("jsonb_array_insert", (3, 53, 0)),
+]
+
+
+def _gated_call(dialect, func_name):
+    """One call to *func_name*, as the renderer meets it: the name the caller
+    handed over, spelled upper-case in the SQL."""
+    return FunctionCall(dialect, func_name, Literal(dialect, "x"))
+
+
+def _one_patch_below(floor):
+    """The release before *floor*: same major and minor, one patch short."""
+    return (floor[0], floor[1], floor[2] - 1)
+
+
+@pytest.mark.parametrize(
+    "func_name,floor",
+    SQLITE_FUNCTION_FLOORS,
+    ids=[func_name for func_name, _floor in SQLITE_FUNCTION_FLOORS],
+)
+def test_a_floor_the_dialect_is_below_refuses_instead_of_rendering(func_name, floor):
+    """SQLite records when each function arrived. Rendering one anyway emits
+    SQL this SQLite will reject, so the floor is a refusal at render time
+    rather than an observation in a table nobody reads."""
+    dialect = SQLiteDialect()
+    dialect.version = _one_patch_below(floor)
+    with pytest.raises(UnsupportedFeatureError):
+        _gated_call(dialect, func_name).to_sql()
+
+
+@pytest.mark.parametrize(
+    "func_name,floor",
+    SQLITE_FUNCTION_FLOORS,
+    ids=[func_name for func_name, _floor in SQLITE_FUNCTION_FLOORS],
+)
+def test_a_floor_the_dialect_meets_renders(func_name, floor):
+    """The gate is a floor, not a ban: at the recorded version the same call
+    renders exactly as it does on a newer one -- the version changes what is
+    refused, never what is spelled."""
+    dialect = SQLiteDialect()
+    dialect.version = floor
+    assert _gated_call(dialect, func_name).to_sql() == (f"{func_name.upper()}(?)", ("x",))
+
+
+def test_the_refusal_names_the_function_the_floor_and_the_version():
+    """A refusal the caller cannot act on is only a different way of failing,
+    so the message says which function, which version it arrived in and which
+    one is in force: the choice is between a newer server and another
+    spelling."""
+    dialect = SQLiteDialect()
+    dialect.version = (3, 52, 0)
+    call = FunctionCall(
+        dialect,
+        "json_array_insert",
+        Literal(dialect, "[]"),
+        Literal(dialect, "$[0]"),
+        Literal(dialect, 1),
+    )
+    with pytest.raises(UnsupportedFeatureError) as excinfo:
+        call.to_sql()
+    message = str(excinfo.value)
+    assert "JSON_ARRAY_INSERT" in message
+    assert "3.53.0" in message
+    assert "3.52.0" in message
+
+
+def test_the_query_surface_and_the_gate_answer_the_same_thing():
+    """``supports_functions`` keeps its shape and stays the query surface; what
+    changed is that a False in it is no longer advisory. Below the floor both
+    answer no, at it both answer yes."""
+    for version, expected in ((3, 52, 0), False), ((3, 53, 0), True):
+        dialect = SQLiteDialect()
+        dialect.version = version
+        assert dialect.supports_functions()["json_array_insert"] is expected
+        call = _gated_call(dialect, "json_array_insert")
+        if expected:
+            assert call.to_sql() == ("JSON_ARRAY_INSERT(?)", ("x",))
+        else:
+            with pytest.raises(UnsupportedFeatureError):
+                call.to_sql()
+
+
+def test_a_name_no_floor_is_recorded_for_renders_on_the_oldest_dialect():
+    """No floor is not a floor of zero. A name nobody has measured is not
+    gated here, so it renders on a dialect that predates every gate in the
+    table -- the gate only ever refuses what a backend declared."""
+    dialect = SQLiteDialect()
+    dialect.version = (3, 8, 0)
+    assert dialect.function_version_floor("lower") is None
+    column = StringColumn(dialect, "name")
+    assert column.lower().to_sql() == ('LOWER("name")', ())
+    assert dialect.function_version_floor("pow") == (3, 35, 0)
 
 
 # ---------------------------------------------------------------------------

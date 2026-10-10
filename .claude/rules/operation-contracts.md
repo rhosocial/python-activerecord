@@ -87,6 +87,21 @@ never a silent substitution of a different question:
   3.35+ with the build flag, `unhex` 3.45+, `json_array_insert` 3.53+,
   `concat` 3.44+, `jsonb` 3.45+); PostgreSQL's `regexp_like` gate corrects to
   15 (live-verified on 14 and 15).
+- A recorded floor is **enforced**, not merely reported. `FunctionCallMixin.format_function_call`
+  calls `SQLDialectBase.check_function_version` before it renders, and the
+  floor for a name comes from the dialect's `function_version_floors` table
+  (SQLite's is the min column of `_SQLITE_FUNCTION_VERSIONS`, so
+  `supports_functions()` and the gate cannot disagree). Below the floor the
+  render raises `UnsupportedFeatureError` naming the function, the floor and
+  the version in force — the same refusal the `IS [NOT] DISTINCT FROM` gate
+  makes. The base reads the table through `getattr`, and the table is declared
+  on the backend's mixin as **data, not as a method override**: the dialect
+  base sits ahead of every mixin in the MRO, so a method overriding the base
+  here would be shadowed by it. Recorded *ceilings* are not floors — they say
+  the spelling does not exist on the backend at all — and stay with the query
+  surface. A dialect with no recorded floor for a name renders it unchanged,
+  and an un-adapted dialect (no version yet) keeps rendering: the gate needs a
+  version to compare against.
 
 ## 7. Where each is enforced
 

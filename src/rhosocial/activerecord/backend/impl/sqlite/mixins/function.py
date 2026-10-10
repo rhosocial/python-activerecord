@@ -118,6 +118,24 @@ class SQLiteFunctionMixin:
 
         return True
 
+    #: The min column of ``_SQLITE_FUNCTION_VERSIONS``: the earliest SQLite
+    #: that knows each gated function. One table, read two ways --
+    #: ``supports_functions`` asks it, ``check_function_version`` enforces it,
+    #: so a floor recorded here cannot be reported and ignored at once. A
+    #: recorded *ceiling* is not a floor: it says the spelling does not exist
+    #: on SQLite at all (``json_build_object`` and the other PostgreSQL names
+    #: the table keeps for the query surface), which is a different question
+    #: from being too old, and it stays with the query surface.
+    #:
+    #: Declared as data rather than as a ``function_version_floor`` override
+    #: because ``SQLDialectBase`` precedes every mixin in the MRO: a method
+    #: overriding the base here would be shadowed by it.
+    function_version_floors = {
+        func_name: floor
+        for func_name, (floor, _ceiling) in _SQLITE_FUNCTION_VERSIONS.items()
+        if floor is not None
+    }
+
     # ------------------------------------------------------------------
     # Spellings SQLite writes differently, and the two operations it has to
     # emulate (measured 2026-10-09; see the operation-groups matrix).

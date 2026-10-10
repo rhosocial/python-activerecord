@@ -10,6 +10,7 @@ This module tests features added in SQLite 3.53.0:
 
 import pytest
 
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexExpression
 from rhosocial.activerecord.backend.impl.sqlite.functions.json import (
@@ -159,6 +160,20 @@ class TestJsonArrayInsertFunction:
         expr = json_array_insert(dialect, Column(dialect, "items"), Literal(dialect, "item"))
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
+
+    def test_json_array_insert_below_the_floor_refuses(self):
+        """Building the node is not the problem -- rendering it on a 3.52.0
+        dialect is. The floor is a gate: refusing names the function, the floor
+        and the version in force, so the caller can tell an old server from a
+        wrong spelling."""
+        dialect = SQLiteDialect(version=(3, 52, 0))
+        expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
+        with pytest.raises(UnsupportedFeatureError) as excinfo:
+            expr.to_sql()
+        message = str(excinfo.value)
+        assert "JSON_ARRAY_INSERT" in message
+        assert "3.53.0" in message
+        assert "3.52.0" in message
 
 
 class TestJsonbArrayInsertFunction:

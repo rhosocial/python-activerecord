@@ -40,6 +40,11 @@ class FunctionCallMixin:
         renderer does not decide what a caller meant. A value goes through
         :class:`~...expression.core.Literal` at the call site.
 
+        The first thing it does is refuse a call this dialect's version
+        predates (:meth:`~.base.SQLDialectBase.check_function_version`), so a
+        backend that records a floor for the name gets the refusal instead of
+        SQL the server will reject.
+
         Args:
             expr: The function call expression to render.
 
@@ -48,11 +53,15 @@ class FunctionCallMixin:
 
         Raises:
             UnsupportedFeatureError: If a ``FILTER`` clause is requested on a
-                dialect that does not support it, or an ``OVER`` clause is
-                requested on a dialect that does not support window functions.
+                dialect that does not support it, an ``OVER`` clause is
+                requested on a dialect that does not support window
+                functions, or the dialect records a version floor for this
+                function that its version is below.
         """
         from ...expression import core, operators
         from ..protocols import FilterClauseSupport
+
+        self.check_function_version(expr.func_name)
 
         if (
             expr.func_name.upper() == "COUNT"
