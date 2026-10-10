@@ -11,6 +11,7 @@ from .cache import CacheConfig, InstanceCache
 from .interfaces import IRelationValidation, IRelationManagement, IRelationLoader
 from .type_resolver import evaluate_annotation, resolve_relation_type
 from ..backend.expression.core import Column
+from ..backend.expression import ComparisonPredicate, Literal
 from ..interface import IActiveRecord, IActiveQuery
 
 T = TypeVar("T", bound=IActiveRecord)
@@ -323,7 +324,9 @@ class RelationDescriptor(Generic[T]):
                         fk_value = getattr(instance, fk_col)
                         if fk_value is not None:
                             pk_column = Column(backend.dialect, pk_col, table=related_model.table_name())
-                            query = query.where(pk_column == fk_value)
+                            query = query.where(
+                                ComparisonPredicate(backend.dialect, "=", pk_column, Literal(backend.dialect, fk_value))
+                            )
             else:
                 pk_cols = instance.primary_key_columns()
                 fk_cols = self.foreign_key if isinstance(self.foreign_key, tuple) else (self.foreign_key,)
@@ -336,7 +339,9 @@ class RelationDescriptor(Generic[T]):
                     pk_value = getattr(instance, pk_col)
                     if pk_value is not None:
                         fk_column = Column(backend.dialect, fk_col, table=related_model.table_name())
-                        query = query.where(fk_column == pk_value)
+                        query = query.where(
+                            ComparisonPredicate(backend.dialect, "=", fk_column, Literal(backend.dialect, pk_value))
+                        )
 
             return query
 
