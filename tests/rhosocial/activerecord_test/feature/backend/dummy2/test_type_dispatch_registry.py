@@ -182,9 +182,6 @@ def test_a_backend_type_nothing_has_imported_still_resolves(tmp_path):
 
             def format_data_type_probebk_widget(self, data_type) -> Tuple[str, tuple]:
                 return "WIDGET", ()
-
-            def supports_data_type_probebk_widget(self) -> bool:
-                return True
     """), encoding="utf-8")
 
     # The throwaway package has to be importable as
@@ -258,9 +255,6 @@ def test_a_formatters_own_annotation_is_where_the_class_comes_from():
 
         def format_data_type_annotated_widget(self, data_type: JsonBType):
             return "WIDGET", ()
-
-        def supports_data_type_annotated_widget(self) -> bool:
-            return True
 
     # The annotation's class does not declare the dispatch key, so it is not
     # trusted for it — the name resolves to nothing, which is the honest answer.

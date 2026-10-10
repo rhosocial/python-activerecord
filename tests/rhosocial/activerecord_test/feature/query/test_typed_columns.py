@@ -65,9 +65,9 @@ def column_class_for(annotation, dialect=None):
 def sqlite_dialect():
     """A version-adapted SQLite dialect.
 
-    ``supports_json_*`` and ``supports_data_type_*`` read ``self.version``, so
-    the dialect must be adapted before any rendering; 3.46 satisfies every
-    gate these tests exercise (JSON arrows need 3.38).
+    ``supports_json_*`` reads ``self.version``, so the dialect must be
+    adapted before any rendering; 3.46 satisfies every gate these tests
+    exercise (JSON arrows need 3.38).
     """
     dialect = SQLiteDialect()
     dialect._version = (3, 46, 1)

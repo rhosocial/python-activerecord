@@ -4,9 +4,11 @@
 Verifies the namespace rules and the naming-family discipline that the
 ``DataType`` / ``DataTypeSupport`` contracts formalize:
 
-* ``format_data_type_*`` / ``supports_data_type_*`` 1:1 correspondence,
-  checked against **every** dialect this package can import rather than one
-  hand-picked pair;
+* **the formatter family is the support declaration** — no core dialect
+  carries a leftover ``supports_data_type_*`` probe, and the
+  ``supports_data_types()`` mapping is exactly the ``format_data_type_*``
+  family, checked against **every** dialect this package can import rather
+  than one hand-picked pair;
 * ``supports_data_types()`` mapping shape — ``{generic name: concrete
   DataType class}`` with ``value.name == key``;
 * **every core type is rendered or explicitly substituted** — a dialect must
@@ -22,8 +24,8 @@ The framework's model is an *expression* per SQL concept; each backend's
 *dialect* decides how that concept is spelled in its own DDL. That pairing has
 to be total, and in one of two ways:
 
-* **Rendered** — the dialect implements ``format_data_type_<name>`` and
-  ``supports_data_type_<name>``. This is the normal case.
+* **Rendered** — the dialect implements ``format_data_type_<name>``,
+  which is the support declaration itself. This is the normal case.
 * **Substituted** — the dialect cannot spell the concept, but it can say what
   it stores instead, via ``suggested_data_types()[name] = SomeType``. This is
   the honest answer for e.g. XML on SQLite (stored as text) and is *not* a
@@ -104,13 +106,16 @@ def _core_type_classes():
 
 @pytest.mark.parametrize("dialect_id,dialect_class", _dialects(),
                          ids=[d[0] for d in _dialects()])
-def test_format_supports_correspondence(dialect_id, dialect_class):
-    """Every ``format_data_type_X`` has a ``supports_data_type_X`` and vice versa.
+def test_the_formatter_family_is_the_support_declaration(dialect_id, dialect_class):
+    """Support is declared by the formatters; core keeps no ``supports_*`` probes.
 
-    A format method with no support check is undeclared behaviour: the dialect
-    claims it can render the type and then answers a question about support by
-    raising. A support check with no format method promises something that
-    cannot be delivered.
+    The ``supports_data_type_*`` family is retired in core: a
+    ``format_data_type_<name>`` member *is* the declaration, and
+    ``supports_data_types()`` derives the mapping from it. A leftover probe
+    would be a second, easily-stale answer to the same question, so no core
+    dialect may carry one. The one direction that stays a lie when a
+    dialect keeps the pair anyway is a probe with no formatter behind it —
+    it promises a delivery that does not exist.
     """
     format_names = {
         _FORMAT_RE.match(member).group(1)
@@ -121,10 +126,18 @@ def test_format_supports_correspondence(dialect_id, dialect_class):
         for member in dir(dialect_class) if _SUPPORTS_RE.match(member)
     }
     assert format_names, f"{dialect_id}: must implement the format family"
-    assert supports_names, f"{dialect_id}: must implement the supports family"
-    assert format_names == supports_names, (
-        f"{dialect_id}: format-only: {sorted(format_names - supports_names)}, "
-        f"supports-only: {sorted(supports_names - format_names)}"
+    assert not supports_names, (
+        f"{dialect_id}: the supports_data_type_* family is retired in core; "
+        f"declare support through the formatters instead: "
+        f"{sorted(supports_names)}"
+    )
+    assert not (supports_names - format_names), (
+        f"{dialect_id}: a probe with no formatter to back it: "
+        f"{sorted(supports_names - format_names)}"
+    )
+    mapping = dialect_class().supports_data_types()
+    assert set(mapping) == format_names, (
+        f"{dialect_id}: the mapping must be the format family exactly"
     )
 
 
@@ -485,9 +498,9 @@ def test_the_declaration_is_not_a_type_and_stays_off_the_dispatch():
     """``type_parameter_defaults`` is a dialect fact, not a type, and not a hook
     the format/supports correspondence can trip over.
 
-    The supported-types surface is the ``format_data_type_<name>`` /
-    ``supports_data_type_<name>`` naming family, scanned by ``dir()``; a
-    declaration must not add to it or rename a concept's dispatch key.
+    The supported-types surface is the ``format_data_type_<name>`` naming
+    family, scanned by ``dir()``; a declaration must not add to it or
+    rename a concept's dispatch key.
     """
     dialect = _DeclaresAVarcharWidth()
     mapping = dialect.supports_data_types()

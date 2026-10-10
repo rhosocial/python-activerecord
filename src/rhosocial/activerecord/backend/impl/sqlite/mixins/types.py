@@ -316,94 +316,12 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
     # ------------------------------------------------------------------
     #
     # SQLite stores everything through type affinity: any type this mixin
-    # renders is genuinely storable, so support is declared for exactly the
-    # format_data_type_* family above (1:1 correspondence contract), and
-    # honestly absent for everything else (e.g. enum, uuid, binary — those
-    # are covered by suggested_data_types() instead).
+    # renders is genuinely storable, so the ``format_data_type_*`` family
+    # above is the whole support declaration — the formatter *is* the
+    # "supported" answer. Anything this mixin does not render (e.g. enum,
+    # uuid, binary) is honestly absent, and covered by
+    # ``suggested_data_types()`` instead.
     # ------------------------------------------------------------------
-
-    def supports_data_type_sqlite_integer(self) -> bool:
-        return True
-
-    def supports_data_type_sqlite_text(self) -> bool:
-        return True
-
-    def supports_data_type_sqlite_real(self) -> bool:
-        return True
-
-    def supports_data_type_sqlite_numeric(self) -> bool:
-        return True
-
-    def supports_data_type_sqlite_blob(self) -> bool:
-        return True
-
-    def supports_data_type_integer(self) -> bool:
-        return True
-    def supports_data_type_text(self) -> bool:
-        return True
-
-    def supports_data_type_real(self) -> bool:
-        return True
-
-    def supports_data_type_blob(self) -> bool:
-        return True
-
-    def supports_data_type_bigint(self) -> bool:
-        return True
-
-    def supports_data_type_smallint(self) -> bool:
-        return True
-
-    def supports_data_type_varchar(self) -> bool:
-        return True
-
-    def supports_data_type_char(self) -> bool:
-        return True
-
-    def supports_data_type_float(self) -> bool:
-        return True
-
-    def supports_data_type_decimal(self) -> bool:
-        return True
-
-    def supports_data_type_boolean(self) -> bool:
-        return True
-
-    def supports_data_type_date(self) -> bool:
-        return True
-
-    def supports_data_type_datetime(self) -> bool:
-        return True
-
-    def supports_data_type_timestamp(self) -> bool:
-        return True
-
-    def supports_data_type_time(self) -> bool:
-        return True
-
-    def supports_data_type_tinyint(self) -> bool:
-        return True
-
-    def supports_data_type_double(self) -> bool:
-        return True
-
-    def supports_data_type_timetz(self) -> bool:
-        return True
-
-    def supports_data_type_timestamptz(self) -> bool:
-        return True
-
-    def supports_data_type_interval(self) -> bool:
-        return True
-
-    def supports_data_type_json(self) -> bool:
-        return True
-
-    def supports_data_type_jsonb(self) -> bool:
-        return True
-
-    def supports_data_type_custom(self) -> bool:
-        return True
 
 
     # SQLite type affinity groups for parsing.

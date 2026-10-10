@@ -20,18 +20,21 @@ class DataTypeMixin:
     """Mixin providing naming-convention ``format_data_type`` dispatch.
 
     A ``DataType`` declares its concept in a class attribute ``name``; the
-    dialect renders it with ``format_data_type_<name>`` and answers questions
-    about it with ``supports_data_type_<name>``. The correspondence is by
-    naming convention, not by inheritance: the dialect does not know in advance
-    which types exist, and a backend that introduces one needs no change here.
+    dialect renders it with ``format_data_type_<name>``. The correspondence
+    is by naming convention, not by inheritance: the dialect does not know
+    in advance which types exist, and a backend that introduces one needs
+    no change here.
 
     Expression ⇔ dialect correspondence
     ----------------------------------
     Every concept the framework models must be **declared** by every dialect,
     in one of two ways:
 
-    * rendered — ``format_data_type_<name>`` / ``supports_data_type_<name>``
-      exist and say yes (the ordinary case);
+    * rendered — ``format_data_type_<name>`` exists, which is the support
+      declaration itself. A dialect that owns a ``supports_data_type_<name>``
+      probe may answer ``False`` there to opt a rendered name out (a
+      version-gated feature); without such a probe, rendering *is* support.
+
     * substituted — ``suggested_data_types()[name]`` names what this backend
       stores instead, for concepts it genuinely cannot spell (XML on SQLite,
       arrays on Snowflake, …).
@@ -144,18 +147,29 @@ class DataTypeMixin:
         return f"{message} {caveat}" if caveat else message
 
     def supports_data_types(self) -> Dict[str, type]:
-        """Return the generic type names and concrete classes this dialect renders."""
+        """Return the generic type names and concrete classes this dialect renders.
+
+        Derived from the ``format_data_type_<name>`` family: **a formatter
+        is the declaration of support**, so the mapping covers every name
+        the dialect can render. A ``supports_data_type_<name>`` probe,
+        where a dialect still owns one, is the only thing that can opt a
+        rendered name out — that is how a backend gates a feature by
+        version (a number of backends' ``<backend>_*`` probes do). Its
+        absence is not an answer of "no": a dialect that declares no
+        probe at all supports everything it renders.
+        """
         result = {}
         for member_name in dir(type(self)):
             match = re.match(r"^format_data_type_([a-z][a-z0-9_]*)$", member_name)
             if not match:
                 continue
             name = match.group(1)
-            supports = getattr(self, f"supports_data_type_{name}", None)
-            if supports is not None and supports():
-                data_type_class = self._type_class_for(name)
-                if data_type_class is not None:
-                    result[name] = data_type_class
+            probe = getattr(self, f"supports_data_type_{name}", None)
+            if probe is not None and not probe():
+                continue
+            data_type_class = self._type_class_for(name)
+            if data_type_class is not None:
+                result[name] = data_type_class
         return result
 
     def _type_class_for(self, name: str) -> Optional[type]:

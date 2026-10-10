@@ -37,21 +37,28 @@ class DataTypeSupport(Protocol):
     ``format_data_type_<name>(data_type)`` / ``supports_data_type_<name>()``
         **Naming-family contracts.** These per-type members cannot be
         enumerated in the Protocol — they are discovered by convention
-        from the type's generic ``name``. The two families must correspond
-        **1:1**: for every ``format_data_type_X`` a dialect implements it
-        MUST also implement ``supports_data_type_X() -> bool``, and vice
-        versa. The supported-type surface of a dialect is exactly the set
-        of these method pairs — there is no registry.
+        from the type's generic ``name``. The formatter is the declaration
+        of support: ``supports_data_types()`` derives the mapping from the
+        formatter family, and a ``supports_data_type_X() -> bool`` probe,
+        where a dialect owns one, is the only thing that may opt a rendered
+        name **out** (a version-gated feature — a number of backends'
+        ``<backend>_*`` probes do exactly that). Backends that keep the
+        pair keep the **1:1** discipline: for every ``format_data_type_X``
+        a ``supports_data_type_X()``, and no probe without a formatter to
+        promise delivery. The supported-type surface of a dialect has no
+        registry beyond these members.
 
     Honesty principle (D10)
     -----------------------
 
     A dialect that does not support a type simply does **not** implement
-    its ``format_data_type_X`` / ``supports_data_type_X`` pair — it never
-    fakes a formatter or hard-codes ``supports_data_type_X() -> False``
-    for an unimplemented type. Dispatch on an unsupported type raises
+    its ``format_data_type_X`` — it never fakes a formatter, and never
+    hard-codes a ``supports_data_type_X() -> False`` probe for a type it
+    cannot render at all. Dispatch on an unsupported type raises
     ``TypeError`` (there is no ``format_data_type_<name>`` to route to),
-    which is the honest "unsupported here" signal.
+    which is the honest "unsupported here" signal. Rendering a declaration
+    the formatter cannot express raises at render time, which is also a
+    legitimate state.
 
     Backend-specific protocol layering (D8)
     ---------------------------------------
@@ -81,12 +88,11 @@ class DataTypeSupport(Protocol):
     one of two explicit answers from every dialect that implements this
     protocol:
 
-    * the concept is **rendered** — its ``format_data_type_<name>`` /
-      ``supports_data_type_<name>`` pair exists.  (The formatter may
-      still refuse *particular declarations* with
-      ``UnsupportedFeatureError`` plus a ``suggestion`` — a concept the
-      dialect models but cannot express every declaration of; that is a
-      refusal answer, not an absence.)
+    * the concept is **rendered** — its ``format_data_type_<name>``
+      exists.  (The formatter may still refuse *particular declarations*
+      with ``UnsupportedFeatureError`` plus a ``suggestion`` — a concept
+      the dialect models but cannot express every declaration of; that is
+      a refusal answer, not an absence.)
     * the concept is **substituted** — an entry in
       :meth:`suggested_data_types` names the class this dialect really
       stores for it, so the caller reads the substitution instead of a

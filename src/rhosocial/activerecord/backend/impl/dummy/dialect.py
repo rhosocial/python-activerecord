@@ -589,22 +589,13 @@ class DummyDialect(
             ),
         )
 
-    def supports_data_type_tinyint(self) -> bool:
-        return True
-
     def format_data_type_tinyint(self, data_type: TinyIntType) -> Tuple[str, tuple]:
         self._refuse_unsigned(data_type, "TINYINT")
         return "TINYINT", ()
 
-    def supports_data_type_smallint(self) -> bool:
-        return True
-
     def format_data_type_smallint(self, data_type: SmallIntType) -> Tuple[str, tuple]:
         self._refuse_unsigned(data_type, "SMALLINT")
         return "SMALLINT", ()
-
-    def supports_data_type_integer(self) -> bool:
-        return True
 
     def format_data_type_integer(self, data_type: IntegerType) -> Tuple[str, tuple]:
         """The dummy dialect renders every spelling of this one type verbatim,
@@ -620,15 +611,9 @@ class DummyDialect(
         self._refuse_unsigned(data_type, "INTEGER")
         return "INT" if data_type.spelling == "int" else "INTEGER", ()
 
-    def supports_data_type_bigint(self) -> bool:
-        return True
-
     def format_data_type_bigint(self, data_type: BigIntType) -> Tuple[str, tuple]:
         self._refuse_unsigned(data_type, "BIGINT")
         return "BIGINT", ()
-
-    def supports_data_type_real(self) -> bool:
-        return True
 
     def format_data_type_real(self, data_type: RealType) -> Tuple[str, tuple]:
         # REAL is refused for unsigned for the same reason as every other
@@ -637,87 +622,45 @@ class DummyDialect(
         self._refuse_unsigned(data_type, "REAL")
         return "REAL", ()
 
-    def supports_data_type_double(self) -> bool:
-        return True
-
     def format_data_type_double(self, data_type: DoubleType) -> Tuple[str, tuple]:
         self._refuse_unsigned(data_type, "DOUBLE PRECISION")
         return "DOUBLE PRECISION", ()
 
-    def supports_data_type_text(self) -> bool:
-        return True
-
     def format_data_type_text(self, data_type: TextType) -> Tuple[str, tuple]:
         return "TEXT", ()
-
-    def supports_data_type_boolean(self) -> bool:
-        return True
 
     def format_data_type_boolean(self, data_type: BooleanType) -> Tuple[str, tuple]:
         return "BOOLEAN", ()
 
-    def supports_data_type_blob(self) -> bool:
-        return True
-
     def format_data_type_blob(self, data_type: BlobType) -> Tuple[str, tuple]:
         return "BLOB", ()
-
-    def supports_data_type_date(self) -> bool:
-        return True
 
     def format_data_type_date(self, data_type: DateType) -> Tuple[str, tuple]:
         return "DATE", ()
 
-    def supports_data_type_json(self) -> bool:
-        return True
-
     def format_data_type_json(self, data_type: JsonType) -> Tuple[str, tuple]:
         return "JSON", ()
-
-    def supports_data_type_jsonb(self) -> bool:
-        return True
 
     def format_data_type_jsonb(self, data_type: JsonBType) -> Tuple[str, tuple]:
         return "JSONB", ()
 
-    def supports_data_type_xml(self) -> bool:
-        return True
-
     def format_data_type_xml(self, data_type: XmlType) -> Tuple[str, tuple]:
         return "XML", ()
-
-    def supports_data_type_uuid(self) -> bool:
-        return True
 
     def format_data_type_uuid(self, data_type: UUIDType) -> Tuple[str, tuple]:
         return "UUID", ()
 
-    def supports_data_type_char(self) -> bool:
-        return True
-
     def format_data_type_char(self, data_type: CharType) -> Tuple[str, tuple]:
         return (f"CHAR({data_type.length})" if data_type.length is not None else "CHAR"), ()
-
-    def supports_data_type_varchar(self) -> bool:
-        return True
 
     def format_data_type_varchar(self, data_type: VarCharType) -> Tuple[str, tuple]:
         return (f"VARCHAR({data_type.length})" if data_type.length is not None else "VARCHAR"), ()
 
-    def supports_data_type_binary(self) -> bool:
-        return True
-
     def format_data_type_binary(self, data_type: BinaryType) -> Tuple[str, tuple]:
         return (f"BINARY({data_type.length})" if data_type.length is not None else "BINARY"), ()
 
-    def supports_data_type_varbinary(self) -> bool:
-        return True
-
     def format_data_type_varbinary(self, data_type: VarBinaryType) -> Tuple[str, tuple]:
         return (f"VARBINARY({data_type.length})" if data_type.length is not None else "VARBINARY"), ()
-
-    def supports_data_type_enum(self) -> bool:
-        return True
 
     def format_data_type_enum(self, data_type: EnumType) -> Tuple[str, tuple]:
         # format_literal rather than an f-string of quotes: it is the dialect's
@@ -725,15 +668,9 @@ class DummyDialect(
         values = ",".join(self.format_literal(value) for value in data_type.values)
         return f"ENUM({values})", ()
 
-    def supports_data_type_float(self) -> bool:
-        return True
-
     def format_data_type_float(self, data_type: FloatType) -> Tuple[str, tuple]:
         self._refuse_unsigned(data_type, "FLOAT")
         return (f"FLOAT({data_type.precision})" if data_type.precision is not None else "FLOAT"), ()
-
-    def supports_data_type_decimal(self) -> bool:
-        return True
 
     def format_data_type_decimal(self, data_type: DecimalType) -> Tuple[str, tuple]:
         self._refuse_unsigned(data_type, "DECIMAL")
@@ -743,52 +680,28 @@ class DummyDialect(
             return f"DECIMAL({data_type.precision})", ()
         return "DECIMAL", ()
 
-    def supports_data_type_time(self) -> bool:
-        return True
-
     def format_data_type_time(self, data_type: TimeType) -> Tuple[str, tuple]:
         return (f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"), ()
-
-    def supports_data_type_timetz(self) -> bool:
-        return True
 
     def format_data_type_timetz(self, data_type: TimeTzType) -> Tuple[str, tuple]:
         base = f"TIME({data_type.precision})" if data_type.precision is not None else "TIME"
         return f"{base} WITH TIME ZONE", ()
 
-    def supports_data_type_datetime(self) -> bool:
-        return True
-
     def format_data_type_datetime(self, data_type: DateTimeType) -> Tuple[str, tuple]:
         return (f"DATETIME({data_type.precision})" if data_type.precision is not None else "DATETIME"), ()
 
-    def supports_data_type_timestamp(self) -> bool:
-        return True
-
     def format_data_type_timestamp(self, data_type: TimestampType) -> Tuple[str, tuple]:
         return (f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"), ()
-
-    def supports_data_type_timestamptz(self) -> bool:
-        return True
 
     def format_data_type_timestamptz(self, data_type: TimestampTzType) -> Tuple[str, tuple]:
         base = f"TIMESTAMP({data_type.precision})" if data_type.precision is not None else "TIMESTAMP"
         return f"{base} WITH TIME ZONE", ()
 
-    def supports_data_type_interval(self) -> bool:
-        return True
-
     def format_data_type_interval(self, data_type: IntervalType) -> Tuple[str, tuple]:
         return (f"INTERVAL {data_type.fields}" if data_type.fields else "INTERVAL"), ()
 
-    def supports_data_type_custom(self) -> bool:
-        return True
-
     def format_data_type_custom(self, data_type: CustomType) -> Tuple[str, tuple]:
         return data_type.raw, ()
-
-    def supports_data_type_array(self) -> bool:
-        return True
 
     def format_data_type_array(self, data_type: ArrayType) -> Tuple[str, tuple]:
         element_sql, _ = self.format_data_type(data_type.element_type)
