@@ -20,10 +20,15 @@ Three package kinds with distinct versioning:
 ### Python Version Support
 
 - **requires-python**: `>=3.8` (`[project]` in `pyproject.toml`).
-- **Supported (1.0.x)**: 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14 (+ 3.15 in CI/classifiers).
-- **Free-threaded builds**: 3.13t, 3.14t.
+- **Supported (1.0.x)**: 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14, 3.15.
+- **Free-threaded builds**: 3.13t, 3.14t, 3.15t.
+- **Upstream EOL** (CPython: ~5-year life — bugfix, then security-only): 3.8 (2024-10),
+  3.9 (2025-10) and 3.10 (2026-10) are past upstream end-of-life yet remain supported
+  in 1.0.x; 3.11–3.15 are still within their window. Past EOL a version receives no upstream
+  security patches, so supporting it is a deliberate risk this project accepts during 1.0.x.
 - **Pydantic**: `==2.10.6` for Python 3.8 (last 3.8-compatible line); `>=2.12.0` for 3.9+.
-- `1.1.x` will likely drop 3.8/3.9 (min Python 3.10+); announced ≥6 months before.
+- `1.1.x` will likely raise the floor to 3.11+ (dropping the EOL 3.8/3.9/3.10); announced
+  ≥6 months before.
 
 Use `requirements-3.8.txt` for Python 3.8 environments.
 
