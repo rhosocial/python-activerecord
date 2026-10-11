@@ -78,7 +78,7 @@ from .ddl.view.drop_view import DropViewSupport
 from .ddl.view.materialized_view import MaterializedViewSupport
 
 # --- Query features ---
-from .query.datetime import DateTimeSupport
+from .query.timestamp import TimestampSupport
 from .query.pivot import PivotSupport
 from .query.dql_order import DqlOrderSupport
 from .query.advanced_grouping import AdvancedGroupingSupport
@@ -157,7 +157,7 @@ __all__ = [
     "DDLTypeSupport",
     "ColumnTypeSupport",
     "DataTypeSupport",
-    "DateTimeSupport",
+    "TimestampSupport",
     "DqlOrderSupport",
     "DropDatabaseSupport",
     "DropDomainSupport",

@@ -298,7 +298,7 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.DropDomainSupport,
 
 
-    dialect_protocols.DateTimeSupport,
+    dialect_protocols.TimestampSupport,
 
 
     dialect_protocols.DqlOrderSupport,

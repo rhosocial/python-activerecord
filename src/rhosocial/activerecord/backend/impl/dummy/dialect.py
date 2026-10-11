@@ -160,7 +160,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     CreateDomainSupport,
     AlterDomainSupport,
     DropDomainSupport,
-    DateTimeSupport,
+    TimestampSupport,
     DqlOrderSupport,
     PivotSupport,
 )
@@ -522,7 +522,7 @@ class DummyDialect(
     CreateDomainSupport,
     AlterDomainSupport,
     DropDomainSupport,
-    DateTimeSupport,
+    TimestampSupport,
     DqlOrderSupport,
     CreateSchemaSupport,
     DropSchemaSupport,
