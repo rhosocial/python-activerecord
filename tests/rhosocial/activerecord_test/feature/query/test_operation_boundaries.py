@@ -167,7 +167,11 @@ def test_sqlite_below_the_gate_refuses_rather_than_substituting():
 SQLITE_FUNCTION_FLOORS = [
     ("iif", (3, 32, 0)),
     ("pow", (3, 35, 0)),
-    ("json_extract", (3, 38, 0)),
+    # json_extract is deliberately absent: the JSON1 functions predate their
+    # 3.38.0 promotion into core (they exist since 3.9.0 behind a compile-time
+    # option), so availability depends on how SQLite was built, not on the
+    # version -- CI's own 3.35.0 server executes json_extract. A recorded floor
+    # there would refuse SQL the server accepts.
     ("unhex", (3, 45, 0)),
     ("json_array_insert", (3, 53, 0)),
     ("jsonb_array_insert", (3, 53, 0)),

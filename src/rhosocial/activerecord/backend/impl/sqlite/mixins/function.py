@@ -12,8 +12,16 @@ class SQLiteFunctionMixin:
     """SQLite function version support detection."""
 
     _SQLITE_FUNCTION_VERSIONS = {
-        "json_extract": ((3, 38, 0), None),
-        "json_extract_text": ((3, 38, 0), None),
+        # The JSON1 functions have existed since SQLite 3.9.0 behind a
+        # compile-time option, and only became core in 3.38.0 -- so a hard
+        # version floor cannot express their availability: CI runs a 3.35.0
+        # server where json_extract executes fine, which is how the wrong
+        # 3.38.0 floor recorded here was disproved once the render-time gate
+        # started enforcing it. Availability on an old build depends on how
+        # SQLite was compiled, not on the version number, so these carry no
+        # floor and the query surface answers "no constraint recorded".
+        "json_extract": (None, None),
+        "json_extract_text": (None, None),
         "json_build_object": (None, (0, 0, 0)),
         "json_array_elements": (None, (0, 0, 0)),
         "json_objectagg": (None, (0, 0, 0)),
