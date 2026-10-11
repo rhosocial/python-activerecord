@@ -352,7 +352,7 @@ jobs:
         python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest
 
   test-python-315:
-    name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && ' free-threaded' || '' }}
+    name: Run tests with Python ${{ matrix.python-version }}${{ matrix.freethreaded && 't free-threaded' || '' }}
     runs-on: ubuntu-26.04
     permissions:
       contents: read
