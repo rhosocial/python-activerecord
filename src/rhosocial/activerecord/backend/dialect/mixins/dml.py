@@ -12,9 +12,12 @@ from ...expression.objects import Table
 
 if TYPE_CHECKING:
     from ...expression.statements.dml import (
+        DefaultValuesSource,
         DeleteExpression,
         InsertExpression,
+        SelectSource,
         UpdateExpression,
+        ValuesSource,
     )
     from ...expression.statements import ReturningClause
 
@@ -213,7 +216,7 @@ class DMLMixin:
             all_params.extend(returning_params)
         return sql, tuple(all_params)
 
-    def format_insert_values_source(self, expr) -> Tuple[str, tuple]:
+    def format_insert_values_source(self, expr: "ValuesSource") -> Tuple[str, tuple]:
         """Render a ``VALUES`` list as an INSERT's data source.
 
         Args:
@@ -235,7 +238,7 @@ class DMLMixin:
             all_params.extend(cell_params)
         return "VALUES " + ", ".join(rows_sql), tuple(all_params)
 
-    def format_insert_select_source(self, expr) -> Tuple[str, tuple]:
+    def format_insert_select_source(self, expr: "SelectSource") -> Tuple[str, tuple]:
         """Render the query an INSERT selects its rows from.
 
         Args:
@@ -246,7 +249,7 @@ class DMLMixin:
         """
         return expr.select_query.to_sql()
 
-    def format_insert_default_values_source(self, expr) -> Tuple[str, tuple]:
+    def format_insert_default_values_source(self, expr: "DefaultValuesSource") -> Tuple[str, tuple]:
         """Render the ``DEFAULT VALUES`` keyword.
 
         Args:

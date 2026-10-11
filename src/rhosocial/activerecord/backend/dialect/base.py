@@ -8,12 +8,15 @@ All SQL formatting logic lives in Mixin classes in mixins.py.
 
 import re
 import warnings as _warnings
-from typing import Any, ClassVar, Dict, FrozenSet, Optional, Tuple, TYPE_CHECKING
+from typing import Any, ClassVar, Dict, FrozenSet, Optional, Tuple, Union, TYPE_CHECKING
 
 from .exceptions import DialectNotAdaptedException, ProtocolNotImplementedError, UnsupportedFeatureError
 from ..warnings import IdentifierQuotingWarning
 
 if TYPE_CHECKING:
+    import datetime as _dt
+    from decimal import Decimal
+
     from ..schema.differ import SchemaDiffer
 
 
@@ -282,7 +285,9 @@ class SQLDialectBase:
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
-    def format_literal(self, value: Any) -> str:
+    def format_literal(
+        self, value: "Optional[Union[bool, int, float, Decimal, _dt.datetime, _dt.date]]"
+    ) -> str:
         """Render a Python scalar as a safe inline SQL literal.
 
         Used by DDL clauses (CHECK / DEFAULT / partition boundaries /

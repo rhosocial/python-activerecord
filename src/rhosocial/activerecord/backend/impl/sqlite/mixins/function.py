@@ -5,7 +5,15 @@ SQLite-specific Function implementation.
 This module provides the SQLiteFunctionMixin class.
 """
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from rhosocial.activerecord.backend.expression import bases
+    from rhosocial.activerecord.backend.expression.advanced_functions import (
+        LpadExpression,
+        RepeatExpression,
+        RpadExpression,
+    )
 
 
 class SQLiteFunctionMixin:
@@ -166,7 +174,7 @@ class SQLiteFunctionMixin:
             pad,
         )
 
-    def format_repeat_expression(self, expr) -> Tuple[str, tuple]:
+    def format_repeat_expression(self, expr: "RepeatExpression") -> Tuple[str, tuple]:
         """Emulate ``REPEAT``, which SQLite does not have.
 
         Each ``00`` pair in ``HEX(ZEROBLOB(count))`` is one copy slot, so
@@ -187,7 +195,7 @@ class SQLiteFunctionMixin:
         )
         return call.to_sql()
 
-    def format_lpad_expression(self, expr) -> Tuple[str, tuple]:
+    def format_lpad_expression(self, expr: "LpadExpression") -> Tuple[str, tuple]:
         """Emulate ``LPAD``, which SQLite does not have.
 
         Two branches, because SQLite alone answers "already long enough" and
@@ -225,7 +233,7 @@ class SQLiteFunctionMixin:
         )
         return case.to_sql()
 
-    def format_rpad_expression(self, expr) -> Tuple[str, tuple]:
+    def format_rpad_expression(self, expr: "RpadExpression") -> Tuple[str, tuple]:
         """Emulate ``RPAD``, which SQLite does not have.
 
         One branch is enough: the padding is appended on the right and the
@@ -249,7 +257,7 @@ class SQLiteFunctionMixin:
         "STRPOS": "INSTR",
     }
 
-    def format_function_call(self, expr) -> Tuple[str, tuple]:
+    def format_function_call(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format a function call, renaming the ones SQLite spells otherwise.
 
         Renames are the first column; ``POSITION``, ``LEFT``, ``RIGHT`` and the

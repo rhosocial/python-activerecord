@@ -55,6 +55,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CreateTableFromTemplateExpression,
         CreateTableOptions,
         DropTableExpression,
+        TableCommentClause,
         AlterTableExpression,
     )
 
@@ -327,7 +328,7 @@ class TableMixin:
         escaped = self._escape_sql_string(comment)
         return f"COMMENT '{escaped}'", ()
 
-    def format_table_comment_clause(self, clause) -> Tuple[str, tuple]:
+    def format_table_comment_clause(self, clause: "TableCommentClause") -> Tuple[str, tuple]:
         """Render the inline table-comment clause of ``CREATE TABLE``.
 
         Returns the fragment **with a leading space** so the statement

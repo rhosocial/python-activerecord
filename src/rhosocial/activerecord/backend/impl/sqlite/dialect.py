@@ -125,8 +125,15 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression, OrderedSetAggregation
+    from rhosocial.activerecord.backend.expression import bases
+    from rhosocial.activerecord.backend.expression.advanced_functions import (
+        ArrayExpression,
+        JSONDocumentExpression,
+        OrderedSetAggregation,
+        TrimExpression,
+    )
     from rhosocial.activerecord.backend.expression.graph import MatchClause
+    from rhosocial.activerecord.backend.expression.predicates import DistinctFromPredicate
     from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
     from rhosocial.activerecord.backend.expression.statements import ExplainExpression
     from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateExpression
@@ -486,7 +493,7 @@ class SQLiteDialect(
         """SQLite supports -> and ->> operators from version 3.38.0+."""
         return self.version >= (3, 38, 0)
 
-    def format_json_function_expression(self, expr) -> Tuple[str, tuple]:
+    def format_json_function_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, tuple]:
         """Render a JSON path access with SQLite's own JSON1 functions.
 
         Without this, ``JSONPathMode.FUNCTION`` fell through to the core
@@ -670,7 +677,7 @@ class SQLiteDialect(
         """Whether SQLite accepts ``IS [NOT] DISTINCT FROM`` (3.39.0+)."""
         return self.version >= (3, 39, 0)
 
-    def format_distinct_from_predicate(self, expr) -> Tuple[str, tuple]:
+    def format_distinct_from_predicate(self, expr: "DistinctFromPredicate") -> Tuple[str, tuple]:
         """Format a NULL-safe distinctness check, refusing below SQLite 3.39.0.
 
         SQLite has had the standard spelling since 3.39.0 (2022-06-25). Below
@@ -700,7 +707,7 @@ class SQLiteDialect(
             f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr
         ), left_params + right_params
 
-    def format_trim_expression(self, expr) -> Tuple[str, tuple]:
+    def format_trim_expression(self, expr: "TrimExpression") -> Tuple[str, tuple]:
         """Render TRIM as SQLite's function form.
 
         SQLite parses no ``trim(<chars> from <string>)`` syntax at all -- the
@@ -725,7 +732,7 @@ class SQLiteDialect(
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, params
 
-    def format_values_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """SQLite override: VALUES does not support ``AS alias(col, ...)`` syntax.
 
         The base ``ExpressionMixin`` implementation appends a parenthesised
@@ -1006,7 +1013,7 @@ class SQLiteDialect(
         """SQLite does not support explicit NULLS FIRST/LAST ordering."""
         return False
 
-    def format_grouping_clause(self, expr) -> Tuple[str, tuple]:
+    def format_grouping_clause(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
         operation = expr.operation
         # Check feature support based on operation type

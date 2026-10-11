@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from .expression.fts5 import (
         SQLiteFTS5CreateVirtualTable,
         SQLiteFTS5HighlightExpression,
+        SQLiteFTS5MatchExpression,
         SQLiteFTS5RankExpression,
         SQLiteFTS5SnippetExpression,
     )
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from .expression.reindex import SQLiteReindexExpression
     from .expression.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
     from .expression.vacuum import SQLiteAnalyzeExpression, SQLiteVacuumExpression
+    from .expression.virtual_table import CreateVirtualTableExpression, DropVirtualTableExpression
 
 
 @runtime_checkable
@@ -222,7 +224,7 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_create_virtual_table(
         self,
-        expr: Any,
+        expr: "CreateVirtualTableExpression",
     ) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement.
 
@@ -236,7 +238,7 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_drop_virtual_table(
         self,
-        expr: Any,
+        expr: "DropVirtualTableExpression",
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for virtual table.
 
@@ -252,7 +254,7 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_match_predicate(
         self,
-        expr: Any,
+        expr: "SQLiteFTS5MatchExpression",
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate.
 
@@ -409,7 +411,7 @@ class SQLiteFTS5Support(Protocol):
         ...
 
     def format_fts5_match_expression(
-        self, expr: Any
+        self, expr: "SQLiteFTS5MatchExpression"
     ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression."""
         ...

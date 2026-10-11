@@ -5,8 +5,22 @@ SQLite-specific Ddl Column implementation.
 This module provides the SQLiteDDLColumnMixin class.
 """
 
-from typing import Tuple
+from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+if TYPE_CHECKING:  # pragma: no cover
+    from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
+        AddColumn,
+        AddIndex,
+        DropColumn,
+        DropIndex,
+        DropTableConstraint,
+    )
+    from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+        ColumnConstraint,
+        ColumnDefinition,
+        DefaultValueClause,
+    )
 
 
 class SQLiteDDLColumnMixin:
@@ -21,21 +35,21 @@ class SQLiteDDLColumnMixin:
     def supports_drop_constraint_if_exists(self) -> bool:
         return False
 
-    def format_add_index_action(self, action) -> Tuple[str, tuple]:
+    def format_add_index_action(self, action: "AddIndex") -> Tuple[str, tuple]:
         raise UnsupportedFeatureError(
             self.name,
             "ALTER TABLE ADD INDEX",
             "SQLite does not support ALTER TABLE ADD INDEX. Use CREATE INDEX directly.",
         )
 
-    def format_drop_index_action(self, action) -> Tuple[str, tuple]:
+    def format_drop_index_action(self, action: "DropIndex") -> Tuple[str, tuple]:
         raise UnsupportedFeatureError(
             self.name,
             "ALTER TABLE DROP INDEX",
             "SQLite does not support ALTER TABLE DROP INDEX. Use DROP INDEX directly.",
         )
 
-    def format_add_column_action(self, action) -> Tuple[str, tuple]:
+    def format_add_column_action(self, action: "AddColumn") -> Tuple[str, tuple]:
         """Format ALTER TABLE ADD COLUMN for SQLite.
 
         SQLite supports ``ADD COLUMN`` but **not** the vendor extension
@@ -53,7 +67,7 @@ class SQLiteDDLColumnMixin:
             )
         return super().format_add_column_action(action)
 
-    def format_drop_column_action(self, action) -> Tuple[str, tuple]:
+    def format_drop_column_action(self, action: "DropColumn") -> Tuple[str, tuple]:
         """ALTER TABLE DROP COLUMN for SQLite.
 
         SQLite (>= 3.35.0) supports plain ``DROP COLUMN`` but **not** the
@@ -69,7 +83,7 @@ class SQLiteDDLColumnMixin:
             )
         return super().format_drop_column_action(action)
 
-    def format_drop_table_constraint_action(self, action) -> Tuple[str, tuple]:
+    def format_drop_table_constraint_action(self, action: "DropTableConstraint") -> Tuple[str, tuple]:
         """ALTER TABLE DROP CONSTRAINT for SQLite.
 
         SQLite (>= 3.53.0) supports ``DROP CONSTRAINT`` for NOT NULL and
@@ -84,22 +98,22 @@ class SQLiteDDLColumnMixin:
             )
         return super().format_drop_table_constraint_action(action)
 
-    def format_primary_key_constraint(self, constraint) -> Tuple[str, tuple]:
+    def format_primary_key_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format PRIMARY KEY constraint, optionally with AUTOINCREMENT."""
         result = " PRIMARY KEY"
         if constraint.is_auto_increment:
             result += " AUTOINCREMENT"
         return result, ()
 
-    def format_not_null_constraint(self, constraint) -> Tuple[str, tuple]:
+    def format_not_null_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format NOT NULL constraint."""
         return " NOT NULL", ()
 
-    def format_null_constraint(self, constraint) -> Tuple[str, tuple]:
+    def format_null_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format NULL constraint."""
         return " NULL", ()
 
-    def format_column_unique_constraint(self, constraint) -> Tuple[str, tuple]:
+    def format_column_unique_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format a COLUMN-level UNIQUE constraint.
 
         NOTE: deliberately named ``..._column_...`` so it cannot shadow the
@@ -109,7 +123,7 @@ class SQLiteDDLColumnMixin:
         """
         return " UNIQUE", ()
 
-    def format_default_value_clause(self, expr) -> Tuple[str, tuple]:
+    def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, tuple]:
         """Format the value clause of a DEFAULT constraint (SQLite).
 
         SQLite does not support parameterized DEFAULT in CREATE TABLE, so
@@ -124,7 +138,7 @@ class SQLiteDDLColumnMixin:
             return f"{'1' if value else '0'}", ()
         return super().format_default_value_clause(expr)
 
-    def format_check_constraint(self, constraint) -> Tuple[str, tuple]:
+    def format_check_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format CHECK constraint."""
         if constraint.check_condition is None:
             return "", ()
@@ -133,7 +147,7 @@ class SQLiteDDLColumnMixin:
         suffix = f" {enforcement}" if enforcement else ""
         return f" CHECK ({check_sql}){suffix}", check_params
 
-    def format_column_fk_constraint(self, constraint) -> Tuple[str, tuple]:
+    def format_column_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format a column-level FOREIGN KEY reference for SQLite."""
         from rhosocial.activerecord.backend.expression.statements import ReferentialAction
 
@@ -153,7 +167,7 @@ class SQLiteDDLColumnMixin:
 
         return result, ()
 
-    def format_column_definition(self, col_def) -> Tuple[str, tuple]:
+    def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
         """Format a column definition for SQLite, including generated columns support."""
         from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
 
