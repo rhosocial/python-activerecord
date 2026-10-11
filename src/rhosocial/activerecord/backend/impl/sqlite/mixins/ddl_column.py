@@ -99,29 +99,20 @@ class SQLiteDDLColumnMixin:
         return super().format_drop_table_constraint_action(action)
 
     def format_primary_key_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
-        """Format PRIMARY KEY constraint, optionally with AUTOINCREMENT."""
-        result = " PRIMARY KEY"
-        if constraint.is_auto_increment:
-            result += " AUTOINCREMENT"
-        return result, ()
+        """SQLite's PRIMARY KEY, which is where ``AUTOINCREMENT`` lives.
 
-    def format_not_null_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
-        """Format NOT NULL constraint."""
-        return " NOT NULL", ()
+        ``AUTOINCREMENT`` is part of SQLite's primary-key grammar -- it follows
+        ``PRIMARY KEY`` and nowhere else -- so it is appended here rather than
+        in the shared renderer, which knows nothing about it.
 
-    def format_null_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
-        """Format NULL constraint."""
-        return " NULL", ()
-
-    def format_column_unique_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
-        """Format a COLUMN-level UNIQUE constraint.
-
-        NOTE: deliberately named ``..._column_...`` so it cannot shadow the
-        TABLE-level ``SQLDialectBase.format_unique_constraint(t_const)``
-        defined in ``backend.dialect.mixins.ddl_column`` — the two handle
-        column-level vs table-level constraints respectively.
+        Placement is checked in :meth:`format_column_definition`, because
+        whether the column is an ``INTEGER`` is a fact only the column
+        definition holds.
         """
-        return " UNIQUE", ()
+        sql, params = super().format_primary_key_constraint(constraint)
+        if getattr(constraint, "is_auto_increment", False):
+            sql += " AUTOINCREMENT"
+        return sql, params
 
     def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, tuple]:
         """Format the value clause of a DEFAULT constraint (SQLite).
@@ -138,82 +129,70 @@ class SQLiteDDLColumnMixin:
             return f"{'1' if value else '0'}", ()
         return super().format_default_value_clause(expr)
 
-    def format_check_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
-        """Format CHECK constraint."""
-        if constraint.check_condition is None:
-            return "", ()
-        check_sql, check_params = constraint.check_condition.to_sql()
-        enforcement = self._format_constraint_enforcement(constraint)
-        suffix = f" {enforcement}" if enforcement else ""
-        return f" CHECK ({check_sql}){suffix}", check_params
-
-    def format_column_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
-        """Format a column-level FOREIGN KEY reference for SQLite."""
-        from rhosocial.activerecord.backend.expression.statements import ReferentialAction
-
-        if constraint.foreign_key_reference is None:
-            raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
-        referenced_table, referenced_columns = constraint.foreign_key_reference
-        ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-        result = f" REFERENCES {referenced_table.to_sql()[0]}({ref_cols_str})"
-
-        if constraint.on_delete is not None and constraint.on_delete != ReferentialAction.NO_ACTION:
-            result += f" ON DELETE {constraint.on_delete.value}"
-        if constraint.on_update is not None and constraint.on_update != ReferentialAction.NO_ACTION:
-            result += f" ON UPDATE {constraint.on_update.value}"
-        enforcement = self._format_constraint_enforcement(constraint)
-        if enforcement:
-            result += f" {enforcement}"
-
-        return result, ()
-
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
-        """Format a column definition for SQLite, including generated columns support."""
-        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
+        """Format a column definition for SQLite.
 
-        if col_def.comment:
-            # SQLite has no comment mechanism (neither an inline COMMENT
-            # clause nor COMMENT ON); a comment on a column definition is
-            # never silently dropped.
-            from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+        SQLite needs no column-definition grammar of its own. What it does need
+        is decided before delegating: an inline comment is refused (SQLite has
+        no column-comment mechanism at all), and ``AUTOINCREMENT`` is refused
+        anywhere but on an ``INTEGER`` primary key. Both are checked here rather
+        than in the renderer because both are facts about the column, and this
+        override is the only place that sees the column type.
+        """
+        if getattr(col_def, "comment", None):
             raise UnsupportedFeatureError(
                 self.name, "COLUMN COMMENT",
                 "SQLite has no column comment mechanism; comments are not supported.",
             )
+        self._check_auto_increment_placement(col_def)
 
-        constraint_handlers = {
-            ColumnConstraintType.PRIMARY_KEY: self.format_primary_key_constraint,
-            ColumnConstraintType.NOT_NULL: self.format_not_null_constraint,
-            ColumnConstraintType.NULL: self.format_null_constraint,
-            ColumnConstraintType.UNIQUE:
-                self.format_column_unique_constraint,
-            ColumnConstraintType.DEFAULT: self.format_default_constraint,
-            ColumnConstraintType.CHECK: self.format_check_constraint,
-            ColumnConstraintType.FOREIGN_KEY: self.format_column_fk_constraint,
-        }
+        sql, params = super().format_column_definition(col_def)
+        return sql, params
 
-        all_params = []
-        type_sql, _ = col_def.data_type.to_sql()
-        col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
+    def _check_auto_increment_placement(self, col_def: "ColumnDefinition") -> None:
+        """Refuse ``AUTOINCREMENT`` anywhere SQLite cannot spell it.
 
-        for attr in col_def.attributes or ():
-            attr_sql, attr_params = self.format_column_attribute(attr)
-            col_sql += attr_sql
-            all_params.extend(attr_params)
+        SQLite accepts ``INTEGER PRIMARY KEY AUTOINCREMENT`` and nothing else.
+        A flag on any other constraint used to be dropped without a word, which
+        left a table whose key does not autoincrement and no trace of why.
+        """
+        from rhosocial.activerecord.backend.dialect.mixins.ddl_table import (
+            normalize_column_constraint_type,
+        )
+        from rhosocial.activerecord.backend.expression.statements import (
+            ColumnConstraintType,
+        )
+        from rhosocial.activerecord.backend.expression.types.integer import (
+            IntegerType,
+        )
 
-        for constraint in col_def.constraints:
-            handler = constraint_handlers.get(constraint.constraint_type)
-            if handler:
-                sql_part, params = handler(constraint)
-                col_sql += sql_part
-                all_params.extend(params)
-
-        if col_def.generated_expression is not None:
-            gen_sql, gen_params = col_def.generated_expression.to_sql()
-            col_sql += gen_sql
-            all_params.extend(gen_params)
-
-        return col_sql, tuple(all_params)
+        flagged = [
+            constraint
+            for constraint in col_def.constraints
+            if getattr(constraint, "is_auto_increment", False)
+        ]
+        if not flagged:
+            return
+        for constraint in flagged:
+            if (
+                normalize_column_constraint_type(constraint.constraint_type)
+                is not ColumnConstraintType.PRIMARY_KEY
+            ):
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "AUTOINCREMENT on a non-primary-key column constraint",
+                    "SQLite spells AUTOINCREMENT only as part of "
+                    "INTEGER PRIMARY KEY AUTOINCREMENT; declare it on the "
+                    "primary key constraint.",
+                )
+        if not isinstance(col_def.data_type, IntegerType):
+            raise UnsupportedFeatureError(
+                self.name,
+                "AUTOINCREMENT on a non-INTEGER column",
+                f"SQLite spells AUTOINCREMENT only as part of INTEGER PRIMARY "
+                f"KEY AUTOINCREMENT, and this column is "
+                f"{type(col_def.data_type).__name__}.",
+            )
 
 
 # =============================================================================

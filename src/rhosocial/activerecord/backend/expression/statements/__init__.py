@@ -36,8 +36,12 @@ from .dml import (
 # Table DDL
 from .ddl_table import (
     ColumnConstraintType,
+    ForeignKeyMatchType,
     ColumnConstraint,
     DefaultValueClause,
+    ColumnClause,
+    CollationClause,
+    CharacterSetClause,
     IdentityClause,
     AutoIncrementClause,
     ReferencesClause,
@@ -205,8 +209,12 @@ __all__ = [
     "InsertExpression",
     # Table DDL
     "ColumnConstraintType",
+    "ForeignKeyMatchType",
     "ColumnConstraint",
     "DefaultValueClause",
+    "ColumnClause",
+    "CollationClause",
+    "CharacterSetClause",
     "IdentityClause",
     "AutoIncrementClause",
     "ReferencesClause",

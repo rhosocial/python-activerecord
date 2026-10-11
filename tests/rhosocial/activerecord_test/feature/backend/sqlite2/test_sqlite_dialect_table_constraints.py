@@ -86,7 +86,7 @@ class TestLevelSeparation:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(dialect, 
             constraint_type=ColumnConstraintType.UNIQUE)
-        sql, params = dialect.format_column_unique_constraint(constraint)
+        sql, params = dialect.format_column_constraint(constraint)
         assert sql == " UNIQUE"
         assert params == ()
 

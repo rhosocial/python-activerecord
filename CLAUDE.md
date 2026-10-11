@@ -14,8 +14,9 @@ abstraction layer. Source lives in `src/rhosocial/activerecord/`.
 
 ## Iron rules (do not skip)
 
-1. **Run tests with `PYTHONPATH=src`** (tests are not on the module path). Never run tests in
-   parallel.
+1. **Run tests with `PYTHONPATH=src`** (tests are not on the module path). Parallel execution is
+   supported and encouraged — use the invocations in `.claude/testing.md` §5, which load the
+   testsuite plugin and keep shared-state tests on the `serial` marker.
 2. **No line exceeds 120 chars**; ruff config in `pyproject.toml` (`[tool.ruff.lint]`, ignore=B024).
 3. **Expressions never concatenate SQL** — always delegate to `self.dialect.format_*()`.
 4. **Sync/async must be functionally equivalent** — same features, same method names.

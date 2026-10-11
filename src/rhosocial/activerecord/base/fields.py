@@ -398,6 +398,7 @@ class UseConstraint(DDLAnnotation):
         is_auto_increment: bool = False,
         on_delete: Optional["ReferentialAction"] = None,
         on_update: Optional["ReferentialAction"] = None,
+        match_type: Optional[Any] = None,
         deferrable: Optional[bool] = None,
         initially_deferred: Optional[bool] = None,
         enforced: Optional[bool] = None,
@@ -424,6 +425,10 @@ class UseConstraint(DDLAnnotation):
             is_auto_increment=is_auto_increment,
             on_delete=on_delete,
             on_update=on_update,
+            # A ForeignKeyMatchType or its string spelling; the constraint node
+            # keeps it as given and the dialect normalizes at render time, the
+            # same as the constraint-type fields.
+            match_type=match_type,
             # The AR-layer marker keeps its tri-state until the AR layer's
             # exposure of the split is decided (out of scope for this round);
             # translate it to the expression layer's two parameters.

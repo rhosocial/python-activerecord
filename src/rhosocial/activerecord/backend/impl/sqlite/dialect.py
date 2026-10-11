@@ -868,8 +868,20 @@ class SQLiteDialect(
         return False
 
     def supports_deferrable_constraint(self) -> bool:
-        """SQLite does not support DEFERRABLE table constraints."""
-        return False
+        """SQLite defers a foreign key to COMMIT when asked to.
+
+        Measured on 3.50.4, ``foreign_keys = ON``: with
+        ``DEFERRABLE INITIALLY DEFERRED`` a child row that violates the
+        constraint **inserts successfully** inside the transaction and the
+        ``COMMIT`` fails; ``NOT DEFERRABLE`` and ``DEFERRABLE INITIALLY
+        IMMEDIATE`` both reject at the insert. So the deferral is enforced, not
+        merely parsed.
+
+        Foreign keys only. SQLite's grammar has no deferrable form on
+        ``PRIMARY KEY``, ``UNIQUE`` or ``CHECK``, so this switch must not be
+        read as a claim about those.
+        """
+        return True
 
     def supports_constraint_enforced(self) -> bool:
         """SQLite does not support ENFORCED/NOT ENFORCED constraint control."""

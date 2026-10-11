@@ -102,6 +102,10 @@ python -m pytest tests/ -n auto --dist=loadgroup -p rhosocial.activerecord.tests
 Running `pytest -n` without the plugin still risks collisions on shared `:memory:`/named SQLite
 connections and temp files — in that case run serially.
 
+On Windows, run DB-backed scenarios in parallel with pooling disabled (`--db-pool-size 0`): the pool
+then stays off and every test takes its own unique database name, so no cross-process slot lock is
+needed. Pooled slot locking uses `fcntl`, which is POSIX-only.
+
 ## 6. Free-Threaded Python (3.13t / 3.14t)
 
 Free-threaded builds are fully supported and all tests pass. Setup:

@@ -1851,11 +1851,12 @@ class DummyDialect(
             elif constraint.constraint_type == ColumnConstraintType.CHECK:
                 if constraint.check_condition is None:
                     raise ValueError("CHECK constraint must have a check condition specified.")
-                check_sql, check_params = constraint.check_condition.to_sql()
+                # Same inline-only path as the shared implementation: DDL
+                # carries no bind parameters.
+                check_sql = self._format_ddl_check_predicate(constraint.check_condition)
                 enforcement = self._format_constraint_enforcement(constraint)
                 suffix = f" {enforcement}" if enforcement else ""
                 col_sql += f" CHECK ({check_sql}){suffix}"
-                all_params.extend(check_params)
             elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
                 if constraint.foreign_key_reference is None:
                     raise ValueError("FOREIGN KEY constraint must have a foreign key reference specified.")

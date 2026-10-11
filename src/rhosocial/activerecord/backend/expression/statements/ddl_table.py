@@ -54,6 +54,7 @@ class ColumnConstraint(BaseExpression):
         is_auto_increment: bool = False,
         on_delete: Optional["ReferentialAction"] = None,
         on_update: Optional["ReferentialAction"] = None,
+        match_type: Optional["ForeignKeyMatchType"] = None,
         deferrable: bool = False,
         not_deferrable: bool = False,
         initially_deferred: bool = False,
@@ -78,6 +79,7 @@ class ColumnConstraint(BaseExpression):
         self.is_auto_increment = is_auto_increment
         self.on_delete = on_delete
         self.on_update = on_update
+        self.match_type = match_type
         self.deferrable = deferrable
         self.not_deferrable = not_deferrable
         self.initially_deferred = initially_deferred
@@ -106,6 +108,78 @@ class DefaultValueClause(BaseExpression):
         super().__init__(dialect)
         self.value = value
 
+
+class ColumnClause(BaseExpression):
+    """Base for a clause that rides inside a column definition.
+
+    A column definition is a type followed by a sequence of clauses, and these
+    are the ones that are neither a constraint nor the type itself: collation,
+    character set, identity, auto-increment, the inline comment, a generated
+    column. They share one property -- each is a self-contained node with its
+    own grammar, so each owns its ``format_method`` and a dialect decides
+    whether it can spell it.
+
+    Naming: this is a **DDL column clause**. It is unrelated to the
+    ``ColumnBase`` family in ``expression.column_types``, which are
+    value-typed column *expressions* (``StringColumn`` and its siblings) and
+    live on the query side.
+
+    Subclassing this is what lets ``ColumnDefinition.attributes`` carry a
+    typed sequence instead of ``List[Any]``.
+
+    ``format_method`` is deliberately **not** overridden here: the base
+    ``BaseExpression`` getter already raises ``NotImplementedError`` for a class
+    that names no formatter, which is exactly what this base is. A subclass
+    declares its own.
+    """
+
+
+class CollationClause(ColumnClause):
+    """The ``COLLATE <name>`` clause of a column definition.
+
+    A DDL clause node rendered through the dialect's ``format_collation_clause``.
+    ``COLLATE`` is part of the SQL-standard column-constraint grammar, so the
+    capability defaults to True and a dialect overrides
+    :meth:`supports_column_collation` only for a version boundary.
+
+    The name is **not** validated here. Which collation names exist is a
+    catalogue question a dialect answers in its own validator (Snowflake and
+    BigQuery both require a quoted specification rather than a bare
+    identifier), so the node carries the name the caller asked for and the
+    dialect decides how to spell and whether to accept it.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_collation_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", name: str):
+        super().__init__(dialect)
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("COLLATE requires a collation name")
+        self.name = name
+
+
+class CharacterSetClause(ColumnClause):
+    """The ``CHARACTER SET <name>`` clause of a column definition.
+
+    A DDL clause node rendered through the dialect's
+    ``format_character_set_clause``. This is a MySQL/MariaDB family construct,
+    so :meth:`supports_column_character_set` defaults to False and those
+    backends (plus Firebird) opt in.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_character_set_clause"
+
+    def __init__(self, dialect: "SQLDialectBase", name: str):
+        super().__init__(dialect)
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("CHARACTER SET requires a character set name")
+        self.name = name
 
 class IdentityClause(BaseExpression):
     """The SQL-standard identity clause of a column definition.
@@ -230,7 +304,7 @@ class ReferencesClause(BaseExpression):
         *,
         on_delete: Optional["ReferentialAction"] = None,
         on_update: Optional["ReferentialAction"] = None,
-        match_type: Optional[str] = None,
+        match_type: Optional["ForeignKeyMatchType"] = None,
         deferrable: bool = False,
         not_deferrable: bool = False,
         initially_deferred: bool = False,
@@ -375,7 +449,7 @@ class ColumnDefinition(BaseExpression):
         constraints: Optional[List[ColumnConstraint]] = None,
         comment: Optional["ColumnCommentClause"] = None,
         generated_expression: Optional[GeneratedColumnExpression] = None,
-        attributes: Optional[List[Any]] = None,
+        attributes: Optional[List["ColumnClause"]] = None,
     ):
         super().__init__(dialect)
         if not isinstance(data_type, DataType):
@@ -391,7 +465,10 @@ class ColumnDefinition(BaseExpression):
         self.constraints = list(constraints or [])
         self.comment = comment
         self.generated_expression = generated_expression
-        # Dialect-free attributes are rendered by the owning backend.
+        # Column clauses, in the order they should be spelled. An AR-layer
+        # ``ColumnAttribute`` is still tolerated here because no deriver
+        # translates a model's declarations into clauses yet; the dialect
+        # adapts it at render time. See ``DDLColumnMixin._translate_ar_attribute``.
         self.attributes = list(attributes or [])
 
 
@@ -433,8 +510,39 @@ class ConstraintValidation(Enum):
     NOVALIDATE = "NOT VALID"
 
 
+class ForeignKeyMatchType(Enum):
+    """The MATCH type of a foreign key (SQL:1999).
+
+    A multi-column foreign key matches when *some* column pair matches; MATCH
+    narrows that:
+
+    - ``SIMPLE`` — the match condition holds if **any one** column matches.
+      This is the SQL default, and ``None`` on a constraint means it.
+    - ``PARTIAL`` — the match condition holds only if **all** columns match.
+    - ``FULL`` — no partial match is permitted.
+
+    ``__str__`` returns the SQL spelling rather than ``ForeignKeyMatchType.FULL``
+    because a dialect formatter may interpolate the member directly, and a
+    member that renders as its Python name would put invalid SQL on the wire.
+    """
+
+    SIMPLE = "SIMPLE"
+    PARTIAL = "PARTIAL"
+    FULL = "FULL"
+
+    def __str__(self) -> str:
+        """The SQL spelling of this match type."""
+        return self.value
+
 class TableConstraint(BaseExpression):
-    """Represents a table-level constraint clause in CREATE/ALTER TABLE."""
+    """Represents a table-level constraint clause in CREATE/ALTER TABLE.
+
+    The referential fields -- ``on_delete``, ``on_update`` and ``match_type``
+    -- live here rather than on :class:`ForeignKeyConstraint`, because a
+    formatter reading them should not have to know which class it was handed.
+    They mean nothing on a PRIMARY KEY or a CHECK, so requesting them on one is
+    accepted and simply never rendered.
+    """
 
     @property
     def format_method(self) -> str:
@@ -450,6 +558,9 @@ class TableConstraint(BaseExpression):
         check_condition: Optional["SQLPredicate"] = None,
         foreign_key_table: Optional["Table"] = None,
         foreign_key_columns: Optional[List[str]] = None,
+        on_delete: Optional["ReferentialAction"] = None,
+        on_update: Optional["ReferentialAction"] = None,
+        match_type: Optional["ForeignKeyMatchType"] = None,
         deferrable: bool = False,
         not_deferrable: bool = False,
         initially_deferred: bool = False,
@@ -473,6 +584,9 @@ class TableConstraint(BaseExpression):
         self.check_condition = check_condition
         self.foreign_key_table = foreign_key_table
         self.foreign_key_columns = foreign_key_columns
+        self.on_delete = on_delete
+        self.on_update = on_update
+        self.match_type = match_type
         self.deferrable = deferrable
         self.not_deferrable = not_deferrable
         self.initially_deferred = initially_deferred
@@ -485,7 +599,15 @@ class TableConstraint(BaseExpression):
 
 
 class ForeignKeyConstraint(TableConstraint):
-    """Specialized table constraint for foreign keys with additional options."""
+    """A table-level FOREIGN KEY, with the referential actions defaulted.
+
+    Construction sugar: the referential fields live on :class:`TableConstraint`
+    (any table constraint can name a match type), so this only fixes
+    ``constraint_type`` and gives ``on_delete``/``on_update`` the
+    ``NO ACTION`` default the SQL standard implies. A plain
+    ``TableConstraint(TableConstraintType.FOREIGN_KEY, ...)`` is equivalent
+    apart from those two defaults being ``None``, which means "not specified".
+    """
 
     @property
     def format_method(self) -> str:
@@ -500,7 +622,7 @@ class ForeignKeyConstraint(TableConstraint):
         foreign_key_columns: Optional[List[str]] = None,
         on_delete: "ReferentialAction" = ReferentialAction.NO_ACTION,
         on_update: "ReferentialAction" = ReferentialAction.NO_ACTION,
-        match_type: Optional[str] = None,
+        match_type: Optional["ForeignKeyMatchType"] = None,
         name: Optional[str] = None,
         deferrable: bool = False,
         not_deferrable: bool = False,
@@ -517,6 +639,9 @@ class ForeignKeyConstraint(TableConstraint):
             columns=columns,
             foreign_key_table=foreign_key_table,
             foreign_key_columns=foreign_key_columns,
+            on_delete=on_delete,
+            on_update=on_update,
+            match_type=match_type,
             deferrable=deferrable,
             not_deferrable=not_deferrable,
             initially_deferred=initially_deferred,
@@ -525,9 +650,6 @@ class ForeignKeyConstraint(TableConstraint):
             enforced=enforced,
             not_enforced=not_enforced,
         )
-        self.on_delete = on_delete
-        self.on_update = on_update
-        self.match_type = match_type
 
 
 class IndexDefinition(BaseExpression):

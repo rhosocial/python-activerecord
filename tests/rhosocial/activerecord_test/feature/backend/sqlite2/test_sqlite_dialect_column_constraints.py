@@ -39,7 +39,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL)
 
-        sql, params = dialect.format_not_null_constraint(constraint)
+        sql, params = dialect.format_column_constraint(constraint)
 
         assert sql == " NOT NULL"
         assert params == ()
@@ -49,7 +49,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NULL)
 
-        sql, params = dialect.format_null_constraint(constraint)
+        sql, params = dialect.format_column_constraint(constraint)
 
         assert sql == " NULL"
         assert params == ()
@@ -59,7 +59,7 @@ class TestColumnConstraintHandlers:
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(dialect, constraint_type=ColumnConstraintType.UNIQUE)
 
-        sql, params = dialect.format_column_unique_constraint(constraint)
+        sql, params = dialect.format_column_constraint(constraint)
 
         assert sql == " UNIQUE"
         assert params == ()
@@ -104,20 +104,18 @@ class TestColumnConstraintHandlers:
         mock_condition.to_sql.return_value = ("age > 0", ())
         constraint = ColumnConstraint(dialect, constraint_type=ColumnConstraintType.CHECK, check_condition=mock_condition)
 
-        sql, params = dialect.format_check_constraint(constraint)
+        sql, params = dialect.format_column_constraint(constraint)
 
         assert sql == " CHECK (age > 0)"
         assert params == ()
 
     def test_handle_check_constraint_without_condition(self):
-        """Test CHECK constraint handler without condition returns empty."""
+        """A predicate-less CHECK is reported, not silently dropped."""
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(dialect, constraint_type=ColumnConstraintType.CHECK, check_condition=None)
 
-        sql, params = dialect.format_check_constraint(constraint)
-
-        assert sql == ""
-        assert params == ()
+        with pytest.raises(ValueError, match="CHECK constraint must have a check condition"):
+            dialect.format_column_constraint(constraint)
 
     def test_handle_foreign_key_constraint(self):
         """Test FOREIGN KEY constraint handler."""
@@ -126,7 +124,7 @@ class TestColumnConstraintHandlers:
             constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dialect, "users"), ["id"])
         )
 
-        sql, params = dialect.format_column_fk_constraint(constraint)
+        sql, params = dialect.format_column_constraint(constraint)
 
         assert sql == ' REFERENCES "users"("id")'
         assert params == ()
@@ -138,7 +136,7 @@ class TestColumnConstraintHandlers:
             constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dialect, "orders"), ["user_id", "order_id"])
         )
 
-        sql, params = dialect.format_column_fk_constraint(constraint)
+        sql, params = dialect.format_column_constraint(constraint)
 
         assert sql == ' REFERENCES "orders"("user_id", "order_id")'
         assert params == ()
@@ -149,7 +147,7 @@ class TestColumnConstraintHandlers:
         constraint = ColumnConstraint(dialect, constraint_type=ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=None)
 
         with pytest.raises(ValueError, match="Foreign key constraint must have a foreign_key_reference"):
-            dialect.format_column_fk_constraint(constraint)
+            dialect.format_column_constraint(constraint)
 
 
 class TestGeneratedColumnHandler:

@@ -8,10 +8,13 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from ...expression.bases import BaseExpression, ToSQLProtocol
 from ...expression.core import Literal
 from ...expression.objects import Index, Table
-from .ddl_table import normalize_column_constraint_type, normalize_table_constraint_type
+from .ddl_table import (
+    normalize_column_constraint_type,
+    normalize_foreign_key_match_type,
+    normalize_table_constraint_type,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....base.ddl import ColumnAttribute
     from ...expression.core import Column
     from ...expression.statements.ddl_alter import (
         AddColumn,
@@ -29,6 +32,9 @@ if TYPE_CHECKING:  # pragma: no cover
         ValidateConstraint,
     )
     from ...expression.statements.ddl_table import (
+        CharacterSetClause,
+        CollationClause,
+        ColumnClause,
         ColumnCommentClause,
         ColumnConstraint,
         ColumnDefinition,
@@ -108,33 +114,84 @@ class DDLColumnMixin:
         """
         return False
 
-    def format_column_attribute(self, attr: "ColumnAttribute") -> Tuple[str, Tuple]:
-        """Render one selected column attribute as a definition fragment.
+    def format_column_attribute(self, attr: "ColumnClause") -> Tuple[str, Tuple]:
+        """Render one selected column clause as a definition fragment.
 
-        Identity reuses :meth:`IdentityColumnMixin.format_identity_clause`
-        (per-backend syntax, capability-gated); collation renders the
-        SQL-standard ``COLLATE <name>``. Backend-only kinds (or unknown kinds)
-        raise ``UnsupportedFeatureError``.
+        The subject is an expression-layer node: :class:`CollationClause`,
+        :class:`CharacterSetClause`, :class:`IdentityClause` or
+        :class:`AutoIncrementClause`. Each names its own formatter through
+        ``format_method``, so this method only has to dispatch.
 
-        Known coupling, recorded but not fixed here: ``attr`` is an AR-layer
-        ``IdentityAttribute`` because ``ColumnDefinition.attributes`` accepts
-        only AR-layer attribute objects -- passing an expression-layer
-        ``IdentityClause`` directly raises ``UnsupportedFeatureError``. This
-        reverse dependency (expression layer -> AR layer) predates the
-        identity split and removing it would touch the AR layer.
+        An AR-layer ``ColumnAttribute`` is accepted at the entrance and
+        translated before dispatch, because no deriver turns a model's
+        declarations into clauses yet -- that layer does not exist, so this is
+        currently the only route from ``UseColumnAttributes`` to SQL. The
+        translation lives in its own method so it can be deleted whole when a
+        deriver lands. It has to be here rather than in
+        :meth:`format_column_attributes` because backend
+        ``format_column_definition`` overrides call this method directly.
+        """
+        from ...expression.statements.ddl_table import (
+            CharacterSetClause,
+            CollationClause,
+        )
+        from ..exceptions import UnsupportedFeatureError
+
+        if not hasattr(attr, "format_method"):
+            original = attr
+            attr = self._translate_ar_attribute(original)
+            if attr is None:
+                raise UnsupportedFeatureError(
+                    self.name,
+                    f"COLUMN CLAUSE {type(original).__name__}",
+                    f"{self.name} cannot render this column clause; declare it "
+                    f"only on backends that support it.",
+                )
+        if isinstance(attr, CollationClause):
+            if not self.supports_column_collation():
+                raise UnsupportedFeatureError(self.name, "column-level COLLATE")
+            return self.format_collation_clause(attr)
+        if isinstance(attr, CharacterSetClause):
+            if not self.supports_column_character_set():
+                raise UnsupportedFeatureError(self.name, "column-level CHARACTER SET")
+            return self.format_character_set_clause(attr)
+        formatter = getattr(self, attr.format_method, None)
+        if formatter is None:
+            raise UnsupportedFeatureError(
+                self.name,
+                f"{type(attr).__name__} formatter",
+                f"{self.name} has no formatter for the column clause "
+                f"{type(attr).__name__}; declare it only on backends that "
+                f"support it.",
+            )
+        return formatter(attr)
+
+    def _translate_ar_attribute(self, attr: Any) -> Any:
+        """Turn an AR-layer ``ColumnAttribute`` into an expression-layer clause.
+
+        Transitional, and the reason is a missing layer rather than a
+        preference: nothing in the library turns a model's ``UseColumnAttributes``
+        declaration into column clauses, so the AR-layer objects reach
+        ``ColumnDefinition.attributes`` directly and the dialect has to accept
+        them. Once that translation layer exists it belongs there, and this
+        method goes with it.
         """
         from ....base.ddl import (
+            CharacterSetAttribute,
             CollationAttribute,
             IdentityAttribute,
         )
-        from ...expression.statements.ddl_table import IdentityClause
-        from ..exceptions import UnsupportedFeatureError
+        from ...expression.statements.ddl_table import (
+            CharacterSetClause,
+            CollationClause,
+            IdentityClause,
+        )
 
         if isinstance(attr, IdentityAttribute):
             # The AR-layer IdentityAttribute keeps its tri-state until the AR
             # layer's exposure of the split is decided (out of scope for this
             # round); translate it to the expression layer's two parameters.
-            clause = IdentityClause(
+            return IdentityClause(
                 self,
                 attr.generation,
                 start=attr.start,
@@ -144,14 +201,11 @@ class DDLColumnMixin:
                 cycle=attr.cycle is True,
                 no_cycle=attr.cycle is False,
             )
-            return self.format_identity_clause(clause)
         if isinstance(attr, CollationAttribute):
-            return f" COLLATE {attr.name}", ()
-        raise UnsupportedFeatureError(
-            self.name, f"COLUMN ATTRIBUTE {type(attr).__name__}",
-            f"{self.name} cannot render the {type(attr).__name__} column "
-            f"attribute; declare it only on backends that support it.",
-        )
+            return CollationClause(self, attr.name)
+        if isinstance(attr, CharacterSetAttribute):
+            return CharacterSetClause(self, attr.name)
+        return None
 
     def format_column(self, expr: "Column") -> Tuple[str, Tuple]:
         """Format a :class:`~...expression.core.Column`.
@@ -211,12 +265,14 @@ class DDLColumnMixin:
         return False
 
     def format_column_attributes(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
-        """Render all of a column's attributes as one definition fragment.
+        """Render all of a column's clauses as one definition fragment.
 
         Shared by the generic formatter and by backend ``format_column_definition``
-        overrides (which otherwise would not render the dialect-free
-        ``attributes`` channel). Returns the concatenated fragments with a
-        leading space each, and the accumulated parameters.
+        overrides (which otherwise would not render the ``attributes`` channel).
+        Returns the concatenated fragments with a leading space each, and the
+        accumulated parameters.
+
+        Order is the order the clauses were built in; this method does not sort.
         """
         sql = ""
         params: List[Any] = []
@@ -225,6 +281,40 @@ class DDLColumnMixin:
             sql += attr_sql
             params.extend(attr_params)
         return sql, tuple(params)
+
+    def format_collation_clause(self, clause: "CollationClause") -> Tuple[str, Tuple]:
+        """Render a column's ``COLLATE <name>`` clause.
+
+        Generic reusable implementation: ``COLLATE <name>`` with the name
+        spelled bare, which is what every backend emitted before the clause
+        became an expression node. Quoting it as an identifier would be the
+        more defensive choice, but it changes the SQL of seven backends and is
+        not this change's business. Backends that want a quoted specification
+        rather than a bare name (Snowflake, BigQuery) override this.
+
+        Args:
+            clause: The clause carrying the collation name.
+
+        Returns:
+            A ``(sql, params)`` tuple (params is always empty for DDL).
+        """
+        return f" COLLATE {clause.name}", ()
+
+    def format_character_set_clause(
+        self, clause: "CharacterSetClause"
+    ) -> Tuple[str, Tuple]:
+        """Render a column's ``CHARACTER SET <name>`` clause.
+
+        Generic reusable implementation: ``CHARACTER SET <name>`` with the name
+        spelled bare, for the same reason as :meth:`format_collation_clause`.
+
+        Args:
+            clause: The clause carrying the character set name.
+
+        Returns:
+            A ``(sql, params)`` tuple (params is always empty for DDL).
+        """
+        return f" CHARACTER SET {clause.name}", ()
 
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, Tuple]:
         """Format a column definition clause (name, type, constraints, comment).
@@ -451,16 +541,36 @@ class DDLColumnMixin:
             )
         from ...expression.statements import ColumnConstraintType
         ctype = normalize_column_constraint_type(constraint.constraint_type)
+        # Each entry pairs the rendered fragment with the dialect capability that
+        # authorises it, so no fragment can be emitted without consulting its
+        # probe. ``NULL`` carries no probe: an explicitly nullable column is
+        # part of every SQL grammar, not an optional construct.
         simple_constraints = {
-            ColumnConstraintType.PRIMARY_KEY: " PRIMARY KEY",
-            ColumnConstraintType.NOT_NULL: " NOT NULL",
-            ColumnConstraintType.NULL: " NULL",
-            ColumnConstraintType.UNIQUE: " UNIQUE",
+            ColumnConstraintType.NOT_NULL: (
+                " NOT NULL",
+                self.supports_not_null_constraint,
+                "NOT NULL column constraint",
+            ),
+            ColumnConstraintType.NULL: (" NULL", None, "NULL column constraint"),
+            ColumnConstraintType.UNIQUE: (
+                " UNIQUE",
+                self.supports_unique_constraint,
+                "UNIQUE column constraint",
+            ),
         }
         if ctype in simple_constraints:
-            if constraint.enforced or constraint.not_enforced:
+            from ..exceptions import UnsupportedFeatureError
+
+            text, probe, spelling = simple_constraints[ctype]
+            if probe is not None and not probe():
+                raise UnsupportedFeatureError(self.name, spelling)
+            if getattr(constraint, "enforced", False) or getattr(
+                constraint, "not_enforced", False
+            ):
                 self._format_constraint_enforcement(constraint)
-            return simple_constraints[ctype], ()
+            return text, ()
+        if ctype == ColumnConstraintType.PRIMARY_KEY:
+            return self.format_primary_key_constraint(constraint)
         if ctype == ColumnConstraintType.DEFAULT:
             if constraint.enforced or constraint.not_enforced:
                 self._format_constraint_enforcement(constraint)
@@ -471,6 +581,34 @@ class DDLColumnMixin:
             return self.format_column_fk_constraint(constraint)
         raise ValueError(f"Unsupported column constraint type: {ctype.value}")
 
+    def format_primary_key_constraint(
+        self, constraint: "ColumnConstraint"
+    ) -> Tuple[str, Tuple]:
+        """Format a column-level ``PRIMARY KEY``.
+
+        Split out of the simple-constraint dispatch because a dialect may add
+        to the primary-key clause itself: SQLite spells ``AUTOINCREMENT`` as
+        part of this grammar and nowhere else.
+
+        Args:
+            constraint: The constraint to render.
+
+        Returns:
+            A ``(sql, params)`` tuple with a leading space.
+
+        Raises:
+            UnsupportedFeatureError: The dialect has no primary keys.
+        """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_primary_key_constraint():
+            raise UnsupportedFeatureError(self.name, "PRIMARY KEY column constraint")
+        if getattr(constraint, "enforced", False) or getattr(
+            constraint, "not_enforced", False
+        ):
+            self._format_constraint_enforcement(constraint)
+        return " PRIMARY KEY", ()
+
     def format_column_check_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
         """Format a column-level ``CHECK`` constraint.
 
@@ -479,9 +617,18 @@ class DDLColumnMixin:
 
         Returns:
             A ``(sql, params)`` tuple with a leading space.
+
+        Raises:
+            ValueError: ``check_condition`` is ``None``. A ``CHECK`` with no
+                predicate renders nothing at all, which silently drops the
+                constraint instead of reporting it.
         """
+        from ..exceptions import UnsupportedFeatureError
+
+        if not self.supports_check_constraint():
+            raise UnsupportedFeatureError(self.name, "CHECK column constraint")
         if constraint.check_condition is None:
-            return "", ()
+            raise ValueError("CHECK constraint must have a check condition specified.")
         check_sql = self._format_ddl_check_predicate(constraint.check_condition)
         enforcement = self._format_constraint_enforcement(constraint)
         suffix = f" {enforcement}" if enforcement else ""
@@ -570,21 +717,14 @@ class DDLColumnMixin:
         ref_cols_str = ", ".join(self.format_identifier(col) for col in expr.referenced_columns)
         result = f"REFERENCES {expr.referenced_table.to_sql()[0]}({ref_cols_str})"
         if expr.match_type is not None:
-            if not isinstance(expr.match_type, str):
-                raise ValueError("FOREIGN KEY MATCH type must be a string")
-            match_type = " ".join(expr.match_type.strip().upper().split())
-            if match_type not in {"SIMPLE", "PARTIAL", "FULL"}:
-                raise ValueError(
-                    f"Invalid MATCH type '{expr.match_type}'. "
-                    "Must be one of: FULL, PARTIAL, SIMPLE"
-                )
+            match_type = normalize_foreign_key_match_type(expr.match_type)
             if not self.supports_fk_match():
                 from ..exceptions import UnsupportedFeatureError
                 raise UnsupportedFeatureError(
                     self.name, "FOREIGN KEY MATCH",
                     f"{self.name} does not support MATCH for foreign keys."
                 )
-            result += f" MATCH {match_type}"
+            result += f" MATCH {match_type.value}"
         on_delete = (
             self._referential_action_value(expr.on_delete)
             if expr.on_delete is not None
@@ -611,11 +751,24 @@ class DDLColumnMixin:
                     f"{self.name} does not support ON UPDATE for foreign keys."
                 )
             result += f" ON UPDATE {on_update}"
-        if expr.deferrable or expr.not_deferrable:
-            result += " DEFERRABLE" if expr.deferrable else " NOT DEFERRABLE"
         # INITIALLY ... is an independent constraint attribute in the SQL
         # grammar (PostgreSQL accepts it alone), so it is rendered whenever it
-        # was requested rather than dropped when DEFERRABLE is absent.
+        # was requested rather than dropped when DEFERRABLE is absent. Both
+        # spellings are authorised by the same capability.
+        has_deferral = (
+            expr.deferrable
+            or expr.not_deferrable
+            or expr.initially_deferred
+            or expr.initially_immediate
+        )
+        if has_deferral and not self.supports_deferrable_constraint():
+            from ..exceptions import UnsupportedFeatureError
+
+            raise UnsupportedFeatureError(
+                self.name, "DEFERRABLE / INITIALLY clause on a foreign key"
+            )
+        if expr.deferrable or expr.not_deferrable:
+            result += " DEFERRABLE" if expr.deferrable else " NOT DEFERRABLE"
         if expr.initially_deferred or expr.initially_immediate:
             result += (
                 " INITIALLY DEFERRED"
@@ -658,7 +811,16 @@ class DDLColumnMixin:
 
         Raises:
             ValueError: If ``foreign_key_reference`` is ``None``.
+            UnsupportedFeatureError: If the dialect has no foreign keys.
         """
+        from ..exceptions import UnsupportedFeatureError
+
+        # Known coupling: this is the table-level probe reused for the
+        # column-level grammar. A dialect whose *column* REFERENCES clause is
+        # unusable while its table-level FOREIGN KEY works (SQL Server) cannot
+        # be expressed until the two levels get separate probes.
+        if not self.supports_foreign_key_constraint():
+            raise UnsupportedFeatureError(self.name, "REFERENCES column constraint")
         if constraint.foreign_key_reference is None:
             raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
         referenced_table, referenced_columns = constraint.foreign_key_reference
@@ -669,6 +831,7 @@ class DDLColumnMixin:
             referenced_columns,
             on_delete=constraint.on_delete,
             on_update=constraint.on_update,
+            match_type=constraint.match_type,
             deferrable=constraint.deferrable,
             not_deferrable=constraint.not_deferrable,
             initially_deferred=constraint.initially_deferred,
@@ -751,21 +914,14 @@ class DDLColumnMixin:
         if not t_const.foreign_key_table:
             raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
         cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-        from ...expression.statements import ForeignKeyConstraint
         from ...expression.statements.ddl_table import ReferencesClause
-        if isinstance(t_const, ForeignKeyConstraint):
-            on_delete = t_const.on_delete
-            on_update = t_const.on_update
-            match_type = t_const.match_type
-        else:
-            on_delete = on_update = match_type = None
         references = ReferencesClause(
             self,
             t_const.foreign_key_table,
             list(t_const.foreign_key_columns),
-            on_delete=on_delete,
-            on_update=on_update,
-            match_type=match_type,
+            on_delete=t_const.on_delete,
+            on_update=t_const.on_update,
+            match_type=t_const.match_type,
             deferrable=t_const.deferrable,
             not_deferrable=t_const.not_deferrable,
             initially_deferred=t_const.initially_deferred,

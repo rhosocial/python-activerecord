@@ -46,6 +46,25 @@ def normalize_table_constraint_type(constraint_type: Any) -> Any:
     )
 
 
+def normalize_foreign_key_match_type(match_type: Any) -> Any:
+    """Return the :class:`ForeignKeyMatchType` for ``match_type``.
+
+    ``None`` passes through: a constraint that names no MATCH type is asking for
+    the SQL default, which is not the same as asking for ``SIMPLE`` explicitly
+    (a dialect may spell the default and the explicit form differently, or
+    refuse one of them).
+    """
+    from ...expression.statements.ddl_table import ForeignKeyMatchType
+
+    if match_type is None:
+        return None
+    return _normalize_constraint_type(
+        match_type,
+        ForeignKeyMatchType,
+        "foreign key MATCH type",
+    )
+
+
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
         CreateTableExpression,

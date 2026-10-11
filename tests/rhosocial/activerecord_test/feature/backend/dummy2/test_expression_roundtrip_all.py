@@ -753,6 +753,11 @@ LEGITIMATE_NON_RENDERS = {
     "rhosocial.activerecord.backend.expression.bases.SQLValueExpression": (
         NotImplementedError, _NO_FORMATTER
     ),
+    # The column-definition clause base. Its subclasses each name their own
+    # formatter; the base names only what every column clause has in common.
+    "rhosocial.activerecord.backend.expression.statements.ddl_table.ColumnClause": (
+        NotImplementedError, _NO_FORMATTER
+    ),
     # The roots of the object tree. Each concrete object overrides `format_method`
     # with its own `format_*_object`; the base names only what every catalogue
     # object has in common.
