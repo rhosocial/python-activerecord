@@ -11,6 +11,7 @@ from ...expression.objects import Index, Table
 from .ddl_table import normalize_column_constraint_type, normalize_table_constraint_type
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ....base.ddl import ColumnAttribute
     from ...expression.core import Column
     from ...expression.statements.ddl_alter import (
         AddColumn,
@@ -28,9 +29,11 @@ if TYPE_CHECKING:  # pragma: no cover
         ValidateConstraint,
     )
     from ...expression.statements.ddl_table import (
+        ColumnCommentClause,
         ColumnConstraint,
         ColumnDefinition,
         DefaultValueClause,
+        GeneratedColumnExpression,
         IndexDefinition,
         ReferencesClause,
         StorageOptionsExpression,
@@ -57,7 +60,7 @@ class DDLColumnMixin:
         """Whether COLUMN COMMENT is supported (defaults to False)."""
         return False
 
-    def format_column_comment_clause(self, clause) -> Tuple[str, tuple]:
+    def format_column_comment_clause(self, clause: "ColumnCommentClause") -> Tuple[str, tuple]:
         """Render the inline ``COMMENT '<text>'`` column clause.
 
         Generic reusable implementation: ``COMMENT '<escaped>'`` with a
@@ -105,7 +108,7 @@ class DDLColumnMixin:
         """
         return False
 
-    def format_column_attribute(self, attr: "Any") -> Tuple[str, Tuple]:
+    def format_column_attribute(self, attr: "ColumnAttribute") -> Tuple[str, Tuple]:
         """Render one selected column attribute as a definition fragment.
 
         Identity reuses :meth:`IdentityColumnMixin.format_identity_clause`
@@ -256,7 +259,7 @@ class DDLColumnMixin:
             all_params.extend(comment_params)
         return col_sql, tuple(all_params)
 
-    def format_generated_column_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_generated_column_expression(self, expr: "GeneratedColumnExpression") -> Tuple[str, Tuple]:
         """Format a :class:`~...statements.ddl_table.GeneratedColumnExpression`.
 
         Renders ``GENERATED ALWAYS AS (<expr>) STORED|VIRTUAL`` and delegates

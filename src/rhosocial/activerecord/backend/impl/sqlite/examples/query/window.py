@@ -78,11 +78,11 @@ for row in sales_data:
 from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     Column,
+    FunctionCall,
     OrderByClause,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.advanced_functions import (  # noqa: E402
-    WindowFunctionCall,
     WindowSpecification,
 )
 from .....expression.objects import Table
@@ -93,9 +93,9 @@ window_spec = WindowSpecification(
     order_by="sale_date",
 )
 
-window_func = WindowFunctionCall(
+window_func = FunctionCall(
     dialect,
-    function_name="ROW_NUMBER",
+    "ROW_NUMBER",
     window_spec=window_spec,
     alias="row_num",
 )

@@ -113,12 +113,13 @@ The PostgreSQL dialect automatically uses the `::` syntax to generate more conci
 
 Window functions perform calculations across a set of table rows that are somehow related to the current row.
 
-### WindowFunctionCall
+### FunctionCall with OVER
 
-Represents a call to a window function (e.g., `ROW_NUMBER() OVER (...)`).
+A window function call is a `FunctionCall` carrying a `window_spec`: attach
+it fluently with `.over(...)`, or pass `window_spec=` at construction.
 
 ```python
-from rhosocial.activerecord.backend.expression import WindowFunctionCall, WindowSpecification, Column, Literal
+from rhosocial.activerecord.backend.expression import FunctionCall, WindowSpecification, Column, Literal
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 
 # Define Window Specification
@@ -128,13 +129,8 @@ window_spec = WindowSpecification(
     order_by=OrderByClause(dialect, [(Column(dialect, "salary"), "DESC")])
 )
 
-# Create Window Function Call
-window_func = WindowFunctionCall(
-    dialect,
-    function_name="ROW_NUMBER",
-    window_spec=window_spec,
-    alias="row_num"
-)
+# Create Window Function Call and attach the window specification
+window_func = FunctionCall(dialect, "ROW_NUMBER").over(window_spec).as_("row_num")
 
 sql, params = window_func.to_sql()
 # sql: 'ROW_NUMBER() OVER (PARTITION BY "department" ORDER BY "salary" DESC) AS "row_num"'
@@ -231,16 +227,26 @@ sql, params = intersect_op.to_sql()
 
 Expressions for working with JSON data.
 
-### JSONExpression
+### JSONDocumentExpression / JSONTextExpression
 
-Represents JSON path extraction or operations.
+Represents JSON path extraction. The operator picks the class: ``->``
+yields a document and is a ``JSONDocumentExpression``, ``->>`` yields text and
+is a ``JSONTextExpression``. Two classes rather than one class with a spelling
+parameter, because the two results are different kinds of value -- a document
+can be indexed into again, text cannot.
 
 ```python
-from rhosocial.activerecord.backend.expression import JSONExpression, Column
+from rhosocial.activerecord.backend.expression import (
+    JSONDocumentExpression,
+    JSONTextExpression,
+)
 
 col = Column(dialect, "data")
-# Extract value from JSON path
-json_extract = JSONExpression(dialect, col, "$.user.name", operation="->>")
+# Extract value from JSON path as text
+json_extract = JSONTextExpression(dialect, col, "$.user.name", operation="->>")
+
+# A nested path is still a document, so it can be walked further
+nested = JSONDocumentExpression(dialect, col, "$.user", operation="->")
 
 sql, params = json_extract.to_sql()
 # sql: '"data"->>?', or dialect-specific equivalent like 'JSON_EXTRACT("data", ?)'

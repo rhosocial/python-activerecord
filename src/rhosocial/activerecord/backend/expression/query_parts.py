@@ -309,11 +309,7 @@ class QualifyClause(BaseExpression):
             partition_by=[Column(dialect, "department")],
             order_by=[(Column(dialect, "salary"), "DESC")]
         )
-        rank_func = WindowFunctionCall(
-            dialect,
-            function_name="ROW_NUMBER",
-            window_spec=window_spec
-        )
+        rank_func = FunctionCall(dialect, "ROW_NUMBER", window_spec=window_spec)
 
         qualify_clause = QualifyClause(
             dialect,

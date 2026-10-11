@@ -208,7 +208,7 @@ class TestAlterTableAddConstraint:
         # Add CHECK constraint: email IS NOT NULL
         add_constraint = AddTableConstraint(
             backend_with_users.dialect,
-            constraint=TableConstraint(dialect, 
+            constraint=TableConstraint(backend_with_users.dialect,
                 constraint_type=TableConstraintType.CHECK,
                 check_condition=Column(
                     backend_with_users.dialect, "email"

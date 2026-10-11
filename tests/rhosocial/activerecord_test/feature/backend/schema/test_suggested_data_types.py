@@ -9,6 +9,27 @@ Covers:
 - Honesty: no self-suggestion; a fully-capable dummy dialect suggests nothing
 - Contract invariant: suggested keys and supported keys are disjoint
 - DataTypeMixin base default returns {}
+
+For backend authors — how to verify your own coverage
+-----------------------------------------------------
+Concept coverage (D9) is **per dialect and deliberately not audited from
+core**: this file checks the mechanism (value types, key namespaces,
+disjointness, honesty), not any backend's completeness — backends differ
+too much for one shared shape.  Each backend should keep its own coverage
+test that walks the core concepts (**discovered, not listed**, so a
+concept added to core later cannot slip past a stale list) and asserts:
+
+- every concept is rendered or suggested — silence is not an answer
+  (a concept that is neither reaches the caller as a bare TypeError with
+  no route forward);
+- rendered and suggested keys are disjoint;
+- every substitute actually renders on the dialect;
+- every suggested key still names an existing concept, so a core rename
+  cannot leave dead entries.
+
+BigQuery's ``test_every_core_concept_is_declared`` is the pattern to
+copy.  The full statement of the rule lives on the ``DataTypeSupport``
+protocol (:mod:`...dialect.protocols.query.data_type`).
 """
 
 import re

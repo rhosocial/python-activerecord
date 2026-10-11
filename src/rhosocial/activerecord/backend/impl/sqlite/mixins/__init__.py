@@ -24,6 +24,7 @@ from .fts5 import SQLiteFTS5Mixin
 from .rtree import SQLiteRTreeMixin
 from .geopoly import SQLiteGeopolyMixin
 from .types import SQLiteTypeSupportMixin
+from .column_type import SQLiteColumnTypeMixin
 
 __all__ = [
     'SQLiteExtensionMixin',
@@ -44,4 +45,5 @@ __all__ = [
     'SQLiteRTreeMixin',
     'SQLiteGeopolyMixin',
     'SQLiteTypeSupportMixin',
+    'SQLiteColumnTypeMixin',
 ]

@@ -280,7 +280,7 @@ JSONTableExpression(
 - **Type Safety**: Type checkers can verify the interface signature
 - **Backward Compatible**: Adding options doesn't break existing implementations
 
-After mixing in a protocol, verify the corresponding formatting methods. For example, if you mix in `WindowFunctionMixin`, check `format_window_function_call` in the mixin/base class.
+After mixing in a protocol, verify the corresponding formatting methods. For example, if you mix in `WindowFunctionMixin`, check `format_window_specification` in the mixin/base class; the `OVER (...)` clause itself is assembled by `format_function_call`, which every function call goes through.
 
 *   If your database follows standard SQL (e.g., `OVER (...)`), the default implementation works.
 *   If it differs, override that specific method.

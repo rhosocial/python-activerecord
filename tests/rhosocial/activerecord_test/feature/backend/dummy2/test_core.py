@@ -4,7 +4,7 @@ Tests for the core SQL expression components in core.py
 """
 
 import pytest
-from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery
+from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, ComparisonPredicate
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.objects import Table
@@ -170,7 +170,10 @@ class TestSubquery:
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
             where=WhereClause(
-                dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "pending")
+                dummy_dialect,
+        condition=ComparisonPredicate(
+                    dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "pending"),
+                ),
             ),
         )
 

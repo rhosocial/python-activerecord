@@ -80,7 +80,7 @@
 | `tuple` | object | 使用 `__tuple__` 标记 |
 | `BaseExpression` | object | 使用 `__expr__` 标记 |
 | `set` | - | 不支持，需转为 list |
-| 其他自定义对象 | - | 需在 `get_params()` 中处理 |
+| 其他自定义对象 | object | 通过已注册的 `__value__` codec 编码，或在 `__init__` 中转换 |
 
 ## 序列化流程
 

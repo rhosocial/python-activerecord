@@ -12,6 +12,7 @@ from rhosocial.activerecord.backend.expression import (
     UpdateExpression,
     DeleteExpression,
     Column,
+    ComparisonPredicate,
     Literal,
     WhereClause,
     ReturningClause,
@@ -82,7 +83,7 @@ def update_order_status(dialect, order_id: int, new_status: str):
         assignments={"status": Literal(dialect, new_status)},
         where=WhereClause(
             dialect,
-            condition=Column(dialect, "id") == Literal(dialect, order_id),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, order_id)),
         ),
     )
 
@@ -102,7 +103,7 @@ def cancel_order(dialect, order_id: int):
         tables=Table(dialect, 'orders'),
         where=WhereClause(
             dialect,
-            condition=Column(dialect, "id") == Literal(dialect, order_id),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, order_id)),
         ),
     )
 
@@ -154,6 +155,6 @@ def archive_processed_orders(dialect, status: str = "completed"):
         tables=Table(dialect, 'orders'),
         where=WhereClause(
             dialect,
-            condition=Column(dialect, "status") == Literal(dialect, status),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, status)),
         ),
     )

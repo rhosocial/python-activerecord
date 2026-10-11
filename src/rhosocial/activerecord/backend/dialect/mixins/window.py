@@ -1,8 +1,11 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/window.py
 """Window function and WINDOW clause formatting for the dialect layer.
 
-Provides capability probes and SQL rendering for window function calls,
-window specifications, frames, and named window definitions.
+Provides capability probes and SQL rendering for window specifications,
+frames, and named window definitions. Function *calls* with an ``OVER``
+clause are rendered by :meth:`FunctionCallMixin.format_function_call`, which
+composes this module's specification formatters; there is no separate
+window-call formatter.
 """
 from typing import Tuple, TYPE_CHECKING
 
@@ -11,7 +14,6 @@ from ...expression import bases
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.advanced_functions import (
-        WindowFunctionCall,
         WindowSpecification,
         WindowFrameSpecification,
         WindowClause,
@@ -35,58 +37,6 @@ class WindowFunctionMixin:
         Defaults to False; dialects that support them override this.
         """
         return False
-
-    def format_window_function_call(self, call: "WindowFunctionCall") -> Tuple[str, tuple]:
-        """Format a window function call.
-
-        Args:
-            call: WindowFunctionCall exposing ``args``, ``function_name``,
-                ``window_spec``, and ``alias``.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple).
-
-        Raises:
-            UnsupportedFeatureError: If window functions are unsupported.
-        """
-        if not self.supports_window_functions():
-            raise UnsupportedFeatureError(self.name, "window functions")
-
-        all_params = []
-
-        # Format function arguments
-        arg_parts = []
-        for arg in call.args:
-            if isinstance(arg, bases.BaseExpression):
-                arg_sql, arg_params = arg.to_sql()
-                arg_parts.append(arg_sql)
-                all_params.extend(arg_params)
-            else:
-                # Literal value
-                arg_parts.append(self.get_parameter_placeholder())
-                all_params.append(arg)
-
-        func_sql = f"{call.function_name}({', '.join(arg_parts)})"
-
-        if call.window_spec is None:
-            # No window specification
-            sql = func_sql
-        else:
-            if isinstance(call.window_spec, str):
-                # Reference to named window
-                window_part = self.format_identifier(call.window_spec)
-            else:
-                # Inline window specification
-                window_spec_sql, window_spec_params = self.format_window_specification(call.window_spec)
-                window_part = f"({window_spec_sql})" if window_spec_sql else "()"
-                all_params.extend(window_spec_params)
-
-            sql = f"{func_sql} OVER {window_part}"
-
-        if call.alias:
-            sql = f"{sql} AS {self.format_identifier(call.alias)}"
-
-        return sql, tuple(all_params)
 
     def format_window_specification(self, spec: "WindowSpecification") -> Tuple[str, tuple]:
         """Format a window specification (PARTITION BY / ORDER BY / frame).

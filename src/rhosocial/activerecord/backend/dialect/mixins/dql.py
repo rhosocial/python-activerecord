@@ -10,6 +10,7 @@ from typing import Any, List, Tuple, TYPE_CHECKING
 from ...expression.bases import ToSQLProtocol
 
 if TYPE_CHECKING:
+    from ...expression import bases
     from ...expression.statements.dql import QueryExpression
     from ...expression.query_parts import (
         ForUpdateClause,
@@ -468,7 +469,7 @@ class DQLMixin:
         """Whether GROUPING SETS are supported. Defaults to False."""
         return False
 
-    def format_grouping_clause(self, expr: Any) -> Tuple[str, tuple]:
+    def format_grouping_clause(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format a grouping expression (ROLLUP, CUBE, or GROUPING SETS).
 
         Args:

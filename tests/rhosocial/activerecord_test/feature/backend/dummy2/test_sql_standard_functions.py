@@ -9,7 +9,7 @@ This test file covers:
 - User functions: current_user, session_user, system_user
 """
 
-from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.functions import (
     mod,
     sign,
@@ -38,7 +38,7 @@ class TestSQLStandardMathFunctions:
 
     def test_mod_function_basic(self, dummy_dialect: DummyDialect):
         """Test MOD function with basic values."""
-        func = mod(dummy_dialect, 10, 3)
+        func = mod(dummy_dialect, Literal(dummy_dialect, 10), Literal(dummy_dialect, 3))
         sql, params = func.to_sql()
         assert "MOD(" in sql
         assert params == (10, 3)
@@ -54,21 +54,21 @@ class TestSQLStandardMathFunctions:
 
     def test_sign_function_positive(self, dummy_dialect: DummyDialect):
         """Test SIGN function with positive number."""
-        func = sign(dummy_dialect, 42)
+        func = sign(dummy_dialect, Literal(dummy_dialect, 42))
         sql, params = func.to_sql()
         assert "SIGN(" in sql
         assert params == (42,)
 
     def test_sign_function_negative(self, dummy_dialect: DummyDialect):
         """Test SIGN function with negative number."""
-        func = sign(dummy_dialect, -10)
+        func = sign(dummy_dialect, Literal(dummy_dialect, -10))
         sql, params = func.to_sql()
         assert "SIGN(" in sql
         assert params == (-10,)
 
     def test_sign_function_zero(self, dummy_dialect: DummyDialect):
         """Test SIGN function with zero."""
-        func = sign(dummy_dialect, 0)
+        func = sign(dummy_dialect, Literal(dummy_dialect, 0))
         sql, params = func.to_sql()
         assert "SIGN(" in sql
         assert params == (0,)
@@ -83,14 +83,14 @@ class TestSQLStandardMathFunctions:
 
     def test_truncate_function_basic(self, dummy_dialect: DummyDialect):
         """Test TRUNCATE function without precision."""
-        func = truncate(dummy_dialect, 3.14159)
+        func = truncate(dummy_dialect, Literal(dummy_dialect, 3.14159))
         sql, params = func.to_sql()
         assert "TRUNCATE(" in sql
         assert params == (3.14159,)
 
     def test_truncate_function_with_precision(self, dummy_dialect: DummyDialect):
         """Test TRUNCATE function with precision."""
-        func = truncate(dummy_dialect, 3.14159, 2)
+        func = truncate(dummy_dialect, Literal(dummy_dialect, 3.14159), Literal(dummy_dialect, 2))
         sql, params = func.to_sql()
         assert "TRUNCATE(" in sql
         assert params == (3.14159, 2)
@@ -98,7 +98,7 @@ class TestSQLStandardMathFunctions:
     def test_truncate_function_with_column(self, dummy_dialect: DummyDialect):
         """Test TRUNCATE function with column."""
         col = Column(dummy_dialect, "price")
-        func = truncate(dummy_dialect, col, 2)
+        func = truncate(dummy_dialect, col, Literal(dummy_dialect, 2))
         sql, params = func.to_sql()
         assert "TRUNCATE(" in sql
         assert params == (2,)
@@ -287,7 +287,7 @@ class TestSQLStandardDateTimeFunctions:
 
     def test_extract_function_with_column_name(self, dummy_dialect: DummyDialect):
         """Test EXTRACT function with a column name."""
-        func = extract(dummy_dialect, "MONTH", "created_at")
+        func = extract(dummy_dialect, "MONTH", Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert sql == 'EXTRACT(MONTH FROM "created_at")'
         assert params == ()

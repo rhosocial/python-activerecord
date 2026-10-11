@@ -8,13 +8,15 @@ method and holds construction parameters. Rendering is centralized in
 dialect through the subtree, and hands it to the declared formatter.
 """
 
-from typing import Optional, TYPE_CHECKING
-from .bases import BaseExpression, SQLPredicate, SQLValueExpression
+from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
-    StringMixin,
+    NumericValueMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
     TypeCastingMixin,
 )
 
@@ -51,6 +53,44 @@ class BinaryExpression(BaseExpression):
         self.right = right
 
 
+class StringConcatExpression(
+    AliasableMixin,
+    ComparisonMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
+    BinaryExpression,
+):
+
+    """String concatenation, stated as an intent rather than an operator.
+
+    ``||`` is the SQL standard's concatenation operator and PostgreSQL,
+    Oracle, Snowflake, Firebird and ClickHouse all read it that way. MySQL and
+    MariaDB read it as logical OR unless the server runs with
+    ``PIPES_AS_CONCAT``, and SQL Server reads it as logical OR outright, so
+    emitting ``a || b`` there yields a boolean where a string was meant — a
+    wrong answer rather than a syntax error, which is the worst kind.
+
+    Carrying the intent on the node lets each dialect pick its own spelling:
+    :meth:`format_string_concatenation` emits ``a || b`` by default and
+    ``CONCAT(a, b)`` where ``||`` means something else. Passing a bare ``||``
+    through :class:`BinaryExpression` cannot work, because the token alone does
+    not say which of the two meanings was meant.
+
+    This is not the path for logical OR. That goes through
+    :class:`~...expression.predicates.LogicalPredicate`, which has its own
+    formatter, so the two never meet.
+
+    The result is a string, so it carries the string value surface and the
+    chain continues: ``col.concat_using_operator(other).upper()`` is
+    ``UPPER(col || other)``.
+    """
+
+    def __init__(
+        self, dialect: "SQLDialectBase", left: "BaseExpression", right: "BaseExpression"
+    ):
+        super().__init__(dialect, "||", left, right)
+
+
 class UnaryExpression(BaseExpression):
     """Represents a unary SQL operation."""
 
@@ -66,7 +106,7 @@ class UnaryExpression(BaseExpression):
         self.pos = pos
 
 
-class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringMixin, SQLValueExpression):
+class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, SQLValueExpression):
     """Represents a raw SQL expression string that is directly embedded.
 
     Note: This class should be used with caution. It bypasses the normal expression
@@ -119,7 +159,8 @@ class RawSQLPredicate(SQLPredicate):
 
 
 class BinaryArithmeticExpression(
-    AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValueExpression
+    AliasableMixin, ArithmeticMixin, NumericValueMixin, ComparisonMixin,
+    TypeCastingMixin, SQLValueExpression
 ):
     """Represents a binary arithmetic operation."""
 

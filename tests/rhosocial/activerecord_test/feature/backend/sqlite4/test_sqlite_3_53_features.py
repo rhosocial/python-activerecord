@@ -10,6 +10,7 @@ This module tests features added in SQLite 3.53.0:
 
 import pytest
 
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexExpression
 from rhosocial.activerecord.backend.impl.sqlite.functions.json import (
@@ -140,7 +141,7 @@ class TestJsonArrayInsertFunction:
     def test_json_array_insert_basic(self):
         """Test basic json_array_insert function call."""
         dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = json_array_insert(dialect, "data", "new_value")
+        expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
         assert len(params) == 3  # json_array, default path '$', and value are parameterized
@@ -148,7 +149,7 @@ class TestJsonArrayInsertFunction:
     def test_json_array_insert_with_position(self):
         """Test json_array_insert with position parameter."""
         dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = json_array_insert(dialect, "data", "new_value", position=0)
+        expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"), position=0)
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
         assert len(params) == 3  # json_array, value, and position are parameterized
@@ -160,6 +161,20 @@ class TestJsonArrayInsertFunction:
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
 
+    def test_json_array_insert_below_the_floor_refuses(self):
+        """Building the node is not the problem -- rendering it on a 3.52.0
+        dialect is. The floor is a gate: refusing names the function, the floor
+        and the version in force, so the caller can tell an old server from a
+        wrong spelling."""
+        dialect = SQLiteDialect(version=(3, 52, 0))
+        expr = json_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
+        with pytest.raises(UnsupportedFeatureError) as excinfo:
+            expr.to_sql()
+        message = str(excinfo.value)
+        assert "JSON_ARRAY_INSERT" in message
+        assert "3.53.0" in message
+        assert "3.52.0" in message
+
 
 class TestJsonbArrayInsertFunction:
     """Tests for jsonb_array_insert() function factory."""
@@ -167,7 +182,7 @@ class TestJsonbArrayInsertFunction:
     def test_jsonb_array_insert_basic(self):
         """Test basic jsonb_array_insert function call."""
         dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = jsonb_array_insert(dialect, "data", "new_value")
+        expr = jsonb_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"))
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
         assert len(params) == 3  # jsonb_array, default path '$', and value are parameterized
@@ -175,7 +190,7 @@ class TestJsonbArrayInsertFunction:
     def test_jsonb_array_insert_with_position(self):
         """Test jsonb_array_insert with position parameter."""
         dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = jsonb_array_insert(dialect, "data", "new_value", position=2)
+        expr = jsonb_array_insert(dialect, Literal(dialect, "data"), Literal(dialect, "new_value"), position=2)
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
         assert len(params) == 3  # jsonb_array, value, and position are parameterized

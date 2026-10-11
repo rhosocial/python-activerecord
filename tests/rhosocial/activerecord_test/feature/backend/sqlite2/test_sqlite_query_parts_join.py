@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_query_parts_join.py
 import pytest
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -18,7 +18,12 @@ class TestSQLiteJoinClause:
             left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"), alias="u"),
             right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders"), alias="o"),
             join_type="INNER JOIN",
-            condition=Column(sqlite_dialect_3_8_0, "id", "u") == Column(sqlite_dialect_3_8_0, "user_id", "o"),
+            condition=ComparisonPredicate(
+                sqlite_dialect_3_8_0,
+                "=",
+                Column(sqlite_dialect_3_8_0, "id", "u"),
+                Column(sqlite_dialect_3_8_0, "user_id", "o"),
+            ),
         )
         sql, params = join_expr.to_sql()
         assert sql == '"users" AS "u" INNER JOIN "orders" AS "o" ON "u"."id" = "o"."user_id"'
@@ -31,7 +36,12 @@ class TestSQLiteJoinClause:
             left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"), alias="u"),
             right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders"), alias="o"),
             join_type="LEFT JOIN",
-            condition=Column(sqlite_dialect_3_8_0, "id", "u") == Column(sqlite_dialect_3_8_0, "user_id", "o"),
+            condition=ComparisonPredicate(
+                sqlite_dialect_3_8_0,
+                "=",
+                Column(sqlite_dialect_3_8_0, "id", "u"),
+                Column(sqlite_dialect_3_8_0, "user_id", "o"),
+            ),
         )
         sql, params = join_expr.to_sql()
         assert sql == '"users" AS "u" LEFT JOIN "orders" AS "o" ON "u"."id" = "o"."user_id"'
@@ -44,7 +54,12 @@ class TestSQLiteJoinClause:
             left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"), alias="u"),
             right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders"), alias="o"),
             join_type="LEFT OUTER JOIN",
-            condition=Column(sqlite_dialect_3_8_0, "id", "u") == Column(sqlite_dialect_3_8_0, "user_id", "o"),
+            condition=ComparisonPredicate(
+                sqlite_dialect_3_8_0,
+                "=",
+                Column(sqlite_dialect_3_8_0, "id", "u"),
+                Column(sqlite_dialect_3_8_0, "user_id", "o"),
+            ),
         )
         sql, params = join_expr.to_sql()
         assert sql == '"users" AS "u" LEFT OUTER JOIN "orders" AS "o" ON "u"."id" = "o"."user_id"'
@@ -119,7 +134,12 @@ class TestSQLiteJoinClause:
             left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users")),
             right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders")),
             join_type="RIGHT JOIN",
-            condition=Column(sqlite_dialect_3_8_0, "id", "users") == Column(sqlite_dialect_3_8_0, "user_id", "orders"),
+            condition=ComparisonPredicate(
+                sqlite_dialect_3_8_0,
+                "=",
+                Column(sqlite_dialect_3_8_0, "id", "users"),
+                Column(sqlite_dialect_3_8_0, "user_id", "orders"),
+            ),
         )
         with pytest.raises(UnsupportedFeatureError, match="does not support RIGHT JOIN"):
             join_expr.to_sql()
@@ -131,7 +151,12 @@ class TestSQLiteJoinClause:
             left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users")),
             right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders")),
             join_type="FULL OUTER JOIN",
-            condition=Column(sqlite_dialect_3_8_0, "id", "users") == Column(sqlite_dialect_3_8_0, "user_id", "orders"),
+            condition=ComparisonPredicate(
+                sqlite_dialect_3_8_0,
+                "=",
+                Column(sqlite_dialect_3_8_0, "id", "users"),
+                Column(sqlite_dialect_3_8_0, "user_id", "orders"),
+            ),
         )
         with pytest.raises(UnsupportedFeatureError, match="does not support FULL JOIN"):
             join_expr.to_sql()
@@ -143,13 +168,23 @@ class TestSQLiteJoinClause:
             left_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"), alias="u"),
             right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "orders"), alias="o"),
             join_type="LEFT JOIN",
-            condition=Column(sqlite_dialect_3_8_0, "id", "u") == Column(sqlite_dialect_3_8_0, "user_id", "o"),
+            condition=ComparisonPredicate(
+                sqlite_dialect_3_8_0,
+                "=",
+                Column(sqlite_dialect_3_8_0, "id", "u"),
+                Column(sqlite_dialect_3_8_0, "user_id", "o"),
+            ),
         )
 
         # Chain with an unsupported RIGHT JOIN
         chained_join_with_unsupported = base_join.right_join(
             right_table=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "products"), alias="p"),
-            condition=Column(sqlite_dialect_3_8_0, "product_id", "o") == Column(sqlite_dialect_3_8_0, "id", "p"),
+            condition=ComparisonPredicate(
+                sqlite_dialect_3_8_0,
+                "=",
+                Column(sqlite_dialect_3_8_0, "product_id", "o"),
+                Column(sqlite_dialect_3_8_0, "id", "p"),
+            ),
         )
 
         with pytest.raises(UnsupportedFeatureError, match="does not support RIGHT JOIN"):

@@ -166,7 +166,10 @@ class SchemaDiffer(ABC):
         """
         old_dt, new_dt = old_col.parsed_data_type, new_col.parsed_data_type
         if old_dt is not None and new_dt is not None:
-            if not old_dt.is_equivalent(new_dt):
+            # Identity, not a looser "equivalent" question. Both sides come from
+            # the same dialect's parse_type, so a change of class *is* a change
+            # of declared type — which is exactly what a caller wants to see.
+            if old_dt != new_dt:
                 return False
         else:
             if (old_col.data_type or "").upper().split() != (new_col.data_type or "").upper().split():

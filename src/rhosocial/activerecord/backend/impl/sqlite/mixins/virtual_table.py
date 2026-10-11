@@ -10,6 +10,7 @@ from typing import Set, Tuple, TYPE_CHECKING
 from .extension import SQLiteExtensionMixin
 
 if TYPE_CHECKING:
+    from ..expression.fts5 import SQLiteFTS5MatchExpression
     from ..expression.virtual_table import CreateVirtualTableExpression, DropVirtualTableExpression
 
 _KNOWN_VTABLE_MODULES: Set[str] = {
@@ -146,7 +147,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
 
     def format_match_predicate(
         self,
-        expr,
+        expr: "SQLiteFTS5MatchExpression",
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate (delegates to FTS5Mixin)."""
         return self.format_fts5_match_expression(expr)

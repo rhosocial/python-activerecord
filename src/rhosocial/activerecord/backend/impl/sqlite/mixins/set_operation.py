@@ -9,7 +9,7 @@ from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    pass
+    from rhosocial.activerecord.backend.expression import bases
 
 _SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
 
@@ -17,7 +17,7 @@ _SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in se
 class SQLiteSetOperationMixin:
     """SQLite-specific set operation (UNION, INTERSECT, EXCEPT) formatting."""
 
-    def format_set_operation_expression(self, expr) -> Tuple[str, Tuple]:
+    def format_set_operation_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
         left = expr.left
         right = expr.right

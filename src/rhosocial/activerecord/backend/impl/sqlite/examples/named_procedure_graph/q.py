@@ -9,6 +9,7 @@ a BaseExpression that implements Executable.
 from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     Column,
+    ComparisonPredicate,
     FunctionCall,
     WhereClause,
     Literal,
@@ -34,7 +35,10 @@ def agg_sales(dialect, month: str = ""):
             FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("count"),
         ],
         from_=NamedRelationRef(dialect, Table(dialect, "sales")),
-        where=WhereClause(dialect, condition=Column(dialect, "month") == Literal(dialect, month)),
+        where=WhereClause(
+            dialect,
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "month"), Literal(dialect, month)),
+        ),
     )
 
 
@@ -55,7 +59,10 @@ def agg_refunds(dialect, month: str = ""):
             FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("count"),
         ],
         from_=NamedRelationRef(dialect, Table(dialect, "refunds")),
-        where=WhereClause(dialect, condition=Column(dialect, "month") == Literal(dialect, month)),
+        where=WhereClause(
+            dialect,
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "month"), Literal(dialect, month)),
+        ),
     )
 
 
@@ -109,6 +116,6 @@ def check_threshold(dialect, threshold: int = 1000):
         select=[Literal(dialect, 1)],
         where=WhereClause(
             dialect,
-            condition=Column(dialect, "total") > Literal(dialect, threshold),
+            condition=ComparisonPredicate(dialect, ">", Column(dialect, "total"), Literal(dialect, threshold)),
         ),
     )

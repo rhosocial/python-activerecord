@@ -15,6 +15,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     FilterClauseSupport,
     WindowFunctionSupport,
     JSONSupport,
+    UUIDSupport,
     ReturningSupport,
     AdvancedGroupingSupport,
     ArraySupport,
@@ -47,6 +48,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SQLFunctionSupport,
     # Type Support Protocol
     DataTypeSupport,
+    # Column Class Support Protocol
+    ColumnTypeSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     DatabaseNameMixin,
@@ -71,10 +74,15 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DatabaseNameMixin,
     PropertyGraphNameMixin,
     CollationMixin,
+    # Column types. SQLiteColumnTypeMixin (from .mixins, below) states
+    # SQLite's own table; there is no generic table in core to compose.
     CTEMixin,
 
     WindowFunctionMixin,
     JSONMixin,
+    # SQLite has no UUID-generating function; UUIDMixin reports honest
+    # absence so UUIDGenerationExpression raises with a Python-side hint.
+    UUIDMixin,
 
     ArrayMixin,
     ExplainMixin,
@@ -98,6 +106,10 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     PartitionMixin,
     # New Mixins
     PredicateMixin,
+    TrimMixin,
+    LpadMixin,
+    RepeatMixin,
+    RpadMixin,
     ExpressionMixin,
     DQLMixin,
     DateTimeMixin,
@@ -113,8 +125,15 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression, OrderedSetAggregation
+    from rhosocial.activerecord.backend.expression import bases
+    from rhosocial.activerecord.backend.expression.advanced_functions import (
+        ArrayExpression,
+        JSONDocumentExpression,
+        OrderedSetAggregation,
+        TrimExpression,
+    )
     from rhosocial.activerecord.backend.expression.graph import MatchClause
+    from rhosocial.activerecord.backend.expression.predicates import DistinctFromPredicate
     from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
     from rhosocial.activerecord.backend.expression.statements import ExplainExpression
     from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateExpression
@@ -149,6 +168,10 @@ from .mixins import (
     SQLiteRTreeMixin,
     SQLiteGeopolyMixin,
     SQLiteTypeSupportMixin,
+    # Column types. SQLite states its own full table: the four sequence entries
+    # take JSONColumn (there is no array type here) and float/Decimal both take
+    # NumericColumn. There is no generic table in core to compose.
+    SQLiteColumnTypeMixin,
 )
 from rhosocial.activerecord.backend.expression.query_sources import JSONTableExpression
 
@@ -187,6 +210,7 @@ class SQLiteDialect(
 
     WindowFunctionMixin,
     JSONMixin,
+    UUIDMixin,
     # Include mixins for features that SQLite does NOT support but need the methods to exist
 
     ArrayMixin,
@@ -222,7 +246,16 @@ class SQLiteDialect(
     # their False defaults and the formatters refuse the clauses.
     PartitionMixin,
     # New Mixins (without SQLite overrides)
+    # SQLiteFunctionMixin rides first among them: it carries the dialect's
+    # function spellings and emulations, and those must win over the generic
+    # formatters ExpressionMixin brings -- the same precedence the comment on
+    # the SQLite-specific group below claims but cannot deliver from there.
+    SQLiteFunctionMixin,
     PredicateMixin,
+    TrimMixin,
+    LpadMixin,
+    RepeatMixin,
+    RpadMixin,
     ExpressionMixin,
     DQLMixin,
     # SQLite-specific mixins (BEFORE generic mixins they override)
@@ -238,7 +271,6 @@ class SQLiteDialect(
     SQLiteVirtualTableMixin,
     SQLiteReindexMixin,
     SQLiteMaintenanceMixin,
-    SQLiteFunctionMixin,
     # Extension expression mixins
     SQLiteFTS5Mixin,
     SQLiteRTreeMixin,
@@ -249,6 +281,10 @@ class SQLiteDialect(
     DomainMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
     CollationMixin,
+    # Column types. SQLite states its own full table: the four sequence entries
+    # take JSONColumn (there is no array type here), and float/Decimal both take
+    # NumericColumn.
+    SQLiteColumnTypeMixin,
     # Generic mixins (fallback for methods not overridden by SQLite)
     DateTimeMixin,
     DDLColumnMixin,
@@ -263,6 +299,7 @@ class SQLiteDialect(
     FilterClauseSupport,
     WindowFunctionSupport,
     JSONSupport,
+    UUIDSupport,
     ReturningSupport,
     AdvancedGroupingSupport,
     ArraySupport,
@@ -303,6 +340,8 @@ class SQLiteDialect(
     SQLFunctionSupport,
     # DataType Support Protocol
     DataTypeSupport,
+    # Column Class Support Protocol
+    ColumnTypeSupport,
     # DDL statement protocols follow the DDL mixins: a protocol's empty
     # body would otherwise win over the mixin that actually renders.
     CreateSchemaSupport,
@@ -374,12 +413,16 @@ class SQLiteDialect(
         value type as :meth:`supports_data_types`). Suggestions reflect
         SQLite's real storage model:
 
-        - ``uuid`` / ``enum``: no native types — both degrade to TEXT
-          affinity, so the suggested replacement is ``SQLiteTextType``.
+        - ``uuid`` / ``enum`` / ``xml``: no native types — ``uuid`` and ``enum``
+          degrade to TEXT affinity, and SQLite stores an XML document as text
+          with no validation, so all three are suggested as ``SQLiteTextType``.
         - ``binary`` / ``varbinary``: no fixed/variable-length byte-string
           types — everything is BLOB affinity (the same mapping
           ``parse_type`` applies to ``BINARY`` / ``VARBINARY`` type
           strings), so the suggested replacement is ``SQLiteBlobType``.
+        - ``array``: SQLite has no array type. An array column is stored as
+          text (or as a JSON document in it), so ``SQLiteTextType`` is what
+          this backend actually stores.
 
         Types the type mixin does render (``json``, ``jsonb``, ``varchar``,
         ``date``, …) are deliberately absent: they already have a rendering
@@ -391,6 +434,8 @@ class SQLiteDialect(
         return {
             "uuid": SQLiteTextType,
             "enum": SQLiteTextType,
+            "xml": SQLiteTextType,
+            "array": SQLiteTextType,
             "binary": SQLiteBlobType,
             "varbinary": SQLiteBlobType,
         }
@@ -447,6 +492,38 @@ class SQLiteDialect(
     def supports_json_arrow_operators(self) -> bool:
         """SQLite supports -> and ->> operators from version 3.38.0+."""
         return self.version >= (3, 38, 0)
+
+    def format_json_function_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, tuple]:
+        """Render a JSON path access with SQLite's own JSON1 functions.
+
+        Without this, ``JSONPathMode.FUNCTION`` fell through to the core
+        default, which emits MySQL's ``JSON_UNQUOTE(JSON_EXTRACT(...))``.
+        SQLite has ``json_extract`` but has no ``JSON_UNQUOTE`` at all, so
+        FUNCTION mode produced SQL the server rejects.
+
+        Args:
+            expr: The JSONDocumentExpression node.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression import bases
+
+        if isinstance(expr.column, bases.BaseExpression):
+            col_sql, col_params = expr.column.to_sql()
+        else:
+            col_sql, col_params = self.format_identifier(str(expr.column)), ()
+
+        escaped_path = self._escape_sql_string(expr.path)
+        # json_extract returns SQL NULL for a missing path and a
+        # JSON-quoted string for text, so it stands in for ->> without a
+        # separate unquote step — SQLite has no JSON_UNQUOTE to call.
+        sql = f"json_extract({col_sql}, '{escaped_path}')"
+        params = col_params
+
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, params
 
     def get_json_access_operator(self) -> str:
         """SQLite uses '->' for JSON access."""
@@ -596,7 +673,66 @@ class SQLiteDialect(
             type(self)._lateral_support = result
         return self._lateral_support
 
-    def format_values_expression(self, expr) -> Tuple[str, Tuple]:
+    def supports_distinct_from(self) -> bool:
+        """Whether SQLite accepts ``IS [NOT] DISTINCT FROM`` (3.39.0+)."""
+        return self.version >= (3, 39, 0)
+
+    def format_distinct_from_predicate(self, expr: "DistinctFromPredicate") -> Tuple[str, tuple]:
+        """Format a NULL-safe distinctness check, refusing below SQLite 3.39.0.
+
+        SQLite has had the standard spelling since 3.39.0 (2022-06-25). Below
+        it the framework **refuses** rather than substituting a different
+        question, and the refusal names the version so the caller can decide
+        between upgrading and comparing the nullability of the two sides by
+        hand.
+
+        Args:
+            expr: Distinctness check exposing ``left``, ``right``, ``is_not``.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: On SQLite older than 3.39.0.
+        """
+        if not self.supports_distinct_from():
+            raise UnsupportedFeatureError(
+                self.name,
+                "IS [NOT] DISTINCT FROM (SQLite 3.39.0+)",
+            )
+        left_sql, left_params = expr.left.to_sql()
+        right_sql, right_params = expr.right.to_sql()
+        not_str = " NOT" if expr.is_not else ""
+        return self._with_alias(
+            f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr
+        ), left_params + right_params
+
+    def format_trim_expression(self, expr: "TrimExpression") -> Tuple[str, tuple]:
+        """Render TRIM as SQLite's function form.
+
+        SQLite parses no ``trim(<chars> from <string>)`` syntax at all -- the
+        standard spelling is a syntax error there, measured 2026-10-09 -- so the
+        node is rendered as the function form instead: ``TRIM(x[, chars])`` for
+        BOTH, ``LTRIM`` for LEADING and ``RTRIM`` for TRAILING. A one-character
+        set, which is all the core contract allows, means the same thing in both
+        spellings, so this is a spelling difference and never a semantic one.
+        """
+        target_sql, target_params = expr.expr.to_sql()
+        function_name = {"BOTH": "TRIM", "LEADING": "LTRIM", "TRAILING": "RTRIM"}[
+            expr.direction
+        ]
+        if expr.chars is not None:
+            chars_sql, chars_params = expr.chars.to_sql()
+            sql = f"{function_name}({target_sql}, {chars_sql})"
+            params = tuple(target_params) + tuple(chars_params)
+        else:
+            sql = f"{function_name}({target_sql})"
+            params = tuple(target_params)
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, params
+
+    def format_values_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """SQLite override: VALUES does not support ``AS alias(col, ...)`` syntax.
 
         The base ``ExpressionMixin`` implementation appends a parenthesised
@@ -877,7 +1013,7 @@ class SQLiteDialect(
         """SQLite does not support explicit NULLS FIRST/LAST ordering."""
         return False
 
-    def format_grouping_clause(self, expr) -> Tuple[str, tuple]:
+    def format_grouping_clause(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
         """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
         operation = expr.operation
         # Check feature support based on operation type

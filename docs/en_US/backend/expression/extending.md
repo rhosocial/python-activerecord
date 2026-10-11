@@ -1,6 +1,6 @@
 # Extending Guide: Implementing Serializable Expressions
 
-This document is for backend developers, explaining how to implement serialization for custom expressions.
+This document is for backend developers, explaining how to make custom expressions serializable.
 
 ## Basic Requirements
 
@@ -8,15 +8,15 @@ Expression classes must meet the following requirements to be correctly handled 
 
 1. Inherit from `BaseExpression`
 2. `__init__` parameter names must correspond to attribute names (using `_` prefix for private attributes or same-named attributes)
-3. Use `get_params()` to return serializable parameters
+3. Do not implement `get_params()` — the generic implementation is the single serialization path, so `__init__` must store its state under the name the constructor received it as
 
 ## get_params() Convention
 
-The default `get_params()` implementation automatically infers using `inspect.signature`:
+The generic `get_params()` implementation automatically infers using `inspect.signature`:
 
 - Parameter `foo` → attribute `self._foo` or `self.foo`
 - `VAR_POSITIONAL (*args)` → list
-- `VAR_KEYWORD (**kwargs)` → skipped (requires manual override)
+- `VAR_KEYWORD (**kwargs)` → the extras, collected into a dict stored on an attribute named after the parameter (e.g. `self.collation_options`) and merged into the top level of `params`, so reconstruction re-expands them
 
 ```python
 class MyExpression(BaseExpression):
@@ -27,17 +27,23 @@ class MyExpression(BaseExpression):
     # No need to manually implement get_params(), default implementation auto-extracts
 ```
 
-### Custom get_params()
+`CollateExpression` is the `**kwargs` case in core: it collects `**collation_options` into `self.collation_options: dict`, so `get_params()` returns `binary`, `pad` and the rest as top-level parameters and reconstruction passes them back as keywords.
 
-Override this method when default inference doesn't apply:
+A parameter the convention cannot resolve is skipped with a warning. That warning is the diagnostic — it means `__init__` stores state under a name `get_params()` cannot see — and the repair is always in `__init__`.
 
-```python
-def get_params(self) -> dict:
-    params = super().get_params()
-    # Add or modify parameters
-    params["custom_key"] = self._custom_value
-    return params
-```
+### Why There Is No Custom get_params()
+
+`get_params()` is not an extension point: an override is a defect, not a customization. Core enforces this with no exceptions in `tests/.../dummy2/test_expression_contract.py::test_no_get_params_override` — every registered expression class must leave the generic implementation alone. (The single exemption the test allows, a `VAR_POSITIONAL` class doing genuine raw-vs-normalized round-trip rewriting, has no instance in the core registry.)
+
+The reason is structural rather than stylistic. A round-trip is rebuilt by calling the constructor with whatever `get_params()` returned, so those two halves have to agree. An override is exactly where they drift: the class emits a key the constructor renames, merges or refuses, `_reconstruct()` wraps the resulting `TypeError` as `ExpressionDeserializationError`, and the state is silently gone. The backend packages accumulated their own overrides, every one of them written because `__init__` renamed or merged what the caller passed — and every one of them became unnecessary once the state was stored under the name it was given.
+
+When the generic result is not what you wanted, the repair is always in `__init__`, and it is one of three shapes:
+
+| The problem | The repair |
+|---|---|
+| You renamed or merged what the caller passed | Store it under the name the parameter has |
+| Two constructor spellings mean one thing | Keep both slots; put the value in the one the caller used and leave the other `None` |
+| The value cannot be serialized as it stands | Convert it in `__init__` and store the converted value |
 
 ## Registration Mechanism
 
@@ -57,22 +63,30 @@ ExpressionRegistry.register(MyExpression)
 
 ## Four Special Cases
 
+The four cases below are the usual reasons a developer reaches for a custom `get_params()`. None of them needs one: each is solved in `__init__`.
+
 ### 1. Dialect-Specific Enum Parameters
 
-Some dialects have specific enum values (e.g., PostgreSQL's `IsolationLevel`):
+Some dialects have specific enum values (e.g., PostgreSQL's `IsolationLevel`). Accept whichever spelling the caller has and store the value the spec can carry:
 
 ```python
 class MyTransactionExpression(BaseExpression):
-    def __init__(self, dialect, isolation_level: str = "READ COMMITTED"):
+    def __init__(self, dialect, isolation_level="READ COMMITTED"):
         super().__init__(dialect)
-        self._isolation_level = isolation_level  # Accept string, not enum
+        # Accept the dialect's enum or its string; store the normalized string
+        self._isolation_level = (
+            isolation_level.value
+            if isinstance(isolation_level, Enum)
+            else str(isolation_level)
+        )
 
-# get_params() returns string, dialect-independent
+# get_params() returns {"isolation_level": "SERIALIZABLE"} — a string, dialect-independent
+# and reconstruction passes that string back into a constructor that accepts one
 ```
 
 ### 2. State Set via Fluent API
 
-State modified via fluent API must be synced to `__init__` parameters:
+State modified via fluent API must be synced to `__init__` parameters — the setter and the parameter have to read and write the *same* attribute, because that attribute is all `get_params()` ever sees:
 
 ```python
 class MyExpression(BaseExpression):
@@ -85,45 +99,57 @@ class MyExpression(BaseExpression):
         return self
 ```
 
+A setter that writes a second attribute alongside the parameter's own is writing state the round-trip cannot see.
+
 ### 3. set Type Parameters
 
-`set` type cannot be directly JSON serialized; convert to list in `get_params()`:
+A `set` is a poor carrier for expression state: it has no order, and the codec encodes it as a flat list whose members never receive the nested-expression markers they would need, so a `set` of expressions does not survive a JSON round-trip. Convert in `__init__` and store the converted value — the generic path then emits exactly what the constructor accepts:
 
 ```python
-def get_params(self) -> dict:
-    params = super().get_params()
-    params["columns"] = list(self._columns)  # set -> list
-    return params
+class ColumnSetExpression(BaseExpression):
+    def __init__(self, dialect, columns):
+        super().__init__(dialect)
+        self._columns = list(columns)  # set or any iterable in, list stored
+
+# get_params() returns {"columns": [...]}; reconstruction passes the list back
+# into the same constructor, which accepts a list just as happily
 ```
 
 ### 4. Circular References
 
-The current framework doesn't detect circular references. If self-reference is possible, truncate in `get_params()`:
+The framework does not detect cycles, and a self-reference cannot be serialized — the serializer would recurse until Python's recursion limit. Store the link by identity rather than by object: the parameter is the id, and the object, if it is needed at all, lives on an attribute the constructor does not take, which `get_params()` never reads.
 
 ```python
-def get_params(self) -> dict:
-    params = {"id": self._id, "name": self._name}
-    if self._parent is not None:
-        params["parent_id"] = self._parent._id  # Only store ID, not object
-    return params
+class TreeNodeExpression(BaseExpression):
+    def __init__(self, dialect, name, parent_id=None):
+        super().__init__(dialect)
+        self._name = name
+        self._parent_id = parent_id  # identity, not the object
+        # Resolved by the tree walker; no matching parameter, so never serialized
+        self._parent = None
 ```
+
+When the parent genuinely has to travel with the node, make it an ordinary nested-expression parameter: that is what `{"__expr__": ...}` exists for. The tree is then simply finite.
 
 ## IntrospectionExpression Convention
 
-`IntrospectionExpression` subclasses (like `TableListExpression`) have a `None` filtering rule:
-
-- Optional parameters with value `None` should not appear in `params`
+`IntrospectionExpression` subclasses (like `TableListExpression`) combine a constructor with fluent setters that share the parameter names. Both halves of the generic path already account for this:
 
 ```python
 class TableListExpression(IntrospectionExpression):
-    def get_params(self) -> dict:
-        params = {}
-        if self._schema is not None:
-            params["schema"] = self._schema
-        # include_views defaults to True, always included
-        params["include_views"] = self._include_views
-        return params
+    def __init__(self, dialect, schema=None, include_views=True, include_system=False, table_type=None):
+        super().__init__(dialect, schema)
+        self._include_views = include_views
+        self._include_system = include_system
+        self._table_type = table_type
+
+    def include_views(self, value: bool = True):
+        self._include_views = value  # the same attribute the parameter is read from
+        return self
 ```
+
+- **When both spellings exist, the callable one is not the state.** If a parameter has both `self.foo` and `self._foo` and the public attribute is a fluent method, the private attribute is taken as the value.
+- **An optional parameter left unset is emitted as `null`, not omitted.** That is safe: the deserializer passes it back and the constructor's default applies. What is *not* safe is dropping a parameter whose value differs from its default — that is state the round-trip loses.
 
 ## Error Contract
 
@@ -131,27 +157,31 @@ All paths through `_reconstruct()`, `TypeError` is wrapped as `ExpressionDeseria
 
 ## Serialization Format Convention (Reserved Key Names)
 
-When implementing `get_params()` for custom expressions, **do not** use the following reserved key names in the returned dictionary, otherwise deserialization behavior is undefined:
+The **values** `get_params()` returns must not contain the following reserved keys at any depth, otherwise deserialization behavior is undefined — the deserializer reads them as framework markers:
 
 - `__expr__`: Used to mark nested expressions
 - `__tuple__`: Used to mark tuples
+- `__value__` / `__vdc__`: Used to mark codec-encoded scalars and dataclass values
+
+Your own top-level keys come from your `__init__` parameter names (plus whatever `**kwargs` extras were merged in), so never name a parameter after a reserved key. For an opaque payload whose keys you do not control, the hazard is inside the payload: those keys are copied into the spec verbatim, and renaming the parameter does nothing about them. Validate at construction time, or store the payload as text.
 
 ```python
-# Incorrect - may cause data corruption
+_RESERVED = ("__expr__", "__tuple__", "__value__", "__vdc__")
+
+# Incorrect - a payload containing "__expr__" is read back as a nested expression
 class RawJsonStorageExpr(BaseExpression):
     def __init__(self, dialect, data: dict):
+        super().__init__(dialect)
         self._data = data
 
-    def get_params(self):
-        return {"data": self._data}  # If data = {"__expr__": "..."}, round-trip fails
-
-# Correct - avoid using reserved key names
+# Correct - the payload is rejected before it can reach a spec
 class SafeJsonStorageExpr(BaseExpression):
     def __init__(self, dialect, json_data: dict):
+        super().__init__(dialect)
+        for key in json_data:
+            if key in _RESERVED:
+                raise ValueError(f"{key!r} is a reserved serialization key")
         self._json_data = json_data
-
-    def get_params(self):
-        return {"json_data": self._json_data}  # Does not use __expr__ etc.
 ```
 
 ## Related Documents

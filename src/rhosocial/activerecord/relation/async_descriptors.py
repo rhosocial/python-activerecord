@@ -310,6 +310,7 @@ class AsyncRelationDescriptor(Generic[U]):
             query = related_model.query()
             backend = related_model.backend()
             from ..backend.expression.core import Column
+            from ..backend.expression import ComparisonPredicate, Literal
 
             # Add appropriate foreign key condition based on relationship type
             if isinstance(self, AsyncBelongsTo):
@@ -325,7 +326,9 @@ class AsyncRelationDescriptor(Generic[U]):
                         fk_value = getattr(instance, fk_col)
                         if fk_value is not None:
                             pk_column = Column(backend.dialect, pk_col, table=related_model.table_name())
-                            query = query.where(pk_column == fk_value)
+                            query = query.where(
+                                ComparisonPredicate(backend.dialect, "=", pk_column, Literal(backend.dialect, fk_value))
+                            )
             else:
                 pk_cols = instance.primary_key_columns()
                 fk_cols = self.foreign_key if isinstance(self.foreign_key, tuple) else (self.foreign_key,)
@@ -338,7 +341,9 @@ class AsyncRelationDescriptor(Generic[U]):
                     pk_value = getattr(instance, pk_col)
                     if pk_value is not None:
                         fk_column = Column(backend.dialect, fk_col, table=related_model.table_name())
-                        query = query.where(fk_column == pk_value)
+                        query = query.where(
+                            ComparisonPredicate(backend.dialect, "=", fk_column, Literal(backend.dialect, pk_value))
+                        )
 
             return query
 

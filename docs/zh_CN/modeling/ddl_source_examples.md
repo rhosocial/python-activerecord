@@ -70,7 +70,7 @@ PlainAccount.primary_key_columns()
 PlainAccount.ddl_field_names()
 # ('id', 'name', 'note')
 
-PlainAccount.column_type("id")
+PlainAccount.column_data_type("id")
 # None
 
 PlainAccount.column_options("id")
@@ -101,14 +101,14 @@ PlainAccount.column_constraints("note")
 # []
 ```
 
-这里没有 `UseSqlType`，所以 `column_type()` 是 `None`。`id` 和必填的 `name` 仍然会得到自动组合的主键/非空约束；Optional 字段 `note` 不会自动得到 `NOT_NULL`。
+这里没有 `UseSqlType`，所以 `column_data_type()` 是 `None`。`id` 和必填的 `name` 仍然会得到自动组合的主键/非空约束；Optional 字段 `note` 不会自动得到 `NOT_NULL`。
 
 如果消费者在没有类型的情况下直接构造列定义：
 
 ```python
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
 
-ColumnDefinition(dialect, "id", PlainAccount.column_type("id"))
+ColumnDefinition(dialect, "id", PlainAccount.column_data_type("id"))
 # TypeError: data_type must be a DataType instance, got NoneType
 ```
 
@@ -116,7 +116,7 @@ ColumnDefinition(dialect, "id", PlainAccount.column_type("id"))
 
 ### 各后端的默认结果
 
-| 后端 | `column_type("name")` | `table_options()` | 消费者必须注意 |
+| 后端 | `column_data_type("name")` | `table_options()` | 消费者必须注意 |
 |------|------------------------|-------------------|----------------|
 | SQLite | `None` | `None` | 只能由后续消费者决定 `INTEGER`、`TEXT` 等核心类型。 |
 | MySQL | `None` | `None` | MySQL 不会替 source 自动补 `INT` 或 `VARCHAR`。 |
@@ -173,7 +173,7 @@ class CoreDeclared(ActiveRecord):
 CoreDeclared.column_name("id")
 # 'record_id'
 
-CoreDeclared.column_type("name").data_types
+CoreDeclared.column_data_type("name").data_types
 # (VarCharType(length=64),)
 
 CoreDeclared.column_indexes("name")[0].columns
@@ -510,7 +510,7 @@ class ForeignOnly(ActiveRecord):
     value: Annotated[str, UseSqlType(ForeignType())]
 ```
 
-类定义和 `column_type("value")` 都可以成功；只有消费者把候选绑定到当前方言并渲染时才失败。下面的 `ForeignType` 和错误摘要是各后端实测结果：
+类定义和 `column_data_type("value")` 都可以成功；只有消费者把候选绑定到当前方言并渲染时才失败。下面的 `ForeignType` 和错误摘要是各后端实测结果：
 
 | 当前方言 | 声明的唯一表达式 | 收集阶段 | 渲染阶段 |
 |----------|------------------|----------|----------|

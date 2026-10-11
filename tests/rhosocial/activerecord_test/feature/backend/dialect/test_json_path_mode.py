@@ -6,7 +6,7 @@ Covers:
 - JSONMixin.format_json_expression() dispatch decisions
 - format_json_arrow_expression() error path on unsupported dialects
 - format_json_function_expression() equivalence on supported dialects
-- JSONExpression stores mode correctly
+- JSONDocumentExpression stores mode correctly
 """
 from typing import TYPE_CHECKING, Any, Tuple
 
@@ -20,7 +20,7 @@ from rhosocial.activerecord.backend.dialect import (
 )
 from rhosocial.activerecord.backend.dialect.mixins import ExpressionMixin
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    JSONExpression,
+    JSONDocumentExpression,
     JSONPathMode,
 )
 
@@ -37,6 +37,15 @@ class _BaseTestDialect(SQLDialectBase, JSONMixin, JSONSupport, ExpressionMixin):
     """Common base for test dialects; provides identifier formatting."""
 
     name = "test"
+
+    def supports_json_type(self) -> bool:
+        """These stand-ins exist to exercise JSON *dispatch*, so they have JSON.
+
+        Inheriting the core's False made every test here fail once the
+        dispatcher started believing that probe: the dispatch under test was
+        never reached, because the refusal came first.
+        """
+        return True
 
 
 class ArrowSupportedDialect(_BaseTestDialect):
@@ -60,7 +69,7 @@ class FunctionOverrideDialect(ArrowSupportedDialect):
         super().__init__()
         self.function_marker = function_marker
 
-    def format_json_function_expression(self, expr: "JSONExpression") -> Tuple[str, tuple]:
+    def format_json_function_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, tuple]:
         return f"{self.function_marker}({expr.column}, {expr.path})", ()
 
 
@@ -108,12 +117,12 @@ class TestJSONPathModeFromValue:
 
 
 # ----------------------------------------------------------------------------
-# JSONExpression stores mode as JSONPathMode enum
+# JSONDocumentExpression stores mode as JSONPathMode enum
 # ----------------------------------------------------------------------------
 
 
 class TestJSONExpressionMode:
-    """Verify JSONExpression coerces the mode argument."""
+    """Verify JSONDocumentExpression coerces the mode argument."""
 
     @pytest.mark.parametrize(
         "value, expected",
@@ -126,13 +135,13 @@ class TestJSONExpressionMode:
     )
     def test_mode_is_coerced_to_enum(self, value: Any, expected: "JSONPathMode") -> None:
         d = ArrowSupportedDialect()
-        expr = JSONExpression(d, "data", "$.a", operation="->", mode=value)
+        expr = JSONDocumentExpression(d, "data", "$.a", operation="->", mode=value)
         assert expr.mode is expected
 
     def test_default_mode_is_auto(self) -> None:
         """Default behavior unchanged: mode=None → JSONPathMode.AUTO."""
         d = ArrowSupportedDialect()
-        expr = JSONExpression(d, "data", "$.a")
+        expr = JSONDocumentExpression(d, "data", "$.a")
         assert expr.mode is JSONPathMode.AUTO
 
 
@@ -146,7 +155,7 @@ class TestDispatchBehavior:
 
     def test_auto_on_arrow_supported_dialect_uses_arrow(self) -> None:
         d = ArrowSupportedDialect()
-        expr = JSONExpression(d, "data", "$.a", operation="->>")
+        expr = JSONDocumentExpression(d, "data", "$.a", operation="->>")
         sql, params = d.format_json_expression(expr)
         # Arrow formatting emits col->>'...'
         assert "->>" in sql
@@ -154,7 +163,7 @@ class TestDispatchBehavior:
 
     def test_auto_on_arrow_unsupported_dialect_uses_function(self) -> None:
         d = ArrowUnsupportedDialect()
-        expr = JSONExpression(d, "data", "$.a", operation="->>")
+        expr = JSONDocumentExpression(d, "data", "$.a", operation="->>")
         sql, params = d.format_json_expression(expr)
         # Default function-based: JSON_UNQUOTE(JSON_EXTRACT(...))
         assert "JSON_UNQUOTE" in sql
@@ -162,7 +171,7 @@ class TestDispatchBehavior:
 
     def test_arrow_mode_on_unsupported_raises(self) -> None:
         d = ArrowUnsupportedDialect()
-        expr = JSONExpression(
+        expr = JSONDocumentExpression(
             d, "data", "$.a", operation="->>", mode=JSONPathMode.ARROW
         )
         with pytest.raises(UnsupportedFeatureError):
@@ -170,7 +179,7 @@ class TestDispatchBehavior:
 
     def test_arrow_mode_on_supported_uses_arrow(self) -> None:
         d = ArrowSupportedDialect()
-        expr = JSONExpression(
+        expr = JSONDocumentExpression(
             d, "data", "$.a", operation="->>", mode=JSONPathMode.ARROW
         )
         sql, params = d.format_json_expression(expr)
@@ -180,7 +189,7 @@ class TestDispatchBehavior:
     def test_function_mode_on_supported_dialect_uses_function(self) -> None:
         """FUNCTION mode must ignore arrow capability and dispatch to function path."""
         d = FunctionOverrideDialect(function_marker="FN_MARKER")
-        expr = JSONExpression(
+        expr = JSONDocumentExpression(
             d, "data", "$.a", operation="->>", mode=JSONPathMode.FUNCTION
         )
         sql, params = d.format_json_expression(expr)
@@ -190,7 +199,7 @@ class TestDispatchBehavior:
     def test_function_mode_on_unsupported_dialect_uses_function(self) -> None:
         """FUNCTION mode must work even when arrow is not supported."""
         d = ArrowUnsupportedDialect()
-        expr = JSONExpression(
+        expr = JSONDocumentExpression(
             d, "data", "$.a", operation="->", mode=JSONPathMode.FUNCTION
         )
         sql, params = d.format_json_expression(expr)
@@ -201,7 +210,7 @@ class TestDispatchBehavior:
     def test_string_mode_coerced_and_dispatched(self) -> None:
         """String mode values gets coerced to enum and dispatched correctly."""
         d = FunctionOverrideDialect(function_marker="STRING_MODE")
-        expr = JSONExpression(
+        expr = JSONDocumentExpression(
             d, "data", "$.a", operation="->>", mode="function"
         )
         sql, _ = d.format_json_expression(expr)
@@ -218,7 +227,7 @@ class TestDirectFormatMethods:
 
     def test_arrow_direct_on_unsupported_raises(self) -> None:
         d = ArrowUnsupportedDialect()
-        expr = JSONExpression(
+        expr = JSONDocumentExpression(
             d, "data", "$.a", operation="->>", mode=JSONPathMode.ARROW
         )
         with pytest.raises(UnsupportedFeatureError):
@@ -227,7 +236,7 @@ class TestDirectFormatMethods:
     def test_function_direct_always_succeeds_on_supported(self) -> None:
         """Even on arrow-capable backends, function path is available."""
         d = ArrowSupportedDialect()
-        expr = JSONExpression(
+        expr = JSONDocumentExpression(
             d, "data", "$.a", operation="->>", mode=JSONPathMode.FUNCTION
         )
         sql, params = d.format_json_function_expression(expr)
@@ -238,7 +247,7 @@ class TestDirectFormatMethods:
     def test_arrow_format_keeps_path_in_string_literal(self) -> None:
         """Arrow formatter escapes via SQL string literal, not parameter."""
         d = ArrowSupportedDialect()
-        expr = JSONExpression(d, "users", "$.name", operation="->>")
+        expr = JSONDocumentExpression(d, "users", "$.name", operation="->>")
         sql, params = d.format_json_arrow_expression(expr)
         # No parameter; path is embedded as SQL literal
         assert params == ()
@@ -248,7 +257,7 @@ class TestDirectFormatMethods:
     def test_function_format_keeps_path_in_string_literal(self) -> None:
         """Function default uses SQL string literal but no parameter."""
         d = ArrowSupportedDialect()
-        expr = JSONExpression(d, "users", "$.name", operation="->")
+        expr = JSONDocumentExpression(d, "users", "$.name", operation="->")
         sql, params = d.format_json_function_expression(expr)
         assert params == ()
         # Default function path embeds the path as SQL literal
@@ -271,7 +280,7 @@ class TestPathEscapeSafety:
         # Path containing a single quote — if not escaped, this would break the
         # surrounding SQL string literal.
         path = "$.o'Brien"
-        expr = JSONExpression(d, "data", path, operation=op)
+        expr = JSONDocumentExpression(d, "data", path, operation=op)
         sql, _ = d.format_json_arrow_expression(expr)
         # The single quote in the path must appear doubled-up (escaped) so it
         # cannot terminate the SQL literal early.
@@ -283,7 +292,7 @@ class TestPathEscapeSafety:
     def test_function_escapes_single_quote_in_path(self, op: str) -> None:
         d = ArrowSupportedDialect()
         path = "$.o'Brien"
-        expr = JSONExpression(d, "data", path, operation=op)
+        expr = JSONDocumentExpression(d, "data", path, operation=op)
         sql, _ = d.format_json_function_expression(expr)
         assert "''" in sql
         assert "'o'Brien'" not in sql

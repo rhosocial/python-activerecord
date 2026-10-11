@@ -49,6 +49,7 @@ from .fields import (
     UseColumnAttributes,
     UseComment,
     UseConstraint,
+    UseColumnType,
     UseGeneratedColumn,
     UseIndex,
     UseSqlType,
@@ -56,10 +57,12 @@ from .fields import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
+    from rhosocial.activerecord.backend.expression.column_types import ColumnBase
     from rhosocial.activerecord.backend.expression.types import DataType
 
 
-DDLColumnType = Union["UseSqlType", "DataType", Sequence["DataType"]]
+DDLColumnDataType = Union["UseSqlType", "DataType", Sequence["DataType"]]
+DDLColumnType = Union["UseColumnType", Type["ColumnBase"], Sequence[Type["ColumnBase"]]]
 DDLGeneratedColumn = Union[
     GeneratedColumnExpression,
     Callable[["SQLDialectBase"], GeneratedColumnExpression],
@@ -303,18 +306,25 @@ class DDLAnnotationHandler:
 
 @runtime_checkable
 class DDLSource(Protocol):
-    """Structural contract for an ActiveRecord DDL parameter source.
+    """Structural contract for an ActiveRecord field-fact source.
 
-    ``DDLSource`` exposes declarations only: table and field metadata, column
-    constraints and attributes, indexes, generated columns, and table-level
-    options.  Consumers use this contract to inspect DDL declarations; the
-    source itself never creates, renders, or executes SQL.
+    ``DDLSource`` exposes a model's field facts and DDL declarations: the
+    Python type of a field (``field_python_type``), the column class its
+    expressions use (``column_type``), the declared column data type
+    (``column_data_type``), table and field metadata, column constraints and
+    attributes, indexes, generated columns, and table-level options.  It never
+    creates, renders, or executes SQL.
+
+    Every member is dialect-free: ``column_type`` presents the column-type
+    declaration as written (a ``UseColumnType`` marker, a class, or a
+    sequence) and ``column_data_type`` the declared data type, leaving the
+    resolution of either against the active backend to the caller.  That
+    lets the DDL layer apply the active dialect and capability gates without
+    the source ever needing one.
 
     The protocol is intentionally structural.  ``ActiveRecord`` satisfies it
     through :class:`DDLSourceMixin`, while integrations may provide their own
-    source implementation without inheriting from ActiveRecord.  Returned
-    values are dialect-free declarations or ordered candidates, allowing the
-    DDL layer to apply the active backend dialect and capability gates.
+    source implementation without inheriting from ActiveRecord.
 
     This contract deliberately excludes the ``ddl()`` factory, backend and
     dialect objects, expression generation, statement plans, rendering, and
@@ -347,6 +357,9 @@ class DDLSource(Protocol):
         ...
 
     def column_name(self, field: str) -> str:
+        ...
+
+    def column_data_type(self, field: str) -> Optional[DDLColumnDataType]:
         ...
 
     def column_type(self, field: str) -> Optional[DDLColumnType]:
@@ -534,15 +547,58 @@ class DDLSourceMixin:
         return cast(Any, cls).get_column_name(field)
 
     @classmethod
-    def column_type(cls, field: str) -> Optional[DDLColumnType]:
+    def _field_metadata(cls, field: str) -> Optional["DDLFieldMetadata"]:
+        """The collected DDL metadata for *field*, or ``None`` if none declared.
+
+        A field the model does not have is refused with ``KeyError``: ``None``
+        is the answer for a real field that declares nothing, and letting a
+        misspelled name produce the same answer would hide the mistake. Every
+        accessor reads its metadata through this one lookup, so the rule is
+        identical for all of them.
+        """
+        if field not in (getattr(cls, "model_fields", {}) or {}):
+            raise KeyError(field)
+        return (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+
+    @classmethod
+    def column_data_type(cls, field: str) -> Optional[DDLColumnDataType]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         return metadata.use_sql_type if metadata is not None else None
+
+    @classmethod
+    def column_type(cls, field: str) -> Optional[DDLColumnType]:
+        """The column-type declaration for *field*, in the form declared.
+
+        Dialect-free, like :meth:`column_data_type`: the declaration is
+        presented as written -- a ``UseColumnType`` marker (its candidates
+        included), a single class, or a sequence -- or ``None`` when the field
+        declares none. How the declaration is consumed is the caller's
+        business; the framework's own consumer is :class:`FieldProxy`, which
+        selects the class a backend answers.
+
+        Raises:
+            KeyError: The model has no such field.
+            TypeError: More than one ``UseColumnType`` declaration on the field.
+        """
+        field_info = cast(Any, cls).model_fields[field]
+        found = [
+            item
+            for item in (getattr(field_info, "metadata", None) or ())
+            if isinstance(item, UseColumnType)
+        ]
+        if len(found) > 1:
+            raise TypeError(
+                f"{len(found)} UseColumnType declarations on a single field. A "
+                f"field declares the column class it uses once; a model that "
+                f"wants a different one declares it on a different model."
+            )
+        return found[0] if found else None
 
     @classmethod
     def column_constraints(cls, field: str) -> Sequence[ColumnConstraint]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         if metadata is None:
             return []
         constraints = [marker.constraint for marker in metadata.constraints]
@@ -575,7 +631,7 @@ class DDLSourceMixin:
     @classmethod
     def column_attributes(cls, field: str) -> Sequence[ColumnAttribute]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         if metadata is None:
             return []
         return [
@@ -587,7 +643,7 @@ class DDLSourceMixin:
     @classmethod
     def column_indexes(cls, field: str) -> Sequence[IndexDefinition]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         if metadata is None:
             return []
         return [
@@ -598,14 +654,14 @@ class DDLSourceMixin:
     @classmethod
     def column_comment(cls, field: str) -> Optional[str]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         marker = getattr(metadata, "column_comment", None) if metadata else None
         return marker.comment if marker is not None else None
 
     @classmethod
     def generated_column(cls, field: str) -> Optional[DDLGeneratedColumn]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         marker = getattr(metadata, "generated_column", None) if metadata else None
         return marker.expression if marker is not None else None
 
@@ -614,7 +670,7 @@ class DDLSourceMixin:
         cls, field: str
     ) -> Optional[Union[ColumnOptions, Sequence[ColumnOptions]]]:
         cls._validate_ddl_annotations()
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        metadata = cls._field_metadata(field)
         if metadata is None or not metadata.column_options:
             return None
         options = list(metadata.column_options)
@@ -631,10 +687,10 @@ class DDLSourceMixin:
         return {field: cls.column_name(field) for field in cls._batch_fields(fields)}
 
     @classmethod
-    def columns_type(
+    def columns_data_type(
         cls, fields: Optional[List[str]] = None
-    ) -> Dict[str, Optional[DDLColumnType]]:
-        return {field: cls.column_type(field) for field in cls._batch_fields(fields)}
+    ) -> Dict[str, Optional[DDLColumnDataType]]:
+        return {field: cls.column_data_type(field) for field in cls._batch_fields(fields)}
 
     @classmethod
     def columns_constraints(
@@ -688,7 +744,8 @@ class DDLSourceMixin:
 
     @classmethod
     def ddl_field_metadata(cls, field: str) -> DDLFieldMetadata:
-        metadata = (getattr(cls, "__table_ddl_fields__", {}) or {}).get(field)
+        """The DDL metadata for *field*; a field the model lacks raises ``KeyError``."""
+        metadata = cls._field_metadata(field)
         if metadata is None:
             metadata = DDLFieldMetadata(cast(Any, cls).model_fields[field])
         metadata.require_handled()
@@ -710,6 +767,7 @@ __all__ = [
     "ColumnAttribute",
     "ColumnOptions",
     "DDLAnnotationHandler",
+    "DDLColumnDataType",
     "DDLColumnType",
     "DDLFieldMetadata",
     "DDLGeneratedColumn",

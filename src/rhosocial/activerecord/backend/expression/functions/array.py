@@ -4,8 +4,13 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..aggregates import AggregateFunctionCall
-from ..core import Column, FunctionCall, Literal
+from ..core import (
+    Column,
+    ArrayValueExpression,
+    IntegerValueExpression,
+    FunctionCall,
+    Literal,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -16,20 +21,30 @@ def array_agg(
     expr: Union[str, "BaseExpression"],
     is_distinct: bool = False,
     alias: Optional[str] = None,
-) -> "AggregateFunctionCall":
-    """Creates an ARRAY_AGG aggregate function call."""
+) -> "FunctionCall":
+    """Creates an ARRAY_AGG aggregate function call.
+
+    The result is always an array -- gathering values produces a list of them,
+    whatever the gathered type was -- so this wraps in
+    :class:`ArrayValueExpression` rather than reading a type off the argument.
+    """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return AggregateFunctionCall(dialect, "ARRAY_AGG", target_expr, is_distinct=is_distinct, alias=alias)
+    return ArrayValueExpression(
+        dialect,
+        FunctionCall(dialect, "ARRAY_AGG", target_expr, is_distinct=is_distinct, alias=alias, is_aggregate=True),
+    )
 
 
-def unnest(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def unnest(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "ArrayValueExpression":
     """Creates an UNNEST function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return FunctionCall(dialect, "UNNEST", target_expr)
+    return ArrayValueExpression(dialect, FunctionCall(dialect, 'UNNEST', target_expr))
 
 
-def array_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], dimension: int = 1) -> "FunctionCall":
+def array_length(
+    dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], dimension: int = 1
+) -> "IntegerValueExpression":
     """Creates an ARRAY_LENGTH function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     dimension_expr = Literal(dialect, dimension)
-    return FunctionCall(dialect, "ARRAY_LENGTH", target_expr, dimension_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, 'ARRAY_LENGTH', target_expr, dimension_expr))

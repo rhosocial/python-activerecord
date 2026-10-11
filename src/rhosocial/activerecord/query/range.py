@@ -3,10 +3,41 @@
 
 from typing import List, Union, Tuple, Any, TYPE_CHECKING
 
-from ..backend.expression import Column, BaseExpression
+from ..backend.expression import (
+    Column,
+    BaseExpression,
+    BetweenPredicate,
+    ComparisonPredicate,
+    InPredicate,
+    IsNullPredicate,
+    LikePredicate,
+    Literal,
+    LogicalPredicate,
+    Subquery,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..interface.query import IQuery
+    from ..backend.expression.bases import SQLPredicate
+
+
+def _in_predicate(dialect, expr: BaseExpression, values) -> "SQLPredicate":
+    """The explicit ``IN`` node, so a bare column reference needs no mixin.
+
+    A column handed to these methods may be a name in quotes, which resolves
+    to the bare :class:`~...expression.core.Column` — a reference that offers
+    no operations by design. The query layer therefore builds its predicates
+    explicitly rather than through the column's own operators, and this helper
+    mirrors :meth:`~...mixins.ComparisonMixin.in_` exactly: an ActiveQuery-like
+    object renders as a subquery, an expression passes through, and anything
+    else is bound as one literal holding the values.
+    """
+    to_query_expression = getattr(values, "to_query_expression", None)
+    if callable(to_query_expression):
+        return InPredicate(dialect, expr, Subquery(dialect, to_query_expression()))
+    if isinstance(values, BaseExpression):
+        return InPredicate(dialect, expr, values)
+    return InPredicate(dialect, expr, Literal(dialect, tuple(values)))
 
 
 class RangeQueryMixin:
@@ -84,7 +115,8 @@ class RangeQueryMixin:
                 return self
 
         col_expr = self._get_col_expr(column)
-        predicate = col_expr.in_(list(values))
+        dialect = self.backend().dialect
+        predicate = _in_predicate(dialect, col_expr, values)
         return self.where(predicate)
 
     def not_in(
@@ -124,7 +156,10 @@ class RangeQueryMixin:
                 return self
 
         col_expr = self._get_col_expr(column)
-        predicate = col_expr.not_in(list(values))
+        dialect = self.backend().dialect
+        predicate = LogicalPredicate(
+            dialect, "NOT", _in_predicate(dialect, col_expr, values)
+        )
         return self.where(predicate)
 
     def between(self, column: Union[str, BaseExpression], start: Any, end: Any) -> "IQuery":
@@ -151,7 +186,10 @@ class RangeQueryMixin:
             >>> User.query().between('age', 18, 30)
         """
         col_expr = self._get_col_expr(column)
-        predicate = col_expr.between(start, end)
+        dialect = self.backend().dialect
+        predicate = BetweenPredicate(
+            dialect, col_expr, Literal(dialect, start), Literal(dialect, end)
+        )
         return self.where(predicate)
 
     def not_between(self, column: Union[str, BaseExpression], start: Any, end: Any) -> "IQuery":
@@ -178,7 +216,10 @@ class RangeQueryMixin:
             >>> User.query().not_between('age', 18, 30)
         """
         col_expr = self._get_col_expr(column)
-        predicate = ~(col_expr.between(start, end))
+        dialect = self.backend().dialect
+        predicate = ~BetweenPredicate(
+            dialect, col_expr, Literal(dialect, start), Literal(dialect, end)
+        )
         return self.where(predicate)
 
     def like(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
@@ -204,7 +245,8 @@ class RangeQueryMixin:
             >>> User.query().like('name', 'John%')
         """
         col_expr = self._get_col_expr(column)
-        predicate = col_expr.like(pattern)
+        dialect = self.backend().dialect
+        predicate = LikePredicate(dialect, "LIKE", col_expr, Literal(dialect, pattern))
         return self.where(predicate)
 
     def not_like(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
@@ -226,7 +268,8 @@ class RangeQueryMixin:
             >>> User.query().not_like(User.c.name, 'Admin%')
         """
         col_expr = self._get_col_expr(column)
-        predicate = ~(col_expr.like(pattern))
+        dialect = self.backend().dialect
+        predicate = ~LikePredicate(dialect, "LIKE", col_expr, Literal(dialect, pattern))
         return self.where(predicate)
 
     def ilike(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
@@ -249,7 +292,8 @@ class RangeQueryMixin:
             >>> User.query().ilike(User.c.name, 'john%')
         """
         col_expr = self._get_col_expr(column)
-        predicate = col_expr.ilike(pattern)
+        dialect = self.backend().dialect
+        predicate = LikePredicate(dialect, "ILIKE", col_expr, Literal(dialect, pattern))
         return self.where(predicate)
 
     def not_ilike(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
@@ -293,7 +337,8 @@ class RangeQueryMixin:
             >>> User.query().is_null(User.c.deleted_at)
         """
         col_expr = self._get_col_expr(column)
-        predicate = col_expr.is_null()
+        dialect = self.backend().dialect
+        predicate = IsNullPredicate(dialect, col_expr)
         return self.where(predicate)
 
     def is_not_null(self, column: Union[str, BaseExpression]) -> "IQuery":
@@ -314,7 +359,8 @@ class RangeQueryMixin:
             >>> User.query().is_not_null(User.c.updated_at)
         """
         col_expr = self._get_col_expr(column)
-        predicate = col_expr.is_not_null()
+        dialect = self.backend().dialect
+        predicate = IsNullPredicate(dialect, col_expr, is_not=True)
         return self.where(predicate)
 
     def greater_than(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
@@ -336,7 +382,8 @@ class RangeQueryMixin:
             >>> User.query().greater_than(User.c.age, 18)
         """
         col_expr = self._get_col_expr(column)
-        predicate = col_expr > value
+        dialect = self.backend().dialect
+        predicate = ComparisonPredicate(dialect, ">", col_expr, Literal(dialect, value))
         return self.where(predicate)
 
     def greater_than_or_equal(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
@@ -358,7 +405,8 @@ class RangeQueryMixin:
             >>> User.query().greater_than_or_equal(User.c.age, 18)
         """
         col_expr = self._get_col_expr(column)
-        predicate = col_expr >= value
+        dialect = self.backend().dialect
+        predicate = ComparisonPredicate(dialect, ">=", col_expr, Literal(dialect, value))
         return self.where(predicate)
 
     def less_than(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
@@ -380,7 +428,8 @@ class RangeQueryMixin:
             >>> User.query().less_than(User.c.age, 65)
         """
         col_expr = self._get_col_expr(column)
-        predicate = col_expr < value
+        dialect = self.backend().dialect
+        predicate = ComparisonPredicate(dialect, "<", col_expr, Literal(dialect, value))
         return self.where(predicate)
 
     def less_than_or_equal(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
@@ -402,7 +451,8 @@ class RangeQueryMixin:
             >>> User.query().less_than_or_equal(User.c.age, 65)
         """
         col_expr = self._get_col_expr(column)
-        predicate = col_expr <= value
+        dialect = self.backend().dialect
+        predicate = ComparisonPredicate(dialect, "<=", col_expr, Literal(dialect, value))
         return self.where(predicate)
 
     def __init__(self, *args, **kwargs):

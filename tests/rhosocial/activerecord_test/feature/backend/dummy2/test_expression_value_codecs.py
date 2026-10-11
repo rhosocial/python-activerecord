@@ -28,6 +28,7 @@ from rhosocial.activerecord.backend.expression.serialization import (
     serialize_json,
     serialize_xml,
 )
+from rhosocial.activerecord.backend.expression.types import DecimalType
 
 
 class Status(Enum):
@@ -69,12 +70,14 @@ class TestLiteralValueCodecRoundtrip:
         assert restored.value == value
 
     def test_json_nested_expression(self, dummy_dialect):
-        expr = Column(dummy_dialect, "t") > dt.datetime(2026, 1, 1)
+        expr = ComparisonPredicate(
+            dummy_dialect, ">", Column(dummy_dialect, "t"), Literal(dummy_dialect, dt.datetime(2026, 1, 1))
+        )
         restored = deserialize_json(serialize_json(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_json_combined_with_cast_chain(self, dummy_dialect):
-        expr = Column(dummy_dialect, "amount").cast("numeric")
+        expr = Column(dummy_dialect, "amount").cast(DecimalType(dummy_dialect))
         restored = deserialize_json(serialize_json(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
 
@@ -121,7 +124,7 @@ class TestXmlCodecRoundtrip:
         assert restored.to_sql() == expr.to_sql()
 
     def test_xml_cast_chain(self, dummy_dialect):
-        expr = Column(dummy_dialect, "amount").cast("numeric")
+        expr = Column(dummy_dialect, "amount").cast(DecimalType(dummy_dialect))
         restored = deserialize_xml(serialize_xml(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
 

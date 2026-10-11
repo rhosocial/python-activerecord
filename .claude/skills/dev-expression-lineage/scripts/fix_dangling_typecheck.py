@@ -62,8 +62,10 @@ SKIP_PATH_PARTS = ("__pycache__", "examples", "tests", "migrations")
 #:   - the import needs a deeper tail than the author wrote
 #:     (``async_backend`` -> ``backend.async_backend``, and
 #:     ``expression.partition`` -> ``expression.partition_lifecycle``);
-#:   - the name itself was renamed (``WindowFunctionCallExpression`` ->
-#:     ``WindowFunctionCall``).
+#:   - the name itself was renamed. The last entry of this kind
+#:     (``WindowFunctionCallExpression`` -> ``WindowFunctionCall``) is gone: the
+#:     node was unified into ``FunctionCall`` and Firebird's stale importer was
+#:     deleted with it.
 #:
 #: One case needed a **split** rather than a redirect and therefore has no entry
 #: here: ``impl.mysql.mixins.partition`` imported 25 names from
@@ -87,10 +89,6 @@ MANUAL_OVERRIDES = {
     ("impl.firebird.mixins.transaction", "SetTransactionExpression"):     (
         "from rhosocial.activerecord.backend.expression.transaction import",
         None,
-    ),
-    ("impl.firebird.mixins.window", "WindowFunctionCallExpression"): (
-        "from rhosocial.activerecord.backend.expression.advanced_functions import",
-        "WindowFunctionCall",
     ),
     ("impl.mysql.async_transaction", "AsyncMySQLBackend"):     (
         "from .async_backend import",

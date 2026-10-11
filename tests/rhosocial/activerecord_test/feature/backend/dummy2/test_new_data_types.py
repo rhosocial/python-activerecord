@@ -124,8 +124,10 @@ class TestDummyDispatch:
         assert supported["binary"] is BinaryType
         assert supported["varbinary"] is VarBinaryType
 
-    def test_new_names_support_checks(self):
+    def test_new_names_are_declared_by_their_formatters(self):
         dialect = _dummy_dialect()
-        assert dialect.supports_data_type_enum() is True
-        assert dialect.supports_data_type_binary() is True
-        assert dialect.supports_data_type_varbinary() is True
+        # The formatter *is* the support declaration; the retired
+        # supports_data_type_* probe family has no core member left.
+        for name in ("enum", "binary", "varbinary"):
+            assert hasattr(dialect, f"format_data_type_{name}")
+            assert not hasattr(dialect, f"supports_data_type_{name}")

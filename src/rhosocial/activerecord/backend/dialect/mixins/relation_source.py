@@ -23,7 +23,7 @@ supports it at all: a derived table is universal SQL, whereas ``VALUES`` in a
 are engine-specific and default to unsupported.
 """
 
-from typing import Any, List, Tuple, TYPE_CHECKING
+from typing import Any, List, Tuple, Union, TYPE_CHECKING
 
 from ...expression.bases import BaseExpression
 from ...expression.objects import RelationObject
@@ -148,7 +148,7 @@ class RelationSourceMixin:
             f"{self.format_identifier(source.alias, source.alias_need_quote)}"
         )
 
-    def format_source_document(self, document: Any) -> Tuple[str, tuple]:
+    def format_source_document(self, document: Union[BaseExpression, str]) -> Tuple[str, tuple]:
         """Render the document a projection row source reads.
 
         ``JSON_TABLE`` and ``XMLTABLE`` are handed either an expression
@@ -310,7 +310,7 @@ class RelationSourceMixin:
         sql = f"JSON_TABLE({document_sql}, '{path}' COLUMNS({columns_sql}))"
         return self.format_source_alias(sql, source), params
 
-    def format_source_columns(self, columns: Any, render_column: Any) -> Tuple[str, tuple]:
+    def format_source_columns(self, columns: List[Any], render_column: Any) -> Tuple[str, tuple]:
         """Render a projection source's whole ``COLUMNS`` list.
 
         ``JSON_TABLE`` and ``XMLTABLE`` both take a list of column projections

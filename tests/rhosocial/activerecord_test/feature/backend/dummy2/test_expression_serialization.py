@@ -33,7 +33,6 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     LimitOffsetClause,
     ForUpdateClause,
 )
-from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.expression.serialization import (
     serialize,
@@ -169,7 +168,9 @@ class TestAggregateRoundtrip:
     """T5: Aggregate function round-trip test."""
 
     def test_aggregate_function_roundtrip(self, dummy_dialect):
-        expr = AggregateFunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount"), alias="total")
+        expr = FunctionCall(
+            dummy_dialect, "SUM", Column(dummy_dialect, "amount"), alias="total", is_aggregate=True
+        )
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
 
@@ -306,7 +307,7 @@ class TestErrorHandling:
 
     def test_serialize_deserialize_tuple_in_params(self, dummy_dialect):
         col = Column(dummy_dialect, "status")
-        in_pred = col.in_(["active", "pending", "draft"])
+        in_pred = InPredicate(dummy_dialect, col, Literal(dummy_dialect, ("active", "pending", "draft")))
         spec = serialize(in_pred)
         restored = deserialize(spec, dummy_dialect)
         assert restored.to_sql() == in_pred.to_sql()
@@ -394,7 +395,7 @@ class TestErrorHandling:
 
         serializer = ExpressionSerializer(max_depth=64)
         col = Column(dummy_dialect, "status")
-        in_pred = col.in_(["active", "pending"])
+        in_pred = InPredicate(dummy_dialect, col, Literal(dummy_dialect, ("active", "pending")))
 
         spec = serializer.serialize(in_pred)
         restored = serializer.deserialize(spec, dummy_dialect)
@@ -653,7 +654,7 @@ class TestQueryPartsRoundtrip:
     """Query parts round-trip tests."""
 
     def test_group_by_having_roundtrip(self, dummy_dialect):
-        agg = AggregateFunctionCall(dummy_dialect, "COUNT")
+        agg = FunctionCall(dummy_dialect, "COUNT", is_aggregate=True)
         pred = ComparisonPredicate(dummy_dialect, ">", agg, Literal(dummy_dialect, 10))
         expr = GroupByHavingClause(
             dummy_dialect,
@@ -832,7 +833,10 @@ class TestDDLRoundtrip:
 
         expr = ExplainExpression(dummy_dialect, statement=Column(dummy_dialect, "users"))
         restored = deserialize(serialize(expr), dummy_dialect)
-        assert restored.get_params() == expr.get_params()
+        # A bare Column compares by identity, so equality goes through the
+        # rendered SQL, as in the other roundtrip tests in this file.
+        assert restored.to_sql() == expr.to_sql()
+        assert restored.get_params()["options"] == expr.get_params()["options"]
 
 
 class TestAllowedTypesAllowlist:

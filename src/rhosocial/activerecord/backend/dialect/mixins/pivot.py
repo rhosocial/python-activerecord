@@ -6,9 +6,10 @@ backends that support PIVOT / UNPIVOT. Dialects override
 :meth:`format_pivot_value` and/or the whole formatter when their value
 semantics or extensions differ.
 """
-from typing import Any, List, Tuple, TYPE_CHECKING
+from typing import Any, List, Tuple, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ...expression.bases import BaseExpression
     from ...expression.pivot import PivotExpression, UnpivotExpression
 
 
@@ -27,7 +28,7 @@ class PivotMixin:
         """Whether the UNPIVOT clause is supported. Defaults to False."""
         return False
 
-    def format_pivot_value(self, value: Any) -> Tuple[str, tuple]:
+    def format_pivot_value(self, value: "Union[BaseExpression, str, int, float]") -> Tuple[str, tuple]:
         """Render a single value in a PIVOT ``IN (...)`` list.
 
         Strings/numbers are rendered as inline SQL literals; expression

@@ -326,14 +326,14 @@ class ActiveQuery(
         Example:
             User.query().where(User.c.status == 'inactive').update_all({User.c.status: 'archived'})
         """
-        from ..backend.expression import Column
+        from ..backend.expression import ColumnBase
         from ..backend.options import UpdateOptions
 
         backend = self.backend()
 
         data = {}
         for key, value in values.items():
-            if isinstance(key, Column):
+            if isinstance(key, ColumnBase):
                 col_name = key.name
             elif isinstance(key, str):
                 col_name = self.model_class.get_column_name(key)
@@ -689,14 +689,14 @@ class AsyncActiveQuery(
         Returns:
             Number of affected rows.
         """
-        from ..backend.expression import Column
+        from ..backend.expression import ColumnBase
         from ..backend.options import UpdateOptions
 
         backend = self.backend()
 
         data = {}
         for key, value in values.items():
-            if isinstance(key, Column):
+            if isinstance(key, ColumnBase):
                 col_name = key.name
             elif isinstance(key, str):
                 col_name = self.model_class.get_column_name(key)

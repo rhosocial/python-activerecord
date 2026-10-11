@@ -4,14 +4,25 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..core import FunctionCall, Literal
-from ..operators import BinaryExpression, RawSQLExpression
+from ..core import (
+    FunctionCall,
+    IntegerValueExpression,
+    Literal,
+    StringValueExpression,
+)
+from ..operators import BinaryExpression, StringConcatExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+    from ..advanced_functions import (
+        LpadExpression,
+        RepeatExpression,
+        RpadExpression,
+        TrimExpression,
+    )
 
 
-def concat(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "FunctionCall":
+def concat(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "StringValueExpression":
     """
     Creates a CONCAT scalar function call.
 
@@ -28,10 +39,10 @@ def concat(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "
         A FunctionCall instance representing the CONCAT function
     """
     target_exprs = [e if isinstance(e, BaseExpression) else Literal(dialect, e) for e in exprs]
-    return FunctionCall(dialect, "CONCAT", *target_exprs)
+    return StringValueExpression(dialect, FunctionCall(dialect, "CONCAT", *target_exprs))
 
 
-def coalesce(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "FunctionCall":
+def coalesce(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "StringValueExpression":
     """
     Creates a COALESCE scalar function call.
 
@@ -48,10 +59,10 @@ def coalesce(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) ->
         A FunctionCall instance representing the COALESCE function
     """
     target_exprs = [e if isinstance(e, BaseExpression) else Literal(dialect, e) for e in exprs]
-    return FunctionCall(dialect, "COALESCE", *target_exprs)
+    return StringValueExpression(dialect, FunctionCall(dialect, "COALESCE", *target_exprs))
 
 
-def length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "IntegerValueExpression":
     """
     Creates a LENGTH scalar function call.
 
@@ -68,7 +79,7 @@ def length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fu
         A FunctionCall instance representing the LENGTH function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "LENGTH", target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "LENGTH", target_expr))
 
 
 def substring(
@@ -94,13 +105,33 @@ def substring(
 
     Returns:
         A FunctionCall instance representing the SUBSTRING function
+
+    Raises:
+        ValueError: A literal *start* below 1, or a literal *length* below 0.
+
+    Contract:
+        ``start`` is 1-based and ``length`` counts forward. Both edges were
+        measured across the ten backends (2026-10-09) and are refused here
+        rather than rendered, because the backends do not agree on what an
+        out-of-range argument means: a position below 1 is consumed by the
+        length on PostgreSQL, SQL Server, Firebird and SQLite, yields an empty
+        string on MySQL, MariaDB and ClickHouse, and is read as 1 on Oracle; a
+        negative length is an error on some backends, an empty string on
+        MySQL/MariaDB, NULL on Oracle and something unrelated again on
+        ClickHouse.
     """
+    if isinstance(start, int) and start < 1:
+        raise ValueError(
+            f"substring(): start must be >= 1 (positions are 1-based), got {start!r}"
+        )
+    if isinstance(length, int) and length < 0:
+        raise ValueError(f"substring(): length must be >= 0, got {length!r}")
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     start_expr = start if isinstance(start, BaseExpression) else Literal(dialect, start)
     if length is not None:
         length_expr = length if isinstance(length, BaseExpression) else Literal(dialect, length)
-        return FunctionCall(dialect, "SUBSTRING", target_expr, start_expr, length_expr)
-    return FunctionCall(dialect, "SUBSTRING", target_expr, start_expr)
+        return StringValueExpression(dialect, FunctionCall(dialect, "SUBSTRING", target_expr, start_expr, length_expr))
+    return StringValueExpression(dialect, FunctionCall(dialect, "SUBSTRING", target_expr, start_expr))
 
 
 def trim(
@@ -108,9 +139,9 @@ def trim(
     expr: Union[str, "BaseExpression"],
     chars: Optional[Union[str, "BaseExpression"]] = None,
     direction: str = "BOTH",
-) -> "RawSQLExpression":
+) -> "TrimExpression":
     """
-    Creates a TRIM scalar function call.
+    Creates a TRIM node.
 
     Usage rules:
     - To generate TRIM(BOTH FROM column), pass a Column object: trim(dialect, Column(dialect, "column_name"))
@@ -120,31 +151,48 @@ def trim(
         dialect: The SQL dialect instance
         expr: The expression to trim. If a string is passed, it's treated as a literal value.
               If a BaseExpression is passed, it's used as-is.
-        chars: Optional characters to trim. If provided, treated as literal value if string.
+        chars: Optional single character to trim. If provided, treated as
+            literal value if string.
         direction: Direction of trim operation (BOTH, LEADING, TRAILING). Default is BOTH.
 
     Returns:
-        A RawSQLExpression instance representing the TRIM function
+        A :class:`~...expression.advanced_functions.TrimExpression` node, which
+        the dialect renders through its ``format_trim_expression`` hook.
+
+    Raises:
+        ValueError: An unknown *direction*, or a trim set that is not exactly
+            one character.
+
+    Contract:
+        The trim set is **one character**, which is what SQL:2016 feature
+        E021-09 (``trim(<char> from ...)``) defines and what every backend
+        agrees on. A multi-character set means three different things in the
+        wild -- a character set on PostgreSQL, SQL Server, ClickHouse and
+        Snowflake, a whole string repeated on MySQL, MariaDB and Firebird, and
+        ``ORA-30001`` on Oracle -- so it is refused at construction instead of
+        rendered into whichever of the three the backend happens to implement.
+        The node, not a raw SQL string, is what makes the dialect's spelling a
+        formatter's decision: SQLite overrides the hook because it parses no
+        ``trim(... from ...)`` syntax at all.
     """
     # Validate direction: only allow known trim directions.
     valid_directions = frozenset({"BOTH", "LEADING", "TRAILING"})
     if direction not in valid_directions:
         raise ValueError(f"Invalid trim direction '{direction}': must be one of {valid_directions}")
+    if isinstance(chars, str) and len(chars) != 1:
+        raise ValueError(
+            f"Invalid trim set {chars!r}: must be exactly one character -- SQL:2016 "
+            "feature E021-09 defines trim(<char> from ...), and a multi-character "
+            "set means three different things across the backends"
+        )
+
+    from ..advanced_functions import TrimExpression
 
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    target_sql, target_params = target_expr.to_sql()
-
+    chars_expr: Optional[BaseExpression] = None
     if chars is not None:
         chars_expr = chars if isinstance(chars, BaseExpression) else Literal(dialect, chars)
-        chars_sql, chars_params = chars_expr.to_sql()
-        formatted_sql = f"TRIM({direction} {chars_sql} FROM {target_sql})"
-        # Combine parameters
-        all_params = target_params + chars_params
-        # For now, return a RawSQLExpression; in a real implementation, the dialect would handle this
-        return RawSQLExpression(dialect, formatted_sql, all_params)
-    else:
-        formatted_sql = f"TRIM({direction} FROM {target_sql})"
-        return RawSQLExpression(dialect, formatted_sql, target_params)
+    return TrimExpression(dialect, target_expr, chars_expr, direction)
 
 
 def replace(
@@ -173,7 +221,7 @@ def replace(
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     pattern_expr = pattern if isinstance(pattern, BaseExpression) else Literal(dialect, pattern)
     replacement_expr = replacement if isinstance(replacement, BaseExpression) else Literal(dialect, replacement)
-    return FunctionCall(dialect, "REPLACE", target_expr, pattern_expr, replacement_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "REPLACE", target_expr, pattern_expr, replacement_expr))
 
 
 def upper(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -193,7 +241,7 @@ def upper(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fun
         A FunctionCall instance representing the UPPER function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "UPPER", target_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "UPPER", target_expr))
 
 
 def lower(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -213,7 +261,7 @@ def lower(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fun
         A FunctionCall instance representing the LOWER function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "LOWER", target_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "LOWER", target_expr))
 
 
 def initcap(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -233,7 +281,7 @@ def initcap(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "F
         A FunctionCall instance representing the INITCAP function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "INITCAP", target_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "INITCAP", target_expr))
 
 
 def left(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], n: int) -> "FunctionCall":
@@ -252,10 +300,23 @@ def left(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], n: int) 
 
     Returns:
         A FunctionCall instance representing the LEFT function
+
+    Raises:
+        ValueError: If *n* is negative.
+
+    Contract:
+        ``n >= 0``, and everything above it is portable: 0 is the empty string
+        and more than the length is the whole string on every backend. Below 0
+        the backends answer four different ways -- PostgreSQL and ClickHouse
+        drop the trailing ``|n|`` characters, MySQL, MariaDB and Snowflake
+        return an empty string, SQL Server and Firebird raise, and BigQuery
+        raises -- so a negative count is refused rather than rendered.
     """
+    if isinstance(n, int) and n < 0:
+        raise ValueError(f"left(): n must be >= 0, got {n!r}")
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     n_expr = Literal(dialect, n)
-    return FunctionCall(dialect, "LEFT", target_expr, n_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "LEFT", target_expr, n_expr))
 
 
 def right(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], n: int) -> "FunctionCall":
@@ -274,17 +335,27 @@ def right(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], n: int)
 
     Returns:
         A FunctionCall instance representing the RIGHT function
+
+    Raises:
+        ValueError: If *n* is negative.
+
+    Contract:
+        The mirror of :func:`left` -- ``n >= 0``, 0 is the empty string, more
+        than the length is the whole string, and a negative count is refused
+        because no two backends agree on it (see :func:`left`).
     """
+    if isinstance(n, int) and n < 0:
+        raise ValueError(f"right(): n must be >= 0, got {n!r}")
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     n_expr = Literal(dialect, n)
-    return FunctionCall(dialect, "RIGHT", target_expr, n_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "RIGHT", target_expr, n_expr))
 
 
 def lpad(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], length: int, pad: Optional[str] = None
-) -> "FunctionCall":
+) -> "LpadExpression":
     """
-    Creates an LPAD scalar function call.
+    Creates a left-padding node.
 
     Usage rules:
     - To generate LPAD(column, length, pad), pass a Column object:
@@ -296,24 +367,48 @@ def lpad(
         expr: The expression to pad. If a string is passed, it's treated as a literal value.
               If a BaseExpression is passed, it's used as-is.
         length: Total length after padding.
-        pad: Optional padding character/string. If provided, treated as literal value.
+        pad: Optional padding string, non-empty. Defaults to a single space.
 
     Returns:
-        A FunctionCall instance representing the LPAD function
+        A :class:`~...expression.advanced_functions.LpadExpression` node, which
+        the dialect renders through ``format_lpad_expression`` -- a spelling
+        where the function exists (PostgreSQL, MySQL, MariaDB, Oracle,
+        Firebird, ClickHouse, Snowflake, BigQuery) and an emulation composed
+        from ordinary nodes where it does not (SQLite).
+
+    Raises:
+        ValueError: A negative *length*, or an empty *pad*.
+
+    Contract:
+        ``length >= 0`` and the pad is non-empty; an omitted pad means one
+        space, and it is always passed explicitly because the backends differ
+        on whether the argument is optional at all (MySQL raises 1582 without
+        it, MariaDB fills with spaces). An empty pad is refused: measured
+        2026-10-09, it leaves the string alone on PostgreSQL/Firebird/Snowflake,
+        returns an empty string on MySQL 8.0, the untouched string on MySQL 26
+        (the same server, two answers), NULL on MariaDB/Oracle and pads with
+        spaces on ClickHouse.
     """
+    if isinstance(length, int) and length < 0:
+        raise ValueError(f"lpad(): length must be >= 0, got {length!r}")
+    if isinstance(pad, str) and pad == "":
+        raise ValueError(
+            "lpad(): empty pad string is refused -- backends disagree on what it "
+            "means (untouched string, empty string or NULL)"
+        )
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    length_expr = Literal(dialect, length)
-    if pad is not None:
-        pad_expr = Literal(dialect, pad)
-        return FunctionCall(dialect, "LPAD", target_expr, length_expr, pad_expr)
-    return FunctionCall(dialect, "LPAD", target_expr, length_expr)
+    length_expr = length if isinstance(length, BaseExpression) else Literal(dialect, length)
+    pad_expr = pad if isinstance(pad, BaseExpression) else Literal(dialect, " " if pad is None else pad)
+    from ..advanced_functions import LpadExpression
+
+    return LpadExpression(dialect, target_expr, length_expr, pad_expr)
 
 
 def rpad(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], length: int, pad: Optional[str] = None
-) -> "FunctionCall":
+) -> "RpadExpression":
     """
-    Creates an RPAD scalar function call.
+    Creates a right-padding node.
 
     Usage rules:
     - To generate RPAD(column, length, pad), pass a Column object:
@@ -325,17 +420,33 @@ def rpad(
         expr: The expression to pad. If a string is passed, it's treated as a literal value.
               If a BaseExpression is passed, it's used as-is.
         length: Total length after padding.
-        pad: Optional padding character/string. If provided, treated as literal value.
+        pad: Optional padding string, non-empty. Defaults to a single space.
 
     Returns:
-        A FunctionCall instance representing the RPAD function
+        A :class:`~...expression.advanced_functions.RpadExpression` node,
+        rendered through ``format_rpad_expression`` -- a spelling where the
+        function exists and a one-branch emulation where it does not.
+
+    Raises:
+        ValueError: A negative *length*, or an empty *pad*.
+
+    Contract:
+        The mirror of :func:`lpad`: ``length >= 0``, a non-empty pad, an
+        omitted pad spelled out as one space, and an empty pad refused.
     """
+    if isinstance(length, int) and length < 0:
+        raise ValueError(f"rpad(): length must be >= 0, got {length!r}")
+    if isinstance(pad, str) and pad == "":
+        raise ValueError(
+            "rpad(): empty pad string is refused -- backends disagree on what it "
+            "means (untouched string, empty string or NULL)"
+        )
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    length_expr = Literal(dialect, length)
-    if pad is not None:
-        pad_expr = Literal(dialect, pad)
-        return FunctionCall(dialect, "RPAD", target_expr, length_expr, pad_expr)
-    return FunctionCall(dialect, "RPAD", target_expr, length_expr)
+    length_expr = length if isinstance(length, BaseExpression) else Literal(dialect, length)
+    pad_expr = pad if isinstance(pad, BaseExpression) else Literal(dialect, " " if pad is None else pad)
+    from ..advanced_functions import RpadExpression
+
+    return RpadExpression(dialect, target_expr, length_expr, pad_expr)
 
 
 def reverse(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -355,12 +466,12 @@ def reverse(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "F
         A FunctionCall instance representing the REVERSE function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "REVERSE", target_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "REVERSE", target_expr))
 
 
 def strpos(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], substring: Union[str, "BaseExpression"]
-) -> "FunctionCall":
+) -> "IntegerValueExpression":
     """
     Creates a STRPOS scalar function call (position of substring).
 
@@ -380,12 +491,19 @@ def strpos(
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     substr_expr = substring if isinstance(substring, BaseExpression) else Literal(dialect, substring)
-    return FunctionCall(dialect, "STRPOS", target_expr, substr_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "STRPOS", target_expr, substr_expr))
 
 
-def concat_op(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -> "BinaryExpression":
-    """
-    Creates a string concatenation operation using the || operator (SQL standard).
+def concat_op(
+    dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]
+) -> "BinaryExpression":
+    """Creates a string concatenation using the ``||`` operator.
+
+    Deliberately not offered as a ``StringValueMixin`` method. ``||`` does not
+    mean concatenation everywhere — in MySQL it is logical OR by default — so
+    an operation reachable from a string column would silently produce a
+    boolean on some backends. Use :func:`concat`, whose meaning is the same
+    everywhere.
 
     Usage rules:
     - To generate column1 || column2, pass Column objects:
@@ -407,11 +525,11 @@ def concat_op(dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]) -
     target_exprs = [e if isinstance(e, BaseExpression) else Literal(dialect, e) for e in exprs]
 
     # Start with the first two expressions
-    result = BinaryExpression(dialect, "||", target_exprs[0], target_exprs[1])
+    result = StringConcatExpression(dialect, target_exprs[0], target_exprs[1])
 
-    # Chain additional expressions using the || operator
+    # Chain additional expressions
     for i in range(2, len(target_exprs)):
-        result = BinaryExpression(dialect, "||", result, target_exprs[i])
+        result = StringConcatExpression(dialect, result, target_exprs[i])
 
     return result
 
@@ -434,10 +552,10 @@ def chr_(dialect: "SQLDialectBase", code: Union[int, "BaseExpression"]) -> "Func
         A FunctionCall instance representing the CHR function
     """
     code_expr = code if isinstance(code, BaseExpression) else Literal(dialect, code)
-    return FunctionCall(dialect, "CHR", code_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "CHR", code_expr))
 
 
-def ascii(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def ascii(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "IntegerValueExpression":
     """
     Creates an ASCII function call.
 
@@ -455,10 +573,10 @@ def ascii(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fun
         A FunctionCall instance representing the ASCII function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "ASCII", target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "ASCII", target_expr))
 
 
-def octet_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def octet_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "IntegerValueExpression":
     """
     Creates an OCTET_LENGTH function call.
 
@@ -476,10 +594,10 @@ def octet_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) 
         A FunctionCall instance representing the OCTET_LENGTH function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "OCTET_LENGTH", target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "OCTET_LENGTH", target_expr))
 
 
-def bit_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
+def bit_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "IntegerValueExpression":
     """
     Creates a BIT_LENGTH function call.
 
@@ -497,12 +615,12 @@ def bit_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) ->
         A FunctionCall instance representing the BIT_LENGTH function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "BIT_LENGTH", target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "BIT_LENGTH", target_expr))
 
 
 def position(
     dialect: "SQLDialectBase", substring: Union[str, "BaseExpression"], expr: Union[str, "BaseExpression"]
-) -> "FunctionCall":
+) -> "IntegerValueExpression":
     """
     Creates a POSITION function call.
 
@@ -522,7 +640,7 @@ def position(
     """
     substr_expr = substring if isinstance(substring, BaseExpression) else Literal(dialect, substring)
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    return FunctionCall(dialect, "POSITION", substr_expr, target_expr)
+    return IntegerValueExpression(dialect, FunctionCall(dialect, "POSITION", substr_expr, target_expr))
 
 
 def overlay(
@@ -556,8 +674,13 @@ def overlay(
     start_expr = Literal(dialect, start)
     if length is not None:
         length_expr = Literal(dialect, length)
-        return FunctionCall(dialect, "OVERLAY", target_expr, replace_expr, start_expr, length_expr)
-    return FunctionCall(dialect, "OVERLAY", target_expr, replace_expr, start_expr)
+        return StringValueExpression(
+            dialect,
+            FunctionCall(dialect, "OVERLAY", target_expr, replace_expr, start_expr, length_expr),
+        )
+    return StringValueExpression(
+        dialect, FunctionCall(dialect, "OVERLAY", target_expr, replace_expr, start_expr)
+    )
 
 
 def translate(
@@ -584,14 +707,12 @@ def translate(
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     from_expr = Literal(dialect, from_chars)
     to_expr = Literal(dialect, to_chars)
-    return FunctionCall(dialect, "TRANSLATE", target_expr, from_expr, to_expr)
+    return StringValueExpression(dialect, FunctionCall(dialect, "TRANSLATE", target_expr, from_expr, to_expr))
 
 
-def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count: int) -> "FunctionCall":
+def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count: int) -> "RepeatExpression":
     """
-    Creates a REPEAT function call.
-
-    SQL:2003 standard function repeating a string.
+    Creates a repetition node.
 
     Usage rules:
     - To generate REPEAT(column, 3): repeat(dialect, Column("text"), 3)
@@ -603,11 +724,27 @@ def repeat(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], count:
         count: Number of repetitions
 
     Returns:
-        A FunctionCall instance representing the REPEAT function
+        A :class:`~...expression.advanced_functions.RepeatExpression` node,
+        rendered through ``format_repeat_expression`` -- a spelling where the
+        function exists (PostgreSQL, MySQL, MariaDB, ClickHouse, BigQuery) and
+        an emulation composed from ordinary nodes where it does not (SQLite,
+        Oracle, Firebird).
+
+    Contract:
+        ``count >= 0`` repeats, and a negative count is the **empty string**
+        rather than a refusal -- the native answer on PostgreSQL, MySQL,
+        MariaDB and ClickHouse alike, measured 2026-10-09. SQL Server's
+        ``REPLICATE`` answers NULL for a negative count and Oracle, Firebird
+        and SQLite have no such function at all, so the meaning is settled
+        once here instead of once per backend.
     """
+    if isinstance(count, int) and count < 0:
+        return StringValueExpression(dialect, Literal(dialect, ""))
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
-    count_expr = Literal(dialect, count)
-    return FunctionCall(dialect, "REPEAT", target_expr, count_expr)
+    count_expr = count if isinstance(count, BaseExpression) else Literal(dialect, count)
+    from ..advanced_functions import RepeatExpression
+
+    return RepeatExpression(dialect, target_expr, count_expr)
 
 
 def space(dialect: "SQLDialectBase", count: int) -> "FunctionCall":
@@ -626,4 +763,4 @@ def space(dialect: "SQLDialectBase", count: int) -> "FunctionCall":
     Returns:
         A FunctionCall instance representing the SPACE function
     """
-    return FunctionCall(dialect, "SPACE", Literal(dialect, count))
+    return StringValueExpression(dialect, FunctionCall(dialect, "SPACE", Literal(dialect, count)))

@@ -21,6 +21,7 @@ from rhosocial.activerecord.backend.expression.functions import (
     interval,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import TextType
 
 
 class TestSQLiteDateTimeIntervalExpressions:
@@ -107,10 +108,7 @@ class TestSQLiteDateTimeIntervalExpressions:
     def test_date_add_literal_source_params_order(self, sqlite_dialect_3_8_0: SQLiteDialect):
         expr = date_add(
             sqlite_dialect_3_8_0,
-            Literal(sqlite_dialect_3_8_0, "2026-06-04 10:00:00"),
-            30,
-            "minute",
-        )
+            Literal(sqlite_dialect_3_8_0, "2026-06-04 10:00:00"), 30, "minute",)
 
         sql, params = expr.to_sql()
 
@@ -213,22 +211,18 @@ class TestSQLiteDateTimeIntervalExpressions:
             date_add(
                 sqlite_dialect_3_8_0,
                 Column(sqlite_dialect_3_8_0, "created_at"),
-                expr,
-                "day",
-            )
+                expr, "day",)
 
     def test_numeric_interval_requires_unit(self, sqlite_dialect_3_8_0: SQLiteDialect):
         with pytest.raises(ValueError):
             date_sub(
                 sqlite_dialect_3_8_0,
-                Column(sqlite_dialect_3_8_0, "created_at"),
-                1,
-            )
+                Column(sqlite_dialect_3_8_0, "created_at"), 1,)
 
     def test_alias_and_cast(self, sqlite_dialect_3_8_0: SQLiteDialect):
         expr = (
             extract(sqlite_dialect_3_8_0, "year", Column(sqlite_dialect_3_8_0, "created_at"))
-            .cast("TEXT")
+            .cast(TextType(sqlite_dialect_3_8_0))
             .as_("created_year")
         )
 
@@ -241,18 +235,13 @@ class TestSQLiteDateTimeIntervalExpressions:
     def test_query_expression_integration(self, sqlite_dialect_3_8_0: SQLiteDialect):
         shifted = date_add(
             sqlite_dialect_3_8_0,
-            Column(sqlite_dialect_3_8_0, "created_at"),
-            1,
-            "day",
-        )
+            Column(sqlite_dialect_3_8_0, "created_at"), 1, "day",)
         query = QueryExpression(
             sqlite_dialect_3_8_0,
             select=[
                 extract(
-                    sqlite_dialect_3_8_0,
-                    "year",
-                    Column(sqlite_dialect_3_8_0, "created_at"),
-                )
+                    sqlite_dialect_3_8_0, "year",
+                    Column(sqlite_dialect_3_8_0, "created_at"),)
             ],
             from_="events",
             where=shifted > Literal(sqlite_dialect_3_8_0, "2026-01-01"),

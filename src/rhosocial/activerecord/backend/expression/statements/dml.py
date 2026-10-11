@@ -444,17 +444,33 @@ class UpdateExpression(BaseExpression):
 
 
 # region Insert Statement
-class InsertDataSource(BaseExpression):
+class InsertDataSource(BaseExpression, abc.ABC):
     """
     Abstract base class for an INSERT statement's data source.
     Implementations represent the source of data, such as a VALUES clause,
     a SELECT query, or the DEFAULT VALUES keyword.
 
-    These are expressions like any other: each concrete kind declares the one
-    dialect method that renders it, and the statement asks the source for its
-    SQL rather than picking a branch per kind. Being an expression is also what
-    lets one survive a serialization round-trip.
+    **A source is a value object inside an expression tree, so it is a
+    :class:`BaseExpression`** — the same standing every other value object in
+    a tree has (``DataType``, ``TableExpression``, ``Literal``). That is what
+    gives it a serialization contract: ``get_params()`` reads the constructor
+    signature and the serializer encodes any ``BaseExpression`` it finds, so a
+    source survives ``serialize()`` / ``serialize_json()`` / ``serialize_xml()``
+    and comes back as the same class. An ``InsertExpression`` holding a source
+    is therefore portable, which is the whole point of an expression tree: the
+    statement can be built once and sent to any dialect.
+
+    It is deliberately *not* a standalone renderable: an INSERT's data source
+    has no SQL of its own — ``VALUES (...), (...)``, a sub-select and
+    ``DEFAULT VALUES`` are three different spellings chosen by the *statement*
+    formatter, which dispatches on the source type
+    (``format_insert_statement``). So no ``format_method`` is declared here and
+    calling ``to_sql()`` on a source raises, exactly as for any expression that
+    has not declared one. The tree renders through the enclosing INSERT.
     """
+
+    def __init__(self, dialect: "SQLDialectBase"):
+        super().__init__(dialect)
 
 
 class ValuesSource(InsertDataSource):

@@ -280,7 +280,13 @@ class TestHandleNamedExpressionList:
 class TestHandleNamedExpressionDescribe:
     """Tests for handle_named_expression with --describe option."""
 
-    def test_describe_query(self):
+    def test_describe_query(self, capsys):
+        """--describe against a module pre-registered in sys.modules.
+
+        test_describe_with_params patches importlib.import_module instead, so
+        between them the real and the mocked resolver import paths are both
+        exercised.
+        """
         args = Namespace(
             qualified_name="test_describe_module.active_users",
             example=None,
@@ -313,14 +319,52 @@ class TestHandleNamedExpressionDescribe:
                 lambda x: None,
                 lambda a, b, c: None,
             )
+            captured = capsys.readouterr()
+            assert "Expression: test_describe_module.active_users" in captured.out
+            assert "Parameters (excluding 'dialect'):" in captured.out
         finally:
             del sys.modules["test_describe_module"]
 
+    def test_describe_with_params(self, capsys):
+        args = Namespace(
+            qualified_name="test_queries.active_users",
+            example=None,
+            params=[],
+            describe=True,
+            dry_run=False,
+            list_queries=False,
+            force=False,
+            explain=False,
+            rich_ascii=False,
+            is_async=False,
+        )
+
+        module = types.ModuleType("test_queries")
+
+        def active_users(dialect, limit: int = 100, offset: int = 0):
+            pass
+
+        module.active_users = active_users
+
+        with patch("importlib.import_module", return_value=module):
+            handle_named_expression(
+                args,
+                _PROVIDER,
+                backend_factory=lambda: None,
+                get_dialect=lambda b: None,
+                execute_query=lambda s, p, st: None,
+            )
+            captured = capsys.readouterr()
+            assert "limit" in captured.out
+            assert "offset" in captured.out
+            assert "Parameters" in captured.out
+
 
 class TestHandleNamedExpressionExecute:
-    """Tests for normal query execution."""
+    """Tests for handle_named_expression execute mode."""
 
     def test_execute_error_handling(self, capsys):
+        """A backend factory that raises must exit 1, not propagate."""
         args = Namespace(
             qualified_name="test_queries.active_users",
             example=None,
@@ -336,13 +380,101 @@ class TestHandleNamedExpressionExecute:
         def fail_backend_factory():
             raise RuntimeError("Connection failed")
 
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as exc_info:
             handle_named_expression(
                 args,
                 _PROVIDER,
                 fail_backend_factory,
                 lambda x: None,
                 lambda a, b, c: None,
+            )
+
+        assert exc_info.value.code == 1
+
+    def test_execute_dry_run(self, capsys):
+        args = Namespace(
+            qualified_name="test_queries.active_users",
+            example=None,
+            params=[],
+            describe=False,
+            dry_run=True,
+            list_queries=False,
+            force=False,
+            explain=False,
+            rich_ascii=False,
+            is_async=False,
+        )
+
+        module = types.ModuleType("test_queries")
+
+        def active_users(dialect, limit: int = 100):
+            return QueryExpression(dialect, [Literal(dialect, 1)])
+
+        module.active_users = active_users
+
+        with patch("importlib.import_module", return_value=module):
+            handle_named_expression(
+                args,
+                _PROVIDER,
+                backend_factory=lambda: SimpleNamespace(dialect=_DIALECT),
+                get_dialect=lambda b: b.dialect,
+                execute_query=lambda s, p, st: None,
+            )
+        captured = capsys.readouterr()
+        assert "DRY RUN" in captured.out
+
+    def test_execute_with_params(self, capsys):
+        args = Namespace(
+            qualified_name="test_queries.active_users",
+            example=None,
+            params=["limit=50"],
+            describe=False,
+            dry_run=True,
+            list_queries=False,
+            force=False,
+            explain=False,
+            rich_ascii=False,
+            is_async=False,
+        )
+
+        module = types.ModuleType("test_queries")
+
+        def active_users(dialect, limit: int = 100):
+            return QueryExpression(dialect, [Literal(dialect, 1)])
+
+        module.active_users = active_users
+
+        with patch("importlib.import_module", return_value=module):
+            handle_named_expression(
+                args,
+                _PROVIDER,
+                backend_factory=lambda: SimpleNamespace(dialect=_DIALECT),
+                get_dialect=lambda b: b.dialect,
+                execute_query=lambda s, p, st: None,
+            )
+        captured = capsys.readouterr()
+        assert "DRY RUN" in captured.out
+
+    def test_execute_missing_qualified_name(self):
+        args = Namespace(
+            qualified_name=None,
+            example=None,
+            params=[],
+            describe=False,
+            dry_run=False,
+            list_queries=False,
+            force=False,
+            explain=False,
+            rich_ascii=False,
+            is_async=False,
+        )
+        with pytest.raises(SystemExit):
+            handle_named_expression(
+                args,
+                _PROVIDER,
+                backend_factory=lambda: SimpleNamespace(dialect="placeholder"),
+                get_dialect=lambda b: b.dialect,
+                execute_query=lambda s, p, st: None,
             )
 
 
@@ -703,134 +835,6 @@ class TestCliExplainMode:
             is_async=False,
         )
         assert args.explain is True
-
-
-class TestHandleNamedExpressionExecute:  # noqa: F811
-    """Tests for handle_named_expression execute mode."""
-
-    def test_execute_dry_run(self, capsys):
-        args = Namespace(
-            qualified_name="test_queries.active_users",
-            example=None,
-            params=[],
-            describe=False,
-            dry_run=True,
-            list_queries=False,
-            force=False,
-            explain=False,
-            rich_ascii=False,
-            is_async=False,
-        )
-
-        module = types.ModuleType("test_queries")
-
-        def active_users(dialect, limit: int = 100):
-            return QueryExpression(dialect, [Literal(dialect, 1)])
-
-        module.active_users = active_users
-
-        with patch("importlib.import_module", return_value=module):
-            handle_named_expression(
-                args,
-                _PROVIDER,
-                backend_factory=lambda: SimpleNamespace(dialect=_DIALECT),
-                get_dialect=lambda b: b.dialect,
-                execute_query=lambda s, p, st: None,
-            )
-        captured = capsys.readouterr()
-        assert "DRY RUN" in captured.out
-
-    def test_execute_with_params(self, capsys):
-        args = Namespace(
-            qualified_name="test_queries.active_users",
-            example=None,
-            params=["limit=50"],
-            describe=False,
-            dry_run=True,
-            list_queries=False,
-            force=False,
-            explain=False,
-            rich_ascii=False,
-            is_async=False,
-        )
-
-        module = types.ModuleType("test_queries")
-
-        def active_users(dialect, limit: int = 100):
-            return QueryExpression(dialect, [Literal(dialect, 1)])
-
-        module.active_users = active_users
-
-        with patch("importlib.import_module", return_value=module):
-            handle_named_expression(
-                args,
-                _PROVIDER,
-                backend_factory=lambda: SimpleNamespace(dialect=_DIALECT),
-                get_dialect=lambda b: b.dialect,
-                execute_query=lambda s, p, st: None,
-            )
-        captured = capsys.readouterr()
-        assert "DRY RUN" in captured.out
-
-    def test_execute_missing_qualified_name(self):
-        args = Namespace(
-            qualified_name=None,
-            example=None,
-            params=[],
-            describe=False,
-            dry_run=False,
-            list_queries=False,
-            force=False,
-            explain=False,
-            rich_ascii=False,
-            is_async=False,
-        )
-        with pytest.raises(SystemExit):
-            handle_named_expression(
-                args,
-                _PROVIDER,
-                backend_factory=lambda: SimpleNamespace(dialect="placeholder"),
-                get_dialect=lambda b: b.dialect,
-                execute_query=lambda s, p, st: None,
-            )
-
-
-class TestHandleNamedExpressionDescribe:  # noqa: F811
-    """Tests for handle_named_expression --describe mode."""
-
-    def test_describe_with_params(self, capsys):
-        args = Namespace(
-            qualified_name="test_queries.active_users",
-            example=None,
-            params=[],
-            describe=True,
-            dry_run=False,
-            list_queries=False,
-            force=False,
-            explain=False,
-            rich_ascii=False,
-            is_async=False,
-        )
-
-        module = types.ModuleType("test_queries")
-
-        def active_users(dialect, limit: int = 100, offset: int = 0):
-            pass
-
-        module.active_users = active_users
-
-        with patch("importlib.import_module", return_value=module):
-            handle_named_expression(
-                args,
-                _PROVIDER,
-                backend_factory=lambda: None,
-                get_dialect=lambda b: None,
-                execute_query=lambda s, p, st: None,
-            )
-            captured = capsys.readouterr()
-            assert "limit" in captured.out
-            assert "offset" in captured.out
-            assert "Parameters" in captured.out
 
 
 class TestHandleNamedExpressionWithCreateDialect:

@@ -14,16 +14,26 @@ https://www.sqlite.org/datatype3.html:
 Each class carries a ``sqlite_``-prefixed generic ``name`` (the protocol
 dispatch key), so the backend's concrete type family is distinguishable
 from the core type family by name alone.
+
+Why four of the five derive from a core type and one does not
+-------------------------------------------------------------
+``INTEGER``, ``TEXT``, ``REAL`` and ``BLOB`` each name one core concept, so
+those classes derive from it.  ``NUMERIC`` does not: SQLite's own affinity
+rules map ``DECIMAL``, ``NUMERIC``, ``BOOLEAN``, ``DATE``, ``DATETIME``,
+``TIMESTAMP`` *and* ``TIME`` onto it, so the affinity spans the numeric,
+boolean and temporal families at once and there is no single core type it
+could honestly be.  That is a deliberate placement, not an omission — the
+schema differ compares two introspected columns and both arrive as this
+class, so the collapse is where it belongs.
 """
 
 from __future__ import annotations
-
-from typing import Set
 
 from rhosocial.activerecord.backend.expression.types import (
     BlobType,
     DataType,
     IntegerType,
+    RealType,
     TextType,
 )
 
@@ -37,10 +47,6 @@ class SQLiteIntegerType(IntegerType):
     """
 
     name = "sqlite_integer"
-
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'IntegerType', 'IntType'}
 
 
 class SQLiteTextType(TextType):
@@ -61,12 +67,8 @@ class SQLiteTextType(TextType):
         super().__init__(dialect)
         self.length = length
 
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'TextType', 'VarCharType', 'CharType'}
 
-
-class SQLiteRealType(DataType):
+class SQLiteRealType(RealType):
     """SQLite REAL — affinity for floating-point types.
 
     Matches REAL, FLOAT, DOUBLE, and DOUBLE PRECISION in SQLite's
@@ -82,19 +84,17 @@ class SQLiteRealType(DataType):
         super().__init__(dialect)
         self.precision = precision
 
-    def _type_params(self) -> tuple:
-        return (self.precision,)
-
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'RealType', 'FloatType', 'DoubleType'}
-
+    PARAMETERS = ("precision",)
 
 class SQLiteNumericType(DataType):
-    """SQLite NUMERIC — affinity for DECIMAL / BOOLEAN / DATE / etc.
+    """SQLite NUMERIC — the affinity that spans three type families.
 
-    SQLite maps ``DECIMAL``, ``NUMERIC``, ``BOOLEAN``, ``DATE``,
-    ``DATETIME``, ``TIMESTAMP`` and ``TIME`` to this affinity.
+    SQLite's documented affinity rules map ``DECIMAL``, ``NUMERIC``,
+    ``BOOLEAN``, ``DATE``, ``DATETIME``, ``TIMESTAMP`` and ``TIME`` all to
+    NUMERIC affinity.  A ``BOOLEAN`` column introspects as this class but is
+    not a decimal, and a ``DATE`` column introspects as this class but is not
+    a date either, so this class is deliberately **not** derived from any
+    single core type.
     """
 
     name = "sqlite_numeric"
@@ -109,15 +109,7 @@ class SQLiteNumericType(DataType):
         self.precision = precision
         self.scale = scale
 
-    def _type_params(self) -> tuple:
-        return (self.precision, self.scale)
-
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'DecimalType', 'NumericType', 'BooleanType',
-                'DateType', 'DateTimeType', 'TimestampType',
-                'TimestampTzType', 'TimeType', 'TimeTzType'}
-
+    PARAMETERS = ("precision", "scale",)
 
 class SQLiteBlobType(BlobType):
     """SQLite BLOB — affinity for binary data.
@@ -127,7 +119,3 @@ class SQLiteBlobType(BlobType):
     """
 
     name = "sqlite_blob"
-
-    @classmethod
-    def synonyms(cls) -> Set[str]:
-        return {'BlobType'}

@@ -7,6 +7,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import (
     Column,
+    Literal,
     count,
     sum_,
     avg,
@@ -79,7 +80,6 @@ from rhosocial.activerecord.backend.expression import (
     cube,  # Added grouping functions
     concat_op,  # Added string concatenation operator function
 )
-from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -235,7 +235,11 @@ class TestStringFunctionFactories:
         """Test TRIM function with default direction."""
         func = trim(dummy_dialect, "name")
         sql, params = func.to_sql()
-        assert isinstance(func, RawSQLExpression)
+        # Trim is a node with its own dialect hook rather than a typed
+        # function call, which is what lets a dialect without the standard
+        # syntax (SQLite) override the spelling. What is asserted is that the
+        # result still carries the string surface.
+        assert hasattr(func, "upper") and hasattr(func, "substr")
         assert "TRIM(BOTH FROM" in sql
 
     def test_trim_function_with_chars(self, dummy_dialect: DummyDialect):
@@ -279,11 +283,17 @@ class TestStringFunctionFactories:
         assert params == ("text", 10, "0")
 
     def test_lpad_function_without_pad(self, dummy_dialect: DummyDialect):
-        """Test LPAD function without pad character."""
+        """Test LPAD function without pad character.
+
+        An omitted pad means one space and is passed **explicitly**, because
+        the backends disagree on whether the argument is optional at all
+        (MySQL raises 1582 without it, MariaDB fills with spaces). Measured
+        2026-10-09, matrix section F.3.
+        """
         func = lpad(dummy_dialect, "text", 10)
         sql, params = func.to_sql()
         assert "LPAD(" in sql
-        assert params == ("text", 10)
+        assert params == ("text", 10, " ")
 
     def test_rpad_function(self, dummy_dialect: DummyDialect):
         """Test RPAD function."""
@@ -293,11 +303,15 @@ class TestStringFunctionFactories:
         assert params == ("text", 10, "0")
 
     def test_rpad_function_without_pad(self, dummy_dialect: DummyDialect):
-        """Test RPAD function without pad character."""
+        """Test RPAD function without pad character.
+
+        Same contract as :meth:`test_lpad_function_without_pad`: an omitted
+        pad is spelled out as one space.
+        """
         func = rpad(dummy_dialect, "text", 10)
         sql, params = func.to_sql()
         assert "RPAD(" in sql
-        assert params == ("text", 10)
+        assert params == ("text", 10, " ")
 
     def test_reverse_function(self, dummy_dialect: DummyDialect):
         """Test REVERSE function."""
@@ -318,72 +332,72 @@ class TestMathFunctionFactories:
 
     def test_abs_function(self, dummy_dialect: DummyDialect):
         """Test ABS function."""
-        func = abs_(dummy_dialect, -5)
+        func = abs_(dummy_dialect, Literal(dummy_dialect, -5))
         sql, params = func.to_sql()
         assert "ABS(" in sql
 
     def test_round_function(self, dummy_dialect: DummyDialect):
         """Test ROUND function."""
-        func = round_(dummy_dialect, 3.14159)
+        func = round_(dummy_dialect, Literal(dummy_dialect, 3.14159))
         sql, params = func.to_sql()
         assert "ROUND(" in sql
 
     def test_round_function_with_decimals(self, dummy_dialect: DummyDialect):
         """Test ROUND function with decimal places."""
-        func = round_(dummy_dialect, 3.14159, 2)
+        func = round_(dummy_dialect, Literal(dummy_dialect, 3.14159), 2)
         sql, params = func.to_sql()
         assert "ROUND(" in sql
         assert params == (3.14159, 2)
 
     def test_ceil_function(self, dummy_dialect: DummyDialect):
         """Test CEIL function."""
-        func = ceil(dummy_dialect, 3.14)
+        func = ceil(dummy_dialect, Literal(dummy_dialect, 3.14))
         sql, params = func.to_sql()
         assert "CEIL(" in sql
 
     def test_floor_function(self, dummy_dialect: DummyDialect):
         """Test FLOOR function."""
-        func = floor(dummy_dialect, 3.99)
+        func = floor(dummy_dialect, Literal(dummy_dialect, 3.99))
         sql, params = func.to_sql()
         assert "FLOOR(" in sql
 
     def test_sqrt_function(self, dummy_dialect: DummyDialect):
         """Test SQRT function."""
-        func = sqrt(dummy_dialect, 16)
+        func = sqrt(dummy_dialect, Literal(dummy_dialect, 16))
         sql, params = func.to_sql()
         assert "SQRT(" in sql
 
     def test_power_function(self, dummy_dialect: DummyDialect):
         """Test POWER function."""
-        func = power(dummy_dialect, 2, 3)
+        func = power(dummy_dialect, Literal(dummy_dialect, 2), Literal(dummy_dialect, 3))
         sql, params = func.to_sql()
         assert "POWER(" in sql
         assert params == (2, 3)
 
     def test_exp_function(self, dummy_dialect: DummyDialect):
         """Test EXP function."""
-        func = exp(dummy_dialect, 1)
+        func = exp(dummy_dialect, Literal(dummy_dialect, 1))
         sql, params = func.to_sql()
         assert "EXP(" in sql
 
     def test_log_function(self, dummy_dialect: DummyDialect):
         """Test LOG function."""
-        func = log(dummy_dialect, 10)
+        func = log(dummy_dialect, Literal(dummy_dialect, 10))
         sql, params = func.to_sql()
         assert "LOG(" in sql
 
     def test_log_function_with_base(self, dummy_dialect: DummyDialect):
         """Test LOG function with base."""
-        func = log(dummy_dialect, 100, 10)
+        func = log(dummy_dialect, Literal(dummy_dialect, 100), Literal(dummy_dialect, 10))
         sql, params = func.to_sql()
         assert "LOG(" in sql
         assert params == (100, 10)
 
     def test_trigonometric_functions(self, dummy_dialect: DummyDialect):
         """Test trigonometric functions."""
-        sin_func = sin(dummy_dialect, 0)
-        cos_func = cos(dummy_dialect, 0)
-        tan_func = tan(dummy_dialect, 0)
+        sin_func = sin(dummy_dialect, Literal(dummy_dialect, 0))
+        cos_func = cos(dummy_dialect, Literal(dummy_dialect, 0))
+        tan_func = tan(dummy_dialect, Literal(dummy_dialect, 0))
 
         sin_sql, sin_params = sin_func.to_sql()
         cos_sql, cos_params = cos_func.to_sql()
@@ -492,14 +506,14 @@ class TestDateTimeFunctionFactories:
 
     def test_date_part_function(self, dummy_dialect: DummyDialect):
         """Test DATE_PART function."""
-        func = date_part(dummy_dialect, "year", "created_at")
+        func = date_part(dummy_dialect, "year", Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert sql == 'EXTRACT(YEAR FROM "created_at")'
         assert params == ()
 
     def test_date_trunc_function(self, dummy_dialect: DummyDialect):
         """Test DATE_TRUNC function."""
-        func = date_trunc(dummy_dialect, "month", "created_at")
+        func = date_trunc(dummy_dialect, "month", Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert sql == "DATE_TRUNC('month', \"created_at\")"
         assert params == ()
@@ -645,11 +659,13 @@ class TestTypeConversionFunctionFactories:
     def test_cast_function(self, dummy_dialect: DummyDialect):
         """Test CAST function."""
         from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+        from rhosocial.activerecord.backend.expression.types import CustomType
 
-        func = cast(dummy_dialect, "value", "INTEGER")
+        func = cast(dummy_dialect, Column(dummy_dialect, "value"),
+                 CustomType(dummy_dialect, raw="INTEGER"))
         # cast() wraps the (string-as-column) expression in a CastExpression node
         assert isinstance(func, CastExpression)
-        assert func.target_type == "INTEGER"
+        assert func.target_type.raw == "INTEGER"
         assert isinstance(func.expression, Column)
         sql, params = func.to_sql()
         assert "CAST(" in sql
@@ -752,7 +768,7 @@ class TestMathFunctionFactoriesExtended:
 
     def test_sin_function(self, dummy_dialect: DummyDialect):
         """Test SIN function."""
-        func = sin(dummy_dialect, "angle")
+        func = sin(dummy_dialect, Column(dummy_dialect, "angle"))
         sql, params = func.to_sql()
         assert "SIN(" in sql
         # When passing string to sin, it's treated as a column name, so no parameters
@@ -760,7 +776,7 @@ class TestMathFunctionFactoriesExtended:
 
     def test_cos_function(self, dummy_dialect: DummyDialect):
         """Test COS function."""
-        func = cos(dummy_dialect, "angle")
+        func = cos(dummy_dialect, Column(dummy_dialect, "angle"))
         sql, params = func.to_sql()
         assert "COS(" in sql
         # When passing string to cos, it's treated as a column name, so no parameters
@@ -768,7 +784,7 @@ class TestMathFunctionFactoriesExtended:
 
     def test_tan_function(self, dummy_dialect: DummyDialect):
         """Test TAN function."""
-        func = tan(dummy_dialect, "angle")
+        func = tan(dummy_dialect, Column(dummy_dialect, "angle"))
         sql, params = func.to_sql()
         assert "TAN(" in sql
         # When passing string to tan, it's treated as a column name, so no parameters
@@ -780,7 +796,7 @@ class TestDateTimeFunctionFactoriesExtended:
 
     def test_year_function(self, dummy_dialect: DummyDialect):
         """Test YEAR function."""
-        func = year(dummy_dialect, "created_at")
+        func = year(dummy_dialect, Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert "YEAR(" in sql
         # When passing string to year, it's treated as a column name, so no parameters
@@ -788,7 +804,7 @@ class TestDateTimeFunctionFactoriesExtended:
 
     def test_month_function(self, dummy_dialect: DummyDialect):
         """Test MONTH function."""
-        func = month(dummy_dialect, "created_at")
+        func = month(dummy_dialect, Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert "MONTH(" in sql
         # When passing string to month, it's treated as a column name, so no parameters
@@ -796,7 +812,7 @@ class TestDateTimeFunctionFactoriesExtended:
 
     def test_day_function(self, dummy_dialect: DummyDialect):
         """Test DAY function."""
-        func = day(dummy_dialect, "created_at")
+        func = day(dummy_dialect, Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert "DAY(" in sql
         # When passing string to day, it's treated as a column name, so no parameters
@@ -804,7 +820,7 @@ class TestDateTimeFunctionFactoriesExtended:
 
     def test_hour_function(self, dummy_dialect: DummyDialect):
         """Test HOUR function."""
-        func = hour(dummy_dialect, "created_at")
+        func = hour(dummy_dialect, Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert "HOUR(" in sql
         # When passing string to hour, it's treated as a column name, so no parameters
@@ -812,7 +828,7 @@ class TestDateTimeFunctionFactoriesExtended:
 
     def test_minute_function(self, dummy_dialect: DummyDialect):
         """Test MINUTE function."""
-        func = minute(dummy_dialect, "created_at")
+        func = minute(dummy_dialect, Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert "MINUTE(" in sql
         # When passing string to minute, it's treated as a column name, so no parameters
@@ -820,7 +836,7 @@ class TestDateTimeFunctionFactoriesExtended:
 
     def test_second_function(self, dummy_dialect: DummyDialect):
         """Test SECOND function."""
-        func = second(dummy_dialect, "created_at")
+        func = second(dummy_dialect, Column(dummy_dialect, "created_at"))
         sql, params = func.to_sql()
         assert "SECOND(" in sql
         # When passing string to second, it's treated as a column name, so no parameters

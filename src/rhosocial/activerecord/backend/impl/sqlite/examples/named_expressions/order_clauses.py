@@ -12,6 +12,7 @@ compose into complete queries.
 from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     Column,
+    ComparisonPredicate,
     Literal,
     FunctionCall,
     WhereClause,
@@ -43,7 +44,7 @@ def where_example(dialect, status: str = "active"):
         from_=NamedRelationRef(dialect, Table(dialect, "orders")),
         where=WhereClause(
             dialect,
-            condition=Column(dialect, "status") == Literal(dialect, status),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, status)),
         ),
     )
 
@@ -72,11 +73,11 @@ def join_example(dialect, user_id: int = 1):
             left_table=NamedRelationRef(dialect, Table(dialect, "orders"), alias="o"),
             right_table=NamedRelationRef(dialect, Table(dialect, "users"), alias="u"),
             join_type="INNER JOIN",
-            condition=Column(dialect, "o.user_id") == Column(dialect, "u.id"),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "o.user_id"), Column(dialect, "u.id")),
         ),
         where=WhereClause(
             dialect,
-            condition=Column(dialect, "u.id") == Literal(dialect, user_id),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "u.id"), Literal(dialect, user_id)),
         ),
     )
 
@@ -179,13 +180,13 @@ def compound_example(dialect, user_id: int = 1, status: str = "pending"):
             left_table=NamedRelationRef(dialect, Table(dialect, "orders"), alias="o"),
             right_table=NamedRelationRef(dialect, Table(dialect, "users"), alias="u"),
             join_type="INNER JOIN",
-            condition=Column(dialect, "o.user_id") == Column(dialect, "u.id"),
+            condition=ComparisonPredicate(dialect, "=", Column(dialect, "o.user_id"), Column(dialect, "u.id")),
         ),
         where=WhereClause(
             dialect,
             condition=(
-                (Column(dialect, "o.user_id") == Literal(dialect, user_id))
-                & (Column(dialect, "o.status") == Literal(dialect, status))
+                (ComparisonPredicate(dialect, "=", Column(dialect, "o.user_id"), Literal(dialect, user_id)))
+                & (ComparisonPredicate(dialect, "=", Column(dialect, "o.status"), Literal(dialect, status)))
             ),
         ),
         order_by=OrderByClause(

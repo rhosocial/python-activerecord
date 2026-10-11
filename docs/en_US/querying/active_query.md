@@ -239,18 +239,17 @@ window_spec = WindowSpecification(
     order_by=OrderByClause(Post.backend().dialect, [(Post.c.views, "DESC")])
 )
 
-# Create window function call
-rank_col = rank(Post.backend().dialect).as_('rank')
-rank_col.window_spec = window_spec
+# Create window function call and attach the window specification
+rank_col = rank(Post.backend().dialect).over(window_spec).as_('rank')
 
 results = Post.query().select(Post.c.title, rank_col).aggregate()
 ```
 
 * **Notes**:
 * Window functions should be imported from `rhosocial.activerecord.backend.expression`, not from the old `window` submodule.
-* Functions like `rank`, `row_number`, `dense_rank`, etc. return `WindowFunctionCall` objects.
+* Functions like `rank`, `row_number`, `dense_rank`, etc. return typed value expressions wrapping a `FunctionCall`.
 * Window specifications are created using the `WindowSpecification` class, requiring `dialect`, `partition_by`, and `order_by` parameters.
-* To set the window specification, assign it directly: `rank_col.window_spec = window_spec`.
+* To attach the window specification, use `.over(window_spec)`. Assigning `rank_col.window_spec = window_spec` directly is a silent no-op: the typed wrapper swallows the write while rendering reads the call it holds.
 
 ## JoinQueryMixin (Join Query)
 

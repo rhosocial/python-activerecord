@@ -15,6 +15,7 @@ from ..backend.type_adapter import SQLTypeAdapter
 
 if TYPE_CHECKING:
     from ..backend.expression.bases import BaseExpression, SQLDialectBase, SQLPredicate
+    from ..backend.expression.column_types import ColumnBase
     from ..backend.expression.statements.ddl_table import (
         ReferentialAction,
     )
@@ -172,6 +173,108 @@ class UseSqlType(DDLAnnotation):
         return f"UseSqlType({', '.join(repr(t) for t in self.data_types)})"
 
 
+class UseColumnType:
+    """Marker for ``Annotated[T, UseColumnType(*column_classes)]``.
+
+    Declares which **column class** (the operation set a value offers) a model
+    field's expressions use, instead of letting the backend suggest one. It is
+    the column-side twin of :class:`UseSqlType`, and the two are **strictly
+    independent**:
+
+    * ``UseSqlType`` serves the DDL only -- which ``DataType`` the column is
+      created with -- and takes no part in CRUD or expression rendering;
+    * ``UseColumnType`` serves the column operations only -- what
+      ``Model.c.<field>`` can do -- and never influences DDL.
+
+    A model may declare either, both, or neither, and the framework does not
+    check them against each other. A field may say ``age: int`` with
+    ``UseSqlType(VarCharType())`` or ``UseColumnType(StringColumn())`` and both
+    are honoured: the first decides the stored type, the second decides the
+    operations, and neither is inferred from the other. This is deliberate --
+    "which operations does this value support" and "how is it stored" are
+    different questions, and a model that wants an unusual answer to either one
+    should be able to give it without having to lie about the other.
+
+    It is **not** a :class:`DDLAnnotation`: the DDL collector must not see it,
+    or the strict independence above would be one refactor away from being
+    false.
+
+    Exactly one column class may be declared for now. The signature is variadic
+    (``UseSqlType`` is too, and for the same reason: declaration order is the
+    candidate order) but multi-candidate selection needs the operation-capability
+    declaration to answer "does this backend cover every operation of this
+    class", which does not exist yet -- so rather than silently taking the first
+    candidate and pretending the negotiation happened, a multi-candidate
+    declaration is refused here, at the point of the mistake, and says what it
+    is waiting for.
+
+    Examples::
+
+        # A plain text value that is stored as something other than text
+        label: Annotated[str, UseColumnType(StringColumn)]
+        blob: Annotated[bytes, UseColumnType(BinaryColumn)]
+
+        # Both sides declared independently: stored as an integer, offered as
+        # arithmetic on a whole number -- same thing here, and deliberately not
+        # cross-checked
+        qty: Annotated[int, UseSqlType(IntType()), UseColumnType(IntegerColumn)]
+
+    Raises:
+        TypeError: No column class was given, or one of them is not a
+            :class:`~...backend.expression.column_types.ColumnBase` subclass.
+    """
+
+    def __init__(self, *column_classes: Type["ColumnBase"]):
+        from ..backend.expression.column_types import ColumnBase
+
+        if not column_classes:
+            raise TypeError(
+                "UseColumnType requires at least one ColumnBase subclass, "
+                "e.g. UseColumnType(StringColumn)."
+            )
+        for column_class in column_classes:
+            if not (isinstance(column_class, type) and issubclass(column_class, ColumnBase)):
+                # Class objects only: a column class is a type, never an
+                # instance. One that carried state would make the value a
+                # declaration rather than a class, and the resolution layer
+                # would have no way to hand the same class to every expression.
+                raise TypeError(
+                    f"UseColumnType expects ColumnBase subclasses (classes "
+                    f"derived from ColumnBase), got "
+                    f"{column_class!r}. Column classes name operations, not "
+                    f"values, so pass the class itself rather than an "
+                    f"instance of it."
+                )
+        if len(column_classes) > 1:
+            # Refused rather than resolved first-wins. Choosing among several
+            # candidates is a negotiation with the backend's capability
+            # declaration ("does this dialect cover every operation of this
+            # class"), and taking the first without asking would make the
+            # declaration a lie the caller cannot see. See the multi-candidate
+            # ruling in column-type-refactor.md (议题 2).
+            raise TypeError(
+                f"UseColumnType was given {len(column_classes)} column "
+                f"classes ({', '.join(c.__name__ for c in column_classes)}), "
+                f"but multi-candidate resolution needs the capability "
+                f"declaration mechanism, which does not exist yet: choosing "
+                f"among candidates means asking the dialect whether it covers "
+                f"every operation of a class, and there is no answer to read "
+                f"yet. Declare a single column class for now; when the "
+                f"capability declaration lands, this signature keeps its "
+                f"variadic shape and the candidates will be ordered by "
+                f"declaration order as UseSqlType's are."
+            )
+        self.column_classes: tuple = tuple(column_classes)
+        #: The declared class — a convenience alias, since only one may be
+        #: declared. Present for the same reason as ``UseSqlType.data_type``:
+        #: the single-candidate case is what readers ask for, and it is what
+        #: the resolution layer reads.
+        self.column_class: Type[ColumnBase] = self.column_classes[0]
+
+    def __repr__(self) -> str:
+        return f"UseColumnType({', '.join(c.__name__ for c in self.column_classes)})"
+
+
 class UseIndex(DDLAnnotation):
     """Marker for ``Annotated[T, UseIndex(name, ...)]``.
 
@@ -269,10 +372,18 @@ class UseConstraint(DDLAnnotation):
 
     Example::
 
-        # Column-level CHECK (SQL-standard, generic)
+        # Column-level CHECK (SQL-standard, generic). The condition is an
+        # explicit InPredicate node: a bare Column reference offers no
+        # operations by design, so the constraint builds the node itself.
+        from rhosocial.activerecord.backend.expression import (
+            Column, InPredicate, Literal,
+        )
+
         status: Annotated[str, UseConstraint(
             ColumnConstraintType.CHECK,
-            check_condition=lambda d: Column(d, "status").in_(["open", "paid"]),
+            check_condition=lambda d: InPredicate(
+                d, Column(d, "status"), Literal(d, ("open", "paid"))
+            ),
         )]
     """
 

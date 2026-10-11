@@ -10,11 +10,13 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     OrderByClause,
+    StringValueExpression,
     XMLParseDocumentType,
     XMLParseExpression,
     XMLPassingMechanism,
     XMLStandaloneOption,
     XMLTableColumn,
+    XMLValueExpression,
     xmlagg,
     xmlattributes,
     xmlcomment,
@@ -90,6 +92,34 @@ class TestSQLXMLMixin:
 
         assert sql == "XMLPARSE(CONTENT ?)"
         assert params == ("<root/>",)
+
+    def test_xml_document_factories_return_xml_values(self, dummy_dialect: DummyDialect):
+        """The document constructors declare the value class they produce.
+
+        Each one builds an XML document, so the result is an
+        ``XMLValueExpression`` -- the class is the statement, not a tag, and
+        the SQL assertions elsewhere in this file are unchanged by it.
+        """
+        expressions = [
+            xmlparse(dummy_dialect, "<root/>"),
+            xmlelement(dummy_dialect, "item"),
+            xmlforest(dummy_dialect, ("x", "item")),
+            xmlconcat(dummy_dialect, "<a/>"),
+            xmlcomment(dummy_dialect, "note"),
+            xmlpi(dummy_dialect, "target"),
+            xmlroot(dummy_dialect, "<root/>"),
+            xmlagg(dummy_dialect, "<root/>"),
+            xmlquery(dummy_dialect, "/root"),
+        ]
+        for expr in expressions:
+            assert isinstance(expr, XMLValueExpression), type(expr).__name__
+
+    def test_xmlserialize_factory_returns_the_text_value(self, dummy_dialect: DummyDialect):
+        """Serialization yields the character value it names, not XML again."""
+        expr = xmlserialize(dummy_dialect, "<root/>", "TEXT")
+
+        assert isinstance(expr, StringValueExpression)
+        assert not isinstance(expr, XMLValueExpression)
 
     def test_xmlserialize_generates_standard_sql(self, dummy_dialect: DummyDialect):
         expr = xmlserialize(dummy_dialect, Column(dummy_dialect, "payload"), "VARCHAR(100)")

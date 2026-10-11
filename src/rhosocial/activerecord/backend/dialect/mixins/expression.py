@@ -5,7 +5,7 @@ Renders query expression tree nodes - identifiers, literals, operators,
 casts, CASE, subqueries, VALUES and aliases - to ``(sql, params)`` pairs.
 Function-call rendering is inherited from :class:`FunctionCallMixin`.
 """
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 from ...expression import bases
 from ...expression.core import (
@@ -20,6 +20,7 @@ from ...expression.operators import (
     BinaryExpression,
     RawSQLExpression,
     SQLOperation,
+    StringConcatExpression,
     UnaryExpression,
 )
 from .function import FunctionCallMixin
@@ -117,19 +118,16 @@ class ExpressionMixin(FunctionCallMixin):
             A ``(sql, params)`` tuple carrying the wrapped expression's
             parameters.
 
-        Raises:
-            ValueError: If ``target_type`` contains unsupported characters.
-
         ``CAST(expr AS type)`` is a unary tree node; the wrapped expression
-        renders through its own ``to_sql()``.
+        renders through its own ``to_sql()`` and the target through
+        its own ``to_sql()``.
         """
         expr_sql, params = expr.expression.to_sql()
-        if not self._validate_data_type(expr.target_type):
-            raise ValueError(
-                f"Invalid target type '{expr.target_type}': "
-                "must contain only alphanumeric characters, spaces, parentheses, and commas."
-            )
-        sql = f"CAST({expr_sql} AS {expr.target_type})"
+        # The target is an expression, so it renders itself and this
+        # concatenates. Interpolating it would have produced
+        # `col::IntegerType()` instead of `col::INTEGER`.
+        type_sql, _ = expr.target_type.to_sql()
+        sql = f"CAST({expr_sql} AS {type_sql})"
         if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, params
@@ -157,15 +155,70 @@ class ExpressionMixin(FunctionCallMixin):
     def format_binary_operator(self, expr: BinaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.BinaryExpression`.
 
+        String concatenation is routed to
+        :meth:`format_string_concatenation` rather than inlined, because the
+        operator token does not determine the meaning: ``||`` concatenates on
+        most backends but is logical OR on MySQL, MariaDB and SQL Server.
+
         Args:
             expr: Binary expression exposing ``left``, ``op`` and ``right``.
 
         Returns:
             A ``(sql, params)`` tuple of ``left op right``.
         """
+        if isinstance(expr, StringConcatExpression):
+            return self.format_string_concatenation(expr)
+
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
-        return f"{left_sql} {expr.op} {right_sql}", left_params + right_params
+        sql = f"{left_sql} {expr.op} {right_sql}"
+        alias = getattr(expr, "alias", None)
+        if alias:
+            sql = f"{sql} AS {self.format_identifier(alias)}"
+        return sql, left_params + right_params
+
+    def format_string_concatenation(
+        self, expr: "StringConcatExpression"
+    ) -> Tuple[str, tuple]:
+        """Render a string concatenation using this dialect's spelling.
+
+        Args:
+            expr: The concatenation node exposing ``left`` and ``right``.
+
+        Returns:
+            A ``(sql, params)`` tuple.
+        """
+        left_sql, left_params = expr.left.to_sql()
+        right_sql, right_params = expr.right.to_sql()
+        function = self.string_concatenation_function()
+        if function is None:
+            sql = f"{left_sql} || {right_sql}"
+        else:
+            sql = f"{function}({left_sql}, {right_sql})"
+        alias = getattr(expr, "alias", None)
+        if alias:
+            sql = f"{sql} AS {self.format_identifier(alias)}"
+        return sql, left_params + right_params
+
+    def string_concatenation_function(self) -> Optional[str]:
+        """Return the function name this dialect uses for concatenation.
+
+        A dialect where ``||`` means something else declares its own by
+        overriding this: MySQL, MariaDB and SQL Server read ``||`` as logical
+        OR, and BigQuery does not accept it as concatenation at all.
+
+        The lookup is by name through ``getattr`` rather than by inheriting a
+        base implementation, because MRO order decides which definition wins
+        and the core mixin's position depends on how many generic mixins a
+        given dialect happens to inherit — which a backend author cannot see or
+        control. Looking the name up on the instance finds the dialect's own
+        declaration wherever it sits.
+
+        Returns:
+            The function name, or ``None`` to use the standard's ``||``.
+        """
+        declaration = getattr(self, "STRING_CONCATENATION", None)
+        return declaration if isinstance(declaration, str) else None
 
     def format_unary_operator(self, expr: UnaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.UnaryExpression`.

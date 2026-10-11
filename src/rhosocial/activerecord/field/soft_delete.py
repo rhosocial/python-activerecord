@@ -21,10 +21,11 @@ from typing import ClassVar, Dict, Any, Optional
 from pydantic import Field
 
 from ..backend.expression.core import Column
-from ..backend.expression import ComparisonPredicate, Literal
+from ..backend.expression import ComparisonPredicate, IsNullPredicate, Literal
 from ..interface import ModelEvent
 from ..interface.update import IDeleteBehavior
 from ..query import ActiveQuery
+from .field_config import FieldConfigValidationHandler
 
 
 class SoftDeleteMixin(IDeleteBehavior):
@@ -32,19 +33,25 @@ class SoftDeleteMixin(IDeleteBehavior):
 
     The model (or a subclass like :class:`DefaultSoftDeleteMixin`) declares
     a datetime field and announces it via ``__deleted_at_field__``; it must
-    exist or instantiation fails fast.
+    exist or the class is rejected at definition time.
     """
 
     __deleted_at_field__: ClassVar[str] = "deleted_at"
 
+    _feature_handlers = [FieldConfigValidationHandler]
+
     def __init__(self, **data):
         super().__init__(**data)
-        self.__class__._validate_soft_delete_config()
         self.on(ModelEvent.BEFORE_DELETE, self._mark_as_deleted)
 
     @classmethod
-    def _validate_soft_delete_config(cls) -> None:
-        """Fail fast when the configured field name does not exist."""
+    def _validate_model_config(cls) -> None:
+        """Fail fast when the configured field name does not exist.
+
+        Invoked by :class:`FieldConfigValidationHandler` from the metaclass,
+        so it runs once at class definition — see that module for why this
+        cannot live in ``__init__``.
+        """
         field_name = cls.__deleted_at_field__
         if field_name not in cls.model_fields:
             raise TypeError(
@@ -77,7 +84,12 @@ class SoftDeleteMixin(IDeleteBehavior):
     def query(cls) -> "ActiveQuery":
         """Return query builder excluding soft-deleted records."""
         backend = cls.backend()
-        non_deleted_condition = Column(backend.dialect, cls._deleted_at_column()).is_null()
+        # An explicit node rather than the column's operator: the reference is
+        # bare (no annotation consulted), and a bare Column offers no
+        # operations by design.
+        non_deleted_condition = IsNullPredicate(
+            backend.dialect, Column(backend.dialect, cls._deleted_at_column())
+        )
         return super().query().where(non_deleted_condition)
 
     @classmethod
@@ -89,7 +101,9 @@ class SoftDeleteMixin(IDeleteBehavior):
     def query_only_deleted(cls) -> "ActiveQuery":
         """Return query for only soft-deleted records."""
         backend = cls.backend()
-        deleted_condition = Column(backend.dialect, cls._deleted_at_column()).is_not_null()
+        deleted_condition = IsNullPredicate(
+            backend.dialect, Column(backend.dialect, cls._deleted_at_column()), is_not=True
+        )
         return super().query().where(deleted_condition)
 
     def _build_restore_condition(self):
@@ -114,7 +128,7 @@ class SoftDeleteMixin(IDeleteBehavior):
         else:
             pk_column = Column(dialect, self.primary_key())
             pk_value = getattr(self, self.primary_key())
-            condition_expr = pk_column == pk_value
+            condition_expr = ComparisonPredicate(dialect, "=", pk_column, Literal(dialect, pk_value))
 
         return condition_expr
 

@@ -1,7 +1,15 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_expressions_functions.py
 import pytest
 
-from rhosocial.activerecord.backend.expression import FunctionCall, Column, Literal, count, sum_, avg
+from rhosocial.activerecord.backend.expression import (
+    FunctionCall,
+    Column,
+    Literal,
+    ComparisonPredicate,
+    count,
+    sum_,
+    avg,
+)
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -75,7 +83,7 @@ class TestFunctionExpressions:
         """Tests an aggregate function with a FILTER (WHERE ...) clause."""
         # COUNT with a single filter
         active_count = count(dummy_dialect, "*", alias="active_count").filter(
-            Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "status"), Literal(dummy_dialect, "active"))
         )
         sql, params = active_count.to_sql()
         assert sql == 'COUNT(*) FILTER (WHERE "status" = ?) AS "active_count"'
@@ -84,8 +92,16 @@ class TestFunctionExpressions:
         # SUM with multiple chained filters (combined with AND)
         high_value_sum = (
             sum_(dummy_dialect, Column(dummy_dialect, "amount"), alias="high_value_sum")
-            .filter(Column(dummy_dialect, "category") == Literal(dummy_dialect, "sales"))
-            .filter(Column(dummy_dialect, "priority") == Literal(dummy_dialect, True))
+            .filter(
+                ComparisonPredicate(
+                    dummy_dialect, "=", Column(dummy_dialect, "category"), Literal(dummy_dialect, "sales")
+                )
+            )
+            .filter(
+                ComparisonPredicate(
+                    dummy_dialect, "=", Column(dummy_dialect, "priority"), Literal(dummy_dialect, True)
+                )
+            )
         )
         sql, params = high_value_sum.to_sql()
         assert sql == 'SUM("amount") FILTER (WHERE "category" = ? AND "priority" = ?) AS "high_value_sum"'

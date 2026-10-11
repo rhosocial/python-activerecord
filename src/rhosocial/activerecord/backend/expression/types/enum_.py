@@ -24,5 +24,4 @@ class EnumType(DataType):
             raise ValueError("EnumType requires at least one value")
         self.values = tuple(values)
 
-    def _type_params(self) -> tuple:
-        return (self.values,)
+    PARAMETERS = ("values",)

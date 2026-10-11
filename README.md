@@ -308,13 +308,30 @@ Source: [rhosocial/python-activerecord](https://github.com/rhosocial/python-acti
 
 * **Python**: 3.8+ for the core library and the SQLite backend. Individual
   backends raise this floor — see the Backend Support table above.
-* **Core Dependency**: Pydantic 2.10+ (Python 3.8) or 2.12+ (Python 3.9+)
 * **SQLite**: 3.25+ (for the built-in backend)
+
+**The Pydantic pair follows the interpreter.** Where the newest release cannot
+be installed the core pins an exact pair, and where it can it leaves the range
+open — so the version you get is decided by your Python, not by a guess:
+
+| Python | pydantic | pydantic-core | Why |
+|---|---|---|---|
+| 3.8 | `==2.10.6` | `==2.27.2` | The last pair installable on 3.8 |
+| 3.9 – 3.12 | `>=2.12.0` | `>=2.41.0` | Open; major stays 2.x |
+| 3.13 **and** 3.13t | `==2.12.2` | `==2.41.4` | pydantic-core has **no cp313t wheel after 2.41.4**, and the newer sdists cannot be built there (PyO3 0.29 refuses a free-threaded CPython below 3.14). 2.12.2 is the last pydantic paired with 2.41.4 |
+| 3.14, 3.15 | `>=2.12.0` | `>=2.41.0` | Open; major stays 2.x |
+
+`python_version` markers distinguish release *lines*, not GIL configuration, so
+the 3.13 row pins both the GIL and the free-threaded build — installing on 3.13t
+resolves to the same exact pair, which is what keeps that interpreter installable
+at all.
 
 Free-threaded builds: the core library and the SQLite backend are tested on
 3.13t/3.14t. Per-backend status differs — Snowflake is **not** supported on
-3.13t (`cryptography` → `cffi` has no free-threaded 3.13 build), and
-ClickHouse caps at `<3.15`.
+3.13t (`cryptography` → `cffi` has no free-threaded 3.13 build), ClickHouse caps
+at `<3.15`, and PostgreSQL runs the GIL leg only because its driver, psycopg,
+does not support free-threaded builds. Backends whose driver ships no cp315
+wheel at all are capped below 3.15 — see the Backend Support table.
 
 ## Get Started with AI Code Agents
 

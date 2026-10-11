@@ -49,43 +49,62 @@ class MySQLVectorType(DataType):
         super().__init__(dialect)
         self.dim = dim
 
-    def _type_params(self) -> tuple:
-        return (self.dim,)
+    #: The attributes that make two of these different columns. Read by
+    #: ``__eq__``, ``__hash__`` and ``repr`` -- declare it, do not override a
+    #: method to compute it.
+    PARAMETERS = ("dim",)
 ```
 
-**Important**: Do **not** hand-write `__eq__`/`__hash__`. The `DataType` base provides unified value-object semantics: equality compares the logical parameters returned by `_type_params()` plus `dialect_options`; the hash covers type identity and `_type_params()` only. The bound dialect is ignored by both. Override `_type_params()` so the base comparisons see your logical content.
+**Important**: Do **not** hand-write `__eq__`/`__hash__`, and do not override a method to compute identity. The `DataType` base provides unified value-object semantics: equality compares the attributes named in the class constant `PARAMETERS`, and the hash covers the type's class plus those same attributes. The bound dialect is ignored by both. Declare `PARAMETERS` so the base comparisons see your logical content — and make sure it names *everything* that distinguishes two instances, because whatever it omits is invisible to `==`.
+
+One field is deliberately **not** identity: `spelling`. It is how the instance is written, not what it is. The same column introspects as `character varying(30)` whichever word created it, so counting the spelling would make every introspected type unequal to its own declaration. The spelling still reaches the rendered SQL, and still round-trips through `get_params()`.
+
+There is no bag of "backend-specific options" on a data type. Anything your type needs beyond the concept's own parameters is a **declared field** on the class, named in its `PARAMETERS`.
 
 Backend-defined types must also declare a **backend-prefixed** generic `name` (e.g. `mysql_vector`) — the prefix is enforced at class-definition time, keeping dispatch keys isolated per backend.
 
 ## Extending a Core Type
 
-To create a backend-specific variant of an existing type:
+Deriving from a core type is how a backend says "this is that concept, stored my way", and it is what makes `isinstance(col.data_type, IntegerType)` hold for the backend's own integer column. Inherit the core class **whenever there is one**; sit on `DataType` only when the concept is genuinely backend-exclusive, and then say why in the docstring.
+
+Inheritance means identity only — "this class *is* that SQL type" — not membership in a family, and the chain stays linear (no multiple inheritance, no diamond edges).
+
+Often you need no subclass at all. For a signedness variant of an existing concept, use the parameter the concept already has:
+
+```python
+from rhosocial.activerecord.backend.expression.types import IntegerType
+
+IntegerType(unsigned=True)    # UNSIGNED INTEGER — same class, one flag
+```
+
+The four core integer classes take `unsigned: bool` precisely so that "signed vs unsigned" does not become a class per backend. Width, by contrast, *is* a class (`TinyIntType` … `BigIntType`), because a linear chain cannot hold a (width × signedness) grid.
+
+If you genuinely need a subclass — the backend's storage differs, not just its spelling:
 
 ```python
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
 
 class MySQLUnsignedIntType(IntegerType):
-    """MySQL INTEGER UNSIGNED."""
+    """MySQL ``INT UNSIGNED``.
+
+    The same concept as ``INTEGER`` with a different range, so it derives from
+    the core class rather than sitting on ``DataType``. It re-declares
+    ``PARAMETERS`` so ``unsigned`` still participates in ``==`` and ``hash`` —
+    inheriting the base's declaration without naming the field would make two
+    different ranges compare equal.
+    """
     name = "mysql_int_unsigned"
 
-    def __init__(self, dialect=None, *, unsigned: bool = True,
-                 dialect_options=None):
-        super().__init__(dialect, dialect_options=dialect_options)
-        self.unsigned = unsigned
+    def __init__(self, dialect=None, *, unsigned: bool = True):
+        super().__init__(dialect, unsigned=unsigned)
 
-    def _type_params(self) -> tuple:
-        return (self.unsigned,)
-
-    @classmethod
-    def synonyms(cls) -> set:
-        """Mark as equivalent to IntegerType for schema comparison."""
-        return {'IntegerType'}
+    PARAMETERS = ("unsigned",)
 ```
 
-The `synonyms()` method marks types as structurally equivalent for schema comparison purposes.
+There is no `synonyms()` classmethod and no `is_equivalent()` method any more. A synonym of a concept is a *spelling* on the concept's own class, so there is never a second class for `==` to disagree with — see [Types](../expression/types.md) for the spelling mechanism.
 
-Backend-specific exotic parameters can also travel in `dialect_options` (e.g. `{'unsigned': True}`) — a dict consumed by the backend formatters; it participates in equality but not in the hash.
+If your concept has several legitimate written forms, extend that class's `SPELLINGS` rather than adding a class, and check the spelling in your formatter: a dialect that does not write `CLOB` should raise, not silently emit something else. The concept's default spelling (the first entry) must always render.
 
 ## Registering a Type Formatter
 

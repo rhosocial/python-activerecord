@@ -22,29 +22,13 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLiteDialect
 
 
-def _convert_to_expression(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    handle_numeric_literals: bool = True,
-) -> "bases.BaseExpression":
-    """Convert an input value to an appropriate BaseExpression."""
-    if isinstance(expr, bases.BaseExpression):
-        return expr
-    elif isinstance(expr, (int, float)):
-        if handle_numeric_literals:
-            return core.Literal(dialect, expr)
-        return core.Column(dialect, str(expr))
-    elif isinstance(expr, str):
-        return core.Literal(dialect, expr)
-    else:
-        return core.Column(dialect, expr)
 
 
 def geopoly_contains(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
-    x: Union[float, "bases.BaseExpression"],
-    y: Union[float, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
+    x: "bases.BaseExpression",
+    y: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Check if a point is inside a polygon.
 
@@ -65,15 +49,15 @@ def geopoly_contains(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
-    x_expr = _convert_to_expression(dialect, x)
-    y_expr = _convert_to_expression(dialect, y)
+    poly_expr = polygon
+    x_expr = x
+    y_expr = y
     return core.FunctionCall(dialect, "geopoly_contains", poly_expr, x_expr, y_expr)
 
 
 def geopoly_within(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Check if a polygon is entirely within another polygon.
 
@@ -92,14 +76,14 @@ def geopoly_within(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_within", poly_expr)
 
 
 def geopoly_overlap(
     dialect: "SQLiteDialect",
-    polygon1: Union[str, "bases.BaseExpression"],
-    polygon2: Union[str, "bases.BaseExpression"],
+    polygon1: "bases.BaseExpression",
+    polygon2: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Check if two polygons overlap.
 
@@ -118,14 +102,14 @@ def geopoly_overlap(
 
     Version: SQLite 3.26.0+
     """
-    poly1_expr = _convert_to_expression(dialect, polygon1)
-    poly2_expr = _convert_to_expression(dialect, polygon2)
+    poly1_expr = polygon1
+    poly2_expr = polygon2
     return core.FunctionCall(dialect, "geopoly_overlap", poly1_expr, poly2_expr)
 
 
 def geopoly_area(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Calculate the area of a polygon.
 
@@ -143,13 +127,13 @@ def geopoly_area(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_area", poly_expr)
 
 
 def geopoly_x(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Get the X coordinate of a vertex of the polygon.
 
@@ -162,13 +146,13 @@ def geopoly_x(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_x", poly_expr)
 
 
 def geopoly_y(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Get the Y coordinate of a vertex of the polygon.
 
@@ -181,13 +165,13 @@ def geopoly_y(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_y", poly_expr)
 
 
 def geopoly_centerpoint(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Calculate the center point of a polygon.
 
@@ -206,13 +190,13 @@ def geopoly_centerpoint(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_centerpoint", poly_expr)
 
 
 def geopoly_json(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Convert a BLOB to a JSON polygon definition.
 
@@ -231,13 +215,13 @@ def geopoly_json(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_json", poly_expr)
 
 
 def geopoly_blob(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Convert a JSON polygon definition to BLOB.
 
@@ -255,13 +239,13 @@ def geopoly_blob(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_blob", poly_expr)
 
 
 def geopoly_debug(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Return text rendering of a polygon for debugging.
 
@@ -279,18 +263,18 @@ def geopoly_debug(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_debug", poly_expr)
 
 
 def geopoly_svg(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
     *,
-    xscale: Optional[Union[float, "bases.BaseExpression"]] = None,
-    yscale: Optional[Union[float, "bases.BaseExpression"]] = None,
-    xoff: Optional[Union[float, "bases.BaseExpression"]] = None,
-    yoff: Optional[Union[float, "bases.BaseExpression"]] = None,
+    xscale: Optional["bases.BaseExpression"] = None,
+    yscale: Optional["bases.BaseExpression"] = None,
+    xoff: Optional["bases.BaseExpression"] = None,
+    yoff: Optional["bases.BaseExpression"] = None,
 ) -> "core.FunctionCall":
     """Convert a polygon to SVG format.
 
@@ -314,22 +298,22 @@ def geopoly_svg(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     args = [poly_expr]
     if xscale is not None:
-        args.append(_convert_to_expression(dialect, xscale))
+        args.append(xscale)
     if yscale is not None:
-        args.append(_convert_to_expression(dialect, yscale))
+        args.append(yscale)
     if xoff is not None:
-        args.append(_convert_to_expression(dialect, xoff))
+        args.append(xoff)
     if yoff is not None:
-        args.append(_convert_to_expression(dialect, yoff))
+        args.append(yoff)
     return core.FunctionCall(dialect, "geopoly_svg", *args)
 
 
 def geopoly_bbox(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Calculate the bounding box of a polygon.
 
@@ -348,13 +332,13 @@ def geopoly_bbox(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_bbox", poly_expr)
 
 
 def geopoly_group_bbox(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Calculate the bounding box of a group of polygons (aggregate).
 
@@ -375,15 +359,15 @@ def geopoly_group_bbox(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_group_bbox", poly_expr)
 
 
 def geopoly_contains_point(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
-    x: Union[float, "bases.BaseExpression"],
-    y: Union[float, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
+    x: "bases.BaseExpression",
+    y: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Check if a point is inside a polygon.
 
@@ -403,21 +387,21 @@ def geopoly_contains_point(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
-    x_expr = _convert_to_expression(dialect, x)
-    y_expr = _convert_to_expression(dialect, y)
+    poly_expr = polygon
+    x_expr = x
+    y_expr = y
     return core.FunctionCall(dialect, "geopoly_contains_point", poly_expr, x_expr, y_expr)
 
 
 def geopoly_xform(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
-    a: Union[float, "bases.BaseExpression"],
-    b: Union[float, "bases.BaseExpression"],
-    c: Union[float, "bases.BaseExpression"],
-    d: Union[float, "bases.BaseExpression"],
-    e: Union[float, "bases.BaseExpression"],
-    f: Union[float, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
+    a: "bases.BaseExpression",
+    b: "bases.BaseExpression",
+    c: "bases.BaseExpression",
+    d: "bases.BaseExpression",
+    e: "bases.BaseExpression",
+    f: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Transform a polygon using an affine transformation.
 
@@ -443,25 +427,25 @@ def geopoly_xform(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(
         dialect,
         "geopoly_xform",
         poly_expr,
-        _convert_to_expression(dialect, a),
-        _convert_to_expression(dialect, b),
-        _convert_to_expression(dialect, c),
-        _convert_to_expression(dialect, d),
-        _convert_to_expression(dialect, e),
-        _convert_to_expression(dialect, f),
+        a,
+        b,
+        c,
+        d,
+        e,
+        f,
     )
 
 
 def geopoly_regular(
     dialect: "SQLiteDialect",
-    x: Union[float, "bases.BaseExpression"],
-    y: Union[float, "bases.BaseExpression"],
-    radius: Union[float, "bases.BaseExpression"],
+    x: "bases.BaseExpression",
+    y: "bases.BaseExpression",
+    radius: "bases.BaseExpression",
     n: Union[int, "bases.BaseExpression"],
 ) -> "core.FunctionCall":
     """Create a regular polygon.
@@ -484,16 +468,16 @@ def geopoly_regular(
 
     Version: SQLite 3.26.0+
     """
-    x_expr = _convert_to_expression(dialect, x)
-    y_expr = _convert_to_expression(dialect, y)
-    r_expr = _convert_to_expression(dialect, radius)
-    n_expr = _convert_to_expression(dialect, n)
+    x_expr = x
+    y_expr = y
+    r_expr = r
+    n_expr = n
     return core.FunctionCall(dialect, "geopoly_regular", x_expr, y_expr, r_expr, n_expr)
 
 
 def geopoly_ccw(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Reorder polygon vertices to counter-clockwise order.
 
@@ -511,13 +495,13 @@ def geopoly_ccw(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_ccw", poly_expr)
 
 
 def geopoly_cw(
     dialect: "SQLiteDialect",
-    polygon: Union[str, "bases.BaseExpression"],
+    polygon: "bases.BaseExpression",
 ) -> "core.FunctionCall":
     """Reorder polygon vertices to clockwise order.
 
@@ -535,5 +519,5 @@ def geopoly_cw(
 
     Version: SQLite 3.26.0+
     """
-    poly_expr = _convert_to_expression(dialect, polygon)
+    poly_expr = polygon
     return core.FunctionCall(dialect, "geopoly_cw", poly_expr)

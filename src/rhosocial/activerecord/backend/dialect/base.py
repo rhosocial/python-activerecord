@@ -8,13 +8,25 @@ All SQL formatting logic lives in Mixin classes in mixins.py.
 
 import re
 import warnings as _warnings
-from typing import Any, FrozenSet, Optional, Tuple, TYPE_CHECKING
+from typing import Any, ClassVar, Dict, FrozenSet, Optional, Tuple, Union, TYPE_CHECKING
 
-from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
+from .exceptions import DialectNotAdaptedException, ProtocolNotImplementedError, UnsupportedFeatureError
 from ..warnings import IdentifierQuotingWarning
 
 if TYPE_CHECKING:
+    import datetime as _dt
+    from decimal import Decimal
+
     from ..schema.differ import SchemaDiffer
+
+
+def _version_text(version: Tuple[int, int, int]) -> str:
+    """Render a ``(major, minor, patch)`` tuple the way a server reports it.
+
+    Used by messages that tell a caller which version a feature arrived in and
+    which one is in force, so both read the same way.
+    """
+    return ".".join(str(part) for part in version)
 
 
 class SQLDialectBase:
@@ -131,6 +143,98 @@ class SQLDialectBase:
         if not is_supported:
             raise UnsupportedFeatureError(dialect_name=self.name, feature_name=feature_name, suggestion=suggestion)
 
+    # ------------------------------------------------------------------
+    # Version floors for named features (functions above all)
+    # ------------------------------------------------------------------
+
+    #: Function name -> earliest ``(major, minor, patch)`` version of this
+    #: dialect that spells it. A backend declares the table; the base reads it
+    #: in :meth:`function_version_floor` and enforces it in
+    #: :meth:`check_function_version`.
+    #:
+    #: Annotated and deliberately *not* assigned here. ``SQLDialectBase`` sits
+    #: ahead of every mixin in a dialect's MRO, so a default assigned on the
+    #: base would shadow the table a backend's mixin declares -- the same
+    #: reason the base declares no ``supports_functions``. A backend that
+    #: computes its floors rather than tabulating them overrides
+    #: :meth:`function_version_floor` on its dialect class, which *does*
+    #: precede the base.
+    function_version_floors: ClassVar[Dict[str, Tuple[int, int, int]]]
+
+    def function_version_floor(self, func_name: str) -> Optional[Tuple[int, int, int]]:
+        """Return the earliest version of this dialect that knows *func_name*.
+
+        The query half of a version gate: the version a backend started
+        spelling a function at, read from :attr:`function_version_floors`.
+        ``None`` means no floor is recorded, which is not the same as
+        "unsupported" -- a name nobody has measured is simply not gated here.
+        Rendering consults it through :meth:`check_function_version`, so a
+        recorded floor is a refusal rather than a documented observation.
+
+        Names match case-insensitively: the core and backend factories spell
+        them lower-case, the renderer spells them upper, and a caller may hand
+        either to a :class:`~...expression.core.FunctionCall`.
+
+        Args:
+            func_name: The function name as the expression carries it.
+
+        Returns:
+            The floor as a ``(major, minor, patch)`` tuple, or ``None`` when
+            this dialect records no floor for *func_name*.
+        """
+        floors: Optional[Dict[str, Tuple[int, int, int]]] = getattr(self, "function_version_floors", None)
+        if not floors:
+            return None
+        floor = floors.get(func_name)
+        if floor is None:
+            floor = floors.get(func_name.lower())
+        return floor
+
+    def check_function_version(self, func_name: str) -> None:
+        """Refuse a function call this dialect's version predates.
+
+        Reads :meth:`function_version_floor` and refuses when the version in
+        force is below it. This is what turns a declared floor into a gate:
+        the alternative is a renderer that emits SQL the server will reject,
+        which is the failure the floor was recorded to prevent.
+
+        :class:`~.mixins.function.FunctionCallMixin` calls it while rendering a
+        call, so the gate holds for every dialect that composes that mixin and
+        for every caller.
+
+        Args:
+            func_name: The function name as the expression carries it.
+
+        Raises:
+            UnsupportedFeatureError: A floor is recorded for *func_name* and
+                this dialect's version is below it. The message names the
+                function, the floor and the version in force.
+
+        Note:
+            A dialect that has not been adapted has no version to compare
+            against, so there is nothing to refuse: adaptation
+            (``backend.introspect_and_adapt()``) is what makes the gate bite,
+            and rendering an un-adapted dialect keeps its old permissiveness.
+        """
+        floor = self.function_version_floor(func_name)
+        if floor is None:
+            return
+        try:
+            version = self.version
+        except DialectNotAdaptedException:
+            return
+        if version >= floor:
+            return
+        name = func_name.upper()
+        raise UnsupportedFeatureError(
+            dialect_name=self.name,
+            feature_name=f"the {name} function on {self.name} {_version_text(version)}",
+            suggestion=(
+                f"{name} arrived in {self.name} {_version_text(floor)}; connect to a "
+                f"server that has it, or spell the operation another way"
+            ),
+        )
+
     @property
     def reserved_words(self) -> FrozenSet[str]:
         """Return the reserved word set for this dialect.
@@ -181,7 +285,9 @@ class SQLDialectBase:
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
-    def format_literal(self, value: Any) -> str:
+    def format_literal(
+        self, value: "Optional[Union[bool, int, float, Decimal, _dt.datetime, _dt.date]]"
+    ) -> str:
         """Render a Python scalar as a safe inline SQL literal.
 
         Used by DDL clauses (CHECK / DEFAULT / partition boundaries /

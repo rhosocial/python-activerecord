@@ -127,14 +127,14 @@ class TestSQLiteFunctionFactories:
 
     def test_abs_function(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test ABS function."""
-        func = abs_(sqlite_dialect_3_8_0, -5)
+        func = abs_(sqlite_dialect_3_8_0, Literal(sqlite_dialect_3_8_0, -5))
         sql, params = func.to_sql()
         assert "ABS(" in sql
         assert params == (-5,)
 
     def test_round_function(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test ROUND function."""
-        func = round_(sqlite_dialect_3_8_0, 3.14159)
+        func = round_(sqlite_dialect_3_8_0, Literal(sqlite_dialect_3_8_0, 3.14159))
         sql, params = func.to_sql()
         assert "ROUND(" in sql
         assert params == (3.14159,)

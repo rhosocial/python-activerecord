@@ -20,7 +20,10 @@ from .cte import CTEMixin
 from .upsert import UpsertMixin
 from .join import LateralJoinMixin, JoinMixin
 from .array import ArrayMixin
+from .trim import TrimMixin
+from .string_ops import LpadMixin, RepeatMixin, RpadMixin
 from .json import JSONMixin
+from .uuid import UUIDMixin
 from .explain import ExplainMixin
 from .graph import GraphMixin, GraphTableMixin
 from .merge import MergeMixin
@@ -65,6 +68,7 @@ from .dql import DQLMixin
 from .dml import DMLMixin
 from .ddl_column import DDLColumnMixin
 from .data_type import DataTypeMixin
+from .column_type import ColumnTypeMixin
 from .ddl_type import DDLTypeMixin
 from .user_defined_type import UserDefinedTypeMixin
 from .ddl_domain import DomainMixin
@@ -75,8 +79,7 @@ __all__ = [
     "SQLXMLParsingMixin",
     "SQLXMLSerializationMixin",
     "SQLXMLConstructionMixin",
-    "SQLXMLAggregationMixin",
-    "SQLXMLQueryingMixin",
+    "SQLXMLAggregationMixin",    "SQLXMLQueryingMixin",
     "SQLXMLMixin",
     "CollationMixin",
     "WindowFunctionMixin",
@@ -86,6 +89,7 @@ __all__ = [
     "JoinMixin",
     "ArrayMixin",
     "JSONMixin",
+    "UUIDMixin",
     "ExplainMixin",
     "GraphMixin",
     "GraphTableMixin",
@@ -135,9 +139,15 @@ __all__ = [
     "DMLMixin",
     "DDLColumnMixin",
     "DataTypeMixin",
+    "ColumnTypeMixin",
     "DDLTypeMixin",
     "UserDefinedTypeMixin",
     "DomainMixin",
     "DatabaseMixin",
     "TransactionControlMixin",
+    "ArrayMixin",
+    "TrimMixin",
+    "LpadMixin",
+    "RepeatMixin",
+    "RpadMixin",
 ]

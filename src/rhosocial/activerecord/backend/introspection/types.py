@@ -99,7 +99,30 @@ class IndexColumnInfo:
 
 @dataclass
 class ColumnInfo:
-    """Column information."""
+    """Column information.
+
+    ``parsed_data_type`` is the column's type as a
+    :class:`~...expression.types.DataType` value object, and it is
+    :data:`None` for one reason only: **the catalog string could not be
+    read.** That is load-bearing rather than incidental, because the schema
+    differ branches on it — it compares the two value objects when both sides
+    are present, and falls back to comparing the ``data_type`` *strings*
+    otherwise.
+
+    So ``None`` means "this backend could not parse this one column", not "this
+    column has no type". An introspector therefore must not let one unreadable
+    column abort the whole table: degrade that column to ``None`` — which is
+    exactly the fallback the differ already takes — and say so with a warning.
+
+    That contract is not theoretical. Turning the field on for the MariaDB
+    backend exposed three ``parse_type`` defects that had been invisible while
+    it sat permanently ``None``: a ``GEOMETRYCOLLECTION`` column parsing as a
+    plain ``GEOMETRY`` (so the differ reported *no* change between a collection
+    column and a geometry column), a ``DATETIME(6)`` column parsing with its
+    fsp dropped, and a ``UUID`` column parsing to ``CustomType`` although the
+    dialect's own formatters write ``UUID``. A field nobody populates cannot
+    find anything.
+    """
 
     name: str
     table_name: str

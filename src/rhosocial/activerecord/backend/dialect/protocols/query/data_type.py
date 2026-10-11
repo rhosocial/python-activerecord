@@ -37,21 +37,28 @@ class DataTypeSupport(Protocol):
     ``format_data_type_<name>(data_type)`` / ``supports_data_type_<name>()``
         **Naming-family contracts.** These per-type members cannot be
         enumerated in the Protocol — they are discovered by convention
-        from the type's generic ``name``. The two families must correspond
-        **1:1**: for every ``format_data_type_X`` a dialect implements it
-        MUST also implement ``supports_data_type_X() -> bool``, and vice
-        versa. The supported-type surface of a dialect is exactly the set
-        of these method pairs — there is no registry.
+        from the type's generic ``name``. The formatter is the declaration
+        of support: ``supports_data_types()`` derives the mapping from the
+        formatter family, and a ``supports_data_type_X() -> bool`` probe,
+        where a dialect owns one, is the only thing that may opt a rendered
+        name **out** (a version-gated feature — a number of backends'
+        ``<backend>_*`` probes do exactly that). Backends that keep the
+        pair keep the **1:1** discipline: for every ``format_data_type_X``
+        a ``supports_data_type_X()``, and no probe without a formatter to
+        promise delivery. The supported-type surface of a dialect has no
+        registry beyond these members.
 
     Honesty principle (D10)
     -----------------------
 
     A dialect that does not support a type simply does **not** implement
-    its ``format_data_type_X`` / ``supports_data_type_X`` pair — it never
-    fakes a formatter or hard-codes ``supports_data_type_X() -> False``
-    for an unimplemented type. Dispatch on an unsupported type raises
+    its ``format_data_type_X`` — it never fakes a formatter, and never
+    hard-codes a ``supports_data_type_X() -> False`` probe for a type it
+    cannot render at all. Dispatch on an unsupported type raises
     ``TypeError`` (there is no ``format_data_type_<name>`` to route to),
-    which is the honest "unsupported here" signal.
+    which is the honest "unsupported here" signal. Rendering a declaration
+    the formatter cannot express raises at render time, which is also a
+    legitimate state.
 
     Backend-specific protocol layering (D8)
     ---------------------------------------
@@ -70,6 +77,44 @@ class DataTypeSupport(Protocol):
 
     Core never enumerates backend families; it only fixes the shape of
     the dispatch and the merge.
+
+    Concept coverage (D9)
+    ---------------------
+
+    The honesty principle above governs *how* a dialect says
+    "unsupported"; this rule governs *whether it has said anything at
+    all*.  Every concrete concept in
+    :mod:`rhosocial.activerecord.backend.expression.types` must receive
+    one of two explicit answers from every dialect that implements this
+    protocol:
+
+    * the concept is **rendered** — its ``format_data_type_<name>``
+      exists.  (The formatter may still refuse *particular declarations*
+      with ``UnsupportedFeatureError`` plus a ``suggestion`` — a concept
+      the dialect models but cannot express every declaration of; that is
+      a refusal answer, not an absence.)
+    * the concept is **substituted** — an entry in
+      :meth:`suggested_data_types` names the class this dialect really
+      stores for it, so the caller reads the substitution instead of a
+      bare ``TypeError``.
+
+    The two sets are disjoint: a rendered concept needs no substitute.
+    **Silence is not an answer.**  A concept that is neither rendered nor
+    substituted reaches the caller as a ``TypeError`` with no route
+    forward, and the hole is invisible until someone happens to declare
+    that concept.
+
+    This completeness is **per dialect and deliberately not audited by
+    core**: backends differ too much for one shared shape (a closed
+    short type list, a wide list with substitutes, semantic refusals).
+    Each backend's own test file should walk the core concepts —
+    **discovered, not listed**, so a concept added to core later cannot
+    slip past a stale list — and assert: the coverage above; that
+    rendered and substituted keys are disjoint; that every substitute
+    actually renders on the dialect; and that every suggested key still
+    names an existing concept, so a core rename cannot leave dead
+    entries.  BigQuery's ``test_every_core_concept_is_declared`` is the
+    pattern to copy.
     """
 
 
@@ -138,8 +183,16 @@ class DataTypeSupport(Protocol):
 
         Contract: suggested keys and supported keys are **disjoint** — a
         type this dialect renders needs no suggestion. Suggestions only —
-        the user layer (ActiveRecord) decides whether to adopt them. Return
-        an empty dict when there is nothing to suggest (honesty principle).
+        the user layer (ActiveRecord) decides whether to adopt them.
+
+        This map is one half of the **concept coverage** rule (D9, see the
+        class docstring): every core concept must be rendered or listed
+        here, and silence is not an answer.  It is therefore **not**
+        optional politeness — an entry here is how a caller who declares a
+        concept this dialect stores some other way learns what to declare
+        instead.  Return an empty dict when there is nothing to suggest —
+        which, under D9, says "this dialect renders every core concept it
+        was asked about", not "not yet filled in".
         """
         ...  # pragma: no cover
 

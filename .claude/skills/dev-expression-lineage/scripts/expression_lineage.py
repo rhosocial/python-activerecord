@@ -32,9 +32,10 @@ Modelling premises
    report zero, and no exemption list exists.
 
 6. **Weak references are not inheritance.** Module-level ``if TYPE_CHECKING:``
-   imports exist only for annotations, are not lineage edges, and rot silently:
-   Firebird's ``mixins/window.py`` imports ``WindowFunctionCallExpression`` while
-   the core defines ``WindowFunctionCall``. They live in
+   imports exist only for annotations, are not lineage edges, and rot silently —
+   the historical case being Firebird's ``mixins/window.py`` importing
+   ``WindowFunctionCallExpression`` while the core defined
+   ``WindowFunctionCall``, both since unified into ``FunctionCall``. They live in
    :attr:`LineageGraph.typecheck_imports`, parallel to the DAG.
 
 Layering of concerns
@@ -180,10 +181,10 @@ class TypecheckImport:
     """A module-level ``if TYPE_CHECKING:`` import, i.e. an annotation-only reference.
 
     These are not inheritance edges. They are tracked separately because they rot
-    silently: Firebird's ``mixins/window.py`` imports
-    ``WindowFunctionCallExpression`` while the core defines
-    ``WindowFunctionCall``. The source location is retained so a fixer can rewrite
-    the offending line without re-deriving it.
+    silently — Firebird's ``mixins/window.py`` used to import
+    ``WindowFunctionCallExpression`` while the core defined ``WindowFunctionCall``,
+    until both were unified into ``FunctionCall``. The source location is retained
+    so a fixer can rewrite the offending line without re-deriving it.
 
     Attributes:
         project: Project label the importing module belongs to.

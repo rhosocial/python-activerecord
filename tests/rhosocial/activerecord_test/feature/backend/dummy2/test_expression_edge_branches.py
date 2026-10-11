@@ -68,7 +68,7 @@ class TestCoreExpressionBranches:
     """Branch coverage for core/operator expressions."""
 
     def test_literal_cast_and_alias(self, dialect):
-        expr = Literal(dialect, 42).cast("DECIMAL").as_("n")
+        expr = Literal(dialect, 42).cast(DecimalType(dialect)).as_("n")
         sql, params = expr.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
         assert "AS" in sql
@@ -100,7 +100,7 @@ class TestCoreExpressionBranches:
 
     def test_binary_arithmetic_with_cast(self, dialect):
         expr = BinaryArithmeticExpression(dialect, "+", Column(dialect, "price"), Literal(dialect, 10))
-        casted = expr.cast("DECIMAL")
+        casted = expr.cast(DecimalType(dialect))
         aliased = casted.as_("total")
         sql, params = aliased.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql
@@ -392,7 +392,7 @@ class TestCrossTypeDataTypes:
     def test_array_and_custom_inequality(self):
         assert ArrayType(None, IntegerType()) != ArrayType(None, CharType(None, 10))
         assert ArrayType(None, IntegerType()) != CharType(None, 10)
-        assert ArrayType(None, IntegerType()).is_equivalent(CharType(None, 10)) is False
+        assert ArrayType(None, IntegerType()) != CharType(None, 10)
         assert CustomType(None, "geometry") != IntegerType()
 
     def test_hash_branches(self):

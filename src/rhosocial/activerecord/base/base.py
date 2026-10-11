@@ -9,7 +9,14 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union, get_origin,
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
 from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
-from ..backend.expression import ComparisonPredicate, Column, Literal, SQLPredicate
+from ..backend.expression import (
+    Column,
+    ColumnBase,
+    ComparisonPredicate,
+    InPredicate,
+    Literal,
+    SQLPredicate,
+)
 from ..backend.expression.bases import is_sql_query_and_params
 from ..backend.options import DeleteOptions, UpdateOptions
 from ..backend.options import InsertOptions
@@ -414,7 +421,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     @classmethod
     def find_one(
         cls: Type["BaseActiveRecord"],
-        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        condition: Union[Any, Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
         derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
@@ -427,10 +434,18 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 query = query.where(cls._build_pk_where_predicate(condition))
             else:
                 for key, value in condition.items():
-                    if isinstance(key, Column):
-                        query = query.where(key == value)
+                    if isinstance(key, ColumnBase):
+                        # An explicit node, not the column's own operator: the
+                        # key may be a bare Column reference (whose class offers
+                        # no operations by design) and the query must not care.
+                        query = query.where(
+                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                        )
                     elif isinstance(key, str):
-                        query = query.where(getattr(cls.c, key) == value)
+                        column = getattr(cls.c, key)
+                        query = query.where(
+                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                        )
                     else:
                         raise TypeError(
                             f"Invalid key type in condition dictionary: {type(key)}. "
@@ -448,7 +463,10 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         elif not cls.is_composite_pk():
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
-            query = query.where(Column(dialect, pk_field_name) == condition)
+            pk_column = Column(dialect, pk_field_name)
+            query = query.where(
+                ComparisonPredicate(dialect, "=", pk_column, Literal(dialect, condition))
+            )
         else:
             raise TypeError(
                 f"{cls.__name__} has composite primary key; "
@@ -461,7 +479,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     def find_all(
         cls: Type["BaseActiveRecord"],
         condition: Optional[
-            Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
+            Union[Any, List[Any], Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]]
         ] = None,
         *,
         derived: Union[bool, str, list, dict] = False,
@@ -478,10 +496,18 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 query = query.where(cls._build_pk_where_predicate(condition))
             else:
                 for key, value in condition.items():
-                    if isinstance(key, Column):
-                        query = query.where(key == value)
+                    if isinstance(key, ColumnBase):
+                        # An explicit node, not the column's own operator: the
+                        # key may be a bare Column reference (whose class offers
+                        # no operations by design) and the query must not care.
+                        query = query.where(
+                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                        )
                     elif isinstance(key, str):
-                        query = query.where(getattr(cls.c, key) == value)
+                        column = getattr(cls.c, key)
+                        query = query.where(
+                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                        )
                     else:
                         raise TypeError(
                             f"Invalid key type in condition dictionary: {type(key)}. "
@@ -508,7 +534,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             else:
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
-                query = query.where(Column(dialect, pk_field_name).in_(condition))
+                query = query.where(
+                    InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+                )
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
@@ -517,14 +545,16 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             if not condition:
                 return []
             dialect = cls.backend().dialect
-            query = query.where(Column(dialect, pk_field_name).in_(condition))
+            query = query.where(
+                InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+            )
         cls._apply_derived_to_query(query, derived, extra_derived)
         return query.all()
 
     @classmethod
     def find_one_or_fail(
         cls: Type["BaseActiveRecord"],
-        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        condition: Union[Any, Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
         derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
@@ -1092,7 +1122,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     @classmethod
     async def find_one(
         cls: Type["AsyncBaseActiveRecord"],
-        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        condition: Union[Any, Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
         derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
@@ -1105,10 +1135,18 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 query = query.where(cls._build_pk_where_predicate(condition))
             else:
                 for key, value in condition.items():
-                    if isinstance(key, Column):
-                        query = query.where(key == value)
+                    if isinstance(key, ColumnBase):
+                        # An explicit node, not the column's own operator: the
+                        # key may be a bare Column reference (whose class offers
+                        # no operations by design) and the query must not care.
+                        query = query.where(
+                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                        )
                     elif isinstance(key, str):
-                        query = query.where(getattr(cls.c, key) == value)
+                        column = getattr(cls.c, key)
+                        query = query.where(
+                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                        )
                     else:
                         raise TypeError(
                             f"Invalid key type in condition dictionary: {type(key)}. "
@@ -1126,7 +1164,10 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         elif not cls.is_composite_pk():
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
-            query = query.where(Column(dialect, pk_field_name) == condition)
+            pk_column = Column(dialect, pk_field_name)
+            query = query.where(
+                ComparisonPredicate(dialect, "=", pk_column, Literal(dialect, condition))
+            )
         else:
             raise TypeError(
                 f"{cls.__name__} has composite primary key; "
@@ -1139,7 +1180,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     async def find_all(
         cls: Type["AsyncBaseActiveRecord"],
         condition: Optional[
-            Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
+            Union[Any, List[Any], Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]]
         ] = None,
         *,
         derived: Union[bool, str, list, dict] = False,
@@ -1156,10 +1197,18 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 query = query.where(cls._build_pk_where_predicate(condition))
             else:
                 for key, value in condition.items():
-                    if isinstance(key, Column):
-                        query = query.where(key == value)
+                    if isinstance(key, ColumnBase):
+                        # An explicit node, not the column's own operator: the
+                        # key may be a bare Column reference (whose class offers
+                        # no operations by design) and the query must not care.
+                        query = query.where(
+                            ComparisonPredicate(key.dialect, "=", key, Literal(key.dialect, value))
+                        )
                     elif isinstance(key, str):
-                        query = query.where(getattr(cls.c, key) == value)
+                        column = getattr(cls.c, key)
+                        query = query.where(
+                            ComparisonPredicate(column.dialect, "=", column, Literal(column.dialect, value))
+                        )
                     else:
                         raise TypeError(
                             f"Invalid key type in condition dictionary: {type(key)}. "
@@ -1186,7 +1235,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             else:
                 pk_field_name = cls.primary_key()
                 dialect = cls.backend().dialect
-                query = query.where(Column(dialect, pk_field_name).in_(condition))
+                query = query.where(
+                    InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+                )
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
@@ -1195,14 +1246,16 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             if not condition:
                 return []
             dialect = cls.backend().dialect
-            query = query.where(Column(dialect, pk_field_name).in_(condition))
+            query = query.where(
+                InPredicate(dialect, Column(dialect, pk_field_name), Literal(dialect, tuple(condition)))
+            )
         cls._apply_derived_to_query(query, derived, extra_derived)
         return await query.all()
 
     @classmethod
     async def find_one_or_fail(
         cls: Type["AsyncBaseActiveRecord"],
-        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        condition: Union[Any, Dict[str, Any], Dict["ColumnBase", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
         derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,

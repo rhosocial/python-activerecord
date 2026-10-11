@@ -12,9 +12,12 @@ from ...expression.objects import Table
 
 if TYPE_CHECKING:
     from ...expression.statements.dml import (
+        DefaultValuesSource,
         DeleteExpression,
         InsertExpression,
+        SelectSource,
         UpdateExpression,
+        ValuesSource,
     )
     from ...expression.statements import ReturningClause
 
@@ -93,14 +96,18 @@ class DMLMixin:
             UnsupportedFeatureError: If a requested RETURNING feature is not
                 supported by this dialect.
         """
-        from ...expression.core import Column, Subquery, WildcardExpression
-        from ...expression.aggregates import AggregateFunctionCall
+        from ...expression.column_types import ColumnBase
+        from ...expression.core import Subquery, WildcardExpression
         from ...expression.operators import RawSQLExpression
 
         all_params: List[Any] = []
         expr_parts: List[str] = []
         for expr in clause.expressions:
-            if isinstance(expr, (AggregateFunctionCall, Subquery)):
+            # ``is_aggregate`` is set by the aggregate factories and forwarded
+            # by the typed wrapper they return, so reading the attribute catches
+            # both the node and the wrapper. A plain isinstance test against the
+            # node class would miss every factory-built aggregate.
+            if getattr(expr, "is_aggregate", False) or isinstance(expr, Subquery):
                 raise UnsupportedFeatureError(
                     self.name,
                     "aggregate/subquery in RETURNING",
@@ -115,7 +122,7 @@ class DMLMixin:
                         "This dialect does not support '*' in a RETURNING clause; "
                         "list the columns explicitly.",
                     )
-            elif isinstance(expr, Column):
+            elif isinstance(expr, ColumnBase):
                 if expr.table and expr.table.upper() in ("OLD", "NEW"):
                     if not self.supports_returning_old_new():
                         raise UnsupportedFeatureError(
@@ -209,7 +216,7 @@ class DMLMixin:
             all_params.extend(returning_params)
         return sql, tuple(all_params)
 
-    def format_insert_values_source(self, expr) -> Tuple[str, tuple]:
+    def format_insert_values_source(self, expr: "ValuesSource") -> Tuple[str, tuple]:
         """Render a ``VALUES`` list as an INSERT's data source.
 
         Args:
@@ -231,7 +238,7 @@ class DMLMixin:
             all_params.extend(cell_params)
         return "VALUES " + ", ".join(rows_sql), tuple(all_params)
 
-    def format_insert_select_source(self, expr) -> Tuple[str, tuple]:
+    def format_insert_select_source(self, expr: "SelectSource") -> Tuple[str, tuple]:
         """Render the query an INSERT selects its rows from.
 
         Args:
@@ -242,7 +249,7 @@ class DMLMixin:
         """
         return expr.select_query.to_sql()
 
-    def format_insert_default_values_source(self, expr) -> Tuple[str, tuple]:
+    def format_insert_default_values_source(self, expr: "DefaultValuesSource") -> Tuple[str, tuple]:
         """Render the ``DEFAULT VALUES`` keyword.
 
         Args:

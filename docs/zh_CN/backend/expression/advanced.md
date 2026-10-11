@@ -113,12 +113,13 @@ PostgreSQL dialect 会自动使用 `::` 语法生成更简洁的 SQL。
 
 窗口函数对与当前行相关的表行集执行计算。
 
-### WindowFunctionCall
+### 带 OVER 的 FunctionCall
 
-表示对窗口函数的调用（例如 `ROW_NUMBER() OVER (...)`）。
+窗口函数调用就是携带 `window_spec` 的 `FunctionCall`：用 `.over(...)`
+流式附加窗口规范，或在构造时传入 `window_spec=`。
 
 ```python
-from rhosocial.activerecord.backend.expression import WindowFunctionCall, WindowSpecification, Column, Literal
+from rhosocial.activerecord.backend.expression import FunctionCall, WindowSpecification, Column, Literal
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 
 # 定义窗口规范
@@ -128,13 +129,8 @@ window_spec = WindowSpecification(
     order_by=OrderByClause(dialect, [(Column(dialect, "salary"), "DESC")])
 )
 
-# 创建窗口函数调用
-window_func = WindowFunctionCall(
-    dialect,
-    function_name="ROW_NUMBER",
-    window_spec=window_spec,
-    alias="row_num"
-)
+# 创建窗口函数调用并附加窗口规范
+window_func = FunctionCall(dialect, "ROW_NUMBER").over(window_spec).as_("row_num")
 
 sql, params = window_func.to_sql()
 # sql: 'ROW_NUMBER() OVER (PARTITION BY "department" ORDER BY "salary" DESC) AS "row_num"'
@@ -231,16 +227,25 @@ sql, params = intersect_op.to_sql()
 
 用于处理 JSON 数据的表达式。
 
-### JSONExpression
+### JSONDocumentExpression / JSONTextExpression
 
-表示 JSON 路径提取或操作。
+表示 JSON 路径提取。运算符决定用哪个类：`->` 得到文档，是
+`JSONDocumentExpression`；`->>` 得到文本，是 `JSONTextExpression`。
+之所以是两个类而不是一个类加一个拼写参数，是因为两者得到的值是不同的
+种类 —— 文档可以继续向下索引，文本不行。
 
 ```python
-from rhosocial.activerecord.backend.expression import JSONExpression, Column
+from rhosocial.activerecord.backend.expression import (
+    JSONDocumentExpression,
+    JSONTextExpression,
+)
 
 col = Column(dialect, "data")
-# 从 JSON 路径提取值
-json_extract = JSONExpression(dialect, col, "$.user.name", operation="->>")
+# 从 JSON 路径提取值（文本）
+json_extract = JSONTextExpression(dialect, col, "$.user.name", operation="->>")
+
+# 嵌套路径仍然是文档，可以继续往下走
+nested = JSONDocumentExpression(dialect, col, "$.user", operation="->")
 
 sql, params = json_extract.to_sql()
 # sql: '"data"->>?', 或特定方言的等价形式，如 'JSON_EXTRACT("data", ?)'

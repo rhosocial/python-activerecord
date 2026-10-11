@@ -48,6 +48,7 @@ from ..backend.result import QueryResult
 from ..interface import ModelEvent
 from ..interface.update import IUpdateBehavior
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
+from .field_config import FieldConfigValidationHandler
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -72,6 +73,8 @@ class OptimisticLockMixin(IUpdateBehavior):
     __version_field__: ClassVar[str] = "version"
     __version_increment_by__: ClassVar[int] = 1
 
+    _feature_handlers = [FieldConfigValidationHandler]
+
     # Framework bookkeeping — deliberately private and invisible: the last
     # version value known to be committed to the database.  It must never
     # track in-memory user assignments, otherwise the lock condition could
@@ -80,9 +83,12 @@ class OptimisticLockMixin(IUpdateBehavior):
     _version_snapshot: int = 1
 
     def __init__(self, **data):
-        """Initialise mixin, validate configuration and register event handlers."""
+        """Initialise the mixin and register its event handlers.
+
+        Configuration is validated by the metaclass at class definition
+        time, not here — see :mod:`.field_config`.
+        """
         super().__init__(**data)
-        self.__class__._validate_version_config()
         self._version_snapshot = self.version_value
         self.on(ModelEvent.BEFORE_INSERT, self._handle_version_before_insert)
         self.on(ModelEvent.AFTER_INSERT, self._handle_version_after_insert)
@@ -93,8 +99,13 @@ class OptimisticLockMixin(IUpdateBehavior):
     # Configuration
     # ------------------------------------------------------------------
     @classmethod
-    def _validate_version_config(cls) -> None:
-        """Fail fast when ``__version_field__`` does not name a real field."""
+    def _validate_model_config(cls) -> None:
+        """Fail fast when ``__version_field__`` does not name a real field.
+
+        Invoked by :class:`FieldConfigValidationHandler` from the metaclass,
+        so it runs once at class definition — see that module for why this
+        cannot live in ``__init__``.
+        """
         field_name = cls.__version_field__
         if field_name not in cls.model_fields:
             raise TypeError(
@@ -140,13 +151,17 @@ class OptimisticLockMixin(IUpdateBehavior):
         """
         if self.is_new_record:
             return []
-        from ..backend.expression.core import Column
+        from ..backend.expression.core import Column, Literal
+        from ..backend.expression.predicates import ComparisonPredicate
 
         backend = self.backend()
-        return [
-            Column(backend.dialect, self._version_column_name())
-            == self._version_snapshot
-        ]
+        dialect = backend.dialect
+        column = Column(dialect, self._version_column_name())
+        # An explicit node, not the column's own operator: the bare Column is a
+        # reference and carries no operations, so ``column == value`` would be
+        # Python's identity answer (False) rather than the optimistic-lock
+        # predicate this is. A silently-always-false check would drop the lock.
+        return [ComparisonPredicate(dialect, "=", column, Literal(dialect, self._version_snapshot))]
 
     def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
         """Add the version increment to the UPDATE SET clause.
@@ -158,10 +173,12 @@ class OptimisticLockMixin(IUpdateBehavior):
         """
         if self.is_new_record:
             return {}
-        from ..backend.expression.core import Column
+        from ..backend.expression.column_types import IntegerColumn
 
         backend = self.backend()
-        column = Column(backend.dialect, self._version_column_name())
+        # A version is always a whole number, so the column carries integer
+        # operations; the bare Column carries none and cannot be incremented.
+        column = IntegerColumn(backend.dialect, self._version_column_name())
         return {self._version_field_name(): column + self._version_increment()}
 
     # ------------------------------------------------------------------

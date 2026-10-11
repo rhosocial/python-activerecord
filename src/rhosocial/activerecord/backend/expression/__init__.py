@@ -20,7 +20,18 @@ from .bases import (
     is_sql_query_and_params,
 )
 from .executable import Executable
-from .mixins import AliasableMixin
+from .mixins import (
+    AliasableMixin,
+    ArrayMixin,
+    DateTimeMixin,
+    StringToIntegerMixin,
+    JSONAccessorMixin,
+    StringPatternPredicateMixin,
+    StringValueMixin,
+    TemporalArithmeticMixin,
+    TranscendentalMixin,
+    build_json_path,
+)
 from .literals import (
     Identifier,
 )
@@ -32,9 +43,30 @@ from .operators import (
     RawSQLPredicate,
     BinaryArithmeticExpression,
 )
+from .column_types import (
+    ColumnBase,
+    StringColumn,
+    IntegerColumn,
+    NumericColumn,
+    TimestampColumn,
+    BooleanColumn,
+    BinaryColumn,
+    UUIDColumn,
+    JSONColumn,
+    ArrayColumn,
+    XMLColumn,
+)
+from .uuid import (
+    UUIDGenerationExpression,
+    UUIDConstantExpression,
+    UUIDCastExpression,
+)
 from .core import (
     Column,
     FunctionCall,
+    IntegerValueExpression,
+    StringValueExpression,
+    XMLValueExpression,
     Subquery,
     Literal,
     WildcardExpression,
@@ -82,6 +114,7 @@ from .xml import (
 )
 from .predicates import (
     ComparisonPredicate,
+    DistinctFromPredicate,
     LogicalPredicate,
     LikePredicate,
     ILIKEExpression,
@@ -90,20 +123,21 @@ from .predicates import (
     IsNullPredicate,
     IsBooleanPredicate,
 )
-from .aggregates import (
-    AggregateFunctionCall,
-)
 from .advanced_functions import (
     CaseExpression,
     ExistsExpression,
+    TrimExpression,
+    RepeatExpression,
+    LpadExpression,
+    RpadExpression,
     AnyExpression,
     AllExpression,
     WindowFrameSpecification,
     WindowSpecification,
     WindowDefinition,
     WindowClause,
-    WindowFunctionCall,
-    JSONExpression,
+    JSONDocumentExpression,
+    JSONTextExpression,
     JSONPathMode,
     ArrayExpression,
     OrderedSetAggregation,
@@ -422,6 +456,15 @@ __all__ = [
     "Executable",
     # Mixins
     "AliasableMixin",
+    "ArrayMixin",
+    "StringPatternPredicateMixin",
+    "StringValueMixin",
+    "TemporalArithmeticMixin",
+    "TranscendentalMixin",
+    "StringToIntegerMixin",
+    "DateTimeMixin",
+    "JSONAccessorMixin",
+    "build_json_path",
     # Literals
     "Identifier",
     # Operators
@@ -433,9 +476,28 @@ __all__ = [
     "BinaryArithmeticExpression",
     # Core expressions
     "Column",
+    # UUID value expressions
+    "UUIDGenerationExpression",
+    "UUIDConstantExpression",
+    "UUIDCastExpression",
+    # Type-narrowed column expressions
+    "ColumnBase",
+    "StringColumn",
+    "IntegerColumn",
+    "NumericColumn",
+    "TimestampColumn",
+    "BooleanColumn",
+    "BinaryColumn",
+    "UUIDColumn",
+    "JSONColumn",
+    "ArrayColumn",
+    "XMLColumn",
     "FunctionCall",
     "Subquery",
     "Literal",
+    "StringValueExpression",
+    "IntegerValueExpression",
+    "XMLValueExpression",
     "WildcardExpression",
     "QualifiedIdentifierExpression",
     # Collation expressions
@@ -477,6 +539,7 @@ __all__ = [
     "XMLWhitespaceOption",
     # Predicates
     "ComparisonPredicate",
+    "DistinctFromPredicate",
     "LogicalPredicate",
     "LikePredicate",
     "ILIKEExpression",
@@ -484,19 +547,22 @@ __all__ = [
     "BetweenPredicate",
     "IsNullPredicate",
     "IsBooleanPredicate",
-    # Aggregates
-    "AggregateFunctionCall",
+    # Aggregates and windows are FunctionCall; see core.
     # Advanced functions
     "CaseExpression",
     "ExistsExpression",
+    "TrimExpression",
+    "RepeatExpression",
+    "LpadExpression",
+    "RpadExpression",
     "AnyExpression",
     "AllExpression",
     "WindowFrameSpecification",
     "WindowSpecification",
     "WindowDefinition",
     "WindowClause",
-    "WindowFunctionCall",
-    "JSONExpression",
+    "JSONDocumentExpression",
+    "JSONTextExpression",
     "JSONPathMode",
     "ArrayExpression",
     "OrderedSetAggregation",

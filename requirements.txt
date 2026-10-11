@@ -12,4 +12,13 @@ pydantic>=2.12.0
 # No upper limit on minor versions as long as major version remains 2.x
 # This includes Python 3.14 and any future Python versions
 pydantic-core>=2.41.0
+
+# Python 3.13, including the free-threaded 3.13t build: the python_version
+# marker distinguishes release lines, not GIL configuration, so this pins
+# both 3.13 builds. pydantic-core stopped shipping cp313t wheels after
+# 2.41.4, and the newer sdists cannot compile there (PyO3 0.29 refuses the
+# free-threaded build of CPython < 3.14); 2.12.2 is the last pydantic whose
+# core (2.41.4) has a cp313t wheel.
+pydantic==2.12.2; python_version == "3.13"
+pydantic-core==2.41.4; python_version == "3.13"
 typing-extensions

@@ -34,7 +34,7 @@ KNOWN_NON_AUTO_CONSTRUCTIBLE = {
                             "construction check raises ValueError on None/[])",
     "statements.ddl_alter.AlterConstraint": "requires a non-empty constraint name",
     "statements.ddl_alter.ValidateConstraint": "requires a non-empty constraint name",
-    "statements.ddl_domain.AddDomainCheckAction": "requires a concrete DomainCheckConstraint",
+"statements.ddl_domain.AddDomainCheckAction": "requires a concrete DomainCheckConstraint",
     "statements.ddl_domain.DomainCheckConstraint": "requires a concrete check condition",
     # The XML constructors take a sequence of their own item types, and an
     # empty one is structurally meaningless -- there is no value to check and
@@ -43,6 +43,14 @@ KNOWN_NON_AUTO_CONSTRUCTIBLE = {
     "expression.xml.XMLForestExpression": "requires a non-empty forest item list",
     "expression.xml.XMLConcatExpression": "requires a non-empty part list",
     "expression.xml.XMLTableExpression": "requires a row-specifying context item",
+    "expression.uuid.UUIDConstantExpression": "requires `which` to name a "
+        "constant kind ('nil' / 'max'); __init__ rejects anything else, and a "
+        "heuristic filler has no way to guess a valid one",
+    "types.custom.CustomType": "requires `raw`, the backend's own spelling of "
+        "the type. It is the escape hatch for a type name this library does "
+        "not model -- DOUBLE PRECISION, a vendor's domain type -- and there is "
+        "nothing to guess: the name is the whole point, and it is validated as "
+        "a grammar rather than accepted blindly",
 }
 
 

@@ -143,7 +143,7 @@ The following expression classes are shared across all backends. They live in `r
 |-------|---------|
 | `Column` | Column reference |
 | `Literal` | Parameter placeholder (e.g., `?`, `%s`, `$1`) |
-| `FunctionCall` | Function invocation (`FUNC(args)`) |
+| `FunctionCall` | Function invocation (`FUNC(args)`), aggregate `FILTER (WHERE ...)` and window `OVER (...)` |
 | `Subquery` | Subquery as expression |
 | `TableExpression` | Table reference with temporal options |
 | `WildcardExpression` | `*` wildcard |
@@ -156,8 +156,8 @@ The following expression classes are shared across all backends. They live in `r
 | `BinaryExpression` | Binary operators |
 | `BinaryArithmeticExpression` | `+`, `-`, `*`, `/`, `%` |
 | `CaseExpression` | `CASE WHEN ... THEN ... END` |
-| `WindowFunctionCall` | Window functions (`OVER (...)`) |
-| `JSONExpression` | JSON operators |
+| `JSONDocumentExpression` | JSON path, yielding a document (`->`) |
+| `JSONTextExpression` | JSON path, yielding text (`->>`) |
 | `ArrayExpression` | Array operators |
 
 ### Mixin Classes (Operator Overloading)

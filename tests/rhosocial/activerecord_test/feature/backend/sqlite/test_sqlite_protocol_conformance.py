@@ -100,6 +100,11 @@ SQLITE_PROTOCOLS = [
 
 
     dialect_protocols.JSONSupport,
+# UUID value expressions are declared rather than absent: SQLiteDialect
+    # composes UUIDMixin, whose probes report False for every operation, so
+    # generation raises UnsupportedFeatureError with a Python-side suggestion
+    # instead of another backend's function.
+    dialect_protocols.UUIDSupport,
 
 
     dialect_protocols.ReturningSupport,
@@ -216,6 +221,11 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.DataTypeSupport,
 
 
+    # Column classes: which operations a value carries, where DataTypeSupport
+    # answers how it is stored.
+    dialect_protocols.ColumnTypeSupport,
+
+
     dialect_protocols.PartitionSupport,
 
 
@@ -288,7 +298,7 @@ SQLITE_PROTOCOLS = [
     dialect_protocols.DropDomainSupport,
 
 
-    dialect_protocols.DateTimeSupport,
+    dialect_protocols.TimestampSupport,
 
 
     dialect_protocols.DqlOrderSupport,
