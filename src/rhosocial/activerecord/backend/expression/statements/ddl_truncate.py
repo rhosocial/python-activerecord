@@ -3,7 +3,7 @@
 
 from typing import Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression
+from ..bases import BaseExpression, require_exclusive_options
 from ..objects import Table
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -67,12 +67,10 @@ class TruncateExpression(BaseExpression):
             TypeError: If the table is not a Table
         """
         super().__init__(dialect)
-        if restart_identity and continue_identity:
-            raise ValueError(
-                "restart_identity and continue_identity are mutually exclusive options"
-            )
-        if cascade and restrict:
-            raise ValueError("cascade and restrict are mutually exclusive options")
+        require_exclusive_options(
+            restart_identity, continue_identity, "restart_identity", "continue_identity"
+        )
+        require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.table = table
         self.restart_identity = restart_identity
         self.continue_identity = continue_identity

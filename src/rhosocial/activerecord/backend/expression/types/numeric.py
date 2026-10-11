@@ -40,11 +40,6 @@ class FloatType(DataType):
                  *, unsigned: bool = False):
         super().__init__(dialect)
         self._precision = precision
-        if not isinstance(unsigned, bool):
-            raise TypeError(
-                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
-                f"becomes a type modifier in the rendered DDL."
-            )
         self.unsigned = unsigned
 
     @property
@@ -126,11 +121,6 @@ class RealType(DataType):
 
     def __init__(self, dialect=None, *, unsigned: bool = False):
         super().__init__(dialect)
-        if not isinstance(unsigned, bool):
-            raise TypeError(
-                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
-                f"becomes a type modifier in the rendered DDL."
-            )
         self.unsigned = unsigned
 
     PARAMETERS = ("unsigned",)
@@ -152,11 +142,6 @@ class DoubleType(DataType):
     def __init__(self, dialect=None, *, unsigned: bool = False,
                  spelling: str = "double"):
         super().__init__(dialect)
-        if not isinstance(unsigned, bool):
-            raise TypeError(
-                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
-                f"becomes a type modifier in the rendered DDL."
-            )
         self.unsigned = unsigned
         self.spelling = spelling
 
@@ -182,11 +167,6 @@ class DecimalType(DataType):
         super().__init__(dialect)
         self._precision = precision
         self._scale = scale
-        if not isinstance(unsigned, bool):
-            raise TypeError(
-                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
-                f"becomes a type modifier in the rendered DDL."
-            )
         self.unsigned = unsigned
         self.spelling = spelling
 

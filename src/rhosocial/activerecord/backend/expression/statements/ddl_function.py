@@ -3,7 +3,7 @@
 
 from typing import Dict, List, Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression
+from ..bases import BaseExpression, require_exclusive_options
 from ..objects import Function
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -72,8 +72,7 @@ class DropFunctionExpression(BaseExpression):
         restrict: bool = False,
     ):
         super().__init__(dialect)
-        if cascade and restrict:
-            raise ValueError("cascade and restrict are mutually exclusive options")
+        require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.function = function
         self.if_exists = if_exists
         self.parameters = parameters

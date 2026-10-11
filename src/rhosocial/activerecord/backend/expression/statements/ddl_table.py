@@ -4,7 +4,12 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams
+from ..bases import (
+    BaseExpression,
+    SQLPredicate,
+    SQLQueryAndParams,
+    require_exclusive_options,
+)
 from ..objects import Table
 from ..types import DataType
 
@@ -57,14 +62,14 @@ class ColumnConstraint(BaseExpression):
         not_enforced: bool = False,
     ):
         super().__init__(dialect)
-        if deferrable and not_deferrable:
-            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
-        if initially_deferred and initially_immediate:
-            raise ValueError(
-                "initially_deferred and initially_immediate are mutually exclusive options"
-            )
-        if enforced and not_enforced:
-            raise ValueError("enforced and not_enforced are mutually exclusive options")
+        require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        require_exclusive_options(
+            initially_deferred,
+            initially_immediate,
+            "initially_deferred",
+            "initially_immediate",
+        )
+        require_exclusive_options(enforced, not_enforced, "enforced", "not_enforced")
         self.constraint_type = constraint_type
         self.name = name
         self.check_condition = check_condition
@@ -151,8 +156,7 @@ class IdentityClause(BaseExpression):
         no_cache: bool = False,
     ):
         super().__init__(dialect)
-        if cycle and no_cycle:
-            raise ValueError("cycle and no_cycle are mutually exclusive options")
+        require_exclusive_options(cycle, no_cycle, "cycle", "no_cycle")
         if cache is not None and no_cache:
             raise ValueError("cache and no_cache are mutually exclusive options")
         if order and no_order:
@@ -233,12 +237,13 @@ class ReferencesClause(BaseExpression):
         initially_immediate: bool = False,
     ):
         super().__init__(dialect)
-        if deferrable and not_deferrable:
-            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
-        if initially_deferred and initially_immediate:
-            raise ValueError(
-                "initially_deferred and initially_immediate are mutually exclusive options"
-            )
+        require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        require_exclusive_options(
+            initially_deferred,
+            initially_immediate,
+            "initially_deferred",
+            "initially_immediate",
+        )
         self.referenced_table = referenced_table
         self.referenced_columns = list(referenced_columns or [])
         self.on_delete = on_delete
@@ -454,14 +459,14 @@ class TableConstraint(BaseExpression):
         not_enforced: bool = False,
     ):
         super().__init__(dialect)
-        if deferrable and not_deferrable:
-            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
-        if initially_deferred and initially_immediate:
-            raise ValueError(
-                "initially_deferred and initially_immediate are mutually exclusive options"
-            )
-        if enforced and not_enforced:
-            raise ValueError("enforced and not_enforced are mutually exclusive options")
+        require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        require_exclusive_options(
+            initially_deferred,
+            initially_immediate,
+            "initially_deferred",
+            "initially_immediate",
+        )
+        require_exclusive_options(enforced, not_enforced, "enforced", "not_enforced")
         self.constraint_type = constraint_type
         self.name = name
         self.columns = columns
@@ -710,8 +715,7 @@ class CreateTableAsExpression(BaseExpression):
         no_data: bool = False,
     ):
         super().__init__(dialect)
-        if with_data and no_data:
-            raise ValueError("with_data and no_data are mutually exclusive options")
+        require_exclusive_options(with_data, no_data, "with_data", "no_data")
         self.table = table
         if as_query is None:
             raise ValueError("as_query is required for CreateTableAsExpression")
@@ -948,8 +952,7 @@ class DropTableExpression(BaseExpression):
         purge: bool = False,
     ):
         super().__init__(dialect)
-        if cascade and restrict:
-            raise ValueError("cascade and restrict are mutually exclusive options")
+        require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.table = table
         self.if_exists = if_exists
         self.cascade = cascade

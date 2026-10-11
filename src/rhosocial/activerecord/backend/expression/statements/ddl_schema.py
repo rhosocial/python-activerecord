@@ -3,7 +3,7 @@
 
 from typing import Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression
+from ..bases import BaseExpression, require_exclusive_options
 from ..objects import Schema
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -102,8 +102,7 @@ class DropSchemaExpression(BaseExpression):
         restrict: bool = False,
     ):
         super().__init__(dialect)
-        if cascade and restrict:
-            raise ValueError("cascade and restrict are mutually exclusive options")
+        require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.schema = schema
         self.if_exists = if_exists
         self.cascade = cascade

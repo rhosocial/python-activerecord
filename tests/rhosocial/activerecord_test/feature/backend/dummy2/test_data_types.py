@@ -254,10 +254,35 @@ class TestNumericUnsignedField:
         ``UNSIGNED`` for a field the caller wrote as a display width or a
         count, and nothing about the resulting DDL says the declaration was
         reinterpreted.
+
+        The refusal happens at **rendering** time, not at construction: an
+        expression collects ``unsigned`` without judging it, because only the
+        formatter knows which backend has to honour it. The guard therefore
+        guards the formatter, and this test drives it the way rendering does.
         """
+        dialect = _dummy_dialect()
         for wrong in (1, 0, "yes", "", None, [], object()):
+            # construction does not judge; rendering does
+            declared = klass(dialect=dialect, unsigned=wrong)
             with pytest.raises(TypeError, match="unsigned must be a bool"):
-                klass(unsigned=wrong)
+                declared.to_sql()
+
+    @pytest.mark.parametrize("klass", CONCEPTS, ids=lambda k: k.__name__)
+    def test_the_constructor_collects_without_judging(self, klass):
+        """Construction accepts what it is given; rendering is what refuses.
+
+        The counterpart to the test above: a non-boolean is not rejected where
+        it is collected, because the expression cannot know which dialect will
+        render it.  What is refused is refused by the formatter, naming the
+        field.  This is what keeps "declared" and "rendered" from disagreeing
+        silently.
+        """
+        dialect = _dummy_dialect()
+        for wrong in (1, 0, "yes", "", None, [], object()):
+            dirty = klass(dialect=dialect, unsigned=wrong)   # constructed, not judged
+            assert dirty.unsigned is wrong      # collected verbatim
+            with pytest.raises(TypeError, match="unsigned must be a bool"):
+                dirty.to_sql()                  # refused only at rendering
 
     @pytest.mark.parametrize("klass", CONCEPTS, ids=lambda k: k.__name__)
     def test_the_other_fields_are_untouched(self, klass):

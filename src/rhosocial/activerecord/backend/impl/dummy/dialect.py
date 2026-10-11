@@ -568,13 +568,27 @@ class DummyDialect(
         success: the same silent loss as accepting the flag and discarding it,
         which is what this replaces.
 
+        The guard lives here, at the rendering end, rather than in the
+        expression's constructor: an expression collects ``unsigned`` without
+        judging it, because only the formatter knows which backend will have to
+        honour it. A non-boolean therefore reaches this point instead of being
+        rejected at construction, and is named here -- silently dropping it
+        would render a signed column for a caller who asked for an unsigned one,
+        which is the failure this whole refusal exists to prevent.
+
         ``word`` is the concept the caller asked for, so the message can say
         *which* type was refused.  ``UnsupportedFeatureError``, not
         ``ValueError``: the declaration is not a wrong value, it is a
         declaration this grammar cannot express at all, and the two exceptions
         do not share a base class.
         """
-        if not getattr(data_type, "unsigned", False):
+        unsigned = data_type.unsigned
+        if not isinstance(unsigned, bool):
+            raise TypeError(
+                f"unsigned must be a bool, got {type(unsigned).__name__}; it "
+                f"becomes a type modifier in the rendered DDL."
+            )
+        if not unsigned:
             return
         raise UnsupportedFeatureError(
             self.name,

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression
+from ..bases import BaseExpression, require_exclusive_options
 from ..objects import MaterializedView, View
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -165,8 +165,7 @@ class DropViewExpression(BaseExpression):
         restrict: bool = False,
     ):  # DROP VIEW ... CASCADE | RESTRICT (dependent-object handling)
         super().__init__(dialect)
-        if cascade and restrict:
-            raise ValueError("cascade and restrict are mutually exclusive options")
+        require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.view = view
         self.if_exists = if_exists
         self.cascade = cascade
@@ -235,8 +234,7 @@ class CreateMaterializedViewExpression(BaseExpression):
         storage_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        if with_data and no_data:
-            raise ValueError("with_data and no_data are mutually exclusive options")
+        require_exclusive_options(with_data, no_data, "with_data", "no_data")
         self.view = view
         self.query = query
         self.column_aliases = column_aliases or []
@@ -293,8 +291,7 @@ class DropMaterializedViewExpression(BaseExpression):
         restrict: bool = False,
     ):
         super().__init__(dialect)
-        if cascade and restrict:
-            raise ValueError("cascade and restrict are mutually exclusive options")
+        require_exclusive_options(cascade, restrict, "cascade", "restrict")
         self.view = view
         self.if_exists = if_exists
         self.cascade = cascade
@@ -344,8 +341,7 @@ class RefreshMaterializedViewExpression(BaseExpression):
         no_data: bool = False,  # WITH NO DATA
     ):
         super().__init__(dialect)
-        if with_data and no_data:
-            raise ValueError("with_data and no_data are mutually exclusive options")
+        require_exclusive_options(with_data, no_data, "with_data", "no_data")
         self.view = view
         self.concurrent = concurrent
         self.with_data = with_data

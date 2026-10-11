@@ -15,7 +15,7 @@ delegating SQL generation to the dialect's corresponding format_* method.
 
 from typing import Optional, TYPE_CHECKING
 
-from .bases import BaseExpression
+from .bases import BaseExpression, require_exclusive_options
 from ..transaction import IsolationLevel, TransactionMode
 
 if TYPE_CHECKING:
@@ -61,10 +61,8 @@ class BeginTransactionExpression(TransactionExpression):
         begin_type: Optional[str] = None,
     ):
         super().__init__(dialect)
-        if deferrable and not_deferrable:
-            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
-        if wait and no_wait:
-            raise ValueError("wait and no_wait are mutually exclusive options")
+        require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        require_exclusive_options(wait, no_wait, "wait", "no_wait")
         self._isolation_level: Optional[IsolationLevel] = isolation_level
         self._mode: Optional[TransactionMode] = mode
         # PostgreSQL-specific: deferrable mode for SERIALIZABLE transactions.
@@ -316,10 +314,8 @@ class SetTransactionExpression(TransactionExpression):
         no_wait: bool = False,
     ):
         super().__init__(dialect)
-        if deferrable and not_deferrable:
-            raise ValueError("deferrable and not_deferrable are mutually exclusive options")
-        if wait and no_wait:
-            raise ValueError("wait and no_wait are mutually exclusive options")
+        require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
+        require_exclusive_options(wait, no_wait, "wait", "no_wait")
         self._isolation_level: Optional[IsolationLevel] = isolation_level
         self._mode: Optional[TransactionMode] = mode
         self._session: bool = session

@@ -50,6 +50,33 @@ def is_sql_query_and_params(obj):
     )
 
 
+def require_exclusive_options(flag_a: bool, flag_b: bool, name_a: str, name_b: str) -> None:
+    """Refuse a clause whose two spellings were both requested.
+
+    A two-spelling clause (``CASCADE`` / ``RESTRICT``, ``DEFERRABLE`` /
+    ``NOT DEFERRABLE``) is two parameters, not one option with three values.
+    Asking for both is API misuse, and the refusal is worded once here so
+    every clause reports it the same way instead of each restating the
+    sentence.
+
+    This is an internal-consistency question, not a dialect-capability one: no
+    backend can render ``CASCADE RESTRICT``, so the answer does not depend on
+    which formatter will later render the expression. It therefore stays at
+    construction time rather than moving into the formatter.
+
+    Args:
+        flag_a: whether the first spelling was requested
+        flag_b: whether the second spelling was requested
+        name_a: parameter name of the first spelling
+        name_b: parameter name of the second spelling
+
+    Raises:
+        ValueError: if both spellings were requested
+    """
+    if flag_a and flag_b:
+        raise ValueError(f"{name_a} and {name_b} are mutually exclusive options")
+
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .collation import CollateExpression
