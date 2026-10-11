@@ -571,7 +571,7 @@ class TableMixin:
             )
         all_params: List[Any] = []
         options_part = ""
-        table_options = getattr(expr, "table_options", None)
+        table_options = expr.table_options
         if table_options is not None:
             options_sql, options_params = table_options.to_sql()
             if options_sql:
@@ -773,7 +773,7 @@ class TableMixin:
                     "DROP TABLE ... RESTRICT",
                 )
             parts.append("RESTRICT")
-        if getattr(expr, "purge", False):
+        if expr.purge:
             if not self.supports_purge_on_drop_table():
                 raise UnsupportedFeatureError(
                     self.name,

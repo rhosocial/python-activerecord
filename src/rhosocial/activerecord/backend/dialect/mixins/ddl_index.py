@@ -368,7 +368,7 @@ class IndexMixin:
         # CONCURRENTLY is a PostgreSQL extension gated by
         # supports_concurrent_index(); it follows the INDEX keyword
         # (``CREATE [UNIQUE] INDEX CONCURRENTLY ...``).
-        if getattr(expr, "concurrent", False):
+        if expr.concurrent:
             if not self.supports_concurrent_index():
                 raise UnsupportedFeatureError(
                     self.name, "CREATE INDEX CONCURRENTLY",
@@ -465,7 +465,7 @@ class IndexMixin:
             )
         from ..exceptions import UnsupportedFeatureError
         parts = ["DROP INDEX"]
-        if getattr(expr, "concurrent", False):
+        if expr.concurrent:
             if not self.supports_concurrent_index():
                 raise UnsupportedFeatureError(
                     self.name, "DROP INDEX CONCURRENTLY",

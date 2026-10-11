@@ -220,7 +220,7 @@ class DDLColumnMixin:
         """
         sql = ""
         params: List[Any] = []
-        for attr in getattr(col_def, "attributes", None) or ():
+        for attr in col_def.attributes or ():
             attr_sql, attr_params = self.format_column_attribute(attr)
             sql += attr_sql
             params.extend(attr_params)
@@ -323,18 +323,16 @@ class DDLColumnMixin:
             return bool(checker(constraint_type))
         return bool(checker())
 
-    def _format_constraint_enforcement(self, constraint: Any) -> str:
-        enforced = getattr(constraint, "enforced", False)
-        not_enforced = getattr(constraint, "not_enforced", False)
+    def _format_constraint_enforcement(self, constraint: "ColumnConstraint") -> str:
+        enforced = constraint.enforced
+        not_enforced = constraint.not_enforced
         if not enforced and not not_enforced:
             return ""
         if not isinstance(enforced, bool) or not isinstance(not_enforced, bool):
             raise TypeError("constraint enforced/not_enforced must be bools")
         from ...expression.statements import TableConstraintType
 
-        constraint_type = normalize_table_constraint_type(
-            getattr(constraint, "constraint_type", None)
-        )
+        constraint_type = normalize_table_constraint_type(constraint.constraint_type)
         if constraint_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
             raise ValueError(
                 "ENFORCED/NOT ENFORCED is only valid for CHECK and FOREIGN KEY constraints"
@@ -460,15 +458,11 @@ class DDLColumnMixin:
             ColumnConstraintType.UNIQUE: " UNIQUE",
         }
         if ctype in simple_constraints:
-            if getattr(constraint, "enforced", False) or getattr(
-                constraint, "not_enforced", False
-            ):
+            if constraint.enforced or constraint.not_enforced:
                 self._format_constraint_enforcement(constraint)
             return simple_constraints[ctype], ()
         if ctype == ColumnConstraintType.DEFAULT:
-            if getattr(constraint, "enforced", False) or getattr(
-                constraint, "not_enforced", False
-            ):
+            if constraint.enforced or constraint.not_enforced:
                 self._format_constraint_enforcement(constraint)
             return self.format_default_constraint(constraint)
         if ctype == ColumnConstraintType.CHECK:
@@ -880,7 +874,7 @@ class DDLColumnMixin:
         """
         from ..exceptions import UnsupportedFeatureError
         column_sql, column_params = self.format_column_definition(action.column)
-        if getattr(action, "if_not_exists", None):
+        if action.if_not_exists:
             if not self.supports_add_column_if_not_exists():
                 raise UnsupportedFeatureError(
                     self.name, "ADD COLUMN IF NOT EXISTS",

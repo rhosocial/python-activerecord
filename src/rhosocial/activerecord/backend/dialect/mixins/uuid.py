@@ -103,7 +103,7 @@ class UUIDMixin:
             Tuple of (SQL string, parameters tuple).
         """
         sql = self._require_uuid("generation", "UUID generation")
-        if getattr(expr, "alias", None):
+        if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, ()
 
@@ -124,7 +124,7 @@ class UUIDMixin:
                 f"UUID {expr.which} constant",
                 self.UUID_SUGGESTIONS.get("constant", ""),
             )
-        if getattr(expr, "alias", None):
+        if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, ()
 
@@ -140,7 +140,7 @@ class UUIDMixin:
         template = self._require_uuid("cast", "UUID cast")
         inner_sql, inner_params = expr.expression.to_sql()
         sql = template.format(inner=inner_sql)
-        if getattr(expr, "alias", None):
+        if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, inner_params
 

@@ -181,7 +181,7 @@ class SQLiteTypeSupportMixin(DataTypeMixin, DataTypeSupport):
         return "INTEGER", ()
 
     def format_data_type_sqlite_text(self, data_type: SQLiteTextType) -> Tuple[str, tuple]:
-        length = getattr(data_type, "length", None)
+        length = data_type.length
         return (f"TEXT({length})" if length is not None else "TEXT"), ()
 
     def format_data_type_sqlite_real(self, data_type: SQLiteRealType) -> Tuple[str, tuple]:

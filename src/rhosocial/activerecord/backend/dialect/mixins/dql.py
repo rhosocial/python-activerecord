@@ -97,7 +97,7 @@ class DQLMixin:
 
         all_params: List[Any] = []
         parts = []
-        if getattr(clause, "with_ties", False):
+        if clause.with_ties:
             if not self.supports_fetch_with_ties():
                 raise UnsupportedFeatureError(
                     self.name,

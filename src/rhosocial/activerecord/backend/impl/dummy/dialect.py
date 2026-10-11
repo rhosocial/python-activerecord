@@ -1870,7 +1870,7 @@ class DummyDialect(
             col_sql += gen_sql
             all_params.extend(gen_params)
 
-        for attr in getattr(col_def, "attributes", None) or ():
+        for attr in col_def.attributes or ():
             attr_sql, attr_params = self.format_column_attribute(attr)
             col_sql += attr_sql
             all_params.extend(attr_params)

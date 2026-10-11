@@ -58,7 +58,7 @@ class SQLiteDDLColumnMixin:
         qualifier cannot be expressed; the caller should pre-check
         ``PRAGMA table_info``.
         """
-        if getattr(action, "if_not_exists", None):
+        if action.if_not_exists:
             raise UnsupportedFeatureError(
                 self.name,
                 "ALTER TABLE ADD COLUMN IF NOT EXISTS",
@@ -74,7 +74,7 @@ class SQLiteDDLColumnMixin:
         vendor extension ``DROP COLUMN IF EXISTS``. Guard against emitting
         the unsupported qualifier.
         """
-        if getattr(action, "if_exists", None):
+        if action.if_exists:
             raise UnsupportedFeatureError(
                 self.name,
                 "ALTER TABLE DROP COLUMN IF EXISTS",
@@ -89,7 +89,7 @@ class SQLiteDDLColumnMixin:
         SQLite (>= 3.53.0) supports ``DROP CONSTRAINT`` for NOT NULL and
         CHECK constraints but **not** the ``IF EXISTS`` qualifier.
         """
-        if getattr(action, "if_exists", None):
+        if action.if_exists:
             raise UnsupportedFeatureError(
                 self.name,
                 "ALTER TABLE DROP CONSTRAINT IF EXISTS",
@@ -171,7 +171,7 @@ class SQLiteDDLColumnMixin:
         """Format a column definition for SQLite, including generated columns support."""
         from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
 
-        if getattr(col_def, "comment", None):
+        if col_def.comment:
             # SQLite has no comment mechanism (neither an inline COMMENT
             # clause nor COMMENT ON); a comment on a column definition is
             # never silently dropped.
@@ -196,7 +196,7 @@ class SQLiteDDLColumnMixin:
         type_sql, _ = col_def.data_type.to_sql()
         col_sql = f"{self.format_identifier(col_def.name)} {type_sql}"
 
-        for attr in getattr(col_def, "attributes", None) or ():
+        for attr in col_def.attributes or ():
             attr_sql, attr_params = self.format_column_attribute(attr)
             col_sql += attr_sql
             all_params.extend(attr_params)
