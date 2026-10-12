@@ -30,6 +30,16 @@ class ColumnConstraintType(Enum):
     DEFAULT = "DEFAULT"
 
 
+# The constraint kinds that may carry the SQL:2016 <constraint characteristics>
+# trait ``[NOT] ENFORCED``. The standard fixes them to PRIMARY KEY, UNIQUE,
+# FOREIGN KEY, and CHECK; both ColumnConstraintType and TableConstraintType
+# spell these members with the same names, so one set serves both levels.
+# A dialect formatter may narrow this set for its server; it may not widen it.
+ENFORCABLE_CONSTRAINT_KIND_NAMES = frozenset(
+    {"PRIMARY_KEY", "UNIQUE", "FOREIGN_KEY", "CHECK"}
+)
+
+
 class ColumnConstraint(BaseExpression):
     """Represents a column constraint clause (PRIMARY KEY, NOT NULL, UNIQUE, …).
 

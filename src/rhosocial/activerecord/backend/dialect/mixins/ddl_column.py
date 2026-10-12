@@ -8,11 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from ...expression.bases import BaseExpression, ToSQLProtocol
 from ...expression.core import Literal
 from ...expression.objects import Index, Table
-from .ddl_table import (
-    normalize_column_constraint_type,
-    normalize_foreign_key_match_type,
-    normalize_table_constraint_type,
-)
+from .ddl_table import normalize_foreign_key_match_type
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.core import Column
@@ -401,72 +397,94 @@ class DDLColumnMixin:
 
         return f" GENERATED ALWAYS AS ({inner_sql}){storage}", inner_params
 
-    @staticmethod
-    def _call_constraint_capability(checker: Any, constraint_type: Any) -> bool:
-        import inspect
-
-        parameters = inspect.signature(checker).parameters
-        if "constraint_type" in parameters or any(
-            parameter.kind == inspect.Parameter.VAR_POSITIONAL
-            for parameter in parameters.values()
-        ):
-            return bool(checker(constraint_type))
-        return bool(checker())
-
     def _format_constraint_enforcement(self, constraint: "ColumnConstraint") -> str:
+        """Render the ``[NOT] ENFORCED`` trait a constraint asked for.
+
+        The kinds that may carry the trait come from the standard-derived
+        whitelist (SQL:2016 fixes them to PRIMARY KEY, UNIQUE, FOREIGN KEY,
+        and CHECK); a dialect narrows that set inside its own constraint
+        formatter and may not widen it.
+
+        Returns:
+            ``""`` when the constraint asked for neither spelling, else the
+            ``ENFORCED`` / ``NOT ENFORCED`` fragment.
+
+        Raises:
+            TypeError: ``constraint_type`` is not one of the constraint-kind
+                enums, or the flags are not bools.
+            ValueError: The constraint asked for both spellings at once, or
+                the kind cannot carry the trait.
+            UnsupportedFeatureError: The dialect does not support the trait.
+        """
         enforced = constraint.enforced
         not_enforced = constraint.not_enforced
         if not enforced and not not_enforced:
             return ""
         if not isinstance(enforced, bool) or not isinstance(not_enforced, bool):
             raise TypeError("constraint enforced/not_enforced must be bools")
-        from ...expression.statements import TableConstraintType
+        if enforced and not_enforced:
+            raise ValueError("enforced and not_enforced are mutually exclusive")
+        from ...expression.statements import ColumnConstraintType, TableConstraintType
+        from ...expression.statements.ddl_table import ENFORCABLE_CONSTRAINT_KIND_NAMES
 
-        constraint_type = normalize_table_constraint_type(constraint.constraint_type)
-        if constraint_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
-            raise ValueError(
-                "ENFORCED/NOT ENFORCED is only valid for CHECK and FOREIGN KEY constraints"
+        constraint_type = constraint.constraint_type
+        if not isinstance(constraint_type, (ColumnConstraintType, TableConstraintType)):
+            raise TypeError(
+                "constraint_type must be a ColumnConstraintType or TableConstraintType, "
+                f"got {type(constraint_type).__name__}"
             )
-        checker = getattr(self, "supports_constraint_enforced", None)
-        if checker is None or not self._call_constraint_capability(checker, constraint_type):
+        if constraint_type.name not in ENFORCABLE_CONSTRAINT_KIND_NAMES:
+            raise ValueError(
+                "ENFORCED/NOT ENFORCED cannot ride a "
+                f"{constraint_type.name} constraint; the SQL:2016 kinds are "
+                "PRIMARY KEY, UNIQUE, FOREIGN KEY and CHECK"
+            )
+        if not self.supports_constraint_enforced():
             from ..exceptions import UnsupportedFeatureError
 
-            raise UnsupportedFeatureError(
-                getattr(self, "name", type(self).__name__),
-                "ENFORCED/NOT ENFORCED constraint",
-            )
+            raise UnsupportedFeatureError(self.name, "ENFORCED/NOT ENFORCED constraint")
         return "ENFORCED" if enforced else "NOT ENFORCED"
 
-    def _format_constraint_validation(self, constraint: Any) -> str:
+    def _format_constraint_validation(self, constraint: "TableConstraint") -> str:
+        """Render the ``NOT VALID`` trait a table constraint asked for.
+
+        Serves ``ALTER TABLE ADD CONSTRAINT``; PostgreSQL accepts the trait
+        on CHECK and FOREIGN KEY only, and that restriction lives here.
+
+        Returns:
+            ``""`` when the constraint asked for no validation state or the
+            default VALIDATE, else ``" NOT VALID"``.
+
+        Raises:
+            TypeError: ``validation`` is not a ``ConstraintValidation``, or
+                ``constraint_type`` is not a ``TableConstraintType``.
+            ValueError: The trait rides a kind that cannot carry it.
+            UnsupportedFeatureError: The dialect has no ``NOT VALID``.
+        """
+        validation = constraint.validation
+        if validation is None:
+            return ""
         from ...expression.statements import ConstraintValidation, TableConstraintType
 
-        constraint_type = normalize_table_constraint_type(
-            getattr(constraint, "constraint_type", None)
-        )
-        validation = getattr(constraint, "validation", None)
-        value = getattr(validation, "value", validation)
-        if value is None:
+        if not isinstance(validation, ConstraintValidation):
+            raise TypeError(
+                "constraint validation must be a ConstraintValidation, got "
+                f"{type(validation).__name__}"
+            )
+        if validation is ConstraintValidation.VALIDATE:
             return ""
-        if not isinstance(value, str):
-            raise TypeError("constraint validation must be a ConstraintValidation or string")
-        normalized = "".join(value.strip().upper().split())
-        if normalized == "".join(ConstraintValidation.VALIDATE.value.split()):
-            return ""
-        if normalized not in {
-            "".join(ConstraintValidation.NOVALIDATE.value.split()),
-            "".join(ConstraintValidation.NOVALIDATE.name.split()),
-        }:
-            raise ValueError("constraint validation must be VALIDATE or NOT VALID")
+        constraint_type = constraint.constraint_type
+        if not isinstance(constraint_type, TableConstraintType):
+            raise TypeError(
+                "constraint_type must be a TableConstraintType, got "
+                f"{type(constraint_type).__name__}"
+            )
         if constraint_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
             raise ValueError("NOT VALID is only valid for CHECK and FOREIGN KEY constraints")
-        checker = getattr(self, "supports_constraint_novalidate", None)
-        if checker is None or not checker():
+        if not self.supports_constraint_novalidate():
             from ..exceptions import UnsupportedFeatureError
 
-            raise UnsupportedFeatureError(
-                getattr(self, "name", type(self).__name__),
-                "NOT VALID constraint",
-            )
+            raise UnsupportedFeatureError(self.name, "NOT VALID constraint")
         return " NOT VALID"
 
     def _prepare_ddl_check_predicate(
@@ -516,7 +534,9 @@ class DDLColumnMixin:
     def format_column_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
         """Format a single column constraint clause.
 
-        Dispatches to the specialised formatter for the constraint type.
+        Renders the production-level trait — the ``CONSTRAINT <name>``
+        prefix authorised by :meth:`supports_constraint_naming` — then
+        dispatches to the specialised formatter for the constraint type.
         Simple constraints (PRIMARY KEY, NOT NULL, NULL, UNIQUE) are rendered
         directly.
 
@@ -528,9 +548,12 @@ class DDLColumnMixin:
             leading space so it can be appended directly to a column definition.
 
         Raises:
-            TypeError: ``ColumnConstraint.foreign_key_reference`` is not a Table.
-            The referenced relation would be named by whichever object kind it
-            actually was, so the FK would point somewhere else.
+            TypeError: ``constraint_type`` is not a ``ColumnConstraintType``,
+                or ``foreign_key_reference`` is not a Table. The referenced
+                relation would be named by whichever object kind it actually
+                was, so the FK would point somewhere else.
+            UnsupportedFeatureError: The dialect refuses the named prefix,
+                the constraint's kind, or the ENFORCED trait it carries.
         """
         reference = constraint.foreign_key_reference
         if reference is not None and not isinstance(reference[0], Table):
@@ -540,7 +563,22 @@ class DDLColumnMixin:
                 f"{type(reference[0]).__name__}"
             )
         from ...expression.statements import ColumnConstraintType
-        ctype = normalize_column_constraint_type(constraint.constraint_type)
+
+        ctype = constraint.constraint_type
+        if not isinstance(ctype, ColumnConstraintType):
+            raise TypeError(
+                "constraint_type must be a ColumnConstraintType, got "
+                f"{type(ctype).__name__}"
+            )
+        prefix = ""
+        if constraint.name:
+            if not self.supports_constraint_naming():
+                from ..exceptions import UnsupportedFeatureError
+
+                raise UnsupportedFeatureError(
+                    self.name, "CONSTRAINT name on a column constraint"
+                )
+            prefix = f" CONSTRAINT {self.format_identifier(constraint.name)}"
         # Each entry pairs the rendered fragment with the dialect capability that
         # authorises it, so no fragment can be emitted without consulting its
         # probe. ``NULL`` carries no probe: an explicitly nullable column is
@@ -564,21 +602,27 @@ class DDLColumnMixin:
             text, probe, spelling = simple_constraints[ctype]
             if probe is not None and not probe():
                 raise UnsupportedFeatureError(self.name, spelling)
-            if getattr(constraint, "enforced", False) or getattr(
-                constraint, "not_enforced", False
-            ):
-                self._format_constraint_enforcement(constraint)
-            return text, ()
+            # Authorises the ENFORCED trait or raises; NOT NULL and NULL cannot
+            # carry it, so a request here is a contract error, not a rendering.
+            enforcement = self._format_constraint_enforcement(constraint)
+            suffix = f" {enforcement}" if enforcement else ""
+            return f"{prefix}{text}{suffix}", ()
         if ctype == ColumnConstraintType.PRIMARY_KEY:
-            return self.format_primary_key_constraint(constraint)
+            sql, params = self.format_primary_key_constraint(constraint)
+            return f"{prefix}{sql}", params
         if ctype == ColumnConstraintType.DEFAULT:
+            # DEFAULT is not an ENFORCABLE kind: requesting the trait is a
+            # contract error, raised here rather than silently dropped.
             if constraint.enforced or constraint.not_enforced:
                 self._format_constraint_enforcement(constraint)
-            return self.format_default_constraint(constraint)
+            sql, params = self.format_default_constraint(constraint)
+            return f"{prefix}{sql}", params
         if ctype == ColumnConstraintType.CHECK:
-            return self.format_column_check_constraint(constraint)
+            sql, params = self.format_column_check_constraint(constraint)
+            return f"{prefix}{sql}", params
         if ctype == ColumnConstraintType.FOREIGN_KEY:
-            return self.format_column_fk_constraint(constraint)
+            sql, params = self.format_column_fk_constraint(constraint)
+            return f"{prefix}{sql}", params
         raise ValueError(f"Unsupported column constraint type: {ctype.value}")
 
     def format_primary_key_constraint(
@@ -603,11 +647,11 @@ class DDLColumnMixin:
 
         if not self.supports_primary_key_constraint():
             raise UnsupportedFeatureError(self.name, "PRIMARY KEY column constraint")
-        if getattr(constraint, "enforced", False) or getattr(
-            constraint, "not_enforced", False
-        ):
-            self._format_constraint_enforcement(constraint)
-        return " PRIMARY KEY", ()
+        # PRIMARY KEY is an ENFORCABLE kind: the trait is rendered, not merely
+        # authorised — a request used to be validated here and then dropped.
+        enforcement = self._format_constraint_enforcement(constraint)
+        suffix = f" {enforcement}" if enforcement else ""
+        return f" PRIMARY KEY{suffix}", ()
 
     def format_column_check_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
         """Format a column-level ``CHECK`` constraint.
@@ -956,7 +1000,12 @@ class DDLColumnMixin:
         from ...expression.statements import TableConstraintType
         body_parts = []
         params: Tuple = ()
-        ctype = normalize_table_constraint_type(expr.constraint_type)
+        ctype = expr.constraint_type
+        if not isinstance(ctype, TableConstraintType):
+            raise TypeError(
+                "constraint_type must be a TableConstraintType, got "
+                f"{type(ctype).__name__}"
+            )
         if ctype == TableConstraintType.PRIMARY_KEY:
             pk_sql, params = self.format_pk_constraint(expr)
             body_parts.append(pk_sql)
@@ -970,22 +1019,21 @@ class DDLColumnMixin:
             fk_sql, params = self.format_foreign_key_constraint(expr)
             body_parts.append(fk_sql)
         elif ctype == TableConstraintType.EXCLUDE:
-            checker = getattr(self, "supports_exclude_constraint", None)
             from ..exceptions import UnsupportedFeatureError
 
-            if checker is None or not checker():
-                raise UnsupportedFeatureError(
-                    getattr(self, "name", type(self).__name__),
-                    "EXCLUDE constraint",
-                )
-            raise UnsupportedFeatureError(
-                getattr(self, "name", type(self).__name__),
-                "EXCLUDE constraint formatter",
-            )
+            if not self.supports_exclude_constraint():
+                raise UnsupportedFeatureError(self.name, "EXCLUDE constraint")
+            raise UnsupportedFeatureError(self.name, "EXCLUDE constraint formatter")
         if not body_parts:
             raise ValueError(f"Unsupported table constraint type: {ctype.value}")
         const_parts = []
         if expr.name:
+            if not self.supports_constraint_naming():
+                from ..exceptions import UnsupportedFeatureError
+
+                raise UnsupportedFeatureError(
+                    self.name, "CONSTRAINT name on a table constraint"
+                )
             const_parts.append(f"CONSTRAINT {self.format_identifier(expr.name)}")
         const_parts.extend(body_parts)
         enforcement = self._format_constraint_enforcement(expr)
@@ -1061,7 +1109,7 @@ class DDLColumnMixin:
                 self.name, "ALTER TABLE DROP COLUMN",
                 f"{self.name} does not support DROP COLUMN.",
             )
-        if hasattr(action, "if_exists") and action.if_exists:
+        if action.if_exists:
             if not self.supports_drop_column_if_exists():
                 raise UnsupportedFeatureError(
                     self.name, "DROP COLUMN IF EXISTS",
@@ -1155,15 +1203,31 @@ class DDLColumnMixin:
         return f"ADD {constraint_sql}{validation_sql}", tuple(params)
 
     def format_alter_constraint_action(self, action: "AlterConstraint") -> Tuple[str, Tuple]:
+        """Format an ``ALTER CONSTRAINT`` enforcement action.
+
+        The kind restriction — CHECK and FOREIGN KEY only — is this
+        operation's own narrowing of the ENFORCABLE kinds and lives in the
+        formatter, not in the capability probe.
+
+        Raises:
+            TypeError: ``constraint_type`` is not a ``TableConstraintType``.
+            ValueError: The kind cannot carry the ALTER CONSTRAINT trait.
+            UnsupportedFeatureError: The dialect has no ALTER CONSTRAINT
+                enforcement control.
+        """
         from ...expression.statements import TableConstraintType
 
-        constraint_type = normalize_table_constraint_type(action.constraint_type)
+        constraint_type = action.constraint_type
+        if not isinstance(constraint_type, TableConstraintType):
+            raise TypeError(
+                "constraint_type must be a TableConstraintType, got "
+                f"{type(constraint_type).__name__}"
+            )
         if constraint_type not in {TableConstraintType.CHECK, TableConstraintType.FOREIGN_KEY}:
             raise ValueError(
                 "ALTER CONSTRAINT enforcement is only valid for CHECK and FOREIGN KEY constraints"
             )
-        checker = getattr(self, "supports_alter_constraint_enforced", None)
-        if checker is None or not self._call_constraint_capability(checker, constraint_type):
+        if not self.supports_alter_constraint_enforced():
             from ..exceptions import UnsupportedFeatureError
 
             raise UnsupportedFeatureError(
@@ -1179,8 +1243,7 @@ class DDLColumnMixin:
         )
 
     def format_validate_constraint_action(self, action: "ValidateConstraint") -> Tuple[str, Tuple]:
-        checker = getattr(self, "supports_validate_constraint", None)
-        if checker is None or not checker():
+        if not self.supports_validate_constraint():
             from ..exceptions import UnsupportedFeatureError
 
             raise UnsupportedFeatureError(self.name, "VALIDATE CONSTRAINT")
@@ -1204,7 +1267,7 @@ class DDLColumnMixin:
         if not self.supports_drop_constraint():
             raise UnsupportedFeatureError(self.name, "ALTER TABLE DROP CONSTRAINT")
         result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
-        if hasattr(action, "cascade") and action.cascade:
+        if action.cascade:
             result += " CASCADE"
         return result, ()
 

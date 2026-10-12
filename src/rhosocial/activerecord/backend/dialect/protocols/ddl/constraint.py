@@ -114,6 +114,17 @@ class ConstraintSupport(Protocol):
         """Whether FOREIGN KEY constraints are supported."""
         ...  # pragma: no cover
 
+    # Named constraints (SQL-92)
+
+    def supports_constraint_naming(self) -> bool:
+        """Whether a constraint may carry a ``CONSTRAINT <name>`` prefix.
+
+        The SQL-92 grammar opens both the column- and the table-constraint
+        productions with ``[CONSTRAINT <constraint name>]``, so the default is
+        ``True`` and a dialect overrides it only to refuse the prefix.
+        """
+        ...  # pragma: no cover
+
     # FK referential actions (SQL-92)
 
     def supports_fk_on_delete(self) -> bool:

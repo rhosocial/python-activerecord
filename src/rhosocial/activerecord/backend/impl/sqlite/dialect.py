@@ -52,11 +52,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     ColumnTypeSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
-    DatabaseNameMixin,
-    PropertyGraphNameMixin,
     RelationSourceMixin,
-    SchemaNameMixin,
-    # Named objects: each *NameMixin inherits NamespaceMixin, so they precede it.
     NamespaceMixin,
     TableNameMixin,
     ViewNameMixin,
@@ -742,7 +738,7 @@ class SQLiteDialect(
         Column names must instead be assigned through an outer CTE or by
         referencing the implicit ``column1``/``column2`` names.
         """
-        values, alias, column_names = expr.values, expr.alias, expr.column_names
+        values, alias, _ = expr.values, expr.alias, expr.column_names
         all_params: List[Any] = []
         rows_sql: List[str] = []
         for row in values:
@@ -870,6 +866,10 @@ class SQLiteDialect(
     def supports_deferrable_constraint(self) -> bool:
         """SQLite defers a foreign key to COMMIT when asked to.
 
+        Opt-in: the core default is ``False`` (a SQL:1999 modifier, not a
+        constructor), so this override is a measured claim about SQLite
+        specifically.
+
         Measured on 3.50.4, ``foreign_keys = ON``: with
         ``DEFERRABLE INITIALLY DEFERRED`` a child row that violates the
         constraint **inserts successfully** inside the transaction and the
@@ -882,10 +882,6 @@ class SQLiteDialect(
         read as a claim about those.
         """
         return True
-
-    def supports_constraint_enforced(self) -> bool:
-        """SQLite does not support ENFORCED/NOT ENFORCED constraint control."""
-        return False
 
     # CreateIndexSupport protocol implementation
     def supports_create_index(self) -> bool:

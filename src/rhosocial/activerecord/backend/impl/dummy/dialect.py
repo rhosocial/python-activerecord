@@ -165,10 +165,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     PivotSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
-    DatabaseNameMixin,
-    PropertyGraphNameMixin,
     RelationSourceMixin,
-    SchemaNameMixin,
     NamespaceMixin,
     TableNameMixin,
     ViewNameMixin,
@@ -1244,6 +1241,22 @@ class DummyDialect(
 
     def supports_exclude_constraint(self) -> bool:
         """Whether EXCLUDE constraints are supported (PG-proprietary)."""
+        return True
+
+    def supports_deferrable_constraint(self) -> bool:
+        """Dummy renders every construct the core can express.
+
+        The core default is ``False`` (a SQL:1999 modifier); dummy opts in so
+        the deferral render paths stay exercised without a live server.
+        """
+        return True
+
+    def supports_constraint_enforced(self) -> bool:
+        """Dummy renders every construct the core can express.
+
+        The core default is ``False`` (a SQL:2016 modifier); dummy opts in so
+        the enforcement render paths stay exercised without a live server.
+        """
         return True
 
     def supports_alter_constraint_enforced(self) -> bool:

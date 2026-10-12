@@ -53,20 +53,20 @@ class TestColumnConstraintNames:
             "e TEXT CONSTRAINT uq_e UNIQUE)"
         )
 
-    def test_but_the_renderer_drops_the_name(self):
-        """The server accepts it; nothing in core renders it.
+    def test_the_renderer_spells_the_name(self):
+        """The column path renders ``CONSTRAINT <name>`` like the table path.
 
-        ``ColumnConstraint.name`` exists and SQLite's column grammar accepts it,
-        but the shared column-constraint renderer never reads ``name`` -- the
-        table-constraint path does, the column path does not. So a named column
-        constraint is silently unnamed. Recorded as a failing assertion about
-        the current state rather than as a capability.
+        The renderer used to read ``name`` on the table path only, which
+        silently unnamed every named column constraint. The SQL-92 grammar
+        opens both constraint productions with ``[CONSTRAINT <name>]``, so
+        both render it, gated by ``supports_constraint_naming`` (default
+        True; SQLite measured accepting it on 3.50.4).
         """
         dialect = SQLiteDialect()
         constraint = ColumnConstraint(dialect, ColumnConstraintType.UNIQUE, name="uq_e")
 
         assert constraint.name == "uq_e"
-        assert "CONSTRAINT" not in constraint.to_sql()[0]
+        assert constraint.to_sql()[0] == ' CONSTRAINT "uq_e" UNIQUE'
 
     def test_the_table_path_already_renders_names(self):
         dialect = SQLiteDialect()

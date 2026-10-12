@@ -26,26 +26,6 @@ def _normalize_constraint_type(constraint_type: Any, constraint_enum: type, labe
     )
 
 
-def normalize_column_constraint_type(constraint_type: Any) -> Any:
-    from ...expression.statements.ddl_table import ColumnConstraintType
-
-    return _normalize_constraint_type(
-        constraint_type,
-        ColumnConstraintType,
-        "column constraint type",
-    )
-
-
-def normalize_table_constraint_type(constraint_type: Any) -> Any:
-    from ...expression.statements.ddl_table import TableConstraintType
-
-    return _normalize_constraint_type(
-        constraint_type,
-        TableConstraintType,
-        "table constraint type",
-    )
-
-
 def normalize_foreign_key_match_type(match_type: Any) -> Any:
     """Return the :class:`ForeignKeyMatchType` for ``match_type``.
 
@@ -929,28 +909,43 @@ class ConstraintMixin:
         """
         return True
 
+    # Named constraints (SQL-92)
+
+    def supports_constraint_naming(self) -> bool:
+        """Whether a constraint may carry a ``CONSTRAINT <name>`` prefix.
+
+        The SQL-92 grammar opens both constraint productions with
+        ``[CONSTRAINT <constraint name>]``, so this defaults to ``True`` —
+        a constructor is something every grammar has. A dialect overrides
+        it only to refuse the prefix.
+        """
+        return True
+
     # Constraint deferral (SQL:1999)
 
     def supports_deferrable_constraint(self) -> bool:
         """Whether DEFERRABLE / INITIALLY DEFERRED/IMMEDIATE is supported.
 
-        Defaults to True.
+        A SQL:1999 *modifier*, not a constructor, so it defaults to
+        ``False`` and the dialects that have it opt in explicitly
+        (PostgreSQL, Oracle, SQLite — measured, foreign keys only on
+        SQLite).
         """
-        return True
+        return False
 
     # Constraint enforcement control (SQL:2016)
 
     def supports_constraint_enforced(self) -> bool:
         """Whether ENFORCED / NOT ENFORCED constraint control is supported.
 
-        Defaults to True.
+        A SQL:2016 *modifier*, not a constructor, so it defaults to
+        ``False`` and the dialects that have it opt in explicitly
+        (MySQL >= 8.0.16, PostgreSQL >= 18, BigQuery — each narrowing the
+        kinds it accepts inside its own table-constraint formatter).
         """
-        return True
+        return False
 
-    def supports_alter_constraint_enforced(
-        self,
-        constraint_type: Any = None,
-    ) -> bool:
+    def supports_alter_constraint_enforced(self) -> bool:
         """Whether ALTER CONSTRAINT enforcement control is supported."""
         return False
 

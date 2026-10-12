@@ -110,7 +110,7 @@ class SQLiteDDLColumnMixin:
         definition holds.
         """
         sql, params = super().format_primary_key_constraint(constraint)
-        if getattr(constraint, "is_auto_increment", False):
+        if constraint.is_auto_increment:
             sql += " AUTOINCREMENT"
         return sql, params
 
@@ -139,7 +139,7 @@ class SQLiteDDLColumnMixin:
         than in the renderer because both are facts about the column, and this
         override is the only place that sees the column type.
         """
-        if getattr(col_def, "comment", None):
+        if col_def.comment:
             raise UnsupportedFeatureError(
                 self.name, "COLUMN COMMENT",
                 "SQLite has no column comment mechanism; comments are not supported.",
@@ -156,9 +156,6 @@ class SQLiteDDLColumnMixin:
         A flag on any other constraint used to be dropped without a word, which
         left a table whose key does not autoincrement and no trace of why.
         """
-        from rhosocial.activerecord.backend.dialect.mixins.ddl_table import (
-            normalize_column_constraint_type,
-        )
         from rhosocial.activerecord.backend.expression.statements import (
             ColumnConstraintType,
         )
@@ -169,13 +166,13 @@ class SQLiteDDLColumnMixin:
         flagged = [
             constraint
             for constraint in col_def.constraints
-            if getattr(constraint, "is_auto_increment", False)
+            if constraint.is_auto_increment
         ]
         if not flagged:
             return
         for constraint in flagged:
             if (
-                normalize_column_constraint_type(constraint.constraint_type)
+                constraint.constraint_type
                 is not ColumnConstraintType.PRIMARY_KEY
             ):
                 raise UnsupportedFeatureError(

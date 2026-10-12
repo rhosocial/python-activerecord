@@ -17,6 +17,8 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraintType,
     ColumnDefinition,
     ReferentialAction,
+    TableConstraint,
+    TableConstraintType,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
@@ -241,3 +243,114 @@ class TestBothRenderPathsAgree:
         # the assertion is about the two paths agreeing, not about how a
         # comparison happens to be spelled.
         assert sql == f'"age" INTEGER{constraint.to_sql()[0]}'
+
+
+class TestConstraintNamingGates:
+    """The ``CONSTRAINT <name>`` prefix is gated, not silently dropped."""
+
+    def test_name_renders_on_the_column_path(self):
+        dialect = SQLiteDialect()
+
+        sql, _ = ColumnConstraint(
+            dialect, ColumnConstraintType.UNIQUE, name="uq_e"
+        ).to_sql()
+
+        assert sql == ' CONSTRAINT "uq_e" UNIQUE'
+
+    def test_name_is_refused_where_unsupported(self):
+        dialect = probed(supports_constraint_naming=False)()
+
+        with pytest.raises(UnsupportedFeatureError, match="CONSTRAINT name"):
+            ColumnConstraint(
+                dialect, ColumnConstraintType.UNIQUE, name="uq_e"
+            ).to_sql()
+
+    def test_table_path_gates_the_name_too(self):
+        dialect = probed(supports_constraint_naming=False)()
+        constraint = TableConstraint(
+            dialect, TableConstraintType.UNIQUE, columns=["e"], name="uq_e"
+        )
+
+        with pytest.raises(UnsupportedFeatureError, match="CONSTRAINT name"):
+            constraint.to_sql()
+
+    def test_naming_defaults_true_on_the_shared_mixin(self):
+        from rhosocial.activerecord.backend.dialect.mixins.ddl_table import (
+            ConstraintMixin,
+        )
+
+        class Bare(ConstraintMixin):
+            pass
+
+        assert Bare().supports_constraint_naming() is True
+
+
+class TestEnforcementGates:
+    """``[NOT] ENFORCED`` renders on the ENFORCABLE kinds and refuses the rest.
+
+    The SQL:2016 kinds are PRIMARY KEY, UNIQUE, FOREIGN KEY and CHECK; a
+    dialect narrows the set in its own formatter and may not widen it.
+    """
+
+    def test_enforced_renders_on_unique(self):
+        dialect = probed(supports_constraint_enforced=True)()
+
+        sql, _ = ColumnConstraint(
+            dialect, ColumnConstraintType.UNIQUE, enforced=True
+        ).to_sql()
+
+        assert sql == " UNIQUE ENFORCED"
+
+    def test_not_enforced_renders_on_primary_key(self):
+        dialect = probed(supports_constraint_enforced=True)()
+
+        sql, _ = ColumnConstraint(
+            dialect, ColumnConstraintType.PRIMARY_KEY, not_enforced=True
+        ).to_sql()
+
+        assert sql == " PRIMARY KEY NOT ENFORCED"
+
+    def test_enforced_is_refused_where_unsupported(self):
+        dialect = probed(supports_constraint_enforced=False)()
+
+        with pytest.raises(UnsupportedFeatureError, match="ENFORCED"):
+            ColumnConstraint(
+                dialect,
+                ColumnConstraintType.CHECK,
+                check_condition=Column(dialect, "age") > Literal(dialect, 0),
+                enforced=True,
+            ).to_sql()
+
+    def test_not_null_cannot_carry_the_trait(self):
+        dialect = probed(supports_constraint_enforced=True)()
+
+        with pytest.raises(ValueError, match="cannot ride a NOT_NULL"):
+            ColumnConstraint(
+                dialect, ColumnConstraintType.NOT_NULL, enforced=True
+            ).to_sql()
+
+    def test_default_cannot_carry_the_trait(self):
+        dialect = probed(supports_constraint_enforced=True)()
+
+        with pytest.raises(ValueError, match="cannot ride a DEFAULT"):
+            ColumnConstraint(
+                dialect, ColumnConstraintType.DEFAULT, default_value=0, enforced=True
+            ).to_sql()
+
+    def test_both_spellings_at_once_are_refused_by_the_formatter(self):
+        """The constructor guard does not cover attribute injection.
+
+        A pair injected after construction bypasses ``__init__``; the
+        formatter re-checks the exclusion as the last line of defence.
+        """
+        dialect = probed(supports_constraint_enforced=True)()
+        constraint = ColumnConstraint(
+            dialect,
+            ColumnConstraintType.CHECK,
+            check_condition=Column(dialect, "age") > Literal(dialect, 0),
+            enforced=True,
+        )
+        constraint.not_enforced = True
+
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            constraint.to_sql()

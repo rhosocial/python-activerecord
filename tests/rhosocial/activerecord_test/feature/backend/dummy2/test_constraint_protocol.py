@@ -96,12 +96,15 @@ class TestConstraintMixinDefaults:
         assert dialect.supports_fk_on_delete() is True
         assert dialect.supports_fk_on_update() is True
 
-    def test_advanced_sql_standard_features_default_true(self):
-        """Advanced SQL standard features default to True.
+    def test_modifiers_default_false_and_constructors_default_true(self):
+        """A modifier defaults to False; a constructor to True.
 
-        All ConstraintMixin methods default to True to enable DummyDialect
-        to validate the full constraint implementation. Backends that don't
-        support these features must explicitly override them.
+        Constraint kinds (PRIMARY KEY, UNIQUE, ...) are things every grammar
+        has, so they default True and a dialect overrides to refuse. The
+        SQL:1999/SQL:2016 modifiers (DEFERRABLE, ENFORCED) are optional
+        grammar, so they default False and the dialects that have them opt
+        in. Constraint naming is part of the SQL-92 production itself, so it
+        defaults True.
         """
 
         class TestDialect(ConstraintMixin):
@@ -109,8 +112,12 @@ class TestConstraintMixinDefaults:
 
         dialect = TestDialect()
         assert dialect.supports_fk_match() is True
-        assert dialect.supports_deferrable_constraint() is True
-        assert dialect.supports_constraint_enforced() is True
+        assert dialect.supports_primary_key_constraint() is True
+        assert dialect.supports_unique_constraint() is True
+        assert dialect.supports_constraint_naming() is True
+        assert dialect.supports_deferrable_constraint() is False
+        assert dialect.supports_constraint_enforced() is False
+        assert dialect.supports_alter_constraint_enforced() is False
 
     def test_alter_table_constraint_operations_default_true(self):
         """ALTER TABLE constraint operations default to True."""
@@ -362,25 +369,51 @@ class TestConstraintEnforcementAndValidation:
         with pytest.raises(TypeError):
             AlterConstraint(dialect, "age_check", False)
 
-    def test_constraint_type_and_validation_strings_are_normalized(self):
+    def test_constraint_type_and_validation_strings_are_refused(self):
+        """The typed contract is the enum; strings are refused, not coerced.
+
+        ``constraint_type`` and ``validation`` used to be normalised at
+        render time — a runtime fallback that let a mistyped or half-written
+        value reach the dialect before failing. The renderer now reads the
+        declared field and fails explicitly.
+        """
         from rhosocial.activerecord.backend.expression import (
             AddTableConstraint,
             Column,
+            ConstraintValidation,
             Literal,
             TableConstraint,
+            TableConstraintType,
         )
         from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
         dialect = DummyDialect()
-        constraint = TableConstraint(
+        typed = TableConstraint(
             dialect,
-            " check ",
+            TableConstraintType.CHECK,
             check_condition=Column(dialect, "age") > Literal(dialect, 0),
-            validation=" not valid ",
+            validation=ConstraintValidation.NOVALIDATE,
         )
 
-        assert AddTableConstraint(dialect, constraint).to_sql()[0].endswith("NOT VALID")
-        assert "NOT VALID" not in constraint.to_sql()[0]
+        assert AddTableConstraint(dialect, typed).to_sql()[0].endswith("NOT VALID")
+        assert "NOT VALID" not in typed.to_sql()[0]
+
+        with pytest.raises(TypeError, match="TableConstraintType"):
+            TableConstraint(
+                dialect,
+                " check ",
+                check_condition=Column(dialect, "age") > Literal(dialect, 0),
+            ).to_sql()
+        with pytest.raises(TypeError, match="ConstraintValidation"):
+            AddTableConstraint(
+                dialect,
+                TableConstraint(
+                    dialect,
+                    TableConstraintType.CHECK,
+                    check_condition=Column(dialect, "age") > Literal(dialect, 0),
+                    validation=" not valid ",
+                ),
+            ).to_sql()
 
     def test_check_predicate_inlines_literals_and_rejects_raw_parameters(self):
         from rhosocial.activerecord.backend.expression import (
@@ -389,20 +422,21 @@ class TestConstraintEnforcementAndValidation:
             Literal,
             RawSQLPredicate,
             TableConstraint,
+            TableConstraintType,
         )
         from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
         dialect = DummyDialect()
         trusted = TableConstraint(
             dialect,
-            "CHECK",
+            TableConstraintType.CHECK,
             check_condition=ComparisonPredicate(dialect, ">", Column(dialect, "age"), Literal(dialect, 0)),
         )
         assert trusted.to_sql() == ('CHECK ("age" > 0)', ())
 
         unsafe = TableConstraint(
             dialect,
-            "CHECK",
+            TableConstraintType.CHECK,
             check_condition=RawSQLPredicate(dialect, "age > %s", (0,)),
         )
         with pytest.raises(ValueError, match="must not contain bind parameters"):
@@ -431,8 +465,13 @@ class TestInPredicateInDDLCheckConstraints:
     """
 
     def _check(self, dialect, condition):
-        from rhosocial.activerecord.backend.expression import TableConstraint
-        return TableConstraint(dialect, "CHECK", check_condition=condition)
+        from rhosocial.activerecord.backend.expression import (
+            TableConstraint,
+            TableConstraintType,
+        )
+        return TableConstraint(
+            dialect, TableConstraintType.CHECK, check_condition=condition
+        )
 
     def test_in_list_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
         from rhosocial.activerecord.backend.expression import InPredicate, Literal, Column
