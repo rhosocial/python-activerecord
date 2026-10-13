@@ -1266,6 +1266,11 @@ class DDLColumnMixin:
         from ..exceptions import UnsupportedFeatureError
         if not self.supports_drop_constraint():
             raise UnsupportedFeatureError(self.name, "ALTER TABLE DROP CONSTRAINT")
+        if action.if_exists and not self.supports_drop_constraint_if_exists():
+            raise UnsupportedFeatureError(
+                self.name, "DROP CONSTRAINT IF EXISTS",
+                f"{self.name} does not support DROP CONSTRAINT IF EXISTS."
+            )
         result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
         if action.cascade:
             result += " CASCADE"

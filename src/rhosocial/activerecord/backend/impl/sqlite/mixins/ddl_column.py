@@ -9,13 +9,6 @@ from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
-        AddColumn,
-        AddIndex,
-        DropColumn,
-        DropIndex,
-        DropTableConstraint,
-    )
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
         ColumnConstraint,
         ColumnDefinition,
@@ -24,79 +17,15 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class SQLiteDDLColumnMixin:
-    """SQLite-specific column constraint and column definition formatting."""
+    """SQLite-specific column constraint and column definition formatting.
 
-    def supports_add_column_if_not_exists(self) -> bool:
-        return False
-
-    def supports_drop_column_if_exists(self) -> bool:
-        return False
-
-    def supports_drop_constraint_if_exists(self) -> bool:
-        return False
-
-    def format_add_index_action(self, action: "AddIndex") -> Tuple[str, tuple]:
-        raise UnsupportedFeatureError(
-            self.name,
-            "ALTER TABLE ADD INDEX",
-            "SQLite does not support ALTER TABLE ADD INDEX. Use CREATE INDEX directly.",
-        )
-
-    def format_drop_index_action(self, action: "DropIndex") -> Tuple[str, tuple]:
-        raise UnsupportedFeatureError(
-            self.name,
-            "ALTER TABLE DROP INDEX",
-            "SQLite does not support ALTER TABLE DROP INDEX. Use DROP INDEX directly.",
-        )
-
-    def format_add_column_action(self, action: "AddColumn") -> Tuple[str, tuple]:
-        """Format ALTER TABLE ADD COLUMN for SQLite.
-
-        SQLite supports ``ADD COLUMN`` but **not** the vendor extension
-        ``ADD COLUMN IF NOT EXISTS`` (and never jumps to a single-line
-        idempotent form). When ``if_not_exists=True`` is requested the
-        qualifier cannot be expressed; the caller should pre-check
-        ``PRAGMA table_info``.
-        """
-        if action.if_not_exists:
-            raise UnsupportedFeatureError(
-                self.name,
-                "ALTER TABLE ADD COLUMN IF NOT EXISTS",
-                "SQLite does not support IF NOT EXISTS on ADD COLUMN. "
-                "Pre-check PRAGMA table_info before adding the column.",
-            )
-        return super().format_add_column_action(action)
-
-    def format_drop_column_action(self, action: "DropColumn") -> Tuple[str, tuple]:
-        """ALTER TABLE DROP COLUMN for SQLite.
-
-        SQLite (>= 3.35.0) supports plain ``DROP COLUMN`` but **not** the
-        vendor extension ``DROP COLUMN IF EXISTS``. Guard against emitting
-        the unsupported qualifier.
-        """
-        if action.if_exists:
-            raise UnsupportedFeatureError(
-                self.name,
-                "ALTER TABLE DROP COLUMN IF EXISTS",
-                "SQLite does not support IF EXISTS on DROP COLUMN. "
-                "Pre-check PRAGMA table_info before dropping the column.",
-            )
-        return super().format_drop_column_action(action)
-
-    def format_drop_table_constraint_action(self, action: "DropTableConstraint") -> Tuple[str, tuple]:
-        """ALTER TABLE DROP CONSTRAINT for SQLite.
-
-        SQLite (>= 3.53.0) supports ``DROP CONSTRAINT`` for NOT NULL and
-        CHECK constraints but **not** the ``IF EXISTS`` qualifier.
-        """
-        if action.if_exists:
-            raise UnsupportedFeatureError(
-                self.name,
-                "ALTER TABLE DROP CONSTRAINT IF EXISTS",
-                "SQLite does not support IF EXISTS on DROP CONSTRAINT. "
-                "Pre-check sqlite_master / the constraint catalog before dropping.",
-            )
-        return super().format_drop_table_constraint_action(action)
+    What is left here is what SQLite genuinely spells differently: the
+    ``AUTOINCREMENT`` tail on its primary-key grammar, booleans inlined as
+    ``1``/``0``, and the placement rules only the column definition can
+    check. Everything else the core already renders — its IF [NOT] EXISTS
+    probes default to the answers SQLite gives, so the shared formatters
+    refuse those qualifiers without a per-dialect copy.
+    """
 
     def format_primary_key_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """SQLite's PRIMARY KEY, which is where ``AUTOINCREMENT`` lives.
