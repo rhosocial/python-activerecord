@@ -93,6 +93,18 @@ class PredicateMixin:
     def format_in_predicate(self, expr: InPredicate) -> Tuple[str, tuple]:
         """Format an ``IN`` predicate.
 
+        A Literal wrapping a collection renders as a value list; anything
+        else (e.g. a subquery) renders through its own ``to_sql()``.
+
+        The whole ``Literal`` is honoured rather than just its ``value``:
+        its ``inline_literals`` switch decides between inline rendering and
+        bind parameters, and DDL preparation sets that flag on every
+        literal it finds (PostgreSQL rejects bind parameters in DDL).
+        Dropping it here is the only reason ``IN`` could not previously be
+        used inside a CHECK constraint. Inline rendering goes through
+        ``format_literal`` so escaping and quoting match every other
+        inline literal.
+
         Args:
             expr: Membership expression exposing ``expr`` and ``values``.
 
@@ -102,34 +114,20 @@ class PredicateMixin:
         from ...expression.core import Literal
 
         expr_sql, expr_params = expr.expr.to_sql()
-        # A Literal wrapping a collection renders as a value list; anything
-        # else (e.g. a subquery) renders through its own to_sql().
         if isinstance(expr.values, Literal) and isinstance(expr.values.value, (list, tuple, set)):
-            return self._format_in_value_list(expr, expr_sql, expr_params, expr.values)
+            values = expr.values.value
+            if not values:
+                return self._with_alias(f"{expr_sql} IN ()", expr), expr_params
+            if expr.values.inline_literals:
+                rendered = ", ".join(self.format_literal(value) for value in values)
+                return self._with_alias(f"{expr_sql} IN ({rendered})", expr), expr_params
+            placeholders = ", ".join([self.get_parameter_placeholder()] * len(values))
+            return (
+                self._with_alias(f"{expr_sql} IN ({placeholders})", expr),
+                expr_params + tuple(values),
+            )
         values_sql, values_params = expr.values.to_sql()
         return self._with_alias(f"{expr_sql} IN {values_sql}", expr), expr_params + values_params
-
-    def _format_in_value_list(
-        self, expr: InPredicate, expr_sql: str, expr_params: tuple, literal
-    ) -> Tuple[str, Tuple]:
-        """Render ``IN (…)`` for a :class:`Literal` wrapping a collection.
-
-        The whole ``Literal`` is passed in rather than just its ``value``
-        because its ``inline_literals`` switch has to be honoured: DDL
-        preparation sets that flag on every literal it finds (PostgreSQL rejects
-        bind parameters in DDL), and dropping it here is the only reason ``IN``
-        could not previously be used inside a CHECK constraint. Rendering goes
-        through ``format_literal`` so escaping and quoting match every other
-        inline literal.
-        """
-        values = literal.value
-        if not values:
-            return self._with_alias(f"{expr_sql} IN ()", expr), expr_params
-        if literal.inline_literals:
-            rendered = ", ".join(self.format_literal(value) for value in values)
-            return self._with_alias(f"{expr_sql} IN ({rendered})", expr), expr_params
-        placeholders = ", ".join([self.get_parameter_placeholder()] * len(values))
-        return self._with_alias(f"{expr_sql} IN ({placeholders})", expr), expr_params + tuple(values)
 
     def format_between_predicate(self, expr: BetweenPredicate) -> Tuple[str, tuple]:
         """Format a ``BETWEEN`` predicate.
