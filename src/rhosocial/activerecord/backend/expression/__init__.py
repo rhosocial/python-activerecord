@@ -88,6 +88,7 @@ from .datetime import (
     DateTimeDiffExpression,
 )
 from .xml import (
+    PassingClause,
     XMLAggExpression,
     XMLAttribute,
     XMLAttributesExpression,
@@ -514,6 +515,7 @@ __all__ = [
     "DateTimeSubtractExpression",
     "DateTimeDiffExpression",
     # SQL/XML expressions
+    "PassingClause",
     "XMLAggExpression",
     "XMLAttribute",
     "XMLAttributesExpression",

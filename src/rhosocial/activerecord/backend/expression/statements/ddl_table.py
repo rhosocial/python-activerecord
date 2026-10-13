@@ -478,7 +478,7 @@ class ColumnDefinition(BaseExpression):
         # Column clauses, in the order they should be spelled. An AR-layer
         # ``ColumnAttribute`` is still tolerated here because no deriver
         # translates a model's declarations into clauses yet; the dialect
-        # adapts it at render time. See ``DDLColumnMixin._translate_ar_attribute``.
+        # adapts it at render time. See ``DDLColumnMixin.translate_ar_attribute``.
         self.attributes = list(attributes or [])
 
 

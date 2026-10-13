@@ -10,6 +10,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     OrderByClause,
+    PassingClause,
     StringValueExpression,
     XMLParseDocumentType,
     XMLParseExpression,
@@ -239,6 +240,31 @@ class TestSQLXMLMixin:
             'XMLTABLE(? PASSING "payload" COLUMNS ("id" INTEGER PATH ?, "name" VARCHAR(100) PATH ? DEFAULT ?))'
         )
         assert params == ("/root/item", "@id", "name", "unknown")
+
+    def test_passing_clause_is_a_node_with_its_own_formatter(self, dummy_dialect: DummyDialect):
+        """The clause renders through the dialect's public formatter."""
+        clause = PassingClause(
+            dummy_dialect,
+            [Column(dummy_dialect, "payload")],
+            XMLPassingMechanism.BY_REF,
+        )
+
+        assert clause.format_method == "format_passing_clause"
+        assert clause.to_sql() == ('PASSING BY REF "payload"', ())
+
+    def test_empty_passing_clause_renders_nothing(self, dummy_dialect: DummyDialect):
+        assert PassingClause(dummy_dialect).to_sql() == ("", ())
+
+    def test_passing_clause_formatter_is_overridable(self, dummy_dialect: DummyDialect):
+        """A backend re-spells PASSING by overriding one formatter."""
+
+        class RefSpelling(DummyDialect):
+            def format_passing_clause(self, clause: PassingClause):
+                parts = [expression.to_sql()[0] for expression in clause.expressions]
+                return "PASSING BY REF " + " ".join(parts), ()
+
+        clause = PassingClause(RefSpelling(), [Column(RefSpelling(), "a"), Column(RefSpelling(), "b")])
+        assert clause.to_sql()[0] == 'PASSING BY REF "a" "b"'
 
     @pytest.mark.parametrize(
         ("support_method", "expr", "feature"),

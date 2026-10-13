@@ -285,6 +285,36 @@ class XMLAggExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression
         return "format_xmlagg_expression"
 
 
+class PassingClause(BaseExpression):
+    """The SQL/XML ``PASSING`` clause: the values passed into an XML function.
+
+    ``PASSING [BY {VALUE | REF}]expr [, expr]...`` is a named production
+    the three querying XML expressions (XMLQUERY, XMLEXISTS, XMLTABLE)
+    all carry, so it is a clause node of its own with the dialect's
+    public ``format_passing_clause`` as its formatter — instead of the
+    unpacked pieces every XML formatter used to pass to a private helper,
+    which gave the shared state no home and gave backends nothing to
+    override. Carrying no expressions renders as ``("", ())``.
+
+    Renders as, for example: ``PASSING BY VALUE 'x', y``.
+    """
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_passing_clause"
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expressions: Sequence["BaseExpression"] = (),
+        mechanism: Optional[XMLPassingMechanism] = None,
+    ):
+        super().__init__(dialect)
+        self.expressions = list(expressions)
+        self.mechanism = mechanism
+
+
 class XMLQueryExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
     """Represents a SQL/XML XMLQUERY expression."""
 
@@ -292,15 +322,13 @@ class XMLQueryExpression(DeclaredValueType, XMLValueExpression, SQLValueExpressi
         self,
         dialect: "SQLDialectBase",
         query: BaseExpression,
-        passing: Optional[Sequence[BaseExpression]] = None,
-        passing_mechanism: Optional[XMLPassingMechanism] = None,
+        passing_clause: Optional[PassingClause] = None,
         returning_content: bool = True,
         empty_handling: Optional[XMLEmptyHandlingOption] = None,
     ):
         BaseExpression.__init__(self, dialect)
         self.query = query
-        self.passing = list(passing or [])
-        self.passing_mechanism = passing_mechanism
+        self.passing_clause = passing_clause
         self.returning_content = returning_content
         self.empty_handling = empty_handling
 
@@ -317,13 +345,11 @@ class XMLExistsExpression(SQLPredicate):
         self,
         dialect: "SQLDialectBase",
         query: BaseExpression,
-        passing: Optional[Sequence[BaseExpression]] = None,
-        passing_mechanism: Optional[XMLPassingMechanism] = None,
+        passing_clause: Optional[PassingClause] = None,
     ):
         super().__init__(dialect)
         self.query = query
-        self.passing = list(passing or [])
-        self.passing_mechanism = passing_mechanism
+        self.passing_clause = passing_clause
 
     @property
     def format_method(self) -> str:
@@ -355,14 +381,12 @@ class XMLTableExpression(BaseExpression):
         dialect: "SQLDialectBase",
         row_pattern: BaseExpression,
         columns: Sequence[XMLTableColumn],
-        passing: Optional[Sequence[BaseExpression]] = None,
-        passing_mechanism: Optional[XMLPassingMechanism] = None,
+        passing_clause: Optional[PassingClause] = None,
     ):
         super().__init__(dialect)
         self.row_pattern = row_pattern
         self.columns = list(columns)
-        self.passing = list(passing or [])
-        self.passing_mechanism = passing_mechanism
+        self.passing_clause = passing_clause
 
     @property
     def format_method(self) -> str:

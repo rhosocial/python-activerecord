@@ -135,7 +135,7 @@ class DDLColumnMixin:
 
         if not hasattr(attr, "format_method"):
             original = attr
-            attr = self._translate_ar_attribute(original)
+            attr = self.translate_ar_attribute(original)
             if attr is None:
                 raise UnsupportedFeatureError(
                     self.name,
@@ -162,7 +162,7 @@ class DDLColumnMixin:
             )
         return formatter(attr)
 
-    def _translate_ar_attribute(self, attr: Any) -> Any:
+    def translate_ar_attribute(self, attr: Any) -> Any:
         """Turn an AR-layer ``ColumnAttribute`` into an expression-layer clause.
 
         Transitional, and the reason is a missing layer rather than a
@@ -170,7 +170,9 @@ class DDLColumnMixin:
         declaration into column clauses, so the AR-layer objects reach
         ``ColumnDefinition.attributes`` directly and the dialect has to accept
         them. Once that translation layer exists it belongs there, and this
-        method goes with it.
+        method goes with it. Public because backend ``format_column_definition``
+        overrides call it: a protocol member that outside callers need is
+        public even when its implementation is transitional.
         """
         from ....base.ddl import (
             CharacterSetAttribute,

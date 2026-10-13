@@ -7,6 +7,7 @@ from ..bases import BaseExpression
 from ..core import Literal
 from ..query_parts import OrderByClause
 from ..xml import (
+    PassingClause,
     XMLAggExpression,
     XMLAttribute,
     XMLAttributesExpression,
@@ -170,6 +171,37 @@ def xmlagg(
     return XMLAggExpression(dialect, _as_expression(dialect, expression), order_by)
 
 
+def passing_clause(
+    dialect: "SQLDialectBase",
+    passing: Optional[Sequence[XMLValue]] = None,
+    mechanism: Optional[XMLPassingMechanism] = None,
+) -> Optional[PassingClause]:
+    """Create the SQL/XML ``PASSING`` clause, or ``None`` when there is none.
+
+    The querying XML expressions take a ready-made clause rather than the
+    unpacked pieces, so callers that build one of those nodes directly can
+    use this factory too. The unpacking lives here instead of at each call
+    site because the three querying factories share it.
+
+    Args:
+        dialect: The SQL dialect the clause renders against.
+        passing: Values to pass into the XML function.
+        mechanism: Optional mechanism (``BY VALUE`` / ``BY REF``).
+
+    Returns:
+        A :class:`PassingClause`, or ``None`` when neither value is given —
+        an absent clause rather than an empty one, so the composing
+        formatters need no empty-clause special case.
+    """
+    if not passing and mechanism is None:
+        return None
+    return PassingClause(
+        dialect,
+        [_as_expression(dialect, item) for item in passing or []],
+        mechanism,
+    )
+
+
 def xmlquery(
     dialect: "SQLDialectBase",
     query: XMLValue,
@@ -182,8 +214,7 @@ def xmlquery(
     return XMLQueryExpression(
         dialect,
         _as_expression(dialect, query),
-        [_as_expression(dialect, item) for item in passing or []],
-        passing_mechanism,
+        passing_clause(dialect, passing, passing_mechanism),
         returning_content,
         empty_handling,
     )
@@ -199,8 +230,7 @@ def xmlexists(
     return XMLExistsExpression(
         dialect,
         _as_expression(dialect, query),
-        [_as_expression(dialect, item) for item in passing or []],
-        passing_mechanism,
+        passing_clause(dialect, passing, passing_mechanism),
     )
 
 
@@ -216,6 +246,5 @@ def xmltable(
         dialect,
         _as_expression(dialect, row_pattern),
         columns,
-        [_as_expression(dialect, item) for item in passing or []],
-        passing_mechanism,
+        passing_clause(dialect, passing, passing_mechanism),
     )

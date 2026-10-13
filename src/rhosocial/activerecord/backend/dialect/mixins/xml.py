@@ -5,12 +5,13 @@ Provides capability probes and SQL rendering for the SQL/XML standard,
 covering parsing, serialization, construction, aggregation, and querying.
 """
 import re
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
 
 from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.xml import (
+        PassingClause,
         XMLAggExpression,
         XMLAttributesExpression,
         XMLCommentExpression,
@@ -19,14 +20,12 @@ if TYPE_CHECKING:  # pragma: no cover
         XMLExistsExpression,
         XMLForestExpression,
         XMLParseExpression,
-        XMLPassingMechanism,
         XMLPIExpression,
         XMLQueryExpression,
         XMLRootExpression,
         XMLSerializeExpression,
         XMLTableExpression,
     )
-    from ...expression.bases import BaseExpression
 
 
 class SQLXMLParsingMixin:
@@ -419,32 +418,33 @@ class SQLXMLQueryingMixin:
         """
         return False
 
-    def _format_xml_passing_clause(
-        self,
-        expressions: List["BaseExpression"],
-        mechanism: Optional["XMLPassingMechanism"] = None,
-    ) -> Tuple[str, tuple]:
-        """Format a SQL/XML PASSING clause.
+    def format_passing_clause(self, clause: "PassingClause") -> Tuple[str, tuple]:
+        """Format a SQL/XML ``PASSING`` clause.
+
+        Public and overridable: the clause is a node all three querying XML
+        expressions carry, so a backend that spells ``PASSING`` differently
+        overrides this one formatter instead of the three that compose
+        around it.
 
         Args:
-            expressions: Expressions to pass to the XML function.
-            mechanism: Optional passing mechanism value.
+            clause: The ``PassingClause`` carrying the expressions to pass
+                and the optional mechanism (``BY VALUE`` / ``BY REF``).
 
         Returns:
-            Tuple of (SQL string, parameters tuple); empty when no
-            expressions are supplied.
+            Tuple of (SQL string, parameters tuple); empty when the clause
+            carries no expressions.
         """
-        if not expressions:
+        if not clause.expressions:
             return "", ()
         all_params = []
         parts = []
-        for expression in expressions:
+        for expression in clause.expressions:
             expr_sql, expr_params = expression.to_sql()
             parts.append(expr_sql)
             all_params.extend(expr_params)
         prefix = "PASSING"
-        if mechanism is not None:
-            prefix += f" {mechanism.value}"
+        if clause.mechanism is not None:
+            prefix += f" {clause.mechanism.value}"
         return f"{prefix} {', '.join(parts)}", tuple(all_params)
 
     def format_xmlquery_expression(
@@ -454,9 +454,8 @@ class SQLXMLQueryingMixin:
         """Format a SQL/XML XMLQUERY expression.
 
         Args:
-            expr: XMLQueryExpression exposing ``query``, ``passing``,
-                ``passing_mechanism``, ``returning_content``, and
-                ``empty_handling``.
+            expr: XMLQueryExpression exposing ``query``, ``passing_clause``,
+                ``returning_content``, and ``empty_handling``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -469,13 +468,11 @@ class SQLXMLQueryingMixin:
         query_sql, query_params = expr.query.to_sql()
         parts = [query_sql]
         all_params = list(query_params)
-        passing_sql, passing_params = self._format_xml_passing_clause(
-            expr.passing,
-            expr.passing_mechanism,
-        )
-        if passing_sql:
-            parts.append(passing_sql)
-            all_params.extend(passing_params)
+        if expr.passing_clause is not None:
+            passing_sql, passing_params = expr.passing_clause.to_sql()
+            if passing_sql:
+                parts.append(passing_sql)
+                all_params.extend(passing_params)
         if expr.returning_content:
             parts.append("RETURNING CONTENT")
         if expr.empty_handling is not None:
@@ -489,8 +486,7 @@ class SQLXMLQueryingMixin:
         """Format a SQL/XML XMLEXISTS predicate.
 
         Args:
-            expr: XMLExistsExpression exposing ``query``, ``passing``, and
-                ``passing_mechanism``.
+            expr: XMLExistsExpression exposing ``query`` and ``passing_clause``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -503,13 +499,11 @@ class SQLXMLQueryingMixin:
         query_sql, query_params = expr.query.to_sql()
         parts = [query_sql]
         all_params = list(query_params)
-        passing_sql, passing_params = self._format_xml_passing_clause(
-            expr.passing,
-            expr.passing_mechanism,
-        )
-        if passing_sql:
-            parts.append(passing_sql)
-            all_params.extend(passing_params)
+        if expr.passing_clause is not None:
+            passing_sql, passing_params = expr.passing_clause.to_sql()
+            if passing_sql:
+                parts.append(passing_sql)
+                all_params.extend(passing_params)
         return f"XMLEXISTS({' '.join(parts)})", tuple(all_params)
 
     def format_xmltable_expression(
@@ -519,8 +513,8 @@ class SQLXMLQueryingMixin:
         """Format a SQL/XML XMLTABLE expression.
 
         Args:
-            expr: XMLTableExpression exposing ``row_pattern``, ``passing``,
-                ``passing_mechanism``, and ``columns``.
+            expr: XMLTableExpression exposing ``row_pattern``,
+                ``passing_clause``, and ``columns``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -534,13 +528,11 @@ class SQLXMLQueryingMixin:
         row_sql, row_params = expr.row_pattern.to_sql()
         parts = [row_sql]
         all_params = list(row_params)
-        passing_sql, passing_params = self._format_xml_passing_clause(
-            expr.passing,
-            expr.passing_mechanism,
-        )
-        if passing_sql:
-            parts.append(passing_sql)
-            all_params.extend(passing_params)
+        if expr.passing_clause is not None:
+            passing_sql, passing_params = expr.passing_clause.to_sql()
+            if passing_sql:
+                parts.append(passing_sql)
+                all_params.extend(passing_params)
         column_parts = []
         for column in expr.columns:
             if not self._validate_data_type(column.data_type):

@@ -110,6 +110,7 @@ from .system import current_user, session_user, system_user
 
 # SQL/XML expression factories
 from .xml import (
+    passing_clause,
     xmlagg,
     xmlattributes,
     xmlcomment,
@@ -231,6 +232,7 @@ __all__ = [
     "session_user",
     "system_user",
     # SQL/XML
+    "passing_clause",
     "xmlagg",
     "xmlattributes",
     "xmlcomment",
