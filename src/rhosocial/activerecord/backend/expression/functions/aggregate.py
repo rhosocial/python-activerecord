@@ -7,7 +7,8 @@ from ..bases import BaseExpression
 from ..column_types import value_class_of
 from ..core import (
     Column,
-    Wildcard,
+    AllColumnsWildcard,
+    RowCountWildcard,
     FunctionCall,
     IntegerValue,
     NumericValue,
@@ -54,7 +55,7 @@ def count(
 
     Usage rules:
     - To generate COUNT(*), pass "*" as a string: count(dialect, "*")
-    - To generate COUNT(*), pass a Wildcard: count(dialect, Wildcard(dialect))
+    - To generate COUNT(*), pass a RowCountWildcard: count(dialect, RowCountWildcard(dialect))
     - To generate COUNT(column), pass a Column object: count(dialect, Column(dialect, "column_name"))
     - To generate COUNT(?), pass a literal value: count(dialect, "literal_value")
 
@@ -69,12 +70,16 @@ def count(
     Returns:
         A FunctionCall instance representing the COUNT function
     """
-    # Check if the passed expression is the string "*"
     if expr == "*" and isinstance(expr, str):
-        target_expr = Wildcard(dialect)
-    # Check if the passed expression is a Wildcard
-    elif isinstance(expr, Wildcard):
+        target_expr = RowCountWildcard(dialect)
+    elif isinstance(expr, RowCountWildcard):
         target_expr = expr
+    elif isinstance(expr, AllColumnsWildcard):
+        raise ValueError(
+            "COUNT takes column expressions or a row-count wildcard; the "
+            "all-columns wildcard expands columns and belongs to a select "
+            "list or RETURNING clause, not an aggregate parameter."
+        )
     else:
         target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     return IntegerValue(
@@ -106,6 +111,11 @@ def sum_(
     Returns:
         A FunctionCall instance representing the SUM function
     """
+    if isinstance(expr, RowCountWildcard) or (isinstance(expr, str) and expr == "*"):
+        raise ValueError(
+            "SUM does not accept a row-count wildcard: the bare * counts "
+            "rows, and COUNT is the only aggregate whose contract admits it."
+        )
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     return _typed(
         FunctionCall(
@@ -143,6 +153,11 @@ def avg(
     Returns:
         A FunctionCall instance representing the AVG function
     """
+    if isinstance(expr, RowCountWildcard) or (isinstance(expr, str) and expr == "*"):
+        raise ValueError(
+            "AVG does not accept a row-count wildcard: the bare * counts "
+            "rows, and COUNT is the only aggregate whose contract admits it."
+        )
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     return NumericValue(
         dialect,
@@ -169,6 +184,11 @@ def min_(
     Returns:
         A FunctionCall instance representing the MIN function
     """
+    if isinstance(expr, RowCountWildcard) or (isinstance(expr, str) and expr == "*"):
+        raise ValueError(
+            "MIN does not accept a row-count wildcard: the bare * counts "
+            "rows, and COUNT is the only aggregate whose contract admits it."
+        )
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     return _typed(FunctionCall(dialect, "MIN", target_expr, alias=alias, is_aggregate=True), target_expr)
 
@@ -192,5 +212,10 @@ def max_(
     Returns:
         A FunctionCall instance representing the MAX function
     """
+    if isinstance(expr, RowCountWildcard) or (isinstance(expr, str) and expr == "*"):
+        raise ValueError(
+            "MAX does not accept a row-count wildcard: the bare * counts "
+            "rows, and COUNT is the only aggregate whose contract admits it."
+        )
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     return _typed(FunctionCall(dialect, "MAX", target_expr, alias=alias, is_aggregate=True), target_expr)

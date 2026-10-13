@@ -68,7 +68,7 @@ class FunctionCallMixin:
             and len(expr.args) == 1
             and (
                 (isinstance(expr.args[0], operators.RawSQLExpression) and expr.args[0].expression == "*")
-                or isinstance(expr.args[0], core.Wildcard)
+                or isinstance(expr.args[0], core.RowCountWildcard)
             )
         ):
             args_sql = ["*"]

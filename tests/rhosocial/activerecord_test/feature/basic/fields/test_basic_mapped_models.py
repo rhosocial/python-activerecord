@@ -13,7 +13,7 @@ IMPORTANT:
 """
 
 
-# Wildcard import all test cases from the testsuite's test file.
+# Wildcard-family import all test cases from the testsuite's test file.
 from rhosocial.activerecord.testsuite.feature.basic.fields.test_example_basic_fixtures import *  # noqa: F403
 
 

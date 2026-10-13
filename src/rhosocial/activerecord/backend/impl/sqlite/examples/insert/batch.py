@@ -3,7 +3,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import Literal, Wildcard
+from rhosocial.activerecord.backend.expression.core import Literal, AllColumnsWildcard
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     InsertStatement,
@@ -86,7 +86,7 @@ print(f"Affected rows: {result.affected_rows}")
 # Verify
 verify_query = QueryStatement(
     dialect=dialect,
-    select=[Wildcard(dialect)],
+    select=[AllColumnsWildcard(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 options = ExecutionOptions(stmt_type=StatementType.DQL)

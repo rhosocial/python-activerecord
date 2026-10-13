@@ -117,7 +117,7 @@ class TestSQLiteDialectComprehensive:
             if method_name == "format_grouping_clause":
                 method(GroupingClause(dialect, operation, []))
             elif method_name == "format_array_expression":
-                mock_expr = MagicMock(spec=ArrayValue)
+                mock_expr = MagicMock(spec=ArrayOperation)
                 mock_expr.operation = "CONSTRUCTOR"
                 mock_expr.elements = []
                 mock_expr.base_expr = None

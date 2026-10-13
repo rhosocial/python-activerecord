@@ -97,7 +97,7 @@ class DMLMixin:
                 supported by this dialect.
         """
         from ...expression.column_types import ColumnBase
-        from ...expression.core import FunctionCall, Subquery, Wildcard
+        from ...expression.core import AllColumnsWildcard, FunctionCall, Subquery
         from ...expression.mixins import WrappedCallMixin
         from ...expression.operators import RawSQLExpression
 
@@ -117,7 +117,7 @@ class DMLMixin:
                     "A RETURNING clause is evaluated per row and cannot contain "
                     "aggregate functions or subqueries.",
                 )
-            if isinstance(expr, Wildcard):
+            if isinstance(expr, AllColumnsWildcard):
                 if not self.supports_returning_wildcard():
                     raise UnsupportedFeatureError(
                         self.name,

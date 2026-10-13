@@ -118,7 +118,7 @@ from rhosocial.activerecord.backend.expression.serialization import (
     serialize_xml,
 )
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate, LikePredicate, ILikePredicate
 from rhosocial.activerecord.backend.expression.objects import (
     Database,
     Domain,
@@ -669,6 +669,15 @@ def register_specials():
     )
     register_special_constructor(
         "types.array.ArrayType", lambda d: ArrayType(d, VarCharType(d, 10))
+    )
+    # -- predicates whose operands are value nodes --------------------------
+    register_special_constructor(
+        "predicates.LikePredicate",
+        lambda d: LikePredicate(d, "LIKE", Column(d, "a"), Literal(d, "%x%")),
+    )
+    register_special_constructor(
+        "predicates.ILikePredicate",
+        lambda d: ILikePredicate(d, Column(d, "a"), "%x%"),
     )
 
 

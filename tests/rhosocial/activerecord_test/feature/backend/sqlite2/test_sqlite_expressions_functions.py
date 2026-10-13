@@ -69,7 +69,7 @@ class TestFunctionExpressions:
 
     def test_count_wildcard(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests the count function with wildcard."""
-        from rhosocial.activerecord.backend.expression import Wildcard
+        from rhosocial.activerecord.backend.expression import RowCountWildcard
 
         # Test with string "*"
         func_call = count(sqlite_dialect_3_8_0, "*")
@@ -77,8 +77,8 @@ class TestFunctionExpressions:
         assert sql == "COUNT(*)"
         assert params == ()
 
-        # Test with Wildcard
-        wildcard = Wildcard(sqlite_dialect_3_8_0)
+        # Test with the row-count wildcard
+        wildcard = RowCountWildcard(sqlite_dialect_3_8_0)
         func_call = count(sqlite_dialect_3_8_0, wildcard)
         sql, params = func_call.to_sql()
         assert sql == "COUNT(*)"

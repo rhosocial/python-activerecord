@@ -236,9 +236,9 @@ class BaseQueryMixin(IQueryBuilding):
             if converted_columns:
                 self.select_columns = converted_columns
             else:
-                from ..backend.expression import Wildcard
+                from ..backend.expression import AllColumnsWildcard
 
-                self.select_columns = [Wildcard(dialect)]
+                self.select_columns = [AllColumnsWildcard(dialect)]
 
         return self
 

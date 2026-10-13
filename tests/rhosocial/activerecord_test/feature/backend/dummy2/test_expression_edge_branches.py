@@ -14,12 +14,14 @@ import warnings
 
 import pytest
 
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     RawSQLExpression,
     QualifiedIdentifier,
-    Wildcard,
+    AllColumnsWildcard,
 )
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType,
@@ -87,13 +89,13 @@ class TestCoreExpressionBranches:
         assert params == ()
 
     def test_wildcard_expression_basic(self, dialect):
-        expr = Wildcard(dialect)
+        expr = AllColumnsWildcard(dialect)
         sql, params = expr.to_sql()
         assert sql == "*"
         assert params == ()
 
     def test_wildcard_expression_qualified(self, dialect):
-        expr = Wildcard(dialect, table="users", schema_name="app")
+        expr = AllColumnsWildcard(dialect, relation=NamedRelationRef(dialect, Table(dialect, "users")))
         sql, params = expr.to_sql()
         assert "*" in sql
         assert params == ()

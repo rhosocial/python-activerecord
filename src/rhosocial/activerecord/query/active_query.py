@@ -13,7 +13,7 @@ from .async_join import AsyncJoinQueryMixin
 from .async_relational import AsyncRelationalQueryMixin
 from .set_operation import SetOperationQuery
 from ..backend.base import StorageBackend, AsyncStorageBackend
-from ..backend.expression import Wildcard, statements, LimitOffsetClause, bases
+from ..backend.expression import AllColumnsWildcard, statements, LimitOffsetClause, bases
 from ..backend.expression.objects import Table
 from ..backend.expression.sources import NamedRelationRef
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
@@ -54,7 +54,7 @@ class ActiveQuery(
     - Supports relationship queries with model instantiation and association management
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses Wildcard instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
@@ -71,7 +71,7 @@ class ActiveQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = [Wildcard(self.backend().dialect)]
+        self.select_columns = [AllColumnsWildcard(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True
@@ -426,7 +426,7 @@ class AsyncActiveQuery(
     - Supports relationship queries with model instantiation and association management
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses Wildcard instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
@@ -443,7 +443,7 @@ class AsyncActiveQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = [Wildcard(self.backend().dialect)]
+        self.select_columns = [AllColumnsWildcard(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True

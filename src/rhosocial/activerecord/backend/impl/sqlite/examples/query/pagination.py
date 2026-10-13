@@ -3,7 +3,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import Column, Wildcard
+from rhosocial.activerecord.backend.expression.core import Column, AllColumnsWildcard
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
@@ -89,7 +89,7 @@ for title, author in articles:
 # 1. Basic LIMIT - get first N rows
 query_limit = QueryStatement(
     dialect=dialect,
-    select=[Wildcard(dialect)],
+    select=[AllColumnsWildcard(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "articles")),
     order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
     limit_offset=LimitOffsetClause(dialect, limit=3),
@@ -109,7 +109,7 @@ offset = (page_number - 1) * page_size
 
 query_page = QueryStatement(
     dialect=dialect,
-    select=[Wildcard(dialect)],
+    select=[AllColumnsWildcard(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "articles")),
     order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
     limit_offset=LimitOffsetClause(dialect, limit=page_size, offset=offset),
@@ -142,7 +142,7 @@ for page in range(1, total_pages + 1):
     offset = (page - 1) * page_size
     query = QueryStatement(
         dialect=dialect,
-        select=[Wildcard(dialect)],
+        select=[AllColumnsWildcard(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "articles")),
         order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
         limit_offset=LimitOffsetClause(dialect, limit=page_size, offset=offset),

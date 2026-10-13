@@ -134,11 +134,11 @@ expressions = [
 `execute_batch_dql` provides memory-efficient pagination for large result sets:
 
 ```python
-from rhosocial.activerecord.backend.expression import QueryStatement, TableExpression, Wildcard
+from rhosocial.activerecord.backend.expression import QueryStatement, TableExpression, AllColumnsWildcard
 
 query = QueryStatement(
     backend.dialect,
-    select=[Wildcard(backend.dialect)],
+    select=[AllColumnsWildcard(backend.dialect)],
     from_=TableExpression(backend.dialect, "large_table"),
 )
 
@@ -176,7 +176,7 @@ from rhosocial.activerecord.backend.expression.query_sources import WithStatemen
 
 cte_query = QueryStatement(
     backend.dialect,
-    select=[Wildcard(backend.dialect)],
+    select=[AllColumnsWildcard(backend.dialect)],
     from_=TableExpression(backend.dialect, "orders"),
     where=WhereClause(backend.dialect, condition=...),
 )
@@ -184,7 +184,7 @@ cte = CTEClause(backend.dialect, name="recent_orders", query=cte_query)
 
 main_query = QueryStatement(
     backend.dialect,
-    select=[Wildcard(backend.dialect)],
+    select=[AllColumnsWildcard(backend.dialect)],
     from_=TableExpression(backend.dialect, "recent_orders"),
 )
 

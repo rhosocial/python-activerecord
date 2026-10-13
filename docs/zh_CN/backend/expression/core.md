@@ -17,7 +17,7 @@
   - [TableExpression](#tableexpression)
   - [Column](#column)
   - [Literal](#literal)
-  - [Wildcard](#wildcardexpression)
+  - [AllColumnsWildcard](#wildcardexpression)
   - [Subquery](#subquery)
 - [运算符](#运算符)
   - [Identifier](#identifier)
@@ -227,14 +227,17 @@ FunctionCall(dialect, 'NOW')
 # -> ('NOW()', ())
 ```
 
-### Wildcard
+### AllColumnsWildcard
 
-表示通配符 (`*`) 或表通配符 (`table.*`)。请优先使用此类而不是 `Literal("*")`。
+表示 select list 的通配符 (`*`)，可经行源引用限定为 `rel.*`。请优先使用此类而不是 `Literal("*")`。
 
 ```python
-class Wildcard(bases.SQLValue):
-    def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None): ...
+class AllColumnsWildcard(bases.SQLValue):
+    def __init__(self, dialect: "SQLDialectBase", relation: Optional["NamedRelationRef"] = None): ...
 ```
+
+裸 `*` 的展开范围由所在子句决定（select list 为 FROM 全体源，RETURNING 为 DML 目标表）。
+行计数是另一个契约：`COUNT(*)` 的参数是 `RowCountWildcard`，它不带 relation，只渲染裸 `*`。
 
 ### Subquery
 
@@ -386,18 +389,18 @@ from rhosocial.activerecord.backend.expression import Literal
 lit = Literal(dialect, 100)
 ```
 
-### Wildcard
+### AllColumnsWildcard
 
 表示 `*` 或 `table.*`。
 
 ```python
-from rhosocial.activerecord.backend.expression import Wildcard
+from rhosocial.activerecord.backend.expression import AllColumnsWildcard
 
 # SELECT *
-wildcard = Wildcard(dialect)
+wildcard = AllColumnsWildcard(dialect)
 
 # SELECT users.*
-wildcard = Wildcard(dialect, table="users")
+wildcard = AllColumnsWildcard(dialect, relation=NamedRelationRef(dialect, Table(dialect, "users")))
 ```
 
 ### Subquery

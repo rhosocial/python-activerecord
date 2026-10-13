@@ -158,7 +158,7 @@ class TestArrayValue:
         """Test that array constructor is not supported in SQLite."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
-        array_expr = ArrayValue(
+        array_expr = ArrayOperation(
             sqlite_dialect_3_8_0,
             "CONSTRUCTOR",
             elements=[
@@ -178,7 +178,7 @@ class TestArrayValue:
         """Test that array access is not supported in SQLite."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
-        array_access = ArrayValue(
+        array_access = ArrayOperation(
             sqlite_dialect_3_8_0,
             "ACCESS",
             base_expr=Column(sqlite_dialect_3_8_0, "tags"),

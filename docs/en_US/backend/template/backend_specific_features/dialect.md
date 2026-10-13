@@ -146,7 +146,7 @@ The following expression classes are shared across all backends. They live in `r
 | `FunctionCall` | Function invocation (`FUNC(args)`), aggregate `FILTER (WHERE ...)` and window `OVER (...)` |
 | `Subquery` | Subquery as expression |
 | `TableExpression` | Table reference with temporal options |
-| `Wildcard` | `*` wildcard |
+| `AllColumnsWildcard` | `*` wildcard |
 | `ComparisonPredicate` | `=`, `!=`, `>`, `>=`, `<`, `<=` |
 | `LikePredicate` | `LIKE`, `ILIKE` |
 | `InPredicate` | `IN (...)` |

@@ -37,7 +37,8 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    Wildcard,
+    AllColumnsWildcard,
+    RowCountWildcard,
     FunctionCall,
     ComparisonPredicate,
     LogicalPredicate,
@@ -64,11 +65,11 @@ class TestAtomExpressionRoundtrip:
         assert deserialize(serialize(lit), dummy_dialect).to_sql() == lit.to_sql()
 
     def test_wildcard_roundtrip(self, dummy_dialect):
-        w = Wildcard(dummy_dialect, table="users")
+        w = AllColumnsWildcard(dummy_dialect, relation=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")))
         assert deserialize(serialize(w), dummy_dialect).to_sql() == w.to_sql()
 
     def test_function_call_roundtrip(self, dummy_dialect):
-        expr = FunctionCall(dummy_dialect, "COUNT", Wildcard(dummy_dialect), is_distinct=True)
+        expr = FunctionCall(dummy_dialect, "COUNT", RowCountWildcard(dummy_dialect), is_distinct=True)
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
     def test_function_call_with_multiple_args(self, dummy_dialect):

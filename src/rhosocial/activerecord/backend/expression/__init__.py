@@ -383,7 +383,8 @@ from .core import (
     XMLValue,
     Subquery,
     Literal,
-    Wildcard,
+    AllColumnsWildcard,
+    RowCountWildcard,
     QualifiedIdentifier,
 )
 from .uuid import (
@@ -498,7 +499,8 @@ __all__ = [
     "StringValue",
     "IntegerValue",
     "XMLValue",
-    "Wildcard",
+    "AllColumnsWildcard",
+    "RowCountWildcard",
     "QualifiedIdentifier",
     "CollateFunction",
     "collate",

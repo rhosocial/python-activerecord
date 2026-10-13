@@ -146,8 +146,8 @@ class TestSQLiteDialectFormatting:
 
         dialect = SQLiteDialect()
 
-        # Create a mock ArrayValue to pass to format_array_expression
-        mock_expr = MagicMock(spec=ArrayValue)
+        # Create a mock ArrayOperation to pass to format_array_expression
+        mock_expr = MagicMock(spec=ArrayOperation)
         mock_expr.operation = "CONSTRUCTOR"
         mock_expr.elements = []
         mock_expr.base_expr = None
@@ -231,7 +231,7 @@ class TestSQLiteDialectFormatting:
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             if method_name == "format_array_expression":
-                mock_expr = MagicMock(spec=ArrayValue)
+                mock_expr = MagicMock(spec=ArrayOperation)
                 mock_expr.operation = "CONSTRUCTOR"
                 mock_expr.elements = []
                 mock_expr.base_expr = None

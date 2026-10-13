@@ -12,7 +12,7 @@ from .set_operation import SetOperationQuery
 from .utils import convert_qmark_placeholder
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.dialect.exceptions import UnsupportedFeatureError
-from ..backend.expression import statements, Wildcard, query_sources, bases
+from ..backend.expression import statements, AllColumnsWildcard, query_sources, bases
 from ..backend.expression.objects import Table
 from ..backend.expression.sources import NamedRelationRef
 from ..backend.expression.query_sources import CTEClause
@@ -48,7 +48,7 @@ class CTEQuery(
     - Results are always dictionaries, no model instantiation occurs
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses Wildcard instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
@@ -88,7 +88,7 @@ class CTEQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = [Wildcard(self.backend().dialect)]
+        self.select_columns = [AllColumnsWildcard(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True
@@ -369,7 +369,7 @@ class AsyncCTEQuery(
     - Results are always dictionaries, no model instantiation occurs
 
     When constructing queries that include wildcards (SELECT *), the system
-    automatically uses Wildcard instead of Literal("*") to avoid
+    automatically uses AllColumnsWildcard instead of Literal("*") to avoid
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
@@ -409,7 +409,7 @@ class AsyncCTEQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = [Wildcard(self.backend().dialect)]
+        self.select_columns = [AllColumnsWildcard(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True

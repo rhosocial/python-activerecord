@@ -17,7 +17,7 @@ This section details the fundamental building blocks of the Expression System, i
   - [TableExpression](#tableexpression)
   - [Column](#column)
   - [Literal](#literal)
-  - [Wildcard](#wildcardexpression)
+  - [AllColumnsWildcard](#wildcardexpression)
   - [Subquery](#subquery)
 - [Operators](#operators)
   - [Identifier](#identifier)
@@ -229,14 +229,20 @@ FunctionCall(dialect, 'NOW')
 # -> ('NOW()', ())
 ```
 
-### Wildcard
+### AllColumnsWildcard
 
-Represents a wildcard (`*`) or table wildcard (`table.*`). PREFER this over `Literal("*")`.
+Represents the select-list wildcard (`*`), optionally qualified through a
+relation reference (`rel.*`). PREFER this over `Literal("*")`.
 
 ```python
-class Wildcard(bases.SQLValue):
-    def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None): ...
+class AllColumnsWildcard(bases.SQLValue):
+    def __init__(self, dialect: "SQLDialectBase", relation: Optional["NamedRelationRef"] = None): ...
 ```
+
+A bare `*` lets the surrounding clause decide what the expansion spans (the
+select list's FROM sources, or a RETURNING clause's DML target). The row
+count is a different contract: `COUNT(*)`'s parameter is `RowCountWildcard`,
+which carries no relation and renders only the bare asterisk.
 
 ### Subquery
 
@@ -388,18 +394,18 @@ from rhosocial.activerecord.backend.expression import Literal
 lit = Literal(dialect, 100)
 ```
 
-### Wildcard
+### AllColumnsWildcard
 
 Represents `*` or `table.*`.
 
 ```python
-from rhosocial.activerecord.backend.expression import Wildcard
+from rhosocial.activerecord.backend.expression import AllColumnsWildcard
 
 # SELECT *
-wildcard = Wildcard(dialect)
+wildcard = AllColumnsWildcard(dialect)
 
 # SELECT users.*
-wildcard = Wildcard(dialect, table="users")
+wildcard = AllColumnsWildcard(dialect, relation=NamedRelationRef(dialect, Table(dialect, "users")))
 ```
 
 ### Subquery

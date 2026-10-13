@@ -24,7 +24,7 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     QueryStatement,
     Subquery,
-    Wildcard,
+    AllColumnsWildcard,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
@@ -336,7 +336,7 @@ def build_flight_paths(d):
     )
     main = QueryStatement(
         d,
-        select=[Wildcard(d)],
+        select=[AllColumnsWildcard(d)],
         from_=NamedRelationRef(d, Table(d, "FlightPaths")),
         where=Column(d, "destination") == Literal(d, "JFK"),
         order_by=OrderByClause(d, [Column(d, "price")]),

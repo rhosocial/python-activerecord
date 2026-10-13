@@ -30,7 +30,8 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    Wildcard,
+    AllColumnsWildcard,
+    RowCountWildcard,
     FunctionCall,
     ComparisonPredicate,
     LogicalPredicate,
@@ -115,11 +116,12 @@ EXPRESSION_TEST_CASES = [
     dict(name="Literal", cls=Literal, params_func=lambda d: dict(dialect=d, value=42)),
     dict(name="Literal_string", cls=Literal, params_func=lambda d: dict(dialect=d, value="hello")),
     dict(name="Literal_none", cls=Literal, params_func=lambda d: dict(dialect=d, value=None)),
-    dict(name="Wildcard", cls=Wildcard, params_func=lambda d: dict(dialect=d)),
+    dict(name="AllColumnsWildcard", cls=AllColumnsWildcard, params_func=lambda d: dict(dialect=d)),
+    dict(name="RowCountWildcard", cls=RowCountWildcard, params_func=lambda d: dict(dialect=d)),
     dict(
         name="FunctionCall",
         cls=FunctionCall,
-        params_func=lambda d: dict(dialect=d, func_name="COUNT", args=(Wildcard(d),)),
+        params_func=lambda d: dict(dialect=d, func_name="COUNT", args=(RowCountWildcard(d),)),
     ),
     dict(
         name="FunctionCallDistinct",

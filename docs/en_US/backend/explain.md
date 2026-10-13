@@ -84,13 +84,13 @@ You can pass any `BaseExpression` (except `ExplainStatement` itself):
 
 ```python
 from rhosocial.activerecord.backend.expression.core import (
-    TableExpression, Wildcard,
+    TableExpression, AllColumnsWildcard,
 )
 from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
 query = QueryStatement(
     dialect,
-    select=[Wildcard(dialect)],
+    select=[AllColumnsWildcard(dialect)],
     from_=TableExpression(dialect, "users"),
 )
 result = backend.explain(query)

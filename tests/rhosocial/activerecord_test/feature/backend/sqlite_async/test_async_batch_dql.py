@@ -15,7 +15,7 @@ import pytest_asyncio
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    Wildcard,
+    AllColumnsWildcard,
     ComparisonPredicate,
     SetOperationStatement,
 )
@@ -82,7 +82,7 @@ def _select_all_expr(dialect, table="items", order_col="id"):
     """Build: SELECT * FROM items ORDER BY id"""
     return QueryStatement(
         dialect,
-        select=[Wildcard(dialect)],
+        select=[AllColumnsWildcard(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, table)),
         order_by=OrderByClause(dialect, expressions=[(Column(dialect, order_col), "ASC")]),
     )
@@ -92,7 +92,7 @@ def _select_where_expr(dialect, category):
     """Build: SELECT * FROM items WHERE category = ? ORDER BY id"""
     return QueryStatement(
         dialect,
-        select=[Wildcard(dialect)],
+        select=[AllColumnsWildcard(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "items")),
         where=WhereClause(
             dialect,
@@ -301,7 +301,7 @@ class TestAsyncBatchDQLExpressionTypes:
         # SELECT * FROM expensive ORDER BY id
         cte_query = QueryStatement(
             dialect,
-            select=[Wildcard(dialect)],
+            select=[AllColumnsWildcard(dialect)],
             from_=NamedRelationRef(dialect, Table(dialect, "items")),
             where=WhereClause(
                 dialect,
@@ -312,7 +312,7 @@ class TestAsyncBatchDQLExpressionTypes:
 
         main_query = QueryStatement(
             dialect,
-            select=[Wildcard(dialect)],
+            select=[AllColumnsWildcard(dialect)],
             from_=NamedRelationRef(dialect, Table(dialect, "expensive")),
             order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
         )

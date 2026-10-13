@@ -20,7 +20,7 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
-    Wildcard,
+    AllColumnsWildcard,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
@@ -51,7 +51,7 @@ def execute_match_query(pred: SQLiteMatchPredicate) -> list:
     """Build and execute a FTS5 MATCH query using QueryStatement."""
     query = QueryStatement(
         dialect=dialect,
-        select=[Wildcard(dialect)],
+        select=[AllColumnsWildcard(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "docs")),
         where=pred,
     )

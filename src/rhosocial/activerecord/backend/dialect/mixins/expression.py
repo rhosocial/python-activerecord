@@ -12,7 +12,7 @@ from ...expression.core import (
     CastFunction,
     QualifiedIdentifier,
     Subquery,
-    Wildcard,
+    AllColumnsWildcard,
 )
 from ...expression.literals import Identifier
 from ...expression.mixins import AliasableMixin
@@ -45,25 +45,52 @@ class ExpressionMixin(FunctionCallMixin):
         """
         return self.format_identifier(expr.name, expr.name_need_quote), ()
 
-    def format_wildcard(self, expr: Wildcard) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.Wildcard`.
+    def format_all_columns_wildcard(self, expr: "AllColumnsWildcard") -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.AllColumnsWildcard`.
+
+        A bare ``*`` when no relation is set -- the surrounding clause's
+        formatter decides what the expansion spans. With a relation, the
+        qualifier is the spelling the query itself uses: the alias when the
+        reference carries one, the relation's own qualified name otherwise.
 
         Args:
-            expr: Wildcard expression optionally carrying a table and schema.
+            expr: The all-columns wildcard being rendered.
+
+        Returns:
+            A ``(sql, params)`` tuple; ``params`` is empty.
+
+        Raises:
+            TypeError: ``relation`` is set but is not a ``NamedRelationRef``.
+        """
+        relation = expr.relation
+        if relation is None:
+            return "*", ()
+        from ...expression.sources import NamedRelationRef
+
+        if not isinstance(relation, NamedRelationRef):
+            raise TypeError(
+                f"AllColumnsWildcard.relation must be a NamedRelationRef, "
+                f"got {type(relation).__name__}"
+            )
+        if relation.alias:
+            qualifier = self.format_identifier(relation.alias, relation.alias_need_quote)
+        else:
+            qualifier, _ = relation.relation.to_sql()
+        return f"{qualifier}.*", ()
+
+    def format_row_count_wildcard(self, expr: "RowCountWildcard") -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.RowCountWildcard`.
+
+        The bare asterisk, and nothing else: the row-count wildcard carries
+        no relation by contract.
+
+        Args:
+            expr: The row-count wildcard being rendered.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is empty.
         """
-        if expr.schema_name and expr.table:
-            wildcard_sql = (
-                f"{self.format_identifier(expr.schema_name, expr.schema_need_quote)}."
-                f"{self.format_identifier(expr.table, expr.table_need_quote)}.*"
-            )
-        elif expr.table:
-            wildcard_sql = f"{self.format_identifier(expr.table, expr.table_need_quote)}.*"
-        else:
-            wildcard_sql = "*"
-        return wildcard_sql, ()
+        return "*", ()
 
     def format_qualified_identifier(self, expr: QualifiedIdentifier) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.QualifiedIdentifier`.

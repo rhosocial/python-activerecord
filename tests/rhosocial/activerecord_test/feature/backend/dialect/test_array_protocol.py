@@ -45,8 +45,8 @@ def test_format_array_expression_behavior():
     assert dialect.supports_array_access() is False
 
     # The method should still execute without throwing an error for basic operations
-    # Create a mock ArrayValue to pass to format_array_expression
-    mock_expr = MagicMock(spec=ArrayValue)
+    # Create a mock ArrayOperation to pass to format_array_expression
+    mock_expr = MagicMock(spec=ArrayOperation)
     mock_expr.operation = "CONSTRUCTOR"
     mock_expr.elements = None
     mock_expr.base_expr = None

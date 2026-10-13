@@ -832,13 +832,13 @@ class TestQueryStatements:
         ):
             query.validate(strict=True)
 
-    # --- Wildcard (SELECT *) tests ---
+    # --- AllColumnsWildcard (SELECT *) tests ---
     def test_query_expression_with_wildcard(self, dummy_dialect: DummyDialect):
         """Tests QueryStatement with wildcard (SELECT *)."""
-        from rhosocial.activerecord.backend.expression import Wildcard
+        from rhosocial.activerecord.backend.expression import AllColumnsWildcard
 
         query = QueryStatement(
-            dummy_dialect, select=[Wildcard(dummy_dialect)], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
+            dummy_dialect, select=[AllColumnsWildcard(dummy_dialect)], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         sql, params = query.to_sql()
 
@@ -847,11 +847,11 @@ class TestQueryStatements:
 
     def test_query_expression_with_qualified_wildcard(self, dummy_dialect: DummyDialect):
         """Tests QueryStatement with qualified wildcard (SELECT table.*)."""
-        from rhosocial.activerecord.backend.expression import Wildcard
+        from rhosocial.activerecord.backend.expression import AllColumnsWildcard
 
         query = QueryStatement(
             dummy_dialect,
-            select=[Wildcard(dummy_dialect, table="users")],
+            select=[AllColumnsWildcard(dummy_dialect, relation=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")))],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
         sql, params = query.to_sql()
@@ -861,11 +861,11 @@ class TestQueryStatements:
 
     def test_query_expression_with_multiple_wildcards_and_columns(self, dummy_dialect: DummyDialect):
         """Tests QueryStatement with multiple wildcards and columns."""
-        from rhosocial.activerecord.backend.expression import Wildcard
+        from rhosocial.activerecord.backend.expression import AllColumnsWildcard
 
         query = QueryStatement(
             dummy_dialect,
-            select=[Wildcard(dummy_dialect, table="users"), Column(dummy_dialect, "name", "profiles")],
+            select=[AllColumnsWildcard(dummy_dialect, relation=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))), Column(dummy_dialect, "name", "profiles")],
             from_=[NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")), NamedRelationRef(dummy_dialect, Table(dummy_dialect, "profiles"))],
         )
         sql, params = query.to_sql()
@@ -874,39 +874,39 @@ class TestQueryStatements:
         assert params == ()
 
     def test_query_expression_with_count_wildcard(self, dummy_dialect: DummyDialect):
-        """Tests QueryStatement with COUNT(*) using Wildcard."""
-        from rhosocial.activerecord.backend.expression import Wildcard, count
+        """Tests QueryStatement with COUNT(*) using RowCountWildcard."""
+        from rhosocial.activerecord.backend.expression import RowCountWildcard, count
 
-        # Test COUNT(*) using Wildcard
-        count_expr = count(dummy_dialect, Wildcard(dummy_dialect))
+        # Test COUNT(*) using the row-count wildcard
+        count_expr = count(dummy_dialect, RowCountWildcard(dummy_dialect))
         query = QueryStatement(dummy_dialect, select=[count_expr], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")))
         sql, params = query.to_sql()
 
         assert sql == 'SELECT COUNT(*) FROM "users"'
         assert params == ()
 
-    def test_query_expression_with_count_qualified_wildcard(self, dummy_dialect: DummyDialect):
-        """Tests QueryStatement with COUNT(table.*) using qualified Wildcard."""
-        from rhosocial.activerecord.backend.expression import Wildcard, count
+    def test_query_expression_with_count_qualified_wildcard_refused(self, dummy_dialect: DummyDialect):
+        """COUNT(table.*) is backend territory: the core refuses it (4.10.2).
 
-        # Test COUNT(table.*) using qualified Wildcard
-        qualified_wildcard = Wildcard(dummy_dialect, table="users")
-        count_expr = count(dummy_dialect, qualified_wildcard)
-        query = QueryStatement(dummy_dialect, select=[count_expr], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")))
-        sql, params = query.to_sql()
+        The qualified form counts non-NULL rows of one relation, which is a
+        different contract from COUNT(*); supporting backends define their own
+        derived node for it.
+        """
+        from rhosocial.activerecord.backend.expression import AllColumnsWildcard, count
 
-        # Note: COUNT(users.*) is not standard SQL, but this tests the integration
-        # Standard SQL would use COUNT(*) or COUNT(column_name)
-        assert sql == 'SELECT COUNT(*) FROM "users"'
-        assert params == ()
+        qualified_wildcard = AllColumnsWildcard(
+            dummy_dialect, relation=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
+        )
+        with pytest.raises(ValueError, match="all-columns wildcard"):
+            count(dummy_dialect, qualified_wildcard)
 
     def test_query_expression_with_group_by_and_count_star(self, dummy_dialect: DummyDialect):
         """Tests QueryStatement with SELECT name, count(*) FROM users GROUP BY name."""
         from rhosocial.activerecord.backend.expression import count
-        from rhosocial.activerecord.backend.expression import Wildcard
+        from rhosocial.activerecord.backend.expression import RowCountWildcard
 
         # Create the COUNT(*) expression
-        count_expr = count(dummy_dialect, Wildcard(dummy_dialect))
+        count_expr = count(dummy_dialect, RowCountWildcard(dummy_dialect))
 
         # Create GROUP BY/HAVING clause with GROUP BY name
         group_by_having = GroupByHavingClause(

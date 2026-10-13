@@ -5,7 +5,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression import CreateIndexStatement
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Literal, Wildcard
+from rhosocial.activerecord.backend.expression.core import Literal, AllColumnsWildcard
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,
@@ -144,7 +144,7 @@ except Exception as e:
 # Verify data after failed insert
 verify_query = QueryStatement(
     dialect=dialect,
-    select=[Wildcard(dialect)],
+    select=[AllColumnsWildcard(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 sql, params = verify_query.to_sql()
