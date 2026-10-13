@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+    CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
     ForeignKeyConstraint, IndexDefinition
 )
 
@@ -54,7 +54,7 @@ def experiment_column_types(backend):
     ]
 
     dialect = backend.dialect
-    expr = CreateTableExpression(dialect, table="roundtrip_types", columns=columns)
+    expr = CreateTableStatement(dialect, table="roundtrip_types", columns=columns)
     sql, params = expr.to_sql()
     print(f"\n生成的 DDL:\n{INDENT}{sql}")
 
@@ -217,10 +217,10 @@ def experiment_ddl_expression_flow(backend):
     print(f"{INDENT}→ data_type 直接被拼接到 SQL 中, 没有任何转换")
 
     # 步骤3：构建完整 DDL
-    print("\n步骤3: CreateTableExpression.to_sql()")
+    print("\n步骤3: CreateTableStatement.to_sql()")
     columns = [col, ColumnDefinition("id", "INTEGER",
                                      constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)])]
-    expr = CreateTableExpression(dialect, table="type_flow_test", columns=columns)
+    expr = CreateTableStatement(dialect, table="type_flow_test", columns=columns)
     full_sql, full_params = expr.to_sql()
     print(f"{INDENT}完整 CREATE TABLE: {full_sql}")
     print(f"{INDENT}→ data_type 仅是字符串拼接: '{col.data_type}' → 出现在 SQL 中的位置")

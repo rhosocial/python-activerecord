@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+    CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -31,8 +31,8 @@ with_ai = ColumnDefinition("id", "INTEGER",
 without_ai = ColumnDefinition("id", "INTEGER",
     constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=False)])
 
-sql_ai, _ = CreateTableExpression(dialect, table="test_ai", columns=[with_ai]).to_sql()
-sql_no_ai, _ = CreateTableExpression(dialect, table="test_no_ai", columns=[without_ai]).to_sql()
+sql_ai, _ = CreateTableStatement(dialect, table="test_ai", columns=[with_ai]).to_sql()
+sql_no_ai, _ = CreateTableStatement(dialect, table="test_no_ai", columns=[without_ai]).to_sql()
 print(f"  有 AUTOINCREMENT: {sql_ai}")
 print(f"  无 AUTOINCREMENT: {sql_no_ai}")
 
