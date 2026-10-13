@@ -41,51 +41,56 @@ a skip, and a stale entry fails too.
 """
 
 import inspect
-from typing import Dict
 
 import pytest
-
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import graph as graph_mod
-from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CaseExpression,
-    WindowClause,
-    WindowDefinition,
-    WindowSpecification,
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    TablePrimaryKeyConstraint,
 )
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
-from rhosocial.activerecord.backend.expression.core import Column, Literal
-from rhosocial.activerecord.backend.expression.datetime import (
-    TemporalOptionsExpression,
+from rhosocial.activerecord.testsuite.utils.expression import (
+    collect_expression_classes,
+    make_instance,
+    register_special_constructor,
 )
-from rhosocial.activerecord.backend.expression.objects import (
-    Database,
-    Domain,
-    EdgeTable as EdgeTableObject,
-    Function,
-    Index,
-    MaterializedView,
-    NodeTable,
-    PropertyGraph,
-    Sequence,
-    Schema,
-    Table,
-    Trigger,
-    Type,
-    View,
+from rhosocial.activerecord.backend.impl.dummy.expression import (
+    _DummyTypeAlterAction,
+    _DummyTypeDefinition,
 )
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.query_parts import JoinClause
-from rhosocial.activerecord.backend.expression.serialization import (
-    ExpressionRegistry,
-    deserialize,
-    deserialize_json,
-    deserialize_xml,
-    serialize,
-    serialize_json,
-    serialize_xml,
+from rhosocial.activerecord.backend.expression.xml import (
+    XMLAttribute,
+    XMLAttributesExpression,
+    XMLConcatExpression,
+    XMLForestExpression,
+    XMLForestItem,
 )
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression.types import (
+    ArrayType,
+    IntegerType,
+    VarCharType,
+)
+from rhosocial.activerecord.backend.expression.statements.dml import (
+    MergeAction,
+    MergeActionType,
+)
+from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
+from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
+    TriggerEvent,
+    TriggerTiming,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    ColumnConstraint,
+    ForeignKeyConstraint,
+    IndexDefinition,
+    ReferencesClause,
+    TableConstraint,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
+    DomainCheckConstraint,
+    RenameDomainAction,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_database import (
+    AlterDatabaseAction,
+)
 from rhosocial.activerecord.backend.expression.statements import (
     ddl_alter,
     ddl_comment,
@@ -102,52 +107,50 @@ from rhosocial.activerecord.backend.expression.statements import (
     ddl_view,
     dml,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_database import (
-    AlterDatabaseAction,
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression.serialization import (
+    ExpressionRegistry,
+    deserialize,
+    deserialize_json,
+    deserialize_xml,
+    serialize,
+    serialize_json,
+    serialize_xml,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
-    DomainCheckConstraint,
-    RenameDomainAction,
+from rhosocial.activerecord.backend.expression.query_parts import JoinClause
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.objects import (
+    Database,
+    Domain,
+    EdgeTable as EdgeTableObject,
+    Function,
+    Index,
+    MaterializedView,
+    NodeTable,
+    PropertyGraph,
+    Sequence,
+    Schema,
+    Table,
+    Trigger,
+    Type,
+    View,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    ColumnConstraint,
-    ColumnConstraintType,
-    ForeignKeyConstraint,
-    IndexDefinition,
-    ReferencesClause,
-    TableConstraint,
-    TableConstraintType,
+from rhosocial.activerecord.backend.expression.datetime import (
+    TemporalOptionsExpression,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
-    TriggerEvent,
-    TriggerTiming,
+from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.advanced_functions import (
+    CaseExpression,
+    WindowClause,
+    WindowDefinition,
+    WindowSpecification,
 )
-from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
-from rhosocial.activerecord.backend.expression.statements.dml import (
-    MergeAction,
-    MergeActionType,
-)
-from rhosocial.activerecord.backend.expression.types import (
-    ArrayType,
-    IntegerType,
-    VarCharType,
-)
-from rhosocial.activerecord.backend.expression.xml import (
-    XMLAttribute,
-    XMLAttributesExpression,
-    XMLConcatExpression,
-    XMLForestExpression,
-    XMLForestItem,
-)
-from rhosocial.activerecord.backend.impl.dummy.expression import (
-    _DummyTypeAlterAction,
-    _DummyTypeDefinition,
-)
-from rhosocial.activerecord.testsuite.utils.expression import (
-    collect_expression_classes,
-    make_instance,
-    register_special_constructor,
-)
+from rhosocial.activerecord.backend.expression import graph as graph_mod
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from typing import Dict
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
 
 
 def assert_params_equal(a, b, path="params"):
@@ -512,13 +515,11 @@ def register_specials():
     # -- constraints and column pieces --------------------------------------
     register_special_constructor(
         "statements.ddl_table.ColumnConstraint",
-        lambda d: ColumnConstraint(d, ColumnConstraintType.NOT_NULL, name="c"),
+        lambda d: ColumnConstraint(d, branch=ColumnNotNullConstraint(d), name="c"),
     )
     register_special_constructor(
         "statements.ddl_table.TableConstraint",
-        lambda d: TableConstraint(
-            d, TableConstraintType.PRIMARY_KEY, name="c", columns=["a"]
-        ),
+        lambda d: TableConstraint(d, branch=TablePrimaryKeyConstraint(d, ["a"]), name="c"),
     )
     register_special_constructor(
         "statements.ddl_table.ForeignKeyConstraint",
@@ -546,9 +547,7 @@ def register_specials():
         "statements.ddl_alter.AddTableConstraint",
         lambda d: ddl_alter.AddTableConstraint(
             d,
-            TableConstraint(
-                d, TableConstraintType.PRIMARY_KEY, name="c", columns=["a"]
-            ),
+            TableConstraint(d, branch=TablePrimaryKeyConstraint(d, ["a"]), name="c"),
         ),
     )
 
@@ -756,6 +755,16 @@ LEGITIMATE_NON_RENDERS = {
     # The column-definition clause base. Its subclasses each name their own
     # formatter; the base names only what every column clause has in common.
     "rhosocial.activerecord.backend.expression.statements.ddl_table.ColumnClause": (
+        NotImplementedError, _NO_FORMATTER
+    ),
+    # The constraint-branch bases. A branch names which alternative of the
+    # constraint production this is; rendering the branch is the clause
+    # dispatcher's job, so the bases name no formatter of their own. Each
+    # concrete branch overrides ``format_method``.
+    "rhosocial.activerecord.backend.expression.statements.ddl_table.ColumnConstraintBranch": (
+        NotImplementedError, _NO_FORMATTER
+    ),
+    "rhosocial.activerecord.backend.expression.statements.ddl_table.TableConstraintBranch": (
         NotImplementedError, _NO_FORMATTER
     ),
     # The roots of the object tree. Each concrete object overrides `format_method`

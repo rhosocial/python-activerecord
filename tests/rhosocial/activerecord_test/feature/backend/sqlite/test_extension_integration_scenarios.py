@@ -9,31 +9,24 @@ expression-dialect system for SQL generation. No raw SQL strings are used.
 import json
 
 import pytest
-from rhosocial.activerecord.testsuite.utils import (
-    requires_functions,
-    requires_protocol,
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
 )
-
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.protocols import (
-    SQLiteFTS5Support,
-    SQLiteRTreeSupport,
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.functions import (
+    json_extract as json_extract_func,
 )
-from rhosocial.activerecord.backend.impl.sqlite.expression import (
-    SQLiteFTS5CreateVirtualTable,
-    SQLiteMatchPredicate,
-    DropVirtualTableStatement,
-    SQLiteRTreeCreateVirtualTable,
-    SQLiteRTreeRangeQuery,
-    SQLiteGeopolyCreateVirtualTable,
-    SQLiteGeopolyContainsExpression,
-    SQLiteGeopolyAreaExpression,
+from rhosocial.activerecord.backend.expression.functions import (
+    json_extract_text,
 )
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
     ColumnConstraint,
-    ColumnConstraintType,
     ColumnDefinition,
     CreateTableStatement,
     FunctionCall,
@@ -45,17 +38,26 @@ from rhosocial.activerecord.backend.expression import (
     Subquery,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.functions import (
-    json_extract_text,
+from rhosocial.activerecord.backend.impl.sqlite.expression import (
+    SQLiteFTS5CreateVirtualTable,
+    SQLiteMatchPredicate,
+    DropVirtualTableStatement,
+    SQLiteRTreeCreateVirtualTable,
+    SQLiteRTreeRangeQuery,
+    SQLiteGeopolyCreateVirtualTable,
+    SQLiteGeopolyContainsExpression,
+    SQLiteGeopolyAreaExpression,
 )
-from rhosocial.activerecord.backend.impl.sqlite.functions import (
-    json_extract as json_extract_func,
+from rhosocial.activerecord.backend.impl.sqlite.protocols import (
+    SQLiteFTS5Support,
+    SQLiteRTreeSupport,
 )
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
-from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.testsuite.utils import (
+    requires_functions,
+    requires_protocol,
+)
+
 
 
 # =============================================================================
@@ -106,7 +108,7 @@ class TestGeoDocumentScenario:
                 dialect, table=Table(dialect, 'doc_meta'),
                 columns=[
                     ColumnDefinition(dialect, "doc_id", SQLiteIntegerType(dialect), constraints=[
-                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
+                        ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))
                     ]),
                     ColumnDefinition(dialect, "extra", SQLiteTextType(dialect=dialect)),
                 ]
@@ -441,7 +443,7 @@ class TestSpatialCatalogScenario:
                 dialect, table=Table(dialect, 'features'),
                 columns=[
                     ColumnDefinition(dialect, "id", SQLiteIntegerType(dialect), constraints=[
-                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
+                        ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))
                     ]),
                     ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
                     ColumnDefinition(dialect, "description", SQLiteTextType(dialect=dialect)),
@@ -531,7 +533,7 @@ class TestSpatialCatalogScenario:
                 dialect, table=Table(dialect, 'feature_props'),
                 columns=[
                     ColumnDefinition(dialect, "feature_id", SQLiteIntegerType(dialect), constraints=[
-                        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)
+                        ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))
                     ]),
                     ColumnDefinition(dialect, "props", SQLiteTextType(dialect=dialect)),
                 ]

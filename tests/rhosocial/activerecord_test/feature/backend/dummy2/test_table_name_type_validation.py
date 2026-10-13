@@ -12,20 +12,22 @@ for one statement and renames nothing in the catalogue, so an alias lives on
 """
 
 import pytest
-
-from typing import List
-
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType
+from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression import (
     ColumnConstraint,
-    ColumnConstraintType,
     ColumnDefinition,
     CreateTableStatement,
     DropTableStatement,
 )
-from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.types import IntegerType
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from typing import List
+
+
 
 
 def primary_key_columns(dialect: DummyDialect) -> List[ColumnDefinition]:
@@ -35,7 +37,7 @@ def primary_key_columns(dialect: DummyDialect) -> List[ColumnDefinition]:
             dialect,
             name="id",
             data_type=IntegerType(dialect),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
         )
     ]
 

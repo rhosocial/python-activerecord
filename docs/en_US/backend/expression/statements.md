@@ -164,7 +164,7 @@ Data types should use `DataType` expressions (e.g. `IntegerType`, `TextType`, `V
 ```python
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement, ColumnDefinition,
-    ColumnConstraint, ColumnConstraintType, Literal, Column,
+    ColumnConstraint, Literal, Column,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType, RealType
 
@@ -174,10 +174,10 @@ create = CreateTableStatement(
     table="new_users",
     columns=[
         ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
-            ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
+            ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
         ]),
         ColumnDefinition(dialect, "name", VarCharType(dialect, length=255), constraints=[
-            ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+            ColumnConstraint(dialect, branch=dialectNotNullConstraint(dialect)),
         ]),
         ColumnDefinition(dialect, "bio", TextType(dialect)),
     ],
@@ -197,16 +197,16 @@ DDL `DEFAULT` and `CHECK` clauses require inline literals. Use `Literal(..., inl
 # Column with DEFAULT value
 ColumnDefinition(dialect, "status", TextType(dialect), constraints=[
     ColumnConstraint(dialect,
-        constraint_type=ColumnConstraintType.DEFAULT,
-        default_value=Literal(dialect, "active", inline_literals=True),  # -> DEFAULT 'active'
+        branch=ColumnDefaultConstraint(
+            value=Literal(dialect, "active", inline_literals=True),  # -> DEFAULT 'active'
     ),
 ]),
 
 # Column with CHECK constraint
 ColumnDefinition(dialect, "age", IntegerType(dialect), constraints=[
     ColumnConstraint(dialect,
-        constraint_type=ColumnConstraintType.CHECK,
-        check_condition=ComparisonPredicate(
+        branch=ColumnCheckConstraint(
+            condition=ComparisonPredicate(
             dialect, ">=",
             Column(dialect, "age"),
             Literal(dialect, 0, inline_literals=True),  # -> CHECK ("age" >= 0)
@@ -217,29 +217,29 @@ ColumnDefinition(dialect, "age", IntegerType(dialect), constraints=[
 # DEFAULT numeric value
 ColumnDefinition(dialect, "score", RealType(dialect), constraints=[
     ColumnConstraint(dialect,
-        constraint_type=ColumnConstraintType.DEFAULT,
-        default_value=Literal(dialect, 0.0, inline_literals=True),  # -> DEFAULT 0.0
+        branch=ColumnDefaultConstraint(
+            value=Literal(dialect, 0.0, inline_literals=True),  # -> DEFAULT 0.0
     ),
 ]),
 ```
 
 #### Generated Columns (SQLite 3.31.0+, PostgreSQL 12+, MySQL 5.7+)
 
-Generated columns (computed columns) use the `GeneratedColumnExpression` expression, rendered through `dialect.format_generated_column_expression`:
+Generated columns (computed columns) use the `ColumnGeneratedConstraint` expression, rendered through `dialect.format_column_generated_constraint`:
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType, Column,
+    CreateTableStatement, ColumnDefinition, ColumnConstraint, Column,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, RealType
 from rhosocial.activerecord.backend.expression.statements import (
-    GeneratedColumnExpression, GeneratedColumnType,
+    ColumnGeneratedConstraint, GeneratedColumnType,
 )
 
 # Create table with generated columns
 columns = [
     ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
-        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+        ColumnConstraint(dialect, branch=dialectPrimaryKeyConstraint(dialect)),
     ]),
     ColumnDefinition(dialect, "price", RealType(dialect)),
     ColumnDefinition(dialect, "quantity", IntegerType(dialect)),
@@ -247,7 +247,7 @@ columns = [
     ColumnDefinition(dialect,
         name="total",
         data_type=RealType(dialect),
-        generated_expression=GeneratedColumnExpression(
+        generated_expression=ColumnGeneratedConstraint(
             dialect,
             expression=Column(dialect, "price") * Column(dialect, "quantity"),
             storage_type=GeneratedColumnType.STORED,

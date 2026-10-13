@@ -10,7 +10,30 @@ import json
 import warnings
 
 import pytest
-
+from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Schema
+from rhosocial.activerecord.backend.expression.objects import Index
+from rhosocial.activerecord.backend.expression.objects import View
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.serialization import (
+    serialize,
+    deserialize,
+    ExpressionFactory,
+    ExpressionRegistry,
+    ExpressionDeserializationError,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType
+from rhosocial.activerecord.backend.expression.query_parts import (
+    WhereClause,
+    GroupByHavingClause,
+    OrderByClause,
+    LimitOffsetClause,
+    ForUpdateClause,
+)
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
@@ -24,27 +47,7 @@ from rhosocial.activerecord.backend.expression import (
     IsBooleanPredicate,
     BetweenPredicate,
 )
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
-from rhosocial.activerecord.backend.expression.query_parts import (
-    WhereClause,
-    GroupByHavingClause,
-    OrderByClause,
-    LimitOffsetClause,
-    ForUpdateClause,
-)
-from rhosocial.activerecord.backend.expression.types import IntegerType
-from rhosocial.activerecord.backend.expression.serialization import (
-    serialize,
-    deserialize,
-    ExpressionFactory,
-    ExpressionRegistry,
-    ExpressionDeserializationError,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.objects import View
-from rhosocial.activerecord.backend.expression.objects import Index
-from rhosocial.activerecord.backend.expression.objects import Schema
+
 
 
 class TestAtomExpressionRoundtrip:
@@ -333,7 +336,6 @@ class TestErrorHandling:
             deserialize(current_spec, dummy_dialect)
 
     def test_reconstruct_varargs_predicates(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
 
         p1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1))
         p2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "b"), Literal(dummy_dialect, 2))
@@ -432,7 +434,6 @@ class TestErrorHandling:
         assert restored.params == (1, 2)
 
     def test_expression_serializer_varargs_with_extra_params(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
 
         p1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1))
         p2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "b"), Literal(dummy_dialect, 2))
@@ -441,7 +442,6 @@ class TestErrorHandling:
         expr = LogicalPredicate(dummy_dialect, "AND", p1, p2, p3)
         spec = serialize(expr)
 
-        import json
 
         spec_json = json.dumps(spec)
         restored = deserialize(json.loads(spec_json), dummy_dialect)
@@ -485,7 +485,6 @@ class TestErrorHandling:
 
     def test_reconstruct_varargs_branch(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.serialization import _reconstruct
-        from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
 
         params = {"op": "AND", "predicates": [1, 2, 3]}
         result = _reconstruct(LogicalPredicate, dummy_dialect, params)
@@ -493,7 +492,6 @@ class TestErrorHandling:
 
     def test_reconstruct_non_varargs_branch(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.serialization import _reconstruct
-        from rhosocial.activerecord.backend.expression.core import Column
 
         params = {"name": "id", "table": "users"}
         result = _reconstruct(Column, dummy_dialect, params)
@@ -507,14 +505,12 @@ class TestErrorHandling:
         expr = SQLOperation(dummy_dialect, "GREATEST", col1, col2)
         spec = serialize(expr)
 
-        import json
 
         spec_json = json.dumps(spec)
         restored = deserialize(json.loads(spec_json), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_expression_factory_serialize(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.serialization import ExpressionFactory
 
         factory = ExpressionFactory(dummy_dialect)
         col = Column(dummy_dialect, "id")
@@ -536,8 +532,6 @@ class TestErrorHandling:
         assert restored.params == (1, 2, 3)
 
     def test_reconstruct_with_varargs_and_regular_params(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
-        from rhosocial.activerecord.backend.expression import Column, Literal
 
         p1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1))
         p2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "b"), Literal(dummy_dialect, 2))
@@ -570,7 +564,6 @@ class TestExpressionFactoryAndRegistry:
         assert "id" in pred.to_sql()[0]
 
     def test_expression_factory_from_spec(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression import Column
 
         col = Column(dummy_dialect, "name", table="users")
         spec = serialize(col)
@@ -598,7 +591,6 @@ class TestExpressionRegistry:
     """Test ExpressionRegistry."""
 
     def test_registry_lookup_found(self):
-        from rhosocial.activerecord.backend.expression import Column
 
         result = ExpressionRegistry.lookup("Column")
         assert result is Column
@@ -770,10 +762,9 @@ class TestDDLRoundtrip:
             CreateTableStatement,
             ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
         )
 
-        col_def = ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)])
+        col_def = ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))])
         expr = CreateTableStatement(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=[col_def])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
@@ -829,7 +820,6 @@ class TestDDLRoundtrip:
 
     def test_explain_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.explain import ExplainStatement
-        from rhosocial.activerecord.backend.expression import Column
 
         expr = ExplainStatement(dummy_dialect, statement=Column(dummy_dialect, "users"))
         restored = deserialize(serialize(expr), dummy_dialect)
@@ -908,7 +898,6 @@ class TestAllowedTypesAllowlist:
 
     def test_wildcard_does_not_leak_across_modules(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
-        from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 
         pred = ComparisonPredicate(
             dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1)
@@ -984,9 +973,7 @@ class TestGetParamsWarningPaths:
     """Defensive warnings raised by BaseExpression.get_params()."""
 
     def test_var_keyword_not_stored_as_dict_warns(self, dummy_dialect):
-        import warnings
 
-        from rhosocial.activerecord.backend.expression.bases import BaseExpression
 
         class BadKwargsExpr(BaseExpression):
             def __init__(self, dialect, **kwargs):
@@ -1004,9 +991,7 @@ class TestGetParamsWarningPaths:
         assert params == {}
 
     def test_missing_attribute_warns(self, dummy_dialect):
-        import warnings
 
-        from rhosocial.activerecord.backend.expression.bases import BaseExpression
 
         class NoAttrExpr(BaseExpression):
             def __init__(self, dialect, missing_param):

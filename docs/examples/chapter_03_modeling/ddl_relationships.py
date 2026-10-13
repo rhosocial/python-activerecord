@@ -1,3 +1,23 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+    TablePrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+    TableConstraint,
+    ForeignKeyConstraint,
+    ReferentialAction,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType
+from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableStatement
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
+from pydantic import Field
+from typing import ClassVar
 """
 Chapter 3: Modeling Data - DDL with Relationships
 Demonstrates DDL operations for tables with foreign key relationships:
@@ -6,22 +26,6 @@ Demonstrates DDL operations for tables with foreign key relationships:
 3. Create many-to-many junction table (PostTag)
 """
 
-from typing import ClassVar
-from pydantic import Field
-from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableStatement
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-    ColumnConstraintType,
-    TableConstraint,
-    TableConstraintType,
-    ForeignKeyConstraint,
-    ReferentialAction,
-)
 
 
 class Author(ActiveRecord):
@@ -95,15 +99,15 @@ def main():
     # ============================================================
     author_columns = [
         ColumnDefinition(
-            "id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
+            "id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]
         ),
-        ColumnDefinition("name", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("name", VarCharType(100), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ColumnDefinition(
             "email",
             VarCharType(255),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(ColumnConstraintType.UNIQUE),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect)),
             ],
         ),
     ]
@@ -125,17 +129,16 @@ def main():
     # ============================================================
     post_columns = [
         ColumnDefinition(
-            "id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
+            "id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]
         ),
-        ColumnDefinition("title", VarCharType(200), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("title", VarCharType(200), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ColumnDefinition("content", TextType()),
-        ColumnDefinition("author_id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("author_id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
     ]
 
     # Use table_constraints for foreign key at table level
     post_constraints = [
         ForeignKeyConstraint(
-            constraint_type=TableConstraintType.FOREIGN_KEY,
             columns=["author_id"],
             foreign_key_table="authors",
             foreign_key_columns=["id"],
@@ -165,14 +168,14 @@ def main():
     # ============================================================
     tag_columns = [
         ColumnDefinition(
-            "id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]
+            "id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]
         ),
         ColumnDefinition(
             "name",
             VarCharType(50),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(ColumnConstraintType.UNIQUE),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect)),
             ],
         ),
     ]
@@ -191,17 +194,16 @@ def main():
     # Example 4: Create junction table (PostTag) for many-to-many
     # ============================================================
     post_tag_columns = [
-        ColumnDefinition("post_id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("tag_id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("post_id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
+        ColumnDefinition("tag_id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
     ]
 
     # Table-level constraints for composite PK and foreign keys
     post_tag_constraints = [
         # Composite primary key
-        TableConstraint(constraint_type=TableConstraintType.PRIMARY_KEY, columns=["post_id", "tag_id"]),
+        TableConstraint(dialect, branch=TablePrimaryKeyConstraint(dialect, ["post_id", "tag_id"])),
         # Foreign key to posts table
         ForeignKeyConstraint(
-            constraint_type=TableConstraintType.FOREIGN_KEY,
             columns=["post_id"],
             foreign_key_table="posts",
             foreign_key_columns=["id"],
@@ -209,7 +211,6 @@ def main():
         ),
         # Foreign key to tags table
         ForeignKeyConstraint(
-            constraint_type=TableConstraintType.FOREIGN_KEY,
             columns=["tag_id"],
             foreign_key_table="tags",
             foreign_key_columns=["id"],

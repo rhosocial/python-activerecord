@@ -14,26 +14,19 @@ This test module covers:
 
 import sys
 import types
-from unittest.mock import MagicMock
 
 import pytest
-
-
-def register_temp_module(name: str, functions: dict):
-    """Register a temporary module in sys.modules for testing."""
-    mod = types.ModuleType(name)
-    for func_name, func in functions.items():
-        setattr(mod, func_name, func)
-    mod.__all__ = list(functions.keys())
-    sys.modules[name] = mod
-    return mod
-
-
-def unregister_temp_module(name: str):
-    """Remove a previously registered temporary module."""
-    if name in sys.modules:
-        del sys.modules[name]
-
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.named_expression.exceptions import (
+    ProcedureError,
+)
+from rhosocial.activerecord.backend.named_expression.procedure import (
+    Procedure,
+    ProcedureContext,
+)
 from rhosocial.activerecord.backend.migration import (
     MigrationDirection,
     NamedMigration,
@@ -52,14 +45,24 @@ from rhosocial.activerecord.backend.migration import (
     NamedMigrationResolver,
     MigrationRunner,
 )
-from rhosocial.activerecord.backend.named_expression.procedure import (
-    Procedure,
-    ProcedureContext,
-)
-from rhosocial.activerecord.backend.named_expression.exceptions import (
-    ProcedureError,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
+from unittest.mock import MagicMock
+
+
+def register_temp_module(name: str, functions: dict):
+    """Register a temporary module in sys.modules for testing."""
+    mod = types.ModuleType(name)
+    for func_name, func in functions.items():
+        setattr(mod, func_name, func)
+    mod.__all__ = list(functions.keys())
+    sys.modules[name] = mod
+    return mod
+
+
+def unregister_temp_module(name: str):
+    """Remove a previously registered temporary module."""
+    if name in sys.modules:
+        del sys.modules[name]
+
 
 
 class TestMigrationDirection:
@@ -512,7 +515,6 @@ class TestMigrationRunner:
             CreateTableStatement,
             ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
         )
         from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
             PartitionClause,
@@ -527,7 +529,7 @@ class TestMigrationRunner:
             col_def = ColumnDefinition(dialect, 
                 "id",
                 SQLiteIntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
             )
             col_expr = ColExpr(dialect, "id")
             return CreateTableStatement(
@@ -592,7 +594,7 @@ class TestMigrationRunnerIntegration:
             CreateTableStatement,
             ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
+            ColumnPrimaryKeyConstraint,
         )
         from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
             SQLiteIntegerType,
@@ -606,7 +608,7 @@ class TestMigrationRunnerIntegration:
                 ColumnDefinition(dialect, 
                     "id",
                     SQLiteIntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                    constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
                 ),
                 ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
                 ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
@@ -676,7 +678,6 @@ class TestMigrationRunnerIntegration:
 
     def test_record_store_records_up(self, sqlite_backend, tmp_path):
         """Running UP with a record store should write a record."""
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         self._register("mig_sqlite_test3.expressions", {
             "create_users_table": self._make_create_users_expr,
@@ -701,7 +702,6 @@ class TestMigrationRunnerIntegration:
 
     def test_record_store_tracks_down(self, sqlite_backend, tmp_path):
         """After DOWN, the record store should report the migration as not applied."""
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         self._register("mig_sqlite_test4.expressions", {
             "create_users_table": self._make_create_users_expr,
@@ -758,7 +758,6 @@ class TestMigrationRunnerIntegration:
 
     def test_error_records_as_failure(self, sqlite_backend, tmp_path):
         """When up() raises, the record should show success=False."""
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         self._register("mig_sqlite_test6.expressions", {
             "create_users_table": self._make_create_users_expr,
@@ -787,7 +786,6 @@ class TestMigrationRunnerIntegration:
 
     def test_multiple_migrations(self, sqlite_backend, tmp_path):
         """Run two sequential migrations."""
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         self._register("mig_sqlite_test7.expressions", {
             "create_users_table": self._make_create_users_expr,
@@ -809,7 +807,6 @@ class TestMigrationRunnerIntegration:
                     CreateTableStatement,
                     ColumnDefinition,
                     ColumnConstraint,
-                    ColumnConstraintType,
                 )
                 from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
                     SQLiteIntegerType,
@@ -822,7 +819,7 @@ class TestMigrationRunnerIntegration:
                         ColumnDefinition(sqlite_backend.dialect, 
                             "id",
                             SQLiteIntegerType(sqlite_backend.dialect),
-                            constraints=[ColumnConstraint(sqlite_backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
+                            constraints=[ColumnConstraint(sqlite_backend.dialect, branch=ColumnPrimaryKeyConstraint(sqlite_backend.dialect))],
                         ),
                         ColumnDefinition(sqlite_backend.dialect, "title", SQLiteTextType(dialect=sqlite_backend.dialect)),
                     ],
@@ -855,7 +852,6 @@ class TestMigrationRunnerIntegration:
 
     def test_dependency_check_passes(self, sqlite_backend, tmp_path):
         """When dependency is applied, the migration should run successfully."""
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         self._register("mig_sqlite_test8.expressions", {
             "create_users_table": self._make_create_users_expr,
@@ -903,7 +899,6 @@ class TestUserParams:
                     CreateTableStatement,
                     ColumnDefinition,
                     ColumnConstraint,
-                    ColumnConstraintType,
                 )
                 from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
                     SQLiteIntegerType,
@@ -916,7 +911,7 @@ class TestUserParams:
                         ColumnDefinition(sqlite_backend.dialect, 
                             "id",
                             SQLiteIntegerType(sqlite_backend.dialect),
-                            constraints=[ColumnConstraint(sqlite_backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
+                            constraints=[ColumnConstraint(sqlite_backend.dialect, branch=ColumnPrimaryKeyConstraint(sqlite_backend.dialect))],
                         ),
                         ColumnDefinition(sqlite_backend.dialect, "value", SQLiteTextType(dialect=sqlite_backend.dialect)),
                     ],
@@ -1096,7 +1091,6 @@ class TestAsyncMigrationRunnerIntegration:
             AsyncSQLiteBackend,
         )
         from rhosocial.activerecord.backend.migration.async_runner import AsyncMigrationRunner
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         backend = AsyncSQLiteBackend(database=":memory:")
         await backend.connect()
@@ -1142,7 +1136,6 @@ class TestAsyncMigrationRunnerIntegration:
                         CreateTableStatement,
                         ColumnDefinition,
                         ColumnConstraint,
-                        ColumnConstraintType,
                     )
                     from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
                         SQLiteIntegerType,
@@ -1155,7 +1148,7 @@ class TestAsyncMigrationRunnerIntegration:
                             ColumnDefinition(ctx.dialect, 
                                 "id",
                                 SQLiteIntegerType(ctx.dialect),
-                                constraints=[ColumnConstraint(ctx.dialect, ColumnConstraintType.PRIMARY_KEY)],
+                                constraints=[ColumnConstraint(ctx.dialect, branch=ColumnPrimaryKeyConstraint(ctx.dialect))],
                             ),
                             ColumnDefinition(ctx.dialect, "value", SQLiteTextType(dialect=ctx.dialect)),
                         ],
@@ -1187,7 +1180,7 @@ def _make_create_users_expr_static(dialect):
         CreateTableStatement,
         ColumnDefinition,
         ColumnConstraint,
-        ColumnConstraintType,
+        ColumnPrimaryKeyConstraint,
     )
     from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
         SQLiteIntegerType,
@@ -1200,7 +1193,7 @@ def _make_create_users_expr_static(dialect):
             ColumnDefinition(dialect, 
                 "id",
                 SQLiteIntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
             ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
@@ -1269,7 +1262,6 @@ class TestBatchMigrationRunner:
 
     def test_migrate_up_in_order(self, sqlite_backend, tmp_path):
         from rhosocial.activerecord.backend.migration.batch_runner import BatchMigrationRunner
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         register_temp_module("batch_up.migrations", dict(
             V001=type("V001", (NamedMigration,), {
@@ -1298,7 +1290,6 @@ class TestBatchMigrationRunner:
 
     def test_pending_versions(self, tmp_path):
         from rhosocial.activerecord.backend.migration.batch_runner import BatchMigrationRunner
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         register_temp_module("batch_pending.migrations", dict(
             V001=type("V001", (NamedMigration,), {
@@ -1312,7 +1303,6 @@ class TestBatchMigrationRunner:
         ))
         try:
             store = JSONFileMigrationRecordStore(tmp_path / "batch_pending.json")
-            from rhosocial.activerecord.backend.migration.record import MigrationRecord
             from datetime import datetime, timezone
             store.record(MigrationRecord(
                 version="v001",
@@ -1329,7 +1319,6 @@ class TestBatchMigrationRunner:
 
     def test_status_report(self, tmp_path):
         from rhosocial.activerecord.backend.migration.batch_runner import BatchMigrationRunner
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         register_temp_module("batch_status.migrations", dict(
             V001=type("V001", (NamedMigration,), {
@@ -1343,7 +1332,6 @@ class TestBatchMigrationRunner:
         ))
         try:
             store = JSONFileMigrationRecordStore(tmp_path / "batch_status.json")
-            from rhosocial.activerecord.backend.migration.record import MigrationRecord
             from datetime import datetime, timezone
             store.record(MigrationRecord(
                 version="v001",
@@ -1378,7 +1366,6 @@ class TestBatchMigrationRunner:
 
     def test_migrate_down_in_reverse(self, sqlite_backend, tmp_path):
         from rhosocial.activerecord.backend.migration.batch_runner import BatchMigrationRunner
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         register_temp_module("batch_down.migrations", dict(
             V001=type("V001", (NamedMigration,), {
@@ -1413,7 +1400,6 @@ class TestBatchMigrationRunner:
     def test_single_transaction_rolls_back_on_failure(self, sqlite_backend, tmp_path):
         """single_transaction=True should roll back all migrations on failure."""
         from rhosocial.activerecord.backend.migration.batch_runner import BatchMigrationRunner
-        from rhosocial.activerecord.backend.migration import JSONFileMigrationRecordStore
 
         register_temp_module("batch_txn.migrations", dict(
             V001=type("V001", (NamedMigration,), {
@@ -1452,7 +1438,7 @@ def _run_create_users(backend, ctx):
         CreateTableStatement,
         ColumnDefinition,
         ColumnConstraint,
-        ColumnConstraintType,
+        ColumnPrimaryKeyConstraint,
     )
     from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
         SQLiteIntegerType,
@@ -1465,7 +1451,7 @@ def _run_create_users(backend, ctx):
             ColumnDefinition(backend.dialect, 
                 "id",
                 SQLiteIntegerType(backend.dialect),
-                constraints=[ColumnConstraint(backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(backend.dialect, branch=ColumnPrimaryKeyConstraint(backend.dialect))],
             ),
             ColumnDefinition(backend.dialect, "name", SQLiteTextType(dialect=backend.dialect)),
         ],
@@ -1484,7 +1470,7 @@ def _run_create_posts(backend, ctx):
         CreateTableStatement,
         ColumnDefinition,
         ColumnConstraint,
-        ColumnConstraintType,
+        ColumnPrimaryKeyConstraint,
     )
     from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
         SQLiteIntegerType,
@@ -1497,7 +1483,7 @@ def _run_create_posts(backend, ctx):
             ColumnDefinition(backend.dialect, 
                 "id",
                 SQLiteIntegerType(backend.dialect),
-                constraints=[ColumnConstraint(backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(backend.dialect, branch=ColumnPrimaryKeyConstraint(backend.dialect))],
             ),
             ColumnDefinition(backend.dialect, "title", SQLiteTextType(dialect=backend.dialect)),
         ],

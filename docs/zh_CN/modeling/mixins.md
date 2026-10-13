@@ -235,14 +235,14 @@ from rhosocial.activerecord.field import OptimisticLockMixin
 from typing import Annotated
 from pydantic import Field
 from rhosocial.activerecord.base.fields import UseColumn, UseConstraint
-from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnConstraintType
+
 
 class Article(OptimisticLockMixin, ActiveRecord):
     __version_field__ = "row_version"
     __version_increment_by__ = 2   # 可选，默认 1
 
     row_version: Annotated[
-        int, UseColumn("row_ver"), UseConstraint(ColumnConstraintType.NOT_NULL)
+        int, UseColumn("row_ver"), UseConstraint(ColumnNotNullConstraint)
     ] = Field(default=1, ge=1)
     title: str
 ```

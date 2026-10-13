@@ -2,19 +2,22 @@
 """Tests for SQLite generated columns support."""
 
 import pytest
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnGeneratedConstraint,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression import RawSQLExpression
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     GeneratedColumnType,
-    GeneratedColumnExpression,
     CreateTableStatement,
     ColumnConstraint,
-    ColumnConstraintType,
 )
-from rhosocial.activerecord.backend.expression import RawSQLExpression
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
-from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
 class TestGeneratedColumnsVersionSupport:
@@ -51,7 +54,7 @@ class TestGeneratedColumnsFormatting:
         col_def = ColumnDefinition(dialect,
             name="full_name",
             data_type=SQLiteTextType(dialect=dialect),
-            generated_expression=GeneratedColumnExpression(
+            generated_expression=ColumnGeneratedConstraint(
                 dialect,
                 expression=RawSQLExpression(dialect, '"first_name" || \' \' || "last_name"'),
                 storage_type=GeneratedColumnType.VIRTUAL,
@@ -71,7 +74,7 @@ class TestGeneratedColumnsFormatting:
         col_def = ColumnDefinition(dialect,
             name="total_price",
             data_type=SQLiteRealType(dialect=dialect),
-            generated_expression=GeneratedColumnExpression(
+            generated_expression=ColumnGeneratedConstraint(
                 dialect,
                 expression=RawSQLExpression(dialect, '"price" * "quantity"'),
                 storage_type=GeneratedColumnType.STORED,
@@ -91,7 +94,7 @@ class TestGeneratedColumnsFormatting:
         col_def = ColumnDefinition(dialect,
             name="computed_value",
             data_type=SQLiteIntegerType(dialect),
-            generated_expression=GeneratedColumnExpression(
+            generated_expression=ColumnGeneratedConstraint(
                 dialect,
                 expression=RawSQLExpression(dialect, '"base_value" + 1'),
             ),
@@ -109,8 +112,8 @@ class TestGeneratedColumnsFormatting:
         col_def = ColumnDefinition(dialect,
             name="status_code",
             data_type=SQLiteIntegerType(dialect),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
-            generated_expression=GeneratedColumnExpression(
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
+            generated_expression=ColumnGeneratedConstraint(
                 dialect,
                 expression=RawSQLExpression(dialect, '"raw_status"'),
             ),
@@ -128,7 +131,7 @@ class TestGeneratedColumnsFormatting:
 
         col_def = ColumnDefinition(dialect,
             name="computed", data_type=SQLiteTextType(dialect=dialect),
-            generated_expression=GeneratedColumnExpression(
+            generated_expression=ColumnGeneratedConstraint(
                 dialect,
                 expression=RawSQLExpression(dialect, '"source"'),
             ),
@@ -148,15 +151,20 @@ class TestGeneratedColumnsInCreateTable:
         dialect = SQLiteDialect(version=(3, 31, 0))
 
         columns = [
-            ColumnDefinition(dialect,
-                name="id", data_type=SQLiteIntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)]
+            ColumnDefinition(
+                dialect,
+                name="id",
+                data_type=SQLiteIntegerType(dialect),
+                constraints=[ColumnConstraint(
+                    dialect, branch=ColumnPrimaryKeyConstraint(dialect)
+                )],
             ),
             ColumnDefinition(dialect, name="price", data_type=SQLiteRealType(dialect=dialect)),
             ColumnDefinition(dialect, name="quantity", data_type=SQLiteIntegerType(dialect)),
             ColumnDefinition(dialect,
                 name="total",
                 data_type=SQLiteRealType(dialect=dialect),
-                generated_expression=GeneratedColumnExpression(
+                generated_expression=ColumnGeneratedConstraint(
                     dialect,
                     expression=RawSQLExpression(dialect, '"price" * "quantity"'),
                     storage_type=GeneratedColumnType.STORED,
@@ -178,15 +186,13 @@ class TestGeneratedColumnsInCreateTable:
         dialect = SQLiteDialect(version=(3, 31, 0))
 
         columns = [
-            ColumnDefinition(dialect,
-                name="id", data_type=SQLiteIntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)]
-            ),
+            ColumnDefinition(dialect, name="id", data_type=SQLiteIntegerType(dialect)),
             ColumnDefinition(dialect, name="first_name", data_type=SQLiteTextType(dialect=dialect)),
             ColumnDefinition(dialect, name="last_name", data_type=SQLiteTextType(dialect=dialect)),
             ColumnDefinition(dialect,
                 name="full_name",
                 data_type=SQLiteTextType(dialect=dialect),
-                generated_expression=GeneratedColumnExpression(
+                generated_expression=ColumnGeneratedConstraint(
                     dialect,
                     expression=RawSQLExpression(dialect, '"first_name" || \' \' || "last_name"'),
                     storage_type=GeneratedColumnType.VIRTUAL,

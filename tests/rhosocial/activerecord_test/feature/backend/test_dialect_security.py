@@ -7,23 +7,25 @@ methods properly sanitize user input to prevent SQL injection.
 """
 
 import pytest
-
-from typing import Tuple
-
-from rhosocial.activerecord.backend.dialect import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, ExpressionMixin, DDLColumnMixin, TableMixin
-from rhosocial.activerecord.backend.dialect.mixins.data_type import DataTypeMixin
-from rhosocial.activerecord.backend.expression import Column
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+)
+from rhosocial.activerecord.backend.dialect.mixins import NamespaceMixin, TableNameMixin
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression.functions.string import trim
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
-    ColumnConstraintType,
     PartitionStrategy,
 )
-from rhosocial.activerecord.backend.expression.functions.string import trim
-from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
-from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.dialect.mixins import NamespaceMixin, TableNameMixin
+from rhosocial.activerecord.backend.dialect.mixins.data_type import DataTypeMixin
+from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin, ExpressionMixin, DDLColumnMixin, TableMixin
+from typing import Tuple
+from rhosocial.activerecord.backend.dialect import SQLDialectBase
+from rhosocial.activerecord.backend.expression import Column
+
+
 
 
 class TestDialect(
@@ -128,7 +130,6 @@ def test_column_definition_rejects_string_data_type(dialect):
 def test_format_cast_expression_valid(dialect):
     """A cast renders the type it was handed."""
     from rhosocial.activerecord.backend.expression.core import CastExpression, Column
-    from rhosocial.activerecord.backend.expression.types import IntegerType
 
     expr = CastExpression(dialect, Column(dialect, "column"),
                           IntegerType(dialect))
@@ -189,12 +190,9 @@ def test_trim_direction_rejects_invalid(dialect):
 
 def test_format_default_constraint_string_escaping(dialect):
     """Test DEFAULT constraint string is escaped."""
-    constraint = ColumnConstraint(dialect, 
-        constraint_type=ColumnConstraintType.DEFAULT,
-        default_value="test's value",
-    )
+    constraint = ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, "test's value"))
 
-    sql, params = dialect.format_default_constraint(constraint)
+    sql, params = dialect.format_column_default_constraint(constraint.branch)
     assert "test''s value" in sql
     assert "'; DROP" not in sql
 
@@ -267,7 +265,6 @@ def test_format_storage_options_empty(dialect):
 
 def test_format_partition_method_validation(dialect):
     """Test partition method is allowlist-validated and columns are quoted."""
-    from rhosocial.activerecord.backend.expression import Column
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
         CreateTableStatement,
         ColumnDefinition,
@@ -293,7 +290,6 @@ def test_format_partition_method_validation(dialect):
 
 def test_format_partition_method_rejects_invalid_method_without_echoing_value(dialect):
     """Invalid partition method is rejected before SQL generation."""
-    from rhosocial.activerecord.backend.expression import Column
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
         PartitionClause,
     )
@@ -323,7 +319,6 @@ def dialect():
 
 def test_format_identifier_prevents_name_injection():
     """format_identifier must double-quote embedded quotes."""
-    from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
     d = SQLDialectBase()
     # core base wraps in double-quotes and escapes embedded "
     assert d.format_identifier("normal") == '"normal"'

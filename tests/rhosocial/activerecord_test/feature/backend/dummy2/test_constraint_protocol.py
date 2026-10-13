@@ -2,10 +2,17 @@
 """Tests for ConstraintSupport protocol and ConstraintMixin."""
 
 import pytest
-from rhosocial.activerecord.backend.dialect.protocols import ConstraintSupport
-from rhosocial.activerecord.backend.dialect.mixins import ConstraintMixin
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnCheckConstraint,
+    TableCheckConstraint,
+    TableExcludeConstraint,
+    TablePrimaryKeyConstraint,
+    TableUniqueConstraint,
+)
 from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.dialect.mixins import ConstraintMixin
+from rhosocial.activerecord.backend.dialect.protocols import ConstraintSupport
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
 class TestConstraintProtocol:
@@ -160,15 +167,11 @@ class TestConstraintSQLFormatting:
         from rhosocial.activerecord.backend.expression.statements.ddl_alter import AddTableConstraint
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
             TableConstraint,
-            TableConstraintType,
         )
 
         action = AddTableConstraint(
             dialect,
-            constraint=TableConstraint(dialect, 
-                constraint_type=TableConstraintType.PRIMARY_KEY,
-                columns=["id"],
-            ),
+            constraint=TableConstraint(dialect, branch=TablePrimaryKeyConstraint(dialect, ["id"])),
         )
         sql, params = dialect.format_add_table_constraint_action(action)
         assert "PRIMARY KEY" in sql
@@ -179,15 +182,11 @@ class TestConstraintSQLFormatting:
         from rhosocial.activerecord.backend.expression.statements.ddl_alter import AddTableConstraint
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
             TableConstraint,
-            TableConstraintType,
         )
 
         action = AddTableConstraint(
             dialect,
-            constraint=TableConstraint(dialect, 
-                constraint_type=TableConstraintType.UNIQUE,
-                columns=["email"],
-            ),
+            constraint=TableConstraint(dialect, branch=TableUniqueConstraint(dialect, ["email"])),
         )
         sql, params = dialect.format_add_table_constraint_action(action)
         assert "UNIQUE" in sql
@@ -198,17 +197,13 @@ class TestConstraintSQLFormatting:
         from rhosocial.activerecord.backend.expression.statements.ddl_alter import AddTableConstraint
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
             TableConstraint,
-            TableConstraintType,
         )
         from rhosocial.activerecord.backend.expression import Column as ExprColumn, Literal
 
         check_condition = ExprColumn(dialect, "age") > Literal(dialect, 0)
         action = AddTableConstraint(
             dialect,
-            constraint=TableConstraint(dialect, 
-                constraint_type=TableConstraintType.CHECK,
-                check_condition=check_condition,
-            ),
+            constraint=TableConstraint(dialect, branch=TableCheckConstraint(dialect, check_condition)),
         )
         sql, params = dialect.format_add_table_constraint_action(action)
         assert "CHECK" in sql
@@ -237,16 +232,12 @@ class TestConstraintSQLFormatting:
         from rhosocial.activerecord.backend.expression.statements.ddl_alter import AddTableConstraint
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
             TableConstraint,
-            TableConstraintType,
+            TableUniqueConstraint,
         )
 
         action = AddTableConstraint(
             dialect,
-            constraint=TableConstraint(dialect, 
-                constraint_type=TableConstraintType.UNIQUE,
-                name="uk_email",
-                columns=["email"],
-            ),
+            constraint=TableConstraint(dialect, branch=TableUniqueConstraint(dialect, ["email"]), name="uk_email"),
         )
         sql, params = dialect.format_add_table_constraint_action(action)
         assert "CONSTRAINT" in sql
@@ -271,32 +262,18 @@ class TestConstraintEnforcementAndValidation:
         from rhosocial.activerecord.backend.expression import (
             Column,
             ColumnConstraint,
-            ColumnConstraintType,
             ColumnDefinition,
             ComparisonPredicate,
             CreateTableStatement,
             Literal,
             TableConstraint,
-            TableConstraintType,
         )
         from rhosocial.activerecord.backend.expression.types import IntegerType
-        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
         dialect = DummyDialect()
         condition = ComparisonPredicate(dialect, ">", Column(dialect, "age"), Literal(dialect, 0, inline_literals=True))
-        table_constraint = TableConstraint(
-            dialect,
-            TableConstraintType.CHECK,
-            name="age_check",
-            check_condition=condition,
-            not_enforced=True,
-        )
-        column_constraint = ColumnConstraint(
-            dialect,
-            ColumnConstraintType.CHECK,
-            check_condition=condition,
-            not_enforced=True,
-        )
+        table_constraint = TableConstraint(dialect, branch=TableCheckConstraint(dialect, condition), name="age_check", not_enforced=True)
+        column_constraint = ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, condition), not_enforced=True)
         expression = CreateTableStatement(
             dialect,
             Table(dialect, 'people'),
@@ -313,16 +290,14 @@ class TestConstraintEnforcementAndValidation:
         assert params == ()
 
     def test_add_constraint_validation_is_type_specific(self):
-        from rhosocial.activerecord.backend.expression import AddTableConstraint, TableConstraint, TableConstraintType
+        from rhosocial.activerecord.backend.expression import AddTableConstraint, TableConstraint, TablePrimaryKeyConstraint, TableUniqueConstraint
         from rhosocial.activerecord.backend.expression.statements import ConstraintValidation
-        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
         dialect = DummyDialect()
-        for constraint_type in (TableConstraintType.PRIMARY_KEY, TableConstraintType.UNIQUE):
+        for branch_cls in (TablePrimaryKeyConstraint, TableUniqueConstraint):
             constraint = TableConstraint(
                 dialect,
-                constraint_type,
-                columns=["id"],
+                branch=branch_cls(dialect, ["id"]),
                 validation=ConstraintValidation.NOVALIDATE,
             )
             with pytest.raises(ValueError, match="NOT VALID"):
@@ -330,28 +305,21 @@ class TestConstraintEnforcementAndValidation:
 
     def test_enforcement_capability_is_gated(self):
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-        from rhosocial.activerecord.backend.expression import Column, ColumnConstraint, ColumnConstraintType, Literal
+        from rhosocial.activerecord.backend.expression import Column, ColumnConstraint, Literal, ColumnCheckConstraint
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
         dialect = SQLiteDialect()
         condition = Column(dialect, "age") > Literal(dialect, 0, inline_literals=True)
-        constraint = ColumnConstraint(
-            dialect,
-            ColumnConstraintType.CHECK,
-            check_condition=condition,
-            not_enforced=True,
-        )
+        constraint = ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, condition), not_enforced=True)
         with pytest.raises(UnsupportedFeatureError):
             constraint.to_sql()
 
     def test_alter_constraint_actions(self):
         from rhosocial.activerecord.backend.expression import (
             AlterConstraint,
-            ColumnConstraintType,
-            TableConstraintType,
             ValidateConstraint,
+            TableCheckConstraint,
         )
-        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
         dialect = DummyDialect()
 
@@ -359,9 +327,9 @@ class TestConstraintEnforcementAndValidation:
             dialect,
             "age_check",
             not_enforced=True,
-            constraint_type=ColumnConstraintType.CHECK,
+            constraint_kind=TableCheckConstraint,
         )
-        assert action.constraint_type is TableConstraintType.CHECK
+        assert action.constraint_branch is TableCheckConstraint
         assert action.to_sql()[0] == 'ALTER CONSTRAINT "age_check" NOT ENFORCED'
         assert ValidateConstraint(dialect, "age_check").to_sql()[0] == (
             'VALIDATE CONSTRAINT "age_check"'
@@ -369,13 +337,15 @@ class TestConstraintEnforcementAndValidation:
         with pytest.raises(TypeError):
             AlterConstraint(dialect, "age_check", False)
 
-    def test_constraint_type_and_validation_strings_are_refused(self):
-        """The typed contract is the enum; strings are refused, not coerced.
+    def test_branch_and_validation_types_are_refused(self):
+        """The branch names the kind and ``validation`` names its spelling;
+        neither accepts a string in place of the declared type.
 
-        ``constraint_type`` and ``validation`` used to be normalised at
-        render time — a runtime fallback that let a mistyped or half-written
-        value reach the dialect before failing. The renderer now reads the
-        declared field and fails explicitly.
+        The kind used to be a runtime-normalised enum member or its name, and
+        ``validation`` was normalised at render time — a fallback that let a
+        mistyped value reach the dialect before failing. The kind is now a
+        class, which cannot be spelled at all, and ``validation`` is refused
+        where it is read.
         """
         from rhosocial.activerecord.backend.expression import (
             AddTableConstraint,
@@ -383,36 +353,21 @@ class TestConstraintEnforcementAndValidation:
             ConstraintValidation,
             Literal,
             TableConstraint,
-            TableConstraintType,
+            TableCheckConstraint,
         )
-        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
         dialect = DummyDialect()
-        typed = TableConstraint(
-            dialect,
-            TableConstraintType.CHECK,
-            check_condition=Column(dialect, "age") > Literal(dialect, 0),
-            validation=ConstraintValidation.NOVALIDATE,
-        )
+        typed = TableConstraint(dialect, branch=TableCheckConstraint(dialect, Column(dialect, "age") > Literal(dialect, 0)), validation=ConstraintValidation.NOVALIDATE)
 
         assert AddTableConstraint(dialect, typed).to_sql()[0].endswith("NOT VALID")
         assert "NOT VALID" not in typed.to_sql()[0]
 
-        with pytest.raises(TypeError, match="TableConstraintType"):
-            TableConstraint(
-                dialect,
-                " check ",
-                check_condition=Column(dialect, "age") > Literal(dialect, 0),
-            ).to_sql()
+        with pytest.raises(TypeError, match="TableConstraintBranch"):
+            TableConstraint(dialect, branch=" check ")
         with pytest.raises(TypeError, match="ConstraintValidation"):
             AddTableConstraint(
                 dialect,
-                TableConstraint(
-                    dialect,
-                    TableConstraintType.CHECK,
-                    check_condition=Column(dialect, "age") > Literal(dialect, 0),
-                    validation=" not valid ",
-                ),
+                TableConstraint(dialect, branch=TableCheckConstraint(dialect, Column(dialect, "age") > Literal(dialect, 0)), validation=" not valid "),
             ).to_sql()
 
     def test_check_predicate_inlines_literals_and_rejects_raw_parameters(self):
@@ -422,32 +377,26 @@ class TestConstraintEnforcementAndValidation:
             Literal,
             RawSQLPredicate,
             TableConstraint,
-            TableConstraintType,
+            TableCheckConstraint,
         )
-        from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
         dialect = DummyDialect()
-        trusted = TableConstraint(
-            dialect,
-            TableConstraintType.CHECK,
-            check_condition=ComparisonPredicate(dialect, ">", Column(dialect, "age"), Literal(dialect, 0)),
-        )
+        trusted = TableConstraint(dialect, branch=TableCheckConstraint(dialect, ComparisonPredicate(dialect, ">", Column(dialect, "age"), Literal(dialect, 0))))
         assert trusted.to_sql() == ('CHECK ("age" > 0)', ())
 
-        unsafe = TableConstraint(
-            dialect,
-            TableConstraintType.CHECK,
-            check_condition=RawSQLPredicate(dialect, "age > %s", (0,)),
-        )
+        unsafe = TableConstraint(dialect, branch=TableCheckConstraint(dialect, RawSQLPredicate(dialect, "age > %s", (0,))))
         with pytest.raises(ValueError, match="must not contain bind parameters"):
             unsafe.to_sql()
 
     def test_exclude_is_rejected_on_unsupported_dialect(self):
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-        from rhosocial.activerecord.backend.expression import TableConstraint, TableConstraintType
+        from rhosocial.activerecord.backend.expression import (
+            TableConstraint,
+        )
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
-        constraint = TableConstraint(SQLiteDialect(), TableConstraintType.EXCLUDE)
+        dialect = SQLiteDialect()
+        constraint = TableConstraint(dialect, branch=TableExcludeConstraint(dialect, ["ts"]))
         with pytest.raises(UnsupportedFeatureError, match="EXCLUDE"):
             constraint.to_sql()
 
@@ -467,11 +416,9 @@ class TestInPredicateInDDLCheckConstraints:
     def _check(self, dialect, condition):
         from rhosocial.activerecord.backend.expression import (
             TableConstraint,
-            TableConstraintType,
+            TableCheckConstraint,
         )
-        return TableConstraint(
-            dialect, TableConstraintType.CHECK, check_condition=condition
-        )
+        return TableConstraint(dialect, branch=TableCheckConstraint(dialect, condition))
 
     def test_in_list_inlines_inside_a_check(self, dummy_dialect: DummyDialect):
         from rhosocial.activerecord.backend.expression import InPredicate, Literal, Column

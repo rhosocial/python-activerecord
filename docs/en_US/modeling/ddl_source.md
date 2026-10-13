@@ -112,7 +112,7 @@ The table below describes the default `DDLSourceMixin` implementation. A custom 
 | `column_attributes(field)` | `Sequence[ColumnAttribute]` | Expands markers in order without dialect filtering. |
 | `column_indexes(field)` | `Sequence[IndexDefinition]` | Builds one definition per `UseIndex` and substitutes the physical column name. |
 | `column_comment(field)` | `Optional[str]` | Returns the first `UseComment` text. |
-| `generated_column(field)` | `Optional[GeneratedColumnExpression or factory]` | Returns the first `UseGeneratedColumn` value without calling a factory. |
+| `generated_column(field)` | `Optional[ColumnGeneratedConstraint or factory]` | Returns the first `UseGeneratedColumn` value without calling a factory. |
 | `column_options(field)` | `None`, `ColumnOptions`, or a sequence | Returns values written by a handler to `DDLFieldMetadata.column_options`; one value is returned directly, multiple values as a list. |
 | `table_options()` | `None`, expression, or sequence | `None` by default; an override is returned unchanged. |
 | `table_storage_options()` | `None`, expression, or sequence | `None` by default; an override is returned unchanged. |
@@ -225,7 +225,7 @@ from rhosocial.activerecord.base import (
     UseIndex,
     UseSqlType,
 )
-from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
+
 from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.model import ActiveRecord
 
@@ -245,7 +245,7 @@ class Account(ActiveRecord):
     ]
     status: Annotated[
         str,
-        UseConstraint(ColumnConstraintType.NOT_NULL),
+        UseConstraint(ColumnNotNullConstraint),
     ] = "active"
     note: Optional[str] = None
 

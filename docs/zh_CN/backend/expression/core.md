@@ -135,8 +135,7 @@ class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin
 ```python
 from rhosocial.activerecord.backend.expression import (
     Literal, Column, ComparisonPredicate,
-    ColumnDefinition, ColumnConstraint, ColumnConstraintType,
-)
+    ColumnDefinition, ColumnConstraint, )
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
 # DDL：DEFAULT 值必须内联
@@ -145,20 +144,20 @@ ColumnDefinition(dialect,
     data_type=IntegerType(dialect),
     constraints=[
         ColumnConstraint(dialect,
-            constraint_type=ColumnConstraintType.DEFAULT,
-            default_value=Literal(dialect, 0, inline_literals=True),  # -> DEFAULT 0
+            branch=ColumnDefaultConstraint(
+                value=Literal(dialect, 0, inline_literals=True),  # -> DEFAULT 0
         ),
-    ],
+    ]
 )
 
 # DDL：CHECK 条件——比较值必须内联
 ColumnConstraint(dialect,
-    constraint_type=ColumnConstraintType.CHECK,
-    check_condition=ComparisonPredicate(
+    branch=ColumnCheckConstraint(
+        condition=ComparisonPredicate(
         dialect, ">=",
         Column(dialect, "score"),
         Literal(dialect, 0, inline_literals=True),  # -> CHECK ("score" >= 0)
-    ),
+    )
 )
 ```
 

@@ -1,3 +1,23 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.migration import (
+    NamedMigration,
+    MigrationContext,
+    AsyncNamedMigration,
+    AsyncMigrationContext,
+)
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+    SQLiteIntegerType,
+    SQLiteTextType,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    CreateTableStatement,
+    ColumnDefinition,
+    ColumnConstraint,
+    DropTableStatement,
+)
 # tests/rhosocial/activerecord_test/feature/backend/cli/named_series/migrations.py
 """Named migration fixtures (named-migration layer).
 
@@ -6,24 +26,6 @@ subclasses.  Running these via the CLI creates the ``users``/``posts``
 tables that the queries/procedures/graphs depend on.
 """
 
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    CreateTableStatement,
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-    DropTableStatement,
-)
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
-    SQLiteIntegerType,
-    SQLiteTextType,
-)
-from rhosocial.activerecord.backend.migration import (
-    NamedMigration,
-    MigrationContext,
-    AsyncNamedMigration,
-    AsyncMigrationContext,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
 
 
 # --- DDL named expressions ------------------------------------------------
@@ -37,7 +39,7 @@ def create_users_table(dialect):
         columns=[
             ColumnDefinition(dialect, 
                 "id", SQLiteIntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "name", SQLiteTextType(dialect=dialect)),
             ColumnDefinition(dialect, "email", SQLiteTextType(dialect=dialect)),
@@ -58,7 +60,7 @@ def create_posts_table(dialect):
         columns=[
             ColumnDefinition(dialect, 
                 "id", SQLiteIntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "title", SQLiteTextType(dialect=dialect)),
             ColumnDefinition(dialect, "user_id", SQLiteIntegerType(dialect)),

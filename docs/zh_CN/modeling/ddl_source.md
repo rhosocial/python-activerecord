@@ -112,7 +112,7 @@ class Report(ActiveRecord):
 | `column_attributes(field)` | `Sequence[ColumnAttribute]` | 按标记顺序展开属性；不做方言筛选。 |
 | `column_indexes(field)` | `Sequence[IndexDefinition]` | 为每个 `UseIndex` 建立定义，并使用物理列名。 |
 | `column_comment(field)` | `Optional[str]` | 返回第一个 `UseComment` 的文本。 |
-| `generated_column(field)` | `Optional[GeneratedColumnExpression or factory]` | 返回第一个 `UseGeneratedColumn` 的值；不调用工厂。 |
+| `generated_column(field)` | `Optional[ColumnGeneratedConstraint or factory]` | 返回第一个 `UseGeneratedColumn` 的值；不调用工厂。 |
 | `column_options(field)` | `None`、`ColumnOptions` 或其序列 | 返回处理器写入 `DDLFieldMetadata.column_options` 的值；一个选项返回对象，多个选项返回 list。 |
 | `table_options()` | `None`、表达式或其序列 | 默认 `None`；覆盖方法的结果原样返回。 |
 | `table_storage_options()` | `None`、表达式或其序列 | 默认 `None`；覆盖方法的结果原样返回。 |
@@ -225,7 +225,7 @@ from rhosocial.activerecord.base import (
     UseIndex,
     UseSqlType,
 )
-from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
+
 from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.model import ActiveRecord
 
@@ -245,7 +245,7 @@ class Account(ActiveRecord):
     ]
     status: Annotated[
         str,
-        UseConstraint(ColumnConstraintType.NOT_NULL),
+        UseConstraint(ColumnNotNullConstraint),
     ] = "active"
     note: Optional[str] = None
 

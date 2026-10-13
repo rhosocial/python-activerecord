@@ -8,15 +8,17 @@ Tests are run against the actual SQLite dialect.
 """
 
 import pytest
-
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Function, Table, Trigger
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
-    ColumnConstraintType,
 )
-from rhosocial.activerecord.backend.expression.objects import Function, Table, Trigger
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
 
 
 @pytest.fixture
@@ -62,12 +64,9 @@ def test_sqlite_format_column_definition_data_type_rejects_injection(dialect):
 
 def test_sqlite_format_default_constraint_string_escaping(dialect):
     """Test DEFAULT constraint string is escaped."""
-    constraint = ColumnConstraint(dialect, 
-        constraint_type=ColumnConstraintType.DEFAULT,
-        default_value="test's value",
-    )
+    constraint = ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, "test's value"))
 
-    sql, params = dialect.format_default_constraint(constraint)
+    sql, params = dialect.format_column_default_constraint(constraint.branch)
     assert sql == " DEFAULT 'test''s value'"
     assert params == ()
 

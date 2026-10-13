@@ -1,11 +1,43 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_table.py
 import inspect
-from typing import Set, Tuple
 
 import pytest
-from rhosocial.activerecord.backend.dialect import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnCheckConstraint,
+    ColumnDefaultConstraint,
+    ColumnForeignKeyConstraint,
+    ColumnNotNullConstraint,
+    ColumnNullableConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+    TablePrimaryKeyConstraint,
+    TableUniqueConstraint,
+)
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+    CreateTableStatement,
+    TableConstraint,
+)
+from rhosocial.activerecord.backend.expression.types import CustomType
+from rhosocial.activerecord.backend.expression.types import DateType, DecimalType, IntegerType, SmallIntType, TextType, TimestampType, VarCharType
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.dialect.mixins import (
+    PartitionMixin,
+    DDLColumnMixin,
+    TableNameMixin,
+    NamespaceMixin,
+    TableMixin,
+    ExpressionMixin,
+    DataTypeMixin,
+)
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.dialect import protocols as dialect_protocols
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.dialect import SQLDialectBase
+from typing import Set, Tuple
 from rhosocial.activerecord.backend.expression import (
     Literal,
     Column,
@@ -23,33 +55,16 @@ from rhosocial.activerecord.backend.expression import (
     TableCommentClause,
     IndexDefinition,
 )
-from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import (
     TableConstraint,
-    TableConstraintType,
     ReferentialAction,
     ForeignKeyConstraint,
     ColumnConstraint,
-    ColumnConstraintType,
     PartitionClause,
     PartitionStrategy,
     QueryStatement,
     StorageOptionsExpression,
 )
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.dialect.mixins import (
-    PartitionMixin,
-    DDLColumnMixin,
-    TableNameMixin,
-    NamespaceMixin,
-    TableMixin,
-    ExpressionMixin,
-    DataTypeMixin,
-)
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.types import DateType, DecimalType, IntegerType, SmallIntType, TextType, TimestampType, VarCharType
-from rhosocial.activerecord.backend.expression.types import CustomType
 
 
 class PartitionTestDialect(
@@ -182,11 +197,11 @@ class TestCreateTableStatements:
                 "id",
                 IntegerType(dummy_dialect),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY),
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL),
+                    ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect)),
+                    ColumnConstraint(dummy_dialect, branch=ColumnNotNullConstraint(dummy_dialect)),
                 ],
             ),
-            ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 255), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 255), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnNotNullConstraint(dummy_dialect))]),
             ColumnDefinition(dummy_dialect, "email", TextType(dummy_dialect)),
         ]
 
@@ -201,7 +216,7 @@ class TestCreateTableStatements:
 
     def test_create_table_with_if_not_exists(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with IF NOT EXISTS flag."""
-        columns = [ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)])]
+        columns = [ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))])]
 
         create_table_expr = CreateTableStatement(dummy_dialect, table=Table(dummy_dialect, 'products'), columns=columns, if_not_exists=True)
         sql, params = create_table_expr.to_sql()
@@ -214,7 +229,7 @@ class TestCreateTableStatements:
         """Tests CREATE TEMPORARY TABLE statement."""
         columns = [
             ColumnDefinition(dummy_dialect, 
-                "session_id", VarCharType(dummy_dialect, 50), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)]
+                "session_id", VarCharType(dummy_dialect, 50), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnNotNullConstraint(dummy_dialect))]
             ),
             ColumnDefinition(dummy_dialect, "data", TextType(dummy_dialect)),
         ]
@@ -229,9 +244,9 @@ class TestCreateTableStatements:
     def test_create_table_with_unique_constraint(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with UNIQUE column constraint."""
         columns = [
-            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition(dummy_dialect, "username", VarCharType(dummy_dialect, 50), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.UNIQUE)]),
-            ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.UNIQUE)]),
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))]),
+            ColumnDefinition(dummy_dialect, "username", VarCharType(dummy_dialect, 50), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnUniqueConstraint(dummy_dialect))]),
+            ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnUniqueConstraint(dummy_dialect))]),
         ]
 
         create_table_expr = CreateTableStatement(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=columns)
@@ -244,18 +259,18 @@ class TestCreateTableStatements:
     def test_create_table_with_default_constraint(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with DEFAULT column constraints."""
         columns = [
-            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))]),
             ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 100)),
             ColumnDefinition(dummy_dialect,
                 "status",
                 VarCharType(dummy_dialect, 20),
-                constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value="active")],
+                constraints=[ColumnConstraint(dummy_dialect, branch=ColumnDefaultConstraint(dummy_dialect, "active"))],
             ),
             ColumnDefinition(dummy_dialect, 
                 "created_at",
                 TimestampType(dummy_dialect),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value=FunctionCall(dummy_dialect, "NOW"))
+                    ColumnConstraint(dummy_dialect, branch=ColumnDefaultConstraint(dummy_dialect, FunctionCall(dummy_dialect, "NOW")))
                 ],
             ),
         ]
@@ -277,10 +292,10 @@ class TestCreateTableStatements:
         )
 
         columns = [
-            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))]),
             ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 100)),
             ColumnDefinition(dummy_dialect, 
-                "age", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.CHECK, check_condition=age_check)]
+                "age", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnCheckConstraint(dummy_dialect, age_check))]
             ),
         ]
 
@@ -293,12 +308,12 @@ class TestCreateTableStatements:
     def test_create_table_with_foreign_key_constraint(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with FOREIGN KEY column constraints."""
         columns = [
-            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))]),
             ColumnDefinition(dummy_dialect, 
                 "user_id",
                 IntegerType(dummy_dialect),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dummy_dialect, "users"), ["id"]))
+                    ColumnConstraint(dummy_dialect, branch=ColumnForeignKeyConstraint(dummy_dialect, (Table(dummy_dialect, "users"), ["id"])))
                 ],
             ),
             ColumnDefinition(dummy_dialect, "product_name", VarCharType(dummy_dialect, 100)),
@@ -330,8 +345,8 @@ class TestCreateTableStatements:
         ]
 
         table_constraints = [
-            TableConstraint(dummy_dialect, constraint_type=TableConstraintType.PRIMARY_KEY, columns=["id"]),
-            TableConstraint(dummy_dialect, constraint_type=TableConstraintType.UNIQUE, columns=["name"]),
+            TableConstraint(dummy_dialect, branch=TablePrimaryKeyConstraint(dummy_dialect, ["id"])),
+            TableConstraint(dummy_dialect, branch=TableUniqueConstraint(dummy_dialect, ["name"])),
             ForeignKeyConstraint(dummy_dialect, 
                 foreign_key_table=Table(dummy_dialect, "categories"),
                 foreign_key_columns=["id"],
@@ -353,7 +368,7 @@ class TestCreateTableStatements:
     def test_create_table_with_storage_options(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with storage options."""
         columns = [
-            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))]),
             ColumnDefinition(dummy_dialect, "data", TextType(dummy_dialect)),
         ]
 
@@ -378,7 +393,7 @@ class TestCreateTableStatements:
     def test_create_table_with_tablespace(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with tablespace specification."""
         columns = [
-            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))]),
             ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 100)),
         ]
 
@@ -547,16 +562,6 @@ class TestCreateTableStatements:
         sql, _ = expr.to_sql()
         assert sql.startswith("CREATE OR REPLACE TABLE")
 
-    def test_create_table_options_or_replace(self, dummy_dialect: DummyDialect):
-        expr = CreateTableStatement(
-            dummy_dialect,
-            table=Table(dummy_dialect, 't'),
-            columns=[],
-            table_options=CreateTableOptions(dummy_dialect, or_replace=True),
-        )
-        sql, _ = expr.to_sql()
-        assert sql.startswith("CREATE OR REPLACE TABLE")
-
     def test_create_table_options_has_no_backend_fields(self, dummy_dialect: DummyDialect):
         """The generic options carry only or_replace/comment (no bag)."""
         opts = CreateTableOptions(dummy_dialect, or_replace=True, comment=TableCommentClause(dummy_dialect, "c"))
@@ -597,7 +602,7 @@ class TestCreateTableStatements:
     def test_create_table_with_indexes(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with indexes."""
         columns = [
-            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))]),
             ColumnDefinition(dummy_dialect, "email", VarCharType(dummy_dialect, 100)),
             ColumnDefinition(dummy_dialect, "created_at", TimestampType(dummy_dialect)),
         ]
@@ -618,12 +623,12 @@ class TestCreateTableStatements:
     def test_create_table_with_nullable_setting(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE with nullable settings."""
         columns = [
-            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))]),
             ColumnDefinition(dummy_dialect, 
-                "name", VarCharType(dummy_dialect, 100), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)]
+                "name", VarCharType(dummy_dialect, 100), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnNotNullConstraint(dummy_dialect))]
             ),  # Explicitly NOT NULL using constraint
             ColumnDefinition(dummy_dialect, 
-                "description", TextType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NULL)]
+                "description", TextType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, branch=ColumnNullableConstraint(dummy_dialect))]
             ),  # Explicitly allow NULLs using constraint
             ColumnDefinition(dummy_dialect, "age", IntegerType(dummy_dialect)),  # No constraints - uses database default
         ]
@@ -642,7 +647,7 @@ class TestCreateTableStatements:
             ColumnDefinition(dummy_dialect, 
                 "id",
                 IntegerType(dummy_dialect),
-                constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))],
                 comment=ColumnCommentClause(dummy_dialect, "Primary identifier"),
             ),
             ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 100), comment=ColumnCommentClause(dummy_dialect, "User's display name")),
@@ -832,15 +837,15 @@ class TestCreateTableStatements:
                 "id",
                 CustomType(dummy_dialect, "SERIAL"),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY),
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL),
+                    ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect)),
+                    ColumnConstraint(dummy_dialect, branch=ColumnNotNullConstraint(dummy_dialect)),
                 ],
             ),
             ColumnDefinition(dummy_dialect, 
                 "user_id",
                 IntegerType(dummy_dialect),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dummy_dialect, "users"), ["id"]))
+                    ColumnConstraint(dummy_dialect, branch=ColumnForeignKeyConstraint(dummy_dialect, (Table(dummy_dialect, "users"), ["id"])))
                 ],
                 comment=ColumnCommentClause(dummy_dialect, "Reference to users table"),
             ),
@@ -848,37 +853,34 @@ class TestCreateTableStatements:
                 "amount",
                 DecimalType(dummy_dialect, precision=10, scale=2),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL),
-                    ColumnConstraint(dummy_dialect, 
-                        ColumnConstraintType.CHECK,
-                        check_condition=ComparisonPredicate(
+                    ColumnConstraint(dummy_dialect, branch=ColumnNotNullConstraint(dummy_dialect)),
+                    ColumnConstraint(dummy_dialect, branch=ColumnCheckConstraint(dummy_dialect, ComparisonPredicate(
                             dummy_dialect,
                             ">=",
                             Column(dummy_dialect, "amount"),
                             Literal(dummy_dialect, 0, inline_literals=True),
-                        ),
-                    ),
+                        ))),
                 ],
             ),
             ColumnDefinition(dummy_dialect, 
                 "status",
                 VarCharType(dummy_dialect, 20),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value="pending"),
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL),  # Use constraint instead of nullable flag
+                    ColumnConstraint(dummy_dialect, branch=ColumnDefaultConstraint(dummy_dialect, "pending")),
+                    ColumnConstraint(dummy_dialect, branch=ColumnNotNullConstraint(dummy_dialect)),  # Use constraint instead of nullable flag
                 ],
             ),
             ColumnDefinition(dummy_dialect, 
                 "created_at",
                 TimestampType(dummy_dialect),
                 constraints=[
-                    ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value=FunctionCall(dummy_dialect, "NOW"))
+                    ColumnConstraint(dummy_dialect, branch=ColumnDefaultConstraint(dummy_dialect, FunctionCall(dummy_dialect, "NOW")))
                 ],
             ),
         ]
 
         table_constraints = [
-            TableConstraint(dummy_dialect, constraint_type=TableConstraintType.UNIQUE, columns=["user_id", "created_at"])
+            TableConstraint(dummy_dialect, branch=TableUniqueConstraint(dummy_dialect, ["user_id", "created_at"]))
         ]
 
         create_table_expr = CreateTableStatement(
@@ -901,189 +903,3 @@ class TestCreateTableStatements:
         assert 'UNIQUE ("user_id", "created_at")' in sql
         assert params == ()
 
-    def test_create_table_with_default_constraint_missing_value_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that CREATE TABLE with DEFAULT constraint but no value raises ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
-            ColumnConstraint,
-            ColumnConstraintType,
-        )
-
-        columns = [
-            ColumnDefinition(dummy_dialect, 
-                "status",
-                VarCharType(dummy_dialect, 20),
-                constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT)],  # No default value provided
-            )
-        ]
-
-        create_table_expr = CreateTableStatement(dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=columns)
-
-        with pytest.raises(ValueError, match=r"DEFAULT constraint must have a default value specified."):
-            create_table_expr.to_sql()
-
-    def test_create_table_with_check_constraint_missing_condition_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that CREATE TABLE with CHECK constraint but no condition raises ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
-            ColumnConstraint,
-            ColumnConstraintType,
-        )
-
-        columns = [
-            ColumnDefinition(dummy_dialect, 
-                "age",
-                IntegerType(dummy_dialect),
-                constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.CHECK)],  # No check condition provided
-            )
-        ]
-
-        create_table_expr = CreateTableStatement(dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=columns)
-
-        with pytest.raises(ValueError, match=r"CHECK constraint must have a check condition specified."):
-            create_table_expr.to_sql()
-
-    def test_create_table_with_foreign_key_constraint_missing_reference_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that CREATE TABLE with FOREIGN KEY constraint but no reference raises ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
-            ColumnConstraint,
-            ColumnConstraintType,
-        )
-
-        columns = [
-            ColumnDefinition(dummy_dialect, 
-                "user_id",
-                IntegerType(dummy_dialect),
-                constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY)],  # No foreign key reference provided
-            )
-        ]
-
-        create_table_expr = CreateTableStatement(dummy_dialect, table=Table(dummy_dialect, 'orders'), columns=columns)
-
-        with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have a foreign key reference specified."):
-            create_table_expr.to_sql()
-
-    def test_create_table_with_primary_key_table_constraint_missing_columns_raises_error(
-        self, dummy_dialect: DummyDialect
-    ):
-        """Tests that CREATE TABLE with PRIMARY KEY table constraint but no columns raises ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
-
-        table_constraints = [
-            TableConstraint(dummy_dialect, 
-                constraint_type=TableConstraintType.PRIMARY_KEY,
-                # Missing columns parameter
-            )
-        ]
-
-        create_table_expr = CreateTableStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=[], table_constraints=table_constraints
-        )
-
-        with pytest.raises(ValueError, match=r"PRIMARY KEY constraint must have at least one column specified."):
-            create_table_expr.to_sql()
-
-    def test_create_table_with_unique_table_constraint_missing_columns_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that CREATE TABLE with UNIQUE table constraint but no columns raises ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
-
-        table_constraints = [
-            TableConstraint(dummy_dialect, 
-                constraint_type=TableConstraintType.UNIQUE,
-                # Missing columns parameter
-            )
-        ]
-
-        create_table_expr = CreateTableStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=[], table_constraints=table_constraints
-        )
-
-        with pytest.raises(ValueError, match=r"UNIQUE constraint must have at least one column specified."):
-            create_table_expr.to_sql()
-
-    def test_create_table_with_check_table_constraint_missing_condition_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that CREATE TABLE with CHECK table constraint but no condition raises ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
-
-        table_constraints = [
-            TableConstraint(dummy_dialect, 
-                constraint_type=TableConstraintType.CHECK,
-                # Missing check_condition parameter
-            )
-        ]
-
-        create_table_expr = CreateTableStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'test_table'), columns=[], table_constraints=table_constraints
-        )
-
-        with pytest.raises(ValueError, match=r"CHECK constraint must have a check condition specified."):
-            create_table_expr.to_sql()
-
-    def test_create_table_with_foreign_key_table_constraint_missing_local_columns_raises_error(
-        self, dummy_dialect: DummyDialect
-    ):
-        """Tests that CREATE TABLE with FOREIGN KEY table constraint but no local columns raises ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
-
-        table_constraints = [
-            TableConstraint(dummy_dialect, 
-                constraint_type=TableConstraintType.FOREIGN_KEY,
-                foreign_key_table=Table(dummy_dialect, "users"),
-                foreign_key_columns=["id"],
-                # Missing local columns (columns parameter)
-            )
-        ]
-
-        create_table_expr = CreateTableStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'orders'), columns=[], table_constraints=table_constraints
-        )
-
-        with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have at least one local column specified."):
-            create_table_expr.to_sql()
-
-    def test_create_table_with_foreign_key_table_constraint_missing_foreign_columns_raises_error(
-        self, dummy_dialect: DummyDialect
-    ):
-        """Tests that CREATE TABLE with FOREIGN KEY table constraint but no foreign columns raises ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
-
-        table_constraints = [
-            TableConstraint(dummy_dialect, 
-                constraint_type=TableConstraintType.FOREIGN_KEY,
-                columns=["user_id"],
-                foreign_key_table=Table(dummy_dialect, "users"),
-                # Missing foreign_key_columns parameter
-            )
-        ]
-
-        create_table_expr = CreateTableStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'orders'), columns=[], table_constraints=table_constraints
-        )
-
-        with pytest.raises(
-            ValueError, match=r"FOREIGN KEY constraint must have at least one foreign key column specified."
-        ):
-            create_table_expr.to_sql()
-
-    def test_create_table_with_foreign_key_table_constraint_missing_foreign_table_raises_error(
-        self, dummy_dialect: DummyDialect
-    ):
-        """Tests that CREATE TABLE with FOREIGN KEY table constraint but no foreign table raises ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
-
-        table_constraints = [
-            TableConstraint(dummy_dialect, 
-                constraint_type=TableConstraintType.FOREIGN_KEY,
-                columns=["user_id"],
-                foreign_key_columns=["id"],
-                # Missing foreign_key_table parameter
-            )
-        ]
-
-        create_table_expr = CreateTableStatement(
-            dummy_dialect, table=Table(dummy_dialect, 'orders'), columns=[], table_constraints=table_constraints
-        )
-
-        with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have a foreign key table specified."):
-            create_table_expr.to_sql()

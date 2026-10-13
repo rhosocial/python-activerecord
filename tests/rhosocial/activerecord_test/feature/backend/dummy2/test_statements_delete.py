@@ -1,5 +1,18 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_delete.py
 import pytest
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression import bases
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression import (
+    InPredicate,
+    IsNullPredicate,
+    BetweenPredicate,
+    LikePredicate,
+)
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
@@ -13,17 +26,6 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     StringColumn,
 )
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression import (
-    InPredicate,
-    IsNullPredicate,
-    BetweenPredicate,
-    LikePredicate,
-)
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression import bases  # For set_dialect_recursive
-from rhosocial.activerecord.backend.expression.types import VarCharType
-from rhosocial.activerecord.backend.expression.objects import Table
 
 
 class TestDeleteStatements:
@@ -787,27 +789,11 @@ class TestDeleteStatements:
         ):
             dummy_dialect.format_window_specification(window_spec)
 
-    def test_format_column_definition_with_default_constraint_but_no_value_raises_error(
-        self, dummy_dialect: DummyDialect
-    ):
-        """Tests that format_column_definition raises ValueError when DEFAULT constraint has no value."""
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
-            ColumnConstraint,
-            ColumnConstraintType,
-        )
-
-        # Create a ColumnDefinition with DEFAULT constraint but no value
-        col_def = ColumnDefinition(dummy_dialect, 
-            name="test_col",
-            data_type=VarCharType(dummy_dialect, 255),
-            constraints=[
-                ColumnConstraint(dummy_dialect, 
-                    constraint_type=ColumnConstraintType.DEFAULT,
-                    default_value=None,  # No default value provided but constraint type is DEFAULT
-                )
-            ],
-        )
-
-        with pytest.raises(ValueError, match=r"DEFAULT constraint must have a default value specified."):
-            dummy_dialect.format_column_definition(col_def)
+        """Refused where the branch is built.
+        
+        The branch is what states this constraint, so a constraint
+        without its payload cannot be written at all.
+        """
+        
+        with pytest.raises(ValueError, match="needs a value"):
+            ColumnDefaultConstraint(dummy_dialect, None)

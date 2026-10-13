@@ -1,18 +1,20 @@
-# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_composite_pk.py
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    TablePrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,
     ColumnDefinition,
     ColumnConstraint,
-    ColumnConstraintType,
     TableConstraint,
-    TableConstraintType,
     ComparisonPredicate,
     Literal,
 )
-from rhosocial.activerecord.backend.expression import Column
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
-from rhosocial.activerecord.backend.expression.objects import Table
+# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_composite_pk.py
 
 dialect = DummyDialect()
 
@@ -24,15 +26,12 @@ class TestCompositePKDDL:
             table=Table(dialect, 'order_items'),
             columns=[
                 ColumnDefinition(dialect, "order_id", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
                 ColumnDefinition(dialect, "product_id", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ],
             table_constraints=[
-                TableConstraint(dialect, 
-                    constraint_type=TableConstraintType.PRIMARY_KEY,
-                    columns=["order_id", "product_id"],
-                ),
+                TableConstraint(dialect, branch=TablePrimaryKeyConstraint(dialect, ["order_id", "product_id"])),
             ],
         )
         sql, params = expr.to_sql()
@@ -44,18 +43,17 @@ class TestCompositePKDDL:
             table=Table(dialect, 'store_inventory'),
             columns=[
                 ColumnDefinition(dialect, "store_id", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
                 ColumnDefinition(dialect, "product_id", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
                 ColumnDefinition(dialect, "batch_id", VarCharType(dialect, 64),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ],
             table_constraints=[
-                TableConstraint(dialect, 
-                    constraint_type=TableConstraintType.PRIMARY_KEY,
-                    columns=["store_id", "product_id", "batch_id"],
-                ),
-            ],
+TableConstraint(
+                    dialect,
+                    branch=TablePrimaryKeyConstraint(dialect, ["store_id", "product_id", "batch_id"]),
+                )            ],
         )
         sql, params = expr.to_sql()
         assert "PRIMARY KEY" in sql
@@ -69,15 +67,12 @@ class TestCompositePKDDL:
             table=Table(dialect, 't'),
             columns=[
                 ColumnDefinition(dialect, "a", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
                 ColumnDefinition(dialect, "b", IntegerType(dialect),
-                    constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                    constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ],
             table_constraints=[
-                TableConstraint(dialect, 
-                    constraint_type=TableConstraintType.PRIMARY_KEY,
-                    columns=["a", "b"],
-                ),
+                TableConstraint(dialect, branch=TablePrimaryKeyConstraint(dialect, ["a", "b"])),
             ],
         )
         sql, params = expr.to_sql()

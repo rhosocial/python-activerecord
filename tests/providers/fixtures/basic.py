@@ -1,3 +1,19 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    TablePrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    DropTableStatement,
+    ColumnDefinition,
+    ColumnConstraint,
+    TableConstraint,
+)
+from rhosocial.activerecord.backend.expression.types import BlobType, BooleanType, DateTimeType, DecimalType, FloatType, IntegerType, TextType, VarCharType
+from typing import Callable, Dict
 # tests/providers/fixtures/basic.py
 """
 DDL expressions for the feature/basic table group.
@@ -10,19 +26,7 @@ These are used in two ways:
 2. Eventually: replace .sql files entirely
 """
 
-from typing import Callable, Dict
 
-from rhosocial.activerecord.backend.expression.types import BlobType, BooleanType, DateTimeType, DecimalType, FloatType, IntegerType, TextType, VarCharType
-from rhosocial.activerecord.backend.expression import (
-    CreateTableStatement,
-    DropTableStatement,
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-    TableConstraint,
-    TableConstraintType,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
 
 
 def create_users_table(dialect, table_name: str = "users") -> CreateTableStatement:
@@ -32,21 +36,21 @@ def create_users_table(dialect, table_name: str = "users") -> CreateTableStateme
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "username", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "email", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "age", IntegerType(dialect)),
             ColumnDefinition(dialect, "balance", FloatType(dialect),
                 constraints=[
-                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
-                    ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=0.0),
+                    ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                    ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, 0.0)),
                 ]),
             ColumnDefinition(dialect, "is_active", BooleanType(dialect),
                 constraints=[
-                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
-                    ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=1),
+                    ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                    ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, 1)),
                 ]),
             ColumnDefinition(dialect, "created_at", TextType(dialect)),
             ColumnDefinition(dialect, "updated_at", TextType(dialect)),
@@ -61,7 +65,7 @@ def create_type_cases_table(dialect, table_name: str = "type_cases") -> CreateTa
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
             ColumnDefinition(dialect, "username", TextType(dialect)),
             ColumnDefinition(dialect, "email", TextType(dialect)),
             ColumnDefinition(dialect, "tiny_int", IntegerType(dialect)),
@@ -91,7 +95,7 @@ def create_type_tests_table(dialect, table_name: str = "type_tests") -> CreateTa
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
             ColumnDefinition(dialect, "string_field", TextType(dialect)),
             ColumnDefinition(dialect, "int_field", IntegerType(dialect)),
             ColumnDefinition(dialect, "float_field", FloatType(dialect)),
@@ -111,17 +115,17 @@ def create_validated_field_users_table(dialect, table_name: str = "validated_fie
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "username", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "email", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "age", IntegerType(dialect)),
             ColumnDefinition(dialect, "balance", FloatType(dialect)),
             ColumnDefinition(dialect, "credit_score", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "status", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "is_active", BooleanType(dialect)),
         ],
     )
@@ -134,11 +138,11 @@ def create_validated_users_table(dialect, table_name: str = "validated_users") -
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "username", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "email", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "age", IntegerType(dialect)),
         ],
     )
@@ -151,7 +155,7 @@ def create_pydantic_validated_models_table(dialect, table_name: str = "pydantic_
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "code", TextType(dialect)),
             ColumnDefinition(dialect, "quantity", IntegerType(dialect)),
             ColumnDefinition(dialect, "step_count", IntegerType(dialect)),
@@ -172,13 +176,13 @@ def create_bulk_users_table(dialect, table_name: str = "bulk_users") -> CreateTa
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "name", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "age", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=0)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, 0))]),
             ColumnDefinition(dialect, "email", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value="")]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, ""))]),
         ],
     )
 
@@ -190,17 +194,17 @@ def create_posts_table(dialect, table_name: str = "posts") -> CreateTableStateme
         if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "author", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "title", VarCharType(dialect, 255),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "content", TextType(dialect)),
             ColumnDefinition(dialect, "published_at", DateTimeType(dialect)),
             ColumnDefinition(dialect, "published", BooleanType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=False)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, False))]),
             ColumnDefinition(dialect, "created_at", DateTimeType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "updated_at", DateTimeType(dialect)),
         ],
     )
@@ -213,18 +217,18 @@ def create_comments_table(dialect, table_name: str = "comments") -> CreateTableS
         if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "post_ref", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "author", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "text", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "created_at", DateTimeType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "updated_at", DateTimeType(dialect)),
             ColumnDefinition(dialect, "approved", BooleanType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=False)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, False))]),
         ],
     )
 
@@ -236,11 +240,11 @@ def create_column_mapping_items_table(dialect, table_name: str = "column_mapping
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "name", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "item_total", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "remarks", IntegerType(dialect)),
         ],
     )
@@ -253,9 +257,9 @@ def create_mixed_annotation_items_table(dialect, table_name: str = "mixed_annota
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
             ColumnDefinition(dialect, "name", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "tags", TextType(dialect)),
             ColumnDefinition(dialect, "meta", TextType(dialect)),
             ColumnDefinition(dialect, "description", TextType(dialect)),
@@ -271,9 +275,9 @@ def create_type_adapter_tests_table(dialect, table_name: str = "type_adapter_tes
         if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "name", TextType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "optional_name", TextType(dialect)),
             ColumnDefinition(dialect, "optional_age", IntegerType(dialect)),
             ColumnDefinition(dialect, "last_login", TextType(dialect)),
@@ -301,22 +305,19 @@ def create_composite_pk_order_items_table(dialect, table_name: str = "order_item
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "order_id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "product_id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "quantity", IntegerType(dialect),
                 constraints=[
-                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
-                    ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=1),
+                    ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                    ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, 1)),
                 ]),
             ColumnDefinition(dialect, "unit_price", DecimalType(dialect, precision=10, scale=2),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ],
         table_constraints=[
-            TableConstraint(dialect, 
-                constraint_type=TableConstraintType.PRIMARY_KEY,
-                columns=["order_id", "product_id"],
-            ),
+            TableConstraint(dialect, branch=TablePrimaryKeyConstraint(dialect, ["order_id", "product_id"])),
         ],
     )
 
@@ -328,22 +329,19 @@ def create_store_inventory_table(dialect, table_name: str = "store_inventory") -
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "store_id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "product_id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "batch_id", VarCharType(dialect, 64),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "stock", IntegerType(dialect),
                 constraints=[
-                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
-                    ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=0),
+                    ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                    ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, 0)),
                 ]),
         ],
         table_constraints=[
-            TableConstraint(dialect, 
-                constraint_type=TableConstraintType.PRIMARY_KEY,
-                columns=["store_id", "product_id", "batch_id"],
-            ),
+            TableConstraint(dialect, branch=TablePrimaryKeyConstraint(dialect, ["store_id", "product_id", "batch_id"])),
         ],
     )
 
@@ -355,9 +353,9 @@ def create_orders_table(dialect, table_name: str = "orders") -> CreateTableState
         if_not_exists=False,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
             ColumnDefinition(dialect, "total", DecimalType(dialect, precision=10, scale=2),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "created_at", TextType(dialect)),
             ColumnDefinition(dialect, "updated_at", TextType(dialect)),
         ],
@@ -368,10 +366,10 @@ def create_product_table(dialect, table_name: str = "product") -> CreateTableSta
     return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
-            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
-            ColumnDefinition(dialect, "name", TextType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "price", FloatType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
-            ColumnDefinition(dialect, "quantity", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))]),
+            ColumnDefinition(dialect, "name", TextType(dialect), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
+            ColumnDefinition(dialect, "price", FloatType(dialect), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
+            ColumnDefinition(dialect, "quantity", IntegerType(dialect), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ],
     )
 

@@ -7,8 +7,20 @@ against an actual SQLite database.
 """
 
 import pytest
-
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import MaterializedView, View
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause, WhereClause
+from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate, RawSQLExpression
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
@@ -24,19 +36,11 @@ from rhosocial.activerecord.backend.expression import (
     InsertStatement,
     ColumnDefinition,
     ColumnConstraint,
-    ColumnConstraintType,
     ForeignKeyConstraint,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate, RawSQLExpression
-from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause, WhereClause
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
-from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.objects import MaterializedView, View
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+
 
 
 @pytest.fixture
@@ -51,15 +55,15 @@ def sqlite_backend():
         ColumnDefinition(dialect, 
             name="id",
             data_type=SQLiteIntegerType(dialect),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)],
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))],
         ),
-        ColumnDefinition(dialect, name="name", data_type=SQLiteTextType(dialect=dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition(dialect, name="name", data_type=SQLiteTextType(dialect=dialect), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ColumnDefinition(dialect, name="email", data_type=SQLiteTextType(dialect=dialect)),
         ColumnDefinition(dialect, 
             name="status",
             data_type=SQLiteTextType(dialect=dialect),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.DEFAULT, default_value=RawSQLExpression(dialect, "'active'"))
+                ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, RawSQLExpression(dialect, "'active'")))
             ],
         ),
     ]
@@ -74,7 +78,7 @@ def sqlite_backend():
         ColumnDefinition(dialect, 
             name="id",
             data_type=SQLiteIntegerType(dialect),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)],
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True))],
         ),
         ColumnDefinition(dialect, name="user_id", data_type=SQLiteIntegerType(dialect)),
         ColumnDefinition(dialect, name="amount", data_type=SQLiteRealType(dialect=dialect)),

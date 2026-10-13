@@ -9,23 +9,25 @@ the capability gates, and the transitional AR route that still has to work
 until a deriver exists.
 """
 import pytest
-
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.statements import (
-    CharacterSetClause,
-    CollationClause,
-    ColumnConstraint,
-    ColumnConstraintType,
-    ColumnDefinition,
-    IdentityClause,
+    ColumnNotNullConstraint,
 )
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.base.ddl import (
     CharacterSetAttribute,
     CollationAttribute,
     IdentityAttribute,
 )
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from rhosocial.activerecord.backend.expression.statements import (
+    CharacterSetClause,
+    CollationClause,
+    ColumnConstraint,
+    ColumnDefinition,
+    IdentityClause,
+)
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
 
 
 def probed(**answers):
@@ -217,7 +219,7 @@ class TestUnrelatedClausesUnaffected:
             dialect,
             "c",
             IntegerType(dialect),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
             attributes=[CollationClause(dialect, "NOCASE")],
         )
 

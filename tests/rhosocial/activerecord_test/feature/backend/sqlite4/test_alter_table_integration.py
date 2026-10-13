@@ -9,13 +9,17 @@ Expression -> Dialect -> SQL -> Database -> Introspector pipeline.
 """
 
 import pytest
-
 from rhosocial.activerecord.backend.expression.statements import (
-    CreateTableStatement,
-    AlterTableStatement,
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.introspection.types import ColumnNullable
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    TableConstraint,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
     AddColumn,
@@ -23,15 +27,14 @@ from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
     RenameObject,
     AddTableConstraint,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    TableConstraint,
-    TableConstraintType,
+from rhosocial.activerecord.backend.expression.statements import (
+    CreateTableStatement,
+    AlterTableStatement,
+    ColumnDefinition,
+    ColumnConstraint,
 )
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.introspection.types import ColumnNullable
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteTextType
-from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements.ddl_table import TableCheckConstraint
+
 
 
 @pytest.fixture
@@ -44,7 +47,12 @@ def backend_with_users(sqlite_backend: SQLiteBackend) -> SQLiteBackend:
             ColumnDefinition(sqlite_backend.dialect, 
                 "id",
                 SQLiteIntegerType(sqlite_backend.dialect),
-                constraints=[ColumnConstraint(sqlite_backend.dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[
+                    ColumnConstraint(
+                        sqlite_backend.dialect,
+                        branch=ColumnPrimaryKeyConstraint(sqlite_backend.dialect),
+                    )
+                ],
             ),
             ColumnDefinition(sqlite_backend.dialect, "name", SQLiteTextType(dialect=sqlite_backend.dialect)),
         ],
@@ -66,8 +74,11 @@ class TestAlterTableAddColumn:
         """ADD COLUMN should be reflected by the introspector."""
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition(backend_with_users.dialect, "email", SQLiteTextType(dialect=backend_with_users.dialect)),
-        )
+ColumnDefinition(
+                backend_with_users.dialect,
+                "email",
+                SQLiteTextType(dialect=backend_with_users.dialect),
+            )        )
         alter_expr = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
@@ -86,7 +97,12 @@ class TestAlterTableAddColumn:
             column=ColumnDefinition(backend_with_users.dialect, 
                 "status",
                 SQLiteTextType(dialect=backend_with_users.dialect),
-                constraints=[ColumnConstraint(backend_with_users.dialect, ColumnConstraintType.NOT_NULL)],
+                constraints=[
+                    ColumnConstraint(
+                        backend_with_users.dialect,
+                        branch=ColumnNotNullConstraint(backend_with_users.dialect),
+                    )
+                ],
             ),
         )
         alter_expr = AlterTableStatement(
@@ -116,8 +132,11 @@ class TestAlterTableDropColumn:
         # First add a column to drop
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition(backend_with_users.dialect, "temp_field", SQLiteTextType(dialect=backend_with_users.dialect)),
-        )
+ColumnDefinition(
+                backend_with_users.dialect,
+                "temp_field",
+                SQLiteTextType(dialect=backend_with_users.dialect),
+            )        )
         alter_add = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
@@ -190,8 +209,11 @@ class TestAlterTableAddConstraint:
         # Add an email column
         add_action = AddColumn(
             backend_with_users.dialect,
-            column=ColumnDefinition(backend_with_users.dialect, "email", SQLiteTextType(dialect=backend_with_users.dialect)),
-        )
+ColumnDefinition(
+                backend_with_users.dialect,
+                "email",
+                SQLiteTextType(dialect=backend_with_users.dialect),
+            )        )
         alter_add = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
@@ -208,11 +230,12 @@ class TestAlterTableAddConstraint:
         # Add CHECK constraint: email IS NOT NULL
         add_constraint = AddTableConstraint(
             backend_with_users.dialect,
-            constraint=TableConstraint(backend_with_users.dialect,
-                constraint_type=TableConstraintType.CHECK,
-                check_condition=Column(
-                    backend_with_users.dialect, "email"
-                ).is_not_null(),
+            constraint=TableConstraint(
+                backend_with_users.dialect,
+                branch=TableCheckConstraint(
+                    backend_with_users.dialect,
+                    Column(backend_with_users.dialect, "email").is_not_null(),
+                ),
             ),
         )
         alter_constraint = AlterTableStatement(

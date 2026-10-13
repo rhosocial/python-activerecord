@@ -8,21 +8,29 @@ paths that render the same constraint -- ``ColumnDefinition`` and
 ``ColumnConstraint.to_sql()`` -- which must agree.
 """
 import pytest
-
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.core import Column, Literal
-from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnCheckConstraint,
+    ColumnDefaultConstraint,
+    ColumnForeignKeyConstraint,
+    ColumnNotNullConstraint,
+    ColumnNullableConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+    TableUniqueConstraint,
+)
+from rhosocial.activerecord.base.ddl import CharacterSetAttribute, CollationAttribute
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
-    ColumnConstraintType,
     ColumnDefinition,
     ReferentialAction,
     TableConstraint,
-    TableConstraintType,
 )
-from rhosocial.activerecord.backend.expression.types import IntegerType
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.base.ddl import CharacterSetAttribute, CollationAttribute
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
 
 
 def probed(**answers):
@@ -35,19 +43,23 @@ def probed(**answers):
 
 
 def check_constraint(dialect):
-    return ColumnConstraint(
-        dialect,
-        ColumnConstraintType.CHECK,
-        check_condition=Column(dialect, "age") > Literal(dialect, 0),
-    )
+    return ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, Column(dialect, "age") > Literal(dialect, 0)))
 
 
 def fk_constraint(dialect, **kwargs):
+    # The referential actions belong to the branch; the deferral traits are
+    # the production's, which is where they went when the two levels split.
+    branch_traits = ("on_delete", "on_update", "match_type")
+    clause_traits = ("deferrable", "initially_deferred")
+    branch = ColumnForeignKeyConstraint(
+        dialect,
+        (Table(dialect, "parent"), ["id"]),
+        **{k: v for k, v in kwargs.items() if k in branch_traits},
+    )
     return ColumnConstraint(
         dialect,
-        ColumnConstraintType.FOREIGN_KEY,
-        foreign_key_reference=(Table(dialect, "parent"), ["id"]),
-        **kwargs,
+        branch=branch,
+        **{k: v for k, v in kwargs.items() if k in clause_traits},
     )
 
 
@@ -56,26 +68,26 @@ class TestSimpleConstraintGates:
 
     def test_supported_spellings_render(self):
         dialect = SQLiteDialect()
-        for constraint_type, expected in (
-            (ColumnConstraintType.PRIMARY_KEY, " PRIMARY KEY"),
-            (ColumnConstraintType.NOT_NULL, " NOT NULL"),
-            (ColumnConstraintType.NULL, " NULL"),
-            (ColumnConstraintType.UNIQUE, " UNIQUE"),
+        for branch_cls, expected in (
+            (ColumnPrimaryKeyConstraint, " PRIMARY KEY"),
+            (ColumnNotNullConstraint, " NOT NULL"),
+            (ColumnNullableConstraint, " NULL"),
+            (ColumnUniqueConstraint, " UNIQUE"),
         ):
-            constraint = ColumnConstraint(dialect, constraint_type)
+            constraint = ColumnConstraint(dialect, branch=branch_cls(dialect))
             assert constraint.to_sql() == (expected, ())
 
     @pytest.mark.parametrize(
-        "probe, constraint_type, spelling",
+        "probe, branch_cls, spelling",
         (
-            ("supports_primary_key_constraint", ColumnConstraintType.PRIMARY_KEY, "PRIMARY KEY"),
-            ("supports_not_null_constraint", ColumnConstraintType.NOT_NULL, "NOT NULL"),
-            ("supports_unique_constraint", ColumnConstraintType.UNIQUE, "UNIQUE"),
+            ("supports_primary_key_constraint", ColumnPrimaryKeyConstraint, "PRIMARY KEY"),
+            ("supports_not_null_constraint", ColumnNotNullConstraint, "NOT NULL"),
+            ("supports_unique_constraint", ColumnUniqueConstraint, "UNIQUE"),
         ),
     )
-    def test_unsupported_spelling_is_refused_by_name(self, probe, constraint_type, spelling):
+    def test_unsupported_spelling_is_refused_by_name(self, probe, branch_cls, spelling):
         dialect = probed(**{probe: False})()
-        constraint = ColumnConstraint(dialect, constraint_type)
+        constraint = ColumnConstraint(dialect, branch=branch_cls(dialect))
 
         with pytest.raises(UnsupportedFeatureError) as excinfo:
             constraint.to_sql()
@@ -89,7 +101,7 @@ class TestSimpleConstraintGates:
             supports_not_null_constraint=False,
             supports_unique_constraint=False,
         )()
-        constraint = ColumnConstraint(dialect, ColumnConstraintType.NULL)
+        constraint = ColumnConstraint(dialect, branch=ColumnNullableConstraint(dialect))
 
         assert constraint.to_sql() == (" NULL", ())
 
@@ -132,11 +144,11 @@ class TestCheckConstraintGate:
             check_constraint(dialect).to_sql()
 
     def test_missing_condition_is_a_declaration_error(self):
-        dialect = SQLiteDialect()
-        constraint = ColumnConstraint(dialect, ColumnConstraintType.CHECK)
+        """Refused at construction: the branch that states the condition is how
+        a CHECK is expressed, so a CHECK without one cannot be written."""
 
-        with pytest.raises(ValueError, match="check condition"):
-            constraint.to_sql()
+        with pytest.raises(ValueError, match="needs a condition"):
+            ColumnCheckConstraint(SQLiteDialect(), None)
 
 
 class TestDeferralGates:
@@ -206,11 +218,11 @@ class TestBothRenderPathsAgree:
     @pytest.mark.parametrize(
         "build",
         (
-            lambda d: ColumnConstraint(d, ColumnConstraintType.PRIMARY_KEY),
-            lambda d: ColumnConstraint(d, ColumnConstraintType.NOT_NULL),
-            lambda d: ColumnConstraint(d, ColumnConstraintType.NULL),
-            lambda d: ColumnConstraint(d, ColumnConstraintType.UNIQUE),
-            lambda d: ColumnConstraint(d, ColumnConstraintType.DEFAULT, default_value=0),
+            lambda d: ColumnConstraint(d, branch=ColumnPrimaryKeyConstraint(d)),
+            lambda d: ColumnConstraint(d, branch=ColumnNotNullConstraint(d)),
+            lambda d: ColumnConstraint(d, branch=ColumnNullableConstraint(d)),
+            lambda d: ColumnConstraint(d, branch=ColumnUniqueConstraint(d)),
+            lambda d: ColumnConstraint(d, branch=ColumnDefaultConstraint(d, 0)),
             check_constraint,
             lambda d: fk_constraint(
                 d,
@@ -251,9 +263,7 @@ class TestConstraintNamingGates:
     def test_name_renders_on_the_column_path(self):
         dialect = SQLiteDialect()
 
-        sql, _ = ColumnConstraint(
-            dialect, ColumnConstraintType.UNIQUE, name="uq_e"
-        ).to_sql()
+        sql, _ = ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect), name="uq_e").to_sql()
 
         assert sql == ' CONSTRAINT "uq_e" UNIQUE'
 
@@ -261,15 +271,11 @@ class TestConstraintNamingGates:
         dialect = probed(supports_constraint_naming=False)()
 
         with pytest.raises(UnsupportedFeatureError, match="CONSTRAINT name"):
-            ColumnConstraint(
-                dialect, ColumnConstraintType.UNIQUE, name="uq_e"
-            ).to_sql()
+            ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect), name="uq_e").to_sql()
 
     def test_table_path_gates_the_name_too(self):
         dialect = probed(supports_constraint_naming=False)()
-        constraint = TableConstraint(
-            dialect, TableConstraintType.UNIQUE, columns=["e"], name="uq_e"
-        )
+        constraint = TableConstraint(dialect, branch=TableUniqueConstraint(dialect, ["e"]), name="uq_e")
 
         with pytest.raises(UnsupportedFeatureError, match="CONSTRAINT name"):
             constraint.to_sql()
@@ -295,18 +301,14 @@ class TestEnforcementGates:
     def test_enforced_renders_on_unique(self):
         dialect = probed(supports_constraint_enforced=True)()
 
-        sql, _ = ColumnConstraint(
-            dialect, ColumnConstraintType.UNIQUE, enforced=True
-        ).to_sql()
+        sql, _ = ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect), enforced=True).to_sql()
 
         assert sql == " UNIQUE ENFORCED"
 
     def test_not_enforced_renders_on_primary_key(self):
         dialect = probed(supports_constraint_enforced=True)()
 
-        sql, _ = ColumnConstraint(
-            dialect, ColumnConstraintType.PRIMARY_KEY, not_enforced=True
-        ).to_sql()
+        sql, _ = ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect), not_enforced=True).to_sql()
 
         assert sql == " PRIMARY KEY NOT ENFORCED"
 
@@ -314,28 +316,19 @@ class TestEnforcementGates:
         dialect = probed(supports_constraint_enforced=False)()
 
         with pytest.raises(UnsupportedFeatureError, match="ENFORCED"):
-            ColumnConstraint(
-                dialect,
-                ColumnConstraintType.CHECK,
-                check_condition=Column(dialect, "age") > Literal(dialect, 0),
-                enforced=True,
-            ).to_sql()
+            ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, Column(dialect, "age") > Literal(dialect, 0)), enforced=True).to_sql()
 
     def test_not_null_cannot_carry_the_trait(self):
         dialect = probed(supports_constraint_enforced=True)()
 
-        with pytest.raises(ValueError, match="cannot ride a NOT_NULL"):
-            ColumnConstraint(
-                dialect, ColumnConstraintType.NOT_NULL, enforced=True
-            ).to_sql()
+        with pytest.raises(ValueError, match="cannot ride a ColumnNotNullConstraint"):
+            ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect), enforced=True)
 
     def test_default_cannot_carry_the_trait(self):
         dialect = probed(supports_constraint_enforced=True)()
 
-        with pytest.raises(ValueError, match="cannot ride a DEFAULT"):
-            ColumnConstraint(
-                dialect, ColumnConstraintType.DEFAULT, default_value=0, enforced=True
-            ).to_sql()
+        with pytest.raises(ValueError, match="cannot ride a ColumnDefaultConstraint"):
+            ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, 0), enforced=True)
 
     def test_both_spellings_at_once_are_refused_by_the_formatter(self):
         """The constructor guard does not cover attribute injection.
@@ -344,12 +337,7 @@ class TestEnforcementGates:
         formatter re-checks the exclusion as the last line of defence.
         """
         dialect = probed(supports_constraint_enforced=True)()
-        constraint = ColumnConstraint(
-            dialect,
-            ColumnConstraintType.CHECK,
-            check_condition=Column(dialect, "age") > Literal(dialect, 0),
-            enforced=True,
-        )
+        constraint = ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, Column(dialect, "age") > Literal(dialect, 0)), enforced=True)
         constraint.not_enforced = True
 
         with pytest.raises(ValueError, match="mutually exclusive"):

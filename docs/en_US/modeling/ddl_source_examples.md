@@ -141,7 +141,7 @@ from rhosocial.activerecord.base import (
     UseIndex,
     UseSqlType,
 )
-from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
+
 from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.model import ActiveRecord
 
@@ -159,7 +159,7 @@ class CoreDeclared(ActiveRecord):
     ]
     status: Annotated[
         str,
-        UseConstraint(ColumnConstraintType.NOT_NULL),
+        UseConstraint(ColumnNotNullConstraint),
     ] = "active"
 ```
 

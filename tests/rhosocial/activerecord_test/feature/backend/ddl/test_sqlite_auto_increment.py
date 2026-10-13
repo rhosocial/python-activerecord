@@ -8,16 +8,22 @@ constraint next to a PRIMARY KEY and got a table whose key did not
 autoincrement.
 """
 import pytest
-
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+    ColumnNotNullConstraint,
+    ColumnNullableConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+)
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
-    ColumnConstraintType,
     ColumnDefinition,
 )
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
 
 
 def definition(dialect, data_type, *constraints):
@@ -25,7 +31,9 @@ def definition(dialect, data_type, *constraints):
 
 
 def primary_key(dialect, **kwargs):
-    return ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, **kwargs)
+    return ColumnConstraint(
+        dialect, branch=ColumnPrimaryKeyConstraint(dialect, **kwargs)
+    )
 
 
 class TestAutoIncrementRenders:
@@ -55,19 +63,22 @@ class TestAutoIncrementRenders:
 class TestAutoIncrementRefusedElsewhere:
     """SQLite would reject the SQL, so the request is refused by name."""
 
-    def test_on_another_constraint_kind(self):
-        dialect = SQLiteDialect()
-        column = definition(
-            dialect,
-            IntegerType(dialect),
-            primary_key(dialect),
-            ColumnConstraint(
-                dialect, ColumnConstraintType.NOT_NULL, is_auto_increment=True
-            ),
-        )
+    def test_the_flag_belongs_to_the_primary_key_branch_alone(self):
+        """The refusal is structural now: no other branch has the field.
 
-        with pytest.raises(UnsupportedFeatureError, match="non-primary-key"):
-            column.to_sql()
+        What SQLite used to refuse at render time -- a flag on a constraint
+        kind that has nowhere to spell it -- is no longer expressible: the flag
+        is a field of the primary-key branch, and the other branches do not
+        declare it, so ``is_auto_increment=True`` cannot reach them at all.
+        """
+
+        assert "is_auto_increment" in ColumnPrimaryKeyConstraint.__init__.__code__.co_varnames
+        for branch_cls in (
+            ColumnNotNullConstraint,
+            ColumnNullableConstraint,
+            ColumnUniqueConstraint,
+        ):
+            assert "is_auto_increment" not in branch_cls.__init__.__code__.co_varnames
 
     def test_on_a_non_integer_column(self):
         dialect = SQLiteDialect()
@@ -88,17 +99,17 @@ class TestPrivateHandlersAreGone:
     """
 
     @pytest.mark.parametrize(
-        "constraint_type, expected",
+        "branch_cls, expected",
         (
-            (ColumnConstraintType.PRIMARY_KEY, " PRIMARY KEY"),
-            (ColumnConstraintType.NOT_NULL, " NOT NULL"),
-            (ColumnConstraintType.NULL, " NULL"),
-            (ColumnConstraintType.UNIQUE, " UNIQUE"),
+            (ColumnPrimaryKeyConstraint, " PRIMARY KEY"),
+            (ColumnNotNullConstraint, " NOT NULL"),
+            (ColumnNullableConstraint, " NULL"),
+            (ColumnUniqueConstraint, " UNIQUE"),
         ),
     )
-    def test_each_kind_renders_through_the_one_entry_point(self, constraint_type, expected):
+    def test_each_kind_renders_through_the_one_entry_point(self, branch_cls, expected):
         dialect = SQLiteDialect()
-        constraint = ColumnConstraint(dialect, constraint_type)
+        constraint = ColumnConstraint(dialect, branch=branch_cls(dialect))
 
         assert constraint.to_sql() == (expected, ())
 
@@ -107,7 +118,7 @@ class TestPrivateHandlersAreGone:
         (
             "format_not_null_constraint",
             "format_null_constraint",
-            "format_column_unique_constraint",
+            "format_unique_constraint",
             "format_check_constraint",
         ),
     )
@@ -117,17 +128,13 @@ class TestPrivateHandlersAreGone:
 
     def test_two_paths_agree_for_every_kind(self):
         dialect = SQLiteDialect()
-        for constraint_type in ColumnConstraintType:
-            if constraint_type is ColumnConstraintType.PRIMARY_KEY:
-                # SQLite's own handler appends AUTOINCREMENT, so it is covered
-                # by the tests above rather than by this equality.
-                continue
-            kwargs = {}
-            if constraint_type is ColumnConstraintType.DEFAULT:
-                kwargs["default_value"] = 0
-            constraint = ColumnConstraint(dialect, constraint_type, **kwargs)
-            if constraint_type in (ColumnConstraintType.CHECK, ColumnConstraintType.FOREIGN_KEY):
-                continue  # both need a payload this loop does not build
+        for branch in (
+            ColumnNotNullConstraint(dialect),
+            ColumnNullableConstraint(dialect),
+            ColumnUniqueConstraint(dialect),
+            ColumnDefaultConstraint(dialect, 0),
+        ):
+            constraint = ColumnConstraint(dialect, branch=branch)
             column_sql, _ = definition(dialect, IntegerType(dialect), constraint).to_sql()
             constraint_sql, _ = constraint.to_sql()
             assert column_sql == f'"id" INTEGER{constraint_sql}'

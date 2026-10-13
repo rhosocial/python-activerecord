@@ -7,27 +7,32 @@ DEFAULT, identity attributes, referential actions / deferrability).
 """
 
 import pytest
-
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefaultConstraint,
+    ColumnForeignKeyConstraint,
+    ColumnGeneratedConstraint,
+    ColumnNotNullConstraint,
+    TableForeignKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType
+from rhosocial.activerecord.backend.expression.statements import (
+    ForeignKeyConstraint,
+    ReferentialAction,
+)
 from rhosocial.activerecord.backend.expression import (
     ColumnConstraint,
-    ColumnConstraintType,
     ColumnDefinition,
     ColumnCommentClause,
     DefaultValueClause,
     IdentityClause,
     ReferencesClause,
     TableConstraint,
-    TableConstraintType,
 )
-from rhosocial.activerecord.backend.expression.statements import (
-    ForeignKeyConstraint,
-    ReferentialAction,
-)
-from rhosocial.activerecord.backend.expression.types import IntegerType
-from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
 
 
 @pytest.fixture
@@ -80,22 +85,23 @@ def test_default_value_clause_literal_is_inlined(dummy):
 
 
 def test_default_constraint_accepts_bare_value(dummy):
-    constraint = ColumnConstraint(dummy, ColumnConstraintType.DEFAULT, default_value=5)
-    sql, _ = dummy.format_default_constraint(constraint)
+    constraint = ColumnConstraint(dummy, branch=ColumnDefaultConstraint(dummy, 5))
+    sql, _ = dummy.format_column_default_constraint(constraint.branch)
     assert sql == " DEFAULT 5"
 
 
 def test_default_constraint_accepts_clause(dummy):
     clause = DefaultValueClause(dummy, "x")
-    constraint = ColumnConstraint(dummy, ColumnConstraintType.DEFAULT, default_value=clause)
-    sql, _ = dummy.format_default_constraint(constraint)
+    constraint = ColumnConstraint(dummy, branch=ColumnDefaultConstraint(dummy, clause))
+    sql, _ = dummy.format_column_default_constraint(constraint.branch)
     assert sql == " DEFAULT 'x'"
 
 
 def test_default_constraint_requires_value(dummy):
-    constraint = ColumnConstraint(dummy, ColumnConstraintType.DEFAULT, default_value=None)
-    with pytest.raises(ValueError, match="default value"):
-        dummy.format_default_constraint(constraint)
+    """A DEFAULT without a value states nothing, so the branch refuses it
+    where it is built rather than rendering a clause with a hole in it."""
+    with pytest.raises(ValueError, match="needs a value"):
+        ColumnDefaultConstraint(dummy, None)
 
 
 def test_sqlite_boolean_default_is_inlined(sqlite):
@@ -182,12 +188,11 @@ def test_identity_attribute_is_refused_where_unsupported(sqlite):
 def test_generic_column_definition_constraints_and_generated(sqlite):
     from rhosocial.activerecord.backend.dialect.mixins.ddl_column import DDLColumnMixin
     from rhosocial.activerecord.backend.expression.statements import (
-        GeneratedColumnExpression,
         GeneratedColumnType,
     )
 
-    constraint = ColumnConstraint(sqlite, ColumnConstraintType.NOT_NULL)
-    generated = GeneratedColumnExpression(sqlite, IntegerType(sqlite), GeneratedColumnType.STORED)
+    constraint = ColumnConstraint(sqlite, branch=ColumnNotNullConstraint(sqlite))
+    generated = ColumnGeneratedConstraint(sqlite, IntegerType(sqlite), GeneratedColumnType.STORED)
     col = ColumnDefinition(
         sqlite, "col", IntegerType(sqlite), [constraint], generated_expression=generated
     )
@@ -309,20 +314,22 @@ def test_references_clause_on_delete_gate(dummy):
 def test_column_fk_constraint_delegates_to_references(dummy):
     constraint = ColumnConstraint(
         dummy,
-        ColumnConstraintType.FOREIGN_KEY,
-        foreign_key_reference=(Table(dummy, "authors"), ["id"]),
-        on_delete=ReferentialAction.CASCADE,
+        branch=ColumnForeignKeyConstraint(
+            dummy, (Table(dummy, "authors"), ["id"]), on_delete=ReferentialAction.CASCADE
+        ),
     )
-    sql, _ = dummy.format_column_fk_constraint(constraint)
+    sql, _ = dummy.format_column_fk_constraint(constraint.branch)
     assert sql == ' REFERENCES "authors"("id") ON DELETE CASCADE'
 
 
-def test_column_fk_constraint_requires_reference(dummy):
-    constraint = ColumnConstraint(dummy, ColumnConstraintType.FOREIGN_KEY)
-    with pytest.raises(ValueError, match="foreign_key_reference"):
-        dummy.format_column_fk_constraint(constraint)
-
-
+    """Refused where the branch is built.
+    
+    The branch is what states this constraint, so a constraint
+    without its payload cannot be written at all.
+    """
+    
+    with pytest.raises(ValueError, match="needs references"):
+        ColumnForeignKeyConstraint(dummy, None)
 def test_table_fk_constraint_uses_actions(dummy):
     fk = ForeignKeyConstraint(
         dummy,
@@ -333,7 +340,7 @@ def test_table_fk_constraint_uses_actions(dummy):
         on_update=ReferentialAction.RESTRICT,
         match_type="FULL",
     )
-    sql, _ = dummy.format_foreign_key_constraint(fk)
+    sql, _ = dummy.format_table_foreign_key_constraint(fk.branch)
     assert sql == (
         'FOREIGN KEY ("author_id") REFERENCES "authors"("id") '
         "MATCH FULL ON DELETE CASCADE ON UPDATE RESTRICT"
@@ -343,33 +350,33 @@ def test_table_fk_constraint_uses_actions(dummy):
 def test_table_fk_constraint_without_actions(dummy):
     tc = TableConstraint(
         dummy,
-        TableConstraintType.FOREIGN_KEY,
-        columns=["author_id"],
-        foreign_key_table=Table(dummy, "authors"),
-        foreign_key_columns=["id"],
+        branch=TableForeignKeyConstraint(
+            dummy, ["author_id"], (Table(dummy, "authors"), ["id"])
+        ),
     )
-    sql, _ = dummy.format_foreign_key_constraint(tc)
+    sql, _ = dummy.format_table_foreign_key_constraint(tc.branch)
     assert sql == 'FOREIGN KEY ("author_id") REFERENCES "authors"("id")'
 
 
 def test_table_fk_constraint_requires_columns(dummy):
-    tc = TableConstraint(
-        dummy,
-        TableConstraintType.FOREIGN_KEY,
-        foreign_key_table=Table(dummy, "authors"),
-        foreign_key_columns=["id"],
-    )
+    tc = TableConstraint(dummy, branch=TableForeignKeyConstraint(dummy, [], (Table(dummy, "authors"), ["id"])))
     with pytest.raises(ValueError, match="local column"):
-        dummy.format_foreign_key_constraint(tc)
+        dummy.format_table_foreign_key_constraint(tc.branch)
 
 
 def test_table_fk_constraint_requires_referenced_columns(dummy):
-    tc = TableConstraint(dummy, TableConstraintType.FOREIGN_KEY, columns=["a"], foreign_key_table=Table(dummy, "authors"))
+    """A FOREIGN KEY that names no referenced column points nowhere specific."""
+    tc = TableConstraint(
+        dummy,
+        branch=TableForeignKeyConstraint(dummy, ["a"], (Table(dummy, "authors"), None)),
+    )
     with pytest.raises(ValueError, match="foreign key column"):
-        dummy.format_foreign_key_constraint(tc)
+        dummy.format_table_foreign_key_constraint(tc.branch)
 
 
 def test_table_fk_constraint_requires_table(dummy):
-    tc = TableConstraint(dummy, TableConstraintType.FOREIGN_KEY, columns=["a"], foreign_key_columns=["id"])
-    with pytest.raises(ValueError, match="foreign key table"):
-        dummy.format_foreign_key_constraint(tc)
+    """What a foreign key points at is what the branch states, so a branch
+    without it is refused where it is built -- there is nothing to render."""
+
+    with pytest.raises(ValueError, match="needs references"):
+        TableForeignKeyConstraint(dummy, ["a"], (None, None))

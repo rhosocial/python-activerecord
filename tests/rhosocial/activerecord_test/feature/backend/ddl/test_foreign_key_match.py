@@ -8,22 +8,25 @@ and nothing at all on ``ColumnConstraint``. So a column-level
 re-validated by hand inside the formatter on every render.
 """
 import pytest
-
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.dialect.mixins.ddl_table import (
-    normalize_foreign_key_match_type,
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnForeignKeyConstraint,
+    TableForeignKeyConstraint,
+    TablePrimaryKeyConstraint,
 )
-from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
-    ColumnConstraintType,
     ForeignKeyConstraint,
     ForeignKeyMatchType,
     ReferentialAction,
     TableConstraint,
-    TableConstraintType,
 )
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.dialect.mixins.ddl_table import (
+    normalize_foreign_key_match_type,
+)
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
 
 
 def probed(**answers):
@@ -37,9 +40,9 @@ def probed(**answers):
 def column_fk(dialect, **kwargs):
     return ColumnConstraint(
         dialect,
-        ColumnConstraintType.FOREIGN_KEY,
-        foreign_key_reference=(Table(dialect, "parent"), ["id"]),
-        **kwargs,
+        branch=ColumnForeignKeyConstraint(
+            dialect, (Table(dialect, "parent"), ["id"]), **kwargs
+        ),
     )
 
 
@@ -117,16 +120,9 @@ class TestTableLevelMatchNeedsNoSubclass:
 
     def test_a_plain_table_constraint_carries_the_actions(self):
         dialect = probed(supports_fk_match=True)()
-        constraint = TableConstraint(
-            dialect,
-            TableConstraintType.FOREIGN_KEY,
-            columns=["a"],
-            foreign_key_table=Table(dialect, "parent"),
-            foreign_key_columns=["id"],
-            match_type="FULL",
-        )
+        constraint = TableConstraint(dialect, branch=TableForeignKeyConstraint(dialect, ["a"], (Table(dialect, "parent"), ["id"]), match_type="FULL"))
 
-        assert constraint.match_type == "FULL"
+        assert constraint.branch.match_type == "FULL"
         assert "MATCH FULL" in constraint.to_sql()[0]
 
     def test_the_subclass_still_works_and_still_defaults_the_actions(self):
@@ -145,29 +141,26 @@ class TestTableLevelMatchNeedsNoSubclass:
 
     def test_the_base_leaves_the_actions_unspecified(self):
         dialect = probed(supports_fk_match=True)()
-        constraint = TableConstraint(
-            dialect,
-            TableConstraintType.FOREIGN_KEY,
-            columns=["a"],
-            foreign_key_table=Table(dialect, "parent"),
-            foreign_key_columns=["id"],
-        )
+        constraint = TableConstraint(dialect, branch=TableForeignKeyConstraint(dialect, ["a"], (Table(dialect, "parent"), ["id"])))
 
-        assert constraint.on_delete is None
+        assert constraint.branch.on_delete is None
         assert "ON DELETE" not in constraint.to_sql()[0]
 
 
 class TestActionsOnANonForeignKey:
-    """The fields mean nothing on a PRIMARY KEY, and are never rendered."""
+    """The fields are not on a PRIMARY KEY branch at all, so they cannot be set
+    on one: what used to be kept and ignored is now unexpressible."""
 
-    def test_a_primary_key_keeps_but_ignores_them(self):
+    def test_a_primary_key_branch_has_no_match_field(self):
+        dialect = probed(supports_fk_match=True)()
+
+        with pytest.raises(TypeError, match="match_type"):
+            TablePrimaryKeyConstraint(dialect, ["a"], match_type="FULL")
+
+    def test_and_the_key_still_renders_as_the_key_alone(self):
         dialect = probed(supports_fk_match=True)()
         constraint = TableConstraint(
-            dialect,
-            TableConstraintType.PRIMARY_KEY,
-            columns=["a"],
-            match_type="FULL",
+            dialect, branch=TablePrimaryKeyConstraint(dialect, ["a"])
         )
 
-        assert constraint.match_type == "FULL"
         assert constraint.to_sql()[0] == 'PRIMARY KEY ("a")'

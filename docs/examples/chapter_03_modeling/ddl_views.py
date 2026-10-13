@@ -1,3 +1,25 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+)
+from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
+from rhosocial.activerecord.backend.expression import (
+    ColumnDefinition,
+    CreateTableStatement,
+    CreateViewStatement,
+    DropViewStatement,
+    QueryStatement,
+    TableExpression,
+    Column,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
+from typing import ClassVar
 """
 Chapter 3: Modeling Data - DDL Views Examples
 Demonstrates DDL operations for views:
@@ -8,25 +30,6 @@ Demonstrates DDL operations for views:
 5. Introspection to verify view creation
 """
 
-from typing import ClassVar
-from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import (
-    ColumnDefinition,
-    CreateTableStatement,
-    CreateViewStatement,
-    DropViewStatement,
-    QueryStatement,
-    TableExpression,
-    Column,
-)
-from rhosocial.activerecord.backend.expression.types import IntegerType, VarCharType
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
 
 class User(ActiveRecord):
@@ -55,9 +58,9 @@ def main():
 
     # Create base table first
     user_columns = [
-        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("name", VarCharType(100), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
-        ColumnDefinition("email", VarCharType(255), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
+        ColumnDefinition("name", VarCharType(100), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
+        ColumnDefinition("email", VarCharType(255), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ColumnDefinition("status", VarCharType(20)),
     ]
 

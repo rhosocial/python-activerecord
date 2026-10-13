@@ -9,18 +9,24 @@ syntax diagrams, because the two disagree in both directions: the grammar shows
 import sqlite3
 
 import pytest
-
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnForeignKeyConstraint,
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+    TablePrimaryKeyConstraint,
+    TableUniqueConstraint,
+)
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
-    ColumnConstraintType,
     ColumnDefinition,
     TableConstraint,
-    TableConstraintType,
 )
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
 
 
 def probed(**answers):
@@ -63,16 +69,14 @@ class TestColumnConstraintNames:
         True; SQLite measured accepting it on 3.50.4).
         """
         dialect = SQLiteDialect()
-        constraint = ColumnConstraint(dialect, ColumnConstraintType.UNIQUE, name="uq_e")
+        constraint = ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect), name="uq_e")
 
         assert constraint.name == "uq_e"
         assert constraint.to_sql()[0] == ' CONSTRAINT "uq_e" UNIQUE'
 
     def test_the_table_path_already_renders_names(self):
         dialect = SQLiteDialect()
-        constraint = TableConstraint(
-            dialect, TableConstraintType.UNIQUE, columns=["e"], name="uq_e"
-        )
+        constraint = TableConstraint(dialect, branch=TableUniqueConstraint(dialect, ["e"]), name="uq_e")
 
         assert constraint.to_sql()[0].startswith('CONSTRAINT "uq_e"')
 
@@ -124,13 +128,7 @@ class TestDeferralIsEnforced:
 
     def test_a_deferred_column_foreign_key_renders(self):
         dialect = SQLiteDialect()
-        constraint = ColumnConstraint(
-            dialect,
-            ColumnConstraintType.FOREIGN_KEY,
-            foreign_key_reference=(Table(dialect, "p"), ["id"]),
-            deferrable=True,
-            initially_deferred=True,
-        )
+        constraint = ColumnConstraint(dialect, branch=ColumnForeignKeyConstraint(dialect, (Table(dialect, "p"), ["id"])), deferrable=True, initially_deferred=True)
 
         sql = constraint.to_sql()[0]
 
@@ -149,12 +147,7 @@ class TestMatchIsParsedAndIgnored:
 
     def test_the_dialect_refuses_it_by_name(self):
         dialect = SQLiteDialect()
-        constraint = ColumnConstraint(
-            dialect,
-            ColumnConstraintType.FOREIGN_KEY,
-            foreign_key_reference=(Table(dialect, "p"), ["id"]),
-            match_type="FULL",
-        )
+        constraint = ColumnConstraint(dialect, branch=ColumnForeignKeyConstraint(dialect, (Table(dialect, "p"), ["id"]), match_type="FULL"))
 
         with pytest.raises(UnsupportedFeatureError, match="MATCH"):
             constraint.to_sql()
@@ -231,9 +224,7 @@ class TestAutoIncrementHasTwoForms:
         SQLite accepts the form and we cannot express it. The assertion records
         the missing field rather than pretending the form does not exist.
         """
-        constraint = TableConstraint(
-            SQLiteDialect(), TableConstraintType.PRIMARY_KEY, columns=["id"]
-        )
+        constraint = TableConstraint(SQLiteDialect(), branch=TablePrimaryKeyConstraint(SQLiteDialect(), ["id"]))
 
         assert not hasattr(constraint, "is_auto_increment")
         assert "AUTOINCREMENT" not in constraint.to_sql()[0]
@@ -258,11 +249,11 @@ class TestConflictClauseIsMissingFromTheExpressionLayer:
         assert accepts(ddl)
 
     @pytest.mark.parametrize(
-        "constraint_type",
-        (ColumnConstraintType.UNIQUE, ColumnConstraintType.NOT_NULL),
+        "branch_cls", (ColumnUniqueConstraint, ColumnNotNullConstraint)
     )
-    def test_but_the_expression_cannot_carry_one(self, constraint_type):
-        constraint = ColumnConstraint(SQLiteDialect(), constraint_type)
+    def test_but_the_expression_cannot_carry_one(self, branch_cls):
+        dialect = SQLiteDialect()
+        constraint = ColumnConstraint(dialect, branch=branch_cls(dialect))
 
         assert not hasattr(constraint, "on_conflict")
         assert "ON CONFLICT" not in constraint.to_sql()[0]
@@ -275,7 +266,7 @@ class TestPrimaryKeyDirection:
         assert accepts("CREATE TABLE t (id INTEGER PRIMARY KEY DESC)")
 
     def test_but_the_expression_has_no_field_for_it(self):
-        constraint = ColumnConstraint(SQLiteDialect(), ColumnConstraintType.PRIMARY_KEY)
+        constraint = ColumnConstraint(SQLiteDialect(), branch=ColumnPrimaryKeyConstraint(SQLiteDialect()))
 
         assert not hasattr(constraint, "direction")
         assert "DESC" not in constraint.to_sql()[0]
@@ -290,7 +281,7 @@ class TestColumnDefinitionPathMatchesTheGrammar:
             dialect,
             "id",
             IntegerType(dialect),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
         )
 
         assert accepts(f"CREATE TABLE t ({column.to_sql()[0]})")
@@ -302,8 +293,8 @@ class TestColumnDefinitionPathMatchesTheGrammar:
             "e",
             TextType(dialect),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(dialect, ColumnConstraintType.UNIQUE),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect)),
             ],
         )
 

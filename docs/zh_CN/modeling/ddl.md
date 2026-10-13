@@ -19,8 +19,7 @@
 
 ```python
 from rhosocial.activerecord.backend.expression import ColumnDefinition
-from rhosocial.activerecord.backend.expression.statements import ColumnConstraint, ColumnConstraintType
-
+from rhosocial.activerecord.backend.expression.statements import ColumnConstraint, ColumnNotNullConstraint, ColumnUniqueConstraint
 # 基本列
 ColumnDefinition("name", "VARCHAR(100)")
 
@@ -29,8 +28,8 @@ ColumnDefinition(
     "email",
     "VARCHAR(255)",
     constraints=[
-        ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ColumnConstraint(ColumnConstraintType.UNIQUE)
+        ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+        ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect))
     ]
 )
 
@@ -58,16 +57,16 @@ ColumnDefinition(
 
 ```python
 from rhosocial.activerecord.backend.expression.statements import (
-    TableConstraint,
-    TableConstraintType,
     ForeignKeyConstraint,
-    ReferentialAction
+    ReferentialAction,
+    TableConstraint,
+    TablePrimaryKeyConstraint,
 )
 
 # 复合主键
 TableConstraint(
-    TableConstraintType.PRIMARY_KEY,
-    columns=["user_id", "role_id"]
+    dialect,
+    branch=TablePrimaryKeyConstraint(dialect, ["user_id", "role_id"]),
 )
 
 # 带引用操作的外键
@@ -91,19 +90,19 @@ columns = [
     ColumnDefinition(
         "id",
         "INTEGER",
-        constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+        constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]
     ),
     ColumnDefinition(
         "username",
         "VARCHAR(50)",
-        constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
+        constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]
     ),
     ColumnDefinition(
         "email",
         "VARCHAR(100)",
         constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-            ColumnConstraint(ColumnConstraintType.UNIQUE)
+            ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+            ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect))
         ]
     ),
     ColumnDefinition("created_at", "TIMESTAMP")

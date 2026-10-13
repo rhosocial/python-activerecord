@@ -164,7 +164,7 @@ sql, params = delete.to_sql()
 ```python
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement, ColumnDefinition,
-    ColumnConstraint, ColumnConstraintType, Literal, Column,
+    ColumnConstraint, Literal, Column,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType, RealType
 
@@ -174,10 +174,10 @@ create = CreateTableStatement(
     table="new_users",
     columns=[
         ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
-            ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
+            ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
         ]),
         ColumnDefinition(dialect, "name", VarCharType(dialect, length=255), constraints=[
-            ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+            ColumnConstraint(dialect, branch=dialectNotNullConstraint(dialect)),
         ]),
         ColumnDefinition(dialect, "bio", TextType(dialect)),
     ],
@@ -197,16 +197,16 @@ DDL 的 `DEFAULT` 和 `CHECK` 子句需要内联字面量。使用 `Literal(...,
 # 带 DEFAULT 值的列
 ColumnDefinition(dialect, "status", TextType(dialect), constraints=[
     ColumnConstraint(dialect,
-        constraint_type=ColumnConstraintType.DEFAULT,
-        default_value=Literal(dialect, "active", inline_literals=True),  # -> DEFAULT 'active'
+        branch=ColumnDefaultConstraint(
+            value=Literal(dialect, "active", inline_literals=True),  # -> DEFAULT 'active'
     ),
 ]),
 
 # 带 CHECK 约束的列
 ColumnDefinition(dialect, "age", IntegerType(dialect), constraints=[
     ColumnConstraint(dialect,
-        constraint_type=ColumnConstraintType.CHECK,
-        check_condition=ComparisonPredicate(
+        branch=ColumnCheckConstraint(
+            condition=ComparisonPredicate(
             dialect, ">=",
             Column(dialect, "age"),
             Literal(dialect, 0, inline_literals=True),  # -> CHECK ("age" >= 0)
@@ -217,29 +217,29 @@ ColumnDefinition(dialect, "age", IntegerType(dialect), constraints=[
 # DEFAULT 数值
 ColumnDefinition(dialect, "score", RealType(dialect), constraints=[
     ColumnConstraint(dialect,
-        constraint_type=ColumnConstraintType.DEFAULT,
-        default_value=Literal(dialect, 0.0, inline_literals=True),  # -> DEFAULT 0.0
+        branch=ColumnDefaultConstraint(
+            value=Literal(dialect, 0.0, inline_literals=True),  # -> DEFAULT 0.0
     ),
 ]),
 ```
 
 #### 生成列（SQLite 3.31.0+、PostgreSQL 12+、MySQL 5.7+）
 
-生成列（计算列）使用 `GeneratedColumnExpression` 表达式，通过 `dialect.format_generated_column_expression` 渲染：
+生成列（计算列）使用 `ColumnGeneratedConstraint` 表达式，通过 `dialect.format_column_generated_constraint` 渲染：
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType, Column,
+    CreateTableStatement, ColumnDefinition, ColumnConstraint, Column,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, RealType
 from rhosocial.activerecord.backend.expression.statements import (
-    GeneratedColumnExpression, GeneratedColumnType,
+    ColumnGeneratedConstraint, GeneratedColumnType,
 )
 
 # 创建带生成列的表
 columns = [
     ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
-        ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+        ColumnConstraint(dialect, branch=dialectPrimaryKeyConstraint(dialect)),
     ]),
     ColumnDefinition(dialect, "price", RealType(dialect)),
     ColumnDefinition(dialect, "quantity", IntegerType(dialect)),
@@ -247,7 +247,7 @@ columns = [
     ColumnDefinition(dialect,
         name="total",
         data_type=RealType(dialect),
-        generated_expression=GeneratedColumnExpression(
+        generated_expression=ColumnGeneratedConstraint(
             dialect,
             expression=Column(dialect, "price") * Column(dialect, "quantity"),
             storage_type=GeneratedColumnType.STORED,
@@ -715,7 +715,7 @@ partition = PartitionClause(
 )
 
 # 在 CREATE TABLE 中使用
-from rhosocial.activerecord.backend.expression import CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType
+from rhosocial.activerecord.backend.expression import CreateTableStatement, ColumnDefinition, ColumnConstraint
 from rhosocial.activerecord.backend.expression.types import IntegerType, TimestampType, DecimalType
 
 create = CreateTableStatement(
@@ -723,7 +723,7 @@ create = CreateTableStatement(
     table="orders",
     columns=[
         ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[
-            ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(dialect, branch=dialectPrimaryKeyConstraint(dialect)),
         ]),
         ColumnDefinition(dialect, "created_at", TimestampType(dialect)),
         ColumnDefinition(dialect, "amount", DecimalType(dialect, precision=10, scale=2)),

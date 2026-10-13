@@ -1,3 +1,26 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+)
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+)
+from rhosocial.activerecord.backend.expression.types import BooleanType, FloatType, IntegerType, TextType, TimestampType, VarCharType
+from rhosocial.activerecord.backend.expression import (
+    ColumnDefinition,
+    CreateTableStatement,
+    DropTableStatement,
+    AlterTableStatement,
+    AddColumn,
+    DropColumn,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
+from pydantic import Field
+from typing import ClassVar
 """
 Chapter 3: Modeling Data - DDL Examples
 Demonstrates DDL operations using expression-based API:
@@ -9,25 +32,6 @@ Demonstrates DDL operations using expression-based API:
 6. Introspection to verify schema changes
 """
 
-from typing import ClassVar
-from pydantic import Field
-from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.base import FieldProxy
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import (
-    ColumnDefinition,
-    CreateTableStatement,
-    DropTableStatement,
-    AlterTableStatement,
-    AddColumn,
-    DropColumn,
-)
-from rhosocial.activerecord.backend.expression.types import BooleanType, FloatType, IntegerType, TextType, TimestampType, VarCharType
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
 
 class User(ActiveRecord):
@@ -81,14 +85,14 @@ def main():
     # Example 1: Create basic table
     # ============================================================
     user_columns = [
-        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-        ColumnDefinition("username", VarCharType(50), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
+        ColumnDefinition("username", VarCharType(50), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ColumnDefinition(
             "email",
             VarCharType(100),
             constraints=[
-                ColumnConstraint(ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(ColumnConstraintType.UNIQUE),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect)),
             ],
         ),
         ColumnDefinition("is_active", BooleanType()),
@@ -118,9 +122,9 @@ def main():
         dialect=dialect,
         table_name="products",
         columns=[
-            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+            ColumnDefinition("id", IntegerType(), constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
             ColumnDefinition("name", VarCharType(100)),
-            ColumnDefinition("price", FloatType(), constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+            ColumnDefinition("price", FloatType(), constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ],
         if_not_exists=True,
     )

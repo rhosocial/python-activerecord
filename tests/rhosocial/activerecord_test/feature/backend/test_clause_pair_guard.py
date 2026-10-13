@@ -32,9 +32,54 @@ enforcement keyword, so "neither" is refused as well. That case carries
 import re
 
 import pytest
-
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnCheckConstraint,
+    ColumnForeignKeyConstraint,
+    TableCheckConstraint,
+    TableForeignKeyConstraint,
+)
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.transaction import (
+    BeginTransactionStatement,
+    SetTransactionExpression,
+)
+from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
+from rhosocial.activerecord.backend.expression.statements.ddl_view import (
+    CreateMaterializedViewStatement,
+    DropMaterializedViewStatement,
+    DropViewStatement,
+    RefreshMaterializedViewStatement,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
+    TruncateStatement,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    ColumnConstraint,
+    CreateTableAsStatement,
+    DropTableStatement,
+    IdentityClause,
+    IndexDefinition,
+    TableConstraint,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_sequence import (
+    AlterSequenceStatement,
+    CreateSequenceStatement,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_schema import (
+    DropSchemaStatement,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_function import (
+    DropFunctionStatement,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
+    AlterConstraint,
+)
+from rhosocial.activerecord.backend.expression.query_sources import (
+    CTEClause,
+    SetOperationStatement,
+)
+from rhosocial.activerecord.backend.expression.pivot import UnpivotExpression
 from rhosocial.activerecord.backend.expression.objects import (
     Function,
     MaterializedView,
@@ -43,50 +88,9 @@ from rhosocial.activerecord.backend.expression.objects import (
     Table,
     View,
 )
-from rhosocial.activerecord.backend.expression.pivot import UnpivotExpression
-from rhosocial.activerecord.backend.expression.query_sources import (
-    CTEClause,
-    SetOperationStatement,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
-    AlterConstraint,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_function import (
-    DropFunctionStatement,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_schema import (
-    DropSchemaStatement,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_sequence import (
-    AlterSequenceStatement,
-    CreateSequenceStatement,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    ColumnConstraint,
-    ColumnConstraintType,
-    CreateTableAsStatement,
-    DropTableStatement,
-    IdentityClause,
-    IndexDefinition,
-    TableConstraint,
-    TableConstraintType,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_truncate import (
-    TruncateStatement,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_view import (
-    CreateMaterializedViewStatement,
-    DropMaterializedViewStatement,
-    DropViewStatement,
-    RefreshMaterializedViewStatement,
-)
-from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
-from rhosocial.activerecord.backend.expression.transaction import (
-    BeginTransactionStatement,
-    SetTransactionExpression,
-)
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.expression.core import Column
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
 
 
 def _dummy():
@@ -104,11 +108,8 @@ def _query(d):
 def _fk(d, **kw):
     return TableConstraint(
         d,
-        TableConstraintType.FOREIGN_KEY,
+        branch=TableForeignKeyConstraint(d, ["a"], (_table(d, "t2"), ["b"])),
         name="fk",
-        columns=["a"],
-        foreign_key_table=_table(d, "t2"),
-        foreign_key_columns=["b"],
         **kw,
     )
 
@@ -120,9 +121,10 @@ def _check(d, **kw):
 
     return TableConstraint(
         d,
-        TableConstraintType.CHECK,
+        branch=TableCheckConstraint(
+            d, ComparisonPredicate(d, "=", Column(d, "a"), Column(d, "b"))
+        ),
         name="ck",
-        check_condition=ComparisonPredicate(d, "=", Column(d, "a"), Column(d, "b")),
         **kw,
     )
 
@@ -134,9 +136,10 @@ def _column_check(d, **kw):
 
     return ColumnConstraint(
         d,
-        ColumnConstraintType.CHECK,
+        branch=ColumnCheckConstraint(
+            d, ComparisonPredicate(d, "=", Column(d, "a"), Column(d, "b"))
+        ),
         name="ck",
-        check_condition=ComparisonPredicate(d, "=", Column(d, "a"), Column(d, "b")),
         **kw,
     )
 
@@ -144,9 +147,8 @@ def _column_check(d, **kw):
 def _column_fk(d, **kw):
     return ColumnConstraint(
         d,
-        ColumnConstraintType.FOREIGN_KEY,
+        branch=ColumnForeignKeyConstraint(d, (_table(d, "t2"), ["b"])),
         name="fk",
-        foreign_key_reference=(_table(d, "t2"), ["b"]),
         **kw,
     )
 
@@ -356,7 +358,7 @@ PAIR_CASES = (
     PairCase(
         "AlterConstraint.enforced",
         lambda d, **kw: AlterConstraint(
-            d, "c", constraint_type=TableConstraintType.CHECK, **kw
+            d, "c", constraint_kind=TableCheckConstraint, **kw
         ),
         "enforced",
         "not_enforced",

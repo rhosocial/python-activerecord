@@ -36,20 +36,22 @@ DataType 继承自 BaseExpression，其 SQL 文本**不由类型自身构建**�
 """
 
 import pytest
-
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+    ColumnDefinition,
+    CreateTableStatement,
+)
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType,
     IntegerType,
     VarCharType,
 )
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-    ColumnConstraintType,
-    ColumnDefinition,
-    CreateTableStatement,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
+
 
 
 class TestExplicitPerNodeBinding:
@@ -83,9 +85,7 @@ class TestExplicitPerNodeBinding:
                         "id",
                         IntegerType(dummy_dialect),
                         constraints=[
-                            ColumnConstraint(
-                                dummy_dialect, ColumnConstraintType.PRIMARY_KEY
-                            )
+                            ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))
                         ],
                     ),
                     ColumnDefinition(dummy_dialect, "name", varchar),

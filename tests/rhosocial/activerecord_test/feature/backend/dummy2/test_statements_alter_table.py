@@ -1,6 +1,34 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_alter_table.py
 import pytest
-
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnCheckConstraint,
+    ColumnDefaultConstraint,
+    ColumnForeignKeyConstraint,
+    ColumnNotNullConstraint,
+    ColumnNullableConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+    TableCheckConstraint,
+    TableForeignKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Index
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import DecimalType, IntegerType, TextType, TimestampType, VarCharType
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.bases import ToSQLProtocol
+from rhosocial.activerecord.backend.expression.statements import (
+    AlterColumn,
+    AddTableConstraint,
+    DropTableConstraint,
+    RenameObject,
+    AddIndex,
+    DropIndex,
+    TableConstraint,
+    RenameTable,
+    ColumnAlterOperation,
+    AlterTableAction,
+)
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
@@ -13,25 +41,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnCommentClause,
     IndexDefinition,
 )
-from rhosocial.activerecord.backend.expression.statements import (
-    AlterColumn,
-    AddTableConstraint,
-    DropTableConstraint,
-    RenameObject,
-    AddIndex,
-    DropIndex,
-    TableConstraint,
-    TableConstraintType,
-    RenameTable,
-    ColumnAlterOperation,
-    AlterTableAction,
-)
-from rhosocial.activerecord.backend.expression.bases import ToSQLProtocol
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.types import DecimalType, IntegerType, TextType, TimestampType, VarCharType
-from rhosocial.activerecord.backend.expression.objects import Table
-from rhosocial.activerecord.backend.expression.objects import Index
+
 
 
 class TestAlterTableStatements:
@@ -100,9 +110,7 @@ class TestAlterTableStatements:
     def test_add_constraint_action(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD CONSTRAINT action."""
         check_condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 0, inline_literals=True)  # Using operator overload
-        constraint = TableConstraint(dummy_dialect, 
-            constraint_type=TableConstraintType.CHECK, check_condition=check_condition, name="chk_positive_age"
-        )
+        constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_positive_age")
         add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
 
         alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "employees"), actions=[add_constraint_action])
@@ -217,13 +225,7 @@ class TestAlterTableStatements:
         ComparisonPredicate(
             dummy_dialect, "=", Column(dummy_dialect, "created_by"), Column(dummy_dialect, "id", "users")
         )
-        constraint = TableConstraint(dummy_dialect, 
-            constraint_type=TableConstraintType.FOREIGN_KEY,
-            name="fk_created_by",
-            columns=["created_by"],
-            foreign_key_table=Table(dummy_dialect, "users"),
-            foreign_key_columns=["id"],
-        )
+        constraint = TableConstraint(dummy_dialect, branch=TableForeignKeyConstraint(dummy_dialect, ["created_by"], (Table(dummy_dialect, "users"), ["id"])), name="fk_created_by")
         add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
 
         alter_expr = AlterTableStatement(
@@ -316,9 +318,7 @@ class TestAlterTableStatements:
     def test_add_constraint_action_direct(self, dummy_dialect: DummyDialect):
         """Tests direct ADD CONSTRAINT action creation and formatting."""
         check_condition = Column(dummy_dialect, "balance") >= Literal(dummy_dialect, 0, inline_literals=True)
-        constraint = TableConstraint(dummy_dialect, 
-            constraint_type=TableConstraintType.CHECK, check_condition=check_condition, name="chk_balance_positive"
-        )
+        constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_balance_positive")
         add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
         # Action now has dialect bound at construction time
         sql, params = add_constraint_action.to_sql()
@@ -466,9 +466,7 @@ class TestAlterTableStatements:
     def test_add_table_constraint_standard(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD CONSTRAINT action per SQL standard."""
         check_condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 0, inline_literals=True)
-        constraint = TableConstraint(dummy_dialect, 
-            constraint_type=TableConstraintType.CHECK, check_condition=check_condition, name="chk_positive_age"
-        )
+        constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_positive_age")
         add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
 
         alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "employees"), actions=[add_constraint_action])
@@ -661,16 +659,13 @@ class TestAlterTableStatements:
     def test_add_column_action_with_not_null_constraint(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with NOT NULL constraint (replacing the nullable=False functionality)."""
         from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
         )
-        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableStatement
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="username",
             data_type=VarCharType(dummy_dialect, 50),
-            constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NOT_NULL)],  # Use constraint instead of nullable flag
+            constraints=[ColumnConstraint(dummy_dialect, branch=ColumnNotNullConstraint(dummy_dialect))],  # Use constraint instead of nullable flag
             comment=ColumnCommentClause(dummy_dialect, "Username (cannot be null)"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
@@ -689,16 +684,13 @@ class TestAlterTableStatements:
     def test_add_column_action_with_null_constraint(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with explicit NULL constraint (replacing the nullable=True functionality)."""
         from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
         )
-        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableStatement
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="description",
             data_type=TextType(dummy_dialect),
-            constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.NULL)],  # Explicitly allow NULL
+            constraints=[ColumnConstraint(dummy_dialect, branch=ColumnNullableConstraint(dummy_dialect))],  # Explicitly allow NULL
             comment=ColumnCommentClause(dummy_dialect, "Description field"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
@@ -717,16 +709,13 @@ class TestAlterTableStatements:
     def test_add_column_action_with_default_constraint_literal(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with DEFAULT constraint using a literal value."""
         from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
         )
-        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableStatement
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="status",
             data_type=VarCharType(dummy_dialect, 20),
-            constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value="active")],  # Default value
+            constraints=[ColumnConstraint(dummy_dialect, branch=ColumnDefaultConstraint(dummy_dialect, "active"))],  # Default value
             comment=ColumnCommentClause(dummy_dialect, "Status field with default value"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
@@ -745,13 +734,11 @@ class TestAlterTableStatements:
 
     def test_add_column_action_with_default_constraint_expression(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with DEFAULT constraint using an expression."""
-        from rhosocial.activerecord.backend.expression import FunctionCall
         from rhosocial.activerecord.backend.expression.statements import (
             ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
+            ColumnDefaultConstraint,
         )
-        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableStatement
 
         # Create a function call as default value
         now_func = FunctionCall(dummy_dialect, "NOW")
@@ -759,7 +746,7 @@ class TestAlterTableStatements:
         column_def = ColumnDefinition(dummy_dialect, 
             name="created_at",
             data_type=TimestampType(dummy_dialect),
-            constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.DEFAULT, default_value=now_func)],  # Default function
+            constraints=[ColumnConstraint(dummy_dialect, branch=ColumnDefaultConstraint(dummy_dialect, now_func))],  # Default function
             comment=ColumnCommentClause(dummy_dialect, "Timestamp with default function"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
@@ -778,13 +765,11 @@ class TestAlterTableStatements:
 
     def test_add_column_action_with_check_constraint(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with CHECK constraint."""
-        from rhosocial.activerecord.backend.expression import Column as ExprColumn, Literal, ComparisonPredicate
+        from rhosocial.activerecord.backend.expression import Column as ExprColumn
         from rhosocial.activerecord.backend.expression.statements import (
             ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
         )
-        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableStatement
 
         # Create a check condition: age > 0
         check_condition = ComparisonPredicate(
@@ -795,7 +780,7 @@ class TestAlterTableStatements:
             name="age",
             data_type=IntegerType(dummy_dialect),
             constraints=[
-                ColumnConstraint(dummy_dialect, ColumnConstraintType.CHECK, check_condition=check_condition)
+                ColumnConstraint(dummy_dialect, branch=ColumnCheckConstraint(dummy_dialect, check_condition))
             ],  # Check constraint
             comment=ColumnCommentClause(dummy_dialect, "Age must be positive"),
         )
@@ -816,16 +801,13 @@ class TestAlterTableStatements:
     def test_add_column_action_with_primary_key_constraint(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with PRIMARY KEY constraint."""
         from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
         )
-        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableStatement
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="id",
             data_type=IntegerType(dummy_dialect),
-            constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)],  # Primary key constraint
+            constraints=[ColumnConstraint(dummy_dialect, branch=ColumnPrimaryKeyConstraint(dummy_dialect))],  # Primary key constraint
             comment=ColumnCommentClause(dummy_dialect, "Primary key column"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
@@ -844,16 +826,13 @@ class TestAlterTableStatements:
     def test_add_column_action_with_unique_constraint(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with UNIQUE constraint."""
         from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
         )
-        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableStatement
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="email",
             data_type=VarCharType(dummy_dialect, 100),
-            constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.UNIQUE)],  # Unique constraint
+            constraints=[ColumnConstraint(dummy_dialect, branch=ColumnUniqueConstraint(dummy_dialect))],  # Unique constraint
             comment=ColumnCommentClause(dummy_dialect, "Unique email address"),
         )
         add_action = AddColumn(dummy_dialect, column=column_def)
@@ -872,17 +851,14 @@ class TestAlterTableStatements:
     def test_add_column_action_with_foreign_key_constraint(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with FOREIGN KEY constraint."""
         from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
             ColumnConstraint,
-            ColumnConstraintType,
         )
-        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableStatement
 
         column_def = ColumnDefinition(dummy_dialect, 
             name="user_id",
             data_type=IntegerType(dummy_dialect),
             constraints=[
-                ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=(Table(dummy_dialect, "users"), ["id"]))
+                ColumnConstraint(dummy_dialect, branch=ColumnForeignKeyConstraint(dummy_dialect, (Table(dummy_dialect, "users"), ["id"])))
             ],  # Foreign key constraint
             comment=ColumnCommentClause(dummy_dialect, "Reference to users table"),
         )
@@ -901,27 +877,11 @@ class TestAlterTableStatements:
         assert '"id"' in sql
         assert params == ()
 
-    def test_add_column_action_with_foreign_key_constraint_missing_reference(self, dummy_dialect: DummyDialect):
-        """Tests ADD COLUMN with FOREIGN KEY constraint but missing foreign_key_reference should raise ValueError."""
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnDefinition,
-            ColumnConstraint,
-            ColumnConstraintType,
-        )
-        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableStatement
-
-        column_def = ColumnDefinition(dummy_dialect, 
-            name="user_id",
-            data_type=IntegerType(dummy_dialect),
-            constraints=[
-                ColumnConstraint(dummy_dialect, ColumnConstraintType.FOREIGN_KEY)
-            ],  # Foreign key constraint without reference
-            comment=ColumnCommentClause(dummy_dialect, "Reference to users table"),
-        )
-        add_action = AddColumn(dummy_dialect, column=column_def)
-
-        alter_expr = AlterTableStatement(dummy_dialect, table=Table(dummy_dialect, "orders"), actions=[add_action])
-
-        # Should raise ValueError when to_sql() is called
-        with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have a foreign key reference specified."):
-            alter_expr.to_sql()
+        """Refused where the branch is built.
+        
+        The branch is what states this constraint, so a constraint
+        without its payload cannot be written at all.
+        """
+        
+        with pytest.raises(ValueError, match="needs references"):
+            ColumnForeignKeyConstraint(dummy_dialect, None)
