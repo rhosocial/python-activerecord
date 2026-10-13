@@ -159,6 +159,7 @@ from .pivot import PivotExpression, UnpivotExpression
 from .query_sources import (
     SetOperationExpression,
     CTEExpression,
+    WithClause,
     WithQueryExpression,
     ValuesExpression,
     TableFunctionExpression,
@@ -583,6 +584,7 @@ __all__ = [
     # Query sources
     "SetOperationExpression",
     "CTEExpression",
+    "WithClause",
     "WithQueryExpression",
     "ValuesExpression",
     "TableFunctionExpression",

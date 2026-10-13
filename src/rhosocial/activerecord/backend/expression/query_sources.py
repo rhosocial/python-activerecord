@@ -18,6 +18,7 @@ from .sources import TableSource
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
+    from .types import DataType
 
 
 class SetOperationExpression(TableSource, BaseExpression):
@@ -274,6 +275,39 @@ class CTEExpression(BaseExpression):
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
         return "format_cte_expression"
+
+
+class WithClause(BaseExpression):
+    """The ``WITH`` clause of a query: ``WITH [RECURSIVE] cte [, cte ...]``.
+
+    The clause owns what the grammar hangs on the ``WITH`` production —
+    the ``RECURSIVE`` modifier and the CTE definitions — while the
+    statement that follows stays on :class:`WithQueryExpression`. The
+    clause is a node of its own so its spelling is the dialect's public
+    ``format_with_clause``: a backend re-spells the clause by overriding
+    one formatter instead of re-implementing the query composition around
+    it, and the ``supports_basic_cte`` / ``supports_recursive_cte``
+    probes are consulted where the clause is rendered instead of being
+    decorative.
+
+    Rendering an empty clause (no CTE definitions) yields ``("", ())``;
+    the query composition treats that as "no WITH clause at all".
+    """
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        ctes: List[CTEExpression] = (),
+        recursive: bool = False,
+    ):
+        super().__init__(dialect)
+        self.ctes = list(ctes)
+        self.recursive = recursive
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_with_clause"
 
 
 class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
