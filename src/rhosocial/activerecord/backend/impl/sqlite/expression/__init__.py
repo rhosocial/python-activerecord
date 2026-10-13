@@ -23,7 +23,7 @@ from .attach import SQLiteAttachExpression, SQLiteDetachExpression
 from .predicates import SQLiteMatchPredicate
 from .dml import SQLiteInsertStatement
 from .fts5 import (
-    SQLiteFTS5MatchExpression,
+    SQLiteFTS5MatchPredicate,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
@@ -53,7 +53,7 @@ __all__ = [
     "SQLiteDetachExpression",
     "SQLiteMatchPredicate",
     "SQLiteInsertStatement",
-    "SQLiteFTS5MatchExpression",
+    "SQLiteFTS5MatchPredicate",
     "SQLiteFTS5CreateVirtualTable",
     "SQLiteFTS5RankExpression",
     "SQLiteFTS5HighlightExpression",
@@ -80,7 +80,7 @@ for _expr_cls in (
     SQLiteDetachExpression,
     SQLiteMatchPredicate,
     SQLiteInsertStatement,
-    SQLiteFTS5MatchExpression,
+    SQLiteFTS5MatchPredicate,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,

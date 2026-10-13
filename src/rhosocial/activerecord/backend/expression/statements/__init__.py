@@ -173,10 +173,10 @@ from .ddl_partition import (
 )
 
 # Filter clause expression
-from .filter_clause import FilterClauseExpression
+from .filter_clause import FilterClause
 
 # Fulltext match expression
-from .fulltext_match import FulltextMatchExpression
+from .fulltext_match import FulltextMatch
 
 # Re-export shared type alias
 from ._types import FromSourceType
@@ -319,9 +319,9 @@ __all__ = [
     "PartitionStrategy",
     "SubpartitionDefinition",
     # Filter clause expression
-    "FilterClauseExpression",
+    "FilterClause",
     # Fulltext match expression
-    "FulltextMatchExpression",
+    "FulltextMatch",
     # Type aliases
     "FromSourceType",
 ]

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from .expression.fts5 import (
         SQLiteFTS5CreateVirtualTable,
         SQLiteFTS5HighlightExpression,
-        SQLiteFTS5MatchExpression,
+        SQLiteFTS5MatchPredicate,
         SQLiteFTS5RankExpression,
         SQLiteFTS5SnippetExpression,
     )
@@ -254,7 +254,7 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_match_predicate(
         self,
-        expr: "SQLiteFTS5MatchExpression",
+        expr: "SQLiteFTS5MatchPredicate",
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate.
 
@@ -411,7 +411,7 @@ class SQLiteFTS5Support(Protocol):
         ...
 
     def format_fts5_match_expression(
-        self, expr: "SQLiteFTS5MatchExpression"
+        self, expr: "SQLiteFTS5MatchPredicate"
     ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression."""
         ...

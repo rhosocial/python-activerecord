@@ -448,7 +448,7 @@ class ExpressionMixin(FunctionCallMixin):
         """Format a FILTER clause.
 
         Args:
-            expr: FilterClauseExpression containing the condition.
+            expr: FilterClause containing the condition.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the rendered clause.

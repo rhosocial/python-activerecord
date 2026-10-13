@@ -43,7 +43,7 @@ A3 and A4 are what make A1 checkable. Measured:
 | `_format_xml_passing_clause(expressions: List[BaseExpression], mechanism)` | ✗ | ✗ | ✗ | ✓ | **introduce `PassingClause`**, then rename to `format_passing_clause` |
 
 The last row is the pattern for A3's failure mode: three XML expression classes
-(`XMLQueryExpression`, `XMLExistsExpression`, `XMLTableExpression`) hold the
+(`XMLQueryExpression`, `XMLExistsPredicate`, `XMLTableExpression`) hold the
 identical pair `passing` + `passing_mechanism`, and no expression owns that
 clause. The shared state has no home, so the formatter takes unpacked pieces.
 `PASSING [ BY { VALUE | REF } ] { expr [ AS ident ] } [, ...]` is a named

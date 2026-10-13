@@ -99,8 +99,8 @@ class FunctionCallMixin:
         filter_predicate = expr.filter_predicate
         if filter_predicate:
             if isinstance(self, FilterClauseSupport) and self.supports_filter_clause():
-                from ...expression.statements.filter_clause import FilterClauseExpression
-                filter_expr = FilterClauseExpression(self, condition=filter_predicate)
+                from ...expression.statements.filter_clause import FilterClause
+                filter_expr = FilterClause(self, condition=filter_predicate)
                 filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_expr)
                 func_call_sql += f" {filter_clause_sql}"
                 all_params.extend(filter_clause_params)

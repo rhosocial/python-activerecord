@@ -199,13 +199,13 @@ class CaseExpression(
         return "format_case_expression"
 
 
-class ExistsExpression(SQLPredicate):
+class ExistsPredicate(SQLPredicate):
     """Represents an EXISTS predicate (e.g., EXISTS(subquery))."""
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_exists_expression"
+        return "format_exists_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", subquery: Union["Subquery", "BaseExpression"], is_not: bool = False):
         super().__init__(dialect)
@@ -220,13 +220,13 @@ class ExistsExpression(SQLPredicate):
         self.is_not = is_not
 
 
-class AnyExpression(SQLPredicate):
+class AnyPredicate(SQLPredicate):
     """Represents an ANY predicate (e.g., expr = ANY(array_expr) or expr > ANY(subquery))."""
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_any_expression"
+        return "format_any_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"):
         super().__init__(dialect)
@@ -235,13 +235,13 @@ class AnyExpression(SQLPredicate):
         self.array_expr = array_expr
 
 
-class AllExpression(SQLPredicate):
+class AllPredicate(SQLPredicate):
     """Represents an ALL predicate (e.g., expr > ALL(array_expr) or expr = ALL(subquery))."""
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_all_expression"
+        return "format_all_predicate"
 
     def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"):
         super().__init__(dialect)

@@ -338,7 +338,7 @@ class XMLQueryExpression(DeclaredValueType, XMLValueExpression, SQLValueExpressi
         return "format_xmlquery_expression"
 
 
-class XMLExistsExpression(SQLPredicate):
+class XMLExistsPredicate(SQLPredicate):
     """Represents a SQL/XML XMLEXISTS predicate."""
 
     def __init__(
@@ -354,7 +354,7 @@ class XMLExistsExpression(SQLPredicate):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_xmlexists_expression"
+        return "format_xmlexists_predicate"
 
 
 @dataclass

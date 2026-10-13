@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
         XMLCommentExpression,
         XMLConcatExpression,
         XMLElementExpression,
-        XMLExistsExpression,
+        XMLExistsPredicate,
         XMLForestExpression,
         XMLParseExpression,
         XMLPIExpression,
@@ -479,14 +479,14 @@ class SQLXMLQueryingMixin:
             parts.append(expr.empty_handling.value)
         return f"XMLQUERY({' '.join(parts)})", tuple(all_params)
 
-    def format_xmlexists_expression(
+    def format_xmlexists_predicate(
         self,
-        expr: "XMLExistsExpression",
+        expr: "XMLExistsPredicate",
     ) -> Tuple[str, tuple]:
         """Format a SQL/XML XMLEXISTS predicate.
 
         Args:
-            expr: XMLExistsExpression exposing ``query`` and ``passing_clause``.
+            expr: XMLExistsPredicate exposing ``query`` and ``passing_clause``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

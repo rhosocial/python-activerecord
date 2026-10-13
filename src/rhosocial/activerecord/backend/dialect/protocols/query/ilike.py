@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression import ILIKEExpression
+    from ....expression import ILikePredicate
 
 
 @runtime_checkable
@@ -29,7 +29,7 @@ class ILIKESupport(Protocol):
         """Whether ILIKE operator is supported."""
         ...  # pragma: no cover
 
-    def format_ilike_expression(self, expr: "ILIKEExpression") -> Tuple[str, Tuple]:
+    def format_ilike_predicate(self, expr: "ILikePredicate") -> Tuple[str, Tuple]:
         """
         Format ILIKE expression (case-insensitive pattern matching).
 

@@ -9,7 +9,7 @@ from typing import Any, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
-    from ..expression.fts5 import SQLiteFTS5MatchExpression
+    from ..expression.fts5 import SQLiteFTS5MatchPredicate
     from rhosocial.activerecord.backend.expression.statements import InsertStatement, ReturningClause
 
 class SQLiteDMLMixin:
@@ -100,7 +100,7 @@ class SQLiteDMLMixin:
 
     def format_match_predicate(
         self,
-        expr: "SQLiteFTS5MatchExpression",
+        expr: "SQLiteFTS5MatchPredicate",
     ) -> Tuple[str, tuple]:
         """Format full-text search MATCH predicate for FTS5."""
         return self.format_fts5_match_expression(expr)

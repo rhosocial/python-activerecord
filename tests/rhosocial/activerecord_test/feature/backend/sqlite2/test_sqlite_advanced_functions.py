@@ -7,9 +7,9 @@ import pytest
 from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     CaseExpression,
-    ExistsExpression,
-    AnyExpression,
-    AllExpression,
+    ExistsPredicate,
+    AnyPredicate,
+    AllPredicate,
     JSONDocumentExpression,
     ArrayExpression,
     OrderedSetAggregation,
@@ -82,12 +82,12 @@ class TestCastMethod:
 
 
 class TestExistsExpression:
-    """Tests for ExistsExpression class."""
+    """Tests for ExistsPredicate class."""
 
     def test_exists_expression_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic EXISTS expression functionality."""
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
-        exists_expr = ExistsExpression(sqlite_dialect_3_8_0, subquery)
+        exists_expr = ExistsPredicate(sqlite_dialect_3_8_0, subquery)
         sql, params = exists_expr.to_sql()
         assert "EXISTS" in sql.upper()
         assert params == ()
@@ -95,19 +95,19 @@ class TestExistsExpression:
     def test_not_exists_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test NOT EXISTS expression functionality."""
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
-        exists_expr = ExistsExpression(sqlite_dialect_3_8_0, subquery, is_not=True)
+        exists_expr = ExistsPredicate(sqlite_dialect_3_8_0, subquery, is_not=True)
         sql, params = exists_expr.to_sql()
         assert "NOT EXISTS" in sql.upper()
         assert params == ()
 
 
 class TestAnyAllExpression:
-    """Tests for AnyExpression and AllExpression classes."""
+    """Tests for AnyPredicate and AllPredicate classes."""
 
     def test_any_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test ANY expression functionality."""
         # ANY with a list might generate different SQL in SQLite
-        any_expr = AnyExpression(
+        any_expr = AnyPredicate(
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "price"),
             ">",
@@ -120,7 +120,7 @@ class TestAnyAllExpression:
 
     def test_all_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test ALL expression functionality."""
-        all_expr = AllExpression(
+        all_expr = AllPredicate(
             sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), ">", Literal(sqlite_dialect_3_8_0, [50, 75])
         )
         sql, params = all_expr.to_sql()

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ..expression.fts5 import (
         SQLiteFTS5CreateVirtualTable,
         SQLiteFTS5HighlightExpression,
-        SQLiteFTS5MatchExpression,
+        SQLiteFTS5MatchPredicate,
         SQLiteFTS5RankExpression,
         SQLiteFTS5SnippetExpression,
     )
@@ -62,12 +62,12 @@ class SQLiteFTS5Mixin(SQLiteExtensionMixin):
     # ========== SQL Formatting ==========
 
     def format_fts5_match_expression(
-        self, expr: "SQLiteFTS5MatchExpression"
+        self, expr: "SQLiteFTS5MatchPredicate"
     ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression.
 
         Args:
-            expr: SQLiteFTS5MatchExpression instance
+            expr: SQLiteFTS5MatchPredicate instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)

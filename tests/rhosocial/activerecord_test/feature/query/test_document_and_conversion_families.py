@@ -338,8 +338,8 @@ def test_xmlexists_is_a_predicate_not_a_value():
     from rhosocial.activerecord.backend.expression import xml as X
     from rhosocial.activerecord.backend.expression.bases import SQLPredicate
 
-    assert issubclass(X.XMLExistsExpression, SQLPredicate)
-    assert not issubclass(X.XMLExistsExpression, XMLValueExpression)
+    assert issubclass(X.XMLExistsPredicate, SQLPredicate)
+    assert not issubclass(X.XMLExistsPredicate, XMLValueExpression)
 
 
 def test_a_cast_to_xml_is_an_xml_value(dialect, columns):

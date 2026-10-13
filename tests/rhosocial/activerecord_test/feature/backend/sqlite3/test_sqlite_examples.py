@@ -367,7 +367,7 @@ def test_sudoku_exists_expression(sqlite_backend):
         Literal,
         FunctionCall,
         QueryStatement,
-        ExistsExpression,
+        ExistsPredicate,
     )
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
@@ -384,7 +384,7 @@ def test_sudoku_exists_expression(sqlite_backend):
         ),
     )
 
-    exists_expr = ExistsExpression(dialect, subquery)
+    exists_expr = ExistsPredicate(dialect, subquery)
     sql, params = exists_expr.to_sql()
 
     assert "EXISTS" in sql.upper()
@@ -400,7 +400,7 @@ def test_sudoku_not_exists_expression(sqlite_backend):
     from rhosocial.activerecord.backend.expression import (
         Literal,
         QueryStatement,
-        ExistsExpression,
+        ExistsPredicate,
         LogicalPredicate,
     )
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -415,7 +415,7 @@ def test_sudoku_not_exists_expression(sqlite_backend):
     )
 
     # Create EXISTS expression and negate it with NOT
-    exists_expr = ExistsExpression(dialect, subquery)
+    exists_expr = ExistsPredicate(dialect, subquery)
     not_exists_expr = LogicalPredicate(dialect, "NOT", exists_expr)
 
     sql, params = not_exists_expr.to_sql()
@@ -563,7 +563,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         FunctionCall,
     )
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-    from rhosocial.activerecord.backend.expression.advanced_functions import ExistsExpression
+    from rhosocial.activerecord.backend.expression.advanced_functions import ExistsPredicate
 
     # Subquery for NOT EXISTS: SELECT 1 FROM digits AS lp WHERE ...
     lp_table = NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp")
@@ -606,7 +606,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     )
 
     # Create the NOT EXISTS expression
-    not_exists_expr = ExistsExpression(dialect, not_exists_subquery, is_not=True)
+    not_exists_expr = ExistsPredicate(dialect, not_exists_subquery, is_not=True)
 
     # FROM x, digits AS z (cross join using list)
     from_clause = [x_table, NamedRelationRef(dialect, Table(dialect, "digits"), alias="z")]

@@ -13,7 +13,7 @@ import pytest
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.pragma import PragmaCategory
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
-    SQLiteFTS5MatchExpression,
+    SQLiteFTS5MatchPredicate,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
@@ -179,7 +179,7 @@ class TestDialectVirtualTableFormatting:
         assert '"articles"' in sql
 
         sql, params = d.format_fts5_match_expression(
-            SQLiteFTS5MatchExpression(d, table="articles", query="python")
+            SQLiteFTS5MatchPredicate(d, table="articles", query="python")
         )
         assert "MATCH" in sql
         assert params == ("python",)

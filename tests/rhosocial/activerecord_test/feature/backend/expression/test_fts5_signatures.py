@@ -14,7 +14,7 @@ import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression import (
-    SQLiteFTS5MatchExpression,
+    SQLiteFTS5MatchPredicate,
 )
 
 
@@ -32,13 +32,13 @@ class TestFTS5MatchExpressionSignature:
     """format_fts5_match_expression accepts a single expression object."""
 
     def test_match_normal(self, dialect):
-        expr = SQLiteFTS5MatchExpression(dialect, table="articles", query="python")
+        expr = SQLiteFTS5MatchPredicate(dialect, table="articles", query="python")
         sql, params = dialect.format_fts5_match_expression(expr)
         assert "MATCH" in sql
         assert params == ("python",)
 
     def test_match_with_columns(self, dialect):
-        expr = SQLiteFTS5MatchExpression(
+        expr = SQLiteFTS5MatchPredicate(
             dialect, table="articles", query="python", columns=["title", "body"]
         )
         sql, params = dialect.format_fts5_match_expression(expr)
@@ -47,7 +47,7 @@ class TestFTS5MatchExpressionSignature:
         assert "body:python" in params[0]
 
     def test_match_negate_raises(self, dialect):
-        expr = SQLiteFTS5MatchExpression(
+        expr = SQLiteFTS5MatchPredicate(
             dialect, table="articles", query="python", negate=True
         )
         with pytest.raises(ValueError, match="NOT MATCH"):

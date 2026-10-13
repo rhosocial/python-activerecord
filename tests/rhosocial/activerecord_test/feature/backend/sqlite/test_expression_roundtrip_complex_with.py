@@ -7,7 +7,7 @@ https://sqlite.org/lang_with.html — Outlandish Recursive Query Examples
 
 These queries are built as deep expression trees (CTEClause,
 WithStatement, SetOperationStatement, ValuesExpression, QueryStatement,
-FunctionCall, arithmetic operators, concat_op, ExistsExpression, etc.) and
+FunctionCall, arithmetic operators, concat_op, ExistsPredicate, etc.) and
 round-tripped through dict / JSON / XML to stress-test the serialization
 machinery with deeply nested recursive structures.
 """
@@ -40,7 +40,7 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     JoinClause,
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    ExistsExpression,
+    ExistsPredicate,
     CaseExpression,
 )
 from rhosocial.activerecord.backend.expression.functions.string import concat_op
@@ -204,7 +204,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
         one,
     )
 
-    not_exists = ~ExistsExpression(
+    not_exists = ~ExistsPredicate(
         d,
         Subquery(
             d,

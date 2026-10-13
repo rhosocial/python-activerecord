@@ -7,7 +7,7 @@ and pattern predicates into ``(sql, params)`` tuples.
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ...expression.mixins import AliasableMixin
-from ...expression.advanced_functions import AllExpression, AnyExpression, ExistsExpression
+from ...expression.advanced_functions import AllPredicate, AnyPredicate, ExistsPredicate
 from ...expression.predicates import (
     BetweenPredicate,
     ComparisonPredicate,
@@ -195,7 +195,7 @@ class PredicateMixin:
         bool_str = "TRUE" if expr.value else "FALSE"
         return self._with_alias(f"{expr_sql} IS{not_str} {bool_str}", expr), expr_params
 
-    def format_exists_expression(self, expr: ExistsExpression) -> Tuple[str, tuple]:
+    def format_exists_predicate(self, expr: ExistsPredicate) -> Tuple[str, tuple]:
         """Format an ``[NOT] EXISTS`` expression.
 
         Args:
@@ -208,7 +208,7 @@ class PredicateMixin:
         exists_clause = "NOT EXISTS" if expr.is_not else "EXISTS"
         return self._with_alias(f"{exists_clause} {subquery_sql}", expr), subquery_params
 
-    def format_any_expression(self, expr: AnyExpression) -> Tuple[str, tuple]:
+    def format_any_predicate(self, expr: AnyPredicate) -> Tuple[str, tuple]:
         """Format a quantified ``ANY`` comparison expression.
 
         Args:
@@ -233,7 +233,7 @@ class PredicateMixin:
             f"({expr_sql} {expr.op} ANY{array_sql})", expr
         ), tuple(list(expr_params) + list(array_params))
 
-    def format_all_expression(self, expr: AllExpression) -> Tuple[str, tuple]:
+    def format_all_predicate(self, expr: AllPredicate) -> Tuple[str, tuple]:
         """Format a quantified ``ALL`` comparison expression.
 
         Args:

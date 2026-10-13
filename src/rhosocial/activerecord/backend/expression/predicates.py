@@ -131,12 +131,12 @@ class IsNullPredicate(SQLPredicate):
         self.is_not = is_not
 
 
-class ILIKEExpression(SQLPredicate):
+class ILikePredicate(SQLPredicate):
     """Represents a dialect-dispatched ILIKE (case-insensitive LIKE) predicate.
 
     Unlike :class:`LikePredicate` (which always renders through the generic
     ``format_like_predicate``), this node delegates to the dialect's
-    ``format_ilike_expression`` hook so a dialect can emit a native ``ILIKE``
+    ``format_ilike_predicate`` hook so a dialect can emit a native ``ILIKE``
     operator or a portable ``LOWER(...) LIKE LOWER(...)`` fallback.
 
     Attributes:
@@ -145,7 +145,7 @@ class ILIKEExpression(SQLPredicate):
         negate: If True, renders ``NOT LIKE`` instead of ``LIKE``.
 
     Example:
-        >>> expr = ILIKEExpression(dialect, Column(dialect, "name"), "John%")
+        >>> expr = ILikePredicate(dialect, Column(dialect, "name"), "John%")
         >>> expr.to_sql()
         ('LOWER("name") LIKE LOWER(?)', ('john%',))
     """
@@ -153,7 +153,7 @@ class ILIKEExpression(SQLPredicate):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_ilike_expression"
+        return "format_ilike_predicate"
 
     def __init__(
         self,

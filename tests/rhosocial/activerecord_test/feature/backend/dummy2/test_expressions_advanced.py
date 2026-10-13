@@ -8,9 +8,9 @@ from rhosocial.activerecord.backend.expression import (
     Subquery,
     ComparisonPredicate,
     CaseExpression,
-    ExistsExpression,
-    AnyExpression,
-    AllExpression,
+    ExistsPredicate,
+    AnyPredicate,
+    AllPredicate,
     WindowSpecification,
     WindowFrameSpecification,
     ArrayExpression,
@@ -79,7 +79,7 @@ class TestAdvancedExpressions:
         assert sql == "CAST(? AS DATE)"
         assert params == ("2023-01-01",)
 
-    # --- ExistsExpression ---
+    # --- ExistsPredicate ---
     @pytest.mark.parametrize(
         "is_not, expected_prefix",
         [
@@ -90,17 +90,17 @@ class TestAdvancedExpressions:
     def test_exists_expression(self, dummy_dialect: DummyDialect, is_not, expected_prefix):
         """Tests EXISTS and NOT EXISTS expressions with a subquery."""
         subquery = Subquery(dummy_dialect, "SELECT 1 FROM users WHERE active = ?", (True,))
-        exists_expr = ExistsExpression(dummy_dialect, subquery, is_not=is_not)
+        exists_expr = ExistsPredicate(dummy_dialect, subquery, is_not=is_not)
         sql, params = exists_expr.to_sql()
         assert sql == f"{expected_prefix} (SELECT 1 FROM users WHERE active = ?)"
         assert params == (True,)
 
-    # --- AnyExpression / AllExpression ---
+    # --- AnyPredicate / AllPredicate ---
     @pytest.mark.parametrize(
         "expr_type, operator, operand_list, expected_keyword, expected_sql_pattern, expected_params",
         [
-            (AnyExpression, ">", [10, 20, 30], "ANY", '("age" > ANY?)', ((10, 20, 30),)),
-            (AllExpression, "<", [5, 10], "ALL", '("age" < ALL?)', ((5, 10),)),
+            (AnyPredicate, ">", [10, 20, 30], "ANY", '("age" > ANY?)', ((10, 20, 30),)),
+            (AllPredicate, "<", [5, 10], "ALL", '("age" < ALL?)', ((5, 10),)),
         ],
     )
     def test_any_all_expressions(
@@ -124,7 +124,7 @@ class TestAdvancedExpressions:
     def test_any_with_subquery(self, dummy_dialect: DummyDialect):
         """Tests ANY expression with a subquery."""
         subquery = Subquery(dummy_dialect, "SELECT product_id FROM top_sellers WHERE category = ?", ("electronics",))
-        any_expr = AnyExpression(dummy_dialect, Column(dummy_dialect, "item_id"), "=", subquery)
+        any_expr = AnyPredicate(dummy_dialect, Column(dummy_dialect, "item_id"), "=", subquery)
         sql, params = any_expr.to_sql()
         assert sql == '("item_id" = ANY(SELECT product_id FROM top_sellers WHERE category = ?))'
         assert params == ("electronics",)

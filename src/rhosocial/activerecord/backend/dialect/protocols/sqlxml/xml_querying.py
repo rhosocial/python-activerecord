@@ -17,7 +17,7 @@ from .xml_aggregation import SQLXMLAggregationSupport
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.xml import (
         PassingClause,
-        XMLExistsExpression,
+        XMLExistsPredicate,
         XMLQueryExpression,
         XMLTableExpression,
     )
@@ -52,7 +52,7 @@ class SQLXMLQueryingSupport(Protocol):
         """Format a SQL/XML XMLQUERY expression."""
         ...  # pragma: no cover
 
-    def format_xmlexists_expression(self, expr: "XMLExistsExpression") -> Tuple[str, tuple]:
+    def format_xmlexists_predicate(self, expr: "XMLExistsPredicate") -> Tuple[str, tuple]:
         """Format a SQL/XML XMLEXISTS predicate."""
         ...  # pragma: no cover
 

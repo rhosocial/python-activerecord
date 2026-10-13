@@ -15,7 +15,7 @@ from ..xml import (
     XMLConcatExpression,
     XMLElementExpression,
     XMLEmptyHandlingOption,
-    XMLExistsExpression,
+    XMLExistsPredicate,
     XMLForestExpression,
     XMLForestItem,
     XMLParseDocumentType,
@@ -225,9 +225,9 @@ def xmlexists(
     query: XMLValue,
     passing: Optional[Sequence[XMLValue]] = None,
     passing_mechanism: Optional[XMLPassingMechanism] = None,
-) -> XMLExistsExpression:
+) -> XMLExistsPredicate:
     """Create a SQL/XML XMLEXISTS predicate."""
-    return XMLExistsExpression(
+    return XMLExistsPredicate(
         dialect,
         _as_expression(dialect, query),
         passing_clause(dialect, passing, passing_mechanism),

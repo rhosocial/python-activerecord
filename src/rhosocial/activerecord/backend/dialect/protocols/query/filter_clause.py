@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements.filter_clause import FilterClauseExpression
+    from ....expression.statements.filter_clause import FilterClause
 
 
 @runtime_checkable
@@ -20,12 +20,12 @@ class FilterClauseSupport(Protocol):
         """Whether FILTER (WHERE ...) clause is supported in aggregate functions."""
         ...  # pragma: no cover
 
-    def format_filter_clause(self, expr: "FilterClauseExpression") -> Tuple[str, tuple]:
+    def format_filter_clause(self, expr: "FilterClause") -> Tuple[str, tuple]:
         """
         Format a FILTER (WHERE ...) clause.
 
         Args:
-            expr: FilterClauseExpression wrapping the condition.
+            expr: FilterClause wrapping the condition.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.

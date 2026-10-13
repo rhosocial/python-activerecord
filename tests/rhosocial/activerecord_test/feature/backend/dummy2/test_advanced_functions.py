@@ -6,9 +6,9 @@ Tests for the advanced SQL function expression components in advanced_functions.
 from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     CaseExpression,
-    ExistsExpression,
-    AnyExpression,
-    AllExpression,
+    ExistsPredicate,
+    AnyPredicate,
+    AllPredicate,
     JSONDocumentExpression,
     ArrayExpression,
     OrderedSetAggregation,
@@ -99,12 +99,12 @@ class TestCastExpression:
 
 
 class TestExistsExpression:
-    """Tests for ExistsExpression class."""
+    """Tests for ExistsPredicate class."""
 
     def test_exists_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic EXISTS expression functionality."""
         subquery = Subquery(dummy_dialect, "SELECT 1 FROM users WHERE id = ?", (1,))
-        exists_expr = ExistsExpression(dummy_dialect, subquery)
+        exists_expr = ExistsPredicate(dummy_dialect, subquery)
         sql, params = exists_expr.to_sql()
         assert "EXISTS" in sql
         assert params == (1,)
@@ -112,20 +112,20 @@ class TestExistsExpression:
     def test_not_exists_expression(self, dummy_dialect: DummyDialect):
         """Test NOT EXISTS expression functionality."""
         subquery = Subquery(dummy_dialect, "SELECT 1 FROM users WHERE id = ?", (1,))
-        exists_expr = ExistsExpression(dummy_dialect, subquery, is_not=True)
+        exists_expr = ExistsPredicate(dummy_dialect, subquery, is_not=True)
         sql, params = exists_expr.to_sql()
         assert "NOT EXISTS" in sql
         assert params == (1,)
 
 
 class TestAnyExpression:
-    """Tests for AnyExpression class."""
+    """Tests for AnyPredicate class."""
 
     def test_any_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic ANY expression functionality."""
         expr = Column(dummy_dialect, "value")
         array_expr = Column(dummy_dialect, "array_col")
-        any_expr = AnyExpression(dummy_dialect, expr, "=", array_expr)
+        any_expr = AnyPredicate(dummy_dialect, expr, "=", array_expr)
         sql, params = any_expr.to_sql()
         assert "ANY" in sql
         assert "=" in sql
@@ -134,7 +134,7 @@ class TestAnyExpression:
         """Test ANY expression with literal list."""
         expr = Column(dummy_dialect, "value")
         array_expr = Literal(dummy_dialect, [1, 2, 3])
-        any_expr = AnyExpression(dummy_dialect, expr, ">", array_expr)
+        any_expr = AnyPredicate(dummy_dialect, expr, ">", array_expr)
         sql, params = any_expr.to_sql()
         assert "ANY" in sql
         assert ">" in sql
@@ -142,13 +142,13 @@ class TestAnyExpression:
 
 
 class TestAllExpression:
-    """Tests for AllExpression class."""
+    """Tests for AllPredicate class."""
 
     def test_all_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic ALL expression functionality."""
         expr = Column(dummy_dialect, "value")
         array_expr = Column(dummy_dialect, "array_col")
-        all_expr = AllExpression(dummy_dialect, expr, ">", array_expr)
+        all_expr = AllPredicate(dummy_dialect, expr, ">", array_expr)
         sql, params = all_expr.to_sql()
         assert "ALL" in sql
         assert ">" in sql
@@ -157,7 +157,7 @@ class TestAllExpression:
         """Test ALL expression with literal list."""
         expr = Column(dummy_dialect, "value")
         array_expr = Literal(dummy_dialect, [1, 2, 3])
-        all_expr = AllExpression(dummy_dialect, expr, "=", array_expr)
+        all_expr = AllPredicate(dummy_dialect, expr, "=", array_expr)
         sql, params = all_expr.to_sql()
         assert "ALL" in sql
         assert "=" in sql

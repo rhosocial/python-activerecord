@@ -14,7 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
         CreateFulltextIndexStatement,
         DropFulltextIndexStatement,
-        FulltextMatchExpression,
+        FulltextMatch,
     )
 
 
@@ -77,8 +77,8 @@ class FulltextIndexSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_fulltext_match(self, expr: "FulltextMatchExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.FulltextMatchExpression`.
+    def format_fulltext_match(self, expr: "FulltextMatch") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.FulltextMatch`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

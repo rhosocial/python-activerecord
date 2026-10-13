@@ -64,11 +64,11 @@ from rhosocial.activerecord.backend.expression.graph import (
     GraphEdgeDirection,
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    AllExpression,
-    AnyExpression,
+    AllPredicate,
+    AnyPredicate,
     ArrayExpression,
     CaseExpression,
-    ExistsExpression,
+    ExistsPredicate,
     JSONDocumentExpression,
     OrderedSetAggregation,
     WindowClause,
@@ -283,8 +283,8 @@ EXPRESSION_TEST_CASES = [
     ),
     # advanced_functions
     dict(
-        name="AllExpression",
-        cls=AllExpression,
+        name="AllPredicate",
+        cls=AllPredicate,
         params_func=lambda d: dict(
             dialect=d,
             expr=Column(d, "x"),
@@ -293,8 +293,8 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="AnyExpression",
-        cls=AnyExpression,
+        name="AnyPredicate",
+        cls=AnyPredicate,
         params_func=lambda d: dict(
             dialect=d,
             expr=Column(d, "x"),
@@ -315,8 +315,8 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="ExistsExpression",
-        cls=ExistsExpression,
+        name="ExistsPredicate",
+        cls=ExistsPredicate,
         params_func=lambda d: dict(dialect=d, subquery=Subquery(d, "SELECT 1")),
     ),
     dict(

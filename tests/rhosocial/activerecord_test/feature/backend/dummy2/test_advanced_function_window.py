@@ -9,9 +9,9 @@ from rhosocial.activerecord.backend.expression import (
     QueryStatement,
     CaseExpression,
     ComparisonPredicate,
-    ExistsExpression,
-    AnyExpression,
-    AllExpression,
+    ExistsPredicate,
+    AnyPredicate,
+    AllPredicate,
     SelectModifier,
     ForUpdateClause,
     WindowFrameSpecification,
@@ -114,14 +114,14 @@ class TestAdvancedFunctionWindow:
                 ),
             ),
         )
-        exists_expr = ExistsExpression(dummy_dialect, subquery)
+        exists_expr = ExistsPredicate(dummy_dialect, subquery)
         sql, params = exists_expr.to_sql()
         expected = 'EXISTS (SELECT "id" FROM "orders" WHERE "user_id" = "u"."id")'
         assert sql == expected
         assert params == ()
 
     def test_exists_expression_invalid_subquery_type_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that ExistsExpression raises TypeError for invalid subquery parameter type."""
+        """Tests that ExistsPredicate raises TypeError for invalid subquery parameter type."""
 
         # Create an object that is neither Subquery nor BaseExpression (doesn't have to_sql method)
         class InvalidObject:
@@ -133,12 +133,12 @@ class TestAdvancedFunctionWindow:
         with pytest.raises(
             TypeError, match=r"subquery must be Subquery or BaseExpression, got <class '.*InvalidObject'>"
         ):
-            ExistsExpression(dummy_dialect, invalid_obj)
+            ExistsPredicate(dummy_dialect, invalid_obj)
 
     def test_any_all_expressions(self, dummy_dialect: DummyDialect):
         """Tests ANY and ALL expressions."""
         # ANY expression
-        any_expr = AnyExpression(
+        any_expr = AnyPredicate(
             dummy_dialect, Column(dummy_dialect, "value"), ">", Literal(dummy_dialect, [10, 20, 30])
         )
         sql, params = any_expr.to_sql()
@@ -147,7 +147,7 @@ class TestAdvancedFunctionWindow:
         assert params == ((10, 20, 30),)
 
         # ALL expression
-        all_expr = AllExpression(
+        all_expr = AllPredicate(
             dummy_dialect, Column(dummy_dialect, "score"), ">=", Literal(dummy_dialect, [85, 90, 95])
         )
         sql, params = all_expr.to_sql()

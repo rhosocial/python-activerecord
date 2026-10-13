@@ -15,7 +15,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CreateFulltextIndexStatement,
         DropFulltextIndexStatement,
     )
-    from ...expression.statements.fulltext_match import FulltextMatchExpression
+    from ...expression.statements.fulltext_match import FulltextMatch
 
 
 class IndexMixin:
@@ -193,12 +193,12 @@ class IndexMixin:
         return self.supports_fulltext_index()
 
     def format_fulltext_match(
-        self, expr: "FulltextMatchExpression"
+        self, expr: "FulltextMatch"
     ) -> Tuple[str, tuple]:
         """Format MATCH ... AGAINST expression.
 
         Args:
-            expr: FulltextMatchExpression carrying the target ``columns``,
+            expr: FulltextMatch carrying the target ``columns``,
                 ``search_term``, and optional ``mode``.
 
         Returns:
