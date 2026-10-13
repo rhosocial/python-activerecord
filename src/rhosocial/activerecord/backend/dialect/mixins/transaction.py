@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class TransactionControlMixin:
     """Mixin providing transaction control statement formatting."""
 
-    def format_begin_transaction(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
+    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """Format a BEGIN transaction statement.
 
         Args:
@@ -31,7 +31,7 @@ class TransactionControlMixin:
         """
         return "BEGIN", ()
 
-    def format_commit_transaction(self, expr: "CommitStatement") -> Tuple[str, tuple]:
+    def format_commit_transaction_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """Format a COMMIT transaction statement.
 
         Args:
@@ -42,7 +42,7 @@ class TransactionControlMixin:
         """
         return "COMMIT", ()
 
-    def format_rollback_transaction(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
+    def format_rollback_transaction_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """Format a ROLLBACK statement, optionally to a savepoint.
 
         Args:
@@ -58,7 +58,7 @@ class TransactionControlMixin:
             return f"ROLLBACK TO SAVEPOINT {self.format_identifier(savepoint)}", ()
         return "ROLLBACK", ()
 
-    def format_savepoint(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
+    def format_savepoint_statement(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
         """Format a SAVEPOINT statement.
 
         Args:
@@ -69,7 +69,7 @@ class TransactionControlMixin:
         """
         return f"SAVEPOINT {self.format_identifier(expr.name)}", ()
 
-    def format_release_savepoint(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
+    def format_release_savepoint_statement(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
         """Format a RELEASE SAVEPOINT statement.
 
         Args:

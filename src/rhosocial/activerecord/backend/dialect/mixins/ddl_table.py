@@ -503,7 +503,7 @@ class TableMixin:
             parts.append("COPY GRANTS")
         return " ".join(parts), tuple(table_params) + tuple(source_params)
 
-    def format_create_table_using_template(self, expr: "CreateTableFromTemplateStatement") -> Tuple[str, tuple]:
+    def format_create_table_from_template_statement(self, expr: "CreateTableFromTemplateStatement") -> Tuple[str, tuple]:
         """Format ``CREATE TABLE ... USING TEMPLATE`` (generic reusable implementation).
 
         Renders::

@@ -1707,7 +1707,7 @@ class DummyDialect(
         """Dummy backend supports savepoints."""
         return True
 
-    def format_begin_transaction(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
+    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """Format BEGIN TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         parts = ["BEGIN"]
@@ -1745,11 +1745,11 @@ class DummyDialect(
 
         return " ".join(parts), ()
 
-    def format_commit_transaction(self, expr: "CommitStatement") -> Tuple[str, tuple]:
+    def format_commit_transaction_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """Format COMMIT TRANSACTION statement for dummy dialect."""
         return "COMMIT", ()
 
-    def format_rollback_transaction(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
+    def format_rollback_transaction_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """Format ROLLBACK TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         savepoint = params.get("savepoint")
@@ -1757,13 +1757,13 @@ class DummyDialect(
             return f"ROLLBACK TO SAVEPOINT {self.format_identifier(savepoint)}", ()
         return "ROLLBACK", ()
 
-    def format_savepoint(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
+    def format_savepoint_statement(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
         """Format SAVEPOINT statement for dummy dialect."""
         params = expr.get_params()
         name = params.get("name", "")
         return f"SAVEPOINT {self.format_identifier(name)}", ()
 
-    def format_release_savepoint(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
+    def format_release_savepoint_statement(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
         """Format RELEASE SAVEPOINT statement for dummy dialect."""
         params = expr.get_params()
         name = params.get("name", "")

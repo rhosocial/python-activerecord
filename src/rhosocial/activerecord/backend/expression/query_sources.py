@@ -164,7 +164,7 @@ class SetOperationStatement(TableSource, BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_set_operation_expression"
+        return "format_set_operation_statement"
 
 
 class CTEClause(BaseExpression):

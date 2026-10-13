@@ -106,7 +106,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
             return True
         return self.get_runtime_param("json1_available", False)
 
-    def format_create_virtual_table(
+    def format_create_virtual_table_statement(
         self,
         expr: "CreateVirtualTableStatement",
     ) -> Tuple[str, tuple]:
@@ -128,7 +128,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         sql = f"CREATE VIRTUAL TABLE {name} USING {expr.module}({cols})"
         return sql, ()
 
-    def format_drop_virtual_table(
+    def format_drop_virtual_table_statement(
         self,
         expr: "DropVirtualTableStatement",
     ) -> Tuple[str, tuple]:

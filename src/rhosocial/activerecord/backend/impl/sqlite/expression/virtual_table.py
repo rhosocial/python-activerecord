@@ -38,10 +38,10 @@ class CreateVirtualTableStatement(BaseExpression):
 
     @property
     def format_method(self) -> str:
-        return "format_create_virtual_table"
+        return "format_create_virtual_table_statement"
 
     def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_create_virtual_table(self)
+        return self.dialect.format_create_virtual_table_statement(self)
 
 
 class DropVirtualTableStatement(BaseExpression):
@@ -64,7 +64,7 @@ class DropVirtualTableStatement(BaseExpression):
 
     @property
     def format_method(self) -> str:
-        return "format_drop_virtual_table"
+        return "format_drop_virtual_table_statement"
 
     def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_drop_virtual_table(self)
+        return self.dialect.format_drop_virtual_table_statement(self)

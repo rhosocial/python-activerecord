@@ -31,7 +31,7 @@ class CreateTableUsingTemplateSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_create_table_using_template(self, expr: "CreateTableFromTemplateStatement") -> Tuple[str, tuple]:
+    def format_create_table_from_template_statement(self, expr: "CreateTableFromTemplateStatement") -> Tuple[str, tuple]:
         """Render a :class:`~....expression.statements.CreateTableFromTemplateStatement`.
 
         Raises rather than emitting an unsupported form: a statement the

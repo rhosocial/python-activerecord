@@ -42,7 +42,7 @@ class SetOperationSupport(Protocol):
         """Whether set operations support FOR UPDATE clauses."""
         ...  # pragma: no cover
 
-    def format_set_operation_expression(
+    def format_set_operation_statement(
         self, expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
         """Format a SetOperationStatement node (UNION, INTERSECT, EXCEPT)."""

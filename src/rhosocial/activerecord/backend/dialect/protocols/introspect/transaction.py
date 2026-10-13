@@ -100,7 +100,7 @@ class TransactionControlSupport(Protocol):
 
     # ========== SQL Formatting ==========
 
-    def format_begin_transaction(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
+    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """
         Format BEGIN TRANSACTION statement.
 
@@ -126,7 +126,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_commit_transaction(self, expr: "CommitStatement") -> Tuple[str, tuple]:
+    def format_commit_transaction_statement(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """
         Format COMMIT statement.
 
@@ -138,7 +138,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_rollback_transaction(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
+    def format_rollback_transaction_statement(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """
         Format ROLLBACK statement.
 
@@ -150,7 +150,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_savepoint(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
+    def format_savepoint_statement(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
         """
         Format SAVEPOINT statement.
 
@@ -162,7 +162,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_release_savepoint(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
+    def format_release_savepoint_statement(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
         """
         Format RELEASE SAVEPOINT statement.
 

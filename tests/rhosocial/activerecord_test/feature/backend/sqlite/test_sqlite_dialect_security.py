@@ -205,7 +205,7 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
 
 
 # ============================================================
-# format_drop_virtual_table — manual quoting replaced with format_identifier
+# format_drop_virtual_table_statement — manual quoting replaced with format_identifier
 # ============================================================
 
 

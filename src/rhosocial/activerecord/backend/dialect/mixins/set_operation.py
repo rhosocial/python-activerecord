@@ -68,7 +68,7 @@ class SetOperationMixin:
         """
         return False
 
-    def format_set_operation_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+    def format_set_operation_statement(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format a set operation expression (UNION, INTERSECT, EXCEPT).
 
         Args:

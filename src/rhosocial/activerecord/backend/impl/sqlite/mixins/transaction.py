@@ -37,7 +37,7 @@ class SQLiteTransactionMixin:
         """SQLite supports savepoints."""
         return True
 
-    def format_begin_transaction(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
+    def format_begin_transaction_statement(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """Format BEGIN TRANSACTION statement for SQLite.
 
         SQLite has no DEFERRABLE transaction mode; a requested spelling is

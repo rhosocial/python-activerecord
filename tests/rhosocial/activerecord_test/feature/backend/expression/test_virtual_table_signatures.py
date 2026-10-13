@@ -2,8 +2,8 @@
 """Tests for virtual table format method signature compliance.
 
 Verifies:
-- format_create_virtual_table accepts a CreateVirtualTableStatement
-- format_drop_virtual_table accepts a DropVirtualTableStatement
+- format_create_virtual_table_statement accepts a CreateVirtualTableStatement
+- format_drop_virtual_table_statement accepts a DropVirtualTableStatement
 - 4 tests: create/drop × expression construction + SQL output
 """
 

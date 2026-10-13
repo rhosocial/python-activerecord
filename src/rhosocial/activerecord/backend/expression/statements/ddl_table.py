@@ -975,13 +975,13 @@ class CreateTableFromTemplateStatement(BaseExpression):
     Derives the table's column definitions from staged files described by a
     query (typically ``INFER_SCHEMA``).  Dialects that do not support this form
     raise :class:`UnsupportedFeatureError` from
-    ``format_create_table_using_template``.
+    ``format_create_table_from_template_statement``.
     """
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_create_table_using_template"
+        return "format_create_table_from_template_statement"
 
     def __init__(
         self,

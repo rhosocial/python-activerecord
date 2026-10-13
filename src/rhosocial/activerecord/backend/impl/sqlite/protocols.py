@@ -222,7 +222,7 @@ class SQLiteVirtualTableSupport(Protocol):
 
     # ========== Virtual Table SQL Formatting ==========
 
-    def format_create_virtual_table(
+    def format_create_virtual_table_statement(
         self,
         expr: "CreateVirtualTableStatement",
     ) -> Tuple[str, tuple]:
@@ -236,7 +236,7 @@ class SQLiteVirtualTableSupport(Protocol):
         """
         ...
 
-    def format_drop_virtual_table(
+    def format_drop_virtual_table_statement(
         self,
         expr: "DropVirtualTableStatement",
     ) -> Tuple[str, tuple]:
