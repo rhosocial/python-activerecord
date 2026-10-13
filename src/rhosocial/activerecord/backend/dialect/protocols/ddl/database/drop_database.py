@@ -11,7 +11,7 @@ Naming an object is not here -- that is
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .....expression.statements.ddl_database import DropDatabaseExpression
+    from .....expression.statements.ddl_database import DropDatabaseStatement
 
 
 @runtime_checkable
@@ -50,8 +50,8 @@ class DropDatabaseSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_drop_database_statement(self, expr: "DropDatabaseExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.DropDatabaseExpression`.
+    def format_drop_database_statement(self, expr: "DropDatabaseStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.DropDatabaseStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

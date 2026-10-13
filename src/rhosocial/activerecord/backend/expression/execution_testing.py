@@ -24,8 +24,8 @@ Backend test suites use it like this::
 
     outcome = confirm_expression_execution(
         backend,
-        CreateTableExpression(dialect, table, columns),
-        teardown=[DropTableExpression(dialect, table)],
+        CreateTableStatement(dialect, table, columns),
+        teardown=[DropTableStatement(dialect, table)],
     )
     if outcome is ExecutionOutcome.NOT_RENDERED:
         pytest.skip("dialect does not render this expression")

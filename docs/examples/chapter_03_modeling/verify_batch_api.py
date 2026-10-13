@@ -10,8 +10,8 @@ Correct import paths confirmed by this script:
   - BatchCommitMode   ← from rhosocial.activerecord.backend.result
   - BatchDMLResult    ← from rhosocial.activerecord.backend.result
   - BatchDQLResult    ← from rhosocial.activerecord.backend.result
-  - InsertExpression  ← from rhosocial.activerecord.backend.expression
-  - QueryExpression   ← from rhosocial.activerecord.backend.expression.statements
+  - InsertStatement  ← from rhosocial.activerecord.backend.expression
+  - QueryStatement   ← from rhosocial.activerecord.backend.expression.statements
   - WildcardExpression← from rhosocial.activerecord.backend.expression
   - TableExpression   ← from rhosocial.activerecord.backend.expression
   - ValuesSource      ← from rhosocial.activerecord.backend.expression
@@ -125,16 +125,16 @@ def assert_import_paths() -> None:
     try_import("rhosocial.activerecord.backend.result", "BatchDQLResult")
 
     # Expression types (DML)
-    try_import("rhosocial.activerecord.backend.expression", "InsertExpression")
-    try_import("rhosocial.activerecord.backend.expression", "UpdateExpression")
-    try_import("rhosocial.activerecord.backend.expression", "DeleteExpression")
+    try_import("rhosocial.activerecord.backend.expression", "InsertStatement")
+    try_import("rhosocial.activerecord.backend.expression", "UpdateStatement")
+    try_import("rhosocial.activerecord.backend.expression", "DeleteStatement")
     try_import("rhosocial.activerecord.backend.expression", "TableExpression")
     try_import("rhosocial.activerecord.backend.expression", "ValuesSource")
     try_import("rhosocial.activerecord.backend.expression", "Column")
     try_import("rhosocial.activerecord.backend.expression", "Literal")
 
     # Expression types (DQL)
-    try_import("rhosocial.activerecord.backend.expression.statements", "QueryExpression")
+    try_import("rhosocial.activerecord.backend.expression.statements", "QueryStatement")
     try_import("rhosocial.activerecord.backend.expression.query_sources", "WithStatement")
     try_import("rhosocial.activerecord.backend.expression", "WildcardExpression")
     try_import("rhosocial.activerecord.backend.expression.query_parts", "OrderByClause")
@@ -174,7 +174,7 @@ def demonstrate_batch_dml() -> None:
     from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from rhosocial.activerecord.backend.expression import (
-        InsertExpression,
+        InsertStatement,
         ValuesSource,
         Literal,
     )
@@ -194,7 +194,7 @@ def demonstrate_batch_dml() -> None:
 
     dialect = backend.dialect
 
-    # Build InsertExpression list
+    # Build InsertStatement list
     rows = [
         ("Alice", "alice@example.com"),
         ("Bob", "bob@example.com"),
@@ -203,7 +203,7 @@ def demonstrate_batch_dml() -> None:
         ("Eve", "eve@example.com"),
     ]
     exprs = [
-        InsertExpression(
+        InsertStatement(
             dialect,
             into="users",
             columns=["name", "email"],
@@ -257,7 +257,7 @@ def demonstrate_batch_dql() -> None:
 
     from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-    from rhosocial.activerecord.backend.expression.statements import QueryExpression
+    from rhosocial.activerecord.backend.expression.statements import QueryStatement
     from rhosocial.activerecord.backend.expression import (
         WildcardExpression,
         TableExpression,
@@ -288,7 +288,7 @@ def demonstrate_batch_dql() -> None:
     dialect = backend.dialect
 
     # Build SELECT * FROM items ORDER BY id
-    query_expr = QueryExpression(
+    query_expr = QueryStatement(
         dialect,
         select=[WildcardExpression(dialect)],
         from_=TableExpression(dialect, "items"),
@@ -334,8 +334,8 @@ def print_usage_summary() -> None:
 
 ✅ CORRECT imports for related types:
     from rhosocial.activerecord.backend.result import BatchCommitMode, BatchDMLResult, BatchDQLResult
-    from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource, Column, Literal
-    from rhosocial.activerecord.backend.expression.statements import QueryExpression
+    from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Column, Literal
+    from rhosocial.activerecord.backend.expression.statements import QueryStatement
     from rhosocial.activerecord.backend.expression.query_parts import OrderByClause, LimitOffsetClause
     from rhosocial.activerecord.backend.base import BatchExecutionMixin  # for type hints only
 """)

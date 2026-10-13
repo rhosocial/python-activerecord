@@ -14,14 +14,14 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import CreateTableExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import CreateTableStatement  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -52,15 +52,15 @@ backend.execute(sql, params)
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression,
+    InsertStatement,
     ValuesSource,
-    QueryExpression,
+    QueryStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
 from .....expression.objects import Table
 
-insert_expr = InsertExpression(
+insert_expr = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     source=ValuesSource(
@@ -85,7 +85,7 @@ result = backend.execute(sql, params)
 print(f"Affected rows: {result.affected_rows}")
 
 # Verify
-verify_query = QueryExpression(
+verify_query = QueryStatement(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),

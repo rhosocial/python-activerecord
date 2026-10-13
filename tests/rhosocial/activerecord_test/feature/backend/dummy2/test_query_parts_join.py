@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     ComparisonPredicate,
-    QueryExpression,
+    QueryStatement,
     FunctionCall,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -371,9 +371,9 @@ class TestJoinClauseChaining:
         assert params == (100, "active")
 
     def test_join_expression_with_query_expression_as_table(self, dummy_dialect: DummyDialect):
-        """Test JoinClause with QueryExpression as one of the tables."""
+        """Test JoinClause with QueryStatement as one of the tables."""
         # Create a subquery
-        subquery = QueryExpression(
+        subquery = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "inactive_users")),
@@ -401,7 +401,7 @@ class TestJoinClauseChaining:
     def test_chaining_with_subquery_joins(self, dummy_dialect: DummyDialect):
         """Test chaining joins where one of the 'tables' is a subquery."""
         # Create a subquery
-        user_summary = QueryExpression(
+        user_summary = QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "user_id"),

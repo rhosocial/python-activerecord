@@ -343,7 +343,7 @@ class AggregateQueryMixin:
                 ),
             )
 
-            query_expr = statements.QueryExpression(
+            query_expr = statements.QueryStatement(
                 dialect,
                 select=self.select_columns,
                 from_=self.join_clause if self.join_clause else from_clause,
@@ -353,9 +353,9 @@ class AggregateQueryMixin:
                 limit_offset=self.limit_offset_clause,
             )
 
-            # Create ExplainExpression with the query and options
+            # Create ExplainStatement with the query and options
             explain_options = statements.ExplainOptions(**self._explain_options)
-            explain_expr = statements.ExplainExpression(dialect, query_expr, explain_options)
+            explain_expr = statements.ExplainStatement(dialect, query_expr, explain_options)
 
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()
@@ -734,7 +734,7 @@ class AsyncAggregateQueryMixin:
                 ),
             )
 
-            query_expr = statements.QueryExpression(
+            query_expr = statements.QueryStatement(
                 dialect,
                 select=self.select_columns,
                 from_=self.join_clause if self.join_clause else from_clause,
@@ -744,9 +744,9 @@ class AsyncAggregateQueryMixin:
                 limit_offset=self.limit_offset_clause,
             )
 
-            # Create ExplainExpression with the query and options
+            # Create ExplainStatement with the query and options
             explain_options = statements.ExplainOptions(**self._explain_options)
-            explain_expr = statements.ExplainExpression(dialect, query_expr, explain_options)
+            explain_expr = statements.ExplainStatement(dialect, query_expr, explain_options)
 
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()

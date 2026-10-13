@@ -19,7 +19,7 @@ When you encounter a feature in this section, check whether it is a backend-spec
 |---------|-------------|---------------------------|
 | Expressions | Core expression classes (Column, Literal, FunctionCall, etc.) | Dialect overrides and {database}-specific expression classes |
 | Type System | Core DataType hierarchy (IntegerType, VarCharType, etc.) | {database}-specific DataType subclasses and type adapters |
-| EXPLAIN | ExplainExpression interface | {database}-specific EXPLAIN syntax and result parsing |
+| EXPLAIN | ExplainStatement interface | {database}-specific EXPLAIN syntax and result parsing |
 | Introspection | Introspector interface | {database}-specific metadata queries |
 
 ## Related Topics

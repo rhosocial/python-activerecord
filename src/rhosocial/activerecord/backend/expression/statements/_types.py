@@ -7,7 +7,7 @@ from ..sources import NamedRelationRef
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..core import Subquery
-    from ..query_sources import SetOperationExpression, ValuesExpression, TableFunctionExpression, LateralExpression
+    from ..query_sources import SetOperationStatement, ValuesExpression, TableFunctionExpression, LateralExpression
     from ..query_parts import JoinClause
     from ..graph import GraphTableExpression
 
@@ -15,7 +15,7 @@ FromSourceType = Union[
     str,  # Table name as string
     "NamedRelationRef",  # Single table
     "Subquery",  # Subquery
-    "SetOperationExpression",  # Set operations (UNION, etc.)
+    "SetOperationStatement",  # Set operations (UNION, etc.)
     "JoinClause",  # Join expression (treated as a single object)
     "ValuesExpression",  # VALUES expression
     "TableFunctionExpression",  # Table function

@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_composite_pk.py
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
+    CreateTableStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -19,7 +19,7 @@ dialect = DummyDialect()
 
 class TestCompositePKDDL:
     def test_create_table_dual_pk(self):
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dialect=dialect,
             table=Table(dialect, 'order_items'),
             columns=[
@@ -39,7 +39,7 @@ class TestCompositePKDDL:
         assert "PRIMARY KEY (\"order_id\", \"product_id\")" in sql
 
     def test_create_table_triple_pk(self):
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dialect=dialect,
             table=Table(dialect, 'store_inventory'),
             columns=[
@@ -64,7 +64,7 @@ class TestCompositePKDDL:
         assert "batch_id" in sql
 
     def test_pk_columns_not_null(self):
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dialect=dialect,
             table=Table(dialect, 't'),
             columns=[

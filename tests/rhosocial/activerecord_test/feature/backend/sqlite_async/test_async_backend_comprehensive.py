@@ -1163,14 +1163,14 @@ class TestAsyncSQLiteTransaction:
 
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError  # noqa: E402
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    InsertExpression,
+    InsertStatement,
     ValuesSource,
     Literal,
     Column,
     ComparisonPredicate,
     ReturningClause,
-    UpdateExpression,
-    DeleteExpression,
+    UpdateStatement,
+    DeleteStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect  # noqa: E402
 from rhosocial.activerecord.backend.expression.objects import Table
@@ -1194,8 +1194,8 @@ class TestAsyncReturning:
         # 1. Instantiate a dialect for an older SQLite version
         dialect = SQLiteDialect(version=(3, 34, 0))
 
-        # 2. Create an InsertExpression with a ReturningClause
-        insert_expr = InsertExpression(
+        # 2. Create an InsertStatement with a ReturningClause
+        insert_expr = InsertStatement(
             dialect=dialect,
             into=Table(dialect, 'users'),
             columns=["name"],
@@ -1227,8 +1227,8 @@ class TestAsyncReturning:
             options=ExecutionOptions(stmt_type=StatementType.DDL),
         )
 
-        # Create an InsertExpression with a ReturningClause
-        insert_expr = InsertExpression(
+        # Create an InsertStatement with a ReturningClause
+        insert_expr = InsertStatement(
             dialect=dialect,
             into=Table(dialect, 'users'),
             columns=["name", "email"],
@@ -1273,7 +1273,7 @@ class TestAsyncReturning:
         )
 
         # Update with RETURNING
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dialect=dialect,
             table=Table(dialect, 'users'),
             assignments={"name": Literal(dialect, "Updated"), "email": Literal(dialect, "new@example.com")},
@@ -1315,7 +1315,7 @@ class TestAsyncReturning:
         )
 
         # Delete with RETURNING
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             dialect=dialect,
             tables=Table(dialect, 'users'),
             where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, 1)),
@@ -1351,8 +1351,8 @@ class TestAsyncReturning:
             options=ExecutionOptions(stmt_type=StatementType.DDL),
         )
 
-        # Create an InsertExpression with an invalid column in the ReturningClause
-        insert_expr = InsertExpression(
+        # Create an InsertStatement with an invalid column in the ReturningClause
+        insert_expr = InsertStatement(
             dialect=dialect,
             into=Table(dialect, 'users'),
             columns=["name"],
@@ -1401,7 +1401,7 @@ class TestAsyncReturning:
         )
 
         # Update multiple rows with RETURNING
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             dialect=dialect,
             table=Table(dialect, 'users'),
             assignments={"active": Literal(dialect, 0)},
@@ -1437,7 +1437,7 @@ class TestAsyncReturning:
 
         # Transaction with RETURNING
         async with backend.transaction():
-            insert_expr = InsertExpression(
+            insert_expr = InsertStatement(
                 dialect=dialect,
                 into=Table(dialect, 'users'),
                 columns=["name"],

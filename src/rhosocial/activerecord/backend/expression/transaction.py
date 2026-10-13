@@ -35,14 +35,14 @@ class TransactionExpression(BaseExpression):
         super().__init__(dialect)
 
 
-class BeginTransactionExpression(TransactionExpression):
+class BeginTransactionStatement(TransactionExpression):
     """Expression for BEGIN TRANSACTION statement.
 
     Collects parameters for starting a new transaction with optional
     isolation level and access mode settings.
 
     Usage:
-        expr = BeginTransactionExpression(dialect)
+        expr = BeginTransactionStatement(dialect)
         expr.isolation_level(IsolationLevel.SERIALIZABLE)
         expr.read_only()
         sql, params = expr.to_sql()
@@ -77,7 +77,7 @@ class BeginTransactionExpression(TransactionExpression):
         # SQLite-specific: BEGIN transaction type (DEFERRED|IMMEDIATE|EXCLUSIVE)
         self._begin_type: Optional[str] = begin_type
 
-    def isolation_level(self, level: IsolationLevel) -> "BeginTransactionExpression":
+    def isolation_level(self, level: IsolationLevel) -> "BeginTransactionStatement":
         """Set the transaction isolation level.
 
         Args:
@@ -90,7 +90,7 @@ class BeginTransactionExpression(TransactionExpression):
         self._isolation_level = level
         return self
 
-    def read_only(self) -> "BeginTransactionExpression":
+    def read_only(self) -> "BeginTransactionStatement":
         """Set transaction to read-only mode.
 
         In read-only mode, the transaction cannot modify data.
@@ -102,7 +102,7 @@ class BeginTransactionExpression(TransactionExpression):
         self._mode = TransactionMode.READ_ONLY
         return self
 
-    def read_write(self) -> "BeginTransactionExpression":
+    def read_write(self) -> "BeginTransactionStatement":
         """Set transaction to read-write mode (default).
 
         In read-write mode, the transaction can read and modify data.
@@ -113,7 +113,7 @@ class BeginTransactionExpression(TransactionExpression):
         self._mode = TransactionMode.READ_WRITE
         return self
 
-    def deferrable(self) -> "BeginTransactionExpression":
+    def deferrable(self) -> "BeginTransactionStatement":
         """Set deferrable mode (PostgreSQL-specific).
 
         Deferrable mode is only *effective* for SERIALIZABLE transactions, but
@@ -127,7 +127,7 @@ class BeginTransactionExpression(TransactionExpression):
         self._not_deferrable = False
         return self
 
-    def not_deferrable(self) -> "BeginTransactionExpression":
+    def not_deferrable(self) -> "BeginTransactionStatement":
         """Set NOT DEFERRABLE mode (PostgreSQL-specific).
 
         Returns:
@@ -137,7 +137,7 @@ class BeginTransactionExpression(TransactionExpression):
         self._deferrable = False
         return self
 
-    def wait(self) -> "BeginTransactionExpression":
+    def wait(self) -> "BeginTransactionStatement":
         """Set the lock-wait clause to WAIT (Firebird-specific).
 
         Returns:
@@ -147,7 +147,7 @@ class BeginTransactionExpression(TransactionExpression):
         self._no_wait = False
         return self
 
-    def no_wait(self) -> "BeginTransactionExpression":
+    def no_wait(self) -> "BeginTransactionStatement":
         """Set the lock-wait clause to NO WAIT (Firebird-specific).
 
         Returns:
@@ -157,7 +157,7 @@ class BeginTransactionExpression(TransactionExpression):
         self._wait = False
         return self
 
-    def begin_type(self, begin_type: str) -> "BeginTransactionExpression":
+    def begin_type(self, begin_type: str) -> "BeginTransactionStatement":
         """Set the BEGIN transaction type (SQLite-specific).
 
         SQLite supports three transaction types:
@@ -180,13 +180,13 @@ class BeginTransactionExpression(TransactionExpression):
         return "format_begin_transaction"
 
 
-class CommitTransactionExpression(TransactionExpression):
+class CommitStatement(TransactionExpression):
     """Expression for COMMIT statement.
 
     Commits the current transaction, making all changes permanent.
 
     Usage:
-        expr = CommitTransactionExpression(dialect)
+        expr = CommitStatement(dialect)
         sql, params = expr.to_sql()
     """
 
@@ -196,7 +196,7 @@ class CommitTransactionExpression(TransactionExpression):
         return "format_commit_transaction"
 
 
-class RollbackTransactionExpression(TransactionExpression):
+class RollbackStatement(TransactionExpression):
     """Expression for ROLLBACK statement.
 
     Rolls back the current transaction, discarding all changes.
@@ -204,11 +204,11 @@ class RollbackTransactionExpression(TransactionExpression):
 
     Usage:
         # Full rollback
-        expr = RollbackTransactionExpression(dialect)
+        expr = RollbackStatement(dialect)
         sql, params = expr.to_sql()
 
         # Rollback to savepoint
-        expr = RollbackTransactionExpression(dialect)
+        expr = RollbackStatement(dialect)
         expr.to_savepoint("my_savepoint")
         sql, params = expr.to_sql()
     """
@@ -217,7 +217,7 @@ class RollbackTransactionExpression(TransactionExpression):
         super().__init__(dialect)
         self._savepoint: Optional[str] = savepoint
 
-    def to_savepoint(self, name: str) -> "RollbackTransactionExpression":
+    def to_savepoint(self, name: str) -> "RollbackStatement":
         """Rollback to a specific savepoint.
 
         Args:
@@ -235,14 +235,14 @@ class RollbackTransactionExpression(TransactionExpression):
         return "format_rollback_transaction"
 
 
-class SavepointExpression(TransactionExpression):
+class SavepointStatement(TransactionExpression):
     """Expression for SAVEPOINT statement.
 
     Creates a savepoint within the current transaction.
     Savepoints allow partial rollback of transactions.
 
     Usage:
-        expr = SavepointExpression(dialect, "my_savepoint")
+        expr = SavepointStatement(dialect, "my_savepoint")
         sql, params = expr.to_sql()
     """
 
@@ -261,14 +261,14 @@ class SavepointExpression(TransactionExpression):
         return "format_savepoint"
 
 
-class ReleaseSavepointExpression(TransactionExpression):
+class ReleaseSavepointStatement(TransactionExpression):
     """Expression for RELEASE SAVEPOINT statement.
 
     Releases a savepoint, keeping the changes made after it.
     The savepoint can no longer be used for rollback.
 
     Usage:
-        expr = ReleaseSavepointExpression(dialect, "my_savepoint")
+        expr = ReleaseSavepointStatement(dialect, "my_savepoint")
         sql, params = expr.to_sql()
     """
 

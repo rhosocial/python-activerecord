@@ -3,11 +3,11 @@
 
 import pytest
 from rhosocial.activerecord.backend.expression.transaction import (
-    BeginTransactionExpression,
-    CommitTransactionExpression,
-    RollbackTransactionExpression,
-    SavepointExpression,
-    ReleaseSavepointExpression,
+    BeginTransactionStatement,
+    CommitStatement,
+    RollbackStatement,
+    SavepointStatement,
+    ReleaseSavepointStatement,
     SetTransactionExpression,
 )
 from rhosocial.activerecord.backend.transaction import IsolationLevel, TransactionMode
@@ -18,18 +18,18 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 
 
 class TestBeginTransactionExpression:
-    """Tests for BeginTransactionExpression."""
+    """Tests for BeginTransactionStatement."""
 
     def test_basic_begin(self, dummy_dialect: DummyDialect):
         """Test basic BEGIN statement."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         sql, params = expr.to_sql()
         assert sql == "BEGIN"
         assert params == ()
 
     def test_begin_with_isolation_level(self, dummy_dialect: DummyDialect):
         """Test BEGIN with isolation level."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.isolation_level(IsolationLevel.SERIALIZABLE)
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
@@ -37,7 +37,7 @@ class TestBeginTransactionExpression:
 
     def test_begin_read_only(self, dummy_dialect: DummyDialect):
         """Test BEGIN READ ONLY."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.read_only()
         sql, params = expr.to_sql()
         assert "READ ONLY" in sql
@@ -45,7 +45,7 @@ class TestBeginTransactionExpression:
 
     def test_begin_read_write(self, dummy_dialect: DummyDialect):
         """Test BEGIN READ WRITE."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.read_write()
         sql, params = expr.to_sql()
         assert "READ WRITE" in sql
@@ -53,7 +53,7 @@ class TestBeginTransactionExpression:
 
     def test_begin_with_isolation_and_mode(self, dummy_dialect: DummyDialect):
         """Test BEGIN with isolation level and mode."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.isolation_level(IsolationLevel.REPEATABLE_READ).read_only()
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL REPEATABLE READ" in sql
@@ -62,7 +62,7 @@ class TestBeginTransactionExpression:
 
     def test_begin_deferrable(self, dummy_dialect: DummyDialect):
         """Test BEGIN with DEFERRABLE."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.isolation_level(IsolationLevel.SERIALIZABLE).deferrable()
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
@@ -71,7 +71,7 @@ class TestBeginTransactionExpression:
 
     def test_begin_not_deferrable(self, dummy_dialect: DummyDialect):
         """Test BEGIN with NOT DEFERRABLE."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.isolation_level(IsolationLevel.SERIALIZABLE).not_deferrable()
         sql, params = expr.to_sql()
         assert "NOT DEFERRABLE" in sql
@@ -79,7 +79,7 @@ class TestBeginTransactionExpression:
 
     def test_begin_wait(self, dummy_dialect: DummyDialect):
         """Test BEGIN with the WAIT lock-wait spelling."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.isolation_level(IsolationLevel.SERIALIZABLE).wait()
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
@@ -89,7 +89,7 @@ class TestBeginTransactionExpression:
 
     def test_begin_no_wait(self, dummy_dialect: DummyDialect):
         """Test BEGIN with the NO WAIT lock-wait spelling."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.no_wait()
         sql, params = expr.to_sql()
         assert sql == "BEGIN NO WAIT"
@@ -97,11 +97,11 @@ class TestBeginTransactionExpression:
 
     def test_begin_wait_constructor_kwarg(self, dummy_dialect: DummyDialect):
         """The pair is also settable at construction."""
-        assert BeginTransactionExpression(dummy_dialect, wait=True).to_sql()[0] == "BEGIN WAIT"
+        assert BeginTransactionStatement(dummy_dialect, wait=True).to_sql()[0] == "BEGIN WAIT"
 
     def test_begin_wait_pair_is_mutually_exclusive(self, dummy_dialect: DummyDialect):
         with pytest.raises(ValueError, match="wait and no_wait are mutually exclusive"):
-            BeginTransactionExpression(dummy_dialect, wait=True, no_wait=True)
+            BeginTransactionStatement(dummy_dialect, wait=True, no_wait=True)
 
     def test_begin_deferrable_without_serializable_is_rendered(self, dummy_dialect: DummyDialect):
         """[NOT] DEFERRABLE is an independent transaction mode, not dropped.
@@ -110,7 +110,7 @@ class TestBeginTransactionExpression:
         accepts it alone, so the request must be carried through rather than
         silently ignored.
         """
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.isolation_level(IsolationLevel.READ_COMMITTED).deferrable()
         sql, params = expr.to_sql()
         assert "DEFERRABLE" in sql
@@ -118,7 +118,7 @@ class TestBeginTransactionExpression:
 
     def test_method_chaining(self, dummy_dialect: DummyDialect):
         """Test method chaining returns self."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         result = expr.isolation_level(IsolationLevel.SERIALIZABLE)
         assert result is expr
         result = expr.read_only()
@@ -128,7 +128,7 @@ class TestBeginTransactionExpression:
 
     def test_get_params(self, dummy_dialect: DummyDialect):
         """Test get_params returns correct dictionary."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.isolation_level(IsolationLevel.SERIALIZABLE).read_only().deferrable()
         params = expr.get_params()
         assert params["isolation_level"] == IsolationLevel.SERIALIZABLE
@@ -138,7 +138,7 @@ class TestBeginTransactionExpression:
     def test_sqlite_read_only_raises_error(self):
         """Test SQLite READ ONLY raises UnsupportedTransactionModeError."""
         sqlite_dialect = SQLiteDialect()
-        expr = BeginTransactionExpression(sqlite_dialect)
+        expr = BeginTransactionStatement(sqlite_dialect)
         expr.read_only()
         with pytest.raises(UnsupportedTransactionModeError) as exc_info:
             expr.to_sql()
@@ -147,7 +147,7 @@ class TestBeginTransactionExpression:
     def test_sqlite_begin_serializable(self):
         """Test SQLite BEGIN with SERIALIZABLE isolation."""
         sqlite_dialect = SQLiteDialect()
-        expr = BeginTransactionExpression(sqlite_dialect)
+        expr = BeginTransactionStatement(sqlite_dialect)
         expr.isolation_level(IsolationLevel.SERIALIZABLE)
         sql, params = expr.to_sql()
         assert sql == "BEGIN IMMEDIATE TRANSACTION"
@@ -156,7 +156,7 @@ class TestBeginTransactionExpression:
     def test_sqlite_begin_read_uncommitted(self):
         """Test SQLite BEGIN with READ UNCOMMITTED isolation."""
         sqlite_dialect = SQLiteDialect()
-        expr = BeginTransactionExpression(sqlite_dialect)
+        expr = BeginTransactionStatement(sqlite_dialect)
         expr.isolation_level(IsolationLevel.READ_UNCOMMITTED)
         sql, params = expr.to_sql()
         assert sql == "BEGIN DEFERRED TRANSACTION"
@@ -164,35 +164,35 @@ class TestBeginTransactionExpression:
 
 
 class TestCommitTransactionExpression:
-    """Tests for CommitTransactionExpression."""
+    """Tests for CommitStatement."""
 
     def test_commit(self, dummy_dialect: DummyDialect):
         """Test COMMIT statement."""
-        expr = CommitTransactionExpression(dummy_dialect)
+        expr = CommitStatement(dummy_dialect)
         sql, params = expr.to_sql()
         assert sql == "COMMIT"
         assert params == ()
 
     def test_commit_get_params(self, dummy_dialect: DummyDialect):
         """Test get_params returns empty dict."""
-        expr = CommitTransactionExpression(dummy_dialect)
+        expr = CommitStatement(dummy_dialect)
         params = expr.get_params()
         assert params == {}
 
 
 class TestRollbackTransactionExpression:
-    """Tests for RollbackTransactionExpression."""
+    """Tests for RollbackStatement."""
 
     def test_rollback(self, dummy_dialect: DummyDialect):
         """Test ROLLBACK statement."""
-        expr = RollbackTransactionExpression(dummy_dialect)
+        expr = RollbackStatement(dummy_dialect)
         sql, params = expr.to_sql()
         assert sql == "ROLLBACK"
         assert params == ()
 
     def test_rollback_to_savepoint(self, dummy_dialect: DummyDialect):
         """Test ROLLBACK TO SAVEPOINT statement."""
-        expr = RollbackTransactionExpression(dummy_dialect)
+        expr = RollbackStatement(dummy_dialect)
         expr.to_savepoint("my_savepoint")
         sql, params = expr.to_sql()
         assert "ROLLBACK" in sql
@@ -201,30 +201,30 @@ class TestRollbackTransactionExpression:
 
     def test_rollback_get_params_with_savepoint(self, dummy_dialect: DummyDialect):
         """Test get_params returns savepoint name."""
-        expr = RollbackTransactionExpression(dummy_dialect)
+        expr = RollbackStatement(dummy_dialect)
         expr.to_savepoint("test_sp")
         params = expr.get_params()
         assert params == {"savepoint": "test_sp"}
 
     def test_rollback_get_params_empty(self, dummy_dialect: DummyDialect):
         """Test get_params returns savepoint=None when none set."""
-        expr = RollbackTransactionExpression(dummy_dialect)
+        expr = RollbackStatement(dummy_dialect)
         params = expr.get_params()
         assert params == {"savepoint": None}
 
     def test_rollback_get_params(self, dummy_dialect: DummyDialect):
         """Test get_params returns savepoint=None when none set."""
-        expr = RollbackTransactionExpression(dummy_dialect)
+        expr = RollbackStatement(dummy_dialect)
         params = expr.get_params()
         assert params == {"savepoint": None}
 
 
 class TestSavepointExpression:
-    """Tests for SavepointExpression."""
+    """Tests for SavepointStatement."""
 
     def test_savepoint(self, dummy_dialect: DummyDialect):
         """Test SAVEPOINT statement."""
-        expr = SavepointExpression(dummy_dialect, "my_savepoint")
+        expr = SavepointStatement(dummy_dialect, "my_savepoint")
         sql, params = expr.to_sql()
         assert "SAVEPOINT" in sql
         assert "my_savepoint" in sql
@@ -232,22 +232,22 @@ class TestSavepointExpression:
 
     def test_savepoint_name_property(self, dummy_dialect: DummyDialect):
         """Test name property."""
-        expr = SavepointExpression(dummy_dialect, "test_sp")
+        expr = SavepointStatement(dummy_dialect, "test_sp")
         assert expr.name == "test_sp"
 
     def test_savepoint_get_params(self, dummy_dialect: DummyDialect):
         """Test get_params returns name."""
-        expr = SavepointExpression(dummy_dialect, "my_sp")
+        expr = SavepointStatement(dummy_dialect, "my_sp")
         params = expr.get_params()
         assert params == {"name": "my_sp"}
 
 
 class TestReleaseSavepointExpression:
-    """Tests for ReleaseSavepointExpression."""
+    """Tests for ReleaseSavepointStatement."""
 
     def test_release_savepoint(self, dummy_dialect: DummyDialect):
         """Test RELEASE SAVEPOINT statement."""
-        expr = ReleaseSavepointExpression(dummy_dialect, "my_savepoint")
+        expr = ReleaseSavepointStatement(dummy_dialect, "my_savepoint")
         sql, params = expr.to_sql()
         assert "RELEASE SAVEPOINT" in sql
         assert "my_savepoint" in sql
@@ -255,12 +255,12 @@ class TestReleaseSavepointExpression:
 
     def test_release_savepoint_name_property(self, dummy_dialect: DummyDialect):
         """Test name property."""
-        expr = ReleaseSavepointExpression(dummy_dialect, "test_sp")
+        expr = ReleaseSavepointStatement(dummy_dialect, "test_sp")
         assert expr.name == "test_sp"
 
     def test_release_savepoint_get_params(self, dummy_dialect: DummyDialect):
         """Test get_params returns name."""
-        expr = ReleaseSavepointExpression(dummy_dialect, "my_sp")
+        expr = ReleaseSavepointStatement(dummy_dialect, "my_sp")
         params = expr.get_params()
         assert params == {"name": "my_sp"}
 
@@ -402,7 +402,7 @@ class TestAllIsolationLevels:
     )
     def test_isolation_level_names(self, dummy_dialect: DummyDialect, level, expected_name):
         """Test all isolation level names are correctly formatted."""
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.isolation_level(level)
         sql, params = expr.to_sql()
         assert expected_name in sql
@@ -437,11 +437,11 @@ class TestDummyDialectTransactionCapabilities:
 
 
 class TestReleaseSavepointSQL:
-    """Tests for ReleaseSavepointExpression SQL output."""
+    """Tests for ReleaseSavepointStatement SQL output."""
 
     def test_release_savepoint_sql(self, dummy_dialect: DummyDialect):
         """Test RELEASE SAVEPOINT SQL output."""
-        expr = ReleaseSavepointExpression(dummy_dialect, "my_savepoint")
+        expr = ReleaseSavepointStatement(dummy_dialect, "my_savepoint")
         sql, params = expr.to_sql()
         assert "RELEASE SAVEPOINT" in sql
         assert "my_savepoint" in sql
@@ -449,7 +449,7 @@ class TestReleaseSavepointSQL:
 
     def test_release_savepoint_with_special_chars(self, dummy_dialect: DummyDialect):
         """Test RELEASE SAVEPOINT with special characters in name."""
-        expr = ReleaseSavepointExpression(dummy_dialect, "sp_with_underscore")
+        expr = ReleaseSavepointStatement(dummy_dialect, "sp_with_underscore")
         sql, params = expr.to_sql()
         assert "RELEASE SAVEPOINT" in sql
         assert "sp_with_underscore" in sql
@@ -487,9 +487,9 @@ class TestSQLiteDialectTransactionCapabilities:
     def test_begin_refuses_wait(self, sqlite_dialect: SQLiteDialect):
         """SQLite has no WAIT / NO WAIT clause; the request is refused by name."""
         with pytest.raises(UnsupportedFeatureError, match="WAIT"):
-            BeginTransactionExpression(sqlite_dialect, wait=True).to_sql()
+            BeginTransactionStatement(sqlite_dialect, wait=True).to_sql()
         with pytest.raises(UnsupportedFeatureError, match="NO WAIT"):
-            BeginTransactionExpression(sqlite_dialect, no_wait=True).to_sql()
+            BeginTransactionStatement(sqlite_dialect, no_wait=True).to_sql()
 
     def test_supports_savepoint(self, sqlite_dialect: SQLiteDialect):
         """Test supports_savepoint returns True for SQLite."""
@@ -497,7 +497,7 @@ class TestSQLiteDialectTransactionCapabilities:
 
     def test_begin_raises_error_for_read_only(self, sqlite_dialect: SQLiteDialect):
         """Test BEGIN with READ ONLY raises UnsupportedTransactionModeError."""
-        expr = BeginTransactionExpression(sqlite_dialect)
+        expr = BeginTransactionStatement(sqlite_dialect)
         expr.read_only()
         with pytest.raises(UnsupportedTransactionModeError) as exc_info:
             expr.to_sql()
@@ -505,7 +505,7 @@ class TestSQLiteDialectTransactionCapabilities:
 
     def test_begin_serializable_uses_immediate(self, sqlite_dialect: SQLiteDialect):
         """Test BEGIN with SERIALIZABLE uses IMMEDIATE keyword."""
-        expr = BeginTransactionExpression(sqlite_dialect)
+        expr = BeginTransactionStatement(sqlite_dialect)
         expr.isolation_level(IsolationLevel.SERIALIZABLE)
         sql, params = expr.to_sql()
         assert sql == "BEGIN IMMEDIATE TRANSACTION"
@@ -513,7 +513,7 @@ class TestSQLiteDialectTransactionCapabilities:
 
     def test_begin_read_uncommitted_uses_deferred(self, sqlite_dialect: SQLiteDialect):
         """Test BEGIN with READ_UNCOMMITTED uses DEFERRED keyword."""
-        expr = BeginTransactionExpression(sqlite_dialect)
+        expr = BeginTransactionStatement(sqlite_dialect)
         expr.isolation_level(IsolationLevel.READ_UNCOMMITTED)
         sql, params = expr.to_sql()
         assert sql == "BEGIN DEFERRED TRANSACTION"
@@ -521,7 +521,7 @@ class TestSQLiteDialectTransactionCapabilities:
 
     def test_begin_default_uses_immediate(self, sqlite_dialect: SQLiteDialect):
         """Test default BEGIN uses IMMEDIATE for better concurrency."""
-        expr = BeginTransactionExpression(sqlite_dialect)
+        expr = BeginTransactionStatement(sqlite_dialect)
         sql, params = expr.to_sql()
         assert sql == "BEGIN IMMEDIATE TRANSACTION"
         assert params == ()

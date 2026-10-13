@@ -11,7 +11,7 @@ from ...expression.bases import ToSQLProtocol
 
 if TYPE_CHECKING:
     from ...expression import bases
-    from ...expression.statements.dql import QueryExpression
+    from ...expression.statements.dql import QueryStatement
     from ...expression.query_parts import (
         ForUpdateClause,
         GroupByHavingClause,
@@ -246,11 +246,11 @@ class DQLMixin:
             all_params.extend(having_params)
         return " ".join(sql_parts), tuple(all_params)
 
-    def format_query_statement(self, expr: "QueryExpression") -> Tuple[str, tuple]:
+    def format_query_statement(self, expr: "QueryStatement") -> Tuple[str, tuple]:
         """Format a complete SELECT query.
 
         Args:
-            expr: The QueryExpression to render.
+            expr: The QueryStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple of the statement text and its bind
@@ -289,7 +289,7 @@ class DQLMixin:
                         part_sql, part_params = source.to_sql()
                         if source.__class__.__name__ == "ValuesExpression" and source.alias is None:
                             part_sql = f"({part_sql})"
-                        if source.__class__.__name__ == "SetOperationExpression" and source.alias is None:
+                        if source.__class__.__name__ == "SetOperationStatement" and source.alias is None:
                             part_sql = f"({part_sql})"
                     from_parts.append(part_sql)
                     from_expr_params.extend(part_params)
@@ -298,7 +298,7 @@ class DQLMixin:
                 from_expr_sql, from_expr_params = expr.from_.to_sql()
                 if expr.from_.__class__.__name__ == "ValuesExpression" and expr.from_.alias is None:
                     from_expr_sql = f"({from_expr_sql})"
-                if expr.from_.__class__.__name__ == "SetOperationExpression" and expr.from_.alias is None:
+                if expr.from_.__class__.__name__ == "SetOperationStatement" and expr.from_.alias is None:
                     from_expr_sql = f"({from_expr_sql})"
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)

@@ -14,7 +14,7 @@ from typing import Tuple, TYPE_CHECKING
 from ...expression.objects import SchemaObject
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.statements.ddl_comment import CommentOnExpression
+    from ...expression.statements.ddl_comment import CommentOnStatement
 
 
 class CommentOnMixin:
@@ -29,7 +29,7 @@ class CommentOnMixin:
         return False
 
     def format_comment_statement(
-        self, expr: "CommentOnExpression"
+        self, expr: "CommentOnStatement"
     ) -> Tuple[str, tuple]:
         """Format a standalone ``COMMENT ON <object> IS '<text>'`` statement.
 
@@ -52,13 +52,13 @@ class CommentOnMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CommentOnExpression.object`` is not a SchemaObject. Any
+            TypeError: ``CommentOnStatement.object`` is not a SchemaObject. Any
             other value would be named by its own protocol inside COMMENT ON.
             UnsupportedFeatureError: If :meth:`supports_comment_on` is False.
         """
         if not isinstance(expr.object, SchemaObject):
             raise TypeError(
-                f"CommentOnExpression.object must be a SchemaObject, "
+                f"CommentOnStatement.object must be a SchemaObject, "
                 f"got {type(expr.object).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError

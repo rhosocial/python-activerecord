@@ -18,9 +18,9 @@ TEST PURPOSE:
     - Core expressions: Column, Literal, FunctionCall, NamedRelationRef, etc.
     - Predicates: ComparisonPredicate, LogicalPredicate, LikePredicate, etc.
     - Query parts: WhereClause, GroupByHavingClause, OrderByClause, etc.
-    - DML/DDL statements: InsertExpression, DeleteExpression, CreateTableExpression, etc.
+    - DML/DDL statements: InsertStatement, DeleteStatement, CreateTableStatement, etc.
     - Graph expressions: GraphVertex, GraphEdge, MatchClause
-    - Transaction expressions: BeginTransactionExpression, CommitExpression, etc.
+    - Transaction expressions: BeginTransactionStatement, CommitExpression, etc.
 
     See also: sqlite/test_expression_traversal.py for dialect_options and backend-specific tests.
 """
@@ -49,14 +49,14 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     JoinClause,
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
-    SetOperationExpression,
+    SetOperationStatement,
     ValuesExpression,
 )
-from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
 from rhosocial.activerecord.backend.expression.transaction import (
-    BeginTransactionExpression,
-    CommitTransactionExpression,
-    RollbackTransactionExpression,
+    BeginTransactionStatement,
+    CommitStatement,
+    RollbackStatement,
 )
 from rhosocial.activerecord.backend.expression.graph import (
     GraphVertex,
@@ -94,8 +94,8 @@ from rhosocial.activerecord.backend.expression.query_sources import (
     WithStatement,
 )
 from rhosocial.activerecord.backend.expression.transaction import (
-    SavepointExpression,
-    ReleaseSavepointExpression,
+    SavepointStatement,
+    ReleaseSavepointStatement,
     SetTransactionExpression,
 )
 from rhosocial.activerecord.backend.expression.operators import (
@@ -204,13 +204,13 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="SetOperationExpression",
-        cls=SetOperationExpression,
+        name="SetOperationStatement",
+        cls=SetOperationStatement,
         params_func=lambda d: dict(
             dialect=d,
             operation="UNION",
-            left=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
-            right=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "admins"))),
+            left=QueryStatement(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
+            right=QueryStatement(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "admins"))),
         ),
     ),
     dict(
@@ -221,17 +221,17 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="QueryExpression",
-        cls=QueryExpression,
+        name="QueryStatement",
+        cls=QueryStatement,
         params_func=lambda d: dict(
             dialect=d, select=[Column(d, "id"), Column(d, "name")], from_=NamedRelationRef(d, Table(d, "users"))
         ),
     ),
-    dict(name="BeginTransactionExpression", cls=BeginTransactionExpression, params_func=lambda d: dict(dialect=d)),
-    dict(name="CommitTransactionExpression", cls=CommitTransactionExpression, params_func=lambda d: dict(dialect=d)),
+    dict(name="BeginTransactionStatement", cls=BeginTransactionStatement, params_func=lambda d: dict(dialect=d)),
+    dict(name="CommitStatement", cls=CommitStatement, params_func=lambda d: dict(dialect=d)),
     dict(
-        name="RollbackTransactionExpression",
-        cls=RollbackTransactionExpression,
+        name="RollbackStatement",
+        cls=RollbackStatement,
         params_func=lambda d: dict(dialect=d),
     ),
     dict(
@@ -399,7 +399,7 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(
             dialect=d,
             ctes=[CTEClause(d, name="cte1", query=Subquery(d, "SELECT 1"))],
-            query=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
+            query=QueryStatement(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
         ),
     ),
     # query_parts
@@ -440,10 +440,10 @@ EXPRESSION_TEST_CASES = [
     # literals
     dict(name="Identifier", cls=Identifier, params_func=lambda d: dict(dialect=d, name="my_id")),
     # transaction
-    dict(name="SavepointExpression", cls=SavepointExpression, params_func=lambda d: dict(dialect=d, name="sp1")),
+    dict(name="SavepointStatement", cls=SavepointStatement, params_func=lambda d: dict(dialect=d, name="sp1")),
     dict(
-        name="ReleaseSavepointExpression",
-        cls=ReleaseSavepointExpression,
+        name="ReleaseSavepointStatement",
+        cls=ReleaseSavepointStatement,
         params_func=lambda d: dict(dialect=d, name="sp1"),
     ),
     dict(name="SetTransactionExpression", cls=SetTransactionExpression, params_func=lambda d: dict(dialect=d)),

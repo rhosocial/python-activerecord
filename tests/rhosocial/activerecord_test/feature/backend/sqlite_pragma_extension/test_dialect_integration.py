@@ -18,8 +18,8 @@ from rhosocial.activerecord.backend.impl.sqlite.expression import (
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
     SQLiteFTS5SnippetExpression,
-    CreateVirtualTableExpression,
-    DropVirtualTableExpression,
+    CreateVirtualTableStatement,
+    DropVirtualTableStatement,
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
     SQLiteGeopolyCreateVirtualTable,
@@ -133,7 +133,7 @@ class TestDialectVirtualTableFormatting:
 
     def test_format_create_virtual_table(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = CreateVirtualTableExpression(
+        expr = CreateVirtualTableStatement(
             d, module="rtree", table=Table(d, "places"),
             columns=["id", "minx", "maxx", "miny", "maxy"]
         )
@@ -143,27 +143,27 @@ class TestDialectVirtualTableFormatting:
 
     def test_format_drop_virtual_table(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = DropVirtualTableExpression(d, table=Table(d, "my_table"))
+        expr = DropVirtualTableStatement(d, table=Table(d, "my_table"))
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE "my_table"'
         assert params == ()
 
     def test_format_drop_virtual_table_if_exists(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = DropVirtualTableExpression(d, table=Table(d, "my_table"), if_exists=True)
+        expr = DropVirtualTableStatement(d, table=Table(d, "my_table"), if_exists=True)
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE IF EXISTS "my_table"'
 
     def test_format_drop_virtual_table_quotes_malicious_name(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = DropVirtualTableExpression(d, table=Table(d, 't"; DROP TABLE users--'))
+        expr = DropVirtualTableStatement(d, table=Table(d, 't"; DROP TABLE users--'))
         sql, params = expr.to_sql()
         assert sql.count('"') % 2 == 0  # balanced quotes prevent injection
         assert sql.startswith('DROP TABLE "')
 
     def test_format_drop_virtual_table_with_special_chars(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = DropVirtualTableExpression(d, table=Table(d, "my table"))
+        expr = DropVirtualTableStatement(d, table=Table(d, "my table"))
         sql, _ = expr.to_sql()
         assert '"my table"' in sql
 
@@ -238,7 +238,7 @@ class TestDialectVirtualTableFormatting:
 
     def test_format_create_virtual_table_safe_unknown_module_allowed(self):
         d = SQLiteDialect(version=(3, 35, 0))
-        expr = CreateVirtualTableExpression(
+        expr = CreateVirtualTableStatement(
             d, module="my_module", table=Table(d, "t"), columns=["c"]
         )
         sql, _ = expr.to_sql()
@@ -247,7 +247,7 @@ class TestDialectVirtualTableFormatting:
     def test_format_create_virtual_table_rejects_malicious_module(self):
         d = SQLiteDialect(version=(3, 35, 0))
         with pytest.raises(ValueError, match="Unsafe virtual table module"):
-            expr = CreateVirtualTableExpression(
+            expr = CreateVirtualTableStatement(
                 d, module="malicious' DROP TABLE users; --",
                 table=Table(d, "t"), columns=["c"]
             )

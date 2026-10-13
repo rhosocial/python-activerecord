@@ -53,7 +53,7 @@ class LockStrength(Enum):
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-    from .statements import QueryExpression
+    from .statements import QueryStatement
 
 
 class WhereClause(BaseExpression):
@@ -442,8 +442,8 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        left_table: Union[str, "NamedRelationRef", "Subquery", "QueryExpression", "JoinClause"],
-        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryExpression", "JoinClause"],
+        left_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
+        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
         join_type: str = "JOIN",
         condition: Optional["SQLPredicate"] = None,  # ON condition (mutually exclusive with 'using')
         using: Optional[List[str]] = None,  # USING clause columns (mutually exclusive with 'condition')
@@ -452,19 +452,19 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
     ):  # Dialect-specific options
         super().__init__(dialect)
 
-        from .statements import QueryExpression
+        from .statements import QueryStatement
         from .graph import GraphTableExpression
 
         # Normalize table inputs. A join reads from both sides, so each side is a
         # row source; a bare name becomes a source over a plain table object.
         self.left_table = (
             left_table
-            if isinstance(left_table, (Table, NamedRelationRef, Subquery, JoinClause, QueryExpression, GraphTableExpression))
+            if isinstance(left_table, (Table, NamedRelationRef, Subquery, JoinClause, QueryStatement, GraphTableExpression))
             else NamedRelationRef(dialect, Table(dialect, str(left_table)))
         )
         self.right_table = (
             right_table
-            if isinstance(right_table, (Table, NamedRelationRef, Subquery, JoinClause, QueryExpression, GraphTableExpression))
+            if isinstance(right_table, (Table, NamedRelationRef, Subquery, JoinClause, QueryStatement, GraphTableExpression))
             else NamedRelationRef(dialect, Table(dialect, str(right_table)))
         )
 
@@ -488,7 +488,7 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
 
     def join(
         self,
-        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryExpression", "JoinClause"],
+        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
         join_type: str = "JOIN",
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
@@ -526,7 +526,7 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
 
     def inner_join(
         self,
-        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryExpression", "JoinClause"],
+        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
@@ -536,7 +536,7 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
 
     def left_join(
         self,
-        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryExpression", "JoinClause"],
+        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
@@ -546,7 +546,7 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
 
     def right_join(
         self,
-        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryExpression", "JoinClause"],
+        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
@@ -556,7 +556,7 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
 
     def full_join(
         self,
-        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryExpression", "JoinClause"],
+        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
         condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
@@ -566,7 +566,7 @@ class JoinClause(AliasableMixin, TableSource, BaseExpression):
 
     def cross_join(
         self,
-        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryExpression", "JoinClause"],
+        right_table: Union[str, "NamedRelationRef", "Subquery", "QueryStatement", "JoinClause"],
         alias: Optional[str] = None,
     ) -> "JoinClause":
         """Create a cross join with another table."""

@@ -11,7 +11,7 @@ from rhosocial.activerecord.backend.expression import (
     CTEClause,
     GroupingClause,
     ValuesExpression,
-    MergeExpression,
+    MergeStatement,
     MergeAction,
     OrderedSetAggregation,
     MergeActionType,
@@ -181,7 +181,7 @@ class TestClauseExpressions:
         assert sql == expected_sql
         assert params == expected_params
 
-    # --- MergeExpression ---
+    # --- MergeStatement ---
     def test_merge_expression_basic(self, dummy_dialect: DummyDialect):
         """Tests a basic MERGE statement with WHEN MATCHED UPDATE and WHEN NOT MATCHED INSERT."""
         target_table = Table(dummy_dialect, "products")
@@ -208,7 +208,7 @@ class TestClauseExpressions:
             },
         )
 
-        merge_expr = MergeExpression(
+        merge_expr = MergeStatement(
             dummy_dialect,
             target_table=target_table,
             source=source_values,

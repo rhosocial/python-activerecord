@@ -10,7 +10,7 @@ from ...expression.objects import Table
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.statements import MergeExpression
+    from ...expression.statements import MergeStatement
 
 
 class MergeMixin:
@@ -69,23 +69,23 @@ class MergeMixin:
                 parts.append("THEN INSERT DEFAULT VALUES")
         return " ".join(parts), tuple(all_params)
 
-    def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
+    def format_merge_statement(self, expr: "MergeStatement") -> Tuple[str, tuple]:
         """Format a MERGE statement into dialect SQL.
 
         Args:
-            expr: The MergeExpression node with target table, source, ON
+            expr: The MergeStatement node with target table, source, ON
                 condition, and the matched/not-matched action lists.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``MergeExpression.target_table`` is not a Table. Another
+            TypeError: ``MergeStatement.target_table`` is not a Table. Another
             object kind would have had its own name rendered as the merge target.
         """
         if not isinstance(expr.target_table, Table):
             raise TypeError(
-                f"MergeExpression.target_table must be a Table, "
+                f"MergeStatement.target_table must be a Table, "
                 f"got {type(expr.target_table).__name__}"
             )
         all_params: List[Any] = []

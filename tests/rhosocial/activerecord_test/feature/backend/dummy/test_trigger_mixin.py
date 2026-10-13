@@ -13,12 +13,12 @@ class TestTriggerMixinFormatMethods:
     def test_format_create_trigger_basic(self, dummy_dialect: DummyDialect):
         """Tests format_create_trigger_statement basic case."""
         from rhosocial.activerecord.backend.expression.statements import (
-            CreateTriggerExpression,
+            CreateTriggerStatement,
             TriggerTiming,
             TriggerEvent,
         )
 
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "audit_trigger"),
             table=Table(dummy_dialect, "users"),
@@ -42,7 +42,7 @@ class TestTriggerMixinFormatMethods:
     def test_format_create_trigger_with_condition(self, dummy_dialect: DummyDialect):
         """Tests format_create_trigger_statement with WHEN condition."""
         from rhosocial.activerecord.backend.expression.statements import (
-            CreateTriggerExpression,
+            CreateTriggerStatement,
             TriggerTiming,
             TriggerEvent,
         )
@@ -53,7 +53,7 @@ class TestTriggerMixinFormatMethods:
             Column(dummy_dialect, "status"),
             Literal(dummy_dialect, "active")
         )
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "status_trigger"),
             table=Table(dummy_dialect, "orders"),
@@ -71,13 +71,13 @@ class TestTriggerMixinFormatMethods:
     def test_format_create_trigger_statement_level(self, dummy_dialect: DummyDialect):
         """Tests format_create_trigger_statement with FOR EACH STATEMENT."""
         from rhosocial.activerecord.backend.expression.statements import (
-            CreateTriggerExpression,
+            CreateTriggerStatement,
             TriggerTiming,
             TriggerEvent,
             TriggerLevel,
         )
 
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "bulk_trigger"),
             table=Table(dummy_dialect, "logs"),
@@ -94,12 +94,12 @@ class TestTriggerMixinFormatMethods:
     def test_format_create_trigger_with_referencing(self, dummy_dialect: DummyDialect):
         """Tests format_create_trigger_statement with REFERENCING clause."""
         from rhosocial.activerecord.backend.expression.statements import (
-            CreateTriggerExpression,
+            CreateTriggerStatement,
             TriggerTiming,
             TriggerEvent,
         )
 
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "ref_trigger"),
             table=Table(dummy_dialect, "audit_log"),
@@ -117,12 +117,12 @@ class TestTriggerMixinFormatMethods:
     def test_format_create_trigger_if_not_exists(self, dummy_dialect: DummyDialect):
         """Tests format_create_trigger_statement with IF NOT EXISTS."""
         from rhosocial.activerecord.backend.expression.statements import (
-            CreateTriggerExpression,
+            CreateTriggerStatement,
             TriggerTiming,
             TriggerEvent,
         )
 
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "safe_trigger"),
             table=Table(dummy_dialect, "data"),
@@ -139,12 +139,12 @@ class TestTriggerMixinFormatMethods:
     def test_format_create_trigger_update_of_columns(self, dummy_dialect: DummyDialect):
         """Tests format_create_trigger_statement with UPDATE OF columns."""
         from rhosocial.activerecord.backend.expression.statements import (
-            CreateTriggerExpression,
+            CreateTriggerStatement,
             TriggerTiming,
             TriggerEvent,
         )
 
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "col_trigger"),
             table=Table(dummy_dialect, "products"),
@@ -162,9 +162,9 @@ class TestTriggerMixinFormatMethods:
 
     def test_format_drop_trigger_basic(self, dummy_dialect: DummyDialect):
         """Tests format_drop_trigger_statement basic case."""
-        from rhosocial.activerecord.backend.expression.statements import DropTriggerExpression
+        from rhosocial.activerecord.backend.expression.statements import DropTriggerStatement
 
-        drop_trigger = DropTriggerExpression(dummy_dialect, trigger=Trigger(dummy_dialect, "old_trigger"), table=Table(dummy_dialect, "users"))
+        drop_trigger = DropTriggerStatement(dummy_dialect, trigger=Trigger(dummy_dialect, "old_trigger"), table=Table(dummy_dialect, "users"))
         sql, params = dummy_dialect.format_drop_trigger_statement(drop_trigger)
 
         assert "DROP TRIGGER" in sql
@@ -175,9 +175,9 @@ class TestTriggerMixinFormatMethods:
 
     def test_format_drop_trigger_if_exists(self, dummy_dialect: DummyDialect):
         """Tests format_drop_trigger_statement with IF EXISTS."""
-        from rhosocial.activerecord.backend.expression.statements import DropTriggerExpression
+        from rhosocial.activerecord.backend.expression.statements import DropTriggerStatement
 
-        drop_trigger = DropTriggerExpression(
+        drop_trigger = DropTriggerStatement(
             dummy_dialect, trigger=Trigger(dummy_dialect, "maybe_trigger"), table=Table(dummy_dialect, "temp"), if_exists=True
         )
         sql, params = dummy_dialect.format_drop_trigger_statement(drop_trigger)
@@ -188,9 +188,9 @@ class TestTriggerMixinFormatMethods:
 
     def test_format_drop_trigger_without_table(self, dummy_dialect: DummyDialect):
         """Tests format_drop_trigger_statement without table name."""
-        from rhosocial.activerecord.backend.expression.statements import DropTriggerExpression
+        from rhosocial.activerecord.backend.expression.statements import DropTriggerStatement
 
-        drop_trigger = DropTriggerExpression(dummy_dialect, trigger=Trigger(dummy_dialect, "standalone_trigger"))
+        drop_trigger = DropTriggerStatement(dummy_dialect, trigger=Trigger(dummy_dialect, "standalone_trigger"))
         sql, params = dummy_dialect.format_drop_trigger_statement(drop_trigger)
 
         assert "DROP TRIGGER" in sql

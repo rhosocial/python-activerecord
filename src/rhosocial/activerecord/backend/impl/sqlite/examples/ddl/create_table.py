@@ -17,7 +17,7 @@ dialect = backend.dialect
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
+    CreateTableStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -64,7 +64,7 @@ indexes = [
     ),
 ]
 
-create_expr = CreateTableExpression(
+create_expr = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=columns,

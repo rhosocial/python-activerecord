@@ -10,17 +10,17 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class CreateIndexExpression(BaseExpression):
+class CreateIndexStatement(BaseExpression):
     """
     Represents a CREATE INDEX statement for standalone index creation.
 
     Note: This is for creating indexes on existing tables. For inline
-    index definitions during table creation, use CreateTableExpression
+    index definitions during table creation, use CreateTableStatement
     with the indexes parameter.
 
     Examples:
         # Basic index
-        create_idx = CreateIndexExpression(
+        create_idx = CreateIndexStatement(
             dialect,
             index=Index(dialect, "idx_users_email"),
             table=Table(dialect, "users"),
@@ -28,7 +28,7 @@ class CreateIndexExpression(BaseExpression):
         )
 
         # Unique index
-        create_idx = CreateIndexExpression(
+        create_idx = CreateIndexStatement(
             dialect,
             index=Index(dialect, "idx_users_username"),
             table=Table(dialect, "users"),
@@ -37,7 +37,7 @@ class CreateIndexExpression(BaseExpression):
         )
 
         # Composite index
-        create_idx = CreateIndexExpression(
+        create_idx = CreateIndexStatement(
             dialect,
             index=Index(dialect, "idx_orders_user_date"),
             table=Table(dialect, "orders"),
@@ -45,7 +45,7 @@ class CreateIndexExpression(BaseExpression):
         )
 
         # Partial index (PostgreSQL)
-        create_idx = CreateIndexExpression(
+        create_idx = CreateIndexStatement(
             dialect,
             index=Index(dialect, "idx_active_users"),
             table=Table(dialect, "users"),
@@ -54,7 +54,7 @@ class CreateIndexExpression(BaseExpression):
         )
 
         # Index with specific type
-        create_idx = CreateIndexExpression(
+        create_idx = CreateIndexStatement(
             dialect,
             index=Index(dialect, "idx_users_name_hash"),
             table=Table(dialect, "users"),
@@ -95,26 +95,26 @@ class CreateIndexExpression(BaseExpression):
         return "format_create_index_statement"
 
 
-class DropIndexExpression(BaseExpression):
+class DropIndexStatement(BaseExpression):
     """
     Represents a DROP INDEX statement.
 
     Examples:
         # Basic drop
-        drop_idx = DropIndexExpression(
+        drop_idx = DropIndexStatement(
             dialect,
             index=Index(dialect, "idx_users_email")
         )
 
         # Drop with IF EXISTS
-        drop_idx = DropIndexExpression(
+        drop_idx = DropIndexStatement(
             dialect,
             index=Index(dialect, "idx_old_index"),
             if_exists=True
         )
 
         # Drop with table context (some databases require this)
-        drop_idx = DropIndexExpression(
+        drop_idx = DropIndexStatement(
             dialect,
             index=Index(dialect, "idx_orders_status"),
             table=Table(dialect, "orders")
@@ -141,7 +141,7 @@ class DropIndexExpression(BaseExpression):
         return "format_drop_index_statement"
 
 
-class CreateFulltextIndexExpression(BaseExpression):
+class CreateFulltextIndexStatement(BaseExpression):
     """
     Represents a CREATE FULLTEXT INDEX statement.
 
@@ -154,7 +154,7 @@ class CreateFulltextIndexExpression(BaseExpression):
 
     Examples:
         # Basic FULLTEXT index
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dialect,
             index=Index(dialect, "idx_articles_content"),
             table=Table(dialect, "articles"),
@@ -162,7 +162,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         )
 
         # FULLTEXT index with parser (MySQL)
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dialect,
             index=Index(dialect, "idx_documents_body"),
             table=Table(dialect, "documents"),
@@ -171,7 +171,7 @@ class CreateFulltextIndexExpression(BaseExpression):
         )
 
         # FULLTEXT index with IF NOT EXISTS
-        create_ft = CreateFulltextIndexExpression(
+        create_ft = CreateFulltextIndexStatement(
             dialect,
             index=Index(dialect, "idx_posts_content"),
             table=Table(dialect, "posts"),
@@ -202,20 +202,20 @@ class CreateFulltextIndexExpression(BaseExpression):
         return "format_create_fulltext_index_statement"
 
 
-class DropFulltextIndexExpression(BaseExpression):
+class DropFulltextIndexStatement(BaseExpression):
     """
     Represents a DROP FULLTEXT INDEX statement.
 
     Examples:
         # Basic drop
-        drop_ft = DropFulltextIndexExpression(
+        drop_ft = DropFulltextIndexStatement(
             dialect,
             index=Index(dialect, "idx_articles_content"),
             table=Table(dialect, "articles")
         )
 
         # Drop with IF EXISTS
-        drop_ft = DropFulltextIndexExpression(
+        drop_ft = DropFulltextIndexStatement(
             dialect,
             index=Index(dialect, "idx_old_fulltext"),
             table=Table(dialect, "old_table"),

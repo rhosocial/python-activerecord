@@ -21,17 +21,17 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
-    DropTableExpression,
+    DropTableStatement,
 )
 from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table=Table(dialect, 'users'),
     columns=[
@@ -44,7 +44,7 @@ sql, params = create_table.to_sql()
 print(f"Create table SQL: {sql}")
 backend.execute(sql, params)
 
-insert = InsertExpression(
+insert = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["id", "name"],
@@ -64,20 +64,20 @@ backend.execute(sql, params)
 # SECTION: CREATE VIEW
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
-    CreateViewExpression,
-    DropViewExpression,
+    QueryStatement,
+    CreateViewStatement,
+    DropViewStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from .....expression.objects import Table
 
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "name")],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 
-view_expr = CreateViewExpression(
+view_expr = CreateViewStatement(
     dialect=dialect,
     view_name="user_names",
     query=query,
@@ -90,7 +90,7 @@ options = ExecutionOptions(stmt_type=StatementType.DDL)
 backend.execute(sql, params, options=options)
 
 # Query the view
-view_query = QueryExpression(
+view_query = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "name")],
     from_=NamedRelationRef(dialect, Table(dialect, "user_names")),
@@ -106,7 +106,7 @@ print(f"View result: {result.data}")
 # ============================================================
 # SECTION: CREATE OR REPLACE VIEW
 # ============================================================
-view_expr_replace = CreateViewExpression(
+view_expr_replace = CreateViewStatement(
     dialect=dialect,
     view_name="user_names",
     query=query,
@@ -119,7 +119,7 @@ backend.execute(sql, params, options=options)
 # ============================================================
 # SECTION: DROP VIEW
 # ============================================================
-drop_view = DropViewExpression(
+drop_view = DropViewStatement(
     dialect=dialect,
     view_name="user_names",
 )
@@ -130,7 +130,7 @@ backend.execute(sql, params, options=options)
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
+drop_expr = DropTableStatement(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()
@@ -139,6 +139,6 @@ backend.disconnect()
 # SECTION: Summary
 # ============================================================
 # Key points:
-# 1. Use CreateViewExpression to create views
+# 1. Use CreateViewStatement to create views
 # 2. Use replace=True to replace existing view
-# 3. Use DropViewExpression to drop views
+# 3. Use DropViewStatement to drop views

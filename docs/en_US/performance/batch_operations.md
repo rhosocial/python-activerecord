@@ -17,7 +17,7 @@ Both methods support synchronous and asynchronous variants with identical APIs.
 
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
 
 backend = SQLiteBackend(database=":memory:")
 backend.connect()
@@ -29,7 +29,7 @@ for i in range(100):
         [Literal(backend.dialect, f"user{i}"),
          Literal(backend.dialect, f"user{i}@example.com")]
     ])
-    expr = InsertExpression(
+    expr = InsertStatement(
         backend.dialect,
         into="users",
         columns=["name", "email"],
@@ -134,9 +134,9 @@ expressions = [
 `execute_batch_dql` provides memory-efficient pagination for large result sets:
 
 ```python
-from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression, WildcardExpression
+from rhosocial.activerecord.backend.expression import QueryStatement, TableExpression, WildcardExpression
 
-query = QueryExpression(
+query = QueryStatement(
     backend.dialect,
     select=[WildcardExpression(backend.dialect)],
     from_=TableExpression(backend.dialect, "large_table"),
@@ -166,15 +166,15 @@ for page in backend.execute_batch_dql(query, page_size=100):
 
 `execute_batch_dql` supports all DQL expression types:
 
-- `QueryExpression`: Basic SELECT queries
+- `QueryStatement`: Basic SELECT queries
 - `WithStatement`: Common Table Expressions (CTEs)
-- `SetOperationExpression`: UNION, INTERSECT, EXCEPT operations
+- `SetOperationStatement`: UNION, INTERSECT, EXCEPT operations
 
 ```python
 # CTE example
 from rhosocial.activerecord.backend.expression.query_sources import WithStatement, CTEClause
 
-cte_query = QueryExpression(
+cte_query = QueryStatement(
     backend.dialect,
     select=[WildcardExpression(backend.dialect)],
     from_=TableExpression(backend.dialect, "orders"),
@@ -182,7 +182,7 @@ cte_query = QueryExpression(
 )
 cte = CTEClause(backend.dialect, name="recent_orders", query=cte_query)
 
-main_query = QueryExpression(
+main_query = QueryStatement(
     backend.dialect,
     select=[WildcardExpression(backend.dialect)],
     from_=TableExpression(backend.dialect, "recent_orders"),

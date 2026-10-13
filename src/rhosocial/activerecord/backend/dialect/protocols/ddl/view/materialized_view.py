@@ -12,9 +12,9 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        CreateMaterializedViewExpression,
-        DropMaterializedViewExpression,
-        RefreshMaterializedViewExpression,
+        CreateMaterializedViewStatement,
+        DropMaterializedViewStatement,
+        RefreshMaterializedViewStatement,
     )
 
 
@@ -75,16 +75,16 @@ class MaterializedViewSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.CreateMaterializedViewExpression`.
+    def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.CreateMaterializedViewStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.
         """
         ...  # pragma: no cover
 
-    def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.DropMaterializedViewExpression`.
+    def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.DropMaterializedViewStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.
@@ -92,9 +92,9 @@ class MaterializedViewSupport(Protocol):
         ...  # pragma: no cover
 
     def format_refresh_materialized_view_statement(
-        self, expr: "RefreshMaterializedViewExpression"
+        self, expr: "RefreshMaterializedViewStatement"
     ) -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.RefreshMaterializedViewExpression`.
+        """Render a :class:`~....expression.statements.RefreshMaterializedViewStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

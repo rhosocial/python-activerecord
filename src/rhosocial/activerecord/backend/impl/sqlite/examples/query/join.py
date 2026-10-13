@@ -15,8 +15,8 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
@@ -28,7 +28,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     TableConstraintType,
 )
 
-users_table = CreateTableExpression(
+users_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -53,7 +53,7 @@ users_table = CreateTableExpression(
 sql, params = users_table.to_sql()
 backend.execute(sql, params)
 
-orders_table = CreateTableExpression(
+orders_table = CreateTableStatement(
     dialect=dialect,
     table_name="orders",
     columns=[
@@ -83,7 +83,7 @@ backend.execute(sql, params)
 
 users = [("Alice",), ("Bob",)]
 for user in users:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'users'),
         columns=["name"],
@@ -98,7 +98,7 @@ orders = [
     (2, 150.0),
 ]
 for row in orders:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'orders'),
         columns=["user_id", "amount"],
@@ -111,7 +111,7 @@ for row in orders:
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     Column,
     JoinClause,
 )
@@ -132,7 +132,7 @@ join_expr = JoinClause(
     ),
 )
 
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "name", "u"),

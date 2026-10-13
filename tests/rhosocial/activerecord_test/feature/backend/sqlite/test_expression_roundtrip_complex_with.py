@@ -6,7 +6,7 @@ example queries (Mandelbrot set, Sudoku solver).
 https://sqlite.org/lang_with.html — Outlandish Recursive Query Examples
 
 These queries are built as deep expression trees (CTEClause,
-WithStatement, SetOperationExpression, ValuesExpression, QueryExpression,
+WithStatement, SetOperationStatement, ValuesExpression, QueryStatement,
 FunctionCall, arithmetic operators, concat_op, ExistsExpression, etc.) and
 round-tripped through dict / JSON / XML to stress-test the serialization
 machinery with deeply nested recursive structures.
@@ -22,7 +22,7 @@ from rhosocial.activerecord.backend.expression import (
     NumericColumn,
     Literal,
     FunctionCall,
-    QueryExpression,
+    QueryStatement,
     Subquery,
     WildcardExpression,
 )
@@ -30,7 +30,7 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
     CTEClause,
     WithStatement,
-    SetOperationExpression,
+    SetOperationStatement,
     ValuesExpression,
 )
 from rhosocial.activerecord.backend.expression.query_parts import (
@@ -70,13 +70,13 @@ def build_mandelbrot(d):
 
     def _make_axis_union(cte_name, column, start, step, limit_):
         base = ValuesExpression(d, [(start,)])
-        rec = QueryExpression(
+        rec = QueryStatement(
             d,
             select=[NumericColumn(d, column) + Literal(d, step)],
             from_=NamedRelationRef(d, Table(d, cte_name)),
             where=Column(d, column) < Literal(d, limit_),
         )
-        return SetOperationExpression(d, left=base, right=rec, operation="UNION", all_=True)
+        return SetOperationStatement(d, left=base, right=rec, operation="UNION", all_=True)
 
     xaxis_cte = CTEClause(
         d, name="xaxis", query=_make_axis_union("xaxis", "x", -2.0, 0.05, 1.2), columns=["x"]
@@ -85,12 +85,12 @@ def build_mandelbrot(d):
         d, name="yaxis", query=_make_axis_union("yaxis", "y", -1.0, 0.1, 1.0), columns=["y"]
     )
 
-    m_seed = QueryExpression(
+    m_seed = QueryStatement(
         d,
         select=[Literal(d, 0), Column(d, "x"), Column(d, "y"), Literal(d, 0.0), Literal(d, 0.0)],
         from_=[NamedRelationRef(d, Table(d, "xaxis")), NamedRelationRef(d, Table(d, "yaxis"))],
     )
-    m_step = QueryExpression(
+    m_step = QueryStatement(
         d,
         select=[
             NumericColumn(d, "iter") + Literal(d, 1),
@@ -110,11 +110,11 @@ def build_mandelbrot(d):
     m_cte = CTEClause(
         d,
         name="m",
-        query=SetOperationExpression(d, left=m_seed, right=m_step, operation="UNION", all_=True),
+        query=SetOperationStatement(d, left=m_seed, right=m_step, operation="UNION", all_=True),
         columns=["iter", "cx", "cy", "x", "y"],
     )
 
-    m2_query = QueryExpression(
+    m2_query = QueryStatement(
         d,
         select=[FunctionCall(d, "MAX", Column(d, "iter")), Column(d, "cx"), Column(d, "cy")],
         from_=NamedRelationRef(d, Table(d, "m")),
@@ -124,7 +124,7 @@ def build_mandelbrot(d):
 
     min_expr = FunctionCall(d, "MIN", NumericColumn(d, "iter") / Literal(d, 7), Literal(d, 4))
     substr_expr = FunctionCall(d, "SUBSTR", Literal(d, " .+*#"), Literal(d, 1) + min_expr, Literal(d, 1))
-    a_query = QueryExpression(
+    a_query = QueryStatement(
         d,
         select=[FunctionCall(d, "GROUP_CONCAT", substr_expr, Literal(d, ""))],
         from_=NamedRelationRef(d, Table(d, "m2")),
@@ -132,7 +132,7 @@ def build_mandelbrot(d):
     )
     a_cte = CTEClause(d, name="a", query=a_query, columns=["t"])
 
-    main = QueryExpression(
+    main = QueryStatement(
         d,
         select=[FunctionCall(d, "GROUP_CONCAT", FunctionCall(d, "RTRIM", Column(d, "t")), Literal(d, b"\x0a"))],
         from_=NamedRelationRef(d, Table(d, "a")),
@@ -150,7 +150,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     )
 
     digits_seed = ValuesExpression(d, [("1", 1)])
-    digits_step = QueryExpression(
+    digits_step = QueryStatement(
         d,
         select=[
             cast(d, NumericColumn(d, "lp") + Literal(d, 1), CustomType(d, raw="TEXT")),
@@ -162,7 +162,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     digits_cte = CTEClause(
         d,
         name="digits",
-        query=SetOperationExpression(d, left=digits_seed, right=digits_step, operation="UNION", all_=True),
+        query=SetOperationStatement(d, left=digits_seed, right=digits_step, operation="UNION", all_=True),
         columns=["z", "lp"],
     )
 
@@ -170,7 +170,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     ind = NumericColumn(d, "ind")
     z = Column(d, "z")
 
-    x_seed = QueryExpression(
+    x_seed = QueryStatement(
         d,
         select=[Column(d, "sud"), FunctionCall(d, "INSTR", Column(d, "sud"), Literal(d, "."))],
         from_=NamedRelationRef(d, Table(d, "input")),
@@ -208,7 +208,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
         d,
         Subquery(
             d,
-            QueryExpression(
+            QueryStatement(
                 d,
                 select=[one],
                 from_=NamedRelationRef(d, Table(d, "digits"), alias="lp"),
@@ -217,7 +217,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
         ),
     )
 
-    x_step = QueryExpression(
+    x_step = QueryStatement(
         d,
         select=[s_candidate, FunctionCall(d, "INSTR", s_candidate, Literal(d, "."))],
         from_=[NamedRelationRef(d, Table(d, "x")), NamedRelationRef(d, Table(d, "digits"), alias="z")],
@@ -226,11 +226,11 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     x_cte = CTEClause(
         d,
         name="x",
-        query=SetOperationExpression(d, left=x_seed, right=x_step, operation="UNION", all_=True),
+        query=SetOperationStatement(d, left=x_seed, right=x_step, operation="UNION", all_=True),
         columns=["s", "ind"],
     )
 
-    main = QueryExpression(
+    main = QueryStatement(
         d,
         select=[Column(d, "s")],
         from_=NamedRelationRef(d, Table(d, "x")),
@@ -252,13 +252,13 @@ def build_bom(d):
     SELECT child_id, SUM(total_qty) AS required_count
     FROM BOM_Explosion GROUP BY child_id;
     """
-    anchor = QueryExpression(
+    anchor = QueryStatement(
         d,
         select=[Column(d, "child_id"), Column(d, "quantity"), Column(d, "quantity").as_("total_qty")],
         from_=NamedRelationRef(d, Table(d, "parts_tree")),
         where=Column(d, "parent_id") == Literal(d, 1),
     )
-    step = QueryExpression(
+    step = QueryStatement(
         d,
         select=[
             Column(d, "child_id", "c"),
@@ -271,11 +271,11 @@ def build_bom(d):
         ],
         where=ComparisonPredicate(d, "=", Column(d, "parent_id", "c"), Column(d, "child_id", "b")),
     )
-    union = SetOperationExpression(d, left=anchor, right=step, operation="UNION", all_=True)
+    union = SetOperationStatement(d, left=anchor, right=step, operation="UNION", all_=True)
     cte = CTEClause(
         d, name="BOM_Explosion", query=union, columns=["child_id", "quantity", "total_qty"]
     )
-    main = QueryExpression(
+    main = QueryStatement(
         d,
         select=[Column(d, "child_id"), FunctionCall(d, "SUM", Column(d, "total_qty")).as_("required_count")],
         from_=NamedRelationRef(d, Table(d, "BOM_Explosion")),
@@ -297,7 +297,7 @@ def build_flight_paths(d):
     )
     SELECT * FROM FlightPaths WHERE destination = 'JFK' ORDER BY price ASC LIMIT 1;
     """
-    anchor = QueryExpression(
+    anchor = QueryStatement(
         d,
         select=[
             Column(d, "destination"),
@@ -308,7 +308,7 @@ def build_flight_paths(d):
         from_=NamedRelationRef(d, Table(d, "flights")),
         where=Column(d, "departure") == Literal(d, "TPE"),
     )
-    step = QueryExpression(
+    step = QueryStatement(
         d,
         select=[
             Column(d, "destination", "f"),
@@ -330,11 +330,11 @@ def build_flight_paths(d):
         )
         & (Column(d, "depth", "p") < Literal(d, 5)),
     )
-    union = SetOperationExpression(d, left=anchor, right=step, operation="UNION", all_=True)
+    union = SetOperationStatement(d, left=anchor, right=step, operation="UNION", all_=True)
     cte = CTEClause(
         d, name="FlightPaths", query=union, columns=["destination", "price", "depth", "path"]
     )
-    main = QueryExpression(
+    main = QueryStatement(
         d,
         select=[WildcardExpression(d)],
         from_=NamedRelationRef(d, Table(d, "FlightPaths")),
@@ -358,7 +358,7 @@ def build_game_of_life(d):
     gen = NumericColumn(d, "gen")
 
     def neighbor(dx, dy):
-        return QueryExpression(
+        return QueryStatement(
             d,
             select=[
                 (x + Literal(d, dx)).as_("x"),
@@ -371,12 +371,12 @@ def build_game_of_life(d):
     offsets = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
     expansion = neighbor(*offsets[0])
     for dx, dy in offsets[1:]:
-        expansion = SetOperationExpression(
+        expansion = SetOperationStatement(
             d, left=expansion, right=neighbor(dx, dy), operation="UNION", all_=True
         )
 
     nb = Subquery(d, expansion, alias="nb")
-    neighbors = QueryExpression(
+    neighbors = QueryStatement(
         d,
         select=[Column(d, "x"), Column(d, "y"), Column(d, "gen"), FunctionCall(d, "COUNT", Literal(d, "*")).as_("cnt")],
         from_=nb,
@@ -400,7 +400,7 @@ def build_game_of_life(d):
         & ComparisonPredicate(d, "=", Column(d, "gen", "l"), Column(d, "gen", "n"))
     )
     join = JoinClause(d, left_table=nsub, right_table=live, join_type="LEFT JOIN", condition=on)
-    return QueryExpression(
+    return QueryStatement(
         d,
         select=[
             Column(d, "x", "n"),

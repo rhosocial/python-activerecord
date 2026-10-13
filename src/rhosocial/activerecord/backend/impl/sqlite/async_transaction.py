@@ -115,9 +115,9 @@ class AsyncSQLiteTransactionManager(AsyncTransactionManager):
 
     def _build_begin_sql(self) -> Tuple[str, tuple]:
         """Build BEGIN TRANSACTION SQL with SQLite-specific options."""
-        from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
+        from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
 
-        expr = BeginTransactionExpression(self._backend.dialect)
+        expr = BeginTransactionStatement(self._backend.dialect)
 
         if self._begin_type is not None:
             # Explicit begin_type overrides isolation level mapping

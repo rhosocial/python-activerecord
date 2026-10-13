@@ -53,15 +53,15 @@ def normalize_foreign_key_match_type(match_type: Any) -> Any:
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
-        CreateTableExpression,
-        CreateTableAsExpression,
-        CreateTableLikeExpression,
-        CreateTableCloneExpression,
-        CreateTableFromTemplateExpression,
+        CreateTableStatement,
+        CreateTableAsStatement,
+        CreateTableLikeStatement,
+        CreateTableCloneStatement,
+        CreateTableFromTemplateStatement,
         CreateTableOptions,
-        DropTableExpression,
+        DropTableStatement,
         TableCommentClause,
-        AlterTableExpression,
+        AlterTableStatement,
     )
 
 
@@ -184,7 +184,7 @@ class TableMixin:
     def preferred_create_table_statement(self):
         """The backend's preferred CREATE TABLE statement class (§5.12).
 
-        Defaults to ``None`` — the generic ``CreateTableExpression`` is the
+        Defaults to ``None`` — the generic ``CreateTableStatement`` is the
         candidate fallback. Backends that render their own statement subclass
         override this to return it (first candidate, order = priority); the
         deriver composes ``[preferred, generic]`` and selects through
@@ -195,7 +195,7 @@ class TableMixin:
     def preferred_drop_table_statement(self):
         """The backend's preferred DROP TABLE statement class (§5.12).
 
-        Defaults to ``None`` — the generic ``DropTableExpression``.
+        Defaults to ``None`` — the generic ``DropTableStatement``.
         """
         return None
 
@@ -391,7 +391,7 @@ class TableMixin:
             parts.append("OR REPLACE")
         return " ".join(parts), ()
 
-    def format_create_table_like_statement(self, expr: "CreateTableLikeExpression") -> Tuple[str, tuple]:
+    def format_create_table_like_statement(self, expr: "CreateTableLikeStatement") -> Tuple[str, tuple]:
         """Format ``CREATE TABLE ... LIKE`` (generic reusable implementation).
 
         Renders the common vendor form::
@@ -416,9 +416,9 @@ class TableMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CreateTableLikeExpression.table`` is not a Table. Another
+            TypeError: ``CreateTableLikeStatement.table`` is not a Table. Another
             object kind would have had its own name rendered as the table's.
-            TypeError: ``CreateTableLikeExpression.like_table`` is not a Table.
+            TypeError: ``CreateTableLikeStatement.like_table`` is not a Table.
             Another object kind would have had its own name rendered as the copied
             table's.
             UnsupportedFeatureError: If :meth:`supports_create_table_like` is
@@ -426,13 +426,13 @@ class TableMixin:
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"CreateTableLikeExpression.table must be a Table, "
+                f"CreateTableLikeStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
 
         if not isinstance(expr.like_table, Table):
             raise TypeError(
-                f"CreateTableLikeExpression.like_table must be a Table, "
+                f"CreateTableLikeStatement.like_table must be a Table, "
                 f"got {type(expr.like_table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -448,7 +448,7 @@ class TableMixin:
         ]
         return " ".join(parts), tuple(table_params) + tuple(source_params)
 
-    def format_create_table_clone_statement(self, expr: "CreateTableCloneExpression") -> Tuple[str, tuple]:
+    def format_create_table_clone_statement(self, expr: "CreateTableCloneStatement") -> Tuple[str, tuple]:
         """Format ``CREATE TABLE ... CLONE/COPY`` (generic reusable implementation).
 
         Renders::
@@ -469,9 +469,9 @@ class TableMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CreateTableCloneExpression.table`` is not a Table. Another
+            TypeError: ``CreateTableCloneStatement.table`` is not a Table. Another
             object kind would have had its own name rendered as the table's.
-            TypeError: ``CreateTableCloneExpression.source_table`` is not a Table.
+            TypeError: ``CreateTableCloneStatement.source_table`` is not a Table.
             Another object kind would have had its own name rendered as the
             source's.
             UnsupportedFeatureError: If :meth:`supports_create_table_clone` is
@@ -479,13 +479,13 @@ class TableMixin:
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"CreateTableCloneExpression.table must be a Table, "
+                f"CreateTableCloneStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
 
         if not isinstance(expr.source_table, Table):
             raise TypeError(
-                f"CreateTableCloneExpression.source_table must be a Table, "
+                f"CreateTableCloneStatement.source_table must be a Table, "
                 f"got {type(expr.source_table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -503,7 +503,7 @@ class TableMixin:
             parts.append("COPY GRANTS")
         return " ".join(parts), tuple(table_params) + tuple(source_params)
 
-    def format_create_table_using_template(self, expr: "CreateTableFromTemplateExpression") -> Tuple[str, tuple]:
+    def format_create_table_using_template(self, expr: "CreateTableFromTemplateStatement") -> Tuple[str, tuple]:
         """Format ``CREATE TABLE ... USING TEMPLATE`` (generic reusable implementation).
 
         Renders::
@@ -519,7 +519,7 @@ class TableMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CreateTableFromTemplateExpression.table`` is not a Table.
+            TypeError: ``CreateTableFromTemplateStatement.table`` is not a Table.
             Another object kind would have had its own name rendered as the table's.
             UnsupportedFeatureError: If
                 :meth:`supports_create_table_using_template` is False for the
@@ -527,7 +527,7 @@ class TableMixin:
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"CreateTableFromTemplateExpression.table must be a Table, "
+                f"CreateTableFromTemplateStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -543,7 +543,7 @@ class TableMixin:
         ]
         return " ".join(parts), tuple(table_params) + tuple(template_params)
 
-    def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
+    def format_create_table_statement(self, expr: "CreateTableStatement") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement (generic implementation).
 
         Handles the explicit-schema form only (columns, constraints, storage,
@@ -558,7 +558,7 @@ class TableMixin:
         of being silently dropped.
 
         Args:
-            expr: CreateTableExpression carrying the table reference, column
+            expr: CreateTableStatement carrying the table reference, column
                 definitions, constraints, and optional storage, table comment,
                 tablespace, inherits, and partition clauses.
 
@@ -566,12 +566,12 @@ class TableMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CreateTableExpression.table`` is not a Table. Another
+            TypeError: ``CreateTableStatement.table`` is not a Table. Another
             object kind would have had its own name rendered as the table's.
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"CreateTableExpression.table must be a Table, "
+                f"CreateTableStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         all_params: List[Any] = []
@@ -653,11 +653,11 @@ class TableMixin:
                 self.name,
                 "inline index in CREATE TABLE",
                 f"{self.name} does not support inline index definitions in "
-                "CREATE TABLE. Emit standalone CreateIndexExpression instead.",
+                "CREATE TABLE. Emit standalone CreateIndexStatement instead.",
             )
         return "".join(parts), tuple(all_params)
 
-    def format_create_table_as_statement(self, expr: "CreateTableAsExpression") -> Tuple[str, tuple]:
+    def format_create_table_as_statement(self, expr: "CreateTableAsStatement") -> Tuple[str, tuple]:
         """Format ``CREATE TABLE ... AS <query>`` (generic CTAS implementation).
 
         Emits the portable form::
@@ -667,22 +667,22 @@ class TableMixin:
 
         The query is rendered **without parentheses** -- parenthesising is
         rejected by SQLite (and several other engines). ``WITH [NO] DATA`` is
-        only appended when :attr:`CreateTableAsExpression.with_data` is set
+        only appended when :attr:`CreateTableAsStatement.with_data` is set
         (PostgreSQL semantics).
 
         Args:
-            expr: CreateTableAsExpression carrying the target table and query.
+            expr: CreateTableAsStatement carrying the target table and query.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CreateTableAsExpression.table`` is not a Table. Another
+            TypeError: ``CreateTableAsStatement.table`` is not a Table. Another
             object kind would have had its own name rendered as the table's.
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"CreateTableAsExpression.table must be a Table, "
+                f"CreateTableAsStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -721,7 +721,7 @@ class TableMixin:
 
         return " ".join(parts), tuple(all_params)
 
-    def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
+    def format_drop_table_statement(self, expr: "DropTableStatement") -> Tuple[str, tuple]:
         """Format DROP TABLE statement (generic implementation).
 
         Renders ``DROP TABLE [IF EXISTS] <table> [CASCADE | RESTRICT]`` with
@@ -735,21 +735,21 @@ class TableMixin:
         backends override this method to render their own form.
 
         Args:
-            expr: DropTableExpression carrying the table reference, optional
+            expr: DropTableStatement carrying the table reference, optional
                 ``if_exists`` flag, and optional ``cascade`` flag.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``DropTableExpression.table`` is not a Table. Another object
+            TypeError: ``DropTableStatement.table`` is not a Table. Another object
             kind would have had its own name rendered as the table's.
             UnsupportedFeatureError: If CASCADE or RESTRICT is requested but not
                 supported by the dialect.
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"DropTableExpression.table must be a Table, "
+                f"DropTableStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -787,7 +787,7 @@ class TableMixin:
             parts.append("PURGE")
         return " ".join(parts), table_params
 
-    def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
+    def format_alter_table_statement(self, expr: "AlterTableStatement") -> Tuple[str, tuple]:
         """Format ALTER TABLE statement (generic implementation).
 
         When the dialect does not support multiple actions in one ALTER TABLE
@@ -795,22 +795,22 @@ class TableMixin:
         by semicolons.
 
         Args:
-            expr: AlterTableExpression carrying the table name and the list of
+            expr: AlterTableStatement carrying the table name and the list of
                 actions to render.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``AlterTableExpression.table`` is not a Table. Another object
+            TypeError: ``AlterTableStatement.table`` is not a Table. Another object
             kind would have had its own name rendered as the table's.
-            TypeError: An entry of ``AlterTableExpression.actions`` is not an
+            TypeError: An entry of ``AlterTableStatement.actions`` is not an
             implementation of AlterTableAction. An entry of another kind has no
             action clause to dispatch on, so nothing would be rendered for it.
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"AlterTableExpression.table must be a Table, "
+                f"AlterTableStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
 
@@ -820,7 +820,7 @@ class TableMixin:
         for position, entry in enumerate(expr.actions):
             if not isinstance(entry, AlterTableAction):
                 raise TypeError(
-                    f"AlterTableExpression.actions must hold AlterTableAction implementations, "
+                    f"AlterTableStatement.actions must hold AlterTableAction implementations, "
                     f"got {type(entry).__name__} at position {position}"
                 )
         all_params: List[Any] = []

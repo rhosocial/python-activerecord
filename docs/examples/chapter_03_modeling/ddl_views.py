@@ -15,10 +15,10 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
-    CreateTableExpression,
-    CreateViewExpression,
-    DropViewExpression,
-    QueryExpression,
+    CreateTableStatement,
+    CreateViewStatement,
+    DropViewStatement,
+    QueryStatement,
     TableExpression,
     Column,
 )
@@ -61,7 +61,7 @@ def main():
         ColumnDefinition("status", VarCharType(20)),
     ]
 
-    create_users = CreateTableExpression(dialect=dialect, table_name="users", columns=user_columns)
+    create_users = CreateTableStatement(dialect=dialect, table_name="users", columns=user_columns)
     sql_str, params_str = create_users.to_sql()
     backend.execute(sql_str, params_str)
     print("Users table created.")
@@ -80,13 +80,13 @@ def main():
     # ============================================================
     # Note: SQLite doesn't allow parameters in VIEW definitions.
     # We use a simple SELECT without WHERE parameter.
-    all_users_query = QueryExpression(
+    all_users_query = QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
         from_=TableExpression(dialect, "users"),
     )
 
-    create_active_view = CreateViewExpression(dialect, view_name="all_users", query=all_users_query)
+    create_active_view = CreateViewStatement(dialect, view_name="all_users", query=all_users_query)
 
     sql, params = create_active_view.to_sql()
     print("=== Create Basic View ===")
@@ -114,13 +114,13 @@ def main():
     # ============================================================
     # Example 2: Create view with column aliases
     # ============================================================
-    user_details_query = QueryExpression(
+    user_details_query = QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email"), Column(dialect, "status")],
         from_=TableExpression(dialect, "users"),
     )
 
-    create_aliased_view = CreateViewExpression(
+    create_aliased_view = CreateViewStatement(
         dialect,
         view_name="user_details",
         query=user_details_query,
@@ -146,11 +146,11 @@ def main():
     # ============================================================
     # Example 3: Create view with OR REPLACE
     # ============================================================
-    all_users_query = QueryExpression(
+    all_users_query = QueryStatement(
         dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=TableExpression(dialect, "users")
     )
 
-    create_replace_view = CreateViewExpression(dialect, view_name="active_users", query=all_users_query, replace=True)
+    create_replace_view = CreateViewStatement(dialect, view_name="active_users", query=all_users_query, replace=True)
 
     sql, params = create_replace_view.to_sql()
     print("=== Create View with OR REPLACE ===")
@@ -171,7 +171,7 @@ def main():
     # ============================================================
     # Example 4: Drop view
     # ============================================================
-    drop_view = DropViewExpression(dialect, view_name="user_details", if_exists=True)
+    drop_view = DropViewStatement(dialect, view_name="user_details", if_exists=True)
 
     sql, params = drop_view.to_sql()
     print("=== Drop View ===")

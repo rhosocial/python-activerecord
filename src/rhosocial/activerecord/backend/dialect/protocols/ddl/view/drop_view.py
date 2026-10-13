@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        DropViewExpression,
+        DropViewStatement,
     )
 
 
@@ -52,8 +52,8 @@ class DropViewSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.DropViewExpression`.
+    def format_drop_view_statement(self, expr: "DropViewStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.DropViewStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

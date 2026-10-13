@@ -20,10 +20,10 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
-    DropTableExpression,
+    DropTableStatement,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
@@ -32,7 +32,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table=Table(dialect, 'articles'),
     columns=[
@@ -65,7 +65,7 @@ articles = [
     ("Recursive CTEs", "Charlie"),
 ]
 for title, author in articles:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'articles'),
         columns=["title", "author"],
@@ -78,7 +78,7 @@ for title, author in articles:
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     LimitOffsetClause,
     OrderByClause,
 )
@@ -87,7 +87,7 @@ from rhosocial.activerecord.backend.expression.core import Column, WildcardExpre
 from .....expression.objects import Table
 
 # 1. Basic LIMIT - get first N rows
-query_limit = QueryExpression(
+query_limit = QueryStatement(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "articles")),
@@ -107,7 +107,7 @@ page_size = 3
 page_number = 2
 offset = (page_number - 1) * page_size
 
-query_page = QueryExpression(
+query_page = QueryStatement(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "articles")),
@@ -140,7 +140,7 @@ print("\nAll pages:")
 total_pages = -(-len(articles) // page_size)  # ceil division
 for page in range(1, total_pages + 1):
     offset = (page - 1) * page_size
-    query = QueryExpression(
+    query = QueryStatement(
         dialect=dialect,
         select=[WildcardExpression(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "articles")),
@@ -154,7 +154,7 @@ for page in range(1, total_pages + 1):
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'articles'), if_exists=True)
+drop_expr = DropTableStatement(dialect=dialect, table=Table(dialect, 'articles'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

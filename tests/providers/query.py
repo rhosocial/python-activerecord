@@ -22,7 +22,7 @@ import tempfile
 import logging
 from typing import Type, List, Tuple
 
-from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.backend.expression import DropTableStatement
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 
 # Setup logging for fixture selection debugging
@@ -273,7 +273,7 @@ class QuerySyncProvider(QueryProviderBase, IQuerySyncProvider, WorkerTestProtoco
         from rhosocial.activerecord.backend.schema import StatementType
 
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        drop_expr = DropTableExpression(
+        drop_expr = DropTableStatement(
             dialect=model_class.__backend__.dialect,
             table=Table(model_class.__backend__.dialect, table_name),
             if_exists=True,
@@ -391,7 +391,7 @@ class QuerySyncProvider(QueryProviderBase, IQuerySyncProvider, WorkerTestProtoco
         from rhosocial.activerecord.backend.schema import StatementType
         options = ExecutionOptions(stmt_type=StatementType.DDL)
         try:
-            drop_expr = DropTableExpression(
+            drop_expr = DropTableStatement(
                 dialect=OrderItemBase.__backend__.dialect,
                 table=Table(OrderItemBase.__backend__.dialect, 'order_items'),
                 if_exists=True,
@@ -571,7 +571,7 @@ class QueryAsyncProvider(QueryProviderBase, IQueryAsyncProvider):
         from rhosocial.activerecord.backend.schema import StatementType
 
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        drop_expr = DropTableExpression(
+        drop_expr = DropTableStatement(
             dialect=model_class.__backend__.dialect,
             table=Table(model_class.__backend__.dialect, table_name),
             if_exists=True,
@@ -745,7 +745,7 @@ class QueryAsyncProvider(QueryProviderBase, IQueryAsyncProvider):
         from rhosocial.activerecord.backend.schema import StatementType
         options = ExecutionOptions(stmt_type=StatementType.DDL)
         try:
-            drop_expr = DropTableExpression(
+            drop_expr = DropTableStatement(
                 dialect=AsyncOrderItemBase.__backend__.dialect,
                 table=Table(AsyncOrderItemBase.__backend__.dialect, 'order_items'),
                 if_exists=True,

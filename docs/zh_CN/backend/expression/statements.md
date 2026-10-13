@@ -4,15 +4,15 @@
 
 ## DML 语句
 
-### QueryExpression (SELECT)
+### QueryStatement (SELECT)
 
-`QueryExpression` 表示 `SELECT` 语句。它将各种子句（SELECT、FROM、WHERE、GROUP BY 等）组合成一个完整的查询。
+`QueryStatement` 表示 `SELECT` 语句。它将各种子句（SELECT、FROM、WHERE、GROUP BY 等）组合成一个完整的查询。
 
 ```python
-from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression, Column, Literal
+from rhosocial.activerecord.backend.expression import QueryStatement, TableExpression, Column, Literal
 
 # 基础 SELECT
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "name"), Column(dialect, "email")],
     from_=TableExpression(dialect, "users"),
@@ -24,7 +24,7 @@ sql, params = query.to_sql()
 
 # 带 DISTINCT 的 SELECT
 from rhosocial.activerecord.backend.expression import SelectModifier
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "category")],
     from_=TableExpression(dialect, "products"),
@@ -35,18 +35,18 @@ sql, params = query.to_sql()
 # params: ()
 ```
 
-### InsertExpression (INSERT)
+### InsertStatement (INSERT)
 
-`InsertExpression` 表示 `INSERT` 语句。它支持单行、多行、`INSERT ... SELECT` 以及 `ON CONFLICT` 子句。
+`InsertStatement` 表示 `INSERT` 语句。它支持单行、多行、`INSERT ... SELECT` 以及 `ON CONFLICT` 子句。
 
 ```python
-from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
 
 # 单行插入
 source = ValuesSource(dialect, values_list=[
     [Literal(dialect, "John Doe"), Literal(dialect, "john@example.com")]
 ])
-insert = InsertExpression(
+insert = InsertStatement(
     dialect,
     into="users",
     columns=["name", "email"],
@@ -63,7 +63,7 @@ on_conflict = OnConflictClause(
     conflict_target=["id"],
     do_nothing=True
 )
-insert = InsertExpression(
+insert = InsertStatement(
     dialect,
     into="products",
     columns=["id", "name"],
@@ -75,15 +75,15 @@ sql, params = insert.to_sql()
 # params: (...)
 ```
 
-### UpdateExpression (UPDATE)
+### UpdateStatement (UPDATE)
 
-`UpdateExpression` 表示 `UPDATE` 语句。它支持 `SET` 赋值、`WHERE` 子句以及可选的 `FROM` 子句（用于连接更新）。
+`UpdateStatement` 表示 `UPDATE` 语句。它支持 `SET` 赋值、`WHERE` 子句以及可选的 `FROM` 子句（用于连接更新）。
 
 ```python
-from rhosocial.activerecord.backend.expression import UpdateExpression, Literal, Column
+from rhosocial.activerecord.backend.expression import UpdateStatement, Literal, Column
 
 # 基础 UPDATE
-update = UpdateExpression(
+update = UpdateStatement(
     dialect,
     table="users",
     assignments={
@@ -98,7 +98,7 @@ sql, params = update.to_sql()
 
 # 带 RETURNING 的 UPDATE
 from rhosocial.activerecord.backend.expression import ReturningClause
-update = UpdateExpression(
+update = UpdateStatement(
     dialect,
     table="items",
     assignments={"quantity": Column(dialect, "quantity") - Literal(dialect, 1)},
@@ -110,15 +110,15 @@ sql, params = update.to_sql()
 # params: (1, 123)
 ```
 
-### DeleteExpression (DELETE)
+### DeleteStatement (DELETE)
 
-`DeleteExpression` 表示 `DELETE` 语句。它支持 `WHERE` 子句和可选的 `USING` 子句（用于连接删除）。
+`DeleteStatement` 表示 `DELETE` 语句。它支持 `WHERE` 子句和可选的 `USING` 子句（用于连接删除）。
 
 ```python
-from rhosocial.activerecord.backend.expression import DeleteExpression, Literal, Column
+from rhosocial.activerecord.backend.expression import DeleteStatement, Literal, Column
 
 # 基础 DELETE
-delete = DeleteExpression(
+delete = DeleteStatement(
     dialect,
     table="sessions",
     where=Column(dialect, "expires_at") < Literal(dialect, "NOW()")
@@ -128,7 +128,7 @@ sql, params = delete.to_sql()
 # params: ("NOW()",)
 
 # 带 USING 的 DELETE (连接删除)
-delete = DeleteExpression(
+delete = DeleteStatement(
     dialect,
     table="users",
     using="old_users",
@@ -155,21 +155,21 @@ sql, params = delete.to_sql()
 >
 > DML 语句（`INSERT`/`SELECT`/`UPDATE`/`DELETE`）不受此限制，默认绑定参数模式即可正常工作。
 
-### CreateTableExpression
+### CreateTableStatement
 
-`CreateTableExpression` 表示 `CREATE TABLE` 语句。
+`CreateTableStatement` 表示 `CREATE TABLE` 语句。
 
 数据类型应使用 `DataType` 表达式（如 `IntegerType`、`TextType`、`VarCharType` 等），而非原始字符串：
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, ColumnDefinition,
+    CreateTableStatement, ColumnDefinition,
     ColumnConstraint, ColumnConstraintType, Literal, Column,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType, RealType
 
 # 创建表 — 使用 DataType 表达式
-create = CreateTableExpression(
+create = CreateTableStatement(
     dialect,
     table="new_users",
     columns=[
@@ -229,7 +229,7 @@ ColumnDefinition(dialect, "score", RealType(dialect), constraints=[
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType, Column,
+    CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType, Column,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, RealType
 from rhosocial.activerecord.backend.expression.statements import (
@@ -255,7 +255,7 @@ columns = [
     ),
 ]
 
-create = CreateTableExpression(
+create = CreateTableStatement(
     dialect=dialect,
     table="products",
     columns=columns,
@@ -271,14 +271,14 @@ sql, params = create.to_sql()
 # dialect.supports_virtual_generated_columns() — VIRTUAL 支持
 ```
 
-### DropTableExpression
+### DropTableStatement
 
-`DropTableExpression` 表示 `DROP TABLE` 语句。
+`DropTableStatement` 表示 `DROP TABLE` 语句。
 
 ```python
-from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.backend.expression import DropTableStatement
 
-drop = DropTableExpression(
+drop = DropTableStatement(
     dialect,
     table_name="old_users",
     if_exists=True,
@@ -289,20 +289,20 @@ sql, params = drop.to_sql()
 # params: ()
 ```
 
-### CreateViewExpression / DropViewExpression
+### CreateViewStatement / DropViewStatement
 
 用于管理数据库视图的表达式。
 
 ```python
-from rhosocial.activerecord.backend.expression import CreateViewExpression
+from rhosocial.activerecord.backend.expression import CreateViewStatement
 
 # 创建视图
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "name")],
     from_=TableExpression(dialect, "users")
 )
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="user_names",
     query=query,
@@ -313,15 +313,15 @@ sql, params = create_view.to_sql()
 # params: ()
 ```
 
-### TruncateExpression
+### TruncateStatement
 
-`TruncateExpression` 表示 `TRUNCATE TABLE` 语句，用于快速删除表中所有行。
+`TruncateStatement` 表示 `TRUNCATE TABLE` 语句，用于快速删除表中所有行。
 
 ```python
-from rhosocial.activerecord.backend.expression import TruncateExpression
+from rhosocial.activerecord.backend.expression import TruncateStatement
 
 # 基本 TRUNCATE
-truncate = TruncateExpression(
+truncate = TruncateStatement(
     dialect,
     table_name="logs"
 )
@@ -330,7 +330,7 @@ sql, params = truncate.to_sql()
 # params: ()
 
 # 带 RESTART IDENTITY 和 CASCADE 的 TRUNCATE
-truncate = TruncateExpression(
+truncate = TruncateStatement(
     dialect,
     table_name="orders",
     restart_identity=True,
@@ -343,15 +343,15 @@ sql, params = truncate.to_sql()
 
 ### Schema DDL（模式定义语言）
 
-#### CreateSchemaExpression
+#### CreateSchemaStatement
 
-`CreateSchemaExpression` 表示 `CREATE SCHEMA` 语句，用于创建数据库模式（命名空间）。
+`CreateSchemaStatement` 表示 `CREATE SCHEMA` 语句，用于创建数据库模式（命名空间）。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateSchemaExpression
+from rhosocial.activerecord.backend.expression.statement import CreateSchemaStatement
 
 # 基本 CREATE SCHEMA
-create_schema = CreateSchemaExpression(
+create_schema = CreateSchemaStatement(
     dialect,
     schema_name="my_schema"
 )
@@ -360,7 +360,7 @@ sql, params = create_schema.to_sql()
 # params: ()
 
 # 带 IF NOT EXISTS 和 AUTHORIZATION 的 CREATE SCHEMA
-create_schema = CreateSchemaExpression(
+create_schema = CreateSchemaStatement(
     dialect,
     schema_name="app_schema",
     if_not_exists=True,
@@ -371,15 +371,15 @@ sql, params = create_schema.to_sql()
 # params: ()
 ```
 
-#### DropSchemaExpression
+#### DropSchemaStatement
 
-`DropSchemaExpression` 表示 `DROP SCHEMA` 语句。
+`DropSchemaStatement` 表示 `DROP SCHEMA` 语句。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropSchemaExpression
+from rhosocial.activerecord.backend.expression.statement import DropSchemaStatement
 
 # 带 CASCADE 的 DROP SCHEMA
-drop_schema = DropSchemaExpression(
+drop_schema = DropSchemaStatement(
     dialect,
     schema_name="old_schema",
     if_exists=True,
@@ -392,15 +392,15 @@ sql, params = drop_schema.to_sql()
 
 ### Index DDL（索引定义语言）
 
-#### CreateIndexExpression
+#### CreateIndexStatement
 
-`CreateIndexExpression` 表示 `CREATE INDEX` 语句，支持多种索引类型和选项。
+`CreateIndexStatement` 表示 `CREATE INDEX` 语句，支持多种索引类型和选项。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateIndexExpression
+from rhosocial.activerecord.backend.expression.statement import CreateIndexStatement
 
 # 基本 CREATE INDEX
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect,
     index_name="idx_users_email",
     table_name="users",
@@ -412,7 +412,7 @@ sql, params = create_index.to_sql()
 
 # 带 WHERE 子句的 UNIQUE INDEX（部分索引）
 # 注意：部分索引的 WHERE 条件属于 DDL，Literal 必须使用 inline_literals
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect,
     index_name="idx_active_users",
     table_name="users",
@@ -429,7 +429,7 @@ sql, params = create_index.to_sql()
 # params: ()
 
 # 带索引类型的复合索引
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect,
     index_name="idx_orders_user_date",
     table_name="orders",
@@ -441,7 +441,7 @@ sql, params = create_index.to_sql()
 # params: ()
 
 # 带 INCLUDE 子句的索引（覆盖索引）
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect,
     index_name="idx_users_email",
     table_name="users",
@@ -453,15 +453,15 @@ sql, params = create_index.to_sql()
 # params: ()
 ```
 
-#### DropIndexExpression
+#### DropIndexStatement
 
-`DropIndexExpression` 表示 `DROP INDEX` 语句。
+`DropIndexStatement` 表示 `DROP INDEX` 语句。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropIndexExpression
+from rhosocial.activerecord.backend.expression.statement import DropIndexStatement
 
 # DROP INDEX
-drop_index = DropIndexExpression(
+drop_index = DropIndexStatement(
     dialect,
     index_name="idx_old_index",
     if_exists=True,
@@ -474,15 +474,15 @@ sql, params = drop_index.to_sql()
 
 ### Sequence DDL（序列定义语言）
 
-#### CreateSequenceExpression
+#### CreateSequenceStatement
 
-`CreateSequenceExpression` 表示 `CREATE SEQUENCE` 语句，用于生成唯一数字标识符。
+`CreateSequenceStatement` 表示 `CREATE SEQUENCE` 语句，用于生成唯一数字标识符。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateSequenceExpression
+from rhosocial.activerecord.backend.expression.statement import CreateSequenceStatement
 
 # 基本 CREATE SEQUENCE
-create_seq = CreateSequenceExpression(
+create_seq = CreateSequenceStatement(
     dialect,
     sequence_name="user_id_seq"
 )
@@ -491,7 +491,7 @@ sql, params = create_seq.to_sql()
 # params: ()
 
 # 带所有选项的 CREATE SEQUENCE
-create_seq = CreateSequenceExpression(
+create_seq = CreateSequenceStatement(
     dialect,
     sequence_name="order_seq",
     if_not_exists=True,
@@ -508,14 +508,14 @@ sql, params = create_seq.to_sql()
 # params: ()
 ```
 
-#### DropSequenceExpression
+#### DropSequenceStatement
 
-`DropSequenceExpression` 表示 `DROP SEQUENCE` 语句。
+`DropSequenceStatement` 表示 `DROP SEQUENCE` 语句。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropSequenceExpression
+from rhosocial.activerecord.backend.expression.statement import DropSequenceStatement
 
-drop_seq = DropSequenceExpression(
+drop_seq = DropSequenceStatement(
     dialect,
     sequence_name="old_seq",
     if_exists=True
@@ -525,15 +525,15 @@ sql, params = drop_seq.to_sql()
 # params: ()
 ```
 
-#### AlterSequenceExpression
+#### AlterSequenceStatement
 
-`AlterSequenceExpression` 表示 `ALTER SEQUENCE` 语句，用于修改现有序列。
+`AlterSequenceStatement` 表示 `ALTER SEQUENCE` 语句，用于修改现有序列。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import AlterSequenceExpression
+from rhosocial.activerecord.backend.expression.statement import AlterSequenceStatement
 
 # 重启序列
-alter_seq = AlterSequenceExpression(
+alter_seq = AlterSequenceStatement(
     dialect,
     sequence_name="user_id_seq",
     restart=1000
@@ -543,7 +543,7 @@ sql, params = alter_seq.to_sql()
 # params: ()
 
 # 多项修改
-alter_seq = AlterSequenceExpression(
+alter_seq = AlterSequenceStatement(
     dialect,
     sequence_name="order_seq",
     increment=2,
@@ -555,12 +555,12 @@ sql, params = alter_seq.to_sql()
 # params: ()
 ```
 
-### MergeExpression (MERGE)
+### MergeStatement (MERGE)
 
-`MergeExpression` 表示 `MERGE` 语句 (Upsert)。
+`MergeStatement` 表示 `MERGE` 语句 (Upsert)。
 
 ```python
-from rhosocial.activerecord.backend.expression import MergeExpression, MergeAction, MergeActionType
+from rhosocial.activerecord.backend.expression import MergeStatement, MergeAction, MergeActionType
 
 # 定义动作
 when_matched = MergeAction(
@@ -576,7 +576,7 @@ when_not_matched = MergeAction(
 )
 
 # Merge 语句
-merge = MergeExpression(
+merge = MergeStatement(
     dialect,
     target_table=TableExpression(dialect, "target", "t"),
     source=TableExpression(dialect, "source", "s"),
@@ -600,21 +600,21 @@ sql, params = merge.to_sql()
 > - MySQL: 不支持（可使用表替代）
 > - SQLite: 不支持
 
-#### CreateMaterializedViewExpression
+#### CreateMaterializedViewStatement
 
-`CreateMaterializedViewExpression` 表示 `CREATE MATERIALIZED VIEW` 语句。
+`CreateMaterializedViewStatement` 表示 `CREATE MATERIALIZED VIEW` 语句。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateMaterializedViewExpression
+from rhosocial.activerecord.backend.expression.statement import CreateMaterializedViewStatement
 
 # 基本 CREATE MATERIALIZED VIEW
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "user_id"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
     from_=TableExpression(dialect, "orders"),
     group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "user_id")])
 )
-create_mv = CreateMaterializedViewExpression(
+create_mv = CreateMaterializedViewStatement(
     dialect,
     view_name="order_counts",
     query=query
@@ -624,7 +624,7 @@ sql, params = create_mv.to_sql()
 # params: ()
 
 # 带 TABLESPACE 的物化视图（PostgreSQL）
-create_mv = CreateMaterializedViewExpression(
+create_mv = CreateMaterializedViewStatement(
     dialect,
     view_name="user_summary",
     query=query,
@@ -636,15 +636,15 @@ sql, params = create_mv.to_sql()
 # params: ()
 ```
 
-#### DropMaterializedViewExpression
+#### DropMaterializedViewStatement
 
-`DropMaterializedViewExpression` 表示 `DROP MATERIALIZED VIEW` 语句。
+`DropMaterializedViewStatement` 表示 `DROP MATERIALIZED VIEW` 语句。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropMaterializedViewExpression
+from rhosocial.activerecord.backend.expression.statement import DropMaterializedViewStatement
 
 # DROP MATERIALIZED VIEW
-drop_mv = DropMaterializedViewExpression(
+drop_mv = DropMaterializedViewStatement(
     dialect,
     view_name="old_summary",
     if_exists=True,
@@ -655,15 +655,15 @@ sql, params = drop_mv.to_sql()
 # params: ()
 ```
 
-#### RefreshMaterializedViewExpression
+#### RefreshMaterializedViewStatement
 
-`RefreshMaterializedViewExpression` 表示 `REFRESH MATERIALIZED VIEW` 语句，用于刷新物化视图的数据。
+`RefreshMaterializedViewStatement` 表示 `REFRESH MATERIALIZED VIEW` 语句，用于刷新物化视图的数据。
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import RefreshMaterializedViewExpression
+from rhosocial.activerecord.backend.expression.statement import RefreshMaterializedViewStatement
 
 # 基本刷新
-refresh_mv = RefreshMaterializedViewExpression(
+refresh_mv = RefreshMaterializedViewStatement(
     dialect,
     view_name="order_counts"
 )
@@ -672,7 +672,7 @@ sql, params = refresh_mv.to_sql()
 # params: ()
 
 # CONCURRENTLY 刷新（PostgreSQL 9.4+，需要唯一索引）
-refresh_mv = RefreshMaterializedViewExpression(
+refresh_mv = RefreshMaterializedViewStatement(
     dialect,
     view_name="order_counts",
     concurrent=True
@@ -682,7 +682,7 @@ sql, params = refresh_mv.to_sql()
 # params: ()
 
 # 带 WITH DATA/WITH NO DATA 选项
-refresh_mv = RefreshMaterializedViewExpression(
+refresh_mv = RefreshMaterializedViewStatement(
     dialect,
     view_name="order_counts",
     with_data=True
@@ -715,10 +715,10 @@ partition = PartitionClause(
 )
 
 # 在 CREATE TABLE 中使用
-from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType
+from rhosocial.activerecord.backend.expression import CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType
 from rhosocial.activerecord.backend.expression.types import IntegerType, TimestampType, DecimalType
 
-create = CreateTableExpression(
+create = CreateTableStatement(
     dialect,
     table="orders",
     columns=[

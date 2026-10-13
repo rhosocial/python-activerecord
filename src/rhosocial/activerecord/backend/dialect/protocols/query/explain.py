@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression import ExplainExpression
+    from ....expression import ExplainStatement
 
 
 @runtime_checkable
@@ -39,12 +39,12 @@ class ExplainSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
+    def format_explain_statement(self, expr: "ExplainStatement") -> Tuple[str, tuple]:
         """
         Format EXPLAIN statement.
 
         Args:
-            expr: ExplainExpression object
+            expr: ExplainStatement object
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted statement.

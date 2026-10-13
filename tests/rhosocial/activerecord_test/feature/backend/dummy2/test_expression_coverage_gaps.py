@@ -75,11 +75,11 @@ class TestExecutableProtocol:
 
     def test_executable_protocol_isinstance_check(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.executable import Executable
-        from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+        from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
         from rhosocial.activerecord.backend.expression.core import Column
 
-        # QueryExpression implements Executable via statement_type
-        query = QueryExpression(
+        # QueryStatement implements Executable via statement_type
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
         assert isinstance(query, Executable)

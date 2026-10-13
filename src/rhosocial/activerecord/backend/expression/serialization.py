@@ -73,7 +73,7 @@ class ExpressionSerializer:
         readonly = ExpressionSerializer(allowed_types=[
             "rhosocial.activerecord.backend.expression.core.*",
             "rhosocial.activerecord.backend.expression.predicates.*",
-            "rhosocial.activerecord.backend.expression.statements.dql.QueryExpression",
+            "rhosocial.activerecord.backend.expression.statements.dql.QueryStatement",
         ])
     """
 

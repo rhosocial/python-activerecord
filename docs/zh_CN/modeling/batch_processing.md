@@ -84,14 +84,14 @@ for user in iter_users_by_cursor():
 框架提供了 `execute_batch_dql` 作为后端实例的方法，在内部自动处理分页，以同步生成器的形式逐页产出 `BatchDQLResult`：
 
 ```python
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
 from rhosocial.activerecord.backend.expression import WildcardExpression, TableExpression
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 from rhosocial.activerecord.backend.expression import Column
 
 # 构建 SELECT * FROM users ORDER BY id 表达式
 dialect = User.backend().dialect
-query_expr = QueryExpression(
+query_expr = QueryStatement(
     dialect,
     select=[WildcardExpression(dialect)],
     from_=TableExpression(dialect, "users"),
@@ -128,13 +128,13 @@ for row in source_data:
 ```python
 # ✅ 通过后端实例的 execute_batch_dml 方法批量插入
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Literal,
 )
 from rhosocial.activerecord.backend.result import BatchCommitMode
 
 dialect = User.backend().dialect
 exprs = [
-    InsertExpression(
+    InsertStatement(
         dialect,
         into="users",
         columns=["name", "email"],
@@ -159,7 +159,7 @@ for batch_result in User.backend().execute_batch_dml(exprs, batch_size=500):
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Literal,
 )
 from rhosocial.activerecord.backend.result import BatchCommitMode
 
@@ -167,7 +167,7 @@ dialect = User.backend().dialect
 with User.transaction():
     for chunk in chunked(source_data, size=500):
         exprs = [
-            InsertExpression(
+            InsertStatement(
                 dialect, into="users", columns=["name", "email"],
                 source=ValuesSource(dialect, values_list=[
                     [Literal(dialect, row["name"]), Literal(dialect, row["email"])]

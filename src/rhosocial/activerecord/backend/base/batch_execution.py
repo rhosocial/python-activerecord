@@ -24,13 +24,13 @@ from typing import (
 
 from ..result import QueryResult, BatchDMLResult, BatchDQLResult, BatchCommitMode
 from ..type_adapter import SQLTypeAdapter
-from ..expression import InsertExpression, UpdateExpression, DeleteExpression
+from ..expression import InsertStatement, UpdateStatement, DeleteStatement
 
 if TYPE_CHECKING:
     from ..expression import (
-        QueryExpression,
+        QueryStatement,
         WithStatement,
-        SetOperationExpression,
+        SetOperationStatement,
     )
 
 
@@ -60,16 +60,16 @@ class _BatchDMLBundle:
 
 # Type aliases for DML expressions
 HomogeneousDMLList = Union[
-    List["InsertExpression"],
-    List["UpdateExpression"],
-    List["DeleteExpression"],
+    List["InsertStatement"],
+    List["UpdateStatement"],
+    List["DeleteStatement"],
 ]
 
 # Type alias for DQL expressions
 DQLExpression = Union[
-    "QueryExpression",
+    "QueryStatement",
     "WithStatement",
-    "SetOperationExpression",
+    "SetOperationStatement",
 ]
 
 
@@ -106,8 +106,8 @@ class BatchExecutionMixin:
 
         Args:
             expressions: List of homogeneous DML expressions (all must be the same
-                        type - all InsertExpression, all UpdateExpression, or all
-                        DeleteExpression).
+                        type - all InsertStatement, all UpdateStatement, or all
+                        DeleteStatement).
             batch_size: Number of expressions to process per batch. Default: 100.
             commit_mode: Transaction commit strategy:
                 - WHOLE: Execute all batches in a single transaction (default).
@@ -145,8 +145,8 @@ class BatchExecutionMixin:
 
         Example:
             >>> expressions = [
-            ...     InsertExpression(dialect, into="users", source=ValuesSource(...)),
-            ...     InsertExpression(dialect, into="users", source=ValuesSource(...)),
+            ...     InsertStatement(dialect, into="users", source=ValuesSource(...)),
+            ...     InsertStatement(dialect, into="users", source=ValuesSource(...)),
             ... ]
             >>> for result in backend.execute_batch_dml(expressions, batch_size=50):
             ...     print(f"Batch {result.batch_index}: {result.total_affected_rows} rows")
@@ -259,8 +259,8 @@ class BatchExecutionMixin:
         processing of large result sets.
 
         Args:
-            expression: A DQL expression (QueryExpression, WithStatement,
-                       or SetOperationExpression).
+            expression: A DQL expression (QueryStatement, WithStatement,
+                       or SetOperationStatement).
             page_size: Number of rows per page. Default: 1000.
             column_adapters: Optional type adapters for processing columns.
             column_mapping: Optional mapping from column names to field names.
@@ -279,7 +279,7 @@ class BatchExecutionMixin:
             - Breaking out of the iteration early will properly close the cursor.
 
         Example:
-            >>> query = QueryExpression(dialect, select=[...], from_="users")
+            >>> query = QueryStatement(dialect, select=[...], from_="users")
             >>> for page in backend.execute_batch_dql(query, page_size=500):
             ...     print(f"Page {page.page_index}: {page.page_size} rows")
             ...     for row in page.data:
@@ -414,7 +414,7 @@ class BatchExecutionMixin:
 
         # Stage 2: RETURNING conflict detection
         for i, expr in enumerate(expressions):
-            if isinstance(expr, (InsertExpression, UpdateExpression, DeleteExpression)) and expr.returning is not None:
+            if isinstance(expr, (InsertStatement, UpdateStatement, DeleteStatement)) and expr.returning is not None:
                 raise ValueError(
                     f"Expressions must not carry their own RETURNING clause. "
                     f"Use the returning_columns parameter instead. "
@@ -819,7 +819,7 @@ class AsyncBatchExecutionMixin:
 
         # Stage 2: RETURNING conflict detection
         for i, expr in enumerate(expressions):
-            if isinstance(expr, (InsertExpression, UpdateExpression, DeleteExpression)) and expr.returning is not None:
+            if isinstance(expr, (InsertStatement, UpdateStatement, DeleteStatement)) and expr.returning is not None:
                 raise ValueError(
                     f"Expressions must not carry their own RETURNING clause. "
                     f"Use the returning_columns parameter instead. "

@@ -10,10 +10,10 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression import (
-        AlterPropertyGraphExpression,
+        AlterPropertyGraphStatement,
         ColumnsClause,
-        CreatePropertyGraphExpression,
-        DropPropertyGraphExpression,
+        CreatePropertyGraphStatement,
+        DropPropertyGraphStatement,
         EdgeTable,
         GraphTableExpression,
         TablePropertiesClause,
@@ -89,36 +89,36 @@ class GraphTableSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_create_property_graph_statement(self, expr: "CreatePropertyGraphExpression") -> Tuple[str, tuple]:
+    def format_create_property_graph_statement(self, expr: "CreatePropertyGraphStatement") -> Tuple[str, tuple]:
         """
         Formats a CREATE PROPERTY GRAPH statement.
 
         Args:
-            expr: CreatePropertyGraphExpression object.
+            expr: CreatePropertyGraphStatement object.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
 
-    def format_drop_property_graph_statement(self, expr: "DropPropertyGraphExpression") -> Tuple[str, tuple]:
+    def format_drop_property_graph_statement(self, expr: "DropPropertyGraphStatement") -> Tuple[str, tuple]:
         """
         Formats a DROP PROPERTY GRAPH statement.
 
         Args:
-            expr: DropPropertyGraphExpression object.
+            expr: DropPropertyGraphStatement object.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...  # pragma: no cover
 
-    def format_alter_property_graph_statement(self, expr: "AlterPropertyGraphExpression") -> Tuple[str, tuple]:
+    def format_alter_property_graph_statement(self, expr: "AlterPropertyGraphStatement") -> Tuple[str, tuple]:
         """
         Formats an ALTER PROPERTY GRAPH statement.
 
         Args:
-            expr: AlterPropertyGraphExpression object.
+            expr: AlterPropertyGraphStatement object.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

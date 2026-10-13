@@ -11,7 +11,7 @@ import json
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+    CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.expression.types import (
     IntegerType, TextType,
@@ -22,7 +22,7 @@ backend = SQLiteBackend(config)
 backend.introspect_and_adapt()
 dialect = backend.dialect
 
-expr = CreateTableExpression(
+expr = CreateTableStatement(
     dialect=dialect, table=Table(dialect, 'books'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),

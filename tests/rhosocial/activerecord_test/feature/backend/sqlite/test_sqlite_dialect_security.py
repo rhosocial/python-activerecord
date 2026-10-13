@@ -211,8 +211,8 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
 
 def test_format_drop_virtual_table_normal(dialect):
     """Drop virtual table with normal table name."""
-    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
-    expr = DropVirtualTableExpression(dialect, table=Table(dialect, "my_fts_table"), if_exists=False)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableStatement
+    expr = DropVirtualTableStatement(dialect, table=Table(dialect, "my_fts_table"), if_exists=False)
     sql, params = expr.to_sql()
     assert sql == 'DROP TABLE "my_fts_table"'
     assert params == ()
@@ -220,8 +220,8 @@ def test_format_drop_virtual_table_normal(dialect):
 
 def test_format_drop_virtual_table_if_exists(dialect):
     """Drop virtual table with IF EXISTS."""
-    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
-    expr = DropVirtualTableExpression(dialect, table=Table(dialect, "my_fts_table"), if_exists=True)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableStatement
+    expr = DropVirtualTableStatement(dialect, table=Table(dialect, "my_fts_table"), if_exists=True)
     sql, params = expr.to_sql()
     assert sql == 'DROP TABLE IF EXISTS "my_fts_table"'
     assert params == ()
@@ -233,8 +233,8 @@ def test_format_drop_virtual_table_with_malicious_name(dialect):
     Before fix: f'DROP TABLE "{table_name}"' — no escaping of internal ".
     After fix: uses format_identifier which escapes " to "".
     """
-    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableExpression
-    expr = DropVirtualTableExpression(dialect, table=Table(dialect, 't"; DROP TABLE users--'), if_exists=False)
+    from rhosocial.activerecord.backend.impl.sqlite.expression import DropVirtualTableStatement
+    expr = DropVirtualTableStatement(dialect, table=Table(dialect, 't"; DROP TABLE users--'), if_exists=False)
     sql, params = expr.to_sql()
     assert "DROP TABLE" not in sql.split('"')[1::2] if len(sql.split('"')) > 2 else "DROP TABLE users" not in sql
     assert sql.count('"') % 2 == 0, f"Unbalanced quotes: {sql}"
@@ -252,13 +252,13 @@ def test_format_create_trigger_function_name_quoted(dialect):
     After fix: uses format_identifier which quotes the function name.
     """
     from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
-        CreateTriggerExpression,
+        CreateTriggerStatement,
         TriggerTiming,
         TriggerEvent,
         TriggerLevel,
     )
 
-    expr = CreateTriggerExpression(
+    expr = CreateTriggerStatement(
         dialect=dialect,
         trigger=Trigger(dialect, "test_trigger"),
         timing=TriggerTiming.AFTER,
@@ -278,13 +278,13 @@ def test_format_create_trigger_malicious_function_name(dialect):
     Balanced quotes = no breakout from identifier context.
     """
     from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
-        CreateTriggerExpression,
+        CreateTriggerStatement,
         TriggerTiming,
         TriggerEvent,
         TriggerLevel,
     )
 
-    expr = CreateTriggerExpression(
+    expr = CreateTriggerStatement(
         dialect=dialect,
         trigger=Trigger(dialect, "test_trigger"),
         timing=TriggerTiming.AFTER,

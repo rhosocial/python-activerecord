@@ -88,14 +88,14 @@ For large reads, the framework provides `execute_batch_dql` as a method on the b
 instance.  It handles pagination internally and yields one `BatchDQLResult` page at a time:
 
 ```python
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
 from rhosocial.activerecord.backend.expression import WildcardExpression, TableExpression
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 from rhosocial.activerecord.backend.expression import Column
 
 # Build a SELECT * FROM users ORDER BY id expression
 dialect = User.backend().dialect
-query_expr = QueryExpression(
+query_expr = QueryStatement(
     dialect,
     select=[WildcardExpression(dialect)],
     from_=TableExpression(dialect, "users"),
@@ -132,13 +132,13 @@ trip, that is 10 seconds -- for a dataset that a bulk insert could handle in und
 ```python
 # ✅ Bulk insert via the backend's execute_batch_dml method
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Literal,
 )
 from rhosocial.activerecord.backend.result import BatchCommitMode
 
 dialect = User.backend().dialect
 exprs = [
-    InsertExpression(
+    InsertStatement(
         dialect,
         into="users",
         columns=["name", "email"],
@@ -163,7 +163,7 @@ for batch_result in User.backend().execute_batch_dml(exprs, batch_size=500):
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    InsertExpression, ValuesSource, Literal,
+    InsertStatement, ValuesSource, Literal,
 )
 from rhosocial.activerecord.backend.result import BatchCommitMode
 
@@ -171,7 +171,7 @@ dialect = User.backend().dialect
 with User.transaction():
     for chunk in chunked(source_data, size=500):
         exprs = [
-            InsertExpression(
+            InsertStatement(
                 dialect, into="users", columns=["name", "email"],
                 source=ValuesSource(dialect, values_list=[
                     [Literal(dialect, row["name"]), Literal(dialect, row["email"])]

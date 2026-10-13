@@ -21,7 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .types import DataType
 
 
-class SetOperationExpression(TableSource, BaseExpression):
+class SetOperationStatement(TableSource, BaseExpression):
     """Represents a set operation (UNION, INTERSECT, EXCEPT) between two queries.
 
     This class is commonly used for:
@@ -32,14 +32,14 @@ class SetOperationExpression(TableSource, BaseExpression):
 
     Example Usage:
         # Basic UNION operation
-        union_expr = SetOperationExpression(
+        union_expr = SetOperationStatement(
             dialect,
-            left=QueryExpression(
+            left=QueryStatement(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
                 from_=NamedRelationRef(dialect, Table(dialect, "users"))
             ),
-            right=QueryExpression(
+            right=QueryStatement(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
                 from_=NamedRelationRef(dialect, Table(dialect, "customers"))
@@ -49,14 +49,14 @@ class SetOperationExpression(TableSource, BaseExpression):
         )
 
         # UNION operation with additional clauses
-        union_expr_with_order = SetOperationExpression(
+        union_expr_with_order = SetOperationStatement(
             dialect,
-            left=QueryExpression(
+            left=QueryStatement(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
                 from_=NamedRelationRef(dialect, Table(dialect, "users"))
             ),
-            right=QueryExpression(
+            right=QueryStatement(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
                 from_=NamedRelationRef(dialect, Table(dialect, "customers"))
@@ -69,7 +69,7 @@ class SetOperationExpression(TableSource, BaseExpression):
 
         # Recursive CTE example using UNION ALL (essential for iterative algorithms like Sudoku solver)
         # Initial query part - base case for recursion
-        initial_query = QueryExpression(
+        initial_query = QueryStatement(
             dialect,
             select=[
                 Column(dialect, "id"),
@@ -85,7 +85,7 @@ class SetOperationExpression(TableSource, BaseExpression):
         )
 
         # Recursive query part - self-referencing query
-        recursive_query = QueryExpression(
+        recursive_query = QueryStatement(
             dialect,
             select=[
                 Column(dialect, "n.id"),
@@ -108,7 +108,7 @@ class SetOperationExpression(TableSource, BaseExpression):
         )
 
         # Combine initial and recursive parts with UNION ALL for recursive CTE
-        recursive_union = SetOperationExpression(
+        recursive_union = SetOperationStatement(
             dialect,
             left=initial_query,
             right=recursive_query,
@@ -131,7 +131,7 @@ class SetOperationExpression(TableSource, BaseExpression):
         for_update_clause: Optional["ForUpdateClause"] = None,
     ):
         """
-        Initialize a SetOperationExpression.
+        Initialize a SetOperationStatement.
 
         Args:
             dialect: The SQL dialect to use for formatting
@@ -179,7 +179,7 @@ class CTEClause(BaseExpression):
         cte = CTEClause(
             dialect,
             name="monthly_sales",
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[Column(dialect, "month"), FunctionCall(dialect, "SUM", Column(dialect, "amount"))],
                 from_=NamedRelationRef(dialect, Table(dialect, "sales")),
@@ -196,7 +196,7 @@ class CTEClause(BaseExpression):
             column_names=["value", "level"]
         )
 
-        recursive_query = QueryExpression(
+        recursive_query = QueryStatement(
             dialect,
             select=[
                 FunctionCall(dialect, "CAST", Column(dialect, "value") + Literal(dialect, 1), "TEXT"),
@@ -206,8 +206,8 @@ class CTEClause(BaseExpression):
             where=(Column(dialect, "level") < Literal(dialect, 10))
         )
 
-        # Combine using SetOperationExpression for recursive CTE
-        combined_query = SetOperationExpression(
+        # Combine using SetOperationStatement for recursive CTE
+        combined_query = SetOperationStatement(
             dialect,
             left=initial_values,
             right=recursive_query,
@@ -226,7 +226,7 @@ class CTEClause(BaseExpression):
         # Use WithStatement to create the recursive query
         recursive_query = WithStatement(
             dialect,
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[Column(dialect, "next_value"), Column(dialect, "next_level")],
                 from_=NamedRelationRef(dialect, Table(dialect, "counter"))
@@ -252,7 +252,7 @@ class CTEClause(BaseExpression):
             dialect: The SQL dialect to use for formatting
             name: The name of the CTE
             query: The query that defines the CTE. Can be:
-                   - A BaseExpression instance (e.g., QueryExpression, Subquery)
+                   - A BaseExpression instance (e.g., QueryStatement, Subquery)
                    - A tuple of (sql_string, params) where params can be a list or tuple,
                      though using a tuple is preferred (params will be converted to tuple if list)
             columns: Optional list of column names for the CTE
@@ -309,7 +309,7 @@ class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         cte1 = CTEClause(
             dialect,
             name="users_with_orders",
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[
                     Column(dialect, "u.id"),
@@ -327,7 +327,7 @@ class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         cte2 = CTEClause(
             dialect,
             name="top_users",
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[Column(dialect, "user_id"), Column(dialect, "user_name")],
                 from_=[NamedRelationRef(dialect, Table(dialect, "users_with_orders"))],
@@ -337,7 +337,7 @@ class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
 
         # Main query that uses the CTEs
-        main_query = QueryExpression(
+        main_query = QueryStatement(
             dialect,
             select=[Column(dialect, "tu.name"), Column(dialect, "uwo.order_count")],
             from_=[NamedRelationRef(dialect, Table(dialect, "top_users"), alias="tu")],

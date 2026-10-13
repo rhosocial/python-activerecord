@@ -13,7 +13,7 @@ renamed ``format_column_unique_constraint``; these tests pin both levels.
 
 
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
+    CreateTableStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -32,7 +32,7 @@ dialect = _dialect
 
 
 def _make_table(ctype, *, named=None):
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect=SQLiteDialect(),
         table=Table(SQLiteDialect(), 'demo'),
         columns=[

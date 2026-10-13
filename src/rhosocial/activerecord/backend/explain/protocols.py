@@ -34,8 +34,8 @@ class SyncExplainBackendProtocol(Protocol):
         """Execute EXPLAIN for *expression* and return a structured result.
 
         Args:
-            expression: Any BaseExpression except ExplainExpression itself
-                        (e.g. QueryExpression, InsertExpression).
+            expression: Any BaseExpression except ExplainStatement itself
+                        (e.g. QueryStatement, InsertStatement).
             options:    Optional ExplainOptions controlling the EXPLAIN mode
                         and output format.
 

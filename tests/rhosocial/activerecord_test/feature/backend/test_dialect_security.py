@@ -269,13 +269,13 @@ def test_format_partition_method_validation(dialect):
     """Test partition method is allowlist-validated and columns are quoted."""
     from rhosocial.activerecord.backend.expression import Column
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-        CreateTableExpression,
+        CreateTableStatement,
         ColumnDefinition,
         PartitionClause,
     )
 
     col_def = ColumnDefinition(dialect, name="id", data_type=IntegerType(dialect))
-    expr = CreateTableExpression(
+    expr = CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, 'test_table'),
         columns=[col_def],

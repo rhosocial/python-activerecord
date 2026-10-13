@@ -340,11 +340,11 @@ if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.collation import CollateExpression
     from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
     from rhosocial.activerecord.backend.expression.transaction import (
-        BeginTransactionExpression,
-        CommitTransactionExpression,
-        ReleaseSavepointExpression,
-        RollbackTransactionExpression,
-        SavepointExpression,
+        BeginTransactionStatement,
+        CommitStatement,
+        ReleaseSavepointStatement,
+        RollbackStatement,
+        SavepointStatement,
         SetTransactionExpression,
     )
 
@@ -1707,7 +1707,7 @@ class DummyDialect(
         """Dummy backend supports savepoints."""
         return True
 
-    def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
+    def format_begin_transaction(self, expr: "BeginTransactionStatement") -> Tuple[str, tuple]:
         """Format BEGIN TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         parts = ["BEGIN"]
@@ -1745,11 +1745,11 @@ class DummyDialect(
 
         return " ".join(parts), ()
 
-    def format_commit_transaction(self, expr: "CommitTransactionExpression") -> Tuple[str, tuple]:
+    def format_commit_transaction(self, expr: "CommitStatement") -> Tuple[str, tuple]:
         """Format COMMIT TRANSACTION statement for dummy dialect."""
         return "COMMIT", ()
 
-    def format_rollback_transaction(self, expr: "RollbackTransactionExpression") -> Tuple[str, tuple]:
+    def format_rollback_transaction(self, expr: "RollbackStatement") -> Tuple[str, tuple]:
         """Format ROLLBACK TRANSACTION statement for dummy dialect."""
         params = expr.get_params()
         savepoint = params.get("savepoint")
@@ -1757,13 +1757,13 @@ class DummyDialect(
             return f"ROLLBACK TO SAVEPOINT {self.format_identifier(savepoint)}", ()
         return "ROLLBACK", ()
 
-    def format_savepoint(self, expr: "SavepointExpression") -> Tuple[str, tuple]:
+    def format_savepoint(self, expr: "SavepointStatement") -> Tuple[str, tuple]:
         """Format SAVEPOINT statement for dummy dialect."""
         params = expr.get_params()
         name = params.get("name", "")
         return f"SAVEPOINT {self.format_identifier(name)}", ()
 
-    def format_release_savepoint(self, expr: "ReleaseSavepointExpression") -> Tuple[str, tuple]:
+    def format_release_savepoint(self, expr: "ReleaseSavepointStatement") -> Tuple[str, tuple]:
         """Format RELEASE SAVEPOINT statement for dummy dialect."""
         params = expr.get_params()
         name = params.get("name", "")

@@ -13,8 +13,8 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
@@ -24,7 +24,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -49,7 +49,7 @@ create_table = CreateTableExpression(
 sql, params = create_table.to_sql()
 backend.execute(sql, params)
 
-insert_expr = InsertExpression(
+insert_expr = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["name"],
@@ -62,7 +62,7 @@ backend.execute(sql, params)
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    DeleteExpression,
+    DeleteStatement,
     ReturningClause,
     Column,
 )
@@ -70,7 +70,7 @@ from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
 from .....expression.objects import Table
 
-delete_expr = DeleteExpression(
+delete_expr = DeleteStatement(
     dialect=dialect,
     tables=Table(dialect, 'users'),
     where=ComparisonPredicate(

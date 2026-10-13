@@ -17,9 +17,9 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
-    CreateTableExpression,
-    DropTableExpression,
-    AlterTableExpression,
+    CreateTableStatement,
+    DropTableStatement,
+    AlterTableStatement,
     AddColumn,
     DropColumn,
 )
@@ -95,7 +95,7 @@ def main():
         ColumnDefinition("created_at", TimestampType()),
     ]
 
-    create_users = CreateTableExpression(dialect=dialect, table_name="users", columns=user_columns)
+    create_users = CreateTableStatement(dialect=dialect, table_name="users", columns=user_columns)
 
     sql, params = create_users.to_sql()
     print("=== Create Users Table ===")
@@ -114,7 +114,7 @@ def main():
     # ============================================================
     # Example 2: Create table with IF NOT EXISTS
     # ============================================================
-    create_products = CreateTableExpression(
+    create_products = CreateTableStatement(
         dialect=dialect,
         table_name="products",
         columns=[
@@ -141,7 +141,7 @@ def main():
     # ============================================================
     # Example 3: Create temporary table
     # ============================================================
-    create_temp = CreateTableExpression(
+    create_temp = CreateTableStatement(
         dialect=dialect,
         table_name="temp_sessions",
         columns=[
@@ -168,7 +168,7 @@ def main():
     # Example 4: Drop table
     # ============================================================
     # First create a table to drop
-    create_to_drop = CreateTableExpression(
+    create_to_drop = CreateTableStatement(
         dialect=dialect, table_name="old_table", columns=[ColumnDefinition("id", IntegerType())]
     )
     sql_str, params_str = create_to_drop.to_sql()
@@ -178,7 +178,7 @@ def main():
     tables = introspector.list_tables()
     print(f"Tables: {[t.name for t in tables]}")
 
-    drop_old = DropTableExpression(dialect, table_name="old_table", if_exists=True)
+    drop_old = DropTableStatement(dialect, table_name="old_table", if_exists=True)
 
     sql, params = drop_old.to_sql()
     print("\n=== Drop Table ===")
@@ -198,7 +198,7 @@ def main():
     # ============================================================
     # Example 5: Alter table - Add column
     # ============================================================
-    alter_add = AlterTableExpression(
+    alter_add = AlterTableStatement(
         dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("phone", VarCharType(20)))]
     )
 
@@ -218,7 +218,7 @@ def main():
     # Example 6: Alter table - Drop column
     # ============================================================
     # First add a column to drop
-    alter_add_field = AlterTableExpression(
+    alter_add_field = AlterTableStatement(
         dialect, table_name="users", actions=[AddColumn(dialect, column=ColumnDefinition("temp_field", TextType()))]
     )
     sql_str, params_str = alter_add_field.to_sql()
@@ -227,7 +227,7 @@ def main():
     print("--- Before dropping temp_field ---")
     print_table_info(introspector, "users", "users table before dropping temp_field")
 
-    alter_drop = AlterTableExpression(
+    alter_drop = AlterTableStatement(
         dialect, table_name="users", actions=[DropColumn(dialect, column_name="temp_field")]
     )
 

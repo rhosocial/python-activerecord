@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
 
-class CreateVirtualTableExpression(BaseExpression):
+class CreateVirtualTableStatement(BaseExpression):
     """Expression for CREATE VIRTUAL TABLE statement."""
 
     def __init__(
@@ -44,7 +44,7 @@ class CreateVirtualTableExpression(BaseExpression):
         return self.dialect.format_create_virtual_table(self)
 
 
-class DropVirtualTableExpression(BaseExpression):
+class DropVirtualTableStatement(BaseExpression):
     """Expression for DROP TABLE statement targeting a virtual table."""
 
     def __init__(

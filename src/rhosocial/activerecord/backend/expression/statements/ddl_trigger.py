@@ -35,12 +35,12 @@ class TriggerLevel(Enum):
     STATEMENT = "FOR EACH STATEMENT"
 
 
-class CreateTriggerExpression(BaseExpression):
+class CreateTriggerStatement(BaseExpression):
     """SQL:1999 standard CREATE TRIGGER statement.
 
     Examples:
         # Basic trigger
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dialect,
             trigger=Trigger(dialect, "update_timestamp"),
             table=Table(dialect, "users"),
@@ -50,7 +50,7 @@ class CreateTriggerExpression(BaseExpression):
         )
 
         # Trigger with condition
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dialect,
             trigger=Trigger(dialect, "check_status"),
             table=Table(dialect, "orders"),
@@ -95,11 +95,11 @@ class CreateTriggerExpression(BaseExpression):
         return "format_create_trigger_statement"
 
 
-class DropTriggerExpression(BaseExpression):
+class DropTriggerStatement(BaseExpression):
     """SQL:1999 standard DROP TRIGGER statement.
 
     Examples:
-        drop_trigger = DropTriggerExpression(
+        drop_trigger = DropTriggerStatement(
             dialect,
             trigger=Trigger(dialect, "update_timestamp"),
             table=Table(dialect, "users")

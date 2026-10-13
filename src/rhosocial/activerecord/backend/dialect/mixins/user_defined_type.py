@@ -9,9 +9,9 @@ from ...expression.statements.ddl_type import TypeAlterAction, TypeDefinition
 
 if TYPE_CHECKING:
     from ...expression.statements.ddl_type import (
-        AlterTypeExpression,
-        CreateTypeExpression,
-        DropTypeExpression,
+        AlterTypeStatement,
+        CreateTypeStatement,
+        DropTypeStatement,
         TypeAlterAction,
         TypeDefinition,
     )
@@ -88,20 +88,20 @@ class UserDefinedTypeMixin:
 
     def format_create_type_statement(
         self,
-        expr: "CreateTypeExpression",
+        expr: "CreateTypeStatement",
     ) -> Tuple[str, tuple]:
         """Format a CREATE TYPE statement.
 
         Raises:
-            TypeError: ``CreateTypeExpression.type`` is not a Type. Another object
+            TypeError: ``CreateTypeStatement.type`` is not a Type. Another object
             kind would have had its own name rendered as the type's.
-            TypeError: ``CreateTypeExpression.definition`` is not an implementation
+            TypeError: ``CreateTypeStatement.definition`` is not an implementation
             of TypeDefinition. Without a definition there is no body to render, so
             the statement would name a type and stop.
         """
         if not isinstance(expr.type, Type):
             raise TypeError(
-                f"CreateTypeExpression.type must be a Type, "
+                f"CreateTypeStatement.type must be a Type, "
                 f"got {type(expr.type).__name__}"
             )
 
@@ -110,7 +110,7 @@ class UserDefinedTypeMixin:
         # rather than naming a concrete type.
         if not isinstance(expr.definition, TypeDefinition):
             raise TypeError(
-                f"CreateTypeExpression.definition must be a TypeDefinition, "
+                f"CreateTypeStatement.definition must be a TypeDefinition, "
                 f"got {type(expr.definition).__name__}"
             )
         if not self.supports_type_objects() or not self.supports_create_type():
@@ -137,20 +137,20 @@ class UserDefinedTypeMixin:
 
     def format_alter_type_statement(
         self,
-        expr: "AlterTypeExpression",
+        expr: "AlterTypeStatement",
     ) -> Tuple[str, tuple]:
         """Format an ALTER TYPE statement.
 
         Raises:
-            TypeError: ``AlterTypeExpression.type`` is not a Type. Another object
+            TypeError: ``AlterTypeStatement.type`` is not a Type. Another object
             kind would have had its own name rendered as the type's.
-            TypeError: An entry of ``AlterTypeExpression.actions`` is not an
+            TypeError: An entry of ``AlterTypeStatement.actions`` is not an
             implementation of TypeAlterAction. An entry of another kind has no
             action clause to dispatch on, so nothing would be rendered for it.
         """
         if not isinstance(expr.type, Type):
             raise TypeError(
-                f"AlterTypeExpression.type must be a Type, "
+                f"AlterTypeStatement.type must be a Type, "
                 f"got {type(expr.type).__name__}"
             )
 
@@ -160,7 +160,7 @@ class UserDefinedTypeMixin:
         for position, entry in enumerate(expr.actions):
             if not isinstance(entry, TypeAlterAction):
                 raise TypeError(
-                    f"AlterTypeExpression.actions must hold TypeAlterAction implementations, "
+                    f"AlterTypeStatement.actions must hold TypeAlterAction implementations, "
                     f"got {type(entry).__name__} at position {position}"
                 )
         if not self.supports_type_objects() or not self.supports_alter_type():
@@ -190,17 +190,17 @@ class UserDefinedTypeMixin:
 
     def format_drop_type_statement(
         self,
-        expr: "DropTypeExpression",
+        expr: "DropTypeStatement",
     ) -> Tuple[str, tuple]:
         """Format a DROP TYPE statement.
 
         Raises:
-            TypeError: ``DropTypeExpression.type`` is not a Type. Another object
+            TypeError: ``DropTypeStatement.type`` is not a Type. Another object
             kind would have had its own name rendered as the type's.
         """
         if not isinstance(expr.type, Type):
             raise TypeError(
-                f"DropTypeExpression.type must be a Type, "
+                f"DropTypeStatement.type must be a Type, "
                 f"got {type(expr.type).__name__}"
             )
         if not self.supports_type_objects() or not self.supports_drop_type():

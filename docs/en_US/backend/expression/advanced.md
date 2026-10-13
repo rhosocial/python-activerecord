@@ -165,14 +165,14 @@ CTEs provide a way to write auxiliary statements for use in a larger query.
 Represents a complete `WITH` statement: the CTE definitions plus the query they precede. A single CTE definition is a `CTEClause`.
 
 ```python
-from rhosocial.activerecord.backend.expression import WithStatement, CTEClause, Subquery, QueryExpression, TableExpression, Column
+from rhosocial.activerecord.backend.expression import WithStatement, CTEClause, Subquery, QueryStatement, TableExpression, Column
 
 # Define a CTE
 cte_query = Subquery(dialect, "SELECT id, name FROM users WHERE status = ?", ("active",))
 cte = CTEClause(dialect, name="active_users", query=cte_query)
 
 # Main Query using the CTE
-main_query = QueryExpression(
+main_query = QueryStatement(
     dialect,
     select=[Column(dialect, "name")],
     from_=TableExpression(dialect, "active_users")
@@ -190,18 +190,18 @@ sql, params = with_query.to_sql()
 
 Combine the results of two or more queries into a single result set.
 
-### SetOperationExpression
+### SetOperationStatement
 
 Supports `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT`.
 
 ```python
-from rhosocial.activerecord.backend.expression import SetOperationExpression, Subquery
+from rhosocial.activerecord.backend.expression import SetOperationStatement, Subquery
 
 query1 = Subquery(dialect, "SELECT id FROM table1 WHERE col = ?", ("a",))
 query2 = Subquery(dialect, "SELECT id FROM table2 WHERE col = ?", ("b",))
 
 # UNION
-union_op = SetOperationExpression(
+union_op = SetOperationStatement(
     dialect,
     left=query1,
     right=query2,
@@ -212,7 +212,7 @@ sql, params = union_op.to_sql()
 # params: ("a", "b")
 
 # INTERSECT
-intersect_op = SetOperationExpression(
+intersect_op = SetOperationStatement(
     dialect,
     left=query1,
     right=query2,

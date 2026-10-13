@@ -140,7 +140,7 @@ class JoinMixin:
             ValueError: If a non-CROSS join has neither a condition nor a
                 USING clause.
         """
-        from ...expression import QueryExpression, JoinClause
+        from ...expression import QueryStatement, JoinClause
 
         join_type_upper = join_expr.join_type.upper()
 
@@ -166,12 +166,12 @@ class JoinMixin:
 
         # Format left and right sides of the join
         left_sql, left_params = join_expr.left_table.to_sql()
-        if isinstance(join_expr.left_table, (QueryExpression, JoinClause)):
+        if isinstance(join_expr.left_table, (QueryStatement, JoinClause)):
             left_sql = f"({left_sql})"
         all_params.extend(left_params)
 
         right_sql, right_params = join_expr.right_table.to_sql()
-        if isinstance(join_expr.right_table, (QueryExpression, JoinClause)):
+        if isinstance(join_expr.right_table, (QueryStatement, JoinClause)):
             right_sql = f"({right_sql})"
         all_params.extend(right_params)
 

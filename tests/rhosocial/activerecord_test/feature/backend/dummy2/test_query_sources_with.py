@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     Subquery,
     FunctionCall,
-    QueryExpression,
+    QueryStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import CTEClause, WithStatement
@@ -48,7 +48,7 @@ class TestCTEAndWithStatements:
         cte = CTEClause(dummy_dialect, name="tree_cte", query=query)
 
         # Create a WithStatement with recursive=True to test recursive functionality
-        main_query = QueryExpression(
+        main_query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "tree_cte"))
         )
 
@@ -99,7 +99,7 @@ class TestCTEAndWithStatements:
         cte_query = Subquery(dummy_dialect, "SELECT id, name FROM users WHERE status = ?", ("active",))
         cte = CTEClause(dummy_dialect, name="active_users", query=cte_query)
 
-        main_query = QueryExpression(
+        main_query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "name")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "active_users"))
         )
 
@@ -119,7 +119,7 @@ class TestCTEAndWithStatements:
         cte2_query = Subquery(dummy_dialect, "SELECT user_id, COUNT(*) as order_count FROM orders GROUP BY user_id", ())
         cte2 = CTEClause(dummy_dialect, name="user_orders", query=cte2_query)
 
-        main_query = QueryExpression(
+        main_query = QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "name", table="adults"),
@@ -142,7 +142,7 @@ class TestCTEAndWithStatements:
         cte_query = Subquery(dummy_dialect, "SELECT id FROM simple_table", ())
         cte = CTEClause(dummy_dialect, name="simple_cte", query=cte_query)
 
-        main_query = QueryExpression(
+        main_query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "simple_cte"))
         )
 
@@ -162,7 +162,7 @@ class TestCTEAndWithStatements:
         # Create a complex query with various clauses
         from_clause = NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"))
 
-        complex_query = QueryExpression(
+        complex_query = QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "category"),
@@ -200,7 +200,7 @@ class TestCTEAndWithStatements:
         cte = CTEClause(dummy_dialect, name="adults", query=cte_query)
 
         # Main query with parameters
-        main_query = QueryExpression(
+        main_query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "adults")),

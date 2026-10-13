@@ -27,7 +27,7 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import (
     ExplainOptions,
     ExplainType,
-    QueryExpression,
+    QueryStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.explain import (
@@ -68,7 +68,7 @@ def sync_backend():
 @pytest.fixture()
 def query_expr(dialect):
     """Simple SELECT * FROM items expression."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[WildcardExpression(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "items")),

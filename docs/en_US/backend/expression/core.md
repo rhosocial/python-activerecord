@@ -408,7 +408,7 @@ wildcard = WildcardExpression(dialect, table="users")
 Represents a subquery expression.
 
 ```python
-from rhosocial.activerecord.backend.expression import Subquery, QueryExpression
+from rhosocial.activerecord.backend.expression import Subquery, QueryStatement
 
 # (SELECT ...) AS sub
 sub = Subquery(dialect, query_expr, alias="sub")

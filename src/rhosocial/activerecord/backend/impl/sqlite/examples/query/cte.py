@@ -15,9 +15,9 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
-    CreateTableExpression,
-    InsertExpression,
+    QueryStatement,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
     BinaryArithmeticExpression,
 )
@@ -29,7 +29,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="employees",
     columns=[
@@ -66,7 +66,7 @@ employees_data = [
     (3, "Frank", "Sales"),  # id=6, reports to Carol
 ]
 for manager_id, name, dept in employees_data:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'employees'),
         columns=["manager_id", "name", "department"],
@@ -92,7 +92,7 @@ from rhosocial.activerecord.backend.expression.core import FunctionCall  # noqa:
 dept_count_cte = CTEClause(
     dialect=dialect,
     name="dept_counts",
-    query=QueryExpression(
+    query=QueryStatement(
         dialect=dialect,
         select=[
             Column(dialect, "department"),
@@ -109,7 +109,7 @@ dept_count_cte = CTEClause(
 basic_cte_query = WithStatement(
     dialect=dialect,
     ctes=[dept_count_cte],
-    query=QueryExpression(
+    query=QueryStatement(
         dialect=dialect,
         select=[
             Column(dialect, "department"),
@@ -124,12 +124,12 @@ print(f"Basic CTE SQL: {sql}")
 print(f"Params: {params}")
 
 # --- Example 2: Recursive CTE for hierarchical data (org chart) ---
-from rhosocial.activerecord.backend.expression import SetOperationExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import SetOperationStatement  # noqa: E402
 from rhosocial.activerecord.backend.expression.predicates import IsNullPredicate  # noqa: E402
 
 # Base case: top-level employees (no manager)
 # The CTE columns parameter defines column names, so we don't need AS aliases
-base_query = QueryExpression(
+base_query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "id"),
@@ -156,7 +156,7 @@ join_expr = JoinClause(
     condition=ComparisonPredicate(dialect, "=", Column(dialect, "id", "oc"), Column(dialect, "manager_id", "e")),
 )
 
-recursive_query = QueryExpression(
+recursive_query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "id", "e"),
@@ -169,7 +169,7 @@ recursive_query = QueryExpression(
 )
 
 # Combine base and recursive with UNION ALL
-union_all = SetOperationExpression(
+union_all = SetOperationStatement(
     dialect=dialect,
     left=base_query,
     right=recursive_query,
@@ -188,7 +188,7 @@ org_chart_cte = CTEClause(
 recursive_cte_query = WithStatement(
     dialect=dialect,
     ctes=[org_chart_cte],
-    query=QueryExpression(
+    query=QueryStatement(
         dialect=dialect,
         select=[
             Column(dialect, "id"),

@@ -10,7 +10,7 @@ from ..objects import MaterializedView, View
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
-    from .dql import QueryExpression
+    from .dql import QueryStatement
 
 
 @dataclass
@@ -53,7 +53,7 @@ class ViewOptions:
     check_option: Optional[ViewCheckOption] = None  # WITH CHECK OPTION variants
 
 
-class CreateViewExpression(BaseExpression):
+class CreateViewStatement(BaseExpression):
     """
     Represents a CREATE VIEW statement supporting full SQL standard features and extensions.
 
@@ -63,10 +63,10 @@ class CreateViewExpression(BaseExpression):
 
     Examples:
         # Basic view creation
-        basic_view = CreateViewExpression(
+        basic_view = CreateViewStatement(
             dialect,
             view=View(dialect, "customer_info"),
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
                 from_=NamedRelationRef(dialect, Table(dialect, "customers"))
@@ -74,10 +74,10 @@ class CreateViewExpression(BaseExpression):
         )
 
         # View with column aliases
-        aliased_view = CreateViewExpression(
+        aliased_view = CreateViewStatement(
             dialect,
             view=View(dialect, "user_summary"),
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[
                     Column(dialect, "user_id").alias("id"),
@@ -90,7 +90,7 @@ class CreateViewExpression(BaseExpression):
         )
 
         # MySQL-style view with algorithm
-        mysql_view = CreateViewExpression(
+        mysql_view = CreateViewStatement(
             dialect,
             view=View(dialect, "optimized_view"),
             query=some_query,
@@ -102,7 +102,7 @@ class CreateViewExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         view: "View",
-        query: "QueryExpression",
+        query: "QueryStatement",
         column_aliases: Optional[List[Union[str, ColumnAlias]]] = None,
         replace: bool = False,  # CREATE OR REPLACE
         temporary: bool = False,  # CREATE TEMPORARY VIEW (some DBs)
@@ -124,7 +124,7 @@ class CreateViewExpression(BaseExpression):
         return "format_create_view_statement"
 
 
-class DropViewExpression(BaseExpression):
+class DropViewStatement(BaseExpression):
     """
     Represents a DROP VIEW statement supporting standard and extended features.
 
@@ -132,24 +132,24 @@ class DropViewExpression(BaseExpression):
 
     Examples:
         # Basic view drop
-        drop_view = DropViewExpression(dialect, view=View(dialect, "old_view"))
+        drop_view = DropViewStatement(dialect, view=View(dialect, "old_view"))
 
         # Drop with IF EXISTS
-        drop_safe = DropViewExpression(
+        drop_safe = DropViewStatement(
             dialect,
             view=View(dialect, "possibly_missing_view"),
             if_exists=True
         )
 
         # Cascade drop (drops dependent objects)
-        drop_cascade = DropViewExpression(
+        drop_cascade = DropViewStatement(
             dialect,
             view=View(dialect, "master_view"),
             cascade=True
         )
 
         # Restrict drop (refuses if objects depend on the view)
-        drop_restrict = DropViewExpression(
+        drop_restrict = DropViewStatement(
             dialect,
             view=View(dialect, "master_view"),
             restrict=True
@@ -177,7 +177,7 @@ class DropViewExpression(BaseExpression):
         return "format_drop_view_statement"
 
 
-class CreateMaterializedViewExpression(BaseExpression):
+class CreateMaterializedViewStatement(BaseExpression):
     """
     Represents a CREATE MATERIALIZED VIEW statement.
 
@@ -195,10 +195,10 @@ class CreateMaterializedViewExpression(BaseExpression):
 
     Examples:
         # Basic materialized view
-        create_mv = CreateMaterializedViewExpression(
+        create_mv = CreateMaterializedViewStatement(
             dialect,
             view=MaterializedView(dialect, "user_order_summary"),
-            query=QueryExpression(
+            query=QueryStatement(
                 dialect,
                 select=[
                     Column(dialect, "user_id"),
@@ -213,7 +213,7 @@ class CreateMaterializedViewExpression(BaseExpression):
         )
 
         # Materialized view with storage options
-        create_mv = CreateMaterializedViewExpression(
+        create_mv = CreateMaterializedViewStatement(
             dialect,
             view=MaterializedView(dialect, "sales_summary"),
             query=sales_query,
@@ -226,7 +226,7 @@ class CreateMaterializedViewExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         view: "MaterializedView",
-        query: "QueryExpression",
+        query: "QueryStatement",
         column_aliases: Optional[List[str]] = None,
         tablespace: Optional[str] = None,
         with_data: bool = False,  # Whether to populate immediately
@@ -249,33 +249,33 @@ class CreateMaterializedViewExpression(BaseExpression):
         return "format_create_materialized_view_statement"
 
 
-class DropMaterializedViewExpression(BaseExpression):
+class DropMaterializedViewStatement(BaseExpression):
     """
     Represents a DROP MATERIALIZED VIEW statement.
 
     Examples:
         # Basic drop
-        drop_mv = DropMaterializedViewExpression(
+        drop_mv = DropMaterializedViewStatement(
             dialect,
             view=MaterializedView(dialect, "old_summary")
         )
 
         # Drop with IF EXISTS
-        drop_mv = DropMaterializedViewExpression(
+        drop_mv = DropMaterializedViewStatement(
             dialect,
             view=MaterializedView(dialect, "possibly_missing"),
             if_exists=True
         )
 
         # Cascade drop
-        drop_mv = DropMaterializedViewExpression(
+        drop_mv = DropMaterializedViewStatement(
             dialect,
             view=MaterializedView(dialect, "parent_view"),
             cascade=True
         )
 
         # Restrict drop
-        drop_mv = DropMaterializedViewExpression(
+        drop_mv = DropMaterializedViewStatement(
             dialect,
             view=MaterializedView(dialect, "parent_view"),
             restrict=True
@@ -303,7 +303,7 @@ class DropMaterializedViewExpression(BaseExpression):
         return "format_drop_materialized_view_statement"
 
 
-class RefreshMaterializedViewExpression(BaseExpression):
+class RefreshMaterializedViewStatement(BaseExpression):
     """
     Represents a REFRESH MATERIALIZED VIEW statement.
 
@@ -312,20 +312,20 @@ class RefreshMaterializedViewExpression(BaseExpression):
 
     Examples:
         # Basic refresh
-        refresh_mv = RefreshMaterializedViewExpression(
+        refresh_mv = RefreshMaterializedViewStatement(
             dialect,
             view=MaterializedView(dialect, "sales_summary")
         )
 
         # Refresh with concurrent option (PostgreSQL)
-        refresh_mv = RefreshMaterializedViewExpression(
+        refresh_mv = RefreshMaterializedViewStatement(
             dialect,
             view=MaterializedView(dialect, "user_stats"),
             concurrent=True
         )
 
         # Refresh without data (PostgreSQL)
-        refresh_mv = RefreshMaterializedViewExpression(
+        refresh_mv = RefreshMaterializedViewStatement(
             dialect,
             view=MaterializedView(dialect, "empty_view"),
             no_data=True

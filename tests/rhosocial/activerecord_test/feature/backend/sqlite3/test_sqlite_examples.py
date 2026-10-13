@@ -366,7 +366,7 @@ def test_sudoku_exists_expression(sqlite_backend):
         Column,
         Literal,
         FunctionCall,
-        QueryExpression,
+        QueryStatement,
         ExistsExpression,
     )
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -374,7 +374,7 @@ def test_sudoku_exists_expression(sqlite_backend):
     dialect = sqlite_backend.dialect
 
     # Create a subquery for the EXISTS clause
-    subquery = QueryExpression(
+    subquery = QueryStatement(
         dialect,
         select=[Literal(dialect, 1)],  # SELECT 1
         from_=NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp"),
@@ -399,7 +399,7 @@ def test_sudoku_not_exists_expression(sqlite_backend):
     """
     from rhosocial.activerecord.backend.expression import (
         Literal,
-        QueryExpression,
+        QueryStatement,
         ExistsExpression,
         LogicalPredicate,
     )
@@ -408,7 +408,7 @@ def test_sudoku_not_exists_expression(sqlite_backend):
     dialect = sqlite_backend.dialect
 
     # Create a subquery for the NOT EXISTS clause
-    subquery = QueryExpression(
+    subquery = QueryStatement(
         dialect,
         select=[Literal(dialect, 1)],  # SELECT 1
         from_=NamedRelationRef(dialect, Table(dialect, "digits"), alias="lp"),
@@ -432,13 +432,13 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     from rhosocial.activerecord.backend.expression import (
         Literal,
         ValuesExpression,
-        QueryExpression,
+        QueryStatement,
         Column,
         NumericColumn,
         FunctionCall,
         CTEClause,
         WithStatement,
-        SetOperationExpression,
+        SetOperationStatement,
         concat_op,
     )
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -481,7 +481,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     cast_expr = cast(dialect, lp_column + Literal(dialect, 1), CustomType(dialect, raw="TEXT"))
     lp_plus_one = lp_column + Literal(dialect, 1)
 
-    recursive_query = QueryExpression(
+    recursive_query = QueryStatement(
         dialect=dialect, select=[cast_expr, lp_plus_one], from_=digits_table, where=(lp_column < Literal(dialect, 9))
     )
 
@@ -521,12 +521,12 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     cast_expr = cast(dialect, lp_column + Literal(dialect, 1), CustomType(dialect, raw="TEXT"))
     lp_plus_one = lp_column + Literal(dialect, 1)
 
-    recursive_query = QueryExpression(
+    recursive_query = QueryStatement(
         dialect=dialect, select=[cast_expr, lp_plus_one], from_=digits_table, where=(lp_column < Literal(dialect, 9))
     )
 
-    # Use SetOperationExpression to build the UNION ALL
-    digits_union = SetOperationExpression(
+    # Use SetOperationStatement to build the UNION ALL
+    digits_union = SetOperationStatement(
         dialect=dialect, left=initial_digits_values, right=recursive_query, operation="UNION", all_=True, alias=None
     )
 
@@ -538,7 +538,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     sud_column = Column(dialect, "sud", table="input")
     instr_call = FunctionCall(dialect, "INSTR", sud_column, Literal(dialect, "."))
 
-    initial_x_query = QueryExpression(dialect=dialect, select=[sud_column, instr_call], from_=input_table)
+    initial_x_query = QueryStatement(dialect=dialect, select=[sud_column, instr_call], from_=input_table)
 
     # Recursive part - simplified for demonstration
     x_table = NamedRelationRef(dialect, Table(dialect, "x"))
@@ -556,7 +556,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
 
     # Build the NOT EXISTS subquery
     from rhosocial.activerecord.backend.expression import (
-        QueryExpression,
+        QueryStatement,
         Column,
         ComparisonPredicate,
         Literal,
@@ -598,7 +598,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     subquery_where = cond1 | cond2 | cond3
 
     # Create the subquery for NOT EXISTS
-    not_exists_subquery = QueryExpression(
+    not_exists_subquery = QueryStatement(
         dialect=dialect,
         select=[Literal(dialect, 1)],  # SELECT 1
         from_=lp_table,
@@ -611,22 +611,22 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     # FROM x, digits AS z (cross join using list)
     from_clause = [x_table, NamedRelationRef(dialect, Table(dialect, "digits"), alias="z")]
 
-    recursive_x_query = QueryExpression(
+    recursive_x_query = QueryStatement(
         dialect=dialect,
         select=[new_string_expr, new_instr_call],
         from_=from_clause,  # Cross join
         where=(ind_column > Literal(dialect, 0)) & not_exists_expr,  # Add the NOT EXISTS constraint
     )
 
-    # Use SetOperationExpression to build the UNION ALL for x CTE
-    x_union = SetOperationExpression(
+    # Use SetOperationStatement to build the UNION ALL for x CTE
+    x_union = SetOperationStatement(
         dialect=dialect, left=initial_x_query, right=recursive_x_query, operation="UNION", all_=True, alias=None
     )
 
     x_cte = CTEClause(dialect=dialect, name="x", query=x_union, columns=["s", "ind"])
 
     # Final query: SELECT s FROM x WHERE ind=0
-    final_query = QueryExpression(
+    final_query = QueryStatement(
         dialect=dialect,
         select=[Column(dialect, "s")],
         from_=NamedRelationRef(dialect, Table(dialect, "x")),
@@ -777,14 +777,14 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         from rhosocial.activerecord.backend.expression import (
             Literal,
             ValuesExpression,
-            QueryExpression,
+            QueryStatement,
             Column,
             NumericColumn,
             BinaryExpression,
             FunctionCall,
             CTEClause,
             WithStatement,
-            SetOperationExpression,
+            SetOperationStatement,
         )
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
@@ -811,12 +811,12 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         # SELECT x+0.05 FROM xaxis WHERE x<1.2
         x_plus_increment = x_col + Literal(dialect, 0.05)
 
-        recursive_xaxis_query = QueryExpression(
+        recursive_xaxis_query = QueryStatement(
             dialect=dialect, select=[x_plus_increment], from_=xaxis_table, where=(x_col < Literal(dialect, 1.2))
         )
 
-        # Use SetOperationExpression to build the UNION ALL
-        xaxis_union = SetOperationExpression(
+        # Use SetOperationStatement to build the UNION ALL
+        xaxis_union = SetOperationStatement(
             dialect=dialect,
             left=initial_xaxis_values,
             right=recursive_xaxis_query,
@@ -838,12 +838,12 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         # SELECT y+0.1 FROM yaxis WHERE y<1.0
         y_plus_increment = y_col + Literal(dialect, 0.1)
 
-        recursive_yaxis_query = QueryExpression(
+        recursive_yaxis_query = QueryStatement(
             dialect=dialect, select=[y_plus_increment], from_=yaxis_table, where=(y_col < Literal(dialect, 1.0))
         )
 
-        # Use SetOperationExpression to build the UNION ALL
-        yaxis_union = SetOperationExpression(
+        # Use SetOperationStatement to build the UNION ALL
+        yaxis_union = SetOperationStatement(
             dialect=dialect,
             left=initial_yaxis_values,
             right=recursive_yaxis_query,
@@ -861,7 +861,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         #    WHERE (x*x + y*y) < 4.0 AND iter<28
         # )
         # Initial part: SELECT 0, x, y, 0.0, 0.0 FROM xaxis, yaxis
-        initial_m_query = QueryExpression(
+        initial_m_query = QueryStatement(
             dialect=dialect,
             select=[
                 Literal(dialect, 0),  # iter
@@ -890,12 +890,12 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         condition2 = iter_col < Literal(dialect, 28)
         where_condition = condition1 & condition2
 
-        recursive_m_query = QueryExpression(
+        recursive_m_query = QueryStatement(
             dialect=dialect, select=[new_iter, cx_col, cy_col, new_x, new_y], from_=m_table, where=where_condition
         )
 
-        # Use SetOperationExpression to build the UNION ALL for m CTE
-        m_union = SetOperationExpression(
+        # Use SetOperationStatement to build the UNION ALL for m CTE
+        m_union = SetOperationStatement(
             dialect=dialect, left=initial_m_query, right=recursive_m_query, operation="UNION", all_=True, alias=None
         )
 
@@ -911,7 +911,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
 
         from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
 
-        m2_query = QueryExpression(
+        m2_query = QueryStatement(
             dialect=dialect,
             select=[max_iter, m2_cx, m2_cy],
             from_=m2_from,
@@ -949,7 +949,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         )
         group_concat_expr = FunctionCall(dialect, "GROUP_CONCAT", substr_expr, Literal(dialect, ""))
 
-        a_query = QueryExpression(
+        a_query = QueryStatement(
             dialect=dialect,
             select=[group_concat_expr],
             from_=a_from,
@@ -967,7 +967,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect, "GROUP_CONCAT", rtrim_expr, Literal(dialect, "\n")
         )  # Using \n instead of x'0a'
 
-        final_query = QueryExpression(dialect=dialect, select=[final_group_concat], from_=final_from)
+        final_query = QueryStatement(dialect=dialect, select=[final_group_concat], from_=final_from)
 
         # Build the complete WITH query
         with_query = WithStatement(

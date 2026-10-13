@@ -37,7 +37,7 @@ class TypeAlterAction(BaseExpression, ABC):
         return "format_type_alter_action"
 
 
-class CreateTypeExpression(BaseExpression):
+class CreateTypeStatement(BaseExpression):
     """Expression for ``CREATE TYPE``."""
 
     def __init__(
@@ -62,7 +62,7 @@ class CreateTypeExpression(BaseExpression):
         return "format_create_type_statement"
 
 
-class AlterTypeExpression(BaseExpression):
+class AlterTypeStatement(BaseExpression):
     """Expression for ``ALTER TYPE``."""
 
     def __init__(
@@ -86,7 +86,7 @@ class AlterTypeExpression(BaseExpression):
         return "format_alter_type_statement"
 
 
-class DropTypeExpression(BaseExpression):
+class DropTypeStatement(BaseExpression):
     """Expression for ``DROP TYPE``."""
 
     def __init__(
@@ -108,7 +108,7 @@ class DropTypeExpression(BaseExpression):
 __all__ = [
     "TypeDefinition",
     "TypeAlterAction",
-    "CreateTypeExpression",
-    "AlterTypeExpression",
-    "DropTypeExpression",
+    "CreateTypeStatement",
+    "AlterTypeStatement",
+    "DropTypeStatement",
 ]

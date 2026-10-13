@@ -509,7 +509,7 @@ class TestMigrationRunner:
         # Register a named expression that produces an expression not supported
         # by SQLite — a table with PARTITION BY clause
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-            CreateTableExpression,
+            CreateTableStatement,
             ColumnDefinition,
             ColumnConstraint,
             ColumnConstraintType,
@@ -530,7 +530,7 @@ class TestMigrationRunner:
                 constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
             )
             col_expr = ColExpr(dialect, "id")
-            return CreateTableExpression(
+            return CreateTableStatement(
                 dialect,
                 table=Table(dialect, 'test_unsupported'),
                 columns=[col_def],
@@ -589,7 +589,7 @@ class TestMigrationRunnerIntegration:
 
     def _make_create_users_expr(self, dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-            CreateTableExpression,
+            CreateTableStatement,
             ColumnDefinition,
             ColumnConstraint,
             ColumnConstraintType,
@@ -599,7 +599,7 @@ class TestMigrationRunnerIntegration:
             SQLiteTextType,
         )
 
-        return CreateTableExpression(
+        return CreateTableStatement(
             dialect,
             table=Table(dialect, 'users'),
             columns=[
@@ -615,10 +615,10 @@ class TestMigrationRunnerIntegration:
 
     def _make_drop_users_expr(self, dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-            DropTableExpression,
+            DropTableStatement,
         )
 
-        return DropTableExpression(dialect, table=Table(dialect, 'users'), if_exists=True)
+        return DropTableStatement(dialect, table=Table(dialect, 'users'), if_exists=True)
 
     def test_up_creates_table(self, sqlite_backend):
         """Running a UP migration should create the expected table."""
@@ -806,7 +806,7 @@ class TestMigrationRunnerIntegration:
             dependencies = ["v001"]
             def up(self, ctx):
                 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-                    CreateTableExpression,
+                    CreateTableStatement,
                     ColumnDefinition,
                     ColumnConstraint,
                     ColumnConstraintType,
@@ -815,7 +815,7 @@ class TestMigrationRunnerIntegration:
                     SQLiteIntegerType,
                     SQLiteTextType,
                 )
-                expr = CreateTableExpression(
+                expr = CreateTableStatement(
                     sqlite_backend.dialect,
                     table=Table(sqlite_backend.dialect, 'posts'),
                     columns=[
@@ -830,9 +830,9 @@ class TestMigrationRunnerIntegration:
                 sqlite_backend.execute(*expr.to_sql())
             def down(self, ctx):
                 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-                    DropTableExpression,
+                    DropTableStatement,
                 )
-                expr = DropTableExpression(sqlite_backend.dialect, table=Table(sqlite_backend.dialect, 'posts'), if_exists=True)
+                expr = DropTableStatement(sqlite_backend.dialect, table=Table(sqlite_backend.dialect, 'posts'), if_exists=True)
                 sqlite_backend.execute(*expr.to_sql())
 
         self._register("mig_sqlite_test7.migrations", {
@@ -900,7 +900,7 @@ class TestUserParams:
             table_name: str = "default_table"
             def up(self, ctx):
                 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-                    CreateTableExpression,
+                    CreateTableStatement,
                     ColumnDefinition,
                     ColumnConstraint,
                     ColumnConstraintType,
@@ -909,7 +909,7 @@ class TestUserParams:
                     SQLiteIntegerType,
                     SQLiteTextType,
                 )
-                expr = CreateTableExpression(
+                expr = CreateTableStatement(
                     ctx.dialect,
                     table=Table(ctx.dialect, self.table_name),
                     columns=[
@@ -924,9 +924,9 @@ class TestUserParams:
                 sqlite_backend.execute(*expr.to_sql())
             def down(self, ctx):
                 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-                    DropTableExpression,
+                    DropTableStatement,
                 )
-                expr = DropTableExpression(
+                expr = DropTableStatement(
                     ctx.dialect,
                     table=Table(ctx.dialect, self.table_name),
                     if_exists=True,
@@ -1139,7 +1139,7 @@ class TestAsyncMigrationRunnerIntegration:
                 table_name: str = "default_table"
                 async def run(self, ctx):
                     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-                        CreateTableExpression,
+                        CreateTableStatement,
                         ColumnDefinition,
                         ColumnConstraint,
                         ColumnConstraintType,
@@ -1148,7 +1148,7 @@ class TestAsyncMigrationRunnerIntegration:
                         SQLiteIntegerType,
                         SQLiteTextType,
                     )
-                    expr = CreateTableExpression(
+                    expr = CreateTableStatement(
                         ctx.dialect,
                         table=Table(ctx.dialect, self.table_name),
                         columns=[
@@ -1184,7 +1184,7 @@ class TestAsyncMigrationRunnerIntegration:
 
 def _make_create_users_expr_static(dialect):
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-        CreateTableExpression,
+        CreateTableStatement,
         ColumnDefinition,
         ColumnConstraint,
         ColumnConstraintType,
@@ -1193,7 +1193,7 @@ def _make_create_users_expr_static(dialect):
         SQLiteIntegerType,
         SQLiteTextType,
     )
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect,
         table=Table(dialect, 'users'),
         columns=[
@@ -1210,9 +1210,9 @@ def _make_create_users_expr_static(dialect):
 
 def _make_drop_users_expr_static(dialect):
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-        DropTableExpression,
+        DropTableStatement,
     )
-    return DropTableExpression(dialect, table=Table(dialect, 'users'), if_exists=True)
+    return DropTableStatement(dialect, table=Table(dialect, 'users'), if_exists=True)
 
 
 class TestBatchMigrationRunner:
@@ -1449,7 +1449,7 @@ class TestBatchMigrationRunner:
 
 def _run_create_users(backend, ctx):
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-        CreateTableExpression,
+        CreateTableStatement,
         ColumnDefinition,
         ColumnConstraint,
         ColumnConstraintType,
@@ -1458,7 +1458,7 @@ def _run_create_users(backend, ctx):
         SQLiteIntegerType,
         SQLiteTextType,
     )
-    expr = CreateTableExpression(
+    expr = CreateTableStatement(
         backend.dialect,
         table=Table(backend.dialect, 'users'),
         columns=[
@@ -1474,14 +1474,14 @@ def _run_create_users(backend, ctx):
 
 
 def _run_drop_users(backend, ctx):
-    from rhosocial.activerecord.backend.expression.statements.ddl_table import DropTableExpression
-    expr = DropTableExpression(backend.dialect, table=Table(backend.dialect, 'users'), if_exists=True)
+    from rhosocial.activerecord.backend.expression.statements.ddl_table import DropTableStatement
+    expr = DropTableStatement(backend.dialect, table=Table(backend.dialect, 'users'), if_exists=True)
     backend.execute(*expr.to_sql())
 
 
 def _run_create_posts(backend, ctx):
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-        CreateTableExpression,
+        CreateTableStatement,
         ColumnDefinition,
         ColumnConstraint,
         ColumnConstraintType,
@@ -1490,7 +1490,7 @@ def _run_create_posts(backend, ctx):
         SQLiteIntegerType,
         SQLiteTextType,
     )
-    expr = CreateTableExpression(
+    expr = CreateTableStatement(
         backend.dialect,
         table=Table(backend.dialect, 'posts'),
         columns=[
@@ -1506,6 +1506,6 @@ def _run_create_posts(backend, ctx):
 
 
 def _run_drop_posts(backend, ctx):
-    from rhosocial.activerecord.backend.expression.statements.ddl_table import DropTableExpression
-    expr = DropTableExpression(backend.dialect, table=Table(backend.dialect, 'posts'), if_exists=True)
+    from rhosocial.activerecord.backend.expression.statements.ddl_table import DropTableStatement
+    expr = DropTableStatement(backend.dialect, table=Table(backend.dialect, 'posts'), if_exists=True)
     backend.execute(*expr.to_sql())

@@ -7,8 +7,8 @@ from typing import Callable, Dict
 
 from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    DropTableExpression,
+    CreateTableStatement,
+    DropTableStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -16,8 +16,8 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.objects import Table
 
 
-def create_timestamped_posts_table(dialect, table_name: str = "timestamped_posts") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_timestamped_posts_table(dialect, table_name: str = "timestamped_posts") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, table_name),
         if_not_exists=True,
@@ -36,8 +36,8 @@ def create_timestamped_posts_table(dialect, table_name: str = "timestamped_posts
     )
 
 
-def create_versioned_products_table(dialect, table_name: str = "versioned_products") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_versioned_products_table(dialect, table_name: str = "versioned_products") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, table_name),
         if_not_exists=True,
@@ -60,8 +60,8 @@ def create_versioned_products_table(dialect, table_name: str = "versioned_produc
     )
 
 
-def create_tasks_table(dialect, table_name: str = "tasks") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_tasks_table(dialect, table_name: str = "tasks") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, table_name),
         if_not_exists=True,
@@ -80,8 +80,8 @@ def create_tasks_table(dialect, table_name: str = "tasks") -> CreateTableExpress
     )
 
 
-def create_combined_articles_table(dialect, table_name: str = "combined_articles") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_combined_articles_table(dialect, table_name: str = "combined_articles") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, table_name),
         if_not_exists=True,
@@ -111,8 +111,8 @@ def create_combined_articles_table(dialect, table_name: str = "combined_articles
     )
 
 
-def drop_table(dialect, table_name: str) -> DropTableExpression:
-    return DropTableExpression(
+def drop_table(dialect, table_name: str) -> DropTableStatement:
+    return DropTableStatement(
         dialect=dialect,
         table=Table(dialect, table_name),
         if_exists=True,

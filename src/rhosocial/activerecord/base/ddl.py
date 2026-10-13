@@ -29,15 +29,15 @@ try:
 except ImportError:  # Python 3.8
     from typing_extensions import Annotated
 
-from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression, DropIndexExpression
+from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexStatement, DropIndexStatement
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     ColumnConstraint,
     ColumnConstraintType,
     ColumnDefinition,
-    CreateTableExpression,
+    CreateTableStatement,
     CreateTableOptions,
-    DropTableExpression,
+    DropTableStatement,
     GeneratedColumnExpression,
     IndexDefinition,
     StorageOptionsExpression,
@@ -405,7 +405,7 @@ class DDLSource(Protocol):
 
     def create_table_statement_classes(
         self,
-    ) -> Optional[Union[Type[CreateTableExpression], Sequence[Type[CreateTableExpression]]]]:
+    ) -> Optional[Union[Type[CreateTableStatement], Sequence[Type[CreateTableStatement]]]]:
         ...
 
     def table_constraints(self) -> Sequence[TableConstraint]:
@@ -521,25 +521,25 @@ class DDLSourceMixin:
     @classmethod
     def create_table_statement_classes(
         cls,
-    ) -> Optional[Union[Type[CreateTableExpression], Sequence[Type[CreateTableExpression]]]]:
+    ) -> Optional[Union[Type[CreateTableStatement], Sequence[Type[CreateTableStatement]]]]:
         return None
 
     @classmethod
     def drop_table_statement_classes(
         cls,
-    ) -> Optional[Union[Type[DropTableExpression], Sequence[Type[DropTableExpression]]]]:
+    ) -> Optional[Union[Type[DropTableStatement], Sequence[Type[DropTableStatement]]]]:
         return None
 
     @classmethod
     def create_index_statement_classes(
         cls,
-    ) -> Optional[Union[Type[CreateIndexExpression], Sequence[Type[CreateIndexExpression]]]]:
+    ) -> Optional[Union[Type[CreateIndexStatement], Sequence[Type[CreateIndexStatement]]]]:
         return None
 
     @classmethod
     def drop_index_statement_classes(
         cls,
-    ) -> Optional[Union[Type[DropIndexExpression], Sequence[Type[DropIndexExpression]]]]:
+    ) -> Optional[Union[Type[DropIndexStatement], Sequence[Type[DropIndexStatement]]]]:
         return None
 
     @classmethod

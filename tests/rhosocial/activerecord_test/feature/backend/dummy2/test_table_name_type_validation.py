@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_table_name_type_validation.py
-"""Tests for relation-object type validation in CreateTableExpression and DropTableExpression.
+"""Tests for relation-object type validation in CreateTableStatement and DropTableStatement.
 
 Both statements name the relation they act on, so both take a
 :class:`~rhosocial.activerecord.backend.expression.objects.Table` rather than a
@@ -20,8 +20,8 @@ from rhosocial.activerecord.backend.expression import (
     ColumnConstraint,
     ColumnConstraintType,
     ColumnDefinition,
-    CreateTableExpression,
-    DropTableExpression,
+    CreateTableStatement,
+    DropTableStatement,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.types import IntegerType
@@ -41,12 +41,12 @@ def primary_key_columns(dialect: DummyDialect) -> List[ColumnDefinition]:
 
 
 class TestCreateTableExpressionTypeValidation:
-    """Tests for CreateTableExpression relation type validation."""
+    """Tests for CreateTableStatement relation type validation."""
 
     def test_create_table_keeps_the_object_it_was_given(self, dummy_dialect: DummyDialect):
         """The statement holds the caller's object rather than rebuilding one."""
         table = Table(dummy_dialect, "users")
-        expr = CreateTableExpression(dummy_dialect, table, primary_key_columns(dummy_dialect))
+        expr = CreateTableStatement(dummy_dialect, table, primary_key_columns(dummy_dialect))
 
         assert expr.table is table
         assert expr.table.name == "users"
@@ -54,7 +54,7 @@ class TestCreateTableExpressionTypeValidation:
 
     def test_create_table_renders_the_object_name(self, dummy_dialect: DummyDialect):
         """Naming the table is the object's job, reached through to_sql()."""
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dummy_dialect, Table(dummy_dialect, "users"), primary_key_columns(dummy_dialect)
         )
 
@@ -65,7 +65,7 @@ class TestCreateTableExpressionTypeValidation:
 
     def test_create_table_reports_the_table_name(self, dummy_dialect: DummyDialect):
         """``table_name`` reads through to the object it names."""
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dummy_dialect, Table(dummy_dialect, "users"), primary_key_columns(dummy_dialect)
         )
 
@@ -74,7 +74,7 @@ class TestCreateTableExpressionTypeValidation:
     def test_create_table_refuses_an_unqualified_namespace(self, dummy_dialect: DummyDialect):
         """A qualified name is the object's to carry; rendering is the dialect's."""
         table = Table(dummy_dialect, "users", schema_name="public")
-        expr = CreateTableExpression(dummy_dialect, table, primary_key_columns(dummy_dialect))
+        expr = CreateTableStatement(dummy_dialect, table, primary_key_columns(dummy_dialect))
 
         assert expr.table is table
         assert expr.table.schema_name == "public"
@@ -100,19 +100,19 @@ class TestCreateTableExpressionTypeValidation:
         render it as the table's name is the one that refuses, so the error
         arrives from ``to_sql()``.
         """
-        expr = CreateTableExpression(dummy_dialect, value, primary_key_columns(dummy_dialect))
+        expr = CreateTableStatement(dummy_dialect, value, primary_key_columns(dummy_dialect))
         with pytest.raises(TypeError) as exc_info:
             expr.to_sql()
         assert expected in str(exc_info.value)
 
 
 class TestDropTableExpressionTypeValidation:
-    """Tests for DropTableExpression relation type validation."""
+    """Tests for DropTableStatement relation type validation."""
 
     def test_drop_table_keeps_the_object_it_was_given(self, dummy_dialect: DummyDialect):
         """The statement holds the caller's object rather than rebuilding one."""
         table = Table(dummy_dialect, "users")
-        expr = DropTableExpression(dummy_dialect, table)
+        expr = DropTableStatement(dummy_dialect, table)
 
         assert expr.table is table
         assert expr.table.name == "users"
@@ -124,7 +124,7 @@ class TestDropTableExpressionTypeValidation:
 
     def test_drop_table_honours_its_own_flags(self, dummy_dialect: DummyDialect):
         """IF EXISTS belongs to the statement, not to the object."""
-        expr = DropTableExpression(dummy_dialect, Table(dummy_dialect, "users"), if_exists=True)
+        expr = DropTableStatement(dummy_dialect, Table(dummy_dialect, "users"), if_exists=True)
 
         sql, params = expr.to_sql()
         assert sql == 'DROP TABLE IF EXISTS "users"'
@@ -132,7 +132,7 @@ class TestDropTableExpressionTypeValidation:
 
     def test_drop_table_refuses_an_unqualified_namespace(self, dummy_dialect: DummyDialect):
         """A qualified object renders only where the dialect has a namespace."""
-        expr = DropTableExpression(
+        expr = DropTableStatement(
             dummy_dialect, Table(dummy_dialect, "users", schema_name="public"), cascade=True
         )
 
@@ -156,7 +156,7 @@ class TestDropTableExpressionTypeValidation:
         The statement collects the value it was given; the dialect that would
         render it after DROP TABLE is the one that refuses.
         """
-        expr = DropTableExpression(dummy_dialect, value)
+        expr = DropTableStatement(dummy_dialect, value)
         with pytest.raises(TypeError) as exc_info:
             expr.to_sql()
         assert expected in str(exc_info.value)

@@ -11,8 +11,8 @@ from rhosocial.activerecord.backend.expression.graph import (
     GraphVertex, GraphEdge, GraphEdgeDirection, MatchClause,
     GraphColumn, ColumnsClause, GraphTableExpression,
     TablePropertiesClause, VertexTable, EdgeTable,
-    CreatePropertyGraphExpression, DropPropertyGraphExpression,
-    AlterPropertyGraphExpression,
+    CreatePropertyGraphStatement, DropPropertyGraphStatement,
+    AlterPropertyGraphStatement,
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.core import Column, Literal
@@ -187,12 +187,12 @@ class TestEdgeTable:
 
 
 class TestCreatePropertyGraphExpression:
-    """Tests for CreatePropertyGraphExpression."""
+    """Tests for CreatePropertyGraphStatement."""
 
     def test_basic(self, dummy_dialect: DummyDialect):
         vt = VertexTable(dummy_dialect, NodeTable(dummy_dialect, "person"), labels=["Person"])
         et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"], labels=["Knows"])
-        expr = CreatePropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"), [vt], [et])
+        expr = CreatePropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), [vt], [et])
         sql, params = expr.to_sql()
         assert "CREATE PROPERTY GRAPH" in sql
         assert "VERTEX TABLES" in sql
@@ -200,42 +200,42 @@ class TestCreatePropertyGraphExpression:
 
     def test_if_not_exists(self, dummy_dialect: DummyDialect):
         vt = VertexTable(dummy_dialect, NodeTable(dummy_dialect, "person"))
-        expr = CreatePropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"), [vt], if_not_exists=True)
+        expr = CreatePropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), [vt], if_not_exists=True)
         sql, params = expr.to_sql()
         assert "IF NOT EXISTS" in sql
 
     def test_no_edges(self, dummy_dialect: DummyDialect):
         vt = VertexTable(dummy_dialect, NodeTable(dummy_dialect, "person"))
-        expr = CreatePropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"), [vt])
+        expr = CreatePropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), [vt])
         sql, params = expr.to_sql()
         assert "CREATE PROPERTY GRAPH" in sql
 
 
 class TestDropPropertyGraphExpression:
-    """Tests for DropPropertyGraphExpression."""
+    """Tests for DropPropertyGraphStatement."""
 
     def test_basic(self, dummy_dialect: DummyDialect):
-        expr = DropPropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"))
+        expr = DropPropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"))
         sql, params = expr.to_sql()
         assert sql == 'DROP PROPERTY GRAPH "g"'
 
     def test_if_exists(self, dummy_dialect: DummyDialect):
-        expr = DropPropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"), if_exists=True)
+        expr = DropPropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), if_exists=True)
         sql, params = expr.to_sql()
         assert "IF EXISTS" in sql
 
     def test_cascade(self, dummy_dialect: DummyDialect):
-        expr = DropPropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"), cascade=True)
+        expr = DropPropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), cascade=True)
         sql, params = expr.to_sql()
         assert "CASCADE" in sql
 
 
 class TestAlterPropertyGraphExpression:
-    """Tests for AlterPropertyGraphExpression."""
+    """Tests for AlterPropertyGraphStatement."""
 
     def test_basic(self, dummy_dialect: DummyDialect):
         vt = VertexTable(dummy_dialect, NodeTable(dummy_dialect, "person"))
-        expr = AlterPropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"), "ADD", "VERTEX TABLES",
+        expr = AlterPropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), "ADD", "VERTEX TABLES",
                                             vertex_tables=[vt])
         sql, params = expr.to_sql()
         assert "ALTER PROPERTY GRAPH" in sql
@@ -244,7 +244,7 @@ class TestAlterPropertyGraphExpression:
 
     def test_with_edge_tables(self, dummy_dialect: DummyDialect):
         et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
-        expr = AlterPropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"), "DROP", "EDGE TABLES",
+        expr = AlterPropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), "DROP", "EDGE TABLES",
                                             edge_tables=[et])
         sql, params = expr.to_sql()
         assert 'DROP' in sql
@@ -254,7 +254,7 @@ class TestAlterPropertyGraphExpression:
     def test_with_both_tables(self, dummy_dialect: DummyDialect):
         vt = VertexTable(dummy_dialect, NodeTable(dummy_dialect, "person"))
         et = EdgeTable(dummy_dialect, EdgeTableObject(dummy_dialect, "knows"), ["pid"], ["fid"])
-        expr = AlterPropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"), "ADD", "TABLES",
+        expr = AlterPropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), "ADD", "TABLES",
                                             vertex_tables=[vt], edge_tables=[et])
         sql, params = expr.to_sql()
         assert '"person"' in sql
@@ -268,7 +268,7 @@ class TestAlterPropertyGraphExpression:
         ],
     )
     def test_rejects_alter_keyword_injection(self, dummy_dialect, action, target, label):
-        expression = AlterPropertyGraphExpression(dummy_dialect, PropertyGraph(dummy_dialect, "g"), action, target)
+        expression = AlterPropertyGraphStatement(dummy_dialect, PropertyGraph(dummy_dialect, "g"), action, target)
 
         with pytest.raises(ValueError, match=f"Invalid ALTER PROPERTY GRAPH {label}"):
             expression.to_sql()
@@ -367,18 +367,18 @@ class TestUnsupportedDDL:
 
     def test_create_property_graph_unsupported(self, unsupported_dialect):
         vt = VertexTable(unsupported_dialect, NodeTable(unsupported_dialect, "person"))
-        expr = CreatePropertyGraphExpression(unsupported_dialect, PropertyGraph(unsupported_dialect, "g"), [vt])
+        expr = CreatePropertyGraphStatement(unsupported_dialect, PropertyGraph(unsupported_dialect, "g"), [vt])
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
 
     def test_drop_property_graph_unsupported(self, unsupported_dialect):
-        expr = DropPropertyGraphExpression(unsupported_dialect, PropertyGraph(unsupported_dialect, "g"))
+        expr = DropPropertyGraphStatement(unsupported_dialect, PropertyGraph(unsupported_dialect, "g"))
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()
 
     def test_alter_property_graph_unsupported(self, unsupported_dialect):
         vt = VertexTable(unsupported_dialect, NodeTable(unsupported_dialect, "person"))
-        expr = AlterPropertyGraphExpression(unsupported_dialect, PropertyGraph(unsupported_dialect, "g"), "ADD", "VERTEX TABLES",
+        expr = AlterPropertyGraphStatement(unsupported_dialect, PropertyGraph(unsupported_dialect, "g"), "ADD", "VERTEX TABLES",
                                             vertex_tables=[vt])
         with pytest.raises(UnsupportedFeatureError):
             expr.to_sql()

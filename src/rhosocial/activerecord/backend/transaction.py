@@ -305,15 +305,15 @@ class TransactionManagerBase(ABC):
     def _build_begin_sql(self) -> Tuple[str, tuple]:
         """Build BEGIN TRANSACTION SQL using expression system.
 
-        This method creates a BeginTransactionExpression and delegates
+        This method creates a BeginTransactionStatement and delegates
         SQL generation to the backend's dialect.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import BeginTransactionExpression
+        from .expression.transaction import BeginTransactionStatement
 
-        expr = BeginTransactionExpression(self._backend.dialect)
+        expr = BeginTransactionStatement(self._backend.dialect)
 
         if self._isolation_level is not None:
             expr.isolation_level(self._isolation_level)
@@ -329,9 +329,9 @@ class TransactionManagerBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import CommitTransactionExpression
+        from .expression.transaction import CommitStatement
 
-        expr = CommitTransactionExpression(self._backend.dialect)
+        expr = CommitStatement(self._backend.dialect)
         return expr.to_sql()
 
     def _build_rollback_sql(self, savepoint: Optional[str] = None) -> Tuple[str, tuple]:
@@ -343,9 +343,9 @@ class TransactionManagerBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import RollbackTransactionExpression
+        from .expression.transaction import RollbackStatement
 
-        expr = RollbackTransactionExpression(self._backend.dialect)
+        expr = RollbackStatement(self._backend.dialect)
         if savepoint:
             expr.to_savepoint(savepoint)
         return expr.to_sql()
@@ -359,9 +359,9 @@ class TransactionManagerBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import SavepointExpression
+        from .expression.transaction import SavepointStatement
 
-        expr = SavepointExpression(self._backend.dialect, name)
+        expr = SavepointStatement(self._backend.dialect, name)
         return expr.to_sql()
 
     def _build_release_savepoint_sql(self, name: str) -> Tuple[str, tuple]:
@@ -373,9 +373,9 @@ class TransactionManagerBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from .expression.transaction import ReleaseSavepointExpression
+        from .expression.transaction import ReleaseSavepointStatement
 
-        expr = ReleaseSavepointExpression(self._backend.dialect, name)
+        expr = ReleaseSavepointStatement(self._backend.dialect, name)
         return expr.to_sql()
 
 

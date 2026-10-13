@@ -545,7 +545,7 @@ class ChangeColumn(AlterTableAction):
         self.after_column: Optional[str] = after_column
 
 
-class AlterTableExpression(BaseExpression):
+class AlterTableStatement(BaseExpression):
     """
     Represents a comprehensive ALTER TABLE statement supporting SQL standard functionality.
 
@@ -559,21 +559,21 @@ class AlterTableExpression(BaseExpression):
 
     Examples:
         # Add column
-        alter_expr = AlterTableExpression(
+        alter_expr = AlterTableStatement(
             dialect,
             table=Table(dialect, "users"),
             actions=[AddColumn(dialect, column=ColumnDefinition(dialect, "email", "VARCHAR(100)"))]
         )
 
         # Drop column
-        alter_expr = AlterTableExpression(
+        alter_expr = AlterTableStatement(
             dialect,
             table=Table(dialect, "products"),
             actions=[DropColumn(dialect, column_name="description")]
         )
 
         # Multiple actions in one statement
-        alter_expr = AlterTableExpression(
+        alter_expr = AlterTableStatement(
             dialect,
             table=Table(dialect, "orders"),
             actions=[
@@ -583,7 +583,7 @@ class AlterTableExpression(BaseExpression):
         )
 
         # Add constraint
-        alter_expr = AlterTableExpression(
+        alter_expr = AlterTableStatement(
             dialect,
             table=Table(dialect, "users"),
             actions=[
@@ -598,7 +598,7 @@ class AlterTableExpression(BaseExpression):
         )
 
         # Alter column properties
-        alter_expr = AlterTableExpression(
+        alter_expr = AlterTableStatement(
             dialect,
             table=Table(dialect, "products"),
             actions=[

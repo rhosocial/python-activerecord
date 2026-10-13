@@ -13,10 +13,10 @@ from ...expression.objects import Table
 if TYPE_CHECKING:
     from ...expression.statements.dml import (
         DefaultValuesSource,
-        DeleteExpression,
-        InsertExpression,
+        DeleteStatement,
+        InsertStatement,
         SelectSource,
-        UpdateExpression,
+        UpdateStatement,
         ValuesSource,
     )
     from ...expression.statements import ReturningClause
@@ -170,25 +170,25 @@ class DMLMixin:
 
         return returning_sql, tuple(all_params)
 
-    def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
+    def format_insert_statement(self, expr: "InsertStatement") -> Tuple[str, tuple]:
         """Format an INSERT statement.
 
         Args:
-            expr: The InsertExpression to render.
+            expr: The InsertStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple of the statement text and its bind
             parameters.
 
         Raises:
-            TypeError: ``InsertExpression.into`` is not a Table. Another object kind
+            TypeError: ``InsertStatement.into`` is not a Table. Another object kind
             would have had its own name rendered as the INTO target.
             UnsupportedFeatureError: If a RETURNING clause is requested but the
                 dialect does not support it.
         """
         if not isinstance(expr.into, Table):
             raise TypeError(
-                f"InsertExpression.into must be a Table, "
+                f"InsertStatement.into must be a Table, "
                 f"got {type(expr.into).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -264,11 +264,11 @@ class DMLMixin:
         """
         return "DEFAULT VALUES", ()
 
-    def format_on_conflict_clauses(self, expr: "InsertExpression") -> Tuple[str, tuple]:
+    def format_on_conflict_clauses(self, expr: "InsertStatement") -> Tuple[str, tuple]:
         """Format one or more ON CONFLICT clauses, gated by capability switches.
 
         Args:
-            expr: InsertExpression carrying ``on_conflict`` (list of clauses or None).
+            expr: InsertStatement carrying ``on_conflict`` (list of clauses or None).
 
         Returns:
             Tuple of (SQL string, parameters tuple). Returns ("", ()) when no
@@ -303,29 +303,29 @@ class DMLMixin:
             params.extend(clause_params)
         return " ".join(parts), tuple(params)
 
-    def format_update_statement(self, expr: "UpdateExpression") -> Tuple[str, tuple]:
+    def format_update_statement(self, expr: "UpdateStatement") -> Tuple[str, tuple]:
         """Format an UPDATE statement.
 
         Args:
-            expr: The UpdateExpression to render.
+            expr: The UpdateStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple of the statement text and its bind
             parameters.
 
         Raises:
-            TypeError: ``UpdateExpression.table`` is not a Table. Another object
+            TypeError: ``UpdateStatement.table`` is not a Table. Another object
             kind would have had its own name rendered as the UPDATE target.
             UnsupportedFeatureError: If a RETURNING clause is requested but the
                 dialect does not support it.
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"UpdateExpression.table must be a Table, "
+                f"UpdateStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
-        from ...expression.statements import QueryExpression
+        from ...expression.statements import QueryStatement
         all_params: List[Any] = []
         table_sql, table_params = expr.table.to_sql()
         all_params.extend(table_params)
@@ -347,7 +347,7 @@ class DMLMixin:
                 """
                 if isinstance(source, str):
                     return self.format_identifier(source), []
-                if isinstance(source, QueryExpression):
+                if isinstance(source, QueryStatement):
                     s_sql, s_params = source.to_sql()
                     return f"({s_sql})", list(s_params)
                 if isinstance(source, BaseExpression):
@@ -382,18 +382,18 @@ class DMLMixin:
             all_params.extend(returning_params)
         return current_sql, tuple(all_params)
 
-    def format_delete_statement(self, expr: "DeleteExpression") -> Tuple[str, tuple]:
+    def format_delete_statement(self, expr: "DeleteStatement") -> Tuple[str, tuple]:
         """Format a DELETE statement.
 
         Args:
-            expr: The DeleteExpression to render.
+            expr: The DeleteStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple of the statement text and its bind
             parameters.
 
         Raises:
-            TypeError: An entry of ``DeleteExpression.tables`` is not a Table.
+            TypeError: An entry of ``DeleteStatement.tables`` is not a Table.
             Another object kind would have had its own name rendered after DELETE
             FROM.
             UnsupportedFeatureError: If a RETURNING clause is requested but the
@@ -402,11 +402,11 @@ class DMLMixin:
         for position, entry in enumerate(expr.tables):
             if not isinstance(entry, Table):
                 raise TypeError(
-                    f"DeleteExpression.tables must hold Table instances, "
+                    f"DeleteStatement.tables must hold Table instances, "
                     f"got {type(entry).__name__} at position {position}"
                 )
         from ..exceptions import UnsupportedFeatureError
-        from ...expression.statements import QueryExpression
+        from ...expression.statements import QueryStatement
         if self.strict_validation:
             expr.validate(strict=True)
         all_params: List[Any] = []
@@ -428,7 +428,7 @@ class DMLMixin:
                 """
                 if isinstance(source, str):
                     return self.format_identifier(source), []
-                if isinstance(source, QueryExpression):
+                if isinstance(source, QueryStatement):
                     s_sql, s_params = source.to_sql()
                     return f"({s_sql})", list(s_params)
                 if isinstance(source, BaseExpression):

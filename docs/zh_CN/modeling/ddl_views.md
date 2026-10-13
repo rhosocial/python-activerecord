@@ -6,17 +6,17 @@
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateViewExpression,
-    QueryExpression,
+    CreateViewStatement,
+    QueryStatement,
     TableExpression,
     Column
 )
 
 # 基础视图
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="user_summary",
-    query=QueryExpression(
+    query=QueryStatement(
         dialect,
         select=[
             Column(dialect, "id"),
@@ -33,10 +33,10 @@ sql, params = create_view.to_sql()
 ## 带列别名的视图
 
 ```python
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="user_details",
-    query=QueryExpression(
+    query=QueryStatement(
         dialect,
         select=[
             Column(dialect, "id"),
@@ -54,7 +54,7 @@ sql, params = create_view.to_sql()
 ## OR REPLACE 视图
 
 ```python
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="user_summary",
     query=query,
@@ -67,7 +67,7 @@ sql, params = create_view.to_sql()
 ## TEMPORARY 视图 (SQLite)
 
 ```python
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="temp_stats",
     query=query,
@@ -80,10 +80,10 @@ sql, params = create_view.to_sql()
 ## 删除视图
 
 ```python
-from rhosocial.activerecord.backend.expression import DropViewExpression
+from rhosocial.activerecord.backend.expression import DropViewStatement
 
 # 基础删除
-drop_view = DropViewExpression(
+drop_view = DropViewStatement(
     dialect,
     view_name="old_view"
 )
@@ -91,7 +91,7 @@ sql, params = drop_view.to_sql()
 # sql: 'DROP VIEW "old_view"'
 
 # 条件删除
-drop_view = DropViewExpression(
+drop_view = DropViewStatement(
     dialect,
     view_name="old_view",
     if_exists=True
@@ -104,11 +104,11 @@ sql, params = drop_view.to_sql()
 
 ```python
 # 先创建表
-create_table = CreateTableExpression(dialect, "users", user_columns)
+create_table = CreateTableStatement(dialect, "users", user_columns)
 backend.execute(create_table.to_sql())
 
 # 创建视图
-create_view = CreateViewExpression(dialect, "user_summary", view_query)
+create_view = CreateViewStatement(dialect, "user_summary", view_query)
 backend.execute(create_view.to_sql())
 
 # 内省：列出视图

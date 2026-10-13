@@ -16,8 +16,8 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
@@ -27,7 +27,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="products",
     columns=[
@@ -63,7 +63,7 @@ products_data = [
     ("Broccoli", 1.2, "Vegetable", None),
 ]
 for row in products_data:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'products'),
         columns=["name", "price", "category", "description"],
@@ -76,7 +76,7 @@ for row in products_data:
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     Column,
     WhereClause,
 )
@@ -99,7 +99,7 @@ not_null_pred = IsNullPredicate(dialect, Column(dialect, "description"), is_not=
 
 combined_pred = LogicalPredicate(dialect, "AND", like_pred, in_pred, between_pred, not_null_pred)
 
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "name"),

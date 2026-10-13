@@ -82,7 +82,7 @@ Named Expression encapsulates query logic in a **pure Python function**. The key
 # Define once, use anywhere with any dialect
 def active_users(dialect, limit: int = 100, status: str = "active"):
     """Get active users from the database."""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name")],
         from_=TableExpression(dialect, "users"),

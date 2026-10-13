@@ -11,12 +11,12 @@ from ...expression.objects import MaterializedView, Table, View
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
-        CreateViewExpression,
-        DropViewExpression,
-        TruncateExpression,
-        CreateMaterializedViewExpression,
-        DropMaterializedViewExpression,
-        RefreshMaterializedViewExpression,
+        CreateViewStatement,
+        DropViewStatement,
+        TruncateStatement,
+        CreateMaterializedViewStatement,
+        DropMaterializedViewStatement,
+        RefreshMaterializedViewStatement,
     )
 
 
@@ -97,23 +97,23 @@ class ViewMixin:
         """Whether DROP VIEW RESTRICT is supported (defaults to False)."""
         return False
 
-    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
+    def format_create_view_statement(self, expr: "CreateViewStatement") -> Tuple[str, tuple]:
         """Format a CREATE VIEW statement.
 
         Args:
-            expr: The CreateViewExpression to render.
+            expr: The CreateViewStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple where ``params`` holds the parameters
             collected from the view's query.
 
         Raises:
-            TypeError: ``CreateViewExpression.view`` is not a View. Another object
+            TypeError: ``CreateViewStatement.view`` is not a View. Another object
             kind would have had its own name rendered as the view's.
         """
         if not isinstance(expr.view, View):
             raise TypeError(
-                f"CreateViewExpression.view must be a View, "
+                f"CreateViewStatement.view must be a View, "
                 f"got {type(expr.view).__name__}"
             )
         from ...expression.statements import ViewCheckOption
@@ -158,24 +158,24 @@ class ViewMixin:
                 sql_parts.append(" WITH CASCADED CHECK OPTION")
         return " ".join(sql_parts), tuple(all_params)
 
-    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
+    def format_drop_view_statement(self, expr: "DropViewStatement") -> Tuple[str, tuple]:
         """Format a DROP VIEW statement.
 
         Args:
-            expr: The DropViewExpression to render.
+            expr: The DropViewStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``DropViewExpression.view`` is not a View. Another object
+            TypeError: ``DropViewStatement.view`` is not a View. Another object
             kind would have had its own name rendered as the view's.
             UnsupportedFeatureError: If the dialect does not support
                 IF EXISTS or CASCADE for DROP VIEW.
         """
         if not isinstance(expr.view, View):
             raise TypeError(
-                f"DropViewExpression.view must be a View, "
+                f"DropViewStatement.view must be a View, "
                 f"got {type(expr.view).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -204,18 +204,18 @@ class ViewMixin:
         sql = f"DROP VIEW {if_exists_part}{expr.view.to_sql()[0]}{behavior_part}"
         return sql.strip(), ()
 
-    def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
+    def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewStatement") -> Tuple[str, tuple]:
         """Format a CREATE MATERIALIZED VIEW statement.
 
         Args:
-            expr: The CreateMaterializedViewExpression to render.
+            expr: The CreateMaterializedViewStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple where ``params`` holds the parameters
             collected from the view's query.
 
         Raises:
-            TypeError: ``CreateMaterializedViewExpression.view`` is not a
+            TypeError: ``CreateMaterializedViewStatement.view`` is not a
             MaterializedView. A plain view would render as a well-formed CREATE
             MATERIALIZED VIEW over that view's name.
             UnsupportedFeatureError: If the dialect does not support
@@ -223,7 +223,7 @@ class ViewMixin:
         """
         if not isinstance(expr.view, MaterializedView):
             raise TypeError(
-                f"CreateMaterializedViewExpression.view must be a MaterializedView, "
+                f"CreateMaterializedViewStatement.view must be a MaterializedView, "
                 f"got {type(expr.view).__name__}"
             )
         if not self.supports_materialized_view():
@@ -260,17 +260,17 @@ class ViewMixin:
 
         return " ".join(parts), query_params
 
-    def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewExpression") -> Tuple[str, tuple]:
+    def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewStatement") -> Tuple[str, tuple]:
         """Format a DROP MATERIALIZED VIEW statement.
 
         Args:
-            expr: The DropMaterializedViewExpression to render.
+            expr: The DropMaterializedViewStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``DropMaterializedViewExpression.view`` is not a
+            TypeError: ``DropMaterializedViewStatement.view`` is not a
             MaterializedView. A plain view would render as a well-formed DROP
             MATERIALIZED VIEW over that view's name.
             UnsupportedFeatureError: If the dialect does not support
@@ -278,7 +278,7 @@ class ViewMixin:
         """
         if not isinstance(expr.view, MaterializedView):
             raise TypeError(
-                f"DropMaterializedViewExpression.view must be a MaterializedView, "
+                f"DropMaterializedViewStatement.view must be a MaterializedView, "
                 f"got {type(expr.view).__name__}"
             )
         if not self.supports_materialized_view():
@@ -300,18 +300,18 @@ class ViewMixin:
         return " ".join(parts), ()
 
     def format_refresh_materialized_view_statement(
-        self, expr: "RefreshMaterializedViewExpression"
+        self, expr: "RefreshMaterializedViewStatement"
     ) -> Tuple[str, tuple]:
         """Format a REFRESH MATERIALIZED VIEW statement.
 
         Args:
-            expr: The RefreshMaterializedViewExpression to render.
+            expr: The RefreshMaterializedViewStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``RefreshMaterializedViewExpression.view`` is not a
+            TypeError: ``RefreshMaterializedViewStatement.view`` is not a
             MaterializedView. A plain view would render as a well-formed REFRESH
             MATERIALIZED VIEW over that view's name.
             UnsupportedFeatureError: If the dialect does not support refreshing
@@ -319,7 +319,7 @@ class ViewMixin:
         """
         if not isinstance(expr.view, MaterializedView):
             raise TypeError(
-                f"RefreshMaterializedViewExpression.view must be a MaterializedView, "
+                f"RefreshMaterializedViewStatement.view must be a MaterializedView, "
                 f"got {type(expr.view).__name__}"
             )
         if not self.supports_refresh_materialized_view():
@@ -369,24 +369,24 @@ class TruncateMixin:
         """Whether the RESTRICT option is supported (defaults to False)."""
         return False
 
-    def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
+    def format_truncate_statement(self, expr: "TruncateStatement") -> Tuple[str, tuple]:
         """Format a TRUNCATE statement.
 
         Args:
-            expr: The TruncateExpression to render.
+            expr: The TruncateStatement to render.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` is always empty.
 
         Raises:
-            TypeError: ``TruncateExpression.table`` is not a Table. Another object
+            TypeError: ``TruncateStatement.table`` is not a Table. Another object
             kind would have had its own name rendered after TRUNCATE.
             UnsupportedFeatureError: If the dialect does not support TRUNCATE,
                 or does not support RESTART IDENTITY or CASCADE for TRUNCATE.
         """
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"TruncateExpression.table must be a Table, "
+                f"TruncateStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError

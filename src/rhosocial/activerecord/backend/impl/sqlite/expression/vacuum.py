@@ -2,7 +2,7 @@
 """
 SQLite-specific VACUUM and ANALYZE expressions.
 
-This module provides SQLiteVacuumExpression and SQLiteAnalyzeExpression.
+This module provides SQLiteVacuumStatement and SQLiteAnalyzeStatement.
 """
 
 from typing import Optional, TYPE_CHECKING
@@ -12,10 +12,10 @@ from ....expression.bases import BaseExpression, SQLQueryAndParams
 if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
-__all__ = ["SQLiteVacuumExpression", "SQLiteAnalyzeExpression"]
+__all__ = ["SQLiteVacuumStatement", "SQLiteAnalyzeStatement"]
 
 
-class SQLiteVacuumExpression(BaseExpression):
+class SQLiteVacuumStatement(BaseExpression):
     """SQLite VACUUM statement expression.
 
     VACUUM reclaims storage by rebuilding the database file. It is a
@@ -29,13 +29,13 @@ class SQLiteVacuumExpression(BaseExpression):
 
     Examples:
         # Vacuum the whole database
-        vacuum = SQLiteVacuumExpression(dialect)
+        vacuum = SQLiteVacuumStatement(dialect)
 
         # Vacuum a specific attached schema
-        vacuum = SQLiteVacuumExpression(dialect, schema="aux")
+        vacuum = SQLiteVacuumStatement(dialect, schema="aux")
 
         # Write the vacuumed database to a new file (SQLite 3.27.0+)
-        vacuum = SQLiteVacuumExpression(dialect, into="backup.db")
+        vacuum = SQLiteVacuumStatement(dialect, into="backup.db")
     """
 
     def __init__(
@@ -69,7 +69,7 @@ class SQLiteVacuumExpression(BaseExpression):
         return self._dialect.format_vacuum_statement(self)
 
 
-class SQLiteAnalyzeExpression(BaseExpression):
+class SQLiteAnalyzeStatement(BaseExpression):
     """SQLite ANALYZE statement expression.
 
     ANALYZE collects statistics used by the query planner to generate

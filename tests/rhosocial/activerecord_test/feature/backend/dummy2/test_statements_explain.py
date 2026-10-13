@@ -4,11 +4,11 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     Column,
     Literal,
-    QueryExpression,
-    InsertExpression,
-    UpdateExpression,
-    DeleteExpression,
-    ExplainExpression,
+    QueryStatement,
+    InsertStatement,
+    UpdateStatement,
+    DeleteStatement,
+    ExplainStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import ExplainOptions, ExplainType, ExplainFormat
@@ -24,13 +24,13 @@ class TestExplainStatements:
     def test_basic_explain_query(self, dummy_dialect: DummyDialect):
         """Tests basic EXPLAIN statement with a SELECT query."""
         # Create a base query to EXPLAIN
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
 
-        explain_expr = ExplainExpression(dummy_dialect, statement=query)
+        explain_expr = ExplainStatement(dummy_dialect, statement=query)
         sql, params = explain_expr.to_sql()
         # Basic EXPLAIN should exist
         assert sql.startswith("EXPLAIN ")
@@ -46,7 +46,7 @@ class TestExplainStatements:
     )
     def test_explain_with_types(self, dummy_dialect: DummyDialect, explain_type, expected_prefix):
         """Tests EXPLAIN with different types (BASIC, ANALYZE)."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products")),
@@ -61,7 +61,7 @@ class TestExplainStatements:
         # Create EXPLAIN options
         options = ExplainOptions(type=explain_type)
 
-        explain_expr = ExplainExpression(dummy_dialect, statement=query, options=options)
+        explain_expr = ExplainStatement(dummy_dialect, statement=query, options=options)
         sql, params = explain_expr.to_sql()
         assert sql.startswith(expected_prefix)
         assert 'SELECT "id" FROM "products" WHERE "price" > ?' in sql
@@ -77,14 +77,14 @@ class TestExplainStatements:
     )
     def test_explain_with_formats(self, dummy_dialect: DummyDialect, format_type, expected_format_clause):
         """Tests EXPLAIN with different output formats."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "name")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "employees"))
         )
 
         # Create EXPLAIN options with specific format
         options = ExplainOptions(type=ExplainType.BASIC, format=format_type)
 
-        explain_expr = ExplainExpression(dummy_dialect, statement=query, options=options)
+        explain_expr = ExplainStatement(dummy_dialect, statement=query, options=options)
         sql, params = explain_expr.to_sql()
         assert "EXPLAIN" in sql
         assert expected_format_clause in sql
@@ -92,7 +92,7 @@ class TestExplainStatements:
 
     def test_explain_with_analyze_and_format(self, dummy_dialect: DummyDialect):
         """Tests EXPLAIN with both ANALYZE and FORMAT options."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "total")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
@@ -109,7 +109,7 @@ class TestExplainStatements:
         # Create EXPLAIN options with ANALYZE and JSON format
         options = ExplainOptions(type=ExplainType.ANALYZE, format=ExplainFormat.JSON)
 
-        explain_expr = ExplainExpression(dummy_dialect, statement=query, options=options)
+        explain_expr = ExplainStatement(dummy_dialect, statement=query, options=options)
         sql, params = explain_expr.to_sql()
         assert sql.startswith("EXPLAIN ANALYZE")
         assert "FORMAT JSON" in sql
@@ -127,30 +127,30 @@ class TestExplainStatements:
     def test_explain_with_different_statements(self, dummy_dialect: DummyDialect, statement_type):
         """Tests EXPLAIN with different types of SQL statements."""
         if statement_type == "SELECT":
-            stmt = QueryExpression(
+            stmt = QueryStatement(
                 dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "test_table"))
             )
         elif statement_type == "INSERT":
-            stmt = InsertExpression(
+            stmt = InsertStatement(
                 dummy_dialect,
                 into=Table(dummy_dialect, 'test_table'),
                 source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]]),
             )
         elif statement_type == "UPDATE":
-            stmt = UpdateExpression(
+            stmt = UpdateStatement(
                 dummy_dialect,
                 table=Table(dummy_dialect, 'test_table'),
                 assignments={"name": Literal(dummy_dialect, "updated")},
                 where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
             )
         elif statement_type == "DELETE":
-            stmt = DeleteExpression(
+            stmt = DeleteStatement(
                 dummy_dialect,
                 tables=Table(dummy_dialect, 'test_table'),
                 where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
             )
 
-        explain_expr = ExplainExpression(dummy_dialect, statement=stmt)
+        explain_expr = ExplainStatement(dummy_dialect, statement=stmt)
         sql, params = explain_expr.to_sql()
         assert sql.startswith("EXPLAIN ")
         # Should contain the appropriate statement type
@@ -169,7 +169,7 @@ class TestExplainStatements:
     )
     def test_explain_with_extended_options(self, dummy_dialect: DummyDialect, buffers, costs, timing, verbose):
         """Tests EXPLAIN with extended options like BUFFERS, COSTS, TIMING, VERBOSE."""
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "perf_test"))
         )
 
@@ -182,7 +182,7 @@ class TestExplainStatements:
             analyze=timing,  # Timing requires ANALYZE according to SQL standard
         )
 
-        explain_expr = ExplainExpression(dummy_dialect, statement=query, options=options)
+        explain_expr = ExplainStatement(dummy_dialect, statement=query, options=options)
         sql, params = explain_expr.to_sql()
         assert sql.startswith("EXPLAIN ")
 
@@ -198,21 +198,21 @@ class TestExplainStatements:
         assert params == ()
 
     def test_explain_expression_initialization(self, dummy_dialect: DummyDialect):
-        """Tests ExplainExpression initialization with various parameters."""
+        """Tests ExplainStatement initialization with various parameters."""
         from rhosocial.activerecord.backend.expression.statements import ExplainOptions
 
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
 
         # Test initialization with no options (None)
-        explain_expr_none = ExplainExpression(dummy_dialect, statement=query, options=None)
+        explain_expr_none = ExplainStatement(dummy_dialect, statement=query, options=None)
         assert explain_expr_none.statement == query
         assert explain_expr_none.options is None
 
         # Test initialization with basic options
         basic_options = ExplainOptions()
-        explain_expr_basic = ExplainExpression(dummy_dialect, statement=query, options=basic_options)
+        explain_expr_basic = ExplainStatement(dummy_dialect, statement=query, options=basic_options)
         assert explain_expr_basic.statement == query
         assert explain_expr_basic.options == basic_options
 
@@ -220,7 +220,7 @@ class TestExplainStatements:
         detailed_options = ExplainOptions(
             analyze=True, verbose=True, buffers=True, costs=False, format=ExplainFormat.JSON
         )
-        explain_expr_detailed = ExplainExpression(dummy_dialect, statement=query, options=detailed_options)
+        explain_expr_detailed = ExplainStatement(dummy_dialect, statement=query, options=detailed_options)
         assert explain_expr_detailed.statement == query
         assert explain_expr_detailed.options == detailed_options
         assert explain_expr_detailed.options.analyze is True
@@ -230,16 +230,16 @@ class TestExplainStatements:
         assert explain_expr_detailed.options.format == ExplainFormat.JSON
 
     def test_explain_expression_to_sql_delegation(self, dummy_dialect: DummyDialect):
-        """Tests that ExplainExpression.to_sql properly delegates to dialect."""
+        """Tests that ExplainStatement.to_sql properly delegates to dialect."""
         from rhosocial.activerecord.backend.expression.statements import ExplainOptions
 
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "name")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products"))
         )
 
         options = ExplainOptions(analyze=True, format=ExplainFormat.TEXT)
 
-        explain_expr = ExplainExpression(dummy_dialect, statement=query, options=options)
+        explain_expr = ExplainStatement(dummy_dialect, statement=query, options=options)
 
         # Check that to_sql properly delegates to dialect
         sql, params = explain_expr.to_sql()
@@ -252,16 +252,16 @@ class TestExplainStatements:
 
     def test_explain_with_settings_option(self, dummy_dialect: DummyDialect):
         """Tests EXPLAIN with SETTINGS option."""
-        from rhosocial.activerecord.backend.expression.statements import ExplainOptions, QueryExpression
+        from rhosocial.activerecord.backend.expression.statements import ExplainOptions, QueryStatement
         from rhosocial.activerecord.backend.expression import Column
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
 
         explain_options = ExplainOptions(settings=True)
-        explain_expr = ExplainExpression(dummy_dialect, statement=query, options=explain_options)
+        explain_expr = ExplainStatement(dummy_dialect, statement=query, options=explain_options)
         sql, params = explain_expr.to_sql()
 
         assert "EXPLAIN" in sql
@@ -270,16 +270,16 @@ class TestExplainStatements:
 
     def test_explain_with_wal_option(self, dummy_dialect: DummyDialect):
         """Tests EXPLAIN with WAL option."""
-        from rhosocial.activerecord.backend.expression.statements import ExplainOptions, QueryExpression
+        from rhosocial.activerecord.backend.expression.statements import ExplainOptions, QueryStatement
         from rhosocial.activerecord.backend.expression import Column
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "id")], from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users"))
         )
 
         explain_options = ExplainOptions(wal=True)
-        explain_expr = ExplainExpression(dummy_dialect, statement=query, options=explain_options)
+        explain_expr = ExplainStatement(dummy_dialect, statement=query, options=explain_options)
         sql, params = explain_expr.to_sql()
 
         assert "EXPLAIN" in sql

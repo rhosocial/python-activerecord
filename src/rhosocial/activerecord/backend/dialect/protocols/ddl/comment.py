@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import CommentOnExpression
+    from ....expression.statements import CommentOnStatement
 
 
 @runtime_checkable
@@ -29,7 +29,7 @@ class CommentSupport(Protocol):
         """Whether standalone ``COMMENT ON`` statements are supported."""
         ...  # pragma: no cover
 
-    def format_comment_statement(self, expr: "CommentOnExpression") -> Tuple[str, tuple]:
+    def format_comment_statement(self, expr: "CommentOnStatement") -> Tuple[str, tuple]:
         """Render a standalone ``COMMENT ON <object> IS '<text>'`` statement."""
         ...  # pragma: no cover
 

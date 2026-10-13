@@ -10,12 +10,12 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 
 if TYPE_CHECKING:
     from ..expression.fts5 import SQLiteFTS5MatchExpression
-    from rhosocial.activerecord.backend.expression.statements import InsertExpression, ReturningClause
+    from rhosocial.activerecord.backend.expression.statements import InsertStatement, ReturningClause
 
 class SQLiteDMLMixin:
     """SQLite-specific INSERT and RETURNING formatting."""
 
-    def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
+    def format_insert_statement(self, expr: "InsertStatement") -> Tuple[str, tuple]:
         """Format INSERT statement with SQLite-specific OR REPLACE / OR IGNORE support.
 
         The mutual-exclusion rules are enforced when the node is built, so the

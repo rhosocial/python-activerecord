@@ -6,7 +6,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     FunctionCall,
-    QueryExpression,
+    QueryStatement,
     CaseExpression,
     ComparisonPredicate,
     ExistsExpression,
@@ -103,7 +103,7 @@ class TestAdvancedFunctionWindow:
     # --- EXISTS and related expressions ---
     def test_exists_expression(self, dummy_dialect: DummyDialect):
         """Tests EXISTS predicate."""
-        subquery = QueryExpression(
+        subquery = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),
@@ -155,7 +155,7 @@ class TestAdvancedFunctionWindow:
         assert sql == expected
         assert params == ((85, 90, 95),)
 
-    # --- QueryExpression with DISTINCT/ALL modifiers ---
+    # --- QueryStatement with DISTINCT/ALL modifiers ---
     @pytest.mark.parametrize(
         "modifier, expected_prefix",
         [
@@ -165,8 +165,8 @@ class TestAdvancedFunctionWindow:
         ],
     )
     def test_query_expression_select_modifier(self, dummy_dialect: DummyDialect, modifier, expected_prefix):
-        """Tests QueryExpression with DISTINCT/ALL modifiers."""
-        query = QueryExpression(
+        """Tests QueryStatement with DISTINCT/ALL modifiers."""
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "category")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "products")),
@@ -179,11 +179,11 @@ class TestAdvancedFunctionWindow:
 
     # --- FOR UPDATE clause ---
     def test_query_expression_with_for_update_clause(self, dummy_dialect: DummyDialect):
-        """Tests QueryExpression with FOR UPDATE clause."""
+        """Tests QueryStatement with FOR UPDATE clause."""
         for_update_clause = ForUpdateClause(
             dummy_dialect, of_columns=[Column(dummy_dialect, "id"), "name"], nowait=False, skip_locked=True
         )
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
@@ -194,11 +194,11 @@ class TestAdvancedFunctionWindow:
         assert params == ()
 
     def test_query_expression_with_for_update_nowait(self, dummy_dialect: DummyDialect):
-        """Tests QueryExpression with FOR UPDATE NOWAIT."""
+        """Tests QueryStatement with FOR UPDATE NOWAIT."""
         for_update_clause = ForUpdateClause(
             dummy_dialect, of_columns=[Column(dummy_dialect, "id")], nowait=True, skip_locked=False
         )
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "locks")),
@@ -311,7 +311,7 @@ class TestAdvancedFunctionWindow:
         window_clause = WindowClause(dummy_dialect, definitions=[window_def1, window_def2])
 
         # Create a query that would reference these named windows
-        QueryExpression(
+        QueryStatement(
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "employee_name"),
@@ -319,7 +319,7 @@ class TestAdvancedFunctionWindow:
                 FunctionCall(dummy_dialect, "ROW_NUMBER", window_spec="dept_ranking"),
             ],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "employees")),
-            # Note: The WindowClause would need to be integrated into QueryExpression to be fully functional
+            # Note: The WindowClause would need to be integrated into QueryStatement to be fully functional
         )
 
         # Since we are testing the window clause itself, let's test it independently

@@ -5,7 +5,7 @@ using MATCH, prefix, phrase, and NEAR queries.
 
 This example demonstrates using the SQLite dialect's FTS5 formatting
 methods (format_fts5_create_virtual_table) and the Expression API
-(InsertExpression, QueryExpression with SQLiteMatchPredicate) to avoid
+(InsertStatement, QueryStatement with SQLiteMatchPredicate) to avoid
 writing raw SQL strings directly.
 
 SQLiteMatchPredicate is a SQLite-specific expression class for full-text search
@@ -19,7 +19,7 @@ method, which in turn calls the FTS5 extension's formatting logic.
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     WildcardExpression,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -48,8 +48,8 @@ boolean_pred = SQLiteMatchPredicate(dialect, table="docs", query="Python NOT Dja
 
 
 def execute_match_query(pred: SQLiteMatchPredicate) -> list:
-    """Build and execute a FTS5 MATCH query using QueryExpression."""
-    query = QueryExpression(
+    """Build and execute a FTS5 MATCH query using QueryStatement."""
+    query = QueryStatement(
         dialect=dialect,
         select=[WildcardExpression(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "docs")),

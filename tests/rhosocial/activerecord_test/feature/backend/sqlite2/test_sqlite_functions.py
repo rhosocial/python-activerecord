@@ -8,7 +8,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     concat_op,
-    QueryExpression,
+    QueryStatement,
     count,
     lower,
     upper,
@@ -71,7 +71,7 @@ class TestSQLiteConcatOp:
             Column(sqlite_dialect_3_8_0, "last_name"),
         )
 
-        query = QueryExpression(
+        query = QueryStatement(
             sqlite_dialect_3_8_0, select=[full_name_expr], from_=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"))
         )
 

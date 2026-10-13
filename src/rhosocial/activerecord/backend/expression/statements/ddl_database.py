@@ -27,7 +27,7 @@ class AlterDatabaseAction(Enum):
     DISABLE_FAILOVER = "DISABLE FAILOVER"
 
 
-class CreateDatabaseExpression(BaseExpression):
+class CreateDatabaseStatement(BaseExpression):
     """Represents a CREATE DATABASE statement.
 
     Supports common parameters across multiple database backends.
@@ -67,7 +67,7 @@ class CreateDatabaseExpression(BaseExpression):
         self.or_replace = or_replace
 
 
-class DropDatabaseExpression(BaseExpression):
+class DropDatabaseStatement(BaseExpression):
     """Represents a DROP DATABASE statement.
 
     Supports common parameters across multiple database backends.
@@ -93,7 +93,7 @@ class DropDatabaseExpression(BaseExpression):
         self.force = force
 
 
-class AlterDatabaseExpression(BaseExpression):
+class AlterDatabaseStatement(BaseExpression):
     """Represents an ALTER DATABASE statement.
 
     Uses an action-based pattern similar to ALTER TABLE.
@@ -123,7 +123,7 @@ class AlterDatabaseExpression(BaseExpression):
 
 __all__ = [
     "AlterDatabaseAction",
-    "CreateDatabaseExpression",
-    "DropDatabaseExpression",
-    "AlterDatabaseExpression",
+    "CreateDatabaseStatement",
+    "DropDatabaseStatement",
+    "AlterDatabaseStatement",
 ]

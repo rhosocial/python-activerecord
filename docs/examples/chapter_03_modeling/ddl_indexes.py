@@ -15,11 +15,11 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
-    CreateTableExpression,
+    CreateTableStatement,
     Column,
     Literal,
-    CreateIndexExpression,
-    DropIndexExpression,
+    CreateIndexStatement,
+    DropIndexStatement,
 )
 from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, VarCharType
 from rhosocial.activerecord.backend.expression.statements import (
@@ -61,7 +61,7 @@ def main():
         ColumnDefinition("status", VarCharType(20)),
     ]
 
-    create_products = CreateTableExpression(dialect=dialect, table_name="products", columns=product_columns)
+    create_products = CreateTableStatement(dialect=dialect, table_name="products", columns=product_columns)
 
     sql_str, params_str = create_products.to_sql()
     backend.execute(sql_str, params_str)
@@ -70,7 +70,7 @@ def main():
     # ============================================================
     # Example 1: Create basic index
     # ============================================================
-    create_idx = CreateIndexExpression(dialect, index_name="idx_products_name", table_name="products", columns=["name"])
+    create_idx = CreateIndexStatement(dialect, index_name="idx_products_name", table_name="products", columns=["name"])
 
     sql, params = create_idx.to_sql()
     print("=== Create Basic Index ===")
@@ -83,7 +83,7 @@ def main():
     # ============================================================
     # Example 2: Create unique index
     # ============================================================
-    create_unique_idx = CreateIndexExpression(
+    create_unique_idx = CreateIndexStatement(
         dialect,
         index_name="idx_products_category_name",
         table_name="products",
@@ -102,7 +102,7 @@ def main():
     # ============================================================
     # Example 3: Create partial index (with WHERE clause)
     # ============================================================
-    create_partial_idx = CreateIndexExpression(
+    create_partial_idx = CreateIndexStatement(
         dialect,
         index_name="idx_products_active_price",
         table_name="products",
@@ -128,7 +128,7 @@ def main():
     # Note: SQLite doesn't support USING BTREE syntax, so this would fail.
     # Showing it for demonstration purposes only.
     print("=== Index Type (not supported in SQLite) ===")
-    create_btree_idx = CreateIndexExpression(
+    create_btree_idx = CreateIndexStatement(
         dialect, index_name="idx_products_category", table_name="products", columns=["category"], index_type="BTREE"
     )
     sql, params = create_btree_idx.to_sql()
@@ -139,7 +139,7 @@ def main():
     # ============================================================
     # Example 5: Drop index
     # ============================================================
-    drop_idx = DropIndexExpression(dialect, index_name="idx_products_category", if_exists=True)
+    drop_idx = DropIndexStatement(dialect, index_name="idx_products_category", if_exists=True)
 
     sql, params = drop_idx.to_sql()
     print("=== Drop Index ===")

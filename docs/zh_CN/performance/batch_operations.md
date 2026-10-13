@@ -17,7 +17,7 @@
 
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
 
 backend = SQLiteBackend(database=":memory:")
 backend.connect()
@@ -29,7 +29,7 @@ for i in range(100):
         [Literal(backend.dialect, f"user{i}"),
          Literal(backend.dialect, f"user{i}@example.com")]
     ])
-    expr = InsertExpression(
+    expr = InsertStatement(
         backend.dialect,
         into="users",
         columns=["name", "email"],
@@ -134,9 +134,9 @@ expressions = [
 `execute_batch_dql` 为大型结果集提供内存高效的分页：
 
 ```python
-from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression, WildcardExpression
+from rhosocial.activerecord.backend.expression import QueryStatement, TableExpression, WildcardExpression
 
-query = QueryExpression(
+query = QueryStatement(
     backend.dialect,
     select=[WildcardExpression(backend.dialect)],
     from_=TableExpression(backend.dialect, "large_table"),
@@ -166,15 +166,15 @@ for page in backend.execute_batch_dql(query, page_size=100):
 
 `execute_batch_dql` 支持所有 DQL 表达式类型：
 
-- `QueryExpression`：基本 SELECT 查询
+- `QueryStatement`：基本 SELECT 查询
 - `WithStatement`：公用表表达式（CTE）
-- `SetOperationExpression`：UNION、INTERSECT、EXCEPT 操作
+- `SetOperationStatement`：UNION、INTERSECT、EXCEPT 操作
 
 ```python
 # CTE 示例
 from rhosocial.activerecord.backend.expression.query_sources import WithStatement, CTEClause
 
-cte_query = QueryExpression(
+cte_query = QueryStatement(
     backend.dialect,
     select=[WildcardExpression(backend.dialect)],
     from_=TableExpression(backend.dialect, "orders"),
@@ -182,7 +182,7 @@ cte_query = QueryExpression(
 )
 cte = CTEClause(backend.dialect, name="recent_orders", query=cte_query)
 
-main_query = QueryExpression(
+main_query = QueryStatement(
     backend.dialect,
     select=[WildcardExpression(backend.dialect)],
     from_=TableExpression(backend.dialect, "recent_orders"),

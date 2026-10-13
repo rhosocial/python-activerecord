@@ -103,7 +103,7 @@ class SetOperationMixin:
 
         # Set operations at top level do not need outer parentheses.
         # When used as a subquery (e.g. in a FROM clause), the caller
-        # (Subquery / QueryExpression / dql.py) adds the required wrapping.
+        # (Subquery / QueryStatement / dql.py) adds the required wrapping.
         sql_parts = [base_sql]
 
         # Add alias if present

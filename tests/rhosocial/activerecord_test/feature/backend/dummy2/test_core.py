@@ -161,11 +161,11 @@ class TestSubquery:
 
     def test_subquery_from_base_expression(self, dummy_dialect: DummyDialect):
         """Test Subquery initialization with BaseExpression (has to_sql method)."""
-        from rhosocial.activerecord.backend.expression.statements import QueryExpression
+        from rhosocial.activerecord.backend.expression.statements import QueryStatement
         from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 
         # Create a simple query expression to use as base expression
-        query_expr = QueryExpression(
+        query_expr = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "orders")),

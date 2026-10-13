@@ -17,11 +17,11 @@ Directory structure:
 
 from .introspection import SQLiteColumnInfoExpression
 from .table_list import SQLiteTableListExpression
-from .reindex import SQLiteReindexExpression
-from .vacuum import SQLiteVacuumExpression, SQLiteAnalyzeExpression
+from .reindex import SQLiteReindexStatement
+from .vacuum import SQLiteVacuumStatement, SQLiteAnalyzeStatement
 from .attach import SQLiteAttachExpression, SQLiteDetachExpression
 from .predicates import SQLiteMatchPredicate
-from .dml import SQLiteInsertExpression
+from .dml import SQLiteInsertStatement
 from .fts5 import (
     SQLiteFTS5MatchExpression,
     SQLiteFTS5CreateVirtualTable,
@@ -30,8 +30,8 @@ from .fts5 import (
     SQLiteFTS5SnippetExpression,
 )
 from .virtual_table import (
-    CreateVirtualTableExpression,
-    DropVirtualTableExpression,
+    CreateVirtualTableStatement,
+    DropVirtualTableStatement,
 )
 from .rtree import (
     SQLiteRTreeCreateVirtualTable,
@@ -46,20 +46,20 @@ from .geopoly import (
 __all__ = [
     "SQLiteColumnInfoExpression",
     "SQLiteTableListExpression",
-    "SQLiteReindexExpression",
-    "SQLiteVacuumExpression",
-    "SQLiteAnalyzeExpression",
+    "SQLiteReindexStatement",
+    "SQLiteVacuumStatement",
+    "SQLiteAnalyzeStatement",
     "SQLiteAttachExpression",
     "SQLiteDetachExpression",
     "SQLiteMatchPredicate",
-    "SQLiteInsertExpression",
+    "SQLiteInsertStatement",
     "SQLiteFTS5MatchExpression",
     "SQLiteFTS5CreateVirtualTable",
     "SQLiteFTS5RankExpression",
     "SQLiteFTS5HighlightExpression",
     "SQLiteFTS5SnippetExpression",
-    "CreateVirtualTableExpression",
-    "DropVirtualTableExpression",
+    "CreateVirtualTableStatement",
+    "DropVirtualTableStatement",
     "SQLiteRTreeCreateVirtualTable",
     "SQLiteRTreeRangeQuery",
     "SQLiteGeopolyCreateVirtualTable",
@@ -73,20 +73,20 @@ from rhosocial.activerecord.backend.expression.serialization import ExpressionRe
 for _expr_cls in (
     SQLiteColumnInfoExpression,
     SQLiteTableListExpression,
-    SQLiteReindexExpression,
-    SQLiteVacuumExpression,
-    SQLiteAnalyzeExpression,
+    SQLiteReindexStatement,
+    SQLiteVacuumStatement,
+    SQLiteAnalyzeStatement,
     SQLiteAttachExpression,
     SQLiteDetachExpression,
     SQLiteMatchPredicate,
-    SQLiteInsertExpression,
+    SQLiteInsertStatement,
     SQLiteFTS5MatchExpression,
     SQLiteFTS5CreateVirtualTable,
     SQLiteFTS5RankExpression,
     SQLiteFTS5HighlightExpression,
     SQLiteFTS5SnippetExpression,
-    CreateVirtualTableExpression,
-    DropVirtualTableExpression,
+    CreateVirtualTableStatement,
+    DropVirtualTableStatement,
     SQLiteRTreeCreateVirtualTable,
     SQLiteRTreeRangeQuery,
     SQLiteGeopolyCreateVirtualTable,

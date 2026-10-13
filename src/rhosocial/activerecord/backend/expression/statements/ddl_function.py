@@ -10,11 +10,11 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class CreateFunctionExpression(BaseExpression):
+class CreateFunctionStatement(BaseExpression):
     """SQL/PSM standard CREATE FUNCTION statement.
 
     Examples:
-        create_func = CreateFunctionExpression(
+        create_func = CreateFunctionStatement(
             dialect,
             function=Function(dialect, "calculate_total"),
             parameters=[
@@ -51,11 +51,11 @@ class CreateFunctionExpression(BaseExpression):
         return "format_create_function_statement"
 
 
-class DropFunctionExpression(BaseExpression):
+class DropFunctionStatement(BaseExpression):
     """SQL/PSM standard DROP FUNCTION statement.
 
     Examples:
-        drop_func = DropFunctionExpression(
+        drop_func = DropFunctionStatement(
             dialect,
             function=Function(dialect, "calculate_total"),
             if_exists=True

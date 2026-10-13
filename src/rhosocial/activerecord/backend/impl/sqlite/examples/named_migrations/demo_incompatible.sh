@@ -45,7 +45,7 @@ from rhosocial.activerecord.backend.migration import (
     MigrationRunner, MigrationDirection, MigrationDialectError,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+    CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_partition import (
     PartitionClause, PartitionStrategy,
@@ -57,7 +57,7 @@ dialect = SQLiteBackend(database=":memory:").dialect
 col_def = ColumnDefinition("id", SQLiteIntegerType(),
     constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)])
 col_expr = ColExpr(dialect, "id")
-expr = CreateTableExpression(
+expr = CreateTableStatement(
     dialect, table="partitioned",
     columns=[col_def],
     partition=PartitionClause(dialect, method=PartitionStrategy.RANGE, keys=[col_expr]),

@@ -22,10 +22,10 @@ if TYPE_CHECKING:
         SQLiteGeopolyContainsExpression,
         SQLiteGeopolyCreateVirtualTable,
     )
-    from .expression.reindex import SQLiteReindexExpression
+    from .expression.reindex import SQLiteReindexStatement
     from .expression.rtree import SQLiteRTreeCreateVirtualTable, SQLiteRTreeRangeQuery
-    from .expression.vacuum import SQLiteAnalyzeExpression, SQLiteVacuumExpression
-    from .expression.virtual_table import CreateVirtualTableExpression, DropVirtualTableExpression
+    from .expression.vacuum import SQLiteAnalyzeStatement, SQLiteVacuumStatement
+    from .expression.virtual_table import CreateVirtualTableStatement, DropVirtualTableStatement
 
 
 @runtime_checkable
@@ -224,12 +224,12 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_create_virtual_table(
         self,
-        expr: "CreateVirtualTableExpression",
+        expr: "CreateVirtualTableStatement",
     ) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement.
 
         Args:
-            expr: CreateVirtualTableExpression instance
+            expr: CreateVirtualTableStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -238,12 +238,12 @@ class SQLiteVirtualTableSupport(Protocol):
 
     def format_drop_virtual_table(
         self,
-        expr: "DropVirtualTableExpression",
+        expr: "DropVirtualTableStatement",
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for virtual table.
 
         Args:
-            expr: DropVirtualTableExpression instance
+            expr: DropVirtualTableStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -298,11 +298,11 @@ class SQLiteReindexSupport(Protocol):
         """Whether REINDEX EXPRESSIONS is supported (SQLite 3.53.0+)."""
         ...
 
-    def format_reindex_statement(self, expr: "SQLiteReindexExpression") -> Tuple[str, tuple]:
+    def format_reindex_statement(self, expr: "SQLiteReindexStatement") -> Tuple[str, tuple]:
         """Format REINDEX statement.
 
         Args:
-            expr: SQLiteReindexExpression instance
+            expr: SQLiteReindexStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -341,22 +341,22 @@ class SQLiteMaintenanceSupport(Protocol):
         """Whether DETACH DATABASE is supported."""
         ...
 
-    def format_vacuum_statement(self, expr: "SQLiteVacuumExpression") -> Tuple[str, tuple]:
+    def format_vacuum_statement(self, expr: "SQLiteVacuumStatement") -> Tuple[str, tuple]:
         """Format a VACUUM statement.
 
         Args:
-            expr: SQLiteVacuumExpression instance.
+            expr: SQLiteVacuumStatement instance.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         ...
 
-    def format_analyze_statement(self, expr: "SQLiteAnalyzeExpression") -> Tuple[str, tuple]:
+    def format_analyze_statement(self, expr: "SQLiteAnalyzeStatement") -> Tuple[str, tuple]:
         """Format an ANALYZE statement.
 
         Args:
-            expr: SQLiteAnalyzeExpression instance.
+            expr: SQLiteAnalyzeStatement instance.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

@@ -15,7 +15,7 @@ from ..types import DataType
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
-    from .dql import QueryExpression
+    from .dql import QueryStatement
 
 
 class ColumnConstraintType(Enum):
@@ -385,7 +385,7 @@ class ColumnCommentClause(BaseExpression):
 
     A CREATE TABLE / ALTER TABLE **clause** node rendered through the
     dialect's ``format_column_comment_clause``.  It is deliberately distinct
-    from the standalone ``COMMENT ON`` statement (:class:`CommentOnExpression`):
+    from the standalone ``COMMENT ON`` statement (:class:`CommentOnStatement`):
     the inline clause is part of the *column-definition grammar* and only
     exists on dialects that advertise :meth:`supports_column_comment`.
 
@@ -415,7 +415,7 @@ class TableCommentClause(BaseExpression):
     MySQL/MariaDB/ClickHouse-family convenience (Snowflake renders
     ``COMMENT = '<text>'``, BigQuery ``OPTIONS(description='<text>')``), while
     the standalone ``COMMENT ON`` statement is a separate de-facto vendor
-    mechanism (:class:`CommentOnExpression`), not this clause.
+    mechanism (:class:`CommentOnStatement`), not this clause.
 
     Rendering is capability-gated: the statement renderer emits this clause
     only on dialects whose :meth:`supports_table_comment` is True, and raises
@@ -730,7 +730,7 @@ class CreateTableOptions(BaseExpression):
       MySQL/MariaDB/ClickHouse-family dialect convenience (Snowflake renders
       ``COMMENT = '<text>'``, BigQuery ``OPTIONS(description='<text>')``), and
       the standalone ``COMMENT ON`` statement is a separate de-facto vendor
-      mechanism (:class:`CommentOnExpression`), not this clause. Bare comment
+      mechanism (:class:`CommentOnStatement`), not this clause. Bare comment
       text is **not** accepted — build the clause node explicitly; rendering
       is capability-gated by the statement renderer through
       :meth:`supports_table_comment`, which raises ``UnsupportedFeatureError``
@@ -770,7 +770,7 @@ class CreateTableOptions(BaseExpression):
         self.comment = comment
 
 
-class CreateTableExpression(BaseExpression):
+class CreateTableStatement(BaseExpression):
     """Represents a comprehensive CREATE TABLE statement supporting full SQL standard features."""
 
     def __init__(
@@ -816,11 +816,11 @@ class CreateTableExpression(BaseExpression):
         return "format_create_table_statement"
 
 
-class CreateTableAsExpression(BaseExpression):
+class CreateTableAsStatement(BaseExpression):
     """Represents ``CREATE TABLE ... AS <query>`` (CTAS).
 
     The table's structure is derived from the result of a query.  Unlike the
-    explicit-schema form (:class:`CreateTableExpression`), the body is a query,
+    explicit-schema form (:class:`CreateTableStatement`), the body is a query,
     not a column list.
 
     Rendering is delegated to the dialect's ``format_create_table_as_statement``.
@@ -837,7 +837,7 @@ class CreateTableAsExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         table: "Table",
-        as_query: "QueryExpression",
+        as_query: "QueryStatement",
         *,
         columns: Optional[List[ColumnDefinition]] = None,
         temporary: bool = False,
@@ -850,7 +850,7 @@ class CreateTableAsExpression(BaseExpression):
         require_exclusive_options(with_data, no_data, "with_data", "no_data")
         self.table = table
         if as_query is None:
-            raise ValueError("as_query is required for CreateTableAsExpression")
+            raise ValueError("as_query is required for CreateTableAsStatement")
         self.as_query = as_query
         self.columns = list(columns or [])
         self.temporary = temporary
@@ -865,7 +865,7 @@ class CreateTableAsExpression(BaseExpression):
         return self.table.name
 
 
-class CreateTableLikeExpression(BaseExpression):
+class CreateTableLikeStatement(BaseExpression):
     """Represents ``CREATE TABLE ... LIKE <source_table>``.
 
     Creates a new empty table copying the *definition* (column attributes,
@@ -877,7 +877,7 @@ class CreateTableLikeExpression(BaseExpression):
     * BigQuery:        ``CREATE TABLE t LIKE src [OPTIONS (...)]``
     * PostgreSQL:      clause form ``CREATE TABLE t (LIKE src [INCLUDING ...])``
     * ClickHouse:      uses ``AS src`` / ``CLONE AS src`` -- model through
-      :class:`CreateTableAsExpression` / :class:`CreateTableCloneExpression`,
+      :class:`CreateTableAsStatement` / :class:`CreateTableCloneStatement`,
       not this class.
 
     The generic ``format_create_table_like_statement`` raises
@@ -920,7 +920,7 @@ class CreateTableCloneMode(Enum):
     COPY = "COPY"
 
 
-class CreateTableCloneExpression(BaseExpression):
+class CreateTableCloneStatement(BaseExpression):
     """Represents ``CREATE TABLE ... CLONE/COPY <source_table>``.
 
     Zero-copy (or metadata/data copy) creation from an existing table:
@@ -969,7 +969,7 @@ class CreateTableCloneExpression(BaseExpression):
         return self.table.name
 
 
-class CreateTableFromTemplateExpression(BaseExpression):
+class CreateTableFromTemplateStatement(BaseExpression):
     """Represents Snowflake ``CREATE TABLE ... USING TEMPLATE <query>``.
 
     Derives the table's column definitions from staged files described by a
@@ -987,7 +987,7 @@ class CreateTableFromTemplateExpression(BaseExpression):
         self,
         dialect: "SQLDialectBase",
         table: "Table",
-        template: "QueryExpression",
+        template: "QueryStatement",
         *,
         temporary: bool = False,
         if_not_exists: bool = False,
@@ -995,7 +995,7 @@ class CreateTableFromTemplateExpression(BaseExpression):
         super().__init__(dialect)
         self.table = table
         if template is None:
-            raise ValueError("template is required for CreateTableFromTemplateExpression")
+            raise ValueError("template is required for CreateTableFromTemplateStatement")
         self.template = template
         self.temporary = temporary
         self.if_not_exists = if_not_exists
@@ -1006,7 +1006,7 @@ class CreateTableFromTemplateExpression(BaseExpression):
         return self.table.name
 
 
-class DropTableExpression(BaseExpression):
+class DropTableStatement(BaseExpression):
     """Represents a DROP TABLE statement conforming to SQL standard.
 
     SQL Standard Syntax:
@@ -1049,23 +1049,23 @@ class DropTableExpression(BaseExpression):
 
     Examples:
         # Simple drop
-        DropTableExpression(dialect, Table(dialect, "users"))
+        DropTableStatement(dialect, Table(dialect, "users"))
         # -> DROP TABLE users
 
         # With IF EXISTS
-        DropTableExpression(dialect, "users", if_exists=True)
+        DropTableStatement(dialect, "users", if_exists=True)
         # -> DROP TABLE IF EXISTS users  (on dialects supporting IF EXISTS)
 
         # With CASCADE (PostgreSQL / MySQL / MariaDB)
-        DropTableExpression(dialect, "users", cascade=True)
+        DropTableStatement(dialect, "users", cascade=True)
         # -> DROP TABLE users CASCADE
 
         # With CASCADE on Oracle (dialect renders its own form)
-        DropTableExpression(oracle_dialect, "users", cascade=True, purge=True)
+        DropTableStatement(oracle_dialect, "users", cascade=True, purge=True)
         # -> DROP TABLE users CASCADE CONSTRAINTS PURGE
 
         # With schema-qualified table
-        DropTableExpression(dialect, Table(dialect, "users", schema_name="public"))
+        DropTableStatement(dialect, Table(dialect, "users", schema_name="public"))
         # -> DROP TABLE public.users
     """
     

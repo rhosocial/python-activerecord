@@ -14,12 +14,12 @@ This example demonstrates:
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
-    QueryExpression,
-    ExplainExpression,
-    CreateIndexExpression,
+    QueryStatement,
+    ExplainStatement,
+    CreateIndexStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, Column
@@ -37,7 +37,7 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -63,7 +63,7 @@ create_table = CreateTableExpression(
 sql, params = create_table.to_sql()
 backend.execute(sql, params)
 
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect=dialect,
     index_name="idx_users_email",
     table_name="users",
@@ -79,7 +79,7 @@ users = [
     ("Charlie", "charlie@example.com"),
 ]
 for name, email in users:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'users'),
         columns=["name", "email"],
@@ -93,7 +93,7 @@ for name, email in users:
 # ============================================================
 
 # 1. EXPLAIN QUERY PLAN for table scan (no index on name column)
-query1 = QueryExpression(
+query1 = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "*")],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -104,7 +104,7 @@ query1 = QueryExpression(
         Literal(dialect, "Alice"),
     ),
 )
-explain_scan = ExplainExpression(
+explain_scan = ExplainStatement(
     dialect=dialect,
     statement=query1,
     options=ExplainOptions(type=ExplainType.QUERY_PLAN),
@@ -117,7 +117,7 @@ for row in result.data:
     print(f"  {row}")
 
 # 2. EXPLAIN QUERY PLAN for index search (email has index)
-query2 = QueryExpression(
+query2 = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "*")],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -128,7 +128,7 @@ query2 = QueryExpression(
         Literal(dialect, "alice@example.com"),
     ),
 )
-explain_search = ExplainExpression(
+explain_search = ExplainStatement(
     dialect=dialect,
     statement=query2,
     options=ExplainOptions(type=ExplainType.QUERY_PLAN),

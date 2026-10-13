@@ -12,8 +12,8 @@ import pytest
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression.vacuum import (
-    SQLiteVacuumExpression,
-    SQLiteAnalyzeExpression,
+    SQLiteVacuumStatement,
+    SQLiteAnalyzeStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.attach import (
     SQLiteAttachExpression,
@@ -30,32 +30,32 @@ def dialect():
 
 class TestSQLiteVacuumStatement:
     def test_plain_vacuum(self, dialect):
-        sql, params = dialect.format_vacuum_statement(SQLiteVacuumExpression(dialect))
+        sql, params = dialect.format_vacuum_statement(SQLiteVacuumStatement(dialect))
         assert sql == "VACUUM"
         assert params == ()
 
     def test_vacuum_schema(self, dialect):
-        expr = SQLiteVacuumExpression(dialect, schema="aux")
+        expr = SQLiteVacuumStatement(dialect, schema="aux")
         sql, _ = dialect.format_vacuum_statement(expr)
         assert sql == 'VACUUM "aux"'
 
     def test_vacuum_into(self, dialect):
-        expr = SQLiteVacuumExpression(dialect, into="backup.db")
+        expr = SQLiteVacuumStatement(dialect, into="backup.db")
         sql, _ = dialect.format_vacuum_statement(expr)
         assert sql == "VACUUM INTO 'backup.db'"
 
     def test_vacuum_into_escapes_quote(self, dialect):
-        expr = SQLiteVacuumExpression(dialect, into="my'db")
+        expr = SQLiteVacuumStatement(dialect, into="my'db")
         sql, _ = dialect.format_vacuum_statement(expr)
         assert sql == "VACUUM INTO 'my''db'"
 
     def test_vacuum_schema_and_into_conflict(self, dialect):
         with pytest.raises(ValueError, match="VACUUM cannot combine"):
-            SQLiteVacuumExpression(dialect, schema="aux", into="x.db")
+            SQLiteVacuumStatement(dialect, schema="aux", into="x.db")
 
     def test_vacuum_into_version_gate(self):
         old = SQLiteDialect(version=(3, 26, 0))
-        expr = SQLiteVacuumExpression(old, into="backup.db")
+        expr = SQLiteVacuumStatement(old, into="backup.db")
         with pytest.raises(UnsupportedFeatureError, match="VACUUM INTO requires SQLite 3.27.0"):
             old.format_vacuum_statement(expr)
 
@@ -66,7 +66,7 @@ class TestSQLiteVacuumStatement:
 
 class TestSQLiteAnalyzeStatement:
     def test_plain_analyze(self, dialect):
-        sql, params = dialect.format_analyze_statement(SQLiteAnalyzeExpression(dialect))
+        sql, params = dialect.format_analyze_statement(SQLiteAnalyzeStatement(dialect))
         assert sql == "ANALYZE"
         assert params == ()
 
@@ -114,8 +114,8 @@ class TestSQLiteMaintenanceIntegration:
         backend.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)")
         backend.execute("INSERT INTO items (name) VALUES (?)", ("a",))
 
-        backend.execute(dialect.format_vacuum_statement(SQLiteVacuumExpression(dialect))[0])
-        backend.execute(dialect.format_analyze_statement(SQLiteAnalyzeExpression(dialect))[0])
+        backend.execute(dialect.format_vacuum_statement(SQLiteVacuumStatement(dialect))[0])
+        backend.execute(dialect.format_analyze_statement(SQLiteAnalyzeStatement(dialect))[0])
 
         row = backend.fetch_one("SELECT count(*) AS count FROM items")
         assert row["count"] == 1

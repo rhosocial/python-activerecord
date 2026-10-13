@@ -10,7 +10,7 @@ These snippets are documentation examples, not modules to add under `src/` or `t
 model declaration
   → DDLSourceMixin collection
   → external consumer selects/binds candidates
-  → ColumnDefinition / CreateTableExpression
+  → ColumnDefinition / CreateTableStatement
   → dialect.to_sql()
 ```
 

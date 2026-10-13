@@ -17,13 +17,13 @@ Named Expression Discovery:
     Example function:
         >>> def active_users(dialect, limit: int = 100):
         ...     '''Get active users.'''
-        ...     return QueryExpression(...)
+        ...     return QueryStatement(...)
 
     Example class:
         >>> class UserQueries:
         ...     def __call__(self, dialect, status: str = 'active'):
         ...         '''Get users by status.'''
-        ...         return QueryExpression(...)
+        ...         return QueryStatement(...)
 
 Usage:
     Resolving a named expression:

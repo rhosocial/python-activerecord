@@ -142,7 +142,7 @@ class StepNode:
 
     Example:
         >>> StepNode.query("fetch_users", "myapp.q.active_users", params={"limit": 100})
-        >>> StepNode.expr("create_tbl", CreateTableExpression(...))
+        >>> StepNode.expr("create_tbl", CreateTableStatement(...))
     """
 
     __slots__ = (

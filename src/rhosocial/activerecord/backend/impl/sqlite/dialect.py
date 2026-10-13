@@ -131,8 +131,8 @@ if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.predicates import DistinctFromPredicate
     from rhosocial.activerecord.backend.expression.query_parts import QualifyClause
-    from rhosocial.activerecord.backend.expression.statements import ExplainExpression
-    from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateExpression
+    from rhosocial.activerecord.backend.expression.statements import ExplainStatement
+    from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateStatement
 
 from .protocols import (
     SQLiteExtensionSupport,
@@ -568,7 +568,7 @@ class SQLiteDialect(
         # SQLite has limited support for different EXPLAIN formats
         return format_type.upper() in ["TEXT", "DOT"]
 
-    def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
+    def format_explain_statement(self, expr: "ExplainStatement") -> Tuple[str, tuple]:
         """Format EXPLAIN / EXPLAIN QUERY PLAN for SQLite.
 
         SQLite supports two forms:
@@ -760,7 +760,7 @@ class SQLiteDialect(
         """SQLite does not support TRUNCATE TABLE (use DELETE FROM instead)."""
         return False
 
-    def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
+    def format_truncate_statement(self, expr: "TruncateStatement") -> Tuple[str, tuple]:
         """SQLite does not support TRUNCATE TABLE."""
         raise UnsupportedFeatureError(self.name, "TRUNCATE TABLE", "Use DELETE FROM instead.")
 

@@ -10,7 +10,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-class TruncateExpression(BaseExpression):
+class TruncateStatement(BaseExpression):
     """
     Represents a TRUNCATE TABLE statement supporting SQL standard and database-specific features.
 
@@ -24,17 +24,17 @@ class TruncateExpression(BaseExpression):
 
     Examples:
         # Basic truncate
-        truncate_expr = TruncateExpression(dialect, table_name="users")
+        truncate_expr = TruncateStatement(dialect, table_name="users")
 
         # Truncate with restart identity (PostgreSQL)
-        truncate_expr = TruncateExpression(
+        truncate_expr = TruncateStatement(
             dialect,
             table_name="users",
             restart_identity=True
         )
 
         # Truncate with cascade (PostgreSQL)
-        truncate_expr = TruncateExpression(
+        truncate_expr = TruncateStatement(
             dialect,
             table_name="orders",
             cascade=True

@@ -6,7 +6,7 @@ Covers the deliberate separation the DDL layer draws:
 * ``ColumnCommentClause`` / ``TableCommentClause`` — the CREATE TABLE inline
   comment *clauses* (part of the statement grammar; MySQL/MariaDB/ClickHouse
   family, BigQuery, Snowflake);
-* ``CommentOnExpression`` — the standalone ``COMMENT ON`` *statement* that
+* ``CommentOnStatement`` — the standalone ``COMMENT ON`` *statement* that
   annotates existing objects (PostgreSQL/Oracle/Firebird/Snowflake), rendered
   by the generic ``CommentOnMixin``.
 
@@ -22,8 +22,8 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnCommentClause,
     ColumnDefinition,
     CommentObjectType,
-    CommentOnExpression,
-    CreateTableExpression,
+    CommentOnStatement,
+    CreateTableStatement,
     CreateTableOptions,
     TableCommentClause,
 )
@@ -113,7 +113,7 @@ def test_create_table_options_rejects_bare_string(dummy):
 def test_generic_create_table_table_comment_spacing(dummy):
     """The table-comment clause must be separated from the column list."""
     col = ColumnDefinition(dummy, "id", IntegerType(dummy))
-    expr = CreateTableExpression(
+    expr = CreateTableStatement(
         dummy,
         Table(dummy, 't'),
         [col],
@@ -139,7 +139,7 @@ def test_table_comment_clause_gated(sqlite):
 
 
 def test_comment_on_table(dummy):
-    sql, params = CommentOnExpression(
+    sql, params = CommentOnStatement(
         dummy, CommentObjectType.TABLE, Table(dummy, "t"), "meta"
     ).to_sql()
     assert sql == 'COMMENT ON TABLE "t" IS \'meta\''
@@ -147,14 +147,14 @@ def test_comment_on_table(dummy):
 
 
 def test_comment_on_column_dotted_target(dummy):
-    sql, _ = CommentOnExpression(
+    sql, _ = CommentOnStatement(
         dummy, CommentObjectType.COLUMN, Table(dummy, "t"), "col", column="c"
     ).to_sql()
     assert sql == 'COMMENT ON COLUMN "t"."c" IS \'col\''
 
 
 def test_comment_on_schema_qualified(schema_dummy):
-    sql, _ = CommentOnExpression(
+    sql, _ = CommentOnStatement(
         schema_dummy,
         CommentObjectType.TABLE,
         Table(schema_dummy, "t", schema_name="s"),
@@ -164,7 +164,7 @@ def test_comment_on_schema_qualified(schema_dummy):
 
 
 def test_comment_on_null_clears(dummy):
-    sql, params = CommentOnExpression(
+    sql, params = CommentOnStatement(
         dummy, CommentObjectType.TABLE, Table(dummy, "t"), None
     ).to_sql()
     assert sql == 'COMMENT ON TABLE "t" IS NULL'
@@ -172,26 +172,26 @@ def test_comment_on_null_clears(dummy):
 
 
 def test_comment_on_escapes_apostrophe(dummy):
-    sql, _ = CommentOnExpression(
+    sql, _ = CommentOnStatement(
         dummy, CommentObjectType.TABLE, Table(dummy, "t"), "it's"
     ).to_sql()
     assert sql == "COMMENT ON TABLE \"t\" IS 'it''s'"
 
 
 def test_comment_on_accepts_string_object_type(dummy):
-    sql, _ = CommentOnExpression(dummy, "TABLE", Table(dummy, "t"), "x").to_sql()
+    sql, _ = CommentOnStatement(dummy, "TABLE", Table(dummy, "t"), "x").to_sql()
     assert sql == 'COMMENT ON TABLE "t" IS \'x\''
 
 
 def test_comment_on_empty_object_name_rejected(dummy):
     with pytest.raises(ValueError, match="name"):
-        CommentOnExpression(dummy, CommentObjectType.TABLE, Table(dummy, "   "), "x")
+        CommentOnStatement(dummy, CommentObjectType.TABLE, Table(dummy, "   "), "x")
 
 
 def test_comment_on_gated_by_default(sqlite):
     """A dialect without COMMENT ON raises a clean UnsupportedFeatureError."""
     assert sqlite.supports_comment_on() is False
     with pytest.raises(UnsupportedFeatureError, match="COMMENT ON"):
-        CommentOnExpression(
+        CommentOnStatement(
             sqlite, CommentObjectType.TABLE, Table(sqlite, "t"), "x"
         ).to_sql()

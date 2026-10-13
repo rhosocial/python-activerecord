@@ -14,13 +14,13 @@ What is Named Expression:
     Example function:
         >>> def active_users(dialect, limit: int = 100):
         ...     '''Get active users with optional limit.'''
-        ...     return QueryExpression(...)
+        ...     return QueryStatement(...)
 
     Example class:
         >>> class UserQueries:
         ...     def __call__(self, dialect, status: str = 'active'):
         ...         '''Get users by status.'''
-        ...         return QueryExpression(...)
+        ...         return QueryStatement(...)
 
 Important Notes:
     This is a BACKEND FEATURE, independent of ActiveRecord or ActiveQuery.

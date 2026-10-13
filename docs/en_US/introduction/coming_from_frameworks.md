@@ -35,7 +35,7 @@ If you're familiar with other ORMs or frameworks, this guide will help you map y
 | `Column(Integer)` | `int` with type hints | Native Python types |
 | `session.add()` | `.save()` | Persist object |
 | `session.commit()` | Auto-commit or explicit | Transaction handling |
-| `select()` | `QueryExpression` | SQL expression building |
+| `select()` | `QueryStatement` | SQL expression building |
 | `text()` raw SQL | Use with caution | We prefer expressions |
 
 **Key differences:**

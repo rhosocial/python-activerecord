@@ -8,9 +8,9 @@ Schema diff: detect a column added to an existing table.
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, ColumnDefinition,
+    CreateTableStatement, ColumnDefinition,
     ColumnConstraint, ColumnConstraintType,
-    AlterTableExpression, AddColumn,
+    AlterTableStatement, AddColumn,
 )
 from rhosocial.activerecord.backend.expression.types import (
     IntegerType, TextType,
@@ -21,7 +21,7 @@ backend = SQLiteBackend(config)
 backend.introspect_and_adapt()
 dialect = backend.dialect
 
-expr = CreateTableExpression(
+expr = CreateTableStatement(
     dialect=dialect, table=Table(dialect, 'users'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
@@ -47,7 +47,7 @@ builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
 snapshot_before = builder.build(schema="main")
 
 # Add a new column
-expr = AlterTableExpression(dialect, "users", [
+expr = AlterTableStatement(dialect, "users", [
     AddColumn(dialect, ColumnDefinition(dialect, "email", TextType()))
 ])
 sql, params = expr.to_sql()

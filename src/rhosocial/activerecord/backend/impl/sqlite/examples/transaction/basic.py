@@ -13,11 +13,11 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
-    UpdateExpression,
-    QueryExpression,
+    UpdateStatement,
+    QueryStatement,
     WhereClause,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -33,7 +33,7 @@ from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
 from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 from .....expression.objects import Table
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="accounts",
     columns=[
@@ -59,7 +59,7 @@ sql, params = create_table.to_sql()
 print(f"Create table SQL: {sql}")
 backend.execute(sql, params)
 
-insert = InsertExpression(
+insert = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'accounts'),
     columns=["name", "balance"],
@@ -85,7 +85,7 @@ dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 # SECTION: Execution (run the expression)
 # ============================================================
 with backend.transaction():
-    update_expr = UpdateExpression(
+    update_expr = UpdateStatement(
         dialect=dialect,
         table=Table(dialect, 'accounts'),
         assignments={"balance": Literal(dialect, 50)},
@@ -103,7 +103,7 @@ with backend.transaction():
     backend.execute(sql, params)
 
 # Verify
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "balance")],
     from_=NamedRelationRef(dialect, Table(dialect, "accounts")),

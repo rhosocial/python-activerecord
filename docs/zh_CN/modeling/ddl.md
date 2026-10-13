@@ -85,7 +85,7 @@ ForeignKeyConstraint(
 ### 创建表
 
 ```python
-from rhosocial.activerecord.backend.expression import CreateTableExpression
+from rhosocial.activerecord.backend.expression import CreateTableStatement
 
 columns = [
     ColumnDefinition(
@@ -109,7 +109,7 @@ columns = [
     ColumnDefinition("created_at", "TIMESTAMP")
 ]
 
-create = CreateTableExpression(
+create = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=columns
@@ -124,7 +124,7 @@ sql, params = create.to_sql()
 ### 创建表（带 IF NOT EXISTS）
 
 ```python
-create = CreateTableExpression(
+create = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=columns,
@@ -137,7 +137,7 @@ sql, params = create.to_sql()
 ### 创建临时表
 
 ```python
-create = CreateTableExpression(
+create = CreateTableStatement(
     dialect=dialect,
     table_name="temp_sessions",
     columns=columns,
@@ -150,9 +150,9 @@ sql, params = create.to_sql()
 ### 删除表
 
 ```python
-from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.backend.expression import DropTableStatement
 
-drop = DropTableExpression(
+drop = DropTableStatement(
     dialect,
     table_name="old_users",
     if_exists=True,
@@ -166,14 +166,14 @@ sql, params = drop.to_sql()
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    AlterTableExpression,
+    AlterTableStatement,
     AddColumn,
     DropColumn,
     AlterColumn
 )
 
 # 添加新列
-alter = AlterTableExpression(
+alter = AlterTableStatement(
     dialect,
     table_name="users",
     actions=[
@@ -189,7 +189,7 @@ sql, params = alter.to_sql()
 # sql: 'ALTER TABLE "users" ADD COLUMN "phone" VARCHAR(20)'
 
 # 删除列
-alter = AlterTableExpression(
+alter = AlterTableStatement(
     dialect,
     table_name="users",
     actions=[
@@ -205,10 +205,10 @@ sql, params = alter.to_sql()
 ### 创建索引
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateIndexExpression
+from rhosocial.activerecord.backend.expression.statement import CreateIndexStatement
 
 # 基本索引
-create_idx = CreateIndexExpression(
+create_idx = CreateIndexStatement(
     dialect,
     index_name="idx_users_email",
     table_name="users",
@@ -218,7 +218,7 @@ sql, params = create_idx.to_sql()
 # sql: 'CREATE INDEX "idx_users_email" ON "users" ("email")'
 
 # 唯一索引
-create_idx = CreateIndexExpression(
+create_idx = CreateIndexStatement(
     dialect,
     index_name="idx_users_username",
     table_name="users",
@@ -229,7 +229,7 @@ create_idx = CreateIndexExpression(
 # 局部索引（带 WHERE 子句）
 from rhosocial.activerecord.backend.expression import Column, Literal
 
-create_idx = CreateIndexExpression(
+create_idx = CreateIndexStatement(
     dialect,
     index_name="idx_active_users",
     table_name="users",
@@ -243,9 +243,9 @@ sql, params = create_idx.to_sql()
 ### 删除索引
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropIndexExpression
+from rhosocial.activerecord.backend.expression.statement import DropIndexStatement
 
-drop_idx = DropIndexExpression(
+drop_idx = DropIndexStatement(
     dialect,
     index_name="idx_users_email",
     if_exists=True
@@ -259,9 +259,9 @@ sql, params = drop_idx.to_sql()
 ### 创建模式
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateSchemaExpression
+from rhosocial.activerecord.backend.expression.statement import CreateSchemaStatement
 
-create_schema = CreateSchemaExpression(
+create_schema = CreateSchemaStatement(
     dialect,
     schema_name="app_schema",
     if_not_exists=True
@@ -273,9 +273,9 @@ sql, params = create_schema.to_sql()
 ### 删除模式
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropSchemaExpression
+from rhosocial.activerecord.backend.expression.statement import DropSchemaStatement
 
-drop_schema = DropSchemaExpression(
+drop_schema = DropSchemaStatement(
     dialect,
     schema_name="old_schema",
     cascade=True
@@ -292,7 +292,7 @@ DDL 表达式可以直接在后端上执行：
 from rhosocial.activerecord.model import ActiveRecord
 
 # 创建表
-create = CreateTableExpression(dialect, "users", columns)
+create = CreateTableStatement(dialect, "users", columns)
 User.__backend__.execute(create)
 
 # 或者先构建 SQL 并检查

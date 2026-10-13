@@ -2,7 +2,7 @@
 """
 Integration tests for ALTER TABLE operations via the expression system.
 
-These tests exercise AlterTableExpression and its action subclasses against
+These tests exercise AlterTableStatement and its action subclasses against
 a real SQLite database, then use the introspector to verify the schema was
 actually modified. This validates the end-to-end correctness of the
 Expression -> Dialect -> SQL -> Database -> Introspector pipeline.
@@ -11,8 +11,8 @@ Expression -> Dialect -> SQL -> Database -> Introspector pipeline.
 import pytest
 
 from rhosocial.activerecord.backend.expression.statements import (
-    CreateTableExpression,
-    AlterTableExpression,
+    CreateTableStatement,
+    AlterTableStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -37,7 +37,7 @@ from rhosocial.activerecord.backend.expression.objects import Table
 @pytest.fixture
 def backend_with_users(sqlite_backend: SQLiteBackend) -> SQLiteBackend:
     """Create a backend with a simple 'users' table for ALTER TABLE tests."""
-    create_expr = CreateTableExpression(
+    create_expr = CreateTableStatement(
         dialect=sqlite_backend.dialect,
         table=Table(sqlite_backend.dialect, 'users'),
         columns=[
@@ -68,7 +68,7 @@ class TestAlterTableAddColumn:
             backend_with_users.dialect,
             column=ColumnDefinition(backend_with_users.dialect, "email", SQLiteTextType(dialect=backend_with_users.dialect)),
         )
-        alter_expr = AlterTableExpression(
+        alter_expr = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
             actions=[add_action],
@@ -89,7 +89,7 @@ class TestAlterTableAddColumn:
                 constraints=[ColumnConstraint(backend_with_users.dialect, ColumnConstraintType.NOT_NULL)],
             ),
         )
-        alter_expr = AlterTableExpression(
+        alter_expr = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
             actions=[add_action],
@@ -118,7 +118,7 @@ class TestAlterTableDropColumn:
             backend_with_users.dialect,
             column=ColumnDefinition(backend_with_users.dialect, "temp_field", SQLiteTextType(dialect=backend_with_users.dialect)),
         )
-        alter_add = AlterTableExpression(
+        alter_add = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
             actions=[add_action],
@@ -134,7 +134,7 @@ class TestAlterTableDropColumn:
             backend_with_users.dialect,
             column_name="temp_field",
         )
-        alter_drop = AlterTableExpression(
+        alter_drop = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
             actions=[drop_action],
@@ -156,7 +156,7 @@ class TestAlterTableRenameColumn:
             old_name="name",
             new_name="full_name",
         )
-        alter_expr = AlterTableExpression(
+        alter_expr = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
             actions=[rename_action],
@@ -192,7 +192,7 @@ class TestAlterTableAddConstraint:
             backend_with_users.dialect,
             column=ColumnDefinition(backend_with_users.dialect, "email", SQLiteTextType(dialect=backend_with_users.dialect)),
         )
-        alter_add = AlterTableExpression(
+        alter_add = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
             actions=[add_action],
@@ -215,7 +215,7 @@ class TestAlterTableAddConstraint:
                 ).is_not_null(),
             ),
         )
-        alter_constraint = AlterTableExpression(
+        alter_constraint = AlterTableStatement(
             backend_with_users.dialect,
             table=Table(backend_with_users.dialect, "users"),
             actions=[add_constraint],
@@ -285,7 +285,7 @@ class TestActionDialectBinding:
         assert action.dialect is sqlite_backend.dialect
 
     def test_action_to_sql_works_directly(self, sqlite_backend):
-        """Action.to_sql() should work without wrapping in AlterTableExpression."""
+        """Action.to_sql() should work without wrapping in AlterTableStatement."""
         action = AddColumn(
             sqlite_backend.dialect,
             column=ColumnDefinition(sqlite_backend.dialect, "x", SQLiteIntegerType(sqlite_backend.dialect)),

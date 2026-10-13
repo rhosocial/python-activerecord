@@ -274,7 +274,7 @@ class TestConstraintEnforcementAndValidation:
             ColumnConstraintType,
             ColumnDefinition,
             ComparisonPredicate,
-            CreateTableExpression,
+            CreateTableStatement,
             Literal,
             TableConstraint,
             TableConstraintType,
@@ -297,7 +297,7 @@ class TestConstraintEnforcementAndValidation:
             check_condition=condition,
             not_enforced=True,
         )
-        expression = CreateTableExpression(
+        expression = CreateTableStatement(
             dialect,
             Table(dialect, 'people'),
             [ColumnDefinition(dialect, "age", IntegerType(dialect), [column_constraint])],

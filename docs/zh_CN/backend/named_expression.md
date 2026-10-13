@@ -80,7 +80,7 @@ flowchart TB
 # 定义一次，可在任何方言下使用
 def active_users(dialect, limit: int = 100, status: str = "active"):
     """从数据库获取活跃用户。"""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name")],
         from_=TableExpression(dialect, "users"),

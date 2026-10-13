@@ -80,15 +80,15 @@ for row in result.rows:
 
 ### 使用表达式构建器
 
-可以传入任何 `BaseExpression`（`ExplainExpression` 本身除外）：
+可以传入任何 `BaseExpression`（`ExplainStatement` 本身除外）：
 
 ```python
 from rhosocial.activerecord.backend.expression.core import (
     TableExpression, WildcardExpression,
 )
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[WildcardExpression(dialect)],
     from_=TableExpression(dialect, "users"),
@@ -324,7 +324,7 @@ class MyBackend(SyncExplainBackendMixin, StorageBackend):
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `expression` | `BaseExpression` | 除 `ExplainExpression` 以外的任意表达式 |
+| `expression` | `BaseExpression` | 除 `ExplainStatement` 以外的任意表达式 |
 | `options` | `ExplainOptions \| None` | 可选的解释选项（类型、格式、analyze） |
 
 **返回值**：后端专属的 `BaseExplainResult` 子类。

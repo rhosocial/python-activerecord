@@ -17,7 +17,7 @@ import sys
 import logging
 from typing import Type, List, Tuple
 
-from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.backend.expression import DropTableStatement
 from rhosocial.activerecord.backend.type_adapter import BaseSQLTypeAdapter
 from rhosocial.activerecord.model import ActiveRecord
 
@@ -423,7 +423,7 @@ class BasicSyncProvider(BasicProviderBase, IBasicSyncProvider, WorkerTestProtoco
         from rhosocial.activerecord.backend.schema import StatementType
 
         try:
-            drop_expr = DropTableExpression(
+            drop_expr = DropTableStatement(
                 dialect=model_class.__backend__.dialect,
                 table=Table(model_class.__backend__.dialect, table_name),
                 if_exists=True,
@@ -700,7 +700,7 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
         from rhosocial.activerecord.backend.schema import StatementType
 
         try:
-            drop_expr = DropTableExpression(
+            drop_expr = DropTableStatement(
                 dialect=model_class.__backend__.dialect,
                 table=Table(model_class.__backend__.dialect, table_name),
                 if_exists=True,
@@ -780,7 +780,7 @@ class BasicAsyncProvider(BasicProviderBase, IBasicAsyncProvider):
         from rhosocial.activerecord.backend.schema import StatementType
 
         options = ExecutionOptions(stmt_type=StatementType.DDL)
-        drop_expr = DropTableExpression(
+        drop_expr = DropTableStatement(
             dialect=model_class.__backend__.dialect,
             table=Table(model_class.__backend__.dialect, table_name),
             if_exists=True,

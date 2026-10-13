@@ -17,9 +17,9 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    DropTableExpression,
-    QueryExpression,
+    CreateTableStatement,
+    DropTableStatement,
+    QueryStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
@@ -29,7 +29,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table=Table(dialect, 'users'),
     columns=[
@@ -50,12 +50,12 @@ print(f"Create table SQL: {sql}")
 backend.execute(sql, params)
 
 # ============================================================
-# SECTION: Single INSERT (using InsertExpression)
+# SECTION: Single INSERT (using InsertStatement)
 # ============================================================
-from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource  # noqa: E402
+from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource  # noqa: E402
 from .....expression.objects import Table
 
-insert_expr = InsertExpression(
+insert_expr = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["name"],
@@ -71,7 +71,7 @@ print(f"Insert SQL: {sql}")
 print(f"Params: {params}")
 backend.execute(sql, params)
 
-verify_query = QueryExpression(
+verify_query = QueryStatement(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -83,7 +83,7 @@ print(f"Result: {result.data}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
+drop_expr = DropTableStatement(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()
@@ -92,5 +92,5 @@ backend.disconnect()
 # SECTION: Summary
 # ============================================================
 # Key points:
-# 1. Use InsertExpression with ValuesSource for single row
+# 1. Use InsertStatement with ValuesSource for single row
 # 2. Auto-increment uses PRIMARY KEY constraint

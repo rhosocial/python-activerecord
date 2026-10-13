@@ -19,7 +19,7 @@ Calling ``to_sql()`` on a pre-3.53.0 dialect causes the dialect's
 """  # noqa: E501
 
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     FunctionCall,
     Column,
     Literal,
@@ -44,7 +44,7 @@ def demo_json_array_insert(dialect, position: int = 0, value: str = "new_item"):
         value: Value to insert into the array.
 
     Returns:
-        QueryExpression with ``json_array_insert``.
+        QueryStatement with ``json_array_insert``.
 
     Raises:
         RuntimeError: If dialect version < 3.53.0.
@@ -53,7 +53,7 @@ def demo_json_array_insert(dialect, position: int = 0, value: str = "new_item"):
         ver = f"{dialect.version[0]}.{dialect.version[1]}.{dialect.version[2]}"
         raise RuntimeError(f"json_array_insert() requires SQLite 3.53.0+, current dialect version: {ver}")
 
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[
             FunctionCall(

@@ -13,12 +13,12 @@ from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:
     from ...expression.statements.ddl_domain import (
-        AlterDomainExpression,
-        CreateDomainExpression,
+        AlterDomainStatement,
+        CreateDomainStatement,
         DomainAlterAction,
         DomainCheckConstraint,
         DomainValueExpression,
-        DropDomainExpression,
+        DropDomainStatement,
     )
 
 
@@ -105,27 +105,27 @@ class DomainMixin:
 
     def format_create_domain_statement(
         self,
-        expr: "CreateDomainExpression",
+        expr: "CreateDomainStatement",
     ) -> Tuple[str, tuple]:
         """Format a standard CREATE DOMAIN statement.
 
         Raises:
-            TypeError: ``CreateDomainExpression.domain`` is not a Domain. Another
+            TypeError: ``CreateDomainStatement.domain`` is not a Domain. Another
             object kind would have had its own name rendered as the domain's.
-            TypeError: An entry of ``CreateDomainExpression.checks`` is not a
+            TypeError: An entry of ``CreateDomainStatement.checks`` is not a
             DomainCheckConstraint. An entry of another kind has no check clause to
             render, so its CHECK would silently disappear.
         """
         if not isinstance(expr.domain, Domain):
             raise TypeError(
-                f"CreateDomainExpression.domain must be a Domain, "
+                f"CreateDomainStatement.domain must be a Domain, "
                 f"got {type(expr.domain).__name__}"
             )
 
         for position, entry in enumerate(expr.checks):
             if not isinstance(entry, DomainCheckConstraint):
                 raise TypeError(
-                    f"CreateDomainExpression.checks must hold DomainCheckConstraint instances, "
+                    f"CreateDomainStatement.checks must hold DomainCheckConstraint instances, "
                     f"got {type(entry).__name__} at position {position}"
                 )
         if not self.supports_domains() or not self.supports_create_domain():
@@ -181,20 +181,20 @@ class DomainMixin:
 
     def format_alter_domain_statement(
         self,
-        expr: "AlterDomainExpression",
+        expr: "AlterDomainStatement",
     ) -> Tuple[str, tuple]:
         """Format a standard ALTER DOMAIN statement.
 
         Raises:
-            TypeError: ``AlterDomainExpression.domain`` is not a Domain. Another
+            TypeError: ``AlterDomainStatement.domain`` is not a Domain. Another
             object kind would have had its own name rendered as the domain's.
-            TypeError: An entry of ``AlterDomainExpression.actions`` is not an
+            TypeError: An entry of ``AlterDomainStatement.actions`` is not an
             implementation of DomainAlterAction. An entry of another kind has no
             action clause to dispatch on, so nothing would be rendered for it.
         """
         if not isinstance(expr.domain, Domain):
             raise TypeError(
-                f"AlterDomainExpression.domain must be a Domain, "
+                f"AlterDomainStatement.domain must be a Domain, "
                 f"got {type(expr.domain).__name__}"
             )
 
@@ -204,7 +204,7 @@ class DomainMixin:
         for position, entry in enumerate(expr.actions):
             if not isinstance(entry, DomainAlterAction):
                 raise TypeError(
-                    f"AlterDomainExpression.actions must hold DomainAlterAction implementations, "
+                    f"AlterDomainStatement.actions must hold DomainAlterAction implementations, "
                     f"got {type(entry).__name__} at position {position}"
                 )
         if not self.supports_domains() or not self.supports_alter_domain():
@@ -230,17 +230,17 @@ class DomainMixin:
 
     def format_drop_domain_statement(
         self,
-        expr: "DropDomainExpression",
+        expr: "DropDomainStatement",
     ) -> Tuple[str, tuple]:
         """Format a standard DROP DOMAIN statement.
 
         Raises:
-            TypeError: ``DropDomainExpression.domain`` is not a Domain. Another
+            TypeError: ``DropDomainStatement.domain`` is not a Domain. Another
             object kind would have had its own name rendered as the domain's.
         """
         if not isinstance(expr.domain, Domain):
             raise TypeError(
-                f"DropDomainExpression.domain must be a Domain, "
+                f"DropDomainStatement.domain must be a Domain, "
                 f"got {type(expr.domain).__name__}"
             )
         if not self.supports_domains() or not self.supports_drop_domain():

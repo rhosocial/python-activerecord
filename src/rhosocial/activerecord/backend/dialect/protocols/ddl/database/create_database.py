@@ -11,7 +11,7 @@ Naming an object is not here -- that is
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .....expression.statements.ddl_database import CreateDatabaseExpression
+    from .....expression.statements.ddl_database import CreateDatabaseStatement
 
 
 @runtime_checkable
@@ -99,8 +99,8 @@ class CreateDatabaseSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_create_database_statement(self, expr: "CreateDatabaseExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.CreateDatabaseExpression`.
+    def format_create_database_statement(self, expr: "CreateDatabaseStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.CreateDatabaseStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

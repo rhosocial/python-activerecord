@@ -11,7 +11,7 @@ from .extension import SQLiteExtensionMixin
 
 if TYPE_CHECKING:
     from ..expression.fts5 import SQLiteFTS5MatchExpression
-    from ..expression.virtual_table import CreateVirtualTableExpression, DropVirtualTableExpression
+    from ..expression.virtual_table import CreateVirtualTableStatement, DropVirtualTableStatement
 
 _KNOWN_VTABLE_MODULES: Set[str] = {
     "rtree", "fts5", "fts4", "fts3", "geopoly",
@@ -108,12 +108,12 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
 
     def format_create_virtual_table(
         self,
-        expr: "CreateVirtualTableExpression",
+        expr: "CreateVirtualTableStatement",
     ) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement.
 
         Args:
-            expr: CreateVirtualTableExpression instance
+            expr: CreateVirtualTableStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -130,12 +130,12 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
 
     def format_drop_virtual_table(
         self,
-        expr: "DropVirtualTableExpression",
+        expr: "DropVirtualTableStatement",
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for a virtual table.
 
         Args:
-            expr: DropVirtualTableExpression instance
+            expr: DropVirtualTableStatement instance
 
         Returns:
             Tuple of (SQL string, parameters tuple)

@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     GeneratedColumnType,
     GeneratedColumnExpression,
-    CreateTableExpression,
+    CreateTableStatement,
     ColumnConstraint,
     ColumnConstraintType,
 )
@@ -164,7 +164,7 @@ class TestGeneratedColumnsInCreateTable:
             ),
         ]
 
-        create_table = CreateTableExpression(dialect=dialect, table=Table(dialect, 'order_items'), columns=columns)
+        create_table = CreateTableStatement(dialect=dialect, table=Table(dialect, 'order_items'), columns=columns)
 
         sql, params = create_table.to_sql()
 
@@ -194,7 +194,7 @@ class TestGeneratedColumnsInCreateTable:
             ),
         ]
 
-        create_table = CreateTableExpression(dialect=dialect, table=Table(dialect, 'users'), columns=columns)
+        create_table = CreateTableStatement(dialect=dialect, table=Table(dialect, 'users'), columns=columns)
 
         sql, params = create_table.to_sql()
 

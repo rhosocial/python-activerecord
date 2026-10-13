@@ -16,8 +16,8 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
@@ -27,7 +27,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="sales",
     columns=[
@@ -63,7 +63,7 @@ sales_data = [
     ("Charlie", "North", 2000, "2024-01-01"),
 ]
 for row in sales_data:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'sales'),
         columns=["salesperson", "region", "amount", "sale_date"],
@@ -76,7 +76,7 @@ for row in sales_data:
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     Column,
     FunctionCall,
     OrderByClause,
@@ -100,7 +100,7 @@ window_func = FunctionCall(
     alias="row_num",
 )
 
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "salesperson"),

@@ -5,8 +5,8 @@ from typing import Callable, Dict
 
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    DropTableExpression,
+    CreateTableStatement,
+    DropTableStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -15,8 +15,8 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.objects import Table
 
 
-def create_employees_table(dialect, table_name: str = "employees") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_employees_table(dialect, table_name: str = "employees") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -27,8 +27,8 @@ def create_employees_table(dialect, table_name: str = "employees") -> CreateTabl
     )
 
 
-def create_departments_table(dialect, table_name: str = "departments") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_departments_table(dialect, table_name: str = "departments") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -38,8 +38,8 @@ def create_departments_table(dialect, table_name: str = "departments") -> Create
     )
 
 
-def create_authors_table(dialect, table_name: str = "authors") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_authors_table(dialect, table_name: str = "authors") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -48,8 +48,8 @@ def create_authors_table(dialect, table_name: str = "authors") -> CreateTableExp
     )
 
 
-def create_books_table(dialect, table_name: str = "books") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_books_table(dialect, table_name: str = "books") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -60,8 +60,8 @@ def create_books_table(dialect, table_name: str = "books") -> CreateTableExpress
     )
 
 
-def create_chapters_table(dialect, table_name: str = "chapters") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_chapters_table(dialect, table_name: str = "chapters") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -72,8 +72,8 @@ def create_chapters_table(dialect, table_name: str = "chapters") -> CreateTableE
     )
 
 
-def create_profiles_table(dialect, table_name: str = "profiles") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_profiles_table(dialect, table_name: str = "profiles") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -84,8 +84,8 @@ def create_profiles_table(dialect, table_name: str = "profiles") -> CreateTableE
     )
 
 
-def create_rl_users_table(dialect, table_name: str = "users") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_rl_users_table(dialect, table_name: str = "users") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -96,8 +96,8 @@ def create_rl_users_table(dialect, table_name: str = "users") -> CreateTableExpr
     )
 
 
-def create_rl_posts_table(dialect, table_name: str = "posts") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_rl_posts_table(dialect, table_name: str = "posts") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -111,8 +111,8 @@ def create_rl_posts_table(dialect, table_name: str = "posts") -> CreateTableExpr
     )
 
 
-def create_rl_comments_table(dialect, table_name: str = "comments") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_rl_comments_table(dialect, table_name: str = "comments") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -124,8 +124,8 @@ def create_rl_comments_table(dialect, table_name: str = "comments") -> CreateTab
     )
 
 
-def create_relation_boundary_owners_table(dialect, table_name: str = "relation_boundary_owners") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_relation_boundary_owners_table(dialect, table_name: str = "relation_boundary_owners") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -134,8 +134,8 @@ def create_relation_boundary_owners_table(dialect, table_name: str = "relation_b
     )
 
 
-def create_relation_boundary_profiles_table(dialect, table_name: str = "relation_boundary_profiles") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_relation_boundary_profiles_table(dialect, table_name: str = "relation_boundary_profiles") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -145,8 +145,8 @@ def create_relation_boundary_profiles_table(dialect, table_name: str = "relation
     )
 
 
-def create_relation_boundary_posts_table(dialect, table_name: str = "relation_boundary_posts") -> CreateTableExpression:
-    return CreateTableExpression(
+def create_relation_boundary_posts_table(dialect, table_name: str = "relation_boundary_posts") -> CreateTableStatement:
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, table_name), if_not_exists=True,
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)]),
@@ -156,8 +156,8 @@ def create_relation_boundary_posts_table(dialect, table_name: str = "relation_bo
     )
 
 
-def drop_table(dialect, table_name: str) -> DropTableExpression:
-    return DropTableExpression(dialect=dialect, table=Table(dialect, table_name), if_exists=True)
+def drop_table(dialect, table_name: str) -> DropTableStatement:
+    return DropTableStatement(dialect=dialect, table=Table(dialect, table_name), if_exists=True)
 
 
 TABLE_EXPRESSIONS: Dict[str, Callable] = {

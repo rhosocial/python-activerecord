@@ -11,12 +11,12 @@ sys.path.insert(0, 'src')
 
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, QueryExpression, TableExpression, TruncateExpression
+    Column, Literal, QueryStatement, TableExpression, TruncateStatement
 )
 from rhosocial.activerecord.backend.expression.statements import (
-    CreateSchemaExpression, DropSchemaExpression,
-    CreateIndexExpression, DropIndexExpression,
-    CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression
+    CreateSchemaStatement, DropSchemaStatement,
+    CreateIndexStatement, DropIndexStatement,
+    CreateSequenceStatement, DropSequenceStatement, AlterSequenceStatement
 )
 
 
@@ -54,15 +54,15 @@ def main():
     print("="*60)
     
     # =========================================
-    # TruncateExpression
+    # TruncateStatement
     # =========================================
-    verify_section("TruncateExpression")
+    verify_section("TruncateStatement")
     
-    truncate = TruncateExpression(dialect, table_name="logs")
+    truncate = TruncateStatement(dialect, table_name="logs")
     sql, params = truncate.to_sql()
     all_passed &= verify_test("基本 TRUNCATE", sql, params, 'TRUNCATE TABLE "logs"', ())
     
-    truncate = TruncateExpression(
+    truncate = TruncateStatement(
         dialect,
         table_name="orders",
         restart_identity=True,
@@ -77,11 +77,11 @@ def main():
     # =========================================
     verify_section("Schema DDL")
     
-    create_schema = CreateSchemaExpression(dialect, schema_name="my_schema")
+    create_schema = CreateSchemaStatement(dialect, schema_name="my_schema")
     sql, params = create_schema.to_sql()
     all_passed &= verify_test("基本 CREATE SCHEMA", sql, params, 'CREATE SCHEMA "my_schema"', ())
     
-    create_schema = CreateSchemaExpression(
+    create_schema = CreateSchemaStatement(
         dialect,
         schema_name="app_schema",
         if_not_exists=True,
@@ -91,7 +91,7 @@ def main():
     all_passed &= verify_test("CREATE SCHEMA IF NOT EXISTS with AUTHORIZATION", sql, params, 'CREATE SCHEMA', ())
     all_passed &= "IF NOT EXISTS" in sql and "AUTHORIZATION" in sql
     
-    drop_schema = DropSchemaExpression(
+    drop_schema = DropSchemaStatement(
         dialect,
         schema_name="old_schema",
         if_exists=True,
@@ -106,7 +106,7 @@ def main():
     # =========================================
     verify_section("Index DDL")
     
-    create_index = CreateIndexExpression(
+    create_index = CreateIndexStatement(
         dialect,
         index_name="idx_users_email",
         table_name="users",
@@ -116,7 +116,7 @@ def main():
     all_passed &= verify_test("基本 CREATE INDEX", sql, params, 'CREATE INDEX', ())
     all_passed &= '"idx_users_email"' in sql and '"users"' in sql and '"email"' in sql
     
-    create_index = CreateIndexExpression(
+    create_index = CreateIndexStatement(
         dialect,
         index_name="idx_active_users",
         table_name="users",
@@ -128,7 +128,7 @@ def main():
     all_passed &= verify_test("UNIQUE INDEX with WHERE", sql, params, 'CREATE UNIQUE INDEX', ("active",))
     all_passed &= "WHERE" in sql
     
-    create_index = CreateIndexExpression(
+    create_index = CreateIndexStatement(
         dialect,
         index_name="idx_orders_user_date",
         table_name="orders",
@@ -138,7 +138,7 @@ def main():
     sql, params = create_index.to_sql()
     all_passed &= verify_test("复合索引 with index type", sql, params, 'USING BTREE', ())
     
-    create_index = CreateIndexExpression(
+    create_index = CreateIndexStatement(
         dialect,
         index_name="idx_users_email",
         table_name="users",
@@ -149,7 +149,7 @@ def main():
     all_passed &= verify_test("INDEX with INCLUDE", sql, params, 'INCLUDE', ())
     all_passed &= '"id"' in sql and '"name"' in sql
     
-    drop_index = DropIndexExpression(
+    drop_index = DropIndexStatement(
         dialect,
         index_name="idx_old_index",
         if_exists=True,
@@ -164,12 +164,12 @@ def main():
     # =========================================
     verify_section("Sequence DDL")
     
-    create_seq = CreateSequenceExpression(dialect, sequence_name="user_id_seq")
+    create_seq = CreateSequenceStatement(dialect, sequence_name="user_id_seq")
     sql, params = create_seq.to_sql()
     all_passed &= verify_test("基本 CREATE SEQUENCE", sql, params, 'CREATE SEQUENCE', ())
     all_passed &= '"user_id_seq"' in sql
     
-    create_seq = CreateSequenceExpression(
+    create_seq = CreateSequenceStatement(
         dialect,
         sequence_name="order_seq",
         if_not_exists=True,
@@ -187,16 +187,16 @@ def main():
                                               "MINVALUE 1000", "MAXVALUE 999999", "CYCLE", 
                                               "CACHE 20", "OWNED BY orders.id"])
     
-    drop_seq = DropSequenceExpression(dialect, sequence_name="old_seq", if_exists=True)
+    drop_seq = DropSequenceStatement(dialect, sequence_name="old_seq", if_exists=True)
     sql, params = drop_seq.to_sql()
     all_passed &= verify_test("DROP SEQUENCE", sql, params, 'DROP SEQUENCE IF EXISTS', ())
     
-    alter_seq = AlterSequenceExpression(dialect, sequence_name="user_id_seq", restart=1000)
+    alter_seq = AlterSequenceStatement(dialect, sequence_name="user_id_seq", restart=1000)
     sql, params = alter_seq.to_sql()
     all_passed &= verify_test("ALTER SEQUENCE restart", sql, params, 'ALTER SEQUENCE', ())
     all_passed &= "RESTART WITH 1000" in sql
     
-    alter_seq = AlterSequenceExpression(
+    alter_seq = AlterSequenceStatement(
         dialect,
         sequence_name="order_seq",
         increment=2,

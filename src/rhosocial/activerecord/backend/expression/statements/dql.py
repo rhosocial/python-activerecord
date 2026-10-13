@@ -39,7 +39,7 @@ class SelectModifier(Enum):
     ALL = "ALL"
 
 
-class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
+class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
     """
     Represents a complete SELECT query expression with all clauses supported by the framework.
 
@@ -52,7 +52,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
 
     Example Usage:
         # Basic SELECT query
-        query = QueryExpression(
+        query = QueryStatement(
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "name")],
             from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -60,18 +60,18 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
 
         # Scalar SELECT query - selecting constants or function results without FROM
-        scalar_query = QueryExpression(
+        scalar_query = QueryStatement(
             dialect,
             select=[Literal(dialect, 1)]  # Equivalent to SELECT 1;
         )
 
-        now_query = QueryExpression(
+        now_query = QueryStatement(
             dialect,
             select=[FunctionCall(dialect, "NOW")]  # Equivalent to SELECT NOW();
         )
 
         # SELECT with DISTINCT and complex clauses
-        query = QueryExpression(
+        query = QueryStatement(
             dialect,
             select=[Column(dialect, "category"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
             from_=NamedRelationRef(dialect, Table(dialect, "products")),
@@ -86,13 +86,13 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
 
         # Simple aggregate functions
-        count_query = QueryExpression(
+        count_query = QueryStatement(
             dialect,
             select=[FunctionCall(dialect, "COUNT", Column(dialect, "id"))],  # COUNT(id)
             from_=NamedRelationRef(dialect, Table(dialect, "users"))
         )
 
-        max_price_query = QueryExpression(
+        max_price_query = QueryStatement(
             dialect,
             select=[FunctionCall(dialect, "MAX", Column(dialect, "price"))],  # MAX(price)
             from_=NamedRelationRef(dialect, Table(dialect, "products"))
@@ -107,7 +107,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
         window_func = FunctionCall(dialect, "ROW_NUMBER", window_spec=window_spec, alias="row_num")
 
-        window_query = QueryExpression(
+        window_query = QueryStatement(
             dialect,
             select=[
                 Column(dialect, "employee_name"),
@@ -122,7 +122,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         )
 
         # Query with FOR UPDATE clause
-        lock_query = QueryExpression(
+        lock_query = QueryStatement(
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "status")],
             from_=NamedRelationRef(dialect, Table(dialect, "orders")),
@@ -155,7 +155,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         select_modifier: Optional[SelectModifier] = None,  # SELECT modifier - DISTINCT|ALL, None means no modifier
     ):
         """
-        Initialize a QueryExpression instance with the specified query components.
+        Initialize a QueryStatement instance with the specified query components.
 
         This class provides a comprehensive implementation of SQL SELECT statements with support for
         all major SQL clauses through dedicated clause objects. This approach allows for better
@@ -183,7 +183,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         Raises:
             ValueError: If HAVING is provided without GROUP BY (validated within GroupByHavingClause)
                       If OFFSET is provided without LIMIT (validated by dialect supports_offset_without_limit)
-                      If assignments are empty (though not applicable to QueryExpression)
+                      If assignments are empty (though not applicable to QueryStatement)
             TypeError: If from_ parameter is not one of the supported types
 
         Note:
@@ -216,7 +216,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         self.select_modifier = select_modifier  # SELECT modifier (DISTINCT/ALL), optional
 
     def validate(self, strict: bool = True) -> None:
-        """Validate QueryExpression parameters according to SQL standard.
+        """Validate QueryStatement parameters according to SQL standard.
 
         Args:
             strict: If True, perform strict validation that may impact performance.
@@ -253,7 +253,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                     if not _is_valid_from_source(item):
                         raise TypeError(
                             f"from_ list item at index {i} must be one of: str, NamedRelationRef, "
-                            f"Subquery, SetOperationExpression, JoinClause, ValuesExpression, "
+                            f"Subquery, SetOperationStatement, JoinClause, ValuesExpression, "
                             f"TableFunctionExpression, LateralExpression, GraphTableExpression, "
                             f"got {type(item)}"
                         )
@@ -261,7 +261,7 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
                 # For single values, validate using the same helper
                 if not _is_valid_from_source(self.from_):
                     raise TypeError(
-                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationExpression, "
+                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, GraphTableExpression, got {type(self.from_)}"
                     )

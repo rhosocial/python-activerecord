@@ -7,7 +7,7 @@ and verify the results match expected values.
 """
 
 import pytest
-from rhosocial.activerecord.backend.expression import Column, Literal, FunctionCall, QueryExpression
+from rhosocial.activerecord.backend.expression import Column, Literal, FunctionCall, QueryStatement
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
@@ -84,7 +84,7 @@ class TestMathFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "SQRT", Literal(dialect, 16)).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -99,7 +99,7 @@ class TestMathFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "ROUND", Column(dialect, "value"), Literal(dialect, 1)).as_("rounded")
-        query = QueryExpression(dialect, select=[result, Column(dialect, "value")], from_="test_data")
+        query = QueryStatement(dialect, select=[result, Column(dialect, "value")], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -114,7 +114,7 @@ class TestMathFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "POW", Column(dialect, "value"), Literal(dialect, 2)).as_("powered")
-        query = QueryExpression(dialect, select=[result, Column(dialect, "value")], from_="test_data")
+        query = QueryStatement(dialect, select=[result, Column(dialect, "value")], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -130,7 +130,7 @@ class TestMathFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "POWER", Literal(dialect, 2), Literal(dialect, 3)).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -145,7 +145,7 @@ class TestMathFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "MOD", Column(dialect, "value"), Literal(dialect, 10)).as_("modded")
-        query = QueryExpression(dialect, select=[result, Column(dialect, "value")], from_="test_data")
+        query = QueryStatement(dialect, select=[result, Column(dialect, "value")], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -161,7 +161,7 @@ class TestMathFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "CEIL", Literal(dialect, 3.14)).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -176,7 +176,7 @@ class TestMathFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "FLOOR", Literal(dialect, 3.14)).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -191,7 +191,7 @@ class TestMathFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "TRUNC", Literal(dialect, 3.14)).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -214,7 +214,7 @@ class TestMathFunctionsIntegration:
             Literal(dialect, 9),
             Literal(dialect, 2),
         ).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -237,7 +237,7 @@ class TestMathFunctionsIntegration:
             Literal(dialect, 9),
             Literal(dialect, 2),
         ).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -252,7 +252,7 @@ class TestMathFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "AVG", Column(dialect, "value")).as_("avg_value")
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -272,7 +272,7 @@ class TestJSONFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "JSON", Literal(dialect, '{"a": 1}')).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -289,7 +289,7 @@ class TestJSONFunctionsIntegration:
         result = FunctionCall(dialect, "JSON_ARRAY", Literal(dialect, 1), Literal(dialect, 2), Literal(dialect, 3)).as_(
             "result"
         )
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -311,7 +311,7 @@ class TestJSONFunctionsIntegration:
             Literal(dialect, "b"),
             Literal(dialect, 2),
         ).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -328,7 +328,7 @@ class TestJSONFunctionsIntegration:
         result = FunctionCall(dialect, "JSON_EXTRACT", Column(dialect, "json_data"), Literal(dialect, "$.a")).as_(
             "extracted"
         )
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -344,7 +344,7 @@ class TestJSONFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "JSON_TYPE", Column(dialect, "json_data"), Literal(dialect, "$.a")).as_("result")
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -359,7 +359,7 @@ class TestJSONFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "JSON_VALID", Column(dialect, "json_data")).as_("valid")
-        query = QueryExpression(dialect, select=[result, Column(dialect, "json_data")], from_="test_data")
+        query = QueryStatement(dialect, select=[result, Column(dialect, "json_data")], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -375,7 +375,7 @@ class TestJSONFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "JSON_QUOTE", Literal(dialect, "hello")).as_("result")
-        query = QueryExpression(dialect, select=[result])
+        query = QueryStatement(dialect, select=[result])
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -392,7 +392,7 @@ class TestJSONFunctionsIntegration:
         result = FunctionCall(dialect, "JSON_REMOVE", Column(dialect, "json_data"), Literal(dialect, "$.a")).as_(
             "removed"
         )
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -409,7 +409,7 @@ class TestJSONFunctionsIntegration:
         result = FunctionCall(
             dialect, "JSON_SET", Column(dialect, "json_data"), Literal(dialect, "$.c"), Literal(dialect, 3)
         ).as_("result")
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -426,7 +426,7 @@ class TestJSONFunctionsIntegration:
         result = FunctionCall(
             dialect, "JSON_INSERT", Column(dialect, "json_data"), Literal(dialect, "$.c"), Literal(dialect, 3)
         ).as_("result")
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -443,7 +443,7 @@ class TestJSONFunctionsIntegration:
         result = FunctionCall(
             dialect, "JSON_REPLACE", Column(dialect, "json_data"), Literal(dialect, "$.a"), Literal(dialect, 10)
         ).as_("result")
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -460,7 +460,7 @@ class TestJSONFunctionsIntegration:
         result = FunctionCall(dialect, "JSON_PATCH", Column(dialect, "json_data"), Literal(dialect, '{"a": 10}')).as_(
             "result"
         )
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -475,7 +475,7 @@ class TestJSONFunctionsIntegration:
         backend, dialect = sqlite_backend_with_data
 
         result = FunctionCall(dialect, "JSON_ARRAY_LENGTH", Column(dialect, "json_data")).as_("length")
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(
@@ -493,7 +493,7 @@ class TestJSONFunctionsIntegration:
         result = FunctionCall(dialect, "JSON_EXTRACT", Column(dialect, "json_data"), Literal(dialect, "$.a")).as_(
             "retrieved"
         )
-        query = QueryExpression(dialect, select=[result], from_="test_data")
+        query = QueryStatement(dialect, select=[result], from_="test_data")
         sql, params = query.to_sql()
 
         query_result = backend.execute(

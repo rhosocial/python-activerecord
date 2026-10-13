@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        DropTypeExpression,
+        DropTypeStatement,
     )
 
 
@@ -38,8 +38,8 @@ class DropTypeSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_drop_type_statement(self, expr: "DropTypeExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.DropTypeExpression`.
+    def format_drop_type_statement(self, expr: "DropTypeStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.DropTypeStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

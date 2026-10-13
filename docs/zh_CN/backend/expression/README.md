@@ -94,11 +94,11 @@
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression, TableExpression, Column, Literal
+    QueryStatement, TableExpression, Column, Literal
 )
 
 # SELECT name, age FROM users WHERE age >= 18
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "name"), Column(dialect, "age")],
     from_=TableExpression(dialect, "users"),

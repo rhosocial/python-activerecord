@@ -76,13 +76,13 @@ class TestTableFunctionExpression:
 
     def test_table_function_in_query_context(self, dummy_dialect: DummyDialect):
         """Test table function used in a query FROM clause."""
-        from rhosocial.activerecord.backend.expression import QueryExpression
+        from rhosocial.activerecord.backend.expression import QueryStatement
 
         arg = Literal(dummy_dialect, ["item1", "item2", "item3"])
 
         table_func = TableFunctionExpression(dummy_dialect, "UNNEST", arg, alias="items", column_names=["item_value"])
 
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect, select=[Column(dummy_dialect, "item_value", table="items")], from_=table_func
         )
 

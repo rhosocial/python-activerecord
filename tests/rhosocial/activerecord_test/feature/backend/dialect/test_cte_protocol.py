@@ -11,7 +11,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
     Literal,
-    QueryExpression,
+    QueryStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import CTEClause, WithStatement
@@ -58,7 +58,7 @@ def test_cte_clause_integration_reports_no_support():
     dialect = NoCTEDialect()
 
     # Create a simple query to use in CTE
-    query = QueryExpression(
+    query = QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -76,7 +76,7 @@ def test_with_statement_integration_reports_no_support():
     dialect = NoCTEDialect()
 
     # Create a simple query to use in CTE
-    query = QueryExpression(
+    query = QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "name")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -86,7 +86,7 @@ def test_with_statement_integration_reports_no_support():
     cte = CTEClause(dialect, name="user_cte", query=query, columns=["id", "name"])
 
     # Create main query that uses the CTE
-    main_query = QueryExpression(
+    main_query = QueryStatement(
         dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "user_cte")),
@@ -100,7 +100,7 @@ def test_with_statement_integration_reports_no_support():
 
 
 def _simple_cte(dialect):
-    query = QueryExpression(
+    query = QueryStatement(
         dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -118,7 +118,7 @@ def _probed(**answers):
 
 
 def _simple_main_query(dialect):
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "user_cte")),
@@ -206,14 +206,14 @@ def test_with_statement_places_cte_params_before_query_params():
     cte = CTEClause(
         dialect,
         name="user_cte",
-        query=QueryExpression(
+        query=QueryStatement(
             dialect,
             select=[Column(dialect, "id")],
             from_=NamedRelationRef(dialect, Table(dialect, "users")),
             where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, 7)),
         ),
     )
-    main = QueryExpression(
+    main = QueryStatement(
         dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "user_cte")),

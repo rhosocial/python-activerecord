@@ -7,13 +7,13 @@ a BaseExpression that implements Executable.
 """
 
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    DropTableExpression,
-    CreateIndexExpression,
+    CreateTableStatement,
+    DropTableStatement,
+    CreateIndexStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
-    AlterTableExpression,
+    AlterTableStatement,
     AddColumn,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, RealType, TextType
@@ -72,9 +72,9 @@ def create_orders_table(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        CreateTableExpression.
+        CreateTableStatement.
     """
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect,
         table=Table(dialect, 'orders'),
         columns=[
@@ -95,9 +95,9 @@ def create_inventory_table(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        CreateTableExpression.
+        CreateTableStatement.
     """
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect,
         table=Table(dialect, 'inventory'),
         columns=[
@@ -116,9 +116,9 @@ def add_amount_column(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        AlterTableExpression.
+        AlterTableStatement.
     """
-    return AlterTableExpression(
+    return AlterTableStatement(
         dialect,
         table_name="orders",
         actions=[
@@ -137,9 +137,9 @@ def add_orders_status_index(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        CreateIndexExpression.
+        CreateIndexStatement.
     """
-    return CreateIndexExpression(
+    return CreateIndexStatement(
         dialect,
         index_name="idx_orders_status",
         table_name="orders",
@@ -155,9 +155,9 @@ def drop_old_orders_table(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        DropTableExpression.
+        DropTableStatement.
     """
-    return DropTableExpression(
+    return DropTableStatement(
         dialect,
         table=Table(dialect, 'temp_orders'),
         if_exists=True,

@@ -2,7 +2,7 @@
 """
 SQLite-specific REINDEX expression.
 
-This module provides SQLiteReindexExpression for rebuilding indexes.
+This module provides SQLiteReindexStatement for rebuilding indexes.
 """
 
 from typing import Optional, TYPE_CHECKING
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ....dialect import SQLDialectBase
 
 
-class SQLiteReindexExpression(BaseExpression):
+class SQLiteReindexStatement(BaseExpression):
     """SQLite REINDEX statement expression.
 
     REINDEX is a SQLite-specific statement for rebuilding indexes.
@@ -25,16 +25,16 @@ class SQLiteReindexExpression(BaseExpression):
 
     Examples:
         # Rebuild all indexes on a table
-        reindex = SQLiteReindexExpression(dialect, table=Table(dialect, "users"))
+        reindex = SQLiteReindexStatement(dialect, table=Table(dialect, "users"))
 
         # Rebuild a specific index
-        reindex = SQLiteReindexExpression(dialect, index=Index(dialect, "idx_users_email"))
+        reindex = SQLiteReindexStatement(dialect, index=Index(dialect, "idx_users_email"))
 
         # Rebuild all expression indexes (SQLite 3.53.0+)
-        reindex = SQLiteReindexExpression(dialect, expressions=True)
+        reindex = SQLiteReindexStatement(dialect, expressions=True)
 
         # Rebuild all indexes in the database
-        reindex = SQLiteReindexExpression(dialect)
+        reindex = SQLiteReindexStatement(dialect)
     """
 
     def __init__(

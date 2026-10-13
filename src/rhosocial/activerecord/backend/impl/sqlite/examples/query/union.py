@@ -1,5 +1,5 @@
 """
-UNION using SetOperationExpression - SQLite.
+UNION using SetOperationStatement - SQLite.
 
 This example demonstrates:
 1. UNION (distinct)
@@ -20,17 +20,17 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
-    DropTableExpression,
+    DropTableStatement,
 )
 from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table=Table(dialect, 'users'),
     columns=[
@@ -43,7 +43,7 @@ sql, params = create_table.to_sql()
 print(f"Create table SQL: {sql}")
 backend.execute(sql, params)
 
-insert = InsertExpression(
+insert = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["id", "name"],
@@ -60,29 +60,29 @@ print(f"Insert SQL: {sql}")
 backend.execute(sql, params)
 
 # ============================================================
-# SECTION: UNION (using SetOperationExpression)
+# SECTION: UNION (using SetOperationStatement)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
-    SetOperationExpression,
+    QueryStatement,
+    SetOperationStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from .....expression.objects import Table
 
 # First query
-query1 = QueryExpression(
+query1 = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "name")],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 
-query2 = QueryExpression(
+query2 = QueryStatement(
     dialect=dialect,
     select=[Literal(dialect, "Charlie")],
 )
 
 # Union
-union_expr = SetOperationExpression(
+union_expr = SetOperationStatement(
     dialect=dialect,
     left=query1,
     operation="UNION",
@@ -99,7 +99,7 @@ print(f"Result: {result.data}")
 # ============================================================
 # SECTION: UNION ALL
 # ============================================================
-union_all = SetOperationExpression(
+union_all = SetOperationStatement(
     dialect=dialect,
     left=query1,
     operation="UNION",
@@ -114,7 +114,7 @@ print(f"UNION ALL result: {result.data}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
+drop_expr = DropTableStatement(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()
@@ -123,6 +123,6 @@ backend.disconnect()
 # SECTION: Summary
 # ============================================================
 # Key points:
-# 1. Use SetOperationExpression with operation='UNION'
+# 1. Use SetOperationStatement with operation='UNION'
 # 2. Use operation='UNION', all_=True for UNION ALL
 # 3. UNION removes duplicates, UNION ALL keeps all

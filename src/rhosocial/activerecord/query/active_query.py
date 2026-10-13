@@ -178,7 +178,7 @@ class ActiveQuery(
         backend = self.backend()
         dialect = backend.dialect
 
-        # Create a temporary QueryExpression with LIMIT 1
+        # Create a temporary QueryStatement with LIMIT 1
         from_clause = NamedRelationRef(
             dialect,
             Table(
@@ -192,7 +192,7 @@ class ActiveQuery(
         temp_limit_offset = LimitOffsetClause(dialect, limit=1)
 
         # Use the temporary limit_offset instead of the original one
-        query_expr = statements.QueryExpression(
+        query_expr = statements.QueryStatement(
             dialect,
             select=self.select_columns,
             from_=from_clause,
@@ -203,7 +203,7 @@ class ActiveQuery(
             for_update=self._for_update_clause,  # Pass FOR UPDATE clause for row locking
         )
 
-        # Generate SQL using the temporary QueryExpression
+        # Generate SQL using the temporary QueryStatement
         sql, params = query_expr.to_sql()
 
         self._log(logging.INFO, f"Executing query: {sql}, parameters: {params}")
@@ -228,8 +228,8 @@ class ActiveQuery(
 
         return record
 
-    def to_query_expression(self) -> "statements.QueryExpression":
-        """Build the underlying QueryExpression for this query.
+    def to_query_expression(self) -> "statements.QueryStatement":
+        """Build the underlying QueryStatement for this query.
 
         Public so predicates (e.g. ``IN``) can embed this query as a
         subquery without reaching into private state.
@@ -247,8 +247,8 @@ class ActiveQuery(
             ),
         )
 
-        # Create QueryExpression with all components
-        return statements.QueryExpression(
+        # Create QueryStatement with all components
+        return statements.QueryStatement(
             dialect,
             select=self.select_columns,
             from_=self.join_clause if self.join_clause else from_clause,
@@ -268,7 +268,7 @@ class ActiveQuery(
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        # Generate SQL using the QueryExpression
+        # Generate SQL using the QueryStatement
         return self.to_query_expression().to_sql()
 
     def union(self, other: "IQuery") -> "SetOperationQuery":
@@ -550,7 +550,7 @@ class AsyncActiveQuery(
         backend = self.backend()
         dialect = backend.dialect
 
-        # Create a temporary QueryExpression with LIMIT 1
+        # Create a temporary QueryStatement with LIMIT 1
         from_clause = NamedRelationRef(
             dialect,
             Table(
@@ -564,7 +564,7 @@ class AsyncActiveQuery(
         temp_limit_offset = LimitOffsetClause(dialect, limit=1)
 
         # Use the temporary limit_offset instead of the original one
-        query_expr = statements.QueryExpression(
+        query_expr = statements.QueryStatement(
             dialect,
             select=self.select_columns,
             from_=from_clause,
@@ -575,7 +575,7 @@ class AsyncActiveQuery(
             for_update=self._for_update_clause,  # Pass FOR UPDATE clause for row locking
         )
 
-        # Generate SQL using the temporary QueryExpression
+        # Generate SQL using the temporary QueryStatement
         sql, params = query_expr.to_sql()
 
         self._log(logging.INFO, f"Executing async query: {sql}, parameters: {params}")
@@ -622,8 +622,8 @@ class AsyncActiveQuery(
             ),
         )
 
-        # Create QueryExpression with all components
-        query_expr = statements.QueryExpression(
+        # Create QueryStatement with all components
+        query_expr = statements.QueryStatement(
             dialect,
             select=self.select_columns,
             from_=self.join_clause if self.join_clause else from_clause,
@@ -634,7 +634,7 @@ class AsyncActiveQuery(
             for_update=self._for_update_clause,
         )
 
-        # Generate SQL using the QueryExpression
+        # Generate SQL using the QueryStatement
         return query_expr.to_sql()
 
     def union(self, other: "IAsyncQuery") -> "IAsyncSetOperationQuery":

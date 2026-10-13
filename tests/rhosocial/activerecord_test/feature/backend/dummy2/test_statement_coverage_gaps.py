@@ -2,12 +2,12 @@
 """
 Tests to cover missing lines in expression statements and transaction modules.
 Targets:
-  - dml.py:118 (MergeExpression.statement_type)
-  - dml.py:310 (DeleteExpression.statement_type)
-  - dml.py:439 (UpdateExpression.statement_type)
-  - dml.py:615 (InsertExpression.statement_type)
-  - dql.py:303 (QueryExpression.statement_type)
-  - explain.py:128 (ExplainExpression.statement_type)
+  - dml.py:118 (MergeStatement.statement_type)
+  - dml.py:310 (DeleteStatement.statement_type)
+  - dml.py:439 (UpdateStatement.statement_type)
+  - dml.py:615 (InsertStatement.statement_type)
+  - dql.py:303 (QueryStatement.statement_type)
+  - explain.py:128 (ExplainStatement.statement_type)
   - transaction.py:135-136,152 (begin_type setter and get_params)
   - ddl_alter.py:61,63 (MODIFY_COLUMN and CHANGE_COLUMN action types)
 """
@@ -17,20 +17,20 @@ from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements.dml import (
-    InsertExpression,
-    UpdateExpression,
-    DeleteExpression,
-    MergeExpression,
+    InsertStatement,
+    UpdateStatement,
+    DeleteStatement,
+    MergeStatement,
 )
-from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
-from rhosocial.activerecord.backend.expression.statements.explain import ExplainExpression
+from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
+from rhosocial.activerecord.backend.expression.statements.explain import ExplainStatement
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
-    AlterTableExpression,
+    AlterTableStatement,
     ModifyColumn,
     ChangeColumn,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnDefinition
-from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
+from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
 from rhosocial.activerecord.backend.expression.types import VarCharType
 from rhosocial.activerecord.backend.expression.objects import Table
 
@@ -39,7 +39,7 @@ class TestDmlStatementTypes:
     """Cover statement_type properties in dml.py."""
 
     def test_insert_statement_type(self, dummy_dialect):
-        expr = InsertExpression(
+        expr = InsertStatement(
             dummy_dialect,
             into=Table(dummy_dialect, 'users'),
             source=[Literal(dummy_dialect, "Alice")],
@@ -48,7 +48,7 @@ class TestDmlStatementTypes:
         assert expr.statement_type == StatementType.INSERT
 
     def test_update_statement_type(self, dummy_dialect):
-        expr = UpdateExpression(
+        expr = UpdateStatement(
             dummy_dialect,
             table=Table(dummy_dialect, 'users'),
             assignments={"name": Literal(dummy_dialect, "Bob")},
@@ -56,7 +56,7 @@ class TestDmlStatementTypes:
         assert expr.statement_type == StatementType.UPDATE
 
     def test_delete_statement_type(self, dummy_dialect):
-        expr = DeleteExpression(
+        expr = DeleteStatement(
             dummy_dialect,
             tables=Table(dummy_dialect, 'users'),
         )
@@ -65,7 +65,7 @@ class TestDmlStatementTypes:
     def test_merge_statement_type(self, dummy_dialect):
         col = Column(dummy_dialect, "id")
         condition = ComparisonPredicate(dummy_dialect, "=", col, Literal(dummy_dialect, 1))
-        expr = MergeExpression(
+        expr = MergeStatement(
             dummy_dialect,
             target_table=Table(dummy_dialect, 'users'),
             source=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "new_users")),
@@ -75,10 +75,10 @@ class TestDmlStatementTypes:
 
 
 class TestDqlStatementType:
-    """Cover dql.py:303 — QueryExpression.statement_type."""
+    """Cover dql.py:303 — QueryStatement.statement_type."""
 
     def test_query_statement_type(self, dummy_dialect):
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
@@ -87,15 +87,15 @@ class TestDqlStatementType:
 
 
 class TestExplainStatementType:
-    """Cover explain.py:128 — ExplainExpression.statement_type."""
+    """Cover explain.py:128 — ExplainStatement.statement_type."""
 
     def test_explain_statement_type(self, dummy_dialect):
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
         )
-        explain = ExplainExpression(dummy_dialect, query)
+        explain = ExplainStatement(dummy_dialect, query)
         assert explain.statement_type == StatementType.EXPLAIN
 
 
@@ -103,18 +103,18 @@ class TestTransactionBeginType:
     """Cover transaction.py:135-136,152 — begin_type setter and get_params."""
 
     def test_begin_type_setter(self, dummy_dialect):
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         result = expr.begin_type("DEFERRED")
         assert result is expr  # Returns self for chaining
 
     def test_get_params_with_begin_type(self, dummy_dialect):
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         expr.begin_type("IMMEDIATE")
         params = expr.get_params()
         assert params["begin_type"] == "IMMEDIATE"
 
     def test_get_params_without_begin_type(self, dummy_dialect):
-        expr = BeginTransactionExpression(dummy_dialect)
+        expr = BeginTransactionStatement(dummy_dialect)
         params = expr.get_params()
         assert params.get("begin_type") is None
 
@@ -131,7 +131,7 @@ class TestAlterTableModifyChangeColumn:
 
         col_def = ColumnDefinition(dummy_dialect, "name", VarCharType(dummy_dialect, 255))
         action = ModifyColumn(dummy_dialect, column=col_def)
-        expr = AlterTableExpression(
+        expr = AlterTableStatement(
             dummy_dialect,
             table=Table(dummy_dialect, "users"),
             actions=[action],
@@ -145,7 +145,7 @@ class TestAlterTableModifyChangeColumn:
 
         col_def = ColumnDefinition(dummy_dialect, "new_name", VarCharType(dummy_dialect, 255))
         action = ChangeColumn(dummy_dialect, old_name="old_name", column=col_def)
-        expr = AlterTableExpression(
+        expr = AlterTableStatement(
             dummy_dialect,
             table=Table(dummy_dialect, "users"),
             actions=[action],

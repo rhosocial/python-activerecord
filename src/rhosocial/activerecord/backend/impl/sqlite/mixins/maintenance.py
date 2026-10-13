@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 
 if TYPE_CHECKING:
     from ..expression.attach import SQLiteAttachExpression, SQLiteDetachExpression
-    from ..expression.vacuum import SQLiteAnalyzeExpression, SQLiteVacuumExpression
+    from ..expression.vacuum import SQLiteAnalyzeStatement, SQLiteVacuumStatement
 
 
 class SQLiteMaintenanceMixin:
@@ -42,7 +42,7 @@ class SQLiteMaintenanceMixin:
         """DETACH DATABASE is supported since SQLite 3.0."""
         return True
 
-    def format_vacuum_statement(self, expr: "SQLiteVacuumExpression") -> Tuple[str, tuple]:
+    def format_vacuum_statement(self, expr: "SQLiteVacuumStatement") -> Tuple[str, tuple]:
         """Format the VACUUM statement for SQLite.
 
         SQLite VACUUM syntax:
@@ -51,7 +51,7 @@ class SQLiteMaintenanceMixin:
         - VACUUM INTO 'filename'        -- Write vacuumed db to a new file (3.27.0+)
 
         Args:
-            expr: SQLiteVacuumExpression instance.
+            expr: SQLiteVacuumStatement instance.
 
         Returns:
             Tuple of (SQL string, empty parameters tuple).
@@ -73,13 +73,13 @@ class SQLiteMaintenanceMixin:
 
         return "VACUUM", ()
 
-    def format_analyze_statement(self, expr: "SQLiteAnalyzeExpression") -> Tuple[str, tuple]:
+    def format_analyze_statement(self, expr: "SQLiteAnalyzeStatement") -> Tuple[str, tuple]:
         """Format the ANALYZE statement for SQLite.
 
         SQLite ANALYZE syntax: ``ANALYZE``.
 
         Args:
-            expr: SQLiteAnalyzeExpression instance.
+            expr: SQLiteAnalyzeStatement instance.
 
         Returns:
             Tuple of (SQL string, empty parameters tuple).

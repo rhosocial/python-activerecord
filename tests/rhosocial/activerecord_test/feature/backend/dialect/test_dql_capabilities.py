@@ -19,8 +19,8 @@ from rhosocial.activerecord.backend.expression import (
     OrderByClause,
     OrderByExpression,
 )
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
-from rhosocial.activerecord.backend.expression.query_sources import SetOperationExpression
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
+from rhosocial.activerecord.backend.expression.query_sources import SetOperationStatement
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 
 pytestmark = [pytest.mark.feature, pytest.mark.backend]
@@ -47,10 +47,10 @@ class NoShare(DummyDialect):
 
 
 def _set_op(dialect, **kwargs):
-    return SetOperationExpression(
+    return SetOperationStatement(
         dialect,
-        left=QueryExpression(dialect, select=[Column(dialect, "id")], from_="t1"),
-        right=QueryExpression(dialect, select=[Column(dialect, "id")], from_="t2"),
+        left=QueryStatement(dialect, select=[Column(dialect, "id")], from_="t1"),
+        right=QueryStatement(dialect, select=[Column(dialect, "id")], from_="t2"),
         operation="UNION",
         **kwargs,
     )

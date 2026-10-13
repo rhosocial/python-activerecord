@@ -8,8 +8,8 @@ Schema diff: detect removed and added indexes between two snapshots.
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, CreateIndexExpression,
-    DropIndexExpression, ColumnDefinition,
+    CreateTableStatement, CreateIndexStatement,
+    DropIndexStatement, ColumnDefinition,
     ColumnConstraint, ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.expression.types import (
@@ -21,7 +21,7 @@ backend = SQLiteBackend(config)
 backend.introspect_and_adapt()
 dialect = backend.dialect
 
-expr = CreateTableExpression(
+expr = CreateTableStatement(
     dialect=dialect, table=Table(dialect, 'products'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
@@ -32,7 +32,7 @@ expr = CreateTableExpression(
 sql, params = expr.to_sql()
 backend.execute(sql, params)
 
-expr = CreateIndexExpression(dialect, "idx_name", "products", ["name"])
+expr = CreateIndexStatement(dialect, "idx_name", "products", ["name"])
 sql, params = expr.to_sql()
 backend.execute(sql, params)
 
@@ -51,10 +51,10 @@ builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
 snapshot_before = builder.build(schema="main")
 
 # Drop one index, add another
-expr = DropIndexExpression(dialect, "idx_name", "products")
+expr = DropIndexStatement(dialect, "idx_name", "products")
 sql, params = expr.to_sql()
 backend.execute(sql, params)
-expr = CreateIndexExpression(dialect, "idx_price", "products", ["price"])
+expr = CreateIndexStatement(dialect, "idx_price", "products", ["price"])
 sql, params = expr.to_sql()
 backend.execute(sql, params)
 

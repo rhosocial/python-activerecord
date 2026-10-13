@@ -8,7 +8,7 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     Literal,
     LogicalPredicate,
-    QueryExpression,
+    QueryStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.functions import date_add, date_diff, extract
@@ -89,7 +89,7 @@ def _category_created_filter(dialect):
 
 def test_created_at_range_uses_datetime_index(temporal_backend, query_plan_options):
     dialect = temporal_backend.dialect
-    query = QueryExpression(
+    query = QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "created_at")],
         from_=NamedRelationRef(dialect, Table(dialect, "temporal_events")),
@@ -113,7 +113,7 @@ def test_created_at_range_uses_datetime_index(temporal_backend, query_plan_optio
 
 def test_started_at_range_uses_composite_datetime_index(temporal_backend, query_plan_options):
     dialect = temporal_backend.dialect
-    query = QueryExpression(
+    query = QueryStatement(
         dialect,
         select=[Column(dialect, "started_at"), Column(dialect, "ended_at")],
         from_=NamedRelationRef(dialect, Table(dialect, "temporal_events")),
@@ -135,7 +135,7 @@ def test_started_at_range_uses_composite_datetime_index(temporal_backend, query_
 
 def test_datetime_interval_expressions_work_with_indexed_filter(temporal_backend, query_plan_options):
     dialect = temporal_backend.dialect
-    query = QueryExpression(
+    query = QueryStatement(
         dialect,
         select=[
             Column(dialect, "id"),

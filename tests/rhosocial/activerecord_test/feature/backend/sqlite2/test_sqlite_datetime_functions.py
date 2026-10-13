@@ -10,11 +10,11 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     FunctionCall,
     RawSQLExpression,
-    QueryExpression,
-    UpdateExpression,
-    DeleteExpression,
+    QueryStatement,
+    UpdateStatement,
+    DeleteStatement,
 )
-from rhosocial.activerecord.backend.expression.statements import InsertExpression, ReturningClause, ValuesSource
+from rhosocial.activerecord.backend.expression.statements import InsertStatement, ReturningClause, ValuesSource
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.objects import Table
 
@@ -27,7 +27,7 @@ class TestSQLiteDateTimeFunctions:
         # Using RawSQLExpression for CURRENT_TIMESTAMP
         raw_timestamp = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
 
-        insert_expr = InsertExpression(
+        insert_expr = InsertStatement(
             sqlite_dialect_3_8_0,
             into=Table(sqlite_dialect_3_8_0, 'users'),
             source=ValuesSource(
@@ -46,7 +46,7 @@ class TestSQLiteDateTimeFunctions:
         """Test CURRENT_TIMESTAMP in UPDATE operations."""
         raw_timestamp = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
 
-        update_expr = UpdateExpression(
+        update_expr = UpdateStatement(
             sqlite_dialect_3_8_0,
             table=Table(sqlite_dialect_3_8_0, 'users'),
             assignments={"updated_at": raw_timestamp, "username": Literal(sqlite_dialect_3_8_0, "updated_john")},
@@ -65,7 +65,7 @@ class TestSQLiteDateTimeFunctions:
         now_func = FunctionCall(sqlite_dialect_3_8_0, "DATETIME", Literal(sqlite_dialect_3_8_0, "now"))
         date_func = FunctionCall(sqlite_dialect_3_8_0, "DATE", Literal(sqlite_dialect_3_8_0, "now"))
 
-        query_expr = QueryExpression(
+        query_expr = QueryStatement(
             sqlite_dialect_3_8_0,
             select=[Column(sqlite_dialect_3_8_0, "id"), now_func, date_func],
             from_="users",  # Use string instead of Column
@@ -84,7 +84,7 @@ class TestSQLiteDateTimeFunctions:
             sqlite_dialect_3_8_0, "DATE", Literal(sqlite_dialect_3_8_0, "now"), Literal(sqlite_dialect_3_8_0, "-1 day")
         )
 
-        query_expr = QueryExpression(
+        query_expr = QueryStatement(
             sqlite_dialect_3_8_0,
             select=[Column(sqlite_dialect_3_8_0, "id")],
             from_="users",
@@ -99,7 +99,7 @@ class TestSQLiteDateTimeFunctions:
     def test_current_timestamp_in_delete(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test CURRENT_TIMESTAMP concept in DELETE operations (for audit trails)."""
         # Create a table with a timestamp column for audit purposes
-        delete_expr = DeleteExpression(
+        delete_expr = DeleteStatement(
             sqlite_dialect_3_8_0,
             tables=Table(sqlite_dialect_3_8_0, 'temp_users'),
             where=Column(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "inactive"),
@@ -117,7 +117,7 @@ class TestSQLiteDateTimeFunctions:
         today_func = FunctionCall(sqlite_dialect_3_8_0, "DATE", Literal(sqlite_dialect_3_8_0, "now"))
         time_func = FunctionCall(sqlite_dialect_3_8_0, "TIME", Literal(sqlite_dialect_3_8_0, "now"))
 
-        query_expr = QueryExpression(
+        query_expr = QueryStatement(
             sqlite_dialect_3_8_0,
             select=[current_timestamp, now_func, today_func, time_func],
             from_="dual",  # Using dual as dummy table
@@ -136,7 +136,7 @@ class TestSQLiteDateTimeFunctions:
         if sqlite_dialect_3_8_0.supports_returning_insert():
             raw_timestamp = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
 
-            update_expr = UpdateExpression(
+            update_expr = UpdateStatement(
                 sqlite_dialect_3_8_0,
                 table=Table(sqlite_dialect_3_8_0, 'users'),
                 assignments={"updated_at": raw_timestamp, "status": Literal(sqlite_dialect_3_8_0, "active")},
@@ -162,7 +162,7 @@ class TestSQLiteDateTimeFunctions:
             Literal(sqlite_dialect_3_8_0, "now"),
         )
 
-        query_expr = QueryExpression(
+        query_expr = QueryStatement(
             sqlite_dialect_3_8_0, select=[strftime_func, Column(sqlite_dialect_3_8_0, "id")], from_="events"
         )
 
@@ -174,7 +174,7 @@ class TestSQLiteDateTimeFunctions:
     def test_datetime_comparison_with_literals(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test datetime comparisons with literal values."""
         # Compare datetime with literal
-        query_expr = QueryExpression(
+        query_expr = QueryStatement(
             sqlite_dialect_3_8_0,
             select=[Column(sqlite_dialect_3_8_0, "id")],
             from_="logs",
@@ -189,7 +189,7 @@ class TestSQLiteDateTimeFunctions:
         """Test JULIANDAY function in operations."""
         julianday_func = FunctionCall(sqlite_dialect_3_8_0, "JULIANDAY", Literal(sqlite_dialect_3_8_0, "now"))
 
-        query_expr = QueryExpression(
+        query_expr = QueryStatement(
             sqlite_dialect_3_8_0, select=[Column(sqlite_dialect_3_8_0, "id"), julianday_func], from_="calendar_events"
         )
 

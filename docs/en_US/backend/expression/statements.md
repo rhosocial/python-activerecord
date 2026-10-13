@@ -4,15 +4,15 @@ The `statements` module defines the core DML (Data Manipulation Language) and DD
 
 ## DML Statements
 
-### QueryExpression (SELECT)
+### QueryStatement (SELECT)
 
-`QueryExpression` represents a `SELECT` statement. It composes various clauses (SELECT, FROM, WHERE, GROUP BY, etc.) into a complete query.
+`QueryStatement` represents a `SELECT` statement. It composes various clauses (SELECT, FROM, WHERE, GROUP BY, etc.) into a complete query.
 
 ```python
-from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression, Column, Literal
+from rhosocial.activerecord.backend.expression import QueryStatement, TableExpression, Column, Literal
 
 # Basic SELECT
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "name"), Column(dialect, "email")],
     from_=TableExpression(dialect, "users"),
@@ -24,7 +24,7 @@ sql, params = query.to_sql()
 
 # SELECT with DISTINCT
 from rhosocial.activerecord.backend.expression import SelectModifier
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "category")],
     from_=TableExpression(dialect, "products"),
@@ -35,18 +35,18 @@ sql, params = query.to_sql()
 # params: ()
 ```
 
-### InsertExpression (INSERT)
+### InsertStatement (INSERT)
 
-`InsertExpression` represents an `INSERT` statement. It supports single-row, multi-row, `INSERT ... SELECT`, and `ON CONFLICT` clauses.
+`InsertStatement` represents an `INSERT` statement. It supports single-row, multi-row, `INSERT ... SELECT`, and `ON CONFLICT` clauses.
 
 ```python
-from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource, Literal
+from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource, Literal
 
 # Single row insert
 source = ValuesSource(dialect, values_list=[
     [Literal(dialect, "John Doe"), Literal(dialect, "john@example.com")]
 ])
-insert = InsertExpression(
+insert = InsertStatement(
     dialect,
     into="users",
     columns=["name", "email"],
@@ -63,7 +63,7 @@ on_conflict = OnConflictClause(
     conflict_target=["id"],
     do_nothing=True
 )
-insert = InsertExpression(
+insert = InsertStatement(
     dialect,
     into="products",
     columns=["id", "name"],
@@ -75,15 +75,15 @@ sql, params = insert.to_sql()
 # params: (...)
 ```
 
-### UpdateExpression (UPDATE)
+### UpdateStatement (UPDATE)
 
-`UpdateExpression` represents an `UPDATE` statement. It supports `SET` assignments, `WHERE` clauses, and optional `FROM` clauses (for joins).
+`UpdateStatement` represents an `UPDATE` statement. It supports `SET` assignments, `WHERE` clauses, and optional `FROM` clauses (for joins).
 
 ```python
-from rhosocial.activerecord.backend.expression import UpdateExpression, Literal, Column
+from rhosocial.activerecord.backend.expression import UpdateStatement, Literal, Column
 
 # Basic UPDATE
-update = UpdateExpression(
+update = UpdateStatement(
     dialect,
     table="users",
     assignments={
@@ -98,7 +98,7 @@ sql, params = update.to_sql()
 
 # UPDATE with RETURNING
 from rhosocial.activerecord.backend.expression import ReturningClause
-update = UpdateExpression(
+update = UpdateStatement(
     dialect,
     table="items",
     assignments={"quantity": Column(dialect, "quantity") - Literal(dialect, 1)},
@@ -110,15 +110,15 @@ sql, params = update.to_sql()
 # params: (1, 123)
 ```
 
-### DeleteExpression (DELETE)
+### DeleteStatement (DELETE)
 
-`DeleteExpression` represents a `DELETE` statement. It supports `WHERE` clauses and optional `USING` clauses (for joins).
+`DeleteStatement` represents a `DELETE` statement. It supports `WHERE` clauses and optional `USING` clauses (for joins).
 
 ```python
-from rhosocial.activerecord.backend.expression import DeleteExpression, Literal, Column
+from rhosocial.activerecord.backend.expression import DeleteStatement, Literal, Column
 
 # Basic DELETE
-delete = DeleteExpression(
+delete = DeleteStatement(
     dialect,
     table="sessions",
     where=Column(dialect, "expires_at") < Literal(dialect, "NOW()")
@@ -128,7 +128,7 @@ sql, params = delete.to_sql()
 # params: ("NOW()",)
 
 # DELETE with USING (Join delete)
-delete = DeleteExpression(
+delete = DeleteStatement(
     dialect,
     table="users",
     using="old_users",
@@ -155,21 +155,21 @@ sql, params = delete.to_sql()
 >
 > DML statements (`INSERT`/`SELECT`/`UPDATE`/`DELETE`) are not affected — the default bind-parameter mode works normally.
 
-### CreateTableExpression
+### CreateTableStatement
 
-`CreateTableExpression` represents a `CREATE TABLE` statement.
+`CreateTableStatement` represents a `CREATE TABLE` statement.
 
 Data types should use `DataType` expressions (e.g. `IntegerType`, `TextType`, `VarCharType`, etc.) rather than raw strings:
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, ColumnDefinition,
+    CreateTableStatement, ColumnDefinition,
     ColumnConstraint, ColumnConstraintType, Literal, Column,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType, RealType
 
 # Create table — using DataType expressions
-create = CreateTableExpression(
+create = CreateTableStatement(
     dialect,
     table="new_users",
     columns=[
@@ -229,7 +229,7 @@ Generated columns (computed columns) use the `GeneratedColumnExpression` express
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType, Column,
+    CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType, Column,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType, RealType
 from rhosocial.activerecord.backend.expression.statements import (
@@ -255,7 +255,7 @@ columns = [
     ),
 ]
 
-create = CreateTableExpression(
+create = CreateTableStatement(
     dialect=dialect,
     table="products",
     columns=columns,
@@ -271,14 +271,14 @@ sql, params = create.to_sql()
 # dialect.supports_virtual_generated_columns() - VIRTUAL support
 ```
 
-### DropTableExpression
+### DropTableStatement
 
-`DropTableExpression` represents a `DROP TABLE` statement.
+`DropTableStatement` represents a `DROP TABLE` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression import DropTableExpression
+from rhosocial.activerecord.backend.expression import DropTableStatement
 
-drop = DropTableExpression(
+drop = DropTableStatement(
     dialect,
     table_name="old_users",
     if_exists=True,
@@ -289,20 +289,20 @@ sql, params = drop.to_sql()
 # params: ()
 ```
 
-### CreateViewExpression / DropViewExpression
+### CreateViewStatement / DropViewStatement
 
 Expressions for managing database views.
 
 ```python
-from rhosocial.activerecord.backend.expression import CreateViewExpression
+from rhosocial.activerecord.backend.expression import CreateViewStatement
 
 # Create View
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "name")],
     from_=TableExpression(dialect, "users")
 )
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="user_names",
     query=query,
@@ -313,15 +313,15 @@ sql, params = create_view.to_sql()
 # params: ()
 ```
 
-### TruncateExpression
+### TruncateStatement
 
-`TruncateExpression` represents a `TRUNCATE TABLE` statement for fast row deletion.
+`TruncateStatement` represents a `TRUNCATE TABLE` statement for fast row deletion.
 
 ```python
-from rhosocial.activerecord.backend.expression import TruncateExpression
+from rhosocial.activerecord.backend.expression import TruncateStatement
 
 # Basic TRUNCATE
-truncate = TruncateExpression(
+truncate = TruncateStatement(
     dialect,
     table_name="logs"
 )
@@ -330,7 +330,7 @@ sql, params = truncate.to_sql()
 # params: ()
 
 # TRUNCATE with RESTART IDENTITY and CASCADE
-truncate = TruncateExpression(
+truncate = TruncateStatement(
     dialect,
     table_name="orders",
     restart_identity=True,
@@ -343,15 +343,15 @@ sql, params = truncate.to_sql()
 
 ### Schema DDL
 
-#### CreateSchemaExpression
+#### CreateSchemaStatement
 
-`CreateSchemaExpression` represents a `CREATE SCHEMA` statement for creating database schemas (namespaces).
+`CreateSchemaStatement` represents a `CREATE SCHEMA` statement for creating database schemas (namespaces).
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateSchemaExpression
+from rhosocial.activerecord.backend.expression.statement import CreateSchemaStatement
 
 # Basic CREATE SCHEMA
-create_schema = CreateSchemaExpression(
+create_schema = CreateSchemaStatement(
     dialect,
     schema_name="my_schema"
 )
@@ -360,7 +360,7 @@ sql, params = create_schema.to_sql()
 # params: ()
 
 # CREATE SCHEMA IF NOT EXISTS with AUTHORIZATION
-create_schema = CreateSchemaExpression(
+create_schema = CreateSchemaStatement(
     dialect,
     schema_name="app_schema",
     if_not_exists=True,
@@ -371,15 +371,15 @@ sql, params = create_schema.to_sql()
 # params: ()
 ```
 
-#### DropSchemaExpression
+#### DropSchemaStatement
 
-`DropSchemaExpression` represents a `DROP SCHEMA` statement.
+`DropSchemaStatement` represents a `DROP SCHEMA` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropSchemaExpression
+from rhosocial.activerecord.backend.expression.statement import DropSchemaStatement
 
 # DROP SCHEMA with options
-drop_schema = DropSchemaExpression(
+drop_schema = DropSchemaStatement(
     dialect,
     schema_name="old_schema",
     if_exists=True,
@@ -392,15 +392,15 @@ sql, params = drop_schema.to_sql()
 
 ### Index DDL
 
-#### CreateIndexExpression
+#### CreateIndexStatement
 
-`CreateIndexExpression` represents a `CREATE INDEX` statement with support for various index types and options.
+`CreateIndexStatement` represents a `CREATE INDEX` statement with support for various index types and options.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateIndexExpression
+from rhosocial.activerecord.backend.expression.statement import CreateIndexStatement
 
 # Basic CREATE INDEX
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect,
     index_name="idx_users_email",
     table_name="users",
@@ -411,7 +411,7 @@ sql, params = create_index.to_sql()
 # params: ()
 
 # UNIQUE INDEX with WHERE clause (partial index)
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect,
     index_name="idx_active_users",
     table_name="users",
@@ -424,7 +424,7 @@ sql, params = create_index.to_sql()
 # params: ("active",)
 
 # Composite index with index type
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect,
     index_name="idx_orders_user_date",
     table_name="orders",
@@ -436,7 +436,7 @@ sql, params = create_index.to_sql()
 # params: ()
 
 # Index with INCLUDE clause (covering index)
-create_index = CreateIndexExpression(
+create_index = CreateIndexStatement(
     dialect,
     index_name="idx_users_email",
     table_name="users",
@@ -448,15 +448,15 @@ sql, params = create_index.to_sql()
 # params: ()
 ```
 
-#### DropIndexExpression
+#### DropIndexStatement
 
-`DropIndexExpression` represents a `DROP INDEX` statement.
+`DropIndexStatement` represents a `DROP INDEX` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropIndexExpression
+from rhosocial.activerecord.backend.expression.statement import DropIndexStatement
 
 # DROP INDEX
-drop_index = DropIndexExpression(
+drop_index = DropIndexStatement(
     dialect,
     index_name="idx_old_index",
     if_exists=True,
@@ -469,15 +469,15 @@ sql, params = drop_index.to_sql()
 
 ### Sequence DDL
 
-#### CreateSequenceExpression
+#### CreateSequenceStatement
 
-`CreateSequenceExpression` represents a `CREATE SEQUENCE` statement for generating unique numeric identifiers.
+`CreateSequenceStatement` represents a `CREATE SEQUENCE` statement for generating unique numeric identifiers.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateSequenceExpression
+from rhosocial.activerecord.backend.expression.statement import CreateSequenceStatement
 
 # Basic CREATE SEQUENCE
-create_seq = CreateSequenceExpression(
+create_seq = CreateSequenceStatement(
     dialect,
     sequence_name="user_id_seq"
 )
@@ -486,7 +486,7 @@ sql, params = create_seq.to_sql()
 # params: ()
 
 # CREATE SEQUENCE with all options
-create_seq = CreateSequenceExpression(
+create_seq = CreateSequenceStatement(
     dialect,
     sequence_name="order_seq",
     if_not_exists=True,
@@ -503,14 +503,14 @@ sql, params = create_seq.to_sql()
 # params: ()
 ```
 
-#### DropSequenceExpression
+#### DropSequenceStatement
 
-`DropSequenceExpression` represents a `DROP SEQUENCE` statement.
+`DropSequenceStatement` represents a `DROP SEQUENCE` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropSequenceExpression
+from rhosocial.activerecord.backend.expression.statement import DropSequenceStatement
 
-drop_seq = DropSequenceExpression(
+drop_seq = DropSequenceStatement(
     dialect,
     sequence_name="old_seq",
     if_exists=True
@@ -520,15 +520,15 @@ sql, params = drop_seq.to_sql()
 # params: ()
 ```
 
-#### AlterSequenceExpression
+#### AlterSequenceStatement
 
-`AlterSequenceExpression` represents an `ALTER SEQUENCE` statement for modifying existing sequences.
+`AlterSequenceStatement` represents an `ALTER SEQUENCE` statement for modifying existing sequences.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import AlterSequenceExpression
+from rhosocial.activerecord.backend.expression.statement import AlterSequenceStatement
 
 # Restart sequence
-alter_seq = AlterSequenceExpression(
+alter_seq = AlterSequenceStatement(
     dialect,
     sequence_name="user_id_seq",
     restart=1000
@@ -538,7 +538,7 @@ sql, params = alter_seq.to_sql()
 # params: ()
 
 # Multiple changes
-alter_seq = AlterSequenceExpression(
+alter_seq = AlterSequenceStatement(
     dialect,
     sequence_name="order_seq",
     increment=2,
@@ -550,12 +550,12 @@ sql, params = alter_seq.to_sql()
 # params: ()
 ```
 
-### MergeExpression (MERGE)
+### MergeStatement (MERGE)
 
-`MergeExpression` represents a `MERGE` statement (Upsert).
+`MergeStatement` represents a `MERGE` statement (Upsert).
 
 ```python
-from rhosocial.activerecord.backend.expression import MergeExpression, MergeAction, MergeActionType
+from rhosocial.activerecord.backend.expression import MergeStatement, MergeAction, MergeActionType
 
 # Define Actions
 when_matched = MergeAction(
@@ -571,7 +571,7 @@ when_not_matched = MergeAction(
 )
 
 # Merge Statement
-merge = MergeExpression(
+merge = MergeStatement(
     dialect,
     target_table=TableExpression(dialect, "target", "t"),
     source=TableExpression(dialect, "source", "s"),
@@ -595,21 +595,21 @@ Materialized views are database objects that pre-compute and store query results
 > - MySQL: Not supported (use tables as alternative)
 > - SQLite: Not supported
 
-#### CreateMaterializedViewExpression
+#### CreateMaterializedViewStatement
 
-`CreateMaterializedViewExpression` represents a `CREATE MATERIALIZED VIEW` statement.
+`CreateMaterializedViewStatement` represents a `CREATE MATERIALIZED VIEW` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import CreateMaterializedViewExpression
+from rhosocial.activerecord.backend.expression.statement import CreateMaterializedViewStatement
 
 # Basic CREATE MATERIALIZED VIEW
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[Column(dialect, "user_id"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
     from_=TableExpression(dialect, "orders"),
     group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "user_id")])
 )
-create_mv = CreateMaterializedViewExpression(
+create_mv = CreateMaterializedViewStatement(
     dialect,
     view_name="order_counts",
     query=query
@@ -619,7 +619,7 @@ sql, params = create_mv.to_sql()
 # params: ()
 
 # Materialized view with TABLESPACE (PostgreSQL)
-create_mv = CreateMaterializedViewExpression(
+create_mv = CreateMaterializedViewStatement(
     dialect,
     view_name="user_summary",
     query=query,
@@ -631,15 +631,15 @@ sql, params = create_mv.to_sql()
 # params: ()
 ```
 
-#### DropMaterializedViewExpression
+#### DropMaterializedViewStatement
 
-`DropMaterializedViewExpression` represents a `DROP MATERIALIZED VIEW` statement.
+`DropMaterializedViewStatement` represents a `DROP MATERIALIZED VIEW` statement.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import DropMaterializedViewExpression
+from rhosocial.activerecord.backend.expression.statement import DropMaterializedViewStatement
 
 # DROP MATERIALIZED VIEW
-drop_mv = DropMaterializedViewExpression(
+drop_mv = DropMaterializedViewStatement(
     dialect,
     view_name="old_summary",
     if_exists=True,
@@ -650,15 +650,15 @@ sql, params = drop_mv.to_sql()
 # params: ()
 ```
 
-#### RefreshMaterializedViewExpression
+#### RefreshMaterializedViewStatement
 
-`RefreshMaterializedViewExpression` represents a `REFRESH MATERIALIZED VIEW` statement for refreshing materialized view data.
+`RefreshMaterializedViewStatement` represents a `REFRESH MATERIALIZED VIEW` statement for refreshing materialized view data.
 
 ```python
-from rhosocial.activerecord.backend.expression.statement import RefreshMaterializedViewExpression
+from rhosocial.activerecord.backend.expression.statement import RefreshMaterializedViewStatement
 
 # Basic refresh
-refresh_mv = RefreshMaterializedViewExpression(
+refresh_mv = RefreshMaterializedViewStatement(
     dialect,
     view_name="order_counts"
 )
@@ -667,7 +667,7 @@ sql, params = refresh_mv.to_sql()
 # params: ()
 
 # CONCURRENTLY refresh (PostgreSQL 9.4+, requires unique index)
-refresh_mv = RefreshMaterializedViewExpression(
+refresh_mv = RefreshMaterializedViewStatement(
     dialect,
     view_name="order_counts",
     concurrent=True
@@ -677,7 +677,7 @@ sql, params = refresh_mv.to_sql()
 # params: ()
 
 # WITH DATA/WITH NO DATA option
-refresh_mv = RefreshMaterializedViewExpression(
+refresh_mv = RefreshMaterializedViewStatement(
     dialect,
     view_name="order_counts",
     with_data=True

@@ -17,8 +17,8 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
@@ -28,7 +28,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -53,7 +53,7 @@ create_table = CreateTableExpression(
 sql, params = create_table.to_sql()
 backend.execute(sql, params)
 
-insert_expr = InsertExpression(
+insert_expr = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["name"],
@@ -66,7 +66,7 @@ backend.execute(sql, params)
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    AlterTableExpression,
+    AlterTableStatement,
     ColumnDefinition,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (  # noqa: E402
@@ -84,7 +84,7 @@ add_col_action = AddColumn(
     ),
 )
 
-add_col_expr = AlterTableExpression(
+add_col_expr = AlterTableStatement(
     dialect=dialect,
     table_name="users",
     actions=[add_col_action],
@@ -103,7 +103,7 @@ rename_action = RenameObject(
     new_name="full_name",
 )
 
-rename_expr = AlterTableExpression(
+rename_expr = AlterTableStatement(
     dialect=dialect,
     table_name="users",
     actions=[rename_action],

@@ -15,29 +15,29 @@ rhosocial-activerecord 的表达式系统是一个强大而灵活的工具，用
 ```python
 # 以下代码在表达式系统中是有效的，但可能在数据库执行时失败
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, QueryExpression, TableExpression
+    Column, Literal, QueryStatement, TableExpression
 )
-from rhosocial.activerecord.backend.expression.query_sources import SetOperationExpression
+from rhosocial.activerecord.backend.expression.query_sources import SetOperationStatement
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 dialect = DummyDialect()
 
 # 第一个查询返回整数 ID 和文本名称
-query1 = QueryExpression(
+query1 = QueryStatement(
     dialect,
     select=[Column(dialect, "id"), Column(dialect, "name")],
     from_=TableExpression(dialect, "users")
 )
 
 # 第二个查询返回文本 email 和整数年龄
-query2 = QueryExpression(
+query2 = QueryStatement(
     dialect,
     select=[Column(dialect, "email"), Column(dialect, "age")],
     from_=TableExpression(dialect, "customers")
 )
 
 # 表达式系统会成功构建此 UNION，但数据库执行时会报错
-union_query = SetOperationExpression(
+union_query = SetOperationStatement(
     dialect,
     left=query1,
     right=query2,

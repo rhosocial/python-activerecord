@@ -695,7 +695,7 @@ sequenceDiagram
     
     rect rgb(240, 248, 255)
         Note over Query, Expr: 1. SQL 生成 (委托给表达式系统)
-        Query->>Expr: 构建 QueryExpression
+        Query->>Expr: 构建 QueryStatement
         Note right of Query: 组装 Select, From, Where 等<br/>(one() 会使用临时的 LIMIT 1)
         Expr->>Expr: to_sql()
         Expr-->>Query: 返回 (sql, params)
@@ -753,7 +753,7 @@ sequenceDiagram
 
     alt 启用了 explain()
         Note over Query, Expr: EXPLAIN 模式
-        Query->>Expr: 构建 ExplainExpression
+        Query->>Expr: 构建 ExplainStatement
         Expr->>Expr: to_sql()
         Expr-->>Query: 返回 (sql, params)
         Query->>Backend: fetch_all(sql, params)
@@ -761,7 +761,7 @@ sequenceDiagram
         Query-->>User: 返回执行计划
     else 普通模式
         Note over Query, Expr: 标准聚合模式
-        Query->>Expr: 构建 QueryExpression
+        Query->>Expr: 构建 QueryStatement
         Expr->>Expr: to_sql()
         Expr-->>Query: 返回 (sql, params)
         Query->>Backend: fetch_all(sql, params)
@@ -786,7 +786,7 @@ sequenceDiagram
 
     rect rgb(240, 248, 255)
         Note over Query, Expr: 1. SQL 生成 (委托给表达式系统)
-        Query->>Expr: 构建 QueryExpression
+        Query->>Expr: 构建 QueryStatement
         Note right of Query: 组装 Select, From, Where...<br/>(one() 会使用临时的 LIMIT 1)
         Expr->>Expr: to_sql()
         Expr-->>Query: 返回 (sql, params)

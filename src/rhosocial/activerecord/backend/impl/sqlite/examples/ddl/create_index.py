@@ -12,14 +12,14 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import CreateTableExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import CreateTableStatement  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="users",
     columns=[
@@ -48,9 +48,9 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import CreateIndexExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression import CreateIndexStatement  # noqa: E402
 
-create_idx = CreateIndexExpression(
+create_idx = CreateIndexStatement(
     dialect=dialect,
     index_name="idx_users_email",
     table_name="users",

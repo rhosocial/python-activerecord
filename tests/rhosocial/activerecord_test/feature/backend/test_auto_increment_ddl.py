@@ -12,7 +12,7 @@ Covers bugs found in rbac cross-backend testing:
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
+    CreateTableStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -36,7 +36,7 @@ def _pk():
 
 
 def _build_table(dialect):
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect=dialect, table=Table(dialect, 'test_tbl'),
         columns=[
             ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
@@ -63,7 +63,7 @@ class TestAutoIncrementDDL:
         assert isinstance(params, tuple)
 
     def test_boolean_default_true(self, dialect):
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dialect=dialect, table=Table(dialect, 'bool_test'),
             columns=[
                 ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),
@@ -76,7 +76,7 @@ class TestAutoIncrementDDL:
         assert "NUMERIC" in sql.upper()
 
     def test_timestamp_type(self, dialect):
-        expr = CreateTableExpression(
+        expr = CreateTableStatement(
             dialect=dialect, table=Table(dialect, 'ts_test'),
             columns=[
                 ColumnDefinition(dialect, "id", IntegerType(dialect), constraints=_pk()),

@@ -247,9 +247,9 @@ def test_insert_with_returning_columns_sql_construction(mapped_table_backend):
         returning_expressions = [ExprColumn(backend.dialect, col) for col in insert_options.returning_columns]
         returning_clause = BaseReturningClause(backend.dialect, returning_expressions)
 
-    from rhosocial.activerecord.backend.expression import InsertExpression
+    from rhosocial.activerecord.backend.expression import InsertStatement
 
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=backend.dialect,
         into=Table(backend.dialect, insert_options.table),
         source=values_source,
@@ -352,9 +352,9 @@ def test_update_with_returning_columns_sql_construction(mapped_table_backend):
         returning_expressions = [ExprColumn(backend.dialect, col) for col in update_options.returning_columns]
         returning_clause = BaseReturningClause(backend.dialect, returning_expressions)
 
-    from rhosocial.activerecord.backend.expression import UpdateExpression
+    from rhosocial.activerecord.backend.expression import UpdateStatement
 
-    update_expr = UpdateExpression(
+    update_expr = UpdateStatement(
         dialect=backend.dialect,
         table=Table(backend.dialect, update_options.table),
         assignments=assignments,
@@ -456,9 +456,9 @@ def test_delete_with_returning_columns_sql_construction(mapped_table_backend):
         returning_expressions = [ExprColumn(backend.dialect, col) for col in delete_options.returning_columns]
         returning_clause = BaseReturningClause(backend.dialect, returning_expressions)
 
-    from rhosocial.activerecord.backend.expression import DeleteExpression
+    from rhosocial.activerecord.backend.expression import DeleteStatement
 
-    delete_expr = DeleteExpression(
+    delete_expr = DeleteStatement(
         dialect=backend.dialect,
         tables=Table(backend.dialect, delete_options.table),
         where=delete_options.where,

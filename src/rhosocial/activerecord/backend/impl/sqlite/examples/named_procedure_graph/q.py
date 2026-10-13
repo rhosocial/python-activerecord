@@ -7,7 +7,7 @@ a BaseExpression that implements Executable.
 """
 
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     Column,
     ComparisonPredicate,
     FunctionCall,
@@ -26,9 +26,9 @@ def agg_sales(dialect, month: str = ""):
         month: Month in YYYY-MM format.
 
     Returns:
-        QueryExpression.
+        QueryStatement.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[
             FunctionCall(dialect, "SUM", Column(dialect, "amount")).as_("total"),
@@ -50,9 +50,9 @@ def agg_refunds(dialect, month: str = ""):
         month: Month in YYYY-MM format.
 
     Returns:
-        QueryExpression.
+        QueryStatement.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[
             FunctionCall(dialect, "SUM", Column(dialect, "amount")).as_("total"),
@@ -73,9 +73,9 @@ def join_sales_refunds(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        QueryExpression joining sales and refunds.
+        QueryStatement joining sales and refunds.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[
             Column(dialect, "s.month"),
@@ -93,9 +93,9 @@ def write_summary(dialect, month: str = ""):
         month: Month in YYYY-MM format.
 
     Returns:
-        QueryExpression.
+        QueryStatement.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "month")],
     )
@@ -109,9 +109,9 @@ def check_threshold(dialect, threshold: int = 1000):
         threshold: Threshold value.
 
     Returns:
-        QueryExpression.
+        QueryStatement.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Literal(dialect, 1)],
         where=WhereClause(

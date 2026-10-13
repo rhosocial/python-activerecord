@@ -303,7 +303,7 @@ class EdgeTable(BaseExpression):
         return "format_edge_table"
 
 
-class CreatePropertyGraphExpression(BaseExpression):
+class CreatePropertyGraphStatement(BaseExpression):
     """Represents a CREATE PROPERTY GRAPH DDL statement."""
 
     def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
@@ -323,7 +323,7 @@ class CreatePropertyGraphExpression(BaseExpression):
         return "format_create_property_graph_statement"
 
 
-class DropPropertyGraphExpression(BaseExpression):
+class DropPropertyGraphStatement(BaseExpression):
     """Represents a DROP PROPERTY GRAPH DDL statement."""
 
     def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",
@@ -340,7 +340,7 @@ class DropPropertyGraphExpression(BaseExpression):
         return "format_drop_property_graph_statement"
 
 
-class AlterPropertyGraphExpression(BaseExpression):
+class AlterPropertyGraphStatement(BaseExpression):
     """Represents an ALTER PROPERTY GRAPH DDL statement."""
 
     def __init__(self, dialect: "SQLDialectBase", graph: "PropertyGraph",

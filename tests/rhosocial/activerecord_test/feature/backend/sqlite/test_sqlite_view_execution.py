@@ -14,14 +14,14 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     Literal,
     FunctionCall,
-    QueryExpression,
-    CreateViewExpression,
-    DropViewExpression,
-    CreateMaterializedViewExpression,
-    DropMaterializedViewExpression,
-    RefreshMaterializedViewExpression,
-    CreateTableExpression,
-    InsertExpression,
+    QueryStatement,
+    CreateViewStatement,
+    DropViewStatement,
+    CreateMaterializedViewStatement,
+    DropMaterializedViewStatement,
+    RefreshMaterializedViewStatement,
+    CreateTableStatement,
+    InsertStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -64,7 +64,7 @@ def sqlite_backend():
         ),
     ]
 
-    create_users = CreateTableExpression(dialect, table=Table(dialect, 'users'), columns=users_columns)
+    create_users = CreateTableStatement(dialect, table=Table(dialect, 'users'), columns=users_columns)
 
     sql, params = create_users.to_sql()
     backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
@@ -87,7 +87,7 @@ def sqlite_backend():
         foreign_key_columns=["id"],
     )
 
-    create_orders = CreateTableExpression(
+    create_orders = CreateTableStatement(
         dialect, table=Table(dialect, 'orders'), columns=orders_columns, table_constraints=[orders_fk_constraint]
     )
 
@@ -102,7 +102,7 @@ def sqlite_backend():
     ]
 
     for name, email, status in insert_users:
-        insert_expr = InsertExpression(
+        insert_expr = InsertStatement(
             dialect,
             into=Table(dialect, 'users'),
             source=ValuesSource(dialect, [[Literal(dialect, name), Literal(dialect, email), Literal(dialect, status)]]),
@@ -118,7 +118,7 @@ def sqlite_backend():
     ]
 
     for user_id, amount, order_date in insert_orders:
-        insert_expr = InsertExpression(
+        insert_expr = InsertStatement(
             dialect,
             into=Table(dialect, 'orders'),
             source=ValuesSource(
@@ -141,13 +141,13 @@ class TestSQLiteViewExecution:
         """Test basic CREATE VIEW executes successfully."""
         dialect = sqlite_backend.dialect
 
-        query = QueryExpression(
+        query = QueryStatement(
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "name"), Column(dialect, "email")],
             from_=NamedRelationRef(dialect, Table(dialect, "users")),
         )
 
-        create_view = CreateViewExpression(dialect, view=View(dialect, "user_view"), query=query)
+        create_view = CreateViewStatement(dialect, view=View(dialect, "user_view"), query=query)
 
         sql, params = create_view.to_sql()
 
@@ -171,14 +171,14 @@ class TestSQLiteViewExecution:
         # Using RawSQLPredicate to inline the condition value
         dialect = sqlite_backend.dialect
 
-        query = QueryExpression(
+        query = QueryStatement(
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "name")],
             from_=NamedRelationRef(dialect, Table(dialect, "users")),
             where=WhereClause(dialect, condition=RawSQLPredicate(dialect, "\"status\" = 'active'")),
         )
 
-        create_view = CreateViewExpression(dialect, view=View(dialect, "active_users"), query=query)
+        create_view = CreateViewStatement(dialect, view=View(dialect, "active_users"), query=query)
 
         sql, params = create_view.to_sql()
 
@@ -199,7 +199,7 @@ class TestSQLiteViewExecution:
         """Test CREATE VIEW with aggregate functions."""
         dialect = sqlite_backend.dialect
 
-        query = QueryExpression(
+        query = QueryStatement(
             dialect,
             select=[
                 Column(dialect, "user_id"),
@@ -210,7 +210,7 @@ class TestSQLiteViewExecution:
             group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "user_id")]),
         )
 
-        create_view = CreateViewExpression(dialect, view=View(dialect, "user_order_summary"), query=query)
+        create_view = CreateViewStatement(dialect, view=View(dialect, "user_order_summary"), query=query)
 
         sql, params = create_view.to_sql()
 
@@ -231,11 +231,11 @@ class TestSQLiteViewExecution:
         """Test CREATE TEMPORARY VIEW executes successfully."""
         dialect = sqlite_backend.dialect
 
-        query = QueryExpression(
+        query = QueryStatement(
             dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=NamedRelationRef(dialect, Table(dialect, "users"))
         )
 
-        create_view = CreateViewExpression(dialect, view=View(dialect, "temp_user_view"), query=query, temporary=True)
+        create_view = CreateViewStatement(dialect, view=View(dialect, "temp_user_view"), query=query, temporary=True)
 
         sql, params = create_view.to_sql()
 
@@ -256,16 +256,16 @@ class TestSQLiteViewExecution:
         """Test CREATE VIEW IF NOT EXISTS (SQLite's OR REPLACE equivalent)."""
         dialect = sqlite_backend.dialect
 
-        query = QueryExpression(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "users")))
+        query = QueryStatement(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "users")))
 
         # First create the view
-        create_view = CreateViewExpression(dialect, view=View(dialect, "test_view"), query=query)
+        create_view = CreateViewStatement(dialect, view=View(dialect, "test_view"), query=query)
 
         sql, params = create_view.to_sql()
         sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
         # Try to create again with IF NOT EXISTS
-        create_view2 = CreateViewExpression(
+        create_view2 = CreateViewStatement(
             dialect,
             view=View(dialect, "test_view"),
             query=query,
@@ -282,15 +282,15 @@ class TestSQLiteViewExecution:
         dialect = sqlite_backend.dialect
 
         # First create a view
-        query = QueryExpression(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "users")))
+        query = QueryStatement(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "users")))
 
-        create_view = CreateViewExpression(dialect, view=View(dialect, "view_to_drop"), query=query)
+        create_view = CreateViewStatement(dialect, view=View(dialect, "view_to_drop"), query=query)
 
         sql, params = create_view.to_sql()
         sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
         # Now drop it
-        drop_view = DropViewExpression(dialect, view=View(dialect, "view_to_drop"))
+        drop_view = DropViewStatement(dialect, view=View(dialect, "view_to_drop"))
 
         sql, params = drop_view.to_sql()
         sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
@@ -305,7 +305,7 @@ class TestSQLiteViewExecution:
         """Test DROP VIEW IF EXISTS executes without error for non-existent view."""
         dialect = sqlite_backend.dialect
 
-        drop_view = DropViewExpression(dialect, view=View(dialect, "nonexistent_view"), if_exists=True)
+        drop_view = DropViewStatement(dialect, view=View(dialect, "nonexistent_view"), if_exists=True)
 
         sql, params = drop_view.to_sql()
 
@@ -317,15 +317,15 @@ class TestSQLiteViewExecution:
         dialect = sqlite_backend.dialect
 
         # First create a view
-        query = QueryExpression(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "users")))
+        query = QueryStatement(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "users")))
 
-        create_view = CreateViewExpression(dialect, view=View(dialect, "view_to_drop_if_exists"), query=query)
+        create_view = CreateViewStatement(dialect, view=View(dialect, "view_to_drop_if_exists"), query=query)
 
         sql, params = create_view.to_sql()
         sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
         # Drop with IF EXISTS
-        drop_view = DropViewExpression(dialect, view=View(dialect, "view_to_drop_if_exists"), if_exists=True)
+        drop_view = DropViewStatement(dialect, view=View(dialect, "view_to_drop_if_exists"), if_exists=True)
 
         sql, params = drop_view.to_sql()
         sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
@@ -340,11 +340,11 @@ class TestSQLiteViewExecution:
         """Test CREATE VIEW with explicit column aliases."""
         dialect = sqlite_backend.dialect
 
-        query = QueryExpression(
+        query = QueryStatement(
             dialect, select=[Column(dialect, "id"), Column(dialect, "name")], from_=NamedRelationRef(dialect, Table(dialect, "users"))
         )
 
-        create_view = CreateViewExpression(
+        create_view = CreateViewStatement(
             dialect, view=View(dialect, "aliased_view"), query=query, column_aliases=["user_id", "user_name"]
         )
 
@@ -368,9 +368,9 @@ class TestSQLiteMaterializedViewExecution:
         """Test that CREATE MATERIALIZED VIEW raises UnsupportedFeatureError."""
         dialect = sqlite_backend.dialect
 
-        query = QueryExpression(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "users")))
+        query = QueryStatement(dialect, select=[Column(dialect, "id")], from_=NamedRelationRef(dialect, Table(dialect, "users")))
 
-        create_mv = CreateMaterializedViewExpression(dialect, view=MaterializedView(dialect, "test_mv"), query=query)
+        create_mv = CreateMaterializedViewStatement(dialect, view=MaterializedView(dialect, "test_mv"), query=query)
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             create_mv.to_sql()
@@ -382,7 +382,7 @@ class TestSQLiteMaterializedViewExecution:
         """Test that DROP MATERIALIZED VIEW raises UnsupportedFeatureError."""
         dialect = sqlite_backend.dialect
 
-        drop_mv = DropMaterializedViewExpression(dialect, view=MaterializedView(dialect, "test_mv"))
+        drop_mv = DropMaterializedViewStatement(dialect, view=MaterializedView(dialect, "test_mv"))
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             drop_mv.to_sql()
@@ -393,7 +393,7 @@ class TestSQLiteMaterializedViewExecution:
         """Test that REFRESH MATERIALIZED VIEW raises UnsupportedFeatureError."""
         dialect = sqlite_backend.dialect
 
-        refresh_mv = RefreshMaterializedViewExpression(dialect, view=MaterializedView(dialect, "test_mv"))
+        refresh_mv = RefreshMaterializedViewStatement(dialect, view=MaterializedView(dialect, "test_mv"))
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             refresh_mv.to_sql()
@@ -420,11 +420,11 @@ class TestSQLiteViewJoins:
             dialect, left_table=users_table, right_table=orders_table, condition=join_condition, join_type="INNER JOIN"
         )
 
-        query = QueryExpression(
+        query = QueryStatement(
             dialect, select=[Column(dialect, "name", "u"), Column(dialect, "amount", "o")], from_=join_expr
         )
 
-        create_view = CreateViewExpression(dialect, view=View(dialect, "user_orders_view"), query=query)
+        create_view = CreateViewStatement(dialect, view=View(dialect, "user_orders_view"), query=query)
 
         sql, params = create_view.to_sql()
         result = sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
@@ -450,7 +450,7 @@ class TestSQLiteViewSubquery:
 
         # Create a simpler view that demonstrates subquery-like behavior
         # Since SQLite handles views as query definitions, we test simpler aggregate views
-        query = QueryExpression(
+        query = QueryStatement(
             dialect,
             select=[
                 Column(dialect, "user_id"),
@@ -460,7 +460,7 @@ class TestSQLiteViewSubquery:
             group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "user_id")]),
         )
 
-        create_view = CreateViewExpression(dialect, view=View(dialect, "order_counts_view"), query=query)
+        create_view = CreateViewStatement(dialect, view=View(dialect, "order_counts_view"), query=query)
 
         sql, params = create_view.to_sql()
         result = sqlite_backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))

@@ -80,15 +80,15 @@ for row in result.rows:
 
 ### Using the Expression Builder
 
-You can pass any `BaseExpression` (except `ExplainExpression` itself):
+You can pass any `BaseExpression` (except `ExplainStatement` itself):
 
 ```python
 from rhosocial.activerecord.backend.expression.core import (
     TableExpression, WildcardExpression,
 )
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
-query = QueryExpression(
+query = QueryStatement(
     dialect,
     select=[WildcardExpression(dialect)],
     from_=TableExpression(dialect, "users"),
@@ -323,7 +323,7 @@ You also need to override `format_explain_statement()` in your dialect if your d
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `expression` | `BaseExpression` | Any expression except `ExplainExpression` |
+| `expression` | `BaseExpression` | Any expression except `ExplainStatement` |
 | `options` | `ExplainOptions \| None` | Optional explain options (type, format, analyze) |
 
 **Returns**: A `BaseExplainResult` subclass specific to the backend.

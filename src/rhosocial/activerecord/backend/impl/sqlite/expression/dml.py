@@ -3,7 +3,7 @@
 
 from typing import TYPE_CHECKING, List, Optional
 
-from rhosocial.activerecord.backend.expression.statements import InsertExpression
+from rhosocial.activerecord.backend.expression.statements import InsertStatement
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -11,7 +11,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.statements.dml import InsertDataSource
 
 
-class SQLiteInsertExpression(InsertExpression):
+class SQLiteInsertStatement(InsertStatement):
     """A SQLite INSERT statement extending the generic one.
 
     SQLite supports the ``INSERT OR REPLACE`` / ``INSERT OR IGNORE`` conflict
@@ -44,5 +44,5 @@ class SQLiteInsertExpression(InsertExpression):
 
 
 __all__ = [
-    "SQLiteInsertExpression",
+    "SQLiteInsertStatement",
 ]

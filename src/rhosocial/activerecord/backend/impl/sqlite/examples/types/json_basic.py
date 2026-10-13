@@ -15,8 +15,8 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
@@ -26,7 +26,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnConstraintType,
 )
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table_name="documents",
     columns=[
@@ -52,7 +52,7 @@ insert_data = [
     {"name": "Bob", "age": 25, "tags": ["c"]},
 ]
 for data in insert_data:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'documents'),
         columns=["data"],
@@ -65,14 +65,14 @@ for data in insert_data:
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     Column,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal  # noqa: E402
 from .....expression.objects import Table
 
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "id"),

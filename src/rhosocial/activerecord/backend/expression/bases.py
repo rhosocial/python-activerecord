@@ -257,7 +257,7 @@ class BaseExpression:
         protocol is satisfied by its own ``...`` bodies, so a probe-only
         protocol sitting in a dialect's base list answers ``getattr`` and
         passes the callable test while returning ``None``. Three backends hit
-        that independently -- ``CreateFunctionExpression(...).to_sql()``
+        that independently -- ``CreateFunctionStatement(...).to_sql()``
         answering ``None``, ``Domain.to_sql()`` answering ``None``, a
         formatter returning a bare string instead of a pair -- and each was
         invisible because nothing inspected the result. A formatting method

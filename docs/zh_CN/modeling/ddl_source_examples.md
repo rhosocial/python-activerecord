@@ -10,7 +10,7 @@
 模型声明
   → DDLSourceMixin 收集
   → 外部消费者读取并选择/绑定候选
-  → ColumnDefinition / CreateTableExpression
+  → ColumnDefinition / CreateTableStatement
   → dialect.to_sql()
 ```
 

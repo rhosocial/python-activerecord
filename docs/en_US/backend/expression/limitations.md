@@ -15,29 +15,29 @@ According to SQL standards, when performing set operations like UNION, INTERSECT
 ```python
 # The following code is valid in the expression system but may fail during database execution
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, QueryExpression, TableExpression
+    Column, Literal, QueryStatement, TableExpression
 )
-from rhosocial.activerecord.backend.expression.query_sources import SetOperationExpression
+from rhosocial.activerecord.backend.expression.query_sources import SetOperationStatement
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 dialect = DummyDialect()
 
 # First query returns integer ID and text name
-query1 = QueryExpression(
+query1 = QueryStatement(
     dialect,
     select=[Column(dialect, "id"), Column(dialect, "name")],
     from_=TableExpression(dialect, "users")
 )
 
 # Second query returns text email and integer age
-query2 = QueryExpression(
+query2 = QueryStatement(
     dialect,
     select=[Column(dialect, "email"), Column(dialect, "age")],
     from_=TableExpression(dialect, "customers")
 )
 
 # Expression system will successfully build this UNION, but database execution will fail
-union_query = SetOperationExpression(
+union_query = SetOperationStatement(
     dialect,
     left=query1,
     right=query2,

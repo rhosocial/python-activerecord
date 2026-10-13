@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.expression.mixins import AliasableMixin
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.statements.dml import (
-    InsertExpression,
+    InsertStatement,
     OnConflictClause,
     ValuesSource,
 )
@@ -43,14 +43,14 @@ class TestDeclaredInsertModifiers:
         return ValuesSource(dummy_dialect, [[Literal(dummy_dialect, 1)]])
 
     def test_defaults_are_false(self, dummy_dialect):
-        stmt = InsertExpression(
+        stmt = InsertStatement(
             dummy_dialect, Table(dummy_dialect, "users"), self._values_source(dummy_dialect)
         )
         assert (stmt.or_replace, stmt.or_ignore) == (False, False)
 
     def test_or_replace_renders(self, dummy_dialect):
         sqlite = SQLiteDialect()
-        stmt = InsertExpression(
+        stmt = InsertStatement(
             sqlite,
             Table(sqlite, "users"),
             self._values_source(sqlite),
@@ -60,7 +60,7 @@ class TestDeclaredInsertModifiers:
 
     def test_or_ignore_renders(self, dummy_dialect):
         sqlite = SQLiteDialect()
-        stmt = InsertExpression(
+        stmt = InsertStatement(
             sqlite,
             Table(sqlite, "users"),
             self._values_source(sqlite),
@@ -70,7 +70,7 @@ class TestDeclaredInsertModifiers:
 
     def test_a_dialect_that_spells_neither_ignores_the_modifiers(self, dummy_dialect):
         """The core spelling is unaffected: the fields default to False."""
-        stmt = InsertExpression(
+        stmt = InsertStatement(
             dummy_dialect,
             Table(dummy_dialect, "users"),
             self._values_source(dummy_dialect),
@@ -80,7 +80,7 @@ class TestDeclaredInsertModifiers:
 
     def test_the_two_modifiers_are_mutually_exclusive(self, dummy_dialect):
         with pytest.raises(ValueError, match="both"):
-            InsertExpression(
+            InsertStatement(
                 dummy_dialect,
                 Table(dummy_dialect, "users"),
                 self._values_source(dummy_dialect),
@@ -90,7 +90,7 @@ class TestDeclaredInsertModifiers:
 
     def test_the_modifiers_exclude_on_conflict(self, dummy_dialect):
         with pytest.raises(ValueError, match="on_conflict"):
-            InsertExpression(
+            InsertStatement(
                 dummy_dialect,
                 Table(dummy_dialect, "users"),
                 self._values_source(dummy_dialect),

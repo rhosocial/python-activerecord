@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.statements import TruncateExpression
+    from ....expression.statements import TruncateStatement
 
 
 @runtime_checkable
@@ -44,6 +44,6 @@ class TruncateSupport(Protocol):
         """Whether RESTRICT option is supported."""
         ...  # pragma: no cover
 
-    def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
+    def format_truncate_statement(self, expr: "TruncateStatement") -> Tuple[str, tuple]:
         """Format TRUNCATE TABLE statement."""
         ...  # pragma: no cover

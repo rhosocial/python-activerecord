@@ -6,17 +6,17 @@ Views are virtual tables based on a SELECT query. They don't store data but prov
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    CreateViewExpression,
-    QueryExpression,
+    CreateViewStatement,
+    QueryStatement,
     TableExpression,
     Column
 )
 
 # Basic view
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="user_summary",
-    query=QueryExpression(
+    query=QueryStatement(
         dialect,
         select=[
             Column(dialect, "id"),
@@ -33,10 +33,10 @@ sql, params = create_view.to_sql()
 ## View with Column Aliases
 
 ```python
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="user_details",
-    query=QueryExpression(
+    query=QueryStatement(
         dialect,
         select=[
             Column(dialect, "id"),
@@ -54,7 +54,7 @@ sql, params = create_view.to_sql()
 ## View with OR REPLACE
 
 ```python
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="user_summary",
     query=query,
@@ -67,7 +67,7 @@ sql, params = create_view.to_sql()
 ## View with TEMPORARY (SQLite)
 
 ```python
-create_view = CreateViewExpression(
+create_view = CreateViewStatement(
     dialect,
     view_name="temp_stats",
     query=query,
@@ -80,10 +80,10 @@ sql, params = create_view.to_sql()
 ## Drop View
 
 ```python
-from rhosocial.activerecord.backend.expression import DropViewExpression
+from rhosocial.activerecord.backend.expression import DropViewStatement
 
 # Basic drop
-drop_view = DropViewExpression(
+drop_view = DropViewStatement(
     dialect,
     view_name="old_view"
 )
@@ -91,7 +91,7 @@ sql, params = drop_view.to_sql()
 # sql: 'DROP VIEW "old_view"'
 
 # Drop if exists
-drop_view = DropViewExpression(
+drop_view = DropViewStatement(
     dialect,
     view_name="old_view",
     if_exists=True
@@ -104,11 +104,11 @@ sql, params = drop_view.to_sql()
 
 ```python
 # Create a table first
-create_table = CreateTableExpression(dialect, "users", user_columns)
+create_table = CreateTableStatement(dialect, "users", user_columns)
 backend.execute(create_table.to_sql())
 
 # Create a view
-create_view = CreateViewExpression(dialect, "user_summary", view_query)
+create_view = CreateViewStatement(dialect, "user_summary", view_query)
 backend.execute(create_view.to_sql())
 
 # Introspection: List views

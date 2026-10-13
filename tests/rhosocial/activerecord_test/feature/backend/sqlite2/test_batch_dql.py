@@ -6,7 +6,7 @@ Tests cover:
   - fetchmany pagination with various page_size / row_count combinations
   - Cursor lifecycle: normal consumption, early break, exception
   - Column adapter and column mapping processing
-  - DQLExpression type coverage: QueryExpression, WithStatement, SetOperationExpression
+  - DQLExpression type coverage: QueryStatement, WithStatement, SetOperationStatement
 
 For async tests, see sqlite_async/test_batch_dql.py.
 """
@@ -18,10 +18,10 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     WildcardExpression,
     ComparisonPredicate,
-    SetOperationExpression,
+    SetOperationStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
+from rhosocial.activerecord.backend.expression.statements import QueryStatement
 from rhosocial.activerecord.backend.expression.query_sources import (
     WithStatement,
     CTEClause,
@@ -81,7 +81,7 @@ def backend_with_empty_table(sqlite_backend):
 
 def _select_all_expr(dialect, table="items", order_col="id"):
     """Build: SELECT * FROM items ORDER BY id"""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[WildcardExpression(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, table)),
@@ -91,7 +91,7 @@ def _select_all_expr(dialect, table="items", order_col="id"):
 
 def _select_where_expr(dialect, category):
     """Build: SELECT * FROM items WHERE category = ? ORDER BY id"""
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[WildcardExpression(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "items")),
@@ -282,7 +282,7 @@ class TestBatchDQLExpressionTypes:
     """Tests that all DQLExpression variants work with execute_batch_dql."""
 
     def test_query_expression(self, backend_with_items):
-        """Basic QueryExpression."""
+        """Basic QueryStatement."""
         dialect = backend_with_items.dialect
         expr = _select_all_expr(dialect)
         pages = _collect_pages(backend_with_items.execute_batch_dql(expr, page_size=50))
@@ -294,7 +294,7 @@ class TestBatchDQLExpressionTypes:
 
         # WITH expensive AS (SELECT * FROM items WHERE price > 50)
         # SELECT * FROM expensive ORDER BY id
-        cte_query = QueryExpression(
+        cte_query = QueryStatement(
             dialect,
             select=[WildcardExpression(dialect)],
             from_=NamedRelationRef(dialect, Table(dialect, "items")),
@@ -305,7 +305,7 @@ class TestBatchDQLExpressionTypes:
         )
         cte = CTEClause(dialect, name="expensive", query=cte_query)
 
-        main_query = QueryExpression(
+        main_query = QueryStatement(
             dialect,
             select=[WildcardExpression(dialect)],
             from_=NamedRelationRef(dialect, Table(dialect, "expensive")),
@@ -323,10 +323,10 @@ class TestBatchDQLExpressionTypes:
                 assert row["price"] > 50.0
 
     def test_set_operation_expression(self, backend_with_items):
-        """SetOperationExpression (UNION)."""
+        """SetOperationStatement (UNION)."""
         dialect = backend_with_items.dialect
 
-        left = QueryExpression(
+        left = QueryStatement(
             dialect,
             select=[Column(dialect, "name"), Column(dialect, "price")],
             from_=NamedRelationRef(dialect, Table(dialect, "items")),
@@ -337,7 +337,7 @@ class TestBatchDQLExpressionTypes:
                 ),
             ),
         )
-        right = QueryExpression(
+        right = QueryStatement(
             dialect,
             select=[Column(dialect, "name"), Column(dialect, "price")],
             from_=NamedRelationRef(dialect, Table(dialect, "items")),
@@ -346,7 +346,7 @@ class TestBatchDQLExpressionTypes:
                 condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Literal(dialect, "books")),
             ),
         )
-        union_expr = SetOperationExpression(dialect, left=left, right=right, operation="UNION ALL")
+        union_expr = SetOperationStatement(dialect, left=left, right=right, operation="UNION ALL")
 
         pages = _collect_pages(backend_with_items.execute_batch_dql(union_expr, page_size=20))
 

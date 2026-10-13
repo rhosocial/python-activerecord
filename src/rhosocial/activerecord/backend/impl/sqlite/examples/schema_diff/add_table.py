@@ -11,7 +11,7 @@ so the default SQLiteSchemaDiffer is sufficient for all comparisons.
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression, ColumnDefinition,
+    CreateTableStatement, ColumnDefinition,
     ColumnConstraint, ColumnConstraintType,
 )
 from rhosocial.activerecord.backend.expression.types import (
@@ -39,7 +39,7 @@ builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
 snapshot_before = builder.build(schema="main")
 
 # Create a new table
-expr = CreateTableExpression(
+expr = CreateTableStatement(
     dialect=dialect, table=Table(dialect, 'users'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
             constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),

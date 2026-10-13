@@ -12,7 +12,7 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableExpression
+from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableStatement
 from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, VarCharType
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
@@ -108,7 +108,7 @@ def main():
         ),
     ]
 
-    create_authors = CreateTableExpression(
+    create_authors = CreateTableStatement(
         dialect=dialect, table_name="authors", columns=author_columns, if_not_exists=True
     )
 
@@ -144,7 +144,7 @@ def main():
         )
     ]
 
-    create_posts = CreateTableExpression(
+    create_posts = CreateTableStatement(
         dialect=dialect,
         table_name="posts",
         columns=post_columns,
@@ -177,7 +177,7 @@ def main():
         ),
     ]
 
-    create_tags = CreateTableExpression(dialect=dialect, table_name="tags", columns=tag_columns, if_not_exists=True)
+    create_tags = CreateTableStatement(dialect=dialect, table_name="tags", columns=tag_columns, if_not_exists=True)
 
     sql, params = create_tags.to_sql()
     print("=== Create Tags Table ===")
@@ -217,7 +217,7 @@ def main():
         ),
     ]
 
-    create_post_tags = CreateTableExpression(
+    create_post_tags = CreateTableStatement(
         dialect=dialect,
         table_name="post_tags",
         columns=post_tag_columns,

@@ -47,7 +47,7 @@ class CommentObjectType(Enum):
     TABLESPACE = "TABLESPACE"
 
 
-class CommentOnExpression(BaseExpression):
+class CommentOnStatement(BaseExpression):
     """Standalone ``COMMENT ON <object> IS '<text>'`` statement.
 
     This is an independent DDL statement, deliberately distinct from the
@@ -82,4 +82,4 @@ class CommentOnExpression(BaseExpression):
         self.column = column
 
 
-__all__ = ["CommentObjectType", "CommentOnExpression"]
+__all__ = ["CommentObjectType", "CommentOnStatement"]

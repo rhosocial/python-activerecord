@@ -8,12 +8,12 @@ from ...expression.objects import Index, Table
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
-        CreateIndexExpression,
-        DropIndexExpression,
+        CreateIndexStatement,
+        DropIndexStatement,
     )
     from ...expression.statements.ddl_index import (
-        CreateFulltextIndexExpression,
-        DropFulltextIndexExpression,
+        CreateFulltextIndexStatement,
+        DropFulltextIndexStatement,
     )
     from ...expression.statements.fulltext_match import FulltextMatchExpression
 
@@ -43,14 +43,14 @@ class IndexMixin:
     def preferred_create_index_statement(self):
         """The backend's preferred CREATE INDEX statement class (§5.12).
 
-        Defaults to ``None`` — the generic ``CreateIndexExpression``.
+        Defaults to ``None`` — the generic ``CreateIndexStatement``.
         """
         return None
 
     def preferred_drop_index_statement(self):
         """The backend's preferred DROP INDEX statement class (§5.12).
 
-        Defaults to ``None`` — the generic ``DropIndexExpression``.
+        Defaults to ``None`` — the generic ``DropIndexStatement``.
         """
         return None
 
@@ -224,33 +224,33 @@ class IndexMixin:
         # Default: NATURAL LANGUAGE MODE
         return f"MATCH({cols_str}) AGAINST({ph} IN NATURAL LANGUAGE MODE)", (expr.search_term,)
 
-    def format_create_fulltext_index_statement(self, expr: "CreateFulltextIndexExpression") -> Tuple[str, tuple]:
+    def format_create_fulltext_index_statement(self, expr: "CreateFulltextIndexStatement") -> Tuple[str, tuple]:
         """Format CREATE FULLTEXT INDEX statement from expression object.
 
         Args:
-            expr: CreateFulltextIndexExpression carrying the index name, table
+            expr: CreateFulltextIndexStatement carrying the index name, table
                 name, columns, and optional parser.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CreateFulltextIndexExpression.index`` is not an Index.
+            TypeError: ``CreateFulltextIndexStatement.index`` is not an Index.
             Another object kind would have had its own name rendered as the index's.
-            TypeError: ``CreateFulltextIndexExpression.table`` is not a Table.
+            TypeError: ``CreateFulltextIndexStatement.table`` is not a Table.
             Another object kind would have had its own name rendered as the table's.
             UnsupportedFeatureError: If the dialect does not support full-text
                 indexing.
         """
         if not isinstance(expr.index, Index):
             raise TypeError(
-                f"CreateFulltextIndexExpression.index must be an Index, "
+                f"CreateFulltextIndexStatement.index must be an Index, "
                 f"got {type(expr.index).__name__}"
             )
 
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"CreateFulltextIndexExpression.table must be a Table, "
+                f"CreateFulltextIndexStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         if not self.supports_fulltext_index():
@@ -281,33 +281,33 @@ class IndexMixin:
 
         return " ".join(parts), ()
 
-    def format_drop_fulltext_index_statement(self, expr: "DropFulltextIndexExpression") -> Tuple[str, tuple]:
+    def format_drop_fulltext_index_statement(self, expr: "DropFulltextIndexStatement") -> Tuple[str, tuple]:
         """Format DROP FULLTEXT INDEX statement from expression object.
 
         Args:
-            expr: DropFulltextIndexExpression carrying the index name, table
+            expr: DropFulltextIndexStatement carrying the index name, table
                 name, and optional ``if_exists`` flag.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``DropFulltextIndexExpression.index`` is not an Index.
+            TypeError: ``DropFulltextIndexStatement.index`` is not an Index.
             Another object kind would have had its own name rendered as the index's.
-            TypeError: ``DropFulltextIndexExpression.table`` is not a Table. Another
+            TypeError: ``DropFulltextIndexStatement.table`` is not a Table. Another
             object kind would have had its own name rendered as the table's.
             UnsupportedFeatureError: If the dialect does not support full-text
                 indexing.
         """
         if not isinstance(expr.index, Index):
             raise TypeError(
-                f"DropFulltextIndexExpression.index must be an Index, "
+                f"DropFulltextIndexStatement.index must be an Index, "
                 f"got {type(expr.index).__name__}"
             )
 
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"DropFulltextIndexExpression.table must be a Table, "
+                f"DropFulltextIndexStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         if not self.supports_fulltext_index():
@@ -327,11 +327,11 @@ class IndexMixin:
 
         return " ".join(parts), ()
 
-    def format_create_index_statement(self, expr: "CreateIndexExpression") -> Tuple[str, tuple]:
+    def format_create_index_statement(self, expr: "CreateIndexStatement") -> Tuple[str, tuple]:
         """Format CREATE INDEX statement per SQL standard.
 
         Args:
-            expr: CreateIndexExpression carrying the index definition,
+            expr: CreateIndexStatement carrying the index definition,
                 including optional unique, index type, include, where, and
                 tablespace clauses.
 
@@ -339,22 +339,22 @@ class IndexMixin:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``CreateIndexExpression.index`` is not an Index. Another
+            TypeError: ``CreateIndexStatement.index`` is not an Index. Another
             object kind would have had its own name rendered as the index's.
-            TypeError: ``CreateIndexExpression.table`` is not a Table. Another
+            TypeError: ``CreateIndexStatement.table`` is not a Table. Another
             object kind would have had its own name rendered as the table's.
             UnsupportedFeatureError: If the dialect does not support
                 specific index options.
         """
         if not isinstance(expr.index, Index):
             raise TypeError(
-                f"CreateIndexExpression.index must be an Index, "
+                f"CreateIndexStatement.index must be an Index, "
                 f"got {type(expr.index).__name__}"
             )
 
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"CreateIndexExpression.table must be a Table, "
+                f"CreateIndexStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -434,33 +434,33 @@ class IndexMixin:
 
         return " ".join(parts), tuple(all_params)
 
-    def format_drop_index_statement(self, expr: "DropIndexExpression") -> Tuple[str, tuple]:
+    def format_drop_index_statement(self, expr: "DropIndexStatement") -> Tuple[str, tuple]:
         """Format DROP INDEX statement per SQL standard.
 
         Args:
-            expr: DropIndexExpression carrying the index name, optional
+            expr: DropIndexStatement carrying the index name, optional
                 ``if_exists`` flag, and optional table name.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the statement.
 
         Raises:
-            TypeError: ``DropIndexExpression.index`` is not an Index. Another object
+            TypeError: ``DropIndexStatement.index`` is not an Index. Another object
             kind would have had its own name rendered as the index's.
-            TypeError: ``DropIndexExpression.table`` is not a Table. Another object
+            TypeError: ``DropIndexStatement.table`` is not a Table. Another object
             kind would have had its own name rendered as the table's.
             UnsupportedFeatureError: If the dialect does not support
                 DROP INDEX IF EXISTS.
         """
         if not isinstance(expr.index, Index):
             raise TypeError(
-                f"DropIndexExpression.index must be an Index, "
+                f"DropIndexStatement.index must be an Index, "
                 f"got {type(expr.index).__name__}"
             )
 
         if expr.table is not None and not isinstance(expr.table, Table):
             raise TypeError(
-                f"DropIndexExpression.table must be a Table, "
+                f"DropIndexStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError

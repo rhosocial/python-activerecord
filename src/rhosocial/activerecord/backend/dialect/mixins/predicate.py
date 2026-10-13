@@ -63,11 +63,11 @@ class PredicateMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from ...expression.statements import QueryExpression
+        from ...expression.statements import QueryStatement
 
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
-        if isinstance(expr.right, QueryExpression):
+        if isinstance(expr.right, QueryStatement):
             right_sql = f"({right_sql})"
         return self._with_alias(f"{left_sql} {expr.op} {right_sql}", expr), left_params + right_params
 

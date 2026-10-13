@@ -165,14 +165,14 @@ CTE 提供了一种编写辅助语句以在较大查询中使用的方法。
 表示完整的 `WITH` 语句：CTE 定义加上它们所引导的查询。单个 CTE 定义是 `CTEClause`。
 
 ```python
-from rhosocial.activerecord.backend.expression import WithStatement, CTEClause, Subquery, QueryExpression, TableExpression, Column
+from rhosocial.activerecord.backend.expression import WithStatement, CTEClause, Subquery, QueryStatement, TableExpression, Column
 
 # 定义 CTE
 cte_query = Subquery(dialect, "SELECT id, name FROM users WHERE status = ?", ("active",))
 cte = CTEClause(dialect, name="active_users", query=cte_query)
 
 # 使用 CTE 的主查询
-main_query = QueryExpression(
+main_query = QueryStatement(
     dialect,
     select=[Column(dialect, "name")],
     from_=TableExpression(dialect, "active_users")
@@ -190,18 +190,18 @@ sql, params = with_query.to_sql()
 
 将两个或多个查询的结果组合成单个结果集。
 
-### SetOperationExpression
+### SetOperationStatement
 
 支持 `UNION`、`UNION ALL`、`INTERSECT` 和 `EXCEPT`。
 
 ```python
-from rhosocial.activerecord.backend.expression import SetOperationExpression, Subquery
+from rhosocial.activerecord.backend.expression import SetOperationStatement, Subquery
 
 query1 = Subquery(dialect, "SELECT id FROM table1 WHERE col = ?", ("a",))
 query2 = Subquery(dialect, "SELECT id FROM table2 WHERE col = ?", ("b",))
 
 # UNION
-union_op = SetOperationExpression(
+union_op = SetOperationStatement(
     dialect,
     left=query1,
     right=query2,
@@ -212,7 +212,7 @@ sql, params = union_op.to_sql()
 # params: ("a", "b")
 
 # INTERSECT
-intersect_op = SetOperationExpression(
+intersect_op = SetOperationStatement(
     dialect,
     left=query1,
     right=query2,

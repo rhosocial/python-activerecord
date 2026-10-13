@@ -21,13 +21,13 @@ dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (
     ValuesSource,
-    QueryExpression,
-    CreateTableExpression,
-    DropTableExpression,
+    QueryStatement,
+    CreateTableStatement,
+    DropTableStatement,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.impl.sqlite.expression.dml import (  # noqa: E402
-    SQLiteInsertExpression,
+    SQLiteInsertStatement,
 )
 from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
 from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
@@ -37,7 +37,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
 )
 from .....expression.objects import Table
 
-create_table = CreateTableExpression(
+create_table = CreateTableStatement(
     dialect=dialect,
     table=Table(dialect, 'users'),
     columns=[
@@ -73,7 +73,7 @@ print(f"Create table SQL: {sql}")
 backend.execute(sql, params)
 
 # Insert initial data
-insert_initial = InsertExpression(
+insert_initial = InsertStatement(
     dialect=dialect,
     into=Table(dialect, 'users'),
     columns=["username", "email", "login_count"],
@@ -89,7 +89,7 @@ sql, params = insert_initial.to_sql()
 backend.execute(sql, params)
 
 # Verify initial data
-verify_query = QueryExpression(
+verify_query = QueryStatement(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
@@ -108,8 +108,8 @@ for row in result.data or []:
 # --- INSERT OR REPLACE ---
 # INSERT OR REPLACE deletes the existing conflicting row and inserts the new one.
 # Note: This resets any columns NOT provided in the insert to their defaults.
-# Use SQLiteInsertExpression(or_replace=True) to enable this SQLite-specific syntax.
-insert_or_replace = SQLiteInsertExpression(
+# Use SQLiteInsertStatement(or_replace=True) to enable this SQLite-specific syntax.
+insert_or_replace = SQLiteInsertStatement(
     dialect=dialect,
     into="users",
     columns=["username", "email", "login_count"],
@@ -128,8 +128,8 @@ print(f"Params: {params}")
 
 # --- INSERT OR IGNORE ---
 # INSERT OR IGNORE silently skips rows that would cause constraint violations.
-# Use SQLiteInsertExpression(or_ignore=True) to enable this SQLite-specific syntax.
-insert_or_ignore = SQLiteInsertExpression(
+# Use SQLiteInsertStatement(or_ignore=True) to enable this SQLite-specific syntax.
+insert_or_ignore = SQLiteInsertStatement(
     dialect=dialect,
     into="users",
     columns=["username", "email", "login_count"],
@@ -179,7 +179,7 @@ for row in result.data or []:
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
+drop_expr = DropTableStatement(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()
@@ -188,10 +188,10 @@ backend.disconnect()
 # SECTION: Summary
 # ============================================================
 # Key points:
-# 1. Use SQLiteInsertExpression(or_replace=True) for INSERT OR REPLACE
+# 1. Use SQLiteInsertStatement(or_replace=True) for INSERT OR REPLACE
 #    - Deletes existing row on conflict and inserts new row
 #    - Auto-increment ID and unspecified columns are reset to defaults
-# 2. Use SQLiteInsertExpression(or_ignore=True) for INSERT OR IGNORE
+# 2. Use SQLiteInsertStatement(or_ignore=True) for INSERT OR IGNORE
 #    - Silently skips rows that would cause UNIQUE/PRIMARY KEY constraint violations
 #    - Other rows in the same batch are still inserted
 # 3. Cannot combine or_replace/or_ignore with on_conflict (OnConflictClause)

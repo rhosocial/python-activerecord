@@ -466,9 +466,9 @@ class TestSQLiteExpressionDialectSeparation:
     """
 
     EXPRESSION_DIALECT_PAIRS = [
-        ("SQLiteReindexExpression", "format_reindex_statement"),
-        ("SQLiteVacuumExpression", "format_vacuum_statement"),
-        ("SQLiteAnalyzeExpression", "format_analyze_statement"),
+        ("SQLiteReindexStatement", "format_reindex_statement"),
+        ("SQLiteVacuumStatement", "format_vacuum_statement"),
+        ("SQLiteAnalyzeStatement", "format_analyze_statement"),
         ("SQLiteAttachExpression", "format_attach_statement"),
         ("SQLiteDetachExpression", "format_detach_statement"),
     ]

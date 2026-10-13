@@ -13,8 +13,8 @@ from ...expression.objects import Function, Table, Trigger
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.statements import (
-        CreateTriggerExpression,
-        DropTriggerExpression,
+        CreateTriggerStatement,
+        DropTriggerStatement,
     )
 
 
@@ -84,7 +84,7 @@ class TriggerMixin:
         """
         return False
 
-    def format_create_trigger_statement(self, expr: "CreateTriggerExpression") -> Tuple[str, tuple]:
+    def format_create_trigger_statement(self, expr: "CreateTriggerStatement") -> Tuple[str, tuple]:
         """Format a ``CREATE TRIGGER`` statement per SQL:1999.
 
         Renders the optional ``IF NOT EXISTS`` qualifier, timing, events
@@ -99,30 +99,30 @@ class TriggerMixin:
             A ``(sql, params)`` tuple.
 
         Raises:
-            TypeError: ``CreateTriggerExpression.trigger`` is not a Trigger. Another
+            TypeError: ``CreateTriggerStatement.trigger`` is not a Trigger. Another
             object kind would have had its own name rendered as the trigger's.
-            TypeError: ``CreateTriggerExpression.table`` is not a Table. Another
+            TypeError: ``CreateTriggerStatement.table`` is not a Table. Another
             object kind would have had its own name rendered as the watched table's.
-            TypeError: ``CreateTriggerExpression.function`` is not a Function.
+            TypeError: ``CreateTriggerStatement.function`` is not a Function.
             Another object kind would have had its own name rendered as the trigger
             body's.
             UnsupportedFeatureError: If the dialect does not support triggers.
         """
         if not isinstance(expr.trigger, Trigger):
             raise TypeError(
-                f"CreateTriggerExpression.trigger must be a Trigger, "
+                f"CreateTriggerStatement.trigger must be a Trigger, "
                 f"got {type(expr.trigger).__name__}"
             )
 
         if not isinstance(expr.table, Table):
             raise TypeError(
-                f"CreateTriggerExpression.table must be a Table, "
+                f"CreateTriggerStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
 
         if not isinstance(expr.function, Function):
             raise TypeError(
-                f"CreateTriggerExpression.function must be a Function, "
+                f"CreateTriggerStatement.function must be a Function, "
                 f"got {type(expr.function).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError
@@ -180,7 +180,7 @@ class TriggerMixin:
 
         return " ".join(parts), tuple(all_params)
 
-    def format_drop_trigger_statement(self, expr: "DropTriggerExpression") -> Tuple[str, tuple]:
+    def format_drop_trigger_statement(self, expr: "DropTriggerStatement") -> Tuple[str, tuple]:
         """Format a ``DROP TRIGGER`` statement per SQL:1999.
 
         Args:
@@ -191,21 +191,21 @@ class TriggerMixin:
             A ``(sql, params)`` tuple.
 
         Raises:
-            TypeError: ``DropTriggerExpression.trigger`` is not a Trigger. Another
+            TypeError: ``DropTriggerStatement.trigger`` is not a Trigger. Another
             object kind would have had its own name rendered as the trigger's.
-            TypeError: ``DropTriggerExpression.table`` is not a Table. Another
+            TypeError: ``DropTriggerStatement.table`` is not a Table. Another
             object kind would have had its own name rendered as the table's.
             UnsupportedFeatureError: If the dialect does not support triggers.
         """
         if not isinstance(expr.trigger, Trigger):
             raise TypeError(
-                f"DropTriggerExpression.trigger must be a Trigger, "
+                f"DropTriggerStatement.trigger must be a Trigger, "
                 f"got {type(expr.trigger).__name__}"
             )
 
         if expr.table is not None and not isinstance(expr.table, Table):
             raise TypeError(
-                f"DropTriggerExpression.table must be a Table, "
+                f"DropTriggerStatement.table must be a Table, "
                 f"got {type(expr.table).__name__}"
             )
         from ..exceptions import UnsupportedFeatureError

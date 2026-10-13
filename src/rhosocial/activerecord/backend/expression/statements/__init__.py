@@ -9,28 +9,28 @@ to a backend-specific dialect.
 """
 
 # DQL
-from .dql import SelectModifier, QueryExpression
+from .dql import SelectModifier, QueryStatement
 
 # Re-export WhereClause and ForUpdateClause from query_parts for backward compatibility
 from ..query_parts import WhereClause, ForUpdateClause
 
 # EXPLAIN
-from .explain import ExplainType, ExplainFormat, ExplainOptions, ExplainExpression
+from .explain import ExplainType, ExplainFormat, ExplainOptions, ExplainStatement
 
 # DML
 from .dml import (
     MergeActionType,
     MergeAction,
-    MergeExpression,
+    MergeStatement,
     ReturningClause,
-    DeleteExpression,
-    UpdateExpression,
+    DeleteStatement,
+    UpdateStatement,
     InsertDataSource,
     ValuesSource,
     SelectSource,
     DefaultValuesSource,
     OnConflictClause,
-    InsertExpression,
+    InsertStatement,
 )
 
 # Table DDL
@@ -56,19 +56,19 @@ from .ddl_table import (
     TableConstraint,
     ForeignKeyConstraint,
     IndexDefinition,
-    CreateTableExpression,
-    CreateTableAsExpression,
-    CreateTableLikeExpression,
-    CreateTableCloneExpression,
-    CreateTableFromTemplateExpression,
+    CreateTableStatement,
+    CreateTableAsStatement,
+    CreateTableLikeStatement,
+    CreateTableCloneStatement,
+    CreateTableFromTemplateStatement,
     CreateTableOptions,
     CreateTableCloneMode,
-    DropTableExpression,
+    DropTableStatement,
     StorageOptionsExpression,
 )
 
 # COMMENT ON DDL
-from .ddl_comment import CommentObjectType, CommentOnExpression
+from .ddl_comment import CommentObjectType, CommentOnStatement
 
 # ALTER TABLE DDL
 from .ddl_alter import (
@@ -90,7 +90,7 @@ from .ddl_alter import (
     RenameObject,
     AddIndex,
     DropIndex,
-    AlterTableExpression,
+    AlterTableStatement,
 )
 
 # View DDL
@@ -99,40 +99,40 @@ from .ddl_view import (
     ViewAlgorithm,
     ViewCheckOption,
     ViewOptions,
-    CreateViewExpression,
-    DropViewExpression,
-    CreateMaterializedViewExpression,
-    DropMaterializedViewExpression,
-    RefreshMaterializedViewExpression,
+    CreateViewStatement,
+    DropViewStatement,
+    CreateMaterializedViewStatement,
+    DropMaterializedViewStatement,
+    RefreshMaterializedViewStatement,
 )
 
 # Truncate DDL
-from .ddl_truncate import TruncateExpression
+from .ddl_truncate import TruncateStatement
 
 # Schema DDL
-from .ddl_schema import CreateSchemaExpression, DropSchemaExpression
+from .ddl_schema import CreateSchemaStatement, DropSchemaStatement
 
 # Index DDL
 from .ddl_index import (
-    CreateIndexExpression,
-    DropIndexExpression,
-    CreateFulltextIndexExpression,
-    DropFulltextIndexExpression,
+    CreateIndexStatement,
+    DropIndexStatement,
+    CreateFulltextIndexStatement,
+    DropFulltextIndexStatement,
 )
 
 # Sequence DDL
 from .ddl_sequence import (
-    CreateSequenceExpression,
-    DropSequenceExpression,
-    AlterSequenceExpression,
+    CreateSequenceStatement,
+    DropSequenceStatement,
+    AlterSequenceStatement,
 )
 
 from .ddl_type import (
     TypeDefinition,
     TypeAlterAction,
-    CreateTypeExpression,
-    AlterTypeExpression,
-    DropTypeExpression,
+    CreateTypeStatement,
+    AlterTypeStatement,
+    DropTypeStatement,
 )
 
 from .ddl_domain import (
@@ -147,9 +147,9 @@ from .ddl_domain import (
     AddDomainCheckAction,
     DropDomainCheckAction,
     RenameDomainAction,
-    CreateDomainExpression,
-    AlterDomainExpression,
-    DropDomainExpression,
+    CreateDomainStatement,
+    AlterDomainStatement,
+    DropDomainStatement,
 )
 
 # Trigger DDL
@@ -157,12 +157,12 @@ from .ddl_trigger import (
     TriggerTiming,
     TriggerEvent,
     TriggerLevel,
-    CreateTriggerExpression,
-    DropTriggerExpression,
+    CreateTriggerStatement,
+    DropTriggerStatement,
 )
 
 # Function DDL
-from .ddl_function import CreateFunctionExpression, DropFunctionExpression
+from .ddl_function import CreateFunctionStatement, DropFunctionStatement
 
 # Partition DDL
 from .ddl_partition import (
@@ -185,7 +185,7 @@ from ..objects import Table
 __all__ = [
     # DQL
     "SelectModifier",
-    "QueryExpression",
+    "QueryStatement",
     # Re-export from query_parts for backward compatibility
     "WhereClause",
     "ForUpdateClause",
@@ -193,20 +193,20 @@ __all__ = [
     "ExplainType",
     "ExplainFormat",
     "ExplainOptions",
-    "ExplainExpression",
+    "ExplainStatement",
     # DML
     "MergeActionType",
     "MergeAction",
-    "MergeExpression",
+    "MergeStatement",
     "ReturningClause",
-    "DeleteExpression",
-    "UpdateExpression",
+    "DeleteStatement",
+    "UpdateStatement",
     "InsertDataSource",
     "ValuesSource",
     "SelectSource",
     "DefaultValuesSource",
     "OnConflictClause",
-    "InsertExpression",
+    "InsertStatement",
     # Table DDL
     "ColumnConstraintType",
     "ForeignKeyMatchType",
@@ -229,18 +229,18 @@ __all__ = [
     "TableConstraint",
     "ForeignKeyConstraint",
     "IndexDefinition",
-    "CreateTableExpression",
-    "CreateTableAsExpression",
-    "CreateTableLikeExpression",
-    "CreateTableCloneExpression",
-    "CreateTableFromTemplateExpression",
+    "CreateTableStatement",
+    "CreateTableAsStatement",
+    "CreateTableLikeStatement",
+    "CreateTableCloneStatement",
+    "CreateTableFromTemplateStatement",
     "CreateTableOptions",
     "CreateTableCloneMode",
-    "DropTableExpression",
+    "DropTableStatement",
     "StorageOptionsExpression",
     # COMMENT ON DDL
     "CommentObjectType",
-    "CommentOnExpression",
+    "CommentOnStatement",
     # ALTER TABLE DDL
     "AlterTableActionType",
     "AlterTableAction",
@@ -260,36 +260,36 @@ __all__ = [
     "RenameObject",
     "AddIndex",
     "DropIndex",
-    "AlterTableExpression",
+    "AlterTableStatement",
     # View DDL
     "ColumnAlias",
     "ViewAlgorithm",
     "ViewCheckOption",
     "ViewOptions",
-    "CreateViewExpression",
-    "DropViewExpression",
-    "CreateMaterializedViewExpression",
-    "DropMaterializedViewExpression",
-    "RefreshMaterializedViewExpression",
+    "CreateViewStatement",
+    "DropViewStatement",
+    "CreateMaterializedViewStatement",
+    "DropMaterializedViewStatement",
+    "RefreshMaterializedViewStatement",
     # Truncate DDL
-    "TruncateExpression",
+    "TruncateStatement",
     # Schema DDL
-    "CreateSchemaExpression",
-    "DropSchemaExpression",
+    "CreateSchemaStatement",
+    "DropSchemaStatement",
     # Index DDL
-    "CreateIndexExpression",
-    "DropIndexExpression",
-    "CreateFulltextIndexExpression",
-    "DropFulltextIndexExpression",
+    "CreateIndexStatement",
+    "DropIndexStatement",
+    "CreateFulltextIndexStatement",
+    "DropFulltextIndexStatement",
     # Sequence DDL
-    "CreateSequenceExpression",
-    "DropSequenceExpression",
-    "AlterSequenceExpression",
+    "CreateSequenceStatement",
+    "DropSequenceStatement",
+    "AlterSequenceStatement",
     "TypeDefinition",
     "TypeAlterAction",
-    "CreateTypeExpression",
-    "AlterTypeExpression",
-    "DropTypeExpression",
+    "CreateTypeStatement",
+    "AlterTypeStatement",
+    "DropTypeStatement",
     "DomainNullability",
     "DomainValueExpression",
     "DomainCheckConstraint",
@@ -301,18 +301,18 @@ __all__ = [
     "AddDomainCheckAction",
     "DropDomainCheckAction",
     "RenameDomainAction",
-    "CreateDomainExpression",
-    "AlterDomainExpression",
-    "DropDomainExpression",
+    "CreateDomainStatement",
+    "AlterDomainStatement",
+    "DropDomainStatement",
     # Trigger DDL
     "TriggerTiming",
     "TriggerEvent",
     "TriggerLevel",
-    "CreateTriggerExpression",
-    "DropTriggerExpression",
+    "CreateTriggerStatement",
+    "DropTriggerStatement",
     # Function DDL
-    "CreateFunctionExpression",
-    "DropFunctionExpression",
+    "CreateFunctionStatement",
+    "DropFunctionStatement",
     # Partition DDL
     "PartitionClause",
     "PartitionDefinition",

@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_trigger.py
 from rhosocial.activerecord.backend.expression.statements import (
-    CreateTriggerExpression,
-    DropTriggerExpression,
+    CreateTriggerStatement,
+    DropTriggerStatement,
     TriggerTiming,
     TriggerEvent,
     TriggerLevel,
@@ -16,7 +16,7 @@ class TestCreateTriggerStatements:
 
     def test_basic_create_trigger_before_insert(self, dummy_dialect: DummyDialect):
         """Tests basic CREATE TRIGGER BEFORE INSERT."""
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "before_insert_trigger"),
             table=Table(dummy_dialect, "users"),
@@ -39,7 +39,7 @@ class TestCreateTriggerStatements:
 
     def test_create_trigger_after_update(self, dummy_dialect: DummyDialect):
         """Tests CREATE TRIGGER AFTER UPDATE."""
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "after_update_trigger"),
             table=Table(dummy_dialect, "orders"),
@@ -55,7 +55,7 @@ class TestCreateTriggerStatements:
 
     def test_create_trigger_after_delete(self, dummy_dialect: DummyDialect):
         """Tests CREATE TRIGGER AFTER DELETE."""
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "after_delete_trigger"),
             table=Table(dummy_dialect, "logs"),
@@ -70,7 +70,7 @@ class TestCreateTriggerStatements:
 
     def test_create_trigger_instead_of(self, dummy_dialect: DummyDialect):
         """Tests CREATE TRIGGER INSTEAD OF (for views)."""
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "instead_of_insert"),
             table=Table(dummy_dialect, "user_view"),
@@ -84,7 +84,7 @@ class TestCreateTriggerStatements:
 
     def test_create_trigger_if_not_exists(self, dummy_dialect: DummyDialect):
         """Tests CREATE TRIGGER IF NOT EXISTS."""
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "some_trigger"),
             table=Table(dummy_dialect, "t"),
@@ -99,7 +99,7 @@ class TestCreateTriggerStatements:
 
     def test_create_trigger_multiple_events(self, dummy_dialect: DummyDialect):
         """Tests CREATE TRIGGER with multiple events."""
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "multi_event_trigger"),
             table=Table(dummy_dialect, "audit"),
@@ -113,7 +113,7 @@ class TestCreateTriggerStatements:
 
     def test_create_trigger_update_of_columns(self, dummy_dialect: DummyDialect):
         """Tests CREATE TRIGGER with UPDATE OF column_list."""
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "update_columns_trigger"),
             table=Table(dummy_dialect, "orders"),
@@ -130,7 +130,7 @@ class TestCreateTriggerStatements:
 
     def test_create_trigger_statement_level(self, dummy_dialect: DummyDialect):
         """Tests CREATE TRIGGER with FOR EACH STATEMENT."""
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "statement_trigger"),
             table=Table(dummy_dialect, "logs"),
@@ -145,7 +145,7 @@ class TestCreateTriggerStatements:
 
     def test_create_trigger_with_referencing(self, dummy_dialect: DummyDialect):
         """Tests CREATE TRIGGER with REFERENCING clause."""
-        create_trigger = CreateTriggerExpression(
+        create_trigger = CreateTriggerStatement(
             dummy_dialect,
             trigger=Trigger(dummy_dialect, "referencing_trigger"),
             table=Table(dummy_dialect, "orders"),
@@ -165,7 +165,7 @@ class TestDropTriggerStatements:
 
     def test_basic_drop_trigger(self, dummy_dialect: DummyDialect):
         """Tests basic DROP TRIGGER."""
-        drop_trigger = DropTriggerExpression(dummy_dialect, trigger=Trigger(dummy_dialect, "old_trigger"), table=Table(dummy_dialect, "users"))
+        drop_trigger = DropTriggerStatement(dummy_dialect, trigger=Trigger(dummy_dialect, "old_trigger"), table=Table(dummy_dialect, "users"))
         sql, params = drop_trigger.to_sql()
 
         assert sql == 'DROP TRIGGER "old_trigger" ON "users"'
@@ -173,7 +173,7 @@ class TestDropTriggerStatements:
 
     def test_drop_trigger_without_table(self, dummy_dialect: DummyDialect):
         """Tests DROP TRIGGER without table name."""
-        drop_trigger = DropTriggerExpression(dummy_dialect, trigger=Trigger(dummy_dialect, "old_trigger"))
+        drop_trigger = DropTriggerStatement(dummy_dialect, trigger=Trigger(dummy_dialect, "old_trigger"))
         sql, params = drop_trigger.to_sql()
 
         assert sql == 'DROP TRIGGER "old_trigger"'
@@ -181,7 +181,7 @@ class TestDropTriggerStatements:
 
     def test_drop_trigger_if_exists(self, dummy_dialect: DummyDialect):
         """Tests DROP TRIGGER IF EXISTS."""
-        drop_trigger = DropTriggerExpression(
+        drop_trigger = DropTriggerStatement(
             dummy_dialect, trigger=Trigger(dummy_dialect, "maybe_exists"), table=Table(dummy_dialect, "users"), if_exists=True
         )
         sql, params = drop_trigger.to_sql()
@@ -191,7 +191,7 @@ class TestDropTriggerStatements:
 
     def test_drop_trigger_if_exists_without_table(self, dummy_dialect: DummyDialect):
         """Tests DROP TRIGGER IF EXISTS without table name."""
-        drop_trigger = DropTriggerExpression(dummy_dialect, trigger=Trigger(dummy_dialect, "maybe_exists"), if_exists=True)
+        drop_trigger = DropTriggerStatement(dummy_dialect, trigger=Trigger(dummy_dialect, "maybe_exists"), if_exists=True)
         sql, params = drop_trigger.to_sql()
 
         assert "IF EXISTS" in sql

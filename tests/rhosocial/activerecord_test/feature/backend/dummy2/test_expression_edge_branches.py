@@ -241,56 +241,56 @@ class TestOnConflictValidation:
 
     def test_non_list_on_conflict(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         with pytest.raises(TypeError):
-            InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict="bad")
+            InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict="bad")
 
     def test_non_onconflict_clause_item(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         with pytest.raises(TypeError):
-            InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict=["bad", "worse"])
+            InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=["bad", "worse"])
 
     def test_valid_on_conflict(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         conflict = OnConflictClause(dialect, ["id"], do_nothing=True)
-        expr = InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
+        expr = InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
         assert expr is not None
         assert expr.on_conflict == [conflict]
 
     def test_validate_with_on_conflict(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         conflict = OnConflictClause(dialect, ["id"], do_nothing=True)
-        expr = InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
+        expr = InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
         expr.validate()
 
     def test_validate_on_conflict_bad_item(self, dialect):
         from rhosocial.activerecord.backend.expression.statements import (
-            InsertExpression,
+            InsertStatement,
             ValuesSource,
         )
 
         source = ValuesSource(dialect, [[Literal(dialect, 1)]])
         conflict = OnConflictClause(dialect, ["id"], do_nothing=True)
-        expr = InsertExpression(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
+        expr = InsertStatement(dialect, into=Table(dialect, 'users'), source=source, on_conflict=[conflict])
         expr.on_conflict = [conflict, "bad"]
         with pytest.raises(TypeError):
             expr.validate()

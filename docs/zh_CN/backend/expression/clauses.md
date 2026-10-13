@@ -166,8 +166,8 @@ lock_clause = ForUpdateClause(
 class JoinExpression(bases.BaseExpression):
     def __init__(self,
                  dialect: "SQLDialectBase",
-                 left_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
-                 right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+                 left_table: Union[str, "core.TableExpression", "core.Subquery", "QueryStatement", "JoinExpression"],
+                 right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryStatement", "JoinExpression"],
                  join_type: str = "JOIN",
                  condition: Optional["bases.SQLPredicate"] = None,
                  using: Optional[List[str]] = None,

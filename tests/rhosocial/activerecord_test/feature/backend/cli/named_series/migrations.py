@@ -7,11 +7,11 @@ tables that the queries/procedures/graphs depend on.
 """
 
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    CreateTableExpression,
+    CreateTableStatement,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
-    DropTableExpression,
+    DropTableStatement,
 )
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
     SQLiteIntegerType,
@@ -31,7 +31,7 @@ from rhosocial.activerecord.backend.expression.objects import Table
 
 def create_users_table(dialect):
     """CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)."""
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect,
         table=Table(dialect, 'users'),
         columns=[
@@ -47,12 +47,12 @@ def create_users_table(dialect):
 
 def drop_users_table(dialect):
     """DROP TABLE IF EXISTS users."""
-    return DropTableExpression(dialect, table=Table(dialect, 'users'), if_exists=True)
+    return DropTableStatement(dialect, table=Table(dialect, 'users'), if_exists=True)
 
 
 def create_posts_table(dialect):
     """CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT, user_id INTEGER)."""
-    return CreateTableExpression(
+    return CreateTableStatement(
         dialect,
         table=Table(dialect, 'posts'),
         columns=[
@@ -68,7 +68,7 @@ def create_posts_table(dialect):
 
 def drop_posts_table(dialect):
     """DROP TABLE IF EXISTS posts."""
-    return DropTableExpression(dialect, table=Table(dialect, 'posts'), if_exists=True)
+    return DropTableStatement(dialect, table=Table(dialect, 'posts'), if_exists=True)
 
 
 # --- NamedMigration classes -------------------------------------------------

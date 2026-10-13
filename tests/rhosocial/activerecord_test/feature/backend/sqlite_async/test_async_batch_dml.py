@@ -18,9 +18,9 @@ from uuid import uuid4
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    InsertExpression,
-    UpdateExpression,
-    DeleteExpression,
+    InsertStatement,
+    UpdateStatement,
+    DeleteStatement,
     ValuesSource,
     ComparisonPredicate,
 )
@@ -90,14 +90,14 @@ async def async_backend_no_returning(tmp_path):
 
 
 def _make_insert_expr(dialect, name, email):
-    """Build a single-row InsertExpression for users table."""
+    """Build a single-row InsertStatement for users table."""
     source = ValuesSource(dialect, values_list=[[Literal(dialect, name), Literal(dialect, email)]])
-    return InsertExpression(dialect, into=Table(dialect, 'users'), columns=["name", "email"], source=source)
+    return InsertStatement(dialect, into=Table(dialect, 'users'), columns=["name", "email"], source=source)
 
 
 def _make_update_expr(dialect, pk_val, new_name):
-    """Build an UpdateExpression: SET name=? WHERE id=?"""
-    return UpdateExpression(
+    """Build an UpdateStatement: SET name=? WHERE id=?"""
+    return UpdateStatement(
         dialect,
         table=Table(dialect, 'users'),
         assignments={"name": Literal(dialect, new_name)},
@@ -106,8 +106,8 @@ def _make_update_expr(dialect, pk_val, new_name):
 
 
 def _make_delete_expr(dialect, pk_val):
-    """Build a DeleteExpression: DELETE FROM users WHERE id=?"""
-    return DeleteExpression(
+    """Build a DeleteStatement: DELETE FROM users WHERE id=?"""
+    return DeleteStatement(
         dialect,
         tables=Table(dialect, 'users'),
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
@@ -349,7 +349,7 @@ class TestAsyncBatchDMLTypeConversion:
             ],
         )
         exprs = [
-            InsertExpression(
+            InsertStatement(
                 dialect, into=Table(dialect, 'typed_data'), columns=["uuid_col", "dt_col", "dec_col", "bool_col"], source=source
             )
         ]

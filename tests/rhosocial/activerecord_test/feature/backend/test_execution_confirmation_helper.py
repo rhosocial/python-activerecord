@@ -29,11 +29,11 @@ from rhosocial.activerecord.backend.expression.execution_testing import (
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
-    CreateTableExpression,
-    DropTableExpression,
+    CreateTableStatement,
+    DropTableStatement,
     IdentityClause,
-    InsertExpression,
-    QueryExpression,
+    InsertStatement,
+    QueryStatement,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
@@ -76,12 +76,12 @@ class TestDdlConfirmation:
     def test_accepted_ddl_runs_teardown(self, backend):
         dialect = SQLiteDialect()
         table = Table(dialect, "probe_accepted")
-        expression = CreateTableExpression(
+        expression = CreateTableStatement(
             dialect, table, [ColumnDefinition(dialect, "id", IntegerType(dialect))]
         )
 
         outcome = confirm_expression_execution(
-            backend, expression, teardown=[DropTableExpression(dialect, table)]
+            backend, expression, teardown=[DropTableStatement(dialect, table)]
         )
 
         assert outcome is ExecutionOutcome.ACCEPTED
@@ -95,7 +95,7 @@ class TestDdlConfirmation:
     def test_rejected_expression_raises_with_context(self, backend):
         """Rendered-but-refused SQL is the failure this helper exists to catch."""
         dialect = SQLiteDialect()
-        expression = InsertExpression(
+        expression = InsertStatement(
             dialect,
             into=Table(dialect, "missing_table"),
             source=ValuesSource(dialect, [[Literal(dialect, 1)]]),
@@ -135,7 +135,7 @@ class TestQueryShapedConfirmation:
 
     def test_select_over_prepared_schema_is_accepted(self, backend):
         dialect = SQLiteDialect()
-        expression = QueryExpression(
+        expression = QueryStatement(
             dialect,
             select=[Column(dialect, "id")],
             from_=Table(dialect, "probe_query"),

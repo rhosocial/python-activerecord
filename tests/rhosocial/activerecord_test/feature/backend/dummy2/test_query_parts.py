@@ -53,12 +53,12 @@ class TestQueryParts:
         assert params == (18, "verified")
 
     def test_comparison_predicate_with_query_expression(self, dummy_dialect: DummyDialect):
-        """Test ComparisonPredicate when right operand is QueryExpression (covers the isinstance check)."""
-        from rhosocial.activerecord.backend.expression import QueryExpression
+        """Test ComparisonPredicate when right operand is QueryStatement (covers the isinstance check)."""
+        from rhosocial.activerecord.backend.expression import QueryStatement
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
         # Create a subquery as the right operand
-        subquery = QueryExpression(
+        subquery = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "other_table")),

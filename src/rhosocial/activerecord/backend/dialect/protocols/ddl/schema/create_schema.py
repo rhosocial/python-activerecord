@@ -12,7 +12,7 @@ from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from .....expression.statements import (
-        CreateSchemaExpression,
+        CreateSchemaStatement,
     )
 
 
@@ -52,8 +52,8 @@ class CreateSchemaSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_create_schema_statement(self, expr: "CreateSchemaExpression") -> Tuple[str, tuple]:
-        """Render a :class:`~....expression.statements.CreateSchemaExpression`.
+    def format_create_schema_statement(self, expr: "CreateSchemaStatement") -> Tuple[str, tuple]:
+        """Render a :class:`~....expression.statements.CreateSchemaStatement`.
 
         Raises rather than emitting an unsupported form: a statement the
         engine cannot parse is not a statement worth producing.

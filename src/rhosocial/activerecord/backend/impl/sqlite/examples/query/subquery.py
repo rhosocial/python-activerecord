@@ -15,8 +15,8 @@ backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableExpression,
-    InsertExpression,
+    CreateTableStatement,
+    InsertStatement,
     ValuesSource,
 )
 from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
@@ -28,7 +28,7 @@ from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     TableConstraintType,
 )
 
-departments_table = CreateTableExpression(
+departments_table = CreateTableStatement(
     dialect=dialect,
     table_name="departments",
     columns=[
@@ -53,7 +53,7 @@ departments_table = CreateTableExpression(
 sql, params = departments_table.to_sql()
 backend.execute(sql, params)
 
-employees_table = CreateTableExpression(
+employees_table = CreateTableStatement(
     dialect=dialect,
     table_name="employees",
     columns=[
@@ -90,7 +90,7 @@ backend.execute(sql, params)
 
 departments = [("Engineering",), ("Sales",)]
 for dept in departments:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'departments'),
         columns=["name"],
@@ -105,7 +105,7 @@ employees = [
     ("Charlie", 2, 90000),
 ]
 for emp in employees:
-    insert_expr = InsertExpression(
+    insert_expr = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'employees'),
         columns=["name", "department_id", "salary"],
@@ -118,7 +118,7 @@ for emp in employees:
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     Column,
     WhereClause,
 )
@@ -128,13 +128,13 @@ from rhosocial.activerecord.backend.expression.predicates import ComparisonPredi
 from .....expression.objects import Table
 
 # Subquery in WHERE clause: find employees with salary above average
-avg_salary_subquery = QueryExpression(
+avg_salary_subquery = QueryStatement(
     dialect=dialect,
     select=[FunctionCall(dialect, "AVG", Column(dialect, "salary"))],
     from_=NamedRelationRef(dialect, Table(dialect, "employees")),
 )
 
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "name"),

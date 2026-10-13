@@ -12,10 +12,10 @@ This example demonstrates:
 # SECTION: Connection Setup
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
-    CreateTableExpression,
-    DropTableExpression,
-    InsertExpression,
-    QueryExpression,
+    CreateTableStatement,
+    DropTableStatement,
+    InsertStatement,
+    QueryStatement,
     ValuesSource,
     WhereClause,
 )
@@ -51,7 +51,7 @@ def execute_expression(expression, options=None):
 
 
 def create_demo_tables():
-    users_table = CreateTableExpression(
+    users_table = CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, 'users'),
         columns=[
@@ -74,7 +74,7 @@ def create_demo_tables():
     )
     execute_expression(users_table, ddl_options)
 
-    logs_table = CreateTableExpression(
+    logs_table = CreateTableStatement(
         dialect=dialect,
         table=Table(dialect, 'logs'),
         columns=[
@@ -98,7 +98,7 @@ def create_demo_tables():
 
 
 def seed_demo_data():
-    insert_users = InsertExpression(
+    insert_users = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'users'),
         columns=["name", "status"],
@@ -125,7 +125,7 @@ print(f"Is memory: {config.database == ':memory:'}")
 # ============================================================
 # SECTION: Execute Queries
 # ============================================================
-query = QueryExpression(
+query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "id"),
@@ -160,7 +160,7 @@ if result.data:
 # ============================================================
 # SECTION: Execute Parameterized Queries (Recommended)
 # ============================================================
-filtered_query = QueryExpression(
+filtered_query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "id"),
@@ -191,7 +191,7 @@ print(f"Parameterized query result: {result.data}")
 # SECTION: Handle Transactions
 # ============================================================
 with backend.transaction():
-    insert_log = InsertExpression(
+    insert_log = InsertStatement(
         dialect=dialect,
         into=Table(dialect, 'logs'),
         columns=["message"],
@@ -199,7 +199,7 @@ with backend.transaction():
     )
     execute_expression(insert_log)
 
-logs_query = QueryExpression(
+logs_query = QueryStatement(
     dialect=dialect,
     select=[Column(dialect, "id"), Column(dialect, "message")],
     from_=NamedRelationRef(dialect, Table(dialect, "logs")),
@@ -211,7 +211,7 @@ print(f"Transaction result: {result.data}")
 # SECTION: Error Handling
 # ============================================================
 try:
-    invalid_query = QueryExpression(
+    invalid_query = QueryStatement(
         dialect=dialect,
         select=[Column(dialect, "id")],
         from_=NamedRelationRef(dialect, Table(dialect, "nonexistent_table")),
@@ -223,10 +223,10 @@ except Exception as error:
 # ============================================================
 # SECTION: Disconnect
 # ============================================================
-drop_logs = DropTableExpression(dialect=dialect, table=Table(dialect, 'logs'), if_exists=True)
+drop_logs = DropTableStatement(dialect=dialect, table=Table(dialect, 'logs'), if_exists=True)
 execute_expression(drop_logs, ddl_options)
 
-drop_users = DropTableExpression(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
+drop_users = DropTableStatement(dialect=dialect, table=Table(dialect, 'users'), if_exists=True)
 execute_expression(drop_users, ddl_options)
 
 backend.disconnect()

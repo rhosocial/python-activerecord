@@ -696,7 +696,7 @@ sequenceDiagram
     
     rect rgb(240, 248, 255)
         Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
-        Query->>Expr: Construct QueryExpression
+        Query->>Expr: Construct QueryStatement
         Note right of Query: Assemble Select, From, Where...<br/>(one() uses temporary Limit=1)
         Expr->>Expr: to_sql()
         Expr-->>Query: Return (sql, params)
@@ -754,7 +754,7 @@ sequenceDiagram
 
     alt explain() enabled
         Note over Query, Expr: EXPLAIN Mode
-        Query->>Expr: Construct ExplainExpression
+        Query->>Expr: Construct ExplainStatement
         Expr->>Expr: to_sql()
         Expr-->>Query: Return (sql, params)
         Query->>Backend: fetch_all(sql, params)
@@ -762,7 +762,7 @@ sequenceDiagram
         Query-->>User: Return Plan Data
     else Standard Mode
         Note over Query, Expr: Standard Aggregation
-        Query->>Expr: Construct QueryExpression
+        Query->>Expr: Construct QueryStatement
         Expr->>Expr: to_sql()
         Expr-->>Query: Return (sql, params)
         Query->>Backend: fetch_all(sql, params)

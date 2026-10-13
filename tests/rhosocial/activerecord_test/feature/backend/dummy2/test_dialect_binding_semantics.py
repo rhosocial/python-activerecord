@@ -47,7 +47,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnConstraint,
     ColumnConstraintType,
     ColumnDefinition,
-    CreateTableExpression,
+    CreateTableStatement,
 )
 from rhosocial.activerecord.backend.expression.objects import Table
 
@@ -74,7 +74,7 @@ class TestExplicitPerNodeBinding:
     def test_ddl_tree_explicit_per_node(self, dummy_dialect: DummyDialect):
         # 端到端：DDL 全树逐节点显式方言——两种写法渲染结果一致。
         def build(varchar: VarCharType) -> str:
-            expr = CreateTableExpression(
+            expr = CreateTableStatement(
                 dummy_dialect,
                 Table(dummy_dialect, 't'),
                 [

@@ -10,7 +10,7 @@ compose into complete queries.
 """
 
 from rhosocial.activerecord.backend.expression import (
-    QueryExpression,
+    QueryStatement,
     Column,
     ComparisonPredicate,
     Literal,
@@ -36,9 +36,9 @@ def where_example(dialect, status: str = "active"):
         status: Status value to filter by.
 
     Returns:
-        QueryExpression with WHERE clause.
+        QueryStatement with WHERE clause.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "status")],
         from_=NamedRelationRef(dialect, Table(dialect, "orders")),
@@ -59,9 +59,9 @@ def join_example(dialect, user_id: int = 1):
         user_id: User identifier.
 
     Returns:
-        QueryExpression with JOIN.
+        QueryStatement with JOIN.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[
             Column(dialect, "o.id"),
@@ -92,9 +92,9 @@ def group_by_example(dialect, min_total: float = 100.0):
         min_total: Minimum total for HAVING filter.
 
     Returns:
-        QueryExpression with GROUP BY / HAVING.
+        QueryStatement with GROUP BY / HAVING.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[
             Column(dialect, "status"),
@@ -118,9 +118,9 @@ def order_by_example(dialect, limit: int = 10):
         limit: Maximum number of rows.
 
     Returns:
-        QueryExpression with ORDER BY and LIMIT.
+        QueryStatement with ORDER BY and LIMIT.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "id"), Column(dialect, "status"), Column(dialect, "amount")],
         from_=NamedRelationRef(dialect, Table(dialect, "orders")),
@@ -144,9 +144,9 @@ def distinct_example(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        QueryExpression with DISTINCT modifier.
+        QueryStatement with DISTINCT modifier.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[Column(dialect, "status")],
         from_=NamedRelationRef(dialect, Table(dialect, "orders")),
@@ -165,9 +165,9 @@ def compound_example(dialect, user_id: int = 1, status: str = "pending"):
         status: Status filter.
 
     Returns:
-        QueryExpression with multiple clauses.
+        QueryStatement with multiple clauses.
     """
-    return QueryExpression(
+    return QueryStatement(
         dialect,
         select=[
             Column(dialect, "o.id"),

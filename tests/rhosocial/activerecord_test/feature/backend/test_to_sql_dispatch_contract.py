@@ -7,7 +7,7 @@ formatting method's name, passes the callable check, and returns ``None`` --
 which the caller then treats as the rendered SQL. Three backends hit that
 independently before it was closed:
 
-* ``CreateFunctionExpression(...).to_sql()`` answering ``None``, because
+* ``CreateFunctionStatement(...).to_sql()`` answering ``None``, because
   postgres wired ``CreateRoutineSupport`` / ``DropRoutineSupport`` into a base
   list without implementing their formatters;
 * ``Domain.to_sql()`` answering ``None`` on snowflake, where

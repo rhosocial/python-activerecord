@@ -184,7 +184,7 @@ class RenameDomainAction(DomainAlterAction):
         self.new_name = new_name
 
 
-class CreateDomainExpression(BaseExpression):
+class CreateDomainStatement(BaseExpression):
     """Expression for ``CREATE DOMAIN``."""
 
     def __init__(
@@ -251,7 +251,7 @@ class CreateDomainExpression(BaseExpression):
         return "format_create_domain_statement"
 
 
-class AlterDomainExpression(BaseExpression):
+class AlterDomainStatement(BaseExpression):
     """Expression for ``ALTER DOMAIN``."""
 
     def __init__(
@@ -276,7 +276,7 @@ class AlterDomainExpression(BaseExpression):
         return "format_alter_domain_statement"
 
 
-class DropDomainExpression(BaseExpression):
+class DropDomainStatement(BaseExpression):
     """Expression for ``DROP DOMAIN``."""
 
     def __init__(
@@ -308,7 +308,7 @@ __all__ = [
     "AddDomainCheckAction",
     "DropDomainCheckAction",
     "RenameDomainAction",
-    "CreateDomainExpression",
-    "AlterDomainExpression",
-    "DropDomainExpression",
+    "CreateDomainStatement",
+    "AlterDomainStatement",
+    "DropDomainStatement",
 ]

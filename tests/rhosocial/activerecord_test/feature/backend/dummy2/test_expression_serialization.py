@@ -175,12 +175,12 @@ class TestAggregateRoundtrip:
 
 
 class TestQueryExpressionRoundtrip:
-    """T6: QueryExpression complete round-trip test."""
+    """T6: QueryStatement complete round-trip test."""
 
     def test_query_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+        from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
 
-        query = QueryExpression(
+        query = QueryStatement(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=NamedRelationRef(dummy_dialect, Table(dummy_dialect, "users")),
@@ -234,14 +234,14 @@ class TestCrossDialectFastFail:
     def test_sqlite_specific_expression_to_dummy_dialect(self, dummy_dialect):
         """Test that SQLite-specific expressions fail fast on non-SQLite dialects.
 
-        Step 1: deserialization should succeed (SQLiteReindexExpression is a known class)
+        Step 1: deserialization should succeed (SQLiteReindexStatement is a known class)
         Step 2: to_sql() should fail fast when dummy_dialect doesn't support the expression
         """
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-        from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexExpression
+        from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexStatement
 
         sqlite_dialect = SQLiteDialect(version=(3, 53, 0))
-        expr = SQLiteReindexExpression(sqlite_dialect, table=Table(sqlite_dialect, "users"))
+        expr = SQLiteReindexStatement(sqlite_dialect, table=Table(sqlite_dialect, "users"))
         spec = serialize(expr)
 
         assert "sqlite" in spec["type"]
@@ -767,71 +767,71 @@ class TestDDLRoundtrip:
 
     def test_create_table_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-            CreateTableExpression,
+            CreateTableStatement,
             ColumnDefinition,
             ColumnConstraint,
             ColumnConstraintType,
         )
 
         col_def = ColumnDefinition(dummy_dialect, "id", IntegerType(dummy_dialect), constraints=[ColumnConstraint(dummy_dialect, ColumnConstraintType.PRIMARY_KEY)])
-        expr = CreateTableExpression(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=[col_def])
+        expr = CreateTableStatement(dummy_dialect, table=Table(dummy_dialect, 'users'), columns=[col_def])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.to_sql() == expr.to_sql()
 
     def test_create_index_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression
+        from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexStatement
 
-        expr = CreateIndexExpression(dummy_dialect, Index(dummy_dialect, "idx_name"), Table(dummy_dialect, "users"), ["name", "age"])
+        expr = CreateIndexStatement(dummy_dialect, Index(dummy_dialect, "idx_name"), Table(dummy_dialect, "users"), ["name", "age"])
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_drop_index_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.statements.ddl_index import DropIndexExpression
+        from rhosocial.activerecord.backend.expression.statements.ddl_index import DropIndexStatement
 
-        expr = DropIndexExpression(dummy_dialect, Index(dummy_dialect, "idx_name"))
+        expr = DropIndexStatement(dummy_dialect, Index(dummy_dialect, "idx_name"))
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_create_schema_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.statements.ddl_schema import CreateSchemaExpression
+        from rhosocial.activerecord.backend.expression.statements.ddl_schema import CreateSchemaStatement
 
-        expr = CreateSchemaExpression(dummy_dialect, Schema(dummy_dialect, "myschema"))
+        expr = CreateSchemaStatement(dummy_dialect, Schema(dummy_dialect, "myschema"))
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_drop_schema_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.statements.ddl_schema import DropSchemaExpression
+        from rhosocial.activerecord.backend.expression.statements.ddl_schema import DropSchemaStatement
 
-        expr = DropSchemaExpression(dummy_dialect, Schema(dummy_dialect, "myschema"), cascade=True)
+        expr = DropSchemaStatement(dummy_dialect, Schema(dummy_dialect, "myschema"), cascade=True)
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_create_view_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.statements.ddl_view import CreateViewExpression
+        from rhosocial.activerecord.backend.expression.statements.ddl_view import CreateViewStatement
 
-        expr = CreateViewExpression(dummy_dialect, view=View(dummy_dialect, "user_view"), query="SELECT * FROM users")
+        expr = CreateViewStatement(dummy_dialect, view=View(dummy_dialect, "user_view"), query="SELECT * FROM users")
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_drop_view_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.statements.ddl_view import DropViewExpression
+        from rhosocial.activerecord.backend.expression.statements.ddl_view import DropViewStatement
 
-        expr = DropViewExpression(dummy_dialect, View(dummy_dialect, "user_view"))
+        expr = DropViewStatement(dummy_dialect, View(dummy_dialect, "user_view"))
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_truncate_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateExpression
+        from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateStatement
 
-        expr = TruncateExpression(dummy_dialect, Table(dummy_dialect, "users"), cascade=True)
+        expr = TruncateStatement(dummy_dialect, Table(dummy_dialect, "users"), cascade=True)
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()
 
     def test_explain_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.statements.explain import ExplainExpression
+        from rhosocial.activerecord.backend.expression.statements.explain import ExplainStatement
         from rhosocial.activerecord.backend.expression import Column
 
-        expr = ExplainExpression(dummy_dialect, statement=Column(dummy_dialect, "users"))
+        expr = ExplainStatement(dummy_dialect, statement=Column(dummy_dialect, "users"))
         restored = deserialize(serialize(expr), dummy_dialect)
         # A bare Column compares by identity, so equality goes through the
         # rendered SQL, as in the other roundtrip tests in this file.
