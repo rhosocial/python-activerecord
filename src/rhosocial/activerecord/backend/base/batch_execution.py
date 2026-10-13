@@ -29,7 +29,7 @@ from ..expression import InsertExpression, UpdateExpression, DeleteExpression
 if TYPE_CHECKING:
     from ..expression import (
         QueryExpression,
-        WithQueryExpression,
+        WithStatement,
         SetOperationExpression,
     )
 
@@ -68,7 +68,7 @@ HomogeneousDMLList = Union[
 # Type alias for DQL expressions
 DQLExpression = Union[
     "QueryExpression",
-    "WithQueryExpression",
+    "WithStatement",
     "SetOperationExpression",
 ]
 
@@ -259,7 +259,7 @@ class BatchExecutionMixin:
         processing of large result sets.
 
         Args:
-            expression: A DQL expression (QueryExpression, WithQueryExpression,
+            expression: A DQL expression (QueryExpression, WithStatement,
                        or SetOperationExpression).
             page_size: Number of rows per page. Default: 1000.
             column_adapters: Optional type adapters for processing columns.

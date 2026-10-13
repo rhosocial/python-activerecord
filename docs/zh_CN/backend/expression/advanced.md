@@ -160,16 +160,16 @@ sql, params = frame_spec.to_sql()
 
 CTE 提供了一种编写辅助语句以在较大查询中使用的方法。
 
-### WithQueryExpression
+### WithStatement
 
-表示包含一个或多个 CTE 的 `WITH` 子句。
+表示完整的 `WITH` 语句：CTE 定义加上它们所引导的查询。单个 CTE 定义是 `CTEClause`。
 
 ```python
-from rhosocial.activerecord.backend.expression import WithQueryExpression, CTEExpression, Subquery, QueryExpression, TableExpression, Column
+from rhosocial.activerecord.backend.expression import WithStatement, CTEClause, Subquery, QueryExpression, TableExpression, Column
 
 # 定义 CTE
 cte_query = Subquery(dialect, "SELECT id, name FROM users WHERE status = ?", ("active",))
-cte = CTEExpression(dialect, name="active_users", query=cte_query)
+cte = CTEClause(dialect, name="active_users", query=cte_query)
 
 # 使用 CTE 的主查询
 main_query = QueryExpression(
@@ -179,7 +179,7 @@ main_query = QueryExpression(
 )
 
 # 组合成 WITH 查询
-with_query = WithQueryExpression(dialect, ctes=[cte], main_query=main_query)
+with_query = WithStatement(dialect, ctes=[cte], query=main_query)
 
 sql, params = with_query.to_sql()
 # sql: 'WITH "active_users" AS (SELECT id, name FROM users WHERE status = ?) SELECT "name" FROM "active_users"'

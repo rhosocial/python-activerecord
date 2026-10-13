@@ -135,7 +135,7 @@ def assert_import_paths() -> None:
 
     # Expression types (DQL)
     try_import("rhosocial.activerecord.backend.expression.statements", "QueryExpression")
-    try_import("rhosocial.activerecord.backend.expression.query_sources", "WithQueryExpression")
+    try_import("rhosocial.activerecord.backend.expression.query_sources", "WithStatement")
     try_import("rhosocial.activerecord.backend.expression", "WildcardExpression")
     try_import("rhosocial.activerecord.backend.expression.query_parts", "OrderByClause")
     try_import("rhosocial.activerecord.backend.expression.query_parts", "LimitOffsetClause")

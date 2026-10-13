@@ -93,7 +93,7 @@ sequenceDiagram
     
     rect rgb(240, 248, 255)
         Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
-        Query->>Expr: Build WithQueryExpression
+        Query->>Expr: Build WithStatement
         Note right of Query: Assemble all CTE definitions + Main Query
         Expr->>Expr: to_sql()
         Expr-->>Query: Return (sql, params)

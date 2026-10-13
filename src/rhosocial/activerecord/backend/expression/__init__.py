@@ -158,9 +158,8 @@ from .query_parts import (
 from .pivot import PivotExpression, UnpivotExpression
 from .query_sources import (
     SetOperationExpression,
-    CTEExpression,
-    WithClause,
-    WithQueryExpression,
+    CTEClause,
+    WithStatement,
     ValuesExpression,
     TableFunctionExpression,
     LateralExpression,
@@ -583,9 +582,8 @@ __all__ = [
     "LockStrength",
     # Query sources
     "SetOperationExpression",
-    "CTEExpression",
-    "WithClause",
-    "WithQueryExpression",
+    "CTEClause",
+    "WithStatement",
     "ValuesExpression",
     "TableFunctionExpression",
     "LateralExpression",

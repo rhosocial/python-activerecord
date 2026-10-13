@@ -436,8 +436,8 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         Column,
         NumericColumn,
         FunctionCall,
-        CTEExpression,
-        WithQueryExpression,
+        CTEClause,
+        WithStatement,
         SetOperationExpression,
         concat_op,
     )
@@ -456,7 +456,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     print(f"Sudoku input: {sudoku_input}")
 
     # Build the input CTE: input(sud) AS (VALUES(?))
-    input_cte = CTEExpression(
+    input_cte = CTEClause(
         dialect=dialect,
         name="input",
         query=ValuesExpression(
@@ -497,7 +497,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     print(f"Sudoku input: {sudoku_input}")
 
     # Build the input CTE: input(sud) AS (VALUES(?))
-    input_cte = CTEExpression(
+    input_cte = CTEClause(
         dialect=dialect,
         name="input",
         query=ValuesExpression(
@@ -530,7 +530,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect, left=initial_digits_values, right=recursive_query, operation="UNION", all_=True, alias=None
     )
 
-    digits_cte = CTEExpression(dialect=dialect, name="digits", query=digits_union, columns=["z", "lp"])
+    digits_cte = CTEClause(dialect=dialect, name="digits", query=digits_union, columns=["z", "lp"])
 
     # Build the x CTE: x(s, ind) AS (SELECT sud, instr(sud, '.') FROM input UNION ALL ...)
     # Initial part
@@ -623,7 +623,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect, left=initial_x_query, right=recursive_x_query, operation="UNION", all_=True, alias=None
     )
 
-    x_cte = CTEExpression(dialect=dialect, name="x", query=x_union, columns=["s", "ind"])
+    x_cte = CTEClause(dialect=dialect, name="x", query=x_union, columns=["s", "ind"])
 
     # Final query: SELECT s FROM x WHERE ind=0
     final_query = QueryExpression(
@@ -634,10 +634,10 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     )
 
     # Build the complete WITH query
-    with_query = WithQueryExpression(
+    with_query = WithStatement(
         dialect=dialect,
         ctes=[input_cte, digits_cte, x_cte],  # input, digits, and x CTEs
-        main_query=final_query,
+        query=final_query,
         recursive=True,
     )
 
@@ -782,8 +782,8 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             NumericColumn,
             BinaryExpression,
             FunctionCall,
-            CTEExpression,
-            WithQueryExpression,
+            CTEClause,
+            WithStatement,
             SetOperationExpression,
         )
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -825,7 +825,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             alias=None,
         )
 
-        xaxis_cte = CTEExpression(dialect=dialect, name="xaxis", query=xaxis_union, columns=["x"])
+        xaxis_cte = CTEClause(dialect=dialect, name="xaxis", query=xaxis_union, columns=["x"])
 
         # Build the yaxis CTE: yaxis(y) AS (VALUES(-1.0) UNION ALL SELECT y+0.1 FROM yaxis WHERE y<1.0)
         # Initial value part
@@ -852,7 +852,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             alias=None,
         )
 
-        yaxis_cte = CTEExpression(dialect=dialect, name="yaxis", query=yaxis_union, columns=["y"])
+        yaxis_cte = CTEClause(dialect=dialect, name="yaxis", query=yaxis_union, columns=["y"])
 
         # Build the m CTE: m(iter, cx, cy, x, y) AS (
         #   SELECT 0, x, y, 0.0, 0.0 FROM xaxis, yaxis
@@ -899,7 +899,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect=dialect, left=initial_m_query, right=recursive_m_query, operation="UNION", all_=True, alias=None
         )
 
-        m_cte = CTEExpression(dialect=dialect, name="m", query=m_union, columns=["iter", "cx", "cy", "x", "y"])
+        m_cte = CTEClause(dialect=dialect, name="m", query=m_union, columns=["iter", "cx", "cy", "x", "y"])
 
         # Build the m2 CTE: m2(iter, cx, cy) AS (
         #   SELECT max(iter), cx, cy FROM m GROUP BY cx, cy
@@ -922,7 +922,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             ),
         )
 
-        m2_cte = CTEExpression(dialect=dialect, name="m2", query=m2_query, columns=["iter", "cx", "cy"])
+        m2_cte = CTEClause(dialect=dialect, name="m2", query=m2_query, columns=["iter", "cx", "cy"])
 
         # Build the a CTE: a(t) AS (
         #   SELECT group_concat( substr(' .+*#', 1+min(iter/7,4), 1), '')
@@ -958,7 +958,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             ),
         )
 
-        a_cte = CTEExpression(dialect=dialect, name="a", query=a_query, columns=["t"])
+        a_cte = CTEClause(dialect=dialect, name="a", query=a_query, columns=["t"])
 
         # Final query: SELECT group_concat(rtrim(t),x'0a') FROM a
         final_from = NamedRelationRef(dialect, Table(dialect, "a"))
@@ -970,8 +970,8 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         final_query = QueryExpression(dialect=dialect, select=[final_group_concat], from_=final_from)
 
         # Build the complete WITH query
-        with_query = WithQueryExpression(
-            dialect=dialect, ctes=[xaxis_cte, yaxis_cte, m_cte, m2_cte, a_cte], main_query=final_query
+        with_query = WithStatement(
+            dialect=dialect, ctes=[xaxis_cte, yaxis_cte, m_cte, m2_cte, a_cte], query=final_query
         )
 
         # Generate the final SQL

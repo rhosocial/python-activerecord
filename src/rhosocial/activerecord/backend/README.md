@@ -276,7 +276,7 @@ SQL expression building blocks, following the Expression-Dialect separation patt
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, FunctionCall,
     QueryExpression, InsertExpression, UpdateExpression,
-    CTEExpression,
+    CTEClause,
     # Function factories
     count, sum_, avg, row_number, rank,
     json_extract, array_agg,

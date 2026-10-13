@@ -6,7 +6,7 @@ Tests cover:
   - fetchmany pagination with various page_size / row_count combinations
   - Cursor lifecycle: normal consumption, early break, exception
   - Column adapter and column mapping processing
-  - DQLExpression type coverage: QueryExpression, WithQueryExpression, SetOperationExpression
+  - DQLExpression type coverage: QueryExpression, WithStatement, SetOperationExpression
 """
 
 import pytest
@@ -22,8 +22,8 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import QueryExpression
 from rhosocial.activerecord.backend.expression.query_sources import (
-    WithQueryExpression,
-    CTEExpression,
+    WithStatement,
+    CTEClause,
 )
 from rhosocial.activerecord.backend.expression.query_parts import (
     WhereClause,
@@ -294,7 +294,7 @@ class TestAsyncBatchDQLExpressionTypes:
         assert sum(p.page_size for p in pages) == 100
 
     async def test_with_query_expression_cte(self, async_backend_with_items):
-        """WithQueryExpression (CTE)."""
+        """WithStatement (CTE)."""
         dialect = async_backend_with_items.dialect
 
         # WITH expensive AS (SELECT * FROM items WHERE price > 50)
@@ -308,7 +308,7 @@ class TestAsyncBatchDQLExpressionTypes:
                 condition=ComparisonPredicate(dialect, ">", Column(dialect, "price"), Literal(dialect, 50.0)),
             ),
         )
-        cte = CTEExpression(dialect, name="expensive", query=cte_query)
+        cte = CTEClause(dialect, name="expensive", query=cte_query)
 
         main_query = QueryExpression(
             dialect,
@@ -317,7 +317,7 @@ class TestAsyncBatchDQLExpressionTypes:
             order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
         )
 
-        with_expr = WithQueryExpression(dialect, ctes=[cte], main_query=main_query)
+        with_expr = WithStatement(dialect, ctes=[cte], query=main_query)
 
         pages = await _async_collect_pages(async_backend_with_items.execute_batch_dql(with_expr, page_size=20))
 

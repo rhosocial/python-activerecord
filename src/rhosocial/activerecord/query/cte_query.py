@@ -15,7 +15,7 @@ from ..backend.dialect.exceptions import UnsupportedFeatureError
 from ..backend.expression import statements, WildcardExpression, query_sources, bases
 from ..backend.expression.objects import Table
 from ..backend.expression.sources import NamedRelationRef
-from ..backend.expression.query_sources import CTEExpression
+from ..backend.expression.query_sources import CTEClause
 from ..interface import ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IAsyncSetOperationQuery, IQuery, IAsyncQuery
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -53,7 +53,7 @@ class CTEQuery(
     """
 
     # region Instance Attributes
-    _ctes: List[CTEExpression]
+    _ctes: List[CTEClause]
     _main_cte_name: Optional[str]
     _recursive: bool
     # endregion
@@ -193,10 +193,10 @@ class CTEQuery(
                 "Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported."
             )
 
-        # Create a CTEExpression. The query-layer ``materialized`` tri-state is
+        # Create a CTEClause. The query-layer ``materialized`` tri-state is
         # translated to the expression layer's two parameters; the AR-layer
         # exposure of the split is decided later.
-        cte_expr = query_sources.CTEExpression(
+        cte_expr = query_sources.CTEClause(
             dialect, name=name, query=query_expr, columns=columns,
             materialized=materialized is True,
             not_materialized=materialized is False,
@@ -232,7 +232,7 @@ class CTEQuery(
         return self
 
     def to_sql(self) -> "bases.SQLQueryAndParams":
-        """Generate SQL for this CTE query using WithQueryExpression.
+        """Generate SQL for this CTE query using WithStatement.
 
         Note: Unlike BaseQueryMixin.to_sql(), this method constructs a complete WITH query
         using CTE expressions. The SQL generation follows the pattern:
@@ -274,9 +274,9 @@ class CTEQuery(
             limit_offset=self.limit_offset_clause,
         )
 
-        # Create WithQueryExpression with the CTEs and main query
-        with_query_expr = query_sources.WithQueryExpression(
-            dialect, ctes=self._ctes, main_query=main_query_expr, recursive=self._recursive
+        # Create WithStatement with the CTEs and main query
+        with_query_expr = query_sources.WithStatement(
+            dialect, ctes=self._ctes, query=main_query_expr, recursive=self._recursive
         )
         return with_query_expr.to_sql()
 
@@ -374,7 +374,7 @@ class AsyncCTEQuery(
     """
 
     # region Instance Attributes
-    _ctes: List[CTEExpression]
+    _ctes: List[CTEClause]
     _main_cte_name: Optional[str]
     _recursive: bool
     # endregion
@@ -514,10 +514,10 @@ class AsyncCTEQuery(
                 "Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported."
             )
 
-        # Create a CTEExpression. The query-layer ``materialized`` tri-state is
+        # Create a CTEClause. The query-layer ``materialized`` tri-state is
         # translated to the expression layer's two parameters; the AR-layer
         # exposure of the split is decided later.
-        cte_expr = query_sources.CTEExpression(
+        cte_expr = query_sources.CTEClause(
             dialect, name=name, query=query_expr, columns=columns,
             materialized=materialized is True,
             not_materialized=materialized is False,
@@ -553,7 +553,7 @@ class AsyncCTEQuery(
         return self
 
     def to_sql(self) -> "bases.SQLQueryAndParams":
-        """Generate SQL for this CTE query using WithQueryExpression.
+        """Generate SQL for this CTE query using WithStatement.
 
         Note: Unlike BaseQueryMixin.to_sql(), this method constructs a complete WITH query
         using CTE expressions. The SQL generation follows the pattern:
@@ -595,9 +595,9 @@ class AsyncCTEQuery(
             limit_offset=self.limit_offset_clause,
         )
 
-        # Create WithQueryExpression with the CTEs and main query
-        with_query_expr = query_sources.WithQueryExpression(
-            dialect, ctes=self._ctes, main_query=main_query_expr, recursive=self._recursive
+        # Create WithStatement with the CTEs and main query
+        with_query_expr = query_sources.WithStatement(
+            dialect, ctes=self._ctes, query=main_query_expr, recursive=self._recursive
         )
         return with_query_expr.to_sql()
 

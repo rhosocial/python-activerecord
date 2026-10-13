@@ -95,7 +95,7 @@ All expressions implement `ToSQLProtocol` (i.e., they have `.to_sql(dialect) -> 
 - `ComparisonExpression(left, op, right)` — e.g., `age >= 18`.
 - `LogicalExpression(op, children)` — AND/OR/NOT combinator.
 - `AggregateExpression(func, column)` — COUNT, SUM, etc.
-- `WindowExpression`, `CTEExpression` — advanced SQL constructs.
+- `WindowExpression`, `CTEClause` — advanced SQL constructs.
 
 ### Dialect (dialect/)
 Translates expressions into backend-specific SQL strings.

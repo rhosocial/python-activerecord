@@ -30,7 +30,7 @@ rhosocial-activerecord 会拒绝继续——它抛出显式错误（`Unsupported
 # 每个表达式只声明一件事：渲染它的方言方法名。
 @property
 def format_method(self) -> str:
-    return "format_cte_expression"   # 例如 CTEQuery 声明这个
+    return "format_cte_clause"   # 例如 CTEClause 声明这个
 ```
 
 `BaseExpression.to_sql()` **只在根部实现一次**，是唯一的渲染入口。具体表达式类

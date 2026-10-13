@@ -45,7 +45,7 @@ from rhosocial.activerecord.backend.expression.objects import (
 )
 from rhosocial.activerecord.backend.expression.pivot import UnpivotExpression
 from rhosocial.activerecord.backend.expression.query_sources import (
-    CTEExpression,
+    CTEClause,
     SetOperationExpression,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
@@ -393,8 +393,8 @@ PAIR_CASES = (
         r"WITH NO DATA\b",
     ),
     PairCase(
-        "CTEExpression.materialized",
-        lambda d, **kw: CTEExpression(d, "c", _query(d), **kw),
+        "CTEClause.materialized",
+        lambda d, **kw: CTEClause(d, "c", _query(d), **kw),
         "materialized",
         "not_materialized",
         r"(?<!NOT )MATERIALIZED\b",
@@ -645,11 +645,11 @@ class TestDeclaredProbeGatesTheClause:
         d = _NoMaterializedCTE()
         assert d.supports_materialized_cte() is False
         with pytest.raises(UnsupportedFeatureError, match="MATERIALIZED CTE"):
-            CTEExpression(d, "c", _query(d), materialized=True).to_sql()
+            CTEClause(d, "c", _query(d), materialized=True).to_sql()
         with pytest.raises(UnsupportedFeatureError, match="NOT MATERIALIZED CTE"):
-            CTEExpression(d, "c", _query(d), not_materialized=True).to_sql()
+            CTEClause(d, "c", _query(d), not_materialized=True).to_sql()
         # Neither spelling requested: the probe is not consulted, nothing refused.
-        sql, _params = CTEExpression(d, "c", _query(d)).to_sql()
+        sql, _params = CTEClause(d, "c", _query(d)).to_sql()
         assert "MATERIALIZED" not in sql
 
     def test_truncate_is_refused_without_the_probe(self):
@@ -761,7 +761,7 @@ class TestGuardIsNotVacuous:
             "CreateMaterializedViewExpression.with_data",
             "RefreshMaterializedViewExpression.with_data",
             "CreateTableAsExpression.with_data",
-            "CTEExpression.materialized",
+            "CTEClause.materialized",
             "TableConstraint.deferrable",
             "TableConstraint.initially_deferred",
             "TableConstraint.enforced",

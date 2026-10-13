@@ -5,8 +5,8 @@ example queries (Mandelbrot set, Sudoku solver).
 
 https://sqlite.org/lang_with.html — Outlandish Recursive Query Examples
 
-These queries are built as deep expression trees (CTEExpression,
-WithQueryExpression, SetOperationExpression, ValuesExpression, QueryExpression,
+These queries are built as deep expression trees (CTEClause,
+WithStatement, SetOperationExpression, ValuesExpression, QueryExpression,
 FunctionCall, arithmetic operators, concat_op, ExistsExpression, etc.) and
 round-tripped through dict / JSON / XML to stress-test the serialization
 machinery with deeply nested recursive structures.
@@ -28,8 +28,8 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
-    CTEExpression,
-    WithQueryExpression,
+    CTEClause,
+    WithStatement,
     SetOperationExpression,
     ValuesExpression,
 )
@@ -78,10 +78,10 @@ def build_mandelbrot(d):
         )
         return SetOperationExpression(d, left=base, right=rec, operation="UNION", all_=True)
 
-    xaxis_cte = CTEExpression(
+    xaxis_cte = CTEClause(
         d, name="xaxis", query=_make_axis_union("xaxis", "x", -2.0, 0.05, 1.2), columns=["x"]
     )
-    yaxis_cte = CTEExpression(
+    yaxis_cte = CTEClause(
         d, name="yaxis", query=_make_axis_union("yaxis", "y", -1.0, 0.1, 1.0), columns=["y"]
     )
 
@@ -107,7 +107,7 @@ def build_mandelbrot(d):
         )
         & (NumericColumn(d, "iter") < Literal(d, 28)),
     )
-    m_cte = CTEExpression(
+    m_cte = CTEClause(
         d,
         name="m",
         query=SetOperationExpression(d, left=m_seed, right=m_step, operation="UNION", all_=True),
@@ -120,7 +120,7 @@ def build_mandelbrot(d):
         from_=NamedRelationRef(d, Table(d, "m")),
         group_by_having=GroupByHavingClause(d, group_by=[Column(d, "cx"), Column(d, "cy")]),
     )
-    m2_cte = CTEExpression(d, name="m2", query=m2_query, columns=["iter", "cx", "cy"])
+    m2_cte = CTEClause(d, name="m2", query=m2_query, columns=["iter", "cx", "cy"])
 
     min_expr = FunctionCall(d, "MIN", NumericColumn(d, "iter") / Literal(d, 7), Literal(d, 4))
     substr_expr = FunctionCall(d, "SUBSTR", Literal(d, " .+*#"), Literal(d, 1) + min_expr, Literal(d, 1))
@@ -130,22 +130,22 @@ def build_mandelbrot(d):
         from_=NamedRelationRef(d, Table(d, "m2")),
         group_by_having=GroupByHavingClause(d, group_by=[Column(d, "cy")]),
     )
-    a_cte = CTEExpression(d, name="a", query=a_query, columns=["t"])
+    a_cte = CTEClause(d, name="a", query=a_query, columns=["t"])
 
     main = QueryExpression(
         d,
         select=[FunctionCall(d, "GROUP_CONCAT", FunctionCall(d, "RTRIM", Column(d, "t")), Literal(d, b"\x0a"))],
         from_=NamedRelationRef(d, Table(d, "a")),
     )
-    return WithQueryExpression(
-        d, ctes=[xaxis_cte, yaxis_cte, m_cte, m2_cte, a_cte], main_query=main, recursive=True
+    return WithStatement(
+        d, ctes=[xaxis_cte, yaxis_cte, m_cte, m2_cte, a_cte], query=main, recursive=True
     )
 
 
 def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"):
     """Build the Sudoku solver query from the SQLite docs as an expression tree."""
 
-    input_cte = CTEExpression(
+    input_cte = CTEClause(
         d, name="input", query=ValuesExpression(d, [(puzzle,)]), columns=["sud"]
     )
 
@@ -159,7 +159,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
         from_=NamedRelationRef(d, Table(d, "digits")),
         where=Column(d, "lp") < Literal(d, 9),
     )
-    digits_cte = CTEExpression(
+    digits_cte = CTEClause(
         d,
         name="digits",
         query=SetOperationExpression(d, left=digits_seed, right=digits_step, operation="UNION", all_=True),
@@ -223,7 +223,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
         from_=[NamedRelationRef(d, Table(d, "x")), NamedRelationRef(d, Table(d, "digits"), alias="z")],
         where=(ind > zero) & not_exists,
     )
-    x_cte = CTEExpression(
+    x_cte = CTEClause(
         d,
         name="x",
         query=SetOperationExpression(d, left=x_seed, right=x_step, operation="UNION", all_=True),
@@ -236,7 +236,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
         from_=NamedRelationRef(d, Table(d, "x")),
         where=Column(d, "ind") == Literal(d, 0),
     )
-    return WithQueryExpression(d, ctes=[input_cte, digits_cte, x_cte], main_query=main, recursive=True)
+    return WithStatement(d, ctes=[input_cte, digits_cte, x_cte], query=main, recursive=True)
 
 
 def build_bom(d):
@@ -272,7 +272,7 @@ def build_bom(d):
         where=ComparisonPredicate(d, "=", Column(d, "parent_id", "c"), Column(d, "child_id", "b")),
     )
     union = SetOperationExpression(d, left=anchor, right=step, operation="UNION", all_=True)
-    cte = CTEExpression(
+    cte = CTEClause(
         d, name="BOM_Explosion", query=union, columns=["child_id", "quantity", "total_qty"]
     )
     main = QueryExpression(
@@ -281,7 +281,7 @@ def build_bom(d):
         from_=NamedRelationRef(d, Table(d, "BOM_Explosion")),
         group_by_having=GroupByHavingClause(d, group_by=[Column(d, "child_id")]),
     )
-    return WithQueryExpression(d, ctes=[cte], main_query=main)
+    return WithStatement(d, ctes=[cte], query=main)
 
 
 def build_flight_paths(d):
@@ -331,7 +331,7 @@ def build_flight_paths(d):
         & (Column(d, "depth", "p") < Literal(d, 5)),
     )
     union = SetOperationExpression(d, left=anchor, right=step, operation="UNION", all_=True)
-    cte = CTEExpression(
+    cte = CTEClause(
         d, name="FlightPaths", query=union, columns=["destination", "price", "depth", "path"]
     )
     main = QueryExpression(
@@ -342,7 +342,7 @@ def build_flight_paths(d):
         order_by=OrderByClause(d, [Column(d, "price")]),
         limit_offset=LimitOffsetClause(d, limit=Literal(d, 1)),
     )
-    return WithQueryExpression(d, ctes=[cte], main_query=main)
+    return WithStatement(d, ctes=[cte], query=main)
 
 
 def build_game_of_life(d):

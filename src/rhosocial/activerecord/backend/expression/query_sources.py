@@ -167,7 +167,7 @@ class SetOperationExpression(TableSource, BaseExpression):
         return "format_set_operation_expression"
 
 
-class CTEExpression(BaseExpression):
+class CTEClause(BaseExpression):
     """Represents a Common Table Expression (CTE) expression (WITH ... AS ...).
 
     Common Table Expressions (CTEs) allow defining temporary result sets that can be referenced
@@ -176,7 +176,7 @@ class CTEExpression(BaseExpression):
 
     Example Usage:
         # Basic CTE
-        cte = CTEExpression(
+        cte = CTEClause(
             dialect,
             name="monthly_sales",
             query=QueryExpression(
@@ -215,23 +215,23 @@ class CTEExpression(BaseExpression):
             alias="recursive_union"
         )
 
-        # To create a recursive CTE, use WithQueryExpression with recursive=True
-        cte = CTEExpression(
+        # To create a recursive CTE, use WithStatement with recursive=True
+        cte = CTEClause(
             dialect,
             name="counter",
             query=combined_query,
             columns=["next_value", "next_level"]
         )
 
-        # Use WithQueryExpression to create the recursive query
-        recursive_query = WithQueryExpression(
+        # Use WithStatement to create the recursive query
+        recursive_query = WithStatement(
             dialect,
-            ctes=[cte],
-            main_query=QueryExpression(
+            query=QueryExpression(
                 dialect,
                 select=[Column(dialect, "next_value"), Column(dialect, "next_level")],
                 from_=NamedRelationRef(dialect, Table(dialect, "counter"))
             ),
+            ctes=[cte],
             recursive=True
         )
     """
@@ -246,7 +246,7 @@ class CTEExpression(BaseExpression):
         not_materialized: bool = False,
     ):
         """
-        Initialize a CTEExpression.
+        Initialize a CTEClause.
 
         Args:
             dialect: The SQL dialect to use for formatting
@@ -274,53 +274,39 @@ class CTEExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_cte_expression"
+        return "format_cte_clause"
 
 
-class WithClause(BaseExpression):
-    """The ``WITH`` clause of a query: ``WITH [RECURSIVE] cte [, cte ...]``.
+class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
+    """A query with a ``WITH`` clause: ``WITH [RECURSIVE] cte [, ...] query``.
 
-    The clause owns what the grammar hangs on the ``WITH`` production —
-    the ``RECURSIVE`` modifier and the CTE definitions — while the
-    statement that follows stays on :class:`WithQueryExpression`. The
-    clause is a node of its own so its spelling is the dialect's public
-    ``format_with_clause``: a backend re-spells the clause by overriding
-    one formatter instead of re-implementing the query composition around
-    it, and the ``supports_basic_cte`` / ``supports_recursive_cte``
-    probes are consulted where the clause is rendered instead of being
-    decorative.
+    The executable unit of the production -- what ``to_sql()`` yields can
+    be sent to the database as is. The ``WITH`` keyword itself is grammar
+    structure the formatter emits, not a node; the grammar's other half,
+    the query the clause precedes, is :attr:`query`, a sibling expression
+    rendered by its own formatter.
 
-    Rendering an empty clause (no CTE definitions) yields ``("", ())``;
-    the query composition treats that as "no WITH clause at all".
-    """
+    The ``WITH`` side is held here rather than in a separate clause node:
+    apart from ``ctes`` and ``recursive`` it has no state, lifecycle, or
+    probe family of its own, so a clause node would only add an indirection
+    over the same data. A single :class:`CTEClause` does earn a node -- it
+    holds independent data (name, columns, materialization hints, its own
+    query), consults its own probes, and renders on its own.
 
-    def __init__(
-        self,
-        dialect: "SQLDialectBase",
-        ctes: List[CTEExpression] = (),
-        recursive: bool = False,
-    ):
-        super().__init__(dialect)
-        self.ctes = list(ctes)
-        self.recursive = recursive
+    Rendered by the dialect's public ``format_with_statement``, which
+    gates on the ``supports_basic_cte`` / ``supports_recursive_cte`` probes
+    where the construct is spelled instead of leaving them decorative. With
+    no CTE definitions the statement renders the bare query, so a plain
+    query needs no wrapper at all. The former ``WithQueryExpression`` --
+    whose only difference was the class name -- is retired.
 
-    @property
-    def format_method(self) -> str:
-        """The dialect formatting method that renders this expression."""
-        return "format_with_clause"
-
-
-class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
-    """Represents a query with Common Table Expressions (WITH clause).
-
-    This class allows combining multiple CTEs with a main query. It's commonly used for:
-    1. Organizing complex queries with multiple temporary result sets
-    2. Creating recursive queries (with RECURSIVE keyword)
-    3. Improving query readability and maintainability
+    The value protocols (``SQLValueExpression`` and the arithmetic /
+    comparison mixins) stay because a WITH query is still a query: it can
+    be a set-operation operand or the body of another CTE.
 
     Example Usage:
         # Create multiple CTEs
-        cte1 = CTEExpression(
+        cte1 = CTEClause(
             dialect,
             name="users_with_orders",
             query=QueryExpression(
@@ -338,7 +324,7 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
             columns=["user_id", "user_name", "order_count"]
         )
 
-        cte2 = CTEExpression(
+        cte2 = CTEClause(
             dialect,
             name="top_users",
             query=QueryExpression(
@@ -358,30 +344,30 @@ class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
             where=ComparisonPredicate(dialect, '=', Column(dialect, "tu.user_id"), Column(dialect, "uwo.user_id"))
         )
 
-        # Combine everything with WithQueryExpression
-        with_query = WithQueryExpression(
+        # Compose the CTE definitions with the query into one statement
+        with_query = WithStatement(
             dialect,
+            query=main_query,
             ctes=[cte1, cte2],
-            main_query=main_query
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        ctes: List[CTEExpression],
-        main_query: "BaseExpression",
+        query: "BaseExpression",
+        ctes: List[CTEClause] = (),
         recursive: bool = False,
     ):
         super().__init__(dialect)
-        self.ctes = ctes
-        self.main_query = main_query
+        self.query = query
+        self.ctes = list(ctes)
         self.recursive = recursive
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_with_query_expression"
+        return "format_with_statement"
 
 
 class ValuesExpression(TableSource, BaseExpression):

@@ -41,7 +41,7 @@ The guarantee is structural, not procedural:
 # the name of the dialect method that renders it.
 @property
 def format_method(self) -> str:
-    return "format_cte_expression"   # e.g. CTEQuery declares this
+    return "format_cte_clause"   # e.g. CTEClause declares this
 ```
 
 `BaseExpression.to_sql()` is implemented **once, at the root** and is the

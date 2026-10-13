@@ -167,12 +167,12 @@ for page in backend.execute_batch_dql(query, page_size=100):
 `execute_batch_dql` supports all DQL expression types:
 
 - `QueryExpression`: Basic SELECT queries
-- `WithQueryExpression`: Common Table Expressions (CTEs)
+- `WithStatement`: Common Table Expressions (CTEs)
 - `SetOperationExpression`: UNION, INTERSECT, EXCEPT operations
 
 ```python
 # CTE example
-from rhosocial.activerecord.backend.expression.query_sources import WithQueryExpression, CTEExpression
+from rhosocial.activerecord.backend.expression.query_sources import WithStatement, CTEClause
 
 cte_query = QueryExpression(
     backend.dialect,
@@ -180,7 +180,7 @@ cte_query = QueryExpression(
     from_=TableExpression(backend.dialect, "orders"),
     where=WhereClause(backend.dialect, condition=...),
 )
-cte = CTEExpression(backend.dialect, name="recent_orders", query=cte_query)
+cte = CTEClause(backend.dialect, name="recent_orders", query=cte_query)
 
 main_query = QueryExpression(
     backend.dialect,
@@ -188,7 +188,7 @@ main_query = QueryExpression(
     from_=TableExpression(backend.dialect, "recent_orders"),
 )
 
-with_query = WithQueryExpression(backend.dialect, ctes=[cte], main_query=main_query)
+with_query = WithStatement(backend.dialect, ctes=[cte], query=main_query)
 
 for page in backend.execute_batch_dql(with_query, page_size=50):
     process_orders(page.data)

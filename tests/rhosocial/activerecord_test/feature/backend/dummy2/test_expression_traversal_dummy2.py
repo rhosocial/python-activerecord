@@ -88,10 +88,10 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     ForUpdateClause,
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
-    CTEExpression,
+    CTEClause,
     LateralExpression,
     TableFunctionExpression,
-    WithQueryExpression,
+    WithStatement,
 )
 from rhosocial.activerecord.backend.expression.transaction import (
     SavepointExpression,
@@ -377,8 +377,8 @@ EXPRESSION_TEST_CASES = [
     # MatchClause uses *path (VAR_POSITIONAL) - import present, skipped (commented above)
     # query_sources
     dict(
-        name="CTEExpression",
-        cls=CTEExpression,
+        name="CTEClause",
+        cls=CTEClause,
         params_func=lambda d: dict(dialect=d, name="cte1", query=Subquery(d, "SELECT 1")),
     ),
     dict(
@@ -394,12 +394,12 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="WithQueryExpression",
-        cls=WithQueryExpression,
+        name="WithStatement",
+        cls=WithStatement,
         params_func=lambda d: dict(
             dialect=d,
-            ctes=[CTEExpression(d, name="cte1", query=Subquery(d, "SELECT 1"))],
-            main_query=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
+            ctes=[CTEClause(d, name="cte1", query=Subquery(d, "SELECT 1"))],
+            query=QueryExpression(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
         ),
     ),
     # query_parts

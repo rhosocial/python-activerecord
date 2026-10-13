@@ -1,15 +1,15 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_query_sources_cte_edge_cases.py
-from rhosocial.activerecord.backend.expression.query_sources import CTEExpression
+from rhosocial.activerecord.backend.expression.query_sources import CTEClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
-class TestCTEExpressionEdgeCases:
-    """Tests for edge cases in CTEExpression.to_sql() method."""
+class TestCTEClauseEdgeCases:
+    """Tests for edge cases in CTEClause.to_sql() method."""
 
     def test_cte_expression_with_string_query(self, dummy_dialect: DummyDialect):
-        """Test CTEExpression when query is a string (covers the else branch)."""
+        """Test CTEClause when query is a string (covers the else branch)."""
         # This tests the else branch: query is neither BaseExpression nor tuple
-        cte = CTEExpression(
+        cte = CTEClause(
             dummy_dialect,
             name="test_cte",
             query="SELECT id, name FROM users WHERE age > 18",  # String instead of BaseExpression
@@ -25,13 +25,13 @@ class TestCTEExpressionEdgeCases:
         assert params == ()
 
     def test_cte_expression_with_tuple_query(self, dummy_dialect: DummyDialect):
-        """Test CTEExpression when query is a tuple (covers elif branch)."""
+        """Test CTEClause when query is a tuple (covers elif branch)."""
         # This tests the elif branch: query is a tuple
-        # Note: Although we pass a list [123] as params, CTEExpression will convert it to a tuple (123,)
+        # Note: Although we pass a list [123] as params, CTEClause will convert it to a tuple (123,)
         # This is done for compatibility, but users should provide tuples directly for best practice
         query_tuple = ("SELECT id FROM table WHERE col = ?", [123])
 
-        cte = CTEExpression(
+        cte = CTEClause(
             dummy_dialect,
             name="tuple_cte",
             query=query_tuple,  # Tuple (sql, params)
@@ -46,13 +46,13 @@ class TestCTEExpressionEdgeCases:
         assert params == (123,)
 
     def test_cte_expression_with_base_expression_query(self, dummy_dialect: DummyDialect):
-        """Test CTEExpression when query is a BaseExpression (covers if branch)."""
+        """Test CTEClause when query is a BaseExpression (covers if branch)."""
         # This tests the if branch: query is a BaseExpression
         from rhosocial.activerecord.backend.expression import Subquery
 
         subquery = Subquery(dummy_dialect, "SELECT name FROM users WHERE status = ?", ("active",))
 
-        cte = CTEExpression(
+        cte = CTEClause(
             dummy_dialect,
             name="subquery_cte",
             query=subquery,  # BaseExpression

@@ -160,16 +160,16 @@ sql, params = frame_spec.to_sql()
 
 CTEs provide a way to write auxiliary statements for use in a larger query.
 
-### WithQueryExpression
+### WithStatement
 
-Represents a `WITH` clause containing one or more CTEs.
+Represents a complete `WITH` statement: the CTE definitions plus the query they precede. A single CTE definition is a `CTEClause`.
 
 ```python
-from rhosocial.activerecord.backend.expression import WithQueryExpression, CTEExpression, Subquery, QueryExpression, TableExpression, Column
+from rhosocial.activerecord.backend.expression import WithStatement, CTEClause, Subquery, QueryExpression, TableExpression, Column
 
 # Define a CTE
 cte_query = Subquery(dialect, "SELECT id, name FROM users WHERE status = ?", ("active",))
-cte = CTEExpression(dialect, name="active_users", query=cte_query)
+cte = CTEClause(dialect, name="active_users", query=cte_query)
 
 # Main Query using the CTE
 main_query = QueryExpression(
@@ -179,7 +179,7 @@ main_query = QueryExpression(
 )
 
 # Combine into WITH query
-with_query = WithQueryExpression(dialect, ctes=[cte], main_query=main_query)
+with_query = WithStatement(dialect, ctes=[cte], query=main_query)
 
 sql, params = with_query.to_sql()
 # sql: 'WITH "active_users" AS (SELECT id, name FROM users WHERE status = ?) SELECT "name" FROM "active_users"'

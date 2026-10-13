@@ -79,8 +79,8 @@ for manager_id, name, dept in employees_data:
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CTEExpression,
-    WithQueryExpression,
+    CTEClause,
+    WithStatement,
     GroupByHavingClause,
 )
 from rhosocial.activerecord.backend.expression.core import FunctionCall  # noqa: E402
@@ -89,7 +89,7 @@ from rhosocial.activerecord.backend.expression.core import FunctionCall  # noqa:
 # Compute average salary per department, then filter departments above a threshold.
 # (We use COUNT here as a stand-in aggregate on the employees table.)
 
-dept_count_cte = CTEExpression(
+dept_count_cte = CTEClause(
     dialect=dialect,
     name="dept_counts",
     query=QueryExpression(
@@ -106,10 +106,10 @@ dept_count_cte = CTEExpression(
     ),
 )
 
-basic_cte_query = WithQueryExpression(
+basic_cte_query = WithStatement(
     dialect=dialect,
     ctes=[dept_count_cte],
-    main_query=QueryExpression(
+    query=QueryExpression(
         dialect=dialect,
         select=[
             Column(dialect, "department"),
@@ -178,17 +178,17 @@ union_all = SetOperationExpression(
 
 # Wrap in a CTE and a WITH query
 # The columns parameter assigns names to CTE result columns
-org_chart_cte = CTEExpression(
+org_chart_cte = CTEClause(
     dialect=dialect,
     name="org_chart",
     query=union_all,
     columns=["id", "name", "manager_id", "department", "level"],
 )
 
-recursive_cte_query = WithQueryExpression(
+recursive_cte_query = WithStatement(
     dialect=dialect,
     ctes=[org_chart_cte],
-    main_query=QueryExpression(
+    query=QueryExpression(
         dialect=dialect,
         select=[
             Column(dialect, "id"),
