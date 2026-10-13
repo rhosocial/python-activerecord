@@ -341,7 +341,7 @@ class DomainMixin:
             return f"RENAME TO {self.format_identifier(expr.new_name)}", ()
         raise UnsupportedFeatureError(
             self.name,
-            f"ALTER DOMAIN action {getattr(expr, 'action_kind', type(expr).__name__)}",
+            f"ALTER DOMAIN action {expr.action_kind}",
         )
 
 

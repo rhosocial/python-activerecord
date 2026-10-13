@@ -59,7 +59,7 @@ class FunctionCallMixin:
                 function that its version is below.
         """
         from ...expression import core, operators
-        from ..protocols import FilterClauseSupport
+        from ..protocols import FilterClauseSupport, WindowFunctionSupport
 
         self.check_function_version(expr.func_name)
 
@@ -87,7 +87,7 @@ class FunctionCallMixin:
         distinct = "DISTINCT " if expr.is_distinct else ""
         args_sql_str = ", ".join(args_sql)
 
-        if getattr(expr, "niladic", False) and not args_sql and not distinct:
+        if expr.niladic and not args_sql and not distinct:
             func_call_sql = expr.func_name.upper()
         else:
             func_call_sql = f"{expr.func_name.upper()}({distinct}{args_sql_str})"
@@ -96,7 +96,7 @@ class FunctionCallMixin:
         for param_tuple in args_params:
             all_params.extend(param_tuple)
 
-        filter_predicate = getattr(expr, "filter_predicate", None)
+        filter_predicate = expr.filter_predicate
         if filter_predicate:
             if isinstance(self, FilterClauseSupport) and self.supports_filter_clause():
                 from ...expression.statements.filter_clause import FilterClauseExpression
@@ -112,13 +112,13 @@ class FunctionCallMixin:
                     "Use a CASE expression inside the aggregate function instead.",
                 )
 
-        window_spec = getattr(expr, "window_spec", None)
+        window_spec = expr.window_spec
         if window_spec is not None:
-            # Guarded through getattr(): a dialect that does not compose
-            # WindowFunctionMixin has neither the probe nor the formatter, and
-            # must refuse the clause rather than fail resolving a method.
-            supports_window_functions = getattr(self, "supports_window_functions", None)
-            if supports_window_functions is None or not supports_window_functions():
+            # Checked as a protocol, like the FILTER clause above: a dialect
+            # that does not compose WindowFunctionSupport has neither the probe
+            # nor the formatter, and must refuse the clause rather than fail
+            # resolving a method.
+            if not isinstance(self, WindowFunctionSupport) or not self.supports_window_functions():
                 from ..exceptions import UnsupportedFeatureError
                 raise UnsupportedFeatureError(self.name, "window functions")
             if isinstance(window_spec, str):

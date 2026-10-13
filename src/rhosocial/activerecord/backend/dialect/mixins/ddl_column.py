@@ -1143,7 +1143,14 @@ class DDLColumnMixin:
         """
         from ..exceptions import UnsupportedFeatureError
         all_params: List[Any] = []
-        operation_str = action.operation.value if hasattr(action.operation, "value") else str(action.operation)
+        from enum import Enum
+
+        # ``operation`` accepts the enum or its raw spelling; which one it
+        # is is a type question, so it is asked with isinstance rather than
+        # probed for a ``value`` attribute.
+        operation_str = (
+            action.operation.value if isinstance(action.operation, Enum) else str(action.operation)
+        )
         if operation_str == "SET DATA TYPE":
             if not self.supports_alter_column_type():
                 raise UnsupportedFeatureError(
@@ -1157,7 +1164,7 @@ class DDLColumnMixin:
                 "(SET/DROP DEFAULT, SET/DROP NOT NULL).",
             )
         column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {operation_str}"
-        if hasattr(action, "new_value") and action.new_value is not None:
+        if action.new_value is not None:
             if operation_str == "SET DATA TYPE":
                 from ...dialect.base import SQLDialectBase
                 if not SQLDialectBase._validate_data_type(str(action.new_value)):
@@ -1178,7 +1185,7 @@ class DDLColumnMixin:
                 all_params.extend(value_params)
             else:
                 column_part += f" {self.inline_sql_literal(action.new_value)}"
-        if hasattr(action, "cascade") and action.cascade:
+        if action.cascade:
             column_part += " CASCADE"
         return column_part, tuple(all_params)
 

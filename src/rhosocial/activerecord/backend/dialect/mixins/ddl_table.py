@@ -1,5 +1,6 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_table.py
 """Dialect mixins for table DDL and constraint capability detection."""
+from enum import Enum
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ...expression.objects import Table
@@ -9,8 +10,13 @@ from ...expression.statements.ddl_alter import AlterTableAction
 def _normalize_constraint_type(constraint_type: Any, constraint_enum: type, label: str) -> Any:
     if isinstance(constraint_type, constraint_enum):
         return constraint_type
-    raw_value = getattr(constraint_type, "value", constraint_type)
-    raw_name = getattr(constraint_type, "name", raw_value)
+    # Accepts the enum or its spelling, and a spelling may arrive as an enum of
+    # another family that spells the same words -- which is a type question, so
+    # it is asked with isinstance instead of probed for ``value`` / ``name``.
+    if isinstance(constraint_type, Enum):
+        raw_value, raw_name = constraint_type.value, constraint_type.name
+    else:
+        raw_value = raw_name = constraint_type
     candidates = []
     for candidate in (raw_value, raw_name):
         if isinstance(candidate, str):
@@ -599,9 +605,9 @@ class TableMixin:
             all_params.extend(col_params)
         all_def_parts = [", ".join(column_parts)]
         for t_const in expr.table_constraints:
-            validation = getattr(t_const, "validation", None)
+            validation = t_const.validation
             if validation is not None:
-                validation_value = getattr(validation, "value", validation)
+                validation_value = validation.value if isinstance(validation, Enum) else validation
                 normalized_validation = "".join(str(validation_value).strip().upper().split())
                 if normalized_validation in {"NOTVALID", "NOVALIDATE"}:
                     raise ValueError("NOT VALID is only valid when adding a constraint")
@@ -616,7 +622,7 @@ class TableMixin:
             if storage_sql:
                 parts.append(storage_sql)
                 all_params.extend(storage_params)
-        table_comment = getattr(table_options, "comment", None) if table_options is not None else None
+        table_comment = table_options.comment if table_options is not None else None
         if table_comment is not None:
             comment_sql, comment_params = self.format_table_comment_clause(table_comment)
             parts.append(comment_sql)

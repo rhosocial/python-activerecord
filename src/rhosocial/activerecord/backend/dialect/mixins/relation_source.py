@@ -29,6 +29,7 @@ from ...expression.bases import BaseExpression
 from ...expression.objects import RelationObject
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ...expression.query_sources import JSONTableColumn
     from ...expression.sources import (
         DerivedTableSource,
         GraphTableSource,
@@ -39,6 +40,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ValuesTableSource,
         XmlTableSource,
     )
+    from ...expression.xml import XMLTableColumn
 
 __all__ = ["RelationSourceMixin"]
 
@@ -334,7 +336,7 @@ class RelationSourceMixin:
             all_params.extend(entry_params)
         return ", ".join(entries_sql), tuple(all_params)
 
-    def format_json_table_column(self, column: Any) -> Tuple[str, tuple]:
+    def format_json_table_column(self, column: "JSONTableColumn") -> Tuple[str, tuple]:
         """Render one entry of a JSON_TABLE ``COLUMNS`` list.
 
         Args:
@@ -348,13 +350,13 @@ class RelationSourceMixin:
         Raises:
             TypeError: *column* is not a usable column projection.
         """
-        name = getattr(column, "name", None)
-        path = getattr(column, "path", None)
-        if name is None or path is None:
+        if not isinstance(column, JSONTableColumn):
             raise TypeError(
-                f"A JSON_TABLE column must expose a name and a path, "
+                f"A JSON_TABLE column must be a JSONTableColumn, "
                 f"got {type(column).__name__}"
             )
+        name = column.name
+        path = column.path
         type_sql, params = self.format_source_column_type(column)
         escaped_path = self._escape_sql_string(path)
         sql = (
@@ -362,7 +364,7 @@ class RelationSourceMixin:
         )
         return sql, params
 
-    def format_source_column_type(self, column: Any) -> Tuple[str, tuple]:
+    def format_source_column_type(self, column: "JSONTableColumn | XMLTableColumn") -> Tuple[str, tuple]:
         """Render the declared result type of a projection column.
 
         A column's type is a clause of its own, so an expression type is asked
@@ -378,10 +380,10 @@ class RelationSourceMixin:
         Raises:
             TypeError: *column* declares no usable ``data_type``.
         """
-        data_type = getattr(column, "data_type", None)
+        data_type = column.data_type
         if data_type is None:
             raise TypeError(
-                f"A projection column must expose a data_type, "
+                f"A {type(column).__name__} must declare a data_type, "
                 f"got {type(column).__name__}"
             )
         if isinstance(data_type, BaseExpression):
@@ -434,7 +436,7 @@ class RelationSourceMixin:
         sql = f"XMLTABLE({' '.join(parts)})"
         return self.format_source_alias(sql, source), tuple(all_params)
 
-    def format_xml_table_column(self, column: Any) -> Tuple[str, tuple]:
+    def format_xml_table_column(self, column: "XMLTableColumn") -> Tuple[str, tuple]:
         """Render one entry of an XMLTABLE ``COLUMNS`` list.
 
         Args:
@@ -449,21 +451,18 @@ class RelationSourceMixin:
         Raises:
             TypeError: *column* exposes no usable ``name``.
         """
-        name = getattr(column, "name", None)
-        if name is None:
+        if not isinstance(column, XMLTableColumn):
             raise TypeError(
-                f"An XMLTABLE column must expose a name, "
+                f"An XMLTABLE column must be an XMLTableColumn, "
                 f"got {type(column).__name__}"
             )
+        name = column.name
         type_sql, all_params = self.format_source_column_type(column)
         fragment = f"{self.format_identifier(name)} {type_sql}"
-        for attribute in ("path", "default"):
-            value = getattr(column, attribute, None)
+        for spelling, value in (("PATH", column.path), ("DEFAULT", column.default)):
             if value is None:
                 continue
             value_sql, value_params = self.format_source_document(value)
-            fragment = f"{fragment} {attribute.upper()} {value_sql}"
+            fragment = f"{fragment} {spelling} {value_sql}"
             all_params += value_params
-        if getattr(column, "for_ordinality", False):
-            fragment = f"{fragment} FOR ORDINALITY"
         return fragment, all_params

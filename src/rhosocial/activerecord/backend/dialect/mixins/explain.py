@@ -54,7 +54,7 @@ class ExplainMixin:
 
         # Determine if ANALYZE should be included based on the type field
         # If type is ANALYZE, or if the boolean analyze field is True
-        if (hasattr(options, "type") and options.type == ExplainType.ANALYZE) or options.analyze:
+        if options.type == ExplainType.ANALYZE or options.analyze:
             parts.append("ANALYZE")
         if options.format:
             parts.append(f"FORMAT {options.format.value.upper()}")

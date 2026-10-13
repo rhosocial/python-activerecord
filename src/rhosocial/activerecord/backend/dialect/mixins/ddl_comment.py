@@ -66,7 +66,12 @@ class CommentOnMixin:
         if not self.supports_comment_on():
             raise UnsupportedFeatureError(self.name, "COMMENT ON")
 
-        object_type = getattr(expr.object_type, "value", expr.object_type)
+        from enum import Enum
+
+        # ``object_type`` accepts the enum or its raw spelling.
+        object_type = (
+            expr.object_type.value if isinstance(expr.object_type, Enum) else expr.object_type
+        )
         object_sql, object_params = expr.object.to_sql()
         if expr.column:
             object_sql = f"{object_sql}.{self.format_identifier(expr.column)}"

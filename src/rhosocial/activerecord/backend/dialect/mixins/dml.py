@@ -97,17 +97,20 @@ class DMLMixin:
                 supported by this dialect.
         """
         from ...expression.column_types import ColumnBase
-        from ...expression.core import Subquery, WildcardExpression
+        from ...expression.core import FunctionCall, Subquery, WildcardExpression
+        from ...expression.mixins import WrappedCallMixin
         from ...expression.operators import RawSQLExpression
 
         all_params: List[Any] = []
         expr_parts: List[str] = []
         for expr in clause.expressions:
-            # ``is_aggregate`` is set by the aggregate factories and forwarded
-            # by the typed wrapper they return, so reading the attribute catches
-            # both the node and the wrapper. A plain isinstance test against the
-            # node class would miss every factory-built aggregate.
-            if getattr(expr, "is_aggregate", False) or isinstance(expr, Subquery):
+            # The aggregate factories return the typed wrapper around a
+            # ``FunctionCall``, so both the wrapper and the node have to be
+            # unwrapped before the flag means anything. Unwrapping is the
+            # contract (``WrappedCallMixin.call``); asking the attribute and
+            # hoping the object has one is not.
+            node = expr.call if isinstance(expr, WrappedCallMixin) else expr
+            if (isinstance(node, FunctionCall) and node.is_aggregate) or isinstance(expr, Subquery):
                 raise UnsupportedFeatureError(
                     self.name,
                     "aggregate/subquery in RETURNING",

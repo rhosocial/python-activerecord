@@ -194,10 +194,18 @@ class AliasableMixin:
     This mixin allows expressions to be given aliases for use in SQL queries,
     particularly useful in SELECT clauses and subqueries.
 
+    ``alias`` is declared here rather than created by :meth:`as_`: the field
+    is part of the contract of every aliased expression, so formatters read it
+    directly instead of probing for an attribute that only exists on the
+    aliased copies.
+
     Example:
         >>> Column(dialect, "name").as_("user_name")
         >>> # Results in: "name AS user_name" in SQL
     """
+
+    #: The alias this expression renders as, or ``None`` when unaliased.
+    alias: Optional[str] = None
 
     def as_(self: T, alias: str) -> T:
         """

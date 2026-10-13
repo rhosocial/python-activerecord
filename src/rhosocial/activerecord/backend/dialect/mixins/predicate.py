@@ -6,6 +6,7 @@ and pattern predicates into ``(sql, params)`` tuples.
 """
 from typing import Any, List, Tuple, TYPE_CHECKING
 
+from ...expression.mixins import AliasableMixin
 from ...expression.advanced_functions import AllExpression, AnyExpression, ExistsExpression
 from ...expression.predicates import (
     BetweenPredicate,
@@ -47,7 +48,7 @@ class PredicateMixin:
         Returns:
             The SQL, with the alias appended when present.
         """
-        alias = getattr(expr, "alias", None)
+        alias = expr.alias if isinstance(expr, AliasableMixin) else None
         if not alias:
             return sql
         return f"{sql} AS {self.format_identifier(alias)}"
@@ -217,9 +218,13 @@ class PredicateMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
+        from ...expression.core import Literal
+
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr
-        if hasattr(array_expr, "value") and isinstance(array_expr.value, (list, tuple)):
+        # ``Literal`` is the node that carries a Python value; a list or tuple
+        # in it becomes one bind parameter rather than a rendered list.
+        if isinstance(array_expr, Literal) and isinstance(array_expr.value, (list, tuple)):
             array_sql = self.get_parameter_placeholder()
             array_params = (tuple(array_expr.value),)
         else:
@@ -238,9 +243,13 @@ class PredicateMixin:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
+        from ...expression.core import Literal
+
         expr_sql, expr_params = expr.expr.to_sql()
         array_expr = expr.array_expr
-        if hasattr(array_expr, "value") and isinstance(array_expr.value, (list, tuple)):
+        # ``Literal`` is the node that carries a Python value; a list or tuple
+        # in it becomes one bind parameter rather than a rendered list.
+        if isinstance(array_expr, Literal) and isinstance(array_expr.value, (list, tuple)):
             array_sql = self.get_parameter_placeholder()
             array_params = (tuple(array_expr.value),)
         else:

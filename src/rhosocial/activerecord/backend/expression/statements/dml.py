@@ -570,6 +570,13 @@ class InsertExpression(BaseExpression):
     """
     Represents a structured INSERT statement, supporting various data sources,
     upsert logic (single or multiple ON CONFLICT clauses), and RETURNING clauses.
+
+    ``or_replace`` and ``or_ignore`` are SQLite's INSERT spellings (``INSERT OR
+    REPLACE`` / ``INSERT OR IGNORE``). They are declared here, defaulting to
+    ``False``, so the dialects that spell them read a declared field instead of
+    probing for an attribute that only a caller who assigned it by hand would
+    have provided -- which made the feature unreachable. A dialect that spells
+    neither ignores both fields.
     """
 
     def __init__(
@@ -581,6 +588,8 @@ class InsertExpression(BaseExpression):
         *,
         on_conflict: Optional[Union[OnConflictClause, List[OnConflictClause]]] = None,
         returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
+        or_replace: bool = False,
+        or_ignore: bool = False,
     ):
         super().__init__(dialect)
 
@@ -589,6 +598,17 @@ class InsertExpression(BaseExpression):
         self.columns = columns
         self.on_conflict = self._normalize_on_conflict(on_conflict)
         self.returning = returning  # ReturningClause object or None
+        self.or_replace = or_replace
+        self.or_ignore = or_ignore
+
+        if self.or_replace and self.or_ignore:
+            raise ValueError("Cannot specify both 'or_replace' and 'or_ignore'.")
+        if (self.or_replace or self.or_ignore) and self.on_conflict:
+            raise ValueError(
+                "Cannot use 'or_replace'/'or_ignore' together with 'on_conflict'. "
+                "Use either the SQLite-specific OR REPLACE/IGNORE syntax or the "
+                "standard ON CONFLICT clause, but not both."
+            )
 
         # Perform validation
         # 1. First, check if on_conflict is used with a valid source

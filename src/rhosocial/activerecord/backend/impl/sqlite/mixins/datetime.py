@@ -8,6 +8,7 @@ This module provides the SQLiteDateTimeMixin class.
 import re
 from typing import Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.expression.mixins import AliasableMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
@@ -39,7 +40,7 @@ class SQLiteDateTimeMixin:
 
     def apply_alias(self, sql: str, params: tuple, expr) -> Tuple[str, tuple]:
         """Append ``AS alias`` when the expression carries an alias."""
-        if getattr(expr, "alias", None):
+        if isinstance(expr, AliasableMixin) and expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, params
 

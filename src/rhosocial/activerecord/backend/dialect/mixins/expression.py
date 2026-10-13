@@ -15,6 +15,7 @@ from ...expression.core import (
     WildcardExpression,
 )
 from ...expression.literals import Identifier
+from ...expression.mixins import AliasableMixin
 from ...expression.operators import (
     BinaryArithmeticExpression,
     BinaryExpression,
@@ -172,7 +173,7 @@ class ExpressionMixin(FunctionCallMixin):
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
         sql = f"{left_sql} {expr.op} {right_sql}"
-        alias = getattr(expr, "alias", None)
+        alias = expr.alias if isinstance(expr, AliasableMixin) else None
         if alias:
             sql = f"{sql} AS {self.format_identifier(alias)}"
         return sql, left_params + right_params
@@ -195,7 +196,7 @@ class ExpressionMixin(FunctionCallMixin):
             sql = f"{left_sql} || {right_sql}"
         else:
             sql = f"{function}({left_sql}, {right_sql})"
-        alias = getattr(expr, "alias", None)
+        alias = expr.alias if isinstance(expr, AliasableMixin) else None
         if alias:
             sql = f"{sql} AS {self.format_identifier(alias)}"
         return sql, left_params + right_params

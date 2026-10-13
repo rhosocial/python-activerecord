@@ -16,19 +16,11 @@ class SQLiteDMLMixin:
     """SQLite-specific INSERT and RETURNING formatting."""
 
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
-        """Format INSERT statement with SQLite-specific OR REPLACE / OR IGNORE support."""
-        or_replace = getattr(expr, "or_replace", False)
-        or_ignore = getattr(expr, "or_ignore", False)
+        """Format INSERT statement with SQLite-specific OR REPLACE / OR IGNORE support.
 
-        if or_replace and or_ignore:
-            raise ValueError("Cannot specify both 'or_replace' and 'or_ignore'.")
-        if (or_replace or or_ignore) and expr.on_conflict:
-            raise ValueError(
-                "Cannot use 'or_replace'/'or_ignore' together with 'on_conflict'. "
-                "Use either the SQLite-specific OR REPLACE/IGNORE syntax or the "
-                "standard ON CONFLICT clause, but not both."
-            )
-
+        The mutual-exclusion rules are enforced when the node is built, so the
+        render path only spells what the node was given.
+        """
         if self.strict_validation:
             expr.validate(strict=True)
 
@@ -65,9 +57,9 @@ class SQLiteDMLMixin:
             source_sql = s_sql
             all_params.extend(s_params)
 
-        if or_replace:
+        if expr.or_replace:
             sql = f"INSERT OR REPLACE INTO {table_sql} {columns_sql} {source_sql}".strip()
-        elif or_ignore:
+        elif expr.or_ignore:
             sql = f"INSERT OR IGNORE INTO {table_sql} {columns_sql} {source_sql}".strip()
         else:
             sql = f"INSERT INTO {table_sql} {columns_sql} {source_sql}".strip()

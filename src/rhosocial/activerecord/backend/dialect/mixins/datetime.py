@@ -4,6 +4,7 @@
 from typing import Tuple
 
 from ...expression import bases
+from ...expression.mixins import AliasableMixin
 
 
 class DateTimeMixin:
@@ -20,7 +21,7 @@ class DateTimeMixin:
         Returns:
             A ``(sql, params)`` tuple, with the alias appended when present.
         """
-        if getattr(expr, "alias", None):
+        if isinstance(expr, AliasableMixin) and expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, params
 

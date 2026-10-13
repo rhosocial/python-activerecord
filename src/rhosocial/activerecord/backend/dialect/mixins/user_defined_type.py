@@ -221,7 +221,7 @@ class UserDefinedTypeMixin:
         """Reject TYPE definitions until a backend supplies a grammar."""
         raise UnsupportedFeatureError(
             self.name,
-            f"TYPE definition {getattr(expr, 'definition_kind', type(expr).__name__)}",
+            f"TYPE definition {expr.definition_kind}",
         )
 
     def format_type_alter_action(
@@ -231,7 +231,7 @@ class UserDefinedTypeMixin:
         """Reject ALTER TYPE actions until a backend supplies a grammar."""
         raise UnsupportedFeatureError(
             self.name,
-            f"ALTER TYPE action {getattr(expr, 'action_kind', type(expr).__name__)}",
+            f"ALTER TYPE action {expr.action_kind}",
         )
 
 
