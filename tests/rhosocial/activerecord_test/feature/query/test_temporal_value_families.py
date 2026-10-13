@@ -17,12 +17,12 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import functions as datetime_functions
 from rhosocial.activerecord.backend.expression.core import (
-    DateValueExpression,
-    TimeValueExpression,
-    TimestampValueExpression,
-    IntervalValueExpression,
-    NumericValueExpression,
-    IntegerValueExpression,
+    DateValue,
+    TimeValue,
+    TimestampValue,
+    IntervalValue,
+    NumericValue,
+    IntegerValue,
 )
 from rhosocial.activerecord.backend.expression.datetime import (
     DateTimeAddExpression,
@@ -55,11 +55,11 @@ def timestamp(dialect):
 @pytest.mark.parametrize(
     "factory, cls",
     [
-        ("now", TimestampValueExpression),
-        ("current_timestamp", TimestampValueExpression),
-        ("localtimestamp", TimestampValueExpression),
-        ("current_date", DateValueExpression),
-        ("current_time", TimeValueExpression),
+        ("now", TimestampValue),
+        ("current_timestamp", TimestampValue),
+        ("localtimestamp", TimestampValue),
+        ("current_date", DateValue),
+        ("current_time", TimeValue),
     ],
 )
 def test_the_present_keeps_its_precision(dialect, factory, cls):
@@ -81,7 +81,7 @@ def test_the_present_keeps_its_precision(dialect, factory, cls):
     "factory", ["year", "month", "day", "hour", "minute", "second"]
 )
 def test_a_component_is_a_whole_number(dialect, timestamp, factory):
-    assert isinstance(getattr(datetime_functions, factory)(dialect, timestamp), IntegerValueExpression)
+    assert isinstance(getattr(datetime_functions, factory)(dialect, timestamp), IntegerValue)
 
 
 def test_a_component_takes_arithmetic_and_not_string_operations(dialect, timestamp):
@@ -102,12 +102,12 @@ def test_extraction_is_numeric(dialect, timestamp, factory):
     """``EXTRACT(EPOCH FROM ts)`` is fractional, so the family is too wide to
     be a whole number. Widening here is deliberate: claiming integer would
     offer ``bit_length`` on a value that may be a million and a half."""
-    assert isinstance(getattr(datetime_functions, factory)(dialect, "year", timestamp), NumericValueExpression)
+    assert isinstance(getattr(datetime_functions, factory)(dialect, "year", timestamp), NumericValue)
 
 
 def test_date_diff_counts_whole_units(dialect):
     now = datetime_functions.now(dialect)
-    assert isinstance(now.date_diff("day", now), IntegerValueExpression)
+    assert isinstance(now.date_diff("day", now), IntegerValue)
 
 
 # ---------------------------------------------------------------------------
@@ -116,20 +116,20 @@ def test_date_diff_counts_whole_units(dialect):
 
 
 def test_truncation_stays_a_timestamp(dialect):
-    assert isinstance(datetime_functions.now(dialect).date_trunc("day"), TimestampValueExpression)
+    assert isinstance(datetime_functions.now(dialect).date_trunc("day"), TimestampValue)
 
 
 @pytest.mark.parametrize("method", ["date_add", "date_sub"])
 def test_shifting_time_stays_a_timestamp(dialect, method):
     now = datetime_functions.now(dialect)
     result = getattr(now, method)(1, "days")
-    assert isinstance(result, TimestampValueExpression)
+    assert isinstance(result, TimestampValue)
     assert isinstance(result, (DateTimeAddExpression, DateTimeSubtractExpression))
 
 
 def test_an_interval_is_its_own_family(dialect):
     """A span is not a point in time, which is why date_add takes one."""
-    assert isinstance(datetime_functions.interval(dialect, 1, "day"), IntervalValueExpression)
+    assert isinstance(datetime_functions.interval(dialect, 1, "day"), IntervalValue)
 
 
 # ---------------------------------------------------------------------------
@@ -197,10 +197,10 @@ def test_a_temporal_column_follows_the_same_gate(dialect, timestamp):
 @pytest.mark.parametrize(
     "factory, args, result_cls",
     [
-        ("extract", ("year",), NumericValueExpression),
-        ("date_part", ("year",), NumericValueExpression),
-        ("interval", (1, "day"), IntervalValueExpression),
-        ("date_diff", ("day",), IntegerValueExpression),
+        ("extract", ("year",), NumericValue),
+        ("date_part", ("year",), NumericValue),
+        ("interval", (1, "day"), IntervalValue),
+        ("date_diff", ("day",), IntegerValue),
     ],
 )
 def test_a_temporal_operation_yields_its_own_type(dialect, timestamp, factory, args, result_cls):
@@ -231,18 +231,18 @@ def test_a_temporal_value_does_not_offer_string_operations(dialect):
 
 @pytest.mark.parametrize(
     "cls",
-    [TimestampValueExpression, DateValueExpression, TimeValueExpression,
-     IntervalValueExpression],
+    [TimestampValue, DateValue, TimeValue,
+     IntervalValue],
 )
 def test_each_temporal_type_is_its_own_class(dialect, cls):
     """They offer the same operations, so they share a base -- but they are four
     different types, and each says so with its own class."""
     from rhosocial.activerecord.backend.expression import FunctionCall
-    from rhosocial.activerecord.backend.expression.core import TemporalValueExpression
+    from rhosocial.activerecord.backend.expression.core import TemporalValue
 
     wrapped = cls(dialect, FunctionCall(dialect, "SOME_FUNC"))
     assert isinstance(wrapped, cls)
-    assert isinstance(wrapped, TemporalValueExpression)
+    assert isinstance(wrapped, TemporalValue)
     assert hasattr(wrapped, "date_add")
 
 
@@ -251,11 +251,11 @@ def test_the_sql_does_not_change_when_a_value_is_wrapped(dialect, timestamp):
     from rhosocial.activerecord.backend.expression import FunctionCall
 
     call = FunctionCall(dialect, "MY_FUNC", timestamp)
-    assert TimestampValueExpression(dialect, call).to_sql() == call.to_sql()
+    assert TimestampValue(dialect, call).to_sql() == call.to_sql()
 
 
 def test_an_alias_survives_wrapping(dialect, timestamp):
     from rhosocial.activerecord.backend.expression import FunctionCall
 
     call = FunctionCall(dialect, "MY_FUNC", timestamp)
-    assert " AS " in TimestampValueExpression(dialect, call).as_("when").to_sql()[0]
+    assert " AS " in TimestampValue(dialect, call).as_("when").to_sql()[0]

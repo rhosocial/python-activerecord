@@ -101,7 +101,7 @@ def test_the_edge_every_backend_agrees_on_renders(portable_name, method, args, e
 def test_sqlite_spells_trim_as_its_function_form(direction, expected_sql, expected_params):
     """SQLite parses no ``trim(<chars> from <string>)`` syntax, so the node
     renders as the function form there. Same node, dialect-chosen spelling --
-    which is why the factory builds a TrimExpression and not a SQL string."""
+    which is why the factory builds a TrimFunction and not a SQL string."""
     dialect = SQLiteDialect()
     dialect.version = (3, 46, 1)
     column = StringColumn(dialect, "name")

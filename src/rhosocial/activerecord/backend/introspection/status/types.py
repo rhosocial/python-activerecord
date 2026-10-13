@@ -54,7 +54,7 @@ class StatusItem:
 class DatabaseBriefInfo:
     """Brief database/schema information for status overview.
 
-    A simplified version of DatabaseInfo focused on status display.
+    A simplified version of IntrospectionDatabaseInfo focused on status display.
     """
 
     name: str

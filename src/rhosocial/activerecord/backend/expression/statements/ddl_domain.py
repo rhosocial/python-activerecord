@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, List, Optional, Sequence, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLValueExpression
+from ..bases import BaseExpression, SQLPredicate, SQLValue
 from ..mixins import (
     ComparisonMixin,
     StringPatternPredicateMixin,
@@ -42,7 +42,7 @@ class DomainValueExpression(
     ComparisonMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """The ``VALUE`` expression available inside a domain check."""
 

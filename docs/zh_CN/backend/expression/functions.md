@@ -13,7 +13,7 @@
 聚合调用就是 `FunctionCall`；聚合工厂会在构造时设置其 `is_aggregate` 事实。它支持 `FILTER` (WHERE) 子句和 `OVER (...)` 窗口子句。
 
 ```python
-class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringPatternPredicateMixin, mixins.TypeCastingMixin, mixins.ResultTypeMixin, bases.SQLValueExpression):
+class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringPatternPredicateMixin, mixins.TypeCastingMixin, mixins.ResultTypeMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", func_name: str, *args,
                  is_distinct: bool = False, alias: Optional[str] = None,
                  niladic: bool = False, filter_predicate: "SQLPredicate" = None,
@@ -657,7 +657,7 @@ sql, params = t.to_sql()
 创建 `CASE` 表达式。
 
 ```python
-def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseExpression": ...
+def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseFunction": ...
 ```
 
 **示例:**

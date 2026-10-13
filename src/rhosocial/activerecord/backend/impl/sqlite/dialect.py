@@ -123,10 +123,10 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
     from rhosocial.activerecord.backend.expression.advanced_functions import (
-        ArrayExpression,
-        JSONDocumentExpression,
+        ArrayValue,
+        JSONDocumentValue,
         OrderedSetAggregation,
-        TrimExpression,
+        TrimFunction,
     )
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.predicates import DistinctFromPredicate
@@ -489,7 +489,7 @@ class SQLiteDialect(
         """SQLite supports -> and ->> operators from version 3.38.0+."""
         return self.version >= (3, 38, 0)
 
-    def format_json_function_expression(self, expr: "JSONDocumentExpression") -> Tuple[str, tuple]:
+    def format_json_function_expression(self, expr: "JSONDocumentValue") -> Tuple[str, tuple]:
         """Render a JSON path access with SQLite's own JSON1 functions.
 
         Without this, ``JSONPathMode.FUNCTION`` fell through to the core
@@ -498,7 +498,7 @@ class SQLiteDialect(
         FUNCTION mode produced SQL the server rejects.
 
         Args:
-            expr: The JSONDocumentExpression node.
+            expr: The JSONDocumentValue node.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
@@ -703,7 +703,7 @@ class SQLiteDialect(
             f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr
         ), left_params + right_params
 
-    def format_trim_expression(self, expr: "TrimExpression") -> Tuple[str, tuple]:
+    def format_trim_expression(self, expr: "TrimFunction") -> Tuple[str, tuple]:
         """Render TRIM as SQLite's function form.
 
         SQLite parses no ``trim(<chars> from <string>)`` syntax at all -- the
@@ -1040,7 +1040,7 @@ class SQLiteDialect(
             self.name, f"{operation} grouping operation", f"{operation} is not supported by SQLite."
         )
 
-    def format_array_expression(self, expr: "ArrayExpression") -> Tuple[str, Tuple]:
+    def format_array_expression(self, expr: "ArrayValue") -> Tuple[str, Tuple]:
         """Format array expression."""
         # SQLite does not support native array types
         raise UnsupportedFeatureError(self.name, "Array operations", _SUGGESTION_ARRAY_TYPES)

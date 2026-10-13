@@ -335,7 +335,7 @@ def _split_precision(raw: str) -> Tuple[str, Tuple[int, ...]]:
 
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.expression.collation import CollateExpression
+    from rhosocial.activerecord.backend.expression.collation import CollateFunction
     from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
     from rhosocial.activerecord.backend.expression.transaction import (
         BeginTransactionStatement,
@@ -929,7 +929,7 @@ class DummyDialect(
     def supports_collate_expression(self) -> bool:
         return True
 
-    def validate_collation_name(self, expr: "CollateExpression") -> str:
+    def validate_collation_name(self, expr: "CollateFunction") -> str:
         """Validate a collation name and return its SQL representation.
 
         Dummy is a generic SQL-generation test dialect, so it validates that

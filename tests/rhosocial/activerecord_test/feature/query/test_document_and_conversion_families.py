@@ -12,41 +12,41 @@ answers with their common kind, or with nothing when they disagree.
 import pytest
 
 from rhosocial.activerecord.backend.expression import functions as F, FunctionCall, Literal, XMLColumn
-from rhosocial.activerecord.backend.expression.bases import SQLValueExpression
-from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+from rhosocial.activerecord.backend.expression.bases import SQLValue
+from rhosocial.activerecord.backend.expression.advanced_functions import CaseFunction
 from rhosocial.activerecord.backend.expression.core import (
-    ArrayValueExpression,
-    BinaryValueExpression,
-    BooleanValueExpression,
-    DateValueExpression,
-    IntegerValueExpression,
-    IntervalValueExpression,
-    JSONValueExpression,
-    NumericValueExpression,
-    StringValueExpression,
-    TimeValueExpression,
-    TimestampValueExpression,
-    UUIDValueExpression,
-    XMLValueExpression,
+    ArrayValue,
+    BinaryValue,
+    BooleanValue,
+    DateValue,
+    IntegerValue,
+    IntervalValue,
+    JSONValue,
+    NumericValue,
+    StringValue,
+    TimeValue,
+    TimestampValue,
+    UUIDValue,
+    XMLValue,
 )
 
 #: Every value class the lattice holds. "No typed result" is asserted by saying
 #: the result is none of these, so the list has to be the whole set: an
 #: assertion that forgets a class would pass for the wrong reason.
 TYPED_VALUE_CLASSES = (
-    ArrayValueExpression,
-    BinaryValueExpression,
-    BooleanValueExpression,
-    DateValueExpression,
-    IntegerValueExpression,
-    IntervalValueExpression,
-    JSONValueExpression,
-    NumericValueExpression,
-    StringValueExpression,
-    TimeValueExpression,
-    TimestampValueExpression,
-    UUIDValueExpression,
-    XMLValueExpression,
+    ArrayValue,
+    BinaryValue,
+    BooleanValue,
+    DateValue,
+    IntegerValue,
+    IntervalValue,
+    JSONValue,
+    NumericValue,
+    StringValue,
+    TimeValue,
+    TimestampValue,
+    UUIDValue,
+    XMLValue,
 )
 
 
@@ -93,22 +93,22 @@ def columns(dialect):
 
 
 def test_arrow_extraction_gives_a_document(dialect, columns):
-    assert isinstance(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a")), JSONValueExpression)
+    assert isinstance(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a")), JSONValue)
 
 
 def test_double_arrow_extraction_gives_text(dialect, columns):
     """`->>` is a narrowing: a document becomes a string and cannot widen back."""
-    assert isinstance(F.json_extract_text(dialect, columns["json"], "$.a"), StringValueExpression)
+    assert isinstance(F.json_extract_text(dialect, columns["json"], "$.a"), StringValue)
 
 
 def test_a_built_document_is_a_document(dialect, columns):
-    assert isinstance(F.json_build_object(dialect, "k", 1), JSONValueExpression)
-    assert isinstance(F.json_array_elements(dialect, columns["json"]), JSONValueExpression)
+    assert isinstance(F.json_build_object(dialect, "k", 1), JSONValue)
+    assert isinstance(F.json_array_elements(dialect, columns["json"]), JSONValue)
 
 
 def test_a_document_offers_the_json_accessors(dialect, columns):
     built = F.json_build_object(dialect, "k", 1)
-    assert isinstance(built, JSONValueExpression)
+    assert isinstance(built, JSONValue)
     assert hasattr(built, "json_path")
     assert not hasattr(built, "upper")
 
@@ -121,7 +121,7 @@ def test_text_reports_a_string_family(dialect, columns):
     over-offer on this one class, not a claim that text is a document.
     """
     text = F.json_extract_text(dialect, columns["json"], "$.a")
-    assert isinstance(text, StringValueExpression)
+    assert isinstance(text, StringValue)
     assert text.to_sql()[0].endswith("->>'$.a'")
 
 
@@ -131,12 +131,12 @@ def test_text_reports_a_string_family(dialect, columns):
 
 
 def test_a_sequence_is_a_sequence(dialect, columns):
-    assert isinstance(F.unnest(dialect, columns["array"]), ArrayValueExpression)
-    assert isinstance(F.unnest(dialect, columns["array"]), ArrayValueExpression)
+    assert isinstance(F.unnest(dialect, columns["array"]), ArrayValue)
+    assert isinstance(F.unnest(dialect, columns["array"]), ArrayValue)
 
 
 def test_measuring_a_sequence_gives_a_whole_number(dialect, columns):
-    assert isinstance(F.array_length(dialect, columns["array"], 1), IntegerValueExpression)
+    assert isinstance(F.array_length(dialect, columns["array"], 1), IntegerValue)
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ def test_measuring_a_sequence_gives_a_whole_number(dialect, columns):
 
 
 def test_greatest_answers_with_what_its_arguments_answer_with(dialect, columns):
-    assert isinstance(F.greatest(dialect, columns["int"], columns["int"]), IntegerValueExpression)
+    assert isinstance(F.greatest(dialect, columns["int"], columns["int"]), IntegerValue)
 
 
 def test_greatest_of_mixed_kinds_is_unknown(dialect, columns):
@@ -155,11 +155,11 @@ def test_greatest_of_mixed_kinds_is_unknown(dialect, columns):
 
 
 def test_least_agrees_with_greatest(dialect, columns):
-    assert isinstance(F.least(dialect, columns["float"], columns["float"]), NumericValueExpression)
+    assert isinstance(F.least(dialect, columns["float"], columns["float"]), NumericValue)
 
 
 def test_nullif_keeps_the_value_it_tests(dialect, columns):
-    assert isinstance(F.nullif(dialect, columns["str"], None), StringValueExpression)
+    assert isinstance(F.nullif(dialect, columns["str"], None), StringValue)
 
 
 # ---------------------------------------------------------------------------
@@ -170,16 +170,16 @@ def test_nullif_keeps_the_value_it_tests(dialect, columns):
 def test_a_consensus_needs_exactly_one(dialect, columns):
     """A CASE over disagreeing branches is legal SQL that answers with neither
     kind, so neither surface may be offered."""
-    mixed = CaseExpression(dialect, cases=[(columns["int"], columns["int"])],
+    mixed = CaseFunction(dialect, cases=[(columns["int"], columns["int"])],
                            else_result=columns["float"])
     assert not is_typed_as_one_of_these(mixed)
 
 
 def test_an_argument_without_a_family_does_not_break_a_consensus(dialect, columns):
     """A literal says nothing, so it neither agrees nor disagrees."""
-    with_literal = CaseExpression(dialect, cases=[(columns["int"], Literal(dialect, 1))],
+    with_literal = CaseFunction(dialect, cases=[(columns["int"], Literal(dialect, 1))],
                                  else_result=columns["int"])
-    assert isinstance(with_literal, IntegerValueExpression)
+    assert isinstance(with_literal, IntegerValue)
 
 
 # ---------------------------------------------------------------------------
@@ -231,10 +231,10 @@ def test_cast_takes_its_type_from_the_target_type(dialect, columns):
     """The cast answers with the class of the type it was handed."""
     assert isinstance(
         F.cast(dialect, columns["int"], VarCharType(dialect, length=10)),
-        StringValueExpression,
+        StringValue,
     )
     assert isinstance(
-        F.cast(dialect, columns["int"], JsonType(dialect)), JSONValueExpression
+        F.cast(dialect, columns["int"], JsonType(dialect)), JSONValue
     )
 
 
@@ -255,15 +255,15 @@ def test_an_unmodelled_target_type_yields_no_typed_result(dialect, columns):
 
 
 def test_to_char_gives_text(dialect, columns):
-    assert isinstance(F.to_char(dialect, columns["int"]), StringValueExpression)
+    assert isinstance(F.to_char(dialect, columns["int"]), StringValue)
 
 
 def test_to_number_gives_a_number(dialect, columns):
-    assert isinstance(F.to_number(dialect, columns["int"]), NumericValueExpression)
+    assert isinstance(F.to_number(dialect, columns["int"]), NumericValue)
 
 
 def test_to_date_gives_a_timestamp(dialect, columns):
-    assert isinstance(F.to_date(dialect, columns["int"]), TimestampValueExpression)
+    assert isinstance(F.to_date(dialect, columns["int"]), TimestampValue)
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +274,7 @@ def test_to_date_gives_a_timestamp(dialect, columns):
 @pytest.mark.parametrize("factory", ["current_user", "session_user", "system_user"])
 def test_the_session_identity_is_a_name(dialect, factory):
     result = getattr(F, factory)(dialect)
-    assert isinstance(result, StringValueExpression)
+    assert isinstance(result, StringValue)
     assert hasattr(result, "upper")
 
 
@@ -289,7 +289,7 @@ def test_the_xml_document_nodes_are_xml_values(dialect):
     This used to assert the opposite -- that no class in the lattice covered
     XML -- because the value family was a tag in a closed table and no tag
     existed. The class is the statement now: every constructor that builds a
-    document derives from ``XMLValueExpression``, so ``isinstance`` answers
+    document derives from ``XMLValue``, so ``isinstance`` answers
     from the object. What the class carries is the XML surface — the null
     tests and casting, and no comparison (see the refusal test below).
     """
@@ -307,11 +307,11 @@ def test_the_xml_document_nodes_are_xml_values(dialect):
         X.XMLQueryExpression,
     )
     other_families = tuple(
-        cls for cls in TYPED_VALUE_CLASSES if cls is not XMLValueExpression
+        cls for cls in TYPED_VALUE_CLASSES if cls is not XMLValue
     )
     for cls in document_nodes:
-        assert issubclass(cls, XMLValueExpression), cls.__name__
-        assert issubclass(cls, SQLValueExpression), cls.__name__
+        assert issubclass(cls, XMLValue), cls.__name__
+        assert issubclass(cls, SQLValue), cls.__name__
         # It is an XML value and none of the other typed classes: a document
         # is not text that can be upper-cased, not JSON to navigate, not a
         # sequence to unnest.
@@ -322,15 +322,15 @@ def test_xmlserialize_yields_the_character_value_it_names(dialect):
     """Serialization leaves the XML family: the result is the text asked for.
 
     ``XMLSERIALIZE(... AS VARCHAR(100))`` answers with a character value, so
-    the node declares ``StringValueExpression`` and the string operations
+    the node declares ``StringValue`` and the string operations
     follow it out of the XML surface.
     """
     from rhosocial.activerecord.backend.expression import xml as X
 
-    assert issubclass(X.XMLSerializeExpression, StringValueExpression)
+    assert issubclass(X.XMLSerializeExpression, StringValue)
     serialized = F.xmlserialize(dialect, "<root/>", "VARCHAR(100)")
-    assert isinstance(serialized, StringValueExpression)
-    assert not isinstance(serialized, XMLValueExpression)
+    assert isinstance(serialized, StringValue)
+    assert not isinstance(serialized, XMLValue)
 
 
 def test_xmlexists_is_a_predicate_not_a_value():
@@ -339,21 +339,21 @@ def test_xmlexists_is_a_predicate_not_a_value():
     from rhosocial.activerecord.backend.expression.bases import SQLPredicate
 
     assert issubclass(X.XMLExistsPredicate, SQLPredicate)
-    assert not issubclass(X.XMLExistsPredicate, XMLValueExpression)
+    assert not issubclass(X.XMLExistsPredicate, XMLValue)
 
 
 def test_a_cast_to_xml_is_an_xml_value(dialect, columns):
     """The cast takes its type from the target: ``CAST(x AS XML)`` is XML."""
     result = F.cast(dialect, columns["str"], XmlType(dialect))
-    assert isinstance(result, XMLValueExpression)
-    assert not isinstance(result, StringValueExpression)
+    assert isinstance(result, XMLValue)
+    assert not isinstance(result, StringValue)
 
 
 def test_a_function_that_declares_no_result_can_say_xml(dialect):
     """``as_xml()`` is how a caller states what a generic call yields."""
     call = FunctionCall(dialect, "MYSTERY_FUNC")
     typed = call.as_xml()
-    assert isinstance(typed, XMLValueExpression)
+    assert isinstance(typed, XMLValue)
     assert typed.to_sql() == call.to_sql()
 
 
@@ -400,7 +400,7 @@ def test_a_type_the_core_does_not_hold_is_reported_unknown():
     name the core held no class for; a class cannot, because the operations it
     offers come with it.
     """
-    class ExtensionValue(SQLValueExpression):
+    class ExtensionValue(SQLValue):
         # A name on the class, which is what declaring a type used to mean. It
         # confers nothing: nothing reads it, and value_class_of answers from the
         # MRO, where this class appears under no mapped name.
@@ -426,7 +426,7 @@ def test_every_typed_expression_declares_a_family_from_the_lattice():
     declared = {
         name: cls
         for name, cls in inspect.getmembers(core, inspect.isclass)
-        if name.endswith("ValueExpression") and name != "SQLValueExpression"
+        if name.endswith("ValueExpression") and name != "SQLValue"
     }
     assert declared, "the typed expressions moved"
     # Every typed expression declares its type by being a class, so the only
@@ -442,6 +442,6 @@ def test_every_temporal_type_is_reachable():
     """
     from rhosocial.activerecord.backend.expression import core
 
-    for name in ("TimestampValueExpression", "DateValueExpression",
-                 "TimeValueExpression", "IntervalValueExpression"):
+    for name in ("TimestampValue", "DateValue",
+                 "TimeValue", "IntervalValue"):
         assert hasattr(core, name), name

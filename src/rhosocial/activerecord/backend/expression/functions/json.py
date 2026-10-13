@@ -6,17 +6,17 @@ from typing import Optional, TYPE_CHECKING
 from ..bases import BaseExpression
 from ..core import (
     Column,
-    JSONValueExpression,
+    JSONValue,
     FunctionCall,
     Literal,
 )
-from ..advanced_functions import JSONDocumentExpression, JSONTextExpression
+from ..advanced_functions import JSONDocumentValue, JSONTextValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONDocumentExpression":
+def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONDocumentValue":
     """
     Creates a JSON extract operation (e.g., column->path).
 
@@ -30,13 +30,13 @@ def json_extract(dialect: "SQLDialectBase", column: "BaseExpression", path: str)
         path: The JSON path to extract.
 
     Returns:
-        A JSONDocumentExpression instance representing the JSON extract operation
+        A JSONDocumentValue instance representing the JSON extract operation
     """
     target_column = column if isinstance(column, BaseExpression) else Column(dialect, column)
-    return JSONDocumentExpression(dialect, target_column, path, operation="->")
+    return JSONDocumentValue(dialect, target_column, path, operation="->")
 
 
-def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONTextExpression":
+def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path: str) -> "JSONTextValue":
     """
     Creates a JSON extract text operation (e.g., column->>path).
 
@@ -51,18 +51,18 @@ def json_extract_text(dialect: "SQLDialectBase", column: "BaseExpression", path:
         path: The JSON path to extract as text.
 
     Returns:
-        A JSONTextExpression instance representing the JSON extract text operation
+        A JSONTextValue instance representing the JSON extract text operation
     """
     target_column = column if isinstance(column, BaseExpression) else Column(dialect, column)
-    # `->>` yields text, so it arrives as JSONTextExpression and carries the
-    # string operations. It used to be built as a JSONDocumentExpression and described
+    # `->>` yields text, so it arrives as JSONTextValue and carries the
+    # string operations. It used to be built as a JSONDocumentValue and described
     # as a string by a tag, which meant the JSON accessors it was meant to end
     # the chain with stayed reachable -- the node class served both arrow
     # directions and could not drop them per instance.
-    return JSONTextExpression(dialect, target_column, path, operation="->>")
+    return JSONTextValue(dialect, target_column, path, operation="->>")
 
 
-def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpression") -> "JSONValueExpression":
+def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpression") -> "JSONValue":
     """
     Creates a JSON_BUILD_OBJECT function call.
 
@@ -77,16 +77,16 @@ def json_build_object(dialect: "SQLDialectBase", *key_value_pairs: "BaseExpressi
             contract; it is still bound as a literal at runtime.
 
     Returns:
-        A JSONValueExpression wrapping JSON_BUILD_OBJECT
+        A JSONValue wrapping JSON_BUILD_OBJECT
     """
     # Expect alternating sequence of key-value expressions
     processed_args = []
     for arg in key_value_pairs:
         processed_args.append(arg if isinstance(arg, BaseExpression) else Literal(dialect, arg))
-    return JSONValueExpression(dialect, FunctionCall(dialect, 'JSON_BUILD_OBJECT', *processed_args))
+    return JSONValue(dialect, FunctionCall(dialect, 'JSON_BUILD_OBJECT', *processed_args))
 
 
-def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "JSONValueExpression":
+def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "JSONValue":
     """
     Creates a JSON_ARRAY_ELEMENTS function call.
 
@@ -100,10 +100,10 @@ def json_array_elements(dialect: "SQLDialectBase", expr: "BaseExpression") -> "J
               of the contract; it is still coerced to a column at runtime.
 
     Returns:
-        A JSONValueExpression wrapping JSON_ARRAY_ELEMENTS
+        A JSONValue wrapping JSON_ARRAY_ELEMENTS
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return JSONValueExpression(dialect, FunctionCall(dialect, 'JSON_ARRAY_ELEMENTS', target_expr))
+    return JSONValue(dialect, FunctionCall(dialect, 'JSON_ARRAY_ELEMENTS', target_expr))
 
 
 def json_objectagg(
@@ -114,7 +114,7 @@ def json_objectagg(
     """Creates a JSON_OBJECTAGG aggregate function call."""
     key_target = key_expr if isinstance(key_expr, BaseExpression) else Column(dialect, key_expr)
     value_target = value_expr if isinstance(value_expr, BaseExpression) else Column(dialect, value_expr)
-    return JSONValueExpression(
+    return JSONValue(
         dialect,
         FunctionCall(dialect, "JSON_OBJECTAGG", key_target, value_target, is_aggregate=True),
     )
@@ -128,7 +128,7 @@ def json_arrayagg(
 ) -> "FunctionCall":
     """Creates a JSON_ARRAYAGG aggregate function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return JSONValueExpression(
+    return JSONValue(
         dialect,
         FunctionCall(
             dialect,

@@ -25,7 +25,7 @@ back to generating one in Python, which is what ``UUIDMixin`` does today.
 from typing import Any, Optional, TYPE_CHECKING
 
 from ..dialect.exceptions import UnsupportedFeatureError
-from .bases import SQLValueExpression
+from .bases import SQLValue
 from .mixins import AliasableMixin, ComparisonMixin, TypeCastingMixin
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -62,7 +62,7 @@ class UUIDGenerationExpression(
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """A fresh UUID, rendered as a native zero-argument function call.
 
@@ -103,7 +103,7 @@ class UUIDConstantExpression(
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """The ``nil`` or ``max`` UUID constant.
 
@@ -146,11 +146,11 @@ class UUIDConstantExpression(
         return "format_uuid_constant"
 
 
-class UUIDCastExpression(
+class UUIDCastFunction(
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Convert a textual value to a UUID, rejecting malformed input.
 
@@ -186,5 +186,5 @@ class UUIDCastExpression(
 __all__ = [
     "UUIDGenerationExpression",
     "UUIDConstantExpression",
-    "UUIDCastExpression",
+    "UUIDCastFunction",
 ]

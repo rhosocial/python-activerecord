@@ -142,12 +142,12 @@ class TestSQLiteDialectFormatting:
     def test_format_array_expression_error(self):
         """Test array expression formatting error"""
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
+        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
 
         dialect = SQLiteDialect()
 
-        # Create a mock ArrayExpression to pass to format_array_expression
-        mock_expr = MagicMock(spec=ArrayExpression)
+        # Create a mock ArrayValue to pass to format_array_expression
+        mock_expr = MagicMock(spec=ArrayValue)
         mock_expr.operation = "CONSTRUCTOR"
         mock_expr.elements = []
         mock_expr.base_expr = None
@@ -224,14 +224,14 @@ class TestSQLiteDialectFormatting:
     def test_formatting_methods_unsupported(self, operation, method_name, expected_error_part):
         """Parametrized test for unsupported formatting methods"""
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
+        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
 
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             if method_name == "format_array_expression":
-                mock_expr = MagicMock(spec=ArrayExpression)
+                mock_expr = MagicMock(spec=ArrayValue)
                 mock_expr.operation = "CONSTRUCTOR"
                 mock_expr.elements = []
                 mock_expr.base_expr = None

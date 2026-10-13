@@ -3,7 +3,7 @@
 
 from typing import Any, Union, Optional, TYPE_CHECKING, overload
 
-from ..bases import BaseExpression, SQLValueExpression
+from ..bases import BaseExpression, SQLValue
 from ..column_types import (
     ArrayColumn,
     BooleanColumn,
@@ -14,17 +14,17 @@ from ..column_types import (
     StringColumn,
 )
 from ..core import (
-    ArrayValueExpression,
-    BooleanValueExpression,
-    TimestampValueExpression,
+    ArrayValue,
+    BooleanValue,
+    TimestampValue,
     FunctionCall,
-    IntegerValueExpression,
-    JSONValueExpression,
+    IntegerValue,
+    JSONValue,
     Literal,
-    NumericValueExpression,
-    StringValueExpression,
+    NumericValue,
+    StringValue,
 )
-from ..advanced_functions import CaseExpression
+from ..advanced_functions import CaseFunction
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -48,25 +48,25 @@ def _result_class_for(expr: object):
     numeric branch sees it.
     """
     if isinstance(expr, IntegerColumn):
-        return IntegerValueExpression
+        return IntegerValue
     if isinstance(expr, StringColumn):
-        return StringValueExpression
+        return StringValue
     if isinstance(expr, TimestampColumn):
-        return TimestampValueExpression
+        return TimestampValue
     if isinstance(expr, JSONColumn):
-        return JSONValueExpression
+        return JSONValue
     if isinstance(expr, ArrayColumn):
-        return ArrayValueExpression
+        return ArrayValue
     if isinstance(expr, BooleanColumn):
-        return BooleanValueExpression
+        return BooleanValue
     if isinstance(expr, NumericColumn):
-        return NumericValueExpression
+        return NumericValue
     return None
 
 
 def case(
     dialect: "SQLDialectBase", value: Optional["BaseExpression"] = None, alias: Optional[str] = None
-) -> "CaseExpression":
+) -> "CaseFunction":
     """
     Creates a CASE expression.
 
@@ -76,12 +76,12 @@ def case(
         alias: Optional alias for the result.
 
     Returns:
-        A CaseExpression instance representing the CASE expression
+        A CaseFunction instance representing the CASE expression
     """
-    return CaseExpression(dialect, value=value, alias=alias)
+    return CaseFunction(dialect, value=value, alias=alias)
 
 
-def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQLValueExpression":
+def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQLValue":
     """Give GREATEST/LEAST the type of its arguments when they agree on one.
 
     Every argument is a candidate for the result, so when they all answer with
@@ -103,24 +103,24 @@ def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQ
 @overload
 def nullif(
     dialect: "SQLDialectBase", value: IntegerColumn, null_value: Any
-) -> "IntegerValueExpression": ...
+) -> "IntegerValue": ...
 
 
 @overload
 def nullif(
     dialect: "SQLDialectBase", value: NumericColumn, null_value: Any
-) -> "NumericValueExpression": ...
+) -> "NumericValue": ...
 
 
 @overload
 def nullif(
     dialect: "SQLDialectBase", value: Any, null_value: Any
-) -> "SQLValueExpression": ...
+) -> "SQLValue": ...
 
 
 def nullif(
     dialect: "SQLDialectBase", value: Any, null_value: Any
-) -> "SQLValueExpression":
+) -> "SQLValue":
     """
     Creates a NULLIF scalar function call.
 
@@ -152,7 +152,7 @@ def nullif(
 
 def greatest(
     dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]
-) -> "SQLValueExpression":
+) -> "SQLValue":
     """
     Creates a GREATEST scalar function call.
 
@@ -176,7 +176,7 @@ def greatest(
 
 def least(
     dialect: "SQLDialectBase", *exprs: Union[str, "BaseExpression"]
-) -> "SQLValueExpression":
+) -> "SQLValue":
     """
     Creates a LEAST scalar function call.
 

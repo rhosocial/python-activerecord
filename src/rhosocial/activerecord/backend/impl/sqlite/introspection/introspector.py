@@ -34,18 +34,18 @@ from rhosocial.activerecord.backend.introspection.executor import (
     AsyncIntrospectorExecutor,
 )
 from rhosocial.activerecord.backend.introspection.types import (
-    DatabaseInfo,
-    TableInfo,
+    IntrospectionDatabaseInfo,
+    IntrospectionTableInfo,
     TableType,
-    ColumnInfo,
+    IntrospectionColumnInfo,
     ColumnNullable,
     IndexInfo,
     IndexColumnInfo,
     IndexType,
-    ForeignKeyInfo,
+    IntrospectionForeignKeyInfo,
     ReferentialAction,
-    ViewInfo,
-    TriggerInfo,
+    IntrospectionViewInfo,
+    IntrospectionTriggerInfo,
     IntrospectionScope,
 )
 from .pragma_introspector import (
@@ -95,7 +95,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
     # Parse methods — pure Python, no I/O
     # ------------------------------------------------------------------ #
 
-    def _parse_database_info(self, rows: List[Dict[str, Any]]) -> DatabaseInfo:
+    def _parse_database_info(self, rows: List[Dict[str, Any]]) -> IntrospectionDatabaseInfo:
         row = rows[0] if rows else {}
         version_str = row.get("version") or sqlite3.sqlite_version
         parts = version_str.split(".")
@@ -103,7 +103,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         # SQLite's database name is the schema name (e.g., "main")
         # For file-based databases, we can also show the filename
         db_path = self._backend.config.database or ":memory:"
-        return DatabaseInfo(
+        return IntrospectionDatabaseInfo(
             name="main",  # SQLite's default schema name
             version=version_str,
             version_tuple=version_tuple,
@@ -111,7 +111,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             extra={"path": db_path},
         )
 
-    def _parse_tables(self, rows: List[Dict[str, Any]], schema: Optional[str]) -> List[TableInfo]:
+    def _parse_tables(self, rows: List[Dict[str, Any]], schema: Optional[str]) -> List[IntrospectionTableInfo]:
         tables = []
         for row in rows:
             type_str = row.get("type", "table").lower()
@@ -123,7 +123,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 table_type = TableType.EXTERNAL
 
             tables.append(
-                TableInfo(
+                IntrospectionTableInfo(
                     name=row["name"],
                     schema=schema or self._get_default_schema(),
                     table_type=table_type,
@@ -162,7 +162,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         return result
 
     def _parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str,
-                       ddl: Optional[str] = None) -> List[ColumnInfo]:
+                       ddl: Optional[str] = None) -> List[IntrospectionColumnInfo]:
         columns = []
         has_auto_increment = ddl is not None and "AUTOINCREMENT" in ddl.upper()
         for row in rows:
@@ -187,7 +187,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             # Extract precision/length from raw type
             params = self._extract_type_params(raw_type)
             columns.append(
-                ColumnInfo(
+                IntrospectionColumnInfo(
                     name=row["name"],
                     table_name=table_name,
                     schema=schema,
@@ -240,10 +240,10 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 )
         return list(idx_map.values())
 
-    def _parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[ForeignKeyInfo]:
+    def _parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IntrospectionForeignKeyInfo]:
         if not rows:
             return []
-        fk_map: Dict[int, ForeignKeyInfo] = {}
+        fk_map: Dict[int, IntrospectionForeignKeyInfo] = {}
         action_map = {
             "NO ACTION": ReferentialAction.NO_ACTION,
             "RESTRICT": ReferentialAction.RESTRICT,
@@ -262,7 +262,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                     row.get("on_delete", "NO ACTION").upper(),
                     ReferentialAction.NO_ACTION,
                 )
-                fk_map[fk_id] = ForeignKeyInfo(
+                fk_map[fk_id] = IntrospectionForeignKeyInfo(
                     name=f"fk_{table_name}_{fk_id}",
                     table_name=table_name,
                     schema=schema,
@@ -276,18 +276,18 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             fk_map[fk_id].referenced_columns.append(row["to"])
         return list(fk_map.values())
 
-    def _parse_views(self, rows: List[Dict[str, Any]], schema: str) -> List[ViewInfo]:
-        return [ViewInfo(name=row["name"], schema=schema, definition=row.get("sql")) for row in rows]
+    def _parse_views(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionViewInfo]:
+        return [IntrospectionViewInfo(name=row["name"], schema=schema, definition=row.get("sql")) for row in rows]
 
-    def _parse_view_info(self, rows: List[Dict[str, Any]], view_name: str, schema: str) -> Optional[ViewInfo]:
+    def _parse_view_info(self, rows: List[Dict[str, Any]], view_name: str, schema: str) -> Optional[IntrospectionViewInfo]:
         if not rows:
             return None
         row = rows[0]
-        return ViewInfo(name=row["name"], schema=schema, definition=row.get("sql"))
+        return IntrospectionViewInfo(name=row["name"], schema=schema, definition=row.get("sql"))
 
-    def _parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[TriggerInfo]:
+    def _parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[IntrospectionTriggerInfo]:
         return [
-            TriggerInfo(
+            IntrospectionTriggerInfo(
                 name=row["name"],
                 table_name=row["tbl_name"],
                 schema=schema,
@@ -335,7 +335,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     # Override list_columns for auto-increment detection
     # ------------------------------------------------------------------ #
 
-    def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
+    def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionColumnInfo]:
         """List columns, with auto-increment detection from DDL."""
         target_db = schema or self._get_default_schema()
         key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
@@ -453,7 +453,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     # list_tables() call and populates columns/indexes/FKs in one sweep.
     # ------------------------------------------------------------------ #
 
-    def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
+    def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTableInfo]:
         schema or self._get_default_schema()
         key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
         cached = self._get_cached(key)
@@ -512,7 +512,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     # Override list_columns for auto-increment detection
     # ------------------------------------------------------------------ #
 
-    async def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
+    async def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[IntrospectionColumnInfo]:
         """List columns, with auto-increment detection from DDL."""
         target_db = schema or self._get_default_schema()
         key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
@@ -630,7 +630,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     # list_tables() call and populates columns/indexes/FKs in one sweep.
     # ------------------------------------------------------------------ #
 
-    async def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
+    async def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[IntrospectionTableInfo]:
         schema or self._get_default_schema()
         key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
         cached = self._get_cached(key)

@@ -6,8 +6,8 @@ from enum import Enum
 from typing import Optional, Sequence, TYPE_CHECKING
 
 from .advanced_functions import DeclaredValueType
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
-from .core import StringValueExpression, XMLValueExpression
+from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValue
+from .core import StringValue, XMLValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -64,11 +64,11 @@ class XMLTableColumnOption(str, Enum):
     DEFAULT = "DEFAULT"
 
 
-class XMLParseExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLParseExpression(DeclaredValueType, XMLValue, SQLValue):
     """Represents a SQL/XML XMLPARSE expression constructor.
 
     The parse of a document *is* an XML value, so it declares
-    :class:`~...expression.core.XMLValueExpression` (see
+    :class:`~...expression.core.XMLValue` (see
     :class:`~...expression.advanced_functions.DeclaredValueType` for why these
     nodes inherit the value class rather than being wrapped by one).
     """
@@ -91,12 +91,12 @@ class XMLParseExpression(DeclaredValueType, XMLValueExpression, SQLValueExpressi
         return "format_xmlparse_expression"
 
 
-class XMLSerializeExpression(DeclaredValueType, StringValueExpression, SQLValueExpression):
+class XMLSerializeExpression(DeclaredValueType, StringValue, SQLValue):
     """Represents a SQL/XML XMLSERIALIZE expression constructor.
 
     Serialization leaves the XML family: what comes back is the character
     value named in ``target_type``, so the node declares
-    :class:`~...expression.core.StringValueExpression` and carries the string
+    :class:`~...expression.core.StringValue` and carries the string
     operations rather than the XML surface.
     """
 
@@ -134,7 +134,7 @@ class XMLAttribute:
     name: Optional[str] = None
 
 
-class XMLAttributesExpression(SQLValueExpression):
+class XMLAttributesExpression(SQLValue):
     """Represents a SQL/XML XMLATTRIBUTES clause."""
 
     def __init__(
@@ -151,7 +151,7 @@ class XMLAttributesExpression(SQLValueExpression):
         return "format_xmlattributes_expression"
 
 
-class XMLElementExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLElementExpression(DeclaredValueType, XMLValue, SQLValue):
     """Represents a SQL/XML XMLELEMENT expression constructor."""
 
     def __init__(
@@ -183,7 +183,7 @@ class XMLForestItem:
     name: Optional[str] = None
 
 
-class XMLForestExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLForestExpression(DeclaredValueType, XMLValue, SQLValue):
     """Represents a SQL/XML XMLFOREST expression constructor."""
 
     def __init__(
@@ -200,7 +200,7 @@ class XMLForestExpression(DeclaredValueType, XMLValueExpression, SQLValueExpress
         return "format_xmlforest_expression"
 
 
-class XMLConcatExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLConcatExpression(DeclaredValueType, XMLValue, SQLValue):
     """Represents a SQL/XML XMLCONCAT expression constructor."""
 
     def __init__(self, dialect: "SQLDialectBase", parts: Sequence[BaseExpression]):
@@ -213,7 +213,7 @@ class XMLConcatExpression(DeclaredValueType, XMLValueExpression, SQLValueExpress
         return "format_xmlconcat_expression"
 
 
-class XMLCommentExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLCommentExpression(DeclaredValueType, XMLValue, SQLValue):
     """Represents a SQL/XML XMLCOMMENT expression constructor."""
 
     def __init__(self, dialect: "SQLDialectBase", content: BaseExpression):
@@ -226,7 +226,7 @@ class XMLCommentExpression(DeclaredValueType, XMLValueExpression, SQLValueExpres
         return "format_xmlcomment_expression"
 
 
-class XMLPIExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLPIExpression(DeclaredValueType, XMLValue, SQLValue):
     """Represents a SQL/XML XMLPI expression constructor."""
 
     def __init__(
@@ -245,7 +245,7 @@ class XMLPIExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression)
         return "format_xmlpi_expression"
 
 
-class XMLRootExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLRootExpression(DeclaredValueType, XMLValue, SQLValue):
     """Represents a SQL/XML XMLROOT expression constructor."""
 
     def __init__(
@@ -266,7 +266,7 @@ class XMLRootExpression(DeclaredValueType, XMLValueExpression, SQLValueExpressio
         return "format_xmlroot_expression"
 
 
-class XMLAggExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLAggExpression(DeclaredValueType, XMLValue, SQLValue):
     """Represents a SQL/XML XMLAGG aggregate expression."""
 
     def __init__(
@@ -315,7 +315,7 @@ class PassingClause(BaseExpression):
         self.mechanism = mechanism
 
 
-class XMLQueryExpression(DeclaredValueType, XMLValueExpression, SQLValueExpression):
+class XMLQueryExpression(DeclaredValueType, XMLValue, SQLValue):
     """Represents a SQL/XML XMLQUERY expression."""
 
     def __init__(

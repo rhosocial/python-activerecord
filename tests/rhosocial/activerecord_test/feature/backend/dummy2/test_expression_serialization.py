@@ -37,7 +37,7 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    WildcardExpression,
+    Wildcard,
     FunctionCall,
     ComparisonPredicate,
     LogicalPredicate,
@@ -64,11 +64,11 @@ class TestAtomExpressionRoundtrip:
         assert deserialize(serialize(lit), dummy_dialect).to_sql() == lit.to_sql()
 
     def test_wildcard_roundtrip(self, dummy_dialect):
-        w = WildcardExpression(dummy_dialect, table="users")
+        w = Wildcard(dummy_dialect, table="users")
         assert deserialize(serialize(w), dummy_dialect).to_sql() == w.to_sql()
 
     def test_function_call_roundtrip(self, dummy_dialect):
-        expr = FunctionCall(dummy_dialect, "COUNT", WildcardExpression(dummy_dialect), is_distinct=True)
+        expr = FunctionCall(dummy_dialect, "COUNT", Wildcard(dummy_dialect), is_distinct=True)
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
     def test_function_call_with_multiple_args(self, dummy_dialect):
@@ -963,7 +963,7 @@ class TestCastChainDeserializationError:
                 "__cast__": ["INTEGER"],
             },
         }
-        # The __cast__ special key was removed: casts are CastExpression AST
+        # The __cast__ special key was removed: casts are CastFunction AST
         # nodes now, so an unknown __cast__ init parameter fails reconstruction.
         with pytest.raises(ExpressionDeserializationError):
             ExpressionSerializer().deserialize(spec, dummy_dialect)

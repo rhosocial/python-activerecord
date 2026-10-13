@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from .bases import BaseExpression, SQLPredicate
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .bases import SQLValueExpression
+    from .bases import SQLValue
     from ..dialect import SQLDialectBase
 
 
@@ -24,7 +24,7 @@ class ComparisonPredicate(SQLPredicate):
         """The dialect formatting method that renders this expression."""
         return "format_comparison_predicate"
 
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"):
+    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValue", right: "SQLValue"):
         super().__init__(dialect)
         self.op = op
         self.left = left
@@ -53,7 +53,7 @@ class LikePredicate(SQLPredicate):
         """The dialect formatting method that renders this expression."""
         return "format_like_predicate"
 
-    def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValueExpression", pattern: "SQLValueExpression"):
+    def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValue", pattern: "SQLValue"):
         super().__init__(dialect)
         self.op = op
         self.expr = expr
@@ -68,7 +68,7 @@ class InPredicate(SQLPredicate):
         """The dialect formatting method that renders this expression."""
         return "format_in_predicate"
 
-    def __init__(self, dialect: "SQLDialectBase", expr: "SQLValueExpression", values: "BaseExpression"):
+    def __init__(self, dialect: "SQLDialectBase", expr: "SQLValue", values: "BaseExpression"):
         super().__init__(dialect)
         self.expr = expr
         self.values = values

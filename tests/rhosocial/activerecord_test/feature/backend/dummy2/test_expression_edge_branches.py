@@ -18,8 +18,8 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     RawSQLExpression,
-    QualifiedIdentifierExpression,
-    WildcardExpression,
+    QualifiedIdentifier,
+    Wildcard,
 )
 from rhosocial.activerecord.backend.expression.types import (
     ArrayType,
@@ -75,25 +75,25 @@ class TestCoreExpressionBranches:
         assert params == (42,)
 
     def test_qualified_identifier_with_schema(self, dialect):
-        expr = QualifiedIdentifierExpression(dialect, schema="app", name="users")
+        expr = QualifiedIdentifier(dialect, schema="app", name="users")
         sql, params = expr.to_sql()
         assert sql == '"app"."users"'
         assert params == ()
 
     def test_qualified_identifier_without_schema(self, dialect):
-        expr = QualifiedIdentifierExpression(dialect, name="users")
+        expr = QualifiedIdentifier(dialect, name="users")
         sql, params = expr.to_sql()
         assert sql == '"users"'
         assert params == ()
 
     def test_wildcard_expression_basic(self, dialect):
-        expr = WildcardExpression(dialect)
+        expr = Wildcard(dialect)
         sql, params = expr.to_sql()
         assert sql == "*"
         assert params == ()
 
     def test_wildcard_expression_qualified(self, dialect):
-        expr = WildcardExpression(dialect, table="users", schema_name="app")
+        expr = Wildcard(dialect, table="users", schema_name="app")
         sql, params = expr.to_sql()
         assert "*" in sql
         assert params == ()
@@ -119,9 +119,9 @@ class TestGetParamsFallback:
     def test_var_positional_params(self, dialect):
         # An expression subclass whose __init__ uses *args: get_params collects
         # them as a list.
-        from rhosocial.activerecord.backend.expression.bases import SQLValueExpression
+        from rhosocial.activerecord.backend.expression.bases import SQLValue
 
-        class ArgsExpr(SQLValueExpression):
+        class ArgsExpr(SQLValue):
             def __init__(self, dialect, *values, **kwargs):
                 super().__init__(dialect)
                 self._values = list(values)
@@ -140,9 +140,9 @@ class TestGetParamsFallback:
     def test_get_params_missing_attribute_warns(self, dialect):
         # A subclass whose declared __init__ parameter has no matching
         # _name/name attribute triggers a warning.
-        from rhosocial.activerecord.backend.expression.bases import SQLValueExpression
+        from rhosocial.activerecord.backend.expression.bases import SQLValue
 
-        class MissingAttrExpr(SQLValueExpression):
+        class MissingAttrExpr(SQLValue):
             def __init__(self, dialect, some_param):
                 super().__init__(dialect)
                 self._x = 1

@@ -17,7 +17,7 @@
   - [TableExpression](#tableexpression)
   - [Column](#column)
   - [Literal](#literal)
-  - [WildcardExpression](#wildcardexpression)
+  - [Wildcard](#wildcardexpression)
   - [Subquery](#subquery)
 - [运算符](#运算符)
   - [Identifier](#identifier)
@@ -96,12 +96,12 @@ class SQLPredicate(mixins.LogicalMixin, BaseExpression):
     pass
 ```
 
-### SQLValueExpression
+### SQLValue
 
-`SQLValueExpression` 表示计算结果为标量值的表达式（例如列、字面量、函数结果）。
+`SQLValue` 表示计算结果为标量值的表达式（例如列、字面量、函数结果）。
 
 ```python
-class SQLValueExpression(BaseExpression):
+class SQLValue(BaseExpression):
     pass
 ```
 
@@ -114,7 +114,7 @@ class SQLValueExpression(BaseExpression):
 表示 SQL 查询中的字面量值。它会自动处理参数绑定。
 
 ```python
-class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", value: Any, *, inline_literals: bool = False): ...
     
     # 默认：绑定参数模式
@@ -179,7 +179,7 @@ pred.to_sql()  # -> ("'a' = ?", ("b",))
 表示列引用，可选地包含表限定符和别名。
 
 ```python
-class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None): ...
 
     # 示例: users.name
@@ -207,7 +207,7 @@ class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
 当 `niladic=True` 且没有参数时，函数调用生成不含括号的 SQL（如 `CURRENT_TIMESTAMP` 而非 `CURRENT_TIMESTAMP()`）。根据 SQL:2003 标准，某些值函数是零元的（niladic），在无参数调用时不得使用括号。当零元函数有参数时（如 `CURRENT_TIMESTAMP(6)`），括号照常生成。
 
 ```python
-class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression", is_distinct: bool = False, alias: Optional[str] = None, niladic: bool = False): ...
 ```
 
@@ -227,12 +227,12 @@ FunctionCall(dialect, 'NOW')
 # -> ('NOW()', ())
 ```
 
-### WildcardExpression
+### Wildcard
 
 表示通配符 (`*`) 或表通配符 (`table.*`)。请优先使用此类而不是 `Literal("*")`。
 
 ```python
-class WildcardExpression(bases.SQLValueExpression):
+class Wildcard(bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None): ...
 ```
 
@@ -241,7 +241,7 @@ class WildcardExpression(bases.SQLValueExpression):
 表示子查询表达式。它可以包装 SQL 字符串、`(sql, params)` 元组或其他表达式。
 
 ```python
-class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", query_input: Union[str, tuple, "BaseExpression"], query_params: Optional[tuple] = None, alias: Optional[str] = None): ...
 
     # 示例: (SELECT id FROM users WHERE age > ?)
@@ -386,18 +386,18 @@ from rhosocial.activerecord.backend.expression import Literal
 lit = Literal(dialect, 100)
 ```
 
-### WildcardExpression
+### Wildcard
 
 表示 `*` 或 `table.*`。
 
 ```python
-from rhosocial.activerecord.backend.expression import WildcardExpression
+from rhosocial.activerecord.backend.expression import Wildcard
 
 # SELECT *
-wildcard = WildcardExpression(dialect)
+wildcard = Wildcard(dialect)
 
 # SELECT users.*
-wildcard = WildcardExpression(dialect, table="users")
+wildcard = Wildcard(dialect, table="users")
 ```
 
 ### Subquery
@@ -420,7 +420,7 @@ sub = Subquery(dialect, query_expr, alias="sub")
 表示通用的 SQL 标识符（例如表名、列名）。
 
 ```python
-class Identifier(mixins.ComparisonMixin, bases.SQLValueExpression):
+class Identifier(mixins.ComparisonMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", name: str): ...
 ```
 
@@ -458,8 +458,8 @@ class UnaryExpression(bases.BaseExpression):
 表示具有运算符优先级处理的二元算术运算。
 
 ```python
-class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValueExpression", right: "bases.SQLValueExpression"): ...
+class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValue):
+    def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValue", right: "bases.SQLValue"): ...
 ```
 
 ### 原始表达式 (Raw Expressions)
@@ -471,7 +471,7 @@ class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin,
 表示作为值表达式的原始 SQL 字符串。
 
 ```python
-class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()): ...
 ```
 
@@ -488,7 +488,7 @@ pred = RawSQLPredicate(dialect, "EXISTS (SELECT 1 FROM log WHERE log.user_id = u
 
 ## COLLATE 表达式
 
-`CollateExpression`（定义在 `rhosocial.activerecord.backend.expression.collation`）为 SQL 值表达式应用显式排序规则。
+`CollateFunction`（定义在 `rhosocial.activerecord.backend.expression.collation`）为 SQL 值表达式应用显式排序规则。
 
 ```python
 from rhosocial.activerecord.backend.expression.collation import collate
@@ -506,7 +506,7 @@ sql, params = expr.to_sql()
 # params: ("alice",)
 ```
 
-`CollateExpression` 混入了 `AliasableMixin`、`ArithmeticMixin`、`ComparisonMixin`、`StringMixin` 和 `TypeCastingMixin`，可以像普通 SQL 值表达式一样参与运算、比较和别名。
+`CollateFunction` 混入了 `AliasableMixin`、`ArithmeticMixin`、`ComparisonMixin`、`StringMixin` 和 `TypeCastingMixin`，可以像普通 SQL 值表达式一样参与运算、比较和别名。
 
 ### 方言集成
 

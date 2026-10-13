@@ -146,7 +146,7 @@ The following expression classes are shared across all backends. They live in `r
 | `FunctionCall` | Function invocation (`FUNC(args)`), aggregate `FILTER (WHERE ...)` and window `OVER (...)` |
 | `Subquery` | Subquery as expression |
 | `TableExpression` | Table reference with temporal options |
-| `WildcardExpression` | `*` wildcard |
+| `Wildcard` | `*` wildcard |
 | `ComparisonPredicate` | `=`, `!=`, `>`, `>=`, `<`, `<=` |
 | `LikePredicate` | `LIKE`, `ILIKE` |
 | `InPredicate` | `IN (...)` |
@@ -155,10 +155,10 @@ The following expression classes are shared across all backends. They live in `r
 | `LogicalPredicate` | `AND`, `OR`, `NOT` |
 | `BinaryExpression` | Binary operators |
 | `BinaryArithmeticExpression` | `+`, `-`, `*`, `/`, `%` |
-| `CaseExpression` | `CASE WHEN ... THEN ... END` |
-| `JSONDocumentExpression` | JSON path, yielding a document (`->`) |
-| `JSONTextExpression` | JSON path, yielding text (`->>`) |
-| `ArrayExpression` | Array operators |
+| `CaseFunction` | `CASE WHEN ... THEN ... END` |
+| `JSONDocumentValue` | JSON path, yielding a document (`->`) |
+| `JSONTextValue` | JSON path, yielding text (`->>`) |
+| `ArrayValue` | Array operators |
 
 ### Mixin Classes (Operator Overloading)
 

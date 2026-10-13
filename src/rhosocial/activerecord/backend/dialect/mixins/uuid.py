@@ -16,7 +16,7 @@ from ..exceptions import UnsupportedFeatureError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...expression.uuid import (
-        UUIDCastExpression,
+        UUIDCastFunction,
         UUIDConstantExpression,
         UUIDGenerationExpression,
     )
@@ -128,11 +128,11 @@ class UUIDMixin:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
         return sql, ()
 
-    def format_uuid_cast(self, expr: "UUIDCastExpression") -> Tuple[str, Tuple]:
+    def format_uuid_cast(self, expr: "UUIDCastFunction") -> Tuple[str, Tuple]:
         """Render a text-to-UUID conversion.
 
         Args:
-            expr: The UUIDCastExpression node.
+            expr: The UUIDCastFunction node.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

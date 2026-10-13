@@ -8,7 +8,7 @@ for retrieving foreign key metadata.
 
 
 from rhosocial.activerecord.backend.introspection.types import (
-    ForeignKeyInfo,
+    IntrospectionForeignKeyInfo,
     ReferentialAction,
 )
 
@@ -17,14 +17,14 @@ class TestListForeignKeys:
     """Tests for list_foreign_keys method."""
 
     def test_list_foreign_keys_returns_fk_info(self, backend_with_tables):
-        """Test that list_foreign_keys returns ForeignKeyInfo objects."""
+        """Test that list_foreign_keys returns IntrospectionForeignKeyInfo objects."""
         fks = backend_with_tables.introspector.list_foreign_keys("posts")
 
         assert isinstance(fks, list)
         assert len(fks) > 0
 
         for fk in fks:
-            assert isinstance(fk, ForeignKeyInfo)
+            assert isinstance(fk, IntrospectionForeignKeyInfo)
 
     def test_list_foreign_keys_posts_table(self, backend_with_tables):
         """Test foreign keys on posts table."""
@@ -85,7 +85,7 @@ class TestGetForeignKeyInfo:
         fk = backend_with_tables.introspector.get_foreign_key_info("posts", fk_name)
 
         assert fk is not None
-        assert isinstance(fk, ForeignKeyInfo)
+        assert isinstance(fk, IntrospectionForeignKeyInfo)
         assert fk.name == fk_name
 
     def test_get_foreign_key_info_nonexistent(self, backend_with_tables):

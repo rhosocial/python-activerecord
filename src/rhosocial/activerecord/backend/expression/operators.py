@@ -9,7 +9,7 @@ dialect through the subtree, and hands it to the declared formatter.
 """
 
 from typing import Any, List, Optional, Tuple, TYPE_CHECKING
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
+from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValue
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -106,7 +106,7 @@ class UnaryExpression(BaseExpression):
         self.pos = pos
 
 
-class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, SQLValueExpression):
+class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringPatternPredicateMixin, SQLValue):
     """Represents a raw SQL expression string that is directly embedded.
 
     Note: This class should be used with caution. It bypasses the normal expression
@@ -115,7 +115,7 @@ class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringPatternPredicateM
     when the expression is completely trusted or properly validated.
 
     Difference from RawSQLPredicate:
-    - RawSQLExpression inherits from SQLValueExpression and represents a value expression
+    - RawSQLExpression inherits from SQLValue and represents a value expression
       (e.g., column, function call, literal)
     - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
       (e.g., condition in WHERE clause)
@@ -141,7 +141,7 @@ class RawSQLPredicate(SQLPredicate):
     when the predicate is completely trusted or properly validated.
 
     Difference from RawSQLExpression:
-    - RawSQLExpression inherits from SQLValueExpression and represents a value expression
+    - RawSQLExpression inherits from SQLValue and represents a value expression
       (e.g., column, function call, literal)
     - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
       (e.g., condition in WHERE clause)
@@ -160,7 +160,7 @@ class RawSQLPredicate(SQLPredicate):
 
 class BinaryArithmeticExpression(
     AliasableMixin, ArithmeticMixin, NumericValueMixin, ComparisonMixin,
-    TypeCastingMixin, SQLValueExpression
+    TypeCastingMixin, SQLValue
 ):
     """Represents a binary arithmetic operation."""
 
@@ -173,8 +173,8 @@ class BinaryArithmeticExpression(
         self,
         dialect: "SQLDialectBase",
         op: str,
-        left: "SQLValueExpression",
-        right: "SQLValueExpression",
+        left: "SQLValue",
+        right: "SQLValue",
         *,
         alias: "Optional[str]" = None,
     ):

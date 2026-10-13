@@ -227,25 +227,25 @@ sql, params = intersect_op.to_sql()
 
 用于处理 JSON 数据的表达式。
 
-### JSONDocumentExpression / JSONTextExpression
+### JSONDocumentValue / JSONTextValue
 
 表示 JSON 路径提取。运算符决定用哪个类：`->` 得到文档，是
-`JSONDocumentExpression`；`->>` 得到文本，是 `JSONTextExpression`。
+`JSONDocumentValue`；`->>` 得到文本，是 `JSONTextValue`。
 之所以是两个类而不是一个类加一个拼写参数，是因为两者得到的值是不同的
 种类 —— 文档可以继续向下索引，文本不行。
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    JSONDocumentExpression,
-    JSONTextExpression,
+    JSONDocumentValue,
+    JSONTextValue,
 )
 
 col = Column(dialect, "data")
 # 从 JSON 路径提取值（文本）
-json_extract = JSONTextExpression(dialect, col, "$.user.name", operation="->>")
+json_extract = JSONTextValue(dialect, col, "$.user.name", operation="->>")
 
 # 嵌套路径仍然是文档，可以继续往下走
-nested = JSONDocumentExpression(dialect, col, "$.user", operation="->")
+nested = JSONDocumentValue(dialect, col, "$.user", operation="->")
 
 sql, params = json_extract.to_sql()
 # sql: '"data"->>?', 或特定方言的等价形式，如 'JSON_EXTRACT("data", ?)'

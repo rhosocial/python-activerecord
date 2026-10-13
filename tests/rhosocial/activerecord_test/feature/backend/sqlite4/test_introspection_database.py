@@ -9,17 +9,17 @@ for retrieving database metadata.
 import sqlite3
 
 
-from rhosocial.activerecord.backend.introspection.types import DatabaseInfo
+from rhosocial.activerecord.backend.introspection.types import IntrospectionDatabaseInfo
 
 
 class TestDatabaseInfo:
     """Tests for database information introspection."""
 
     def test_get_database_info(self, sqlite_backend):
-        """Test get_database_info returns valid DatabaseInfo."""
+        """Test get_database_info returns valid IntrospectionDatabaseInfo."""
         db_info = sqlite_backend.introspector.get_database_info()
 
-        assert isinstance(db_info, DatabaseInfo)
+        assert isinstance(db_info, IntrospectionDatabaseInfo)
         assert db_info.name == "main"
         assert db_info.vendor == "SQLite"
         assert db_info.version == sqlite3.sqlite_version

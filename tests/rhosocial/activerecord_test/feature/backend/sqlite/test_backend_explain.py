@@ -22,7 +22,7 @@ from rhosocial.activerecord.backend.explain import (
     SyncExplainBackendMixin,
     AsyncExplainBackendMixin,
 )
-from rhosocial.activerecord.backend.expression import WildcardExpression
+from rhosocial.activerecord.backend.expression import Wildcard
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import (
     ExplainOptions,
@@ -70,7 +70,7 @@ def query_expr(dialect):
     """Simple SELECT * FROM items expression."""
     return QueryStatement(
         dialect,
-        select=[WildcardExpression(dialect)],
+        select=[Wildcard(dialect)],
         from_=NamedRelationRef(dialect, Table(dialect, "items")),
     )
 

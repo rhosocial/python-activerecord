@@ -124,7 +124,7 @@ class TestInitParamAttributeContract:
 
         Every registered expression class must NOT override get_params().
         The only exception is a VAR_POSITIONAL class that performs genuine
-        raw-vs-normalized round-trip rewriting (e.g. JSONArrayExpression
+        raw-vs-normalized round-trip rewriting (e.g. JSONArrayValue
         style) - none exist in the core registry, so the rule is absolute
         here. Adding an override reintroduces the special-casing that
         caused serialization gaps; instead fold state into __init__.
@@ -151,8 +151,8 @@ class TestInitParamAttributeContract:
 
     def test_var_keyword_resolves_same_name_attr(self, dummy_dialect):
         """VAR_KEYWORD extras must serialize as merged top-level params."""
-        from rhosocial.activerecord.backend.expression.collation import CollateExpression
-        expr = CollateExpression(dummy_dialect, Literal(dummy_dialect, "a"), "NOCASE",
+        from rhosocial.activerecord.backend.expression.collation import CollateFunction
+        expr = CollateFunction(dummy_dialect, Literal(dummy_dialect, "a"), "NOCASE",
                                  binary=True, pad="PAD")
         params = expr.get_params()
         assert params.get("binary") is True

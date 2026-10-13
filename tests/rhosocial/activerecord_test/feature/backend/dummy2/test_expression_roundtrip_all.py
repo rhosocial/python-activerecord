@@ -141,7 +141,7 @@ from rhosocial.activerecord.backend.expression.datetime import (
 from rhosocial.activerecord.backend.expression.core import Column, Literal
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CaseExpression,
+    CaseFunction,
     WindowClause,
     WindowDefinition,
     WindowSpecification,
@@ -553,8 +553,8 @@ def register_specials():
 
     # -- expressions that need at least one member --------------------------
     register_special_constructor(
-        "advanced_functions.CaseExpression",
-        lambda d: CaseExpression(
+        "advanced_functions.CaseFunction",
+        lambda d: CaseFunction(
             d,
             cases=[(_column_predicate(d), Literal(d, 1))],
             else_result=Literal(d, 0),
@@ -749,7 +749,7 @@ LEGITIMATE_NON_RENDERS = {
     "rhosocial.activerecord.backend.expression.bases.SQLPredicate": (
         NotImplementedError, _NO_FORMATTER
     ),
-    "rhosocial.activerecord.backend.expression.bases.SQLValueExpression": (
+    "rhosocial.activerecord.backend.expression.bases.SQLValue": (
         NotImplementedError, _NO_FORMATTER
     ),
     # The column-definition clause base. Its subclasses each name their own
@@ -794,7 +794,7 @@ LEGITIMATE_NON_RENDERS = {
     "rhosocial.activerecord.backend.expression.transaction.TransactionExpression": (
         NotImplementedError, _NO_FORMATTER
     ),
-    "rhosocial.activerecord.backend.expression.datetime._TemporalValueExpression": (
+    "rhosocial.activerecord.backend.expression.datetime._TemporalValue": (
         NotImplementedError, _NO_FORMATTER
     ),
     "rhosocial.activerecord.backend.expression.introspection.IntrospectionExpression": (

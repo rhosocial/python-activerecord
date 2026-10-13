@@ -18,11 +18,11 @@ from .mixins import (
     TypeCastingMixin,
 )
 
-from .bases import BaseExpression, SQLPredicate, SQLValueExpression
+from .bases import BaseExpression, SQLPredicate, SQLValue
 from .core import (
     Column,
-    JSONValueExpression,
-    StringValueExpression,
+    JSONValue,
+    StringValue,
     Subquery,
 )
 
@@ -44,7 +44,7 @@ class DeclaredValueType:
     wrapper's delegation to a node it does not hold.
 
     Inheriting the value class is what makes the result readable off the
-    object: ``isinstance(expr, TimestampValueExpression)`` holds because the
+    object: ``isinstance(expr, TimestampValue)`` holds because the
     class says so, not because a tag was attached after construction.
     """
 
@@ -81,16 +81,16 @@ class JSONPathMode(Enum):
 
 
 #: Value class -> the class standing for both a CASE and that value class.
-#: Populated on first use by :meth:`CaseExpression._class_for`; see there for
+#: Populated on first use by :meth:`CaseFunction._class_for`; see there for
 #: why it is built at all and why it is kept.
 _CASE_VALUE_CLASSES = {}
 
 
-class CaseExpression(
+class CaseFunction(
     DeclaredValueType,
     ArithmeticMixin,
     ComparisonMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents a CASE expression (e.g., CASE WHEN condition THEN result ELSE result END).
 
@@ -155,7 +155,7 @@ class CaseExpression(
         would make ``type(x)`` differ between two CASE expressions that answer
         with the same thing -- which is the thing being fixed.
 
-        The bases are ordered so that ``CaseExpression`` supplies the CASE
+        The bases are ordered so that ``CaseFunction`` supplies the CASE
         state and ``format_method``, :class:`DeclaredValueType` supplies the
         rendering, and *value_class* supplies the operations and the value type.
         The value class's own ``to_sql`` is deliberately *not* reached: it is a
@@ -339,12 +339,12 @@ class WindowClause(BaseExpression):
         return "format_window_clause"
 
 
-class JSONDocumentExpression(
+class JSONDocumentValue(
     DeclaredValueType,
-    JSONValueExpression,
+    JSONValue,
     ArithmeticMixin,
     JSONAccessorMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """A JSON document reached by path -- ``->``.
 
@@ -355,13 +355,13 @@ class JSONDocumentExpression(
     Not available: ``like`` / ``ilike``. Those apply to the text a scalar path
     access returns, not to the document it navigated. Use
     :meth:`~...expression.mixins.JSONAccessorMixin.json_path` for the text
-    form, which arrives as :class:`JSONTextExpression`.
+    form, which arrives as :class:`JSONTextValue`.
 
     Split from that sibling rather than sharing one class: the two operations
     yield different types, and a single class could only offer the union of
     their operations to both.
 
-    It is a :class:`~...expression.core.JSONValueExpression` because that is what
+    It is a :class:`~...expression.core.JSONValue` because that is what
     a document is. It is not a *wrapper* holding one -- it has its own formatter
     and its own fields -- so it says so with
     :class:`DeclaredValueType` rather than inheriting the delegation.
@@ -391,13 +391,13 @@ class JSONDocumentExpression(
         return "format_json_expression"
 
 
-class JSONTextExpression(
-    JSONDocumentExpression,
-    StringValueExpression,
+class JSONTextValue(
+    JSONDocumentValue,
+    StringValue,
 ):
     """A JSON path access that yielded **text** -- ``->>``.
 
-    The sibling of :class:`JSONDocumentExpression`, and the reason that one is
+    The sibling of :class:`JSONDocumentValue`, and the reason that one is
     split from this: ``->`` hands back a document and ``->>`` hands back a
     scalar, and they are different types with different operations. It used to
     be one class whose ``operation`` decided the answer at construction, which
@@ -407,7 +407,7 @@ class JSONTextExpression(
     Text is the narrower of the two, so chaining continues: ``->>`` yields a
     scalar and a scalar cannot be navigated further. ``->`` yields a document
     and can be, which is why this is the class that gains
-    :class:`~...expression.core.StringValueExpression` and its operations.
+    :class:`~...expression.core.StringValue` and its operations.
 
     One consequence of inheriting the document class is that the JSON accessors
     stay reachable here too: ``DeclaredValueType`` renders the node and this
@@ -417,14 +417,19 @@ class JSONTextExpression(
     """
 
 
-class ArrayExpression(
+class ArrayOperation(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
-    """Represents array operations like ANY, ALL, and array access."""
+    """Represents array operations like ANY, ALL, and array access.
+
+    Distinct from the array value type in ``core``: that one *is* a
+    sequence (the result of ``unnest`` or a collecting aggregate); this one
+    performs an operation over one and yields a value.
+    """
 
     def __init__(
         self,
@@ -448,7 +453,7 @@ class ArrayExpression(
         return "format_array_expression"
 
 
-class TrimExpression(
+class TrimFunction(
     AliasableMixin,
     ComparisonMixin,
     StringToIntegerMixin,
@@ -456,7 +461,7 @@ class TrimExpression(
     StringValueMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents a ``TRIM`` expression as a node, not as assembled SQL.
 
@@ -474,7 +479,7 @@ class TrimExpression(
         direction: ``BOTH`` (default), ``LEADING`` or ``TRAILING``.
 
     Example:
-        >>> TrimExpression(dialect, Column(dialect, "name"), Literal(dialect, "x")).to_sql()
+        >>> TrimFunction(dialect, Column(dialect, "name"), Literal(dialect, "x")).to_sql()
         ("TRIM(BOTH ? FROM \"name\")", ('x',))
     """
 
@@ -498,7 +503,7 @@ class TrimExpression(
         return "format_trim_expression"
 
 
-class RepeatExpression(
+class RepeatFunction(
     AliasableMixin,
     ComparisonMixin,
     StringToIntegerMixin,
@@ -506,7 +511,7 @@ class RepeatExpression(
     StringValueMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """``REPEAT(expr, count)`` as a node, so the backends without the function
     can emulate it structurally.
@@ -541,7 +546,7 @@ class RepeatExpression(
         return "format_repeat_expression"
 
 
-class LpadExpression(
+class LpadFunction(
     AliasableMixin,
     ComparisonMixin,
     StringToIntegerMixin,
@@ -549,7 +554,7 @@ class LpadExpression(
     StringValueMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """``LPAD(expr, length, pad)`` as a node, for the backends that lack it.
 
@@ -588,7 +593,7 @@ class LpadExpression(
         return "format_lpad_expression"
 
 
-class RpadExpression(
+class RpadFunction(
     AliasableMixin,
     ComparisonMixin,
     StringToIntegerMixin,
@@ -596,11 +601,11 @@ class RpadExpression(
     StringValueMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """``RPAD(expr, length, pad)`` as a node, for the backends that lack it.
 
-    The mirror of :class:`LpadExpression`, and the cheaper one to emulate: a
+    The mirror of :class:`LpadFunction`, and the cheaper one to emulate: a
     single ``SUBSTR(expr || pad, 1, length)`` covers both padding and
     truncation, because the pad repeats ``length`` times and the substring
     takes at most that many characters. See :meth:`format_rpad_expression`.
@@ -631,7 +636,7 @@ class OrderedSetAggregation(
     ArithmeticMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents an ordered-set aggregate function call with WITHIN GROUP (ORDER BY ...)."""
 

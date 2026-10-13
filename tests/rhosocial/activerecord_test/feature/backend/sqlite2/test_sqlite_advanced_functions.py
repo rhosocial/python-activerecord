@@ -6,12 +6,12 @@ Tests for the advanced SQL function expression components in advanced_functions.
 import pytest
 from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CaseExpression,
+    CaseFunction,
     ExistsPredicate,
     AnyPredicate,
     AllPredicate,
-    JSONDocumentExpression,
-    ArrayExpression,
+    JSONDocumentValue,
+    ArrayOperation,
     OrderedSetAggregation,
 )
 from rhosocial.activerecord.backend.expression.core import Subquery
@@ -19,15 +19,15 @@ from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
 
-class TestCaseExpression:
-    """Tests for CaseExpression class."""
+class TestCaseFunction:
+    """Tests for CaseFunction class."""
 
     def test_case_expression_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic CASE expression functionality."""
         # Create a basic CASE expression with one condition-result pair
         condition = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result = Literal(sqlite_dialect_3_8_0, "adult")
-        case_expr = CaseExpression(sqlite_dialect_3_8_0, cases=[(condition, result)])
+        case_expr = CaseFunction(sqlite_dialect_3_8_0, cases=[(condition, result)])
 
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
@@ -40,7 +40,7 @@ class TestCaseExpression:
         condition2 = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result2 = Literal(sqlite_dialect_3_8_0, "adult")
 
-        case_expr = CaseExpression(
+        case_expr = CaseFunction(
             sqlite_dialect_3_8_0,
             cases=[(condition1, result1), (condition2, result2)],
             else_result=Literal(sqlite_dialect_3_8_0, "minor"),
@@ -53,7 +53,7 @@ class TestCaseExpression:
     def test_case_expression_simple_case(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test simple CASE expression with value."""
         value = Column(sqlite_dialect_3_8_0, "status_code")
-        case_expr = CaseExpression(
+        case_expr = CaseFunction(
             sqlite_dialect_3_8_0,
             value=value,
             cases=[
@@ -130,11 +130,11 @@ class TestAnyAllExpression:
 
 
 class TestJSONExpression:
-    """Tests for JSONDocumentExpression class."""
+    """Tests for JSONDocumentValue class."""
 
     def test_json_extract_path(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test JSON path extraction."""
-        json_expr = JSONDocumentExpression(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.name")
+        json_expr = JSONDocumentValue(sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), "$.name")
         sql, params = json_expr.to_sql()
         # In SQLite, this uses the -> operator with the path embedded as a literal
         assert sql == '"data"->\'$.name\''
@@ -142,7 +142,7 @@ class TestJSONExpression:
 
     def test_json_extract_as_text(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test JSON path extraction as text."""
-        json_expr = JSONDocumentExpression(
+        json_expr = JSONDocumentValue(
             sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "metadata"), "$.settings.theme", operation="->>"
         )
         sql, params = json_expr.to_sql()
@@ -151,14 +151,14 @@ class TestJSONExpression:
         assert params == ()
 
 
-class TestArrayExpression:
-    """Tests for ArrayExpression class."""
+class TestArrayValue:
+    """Tests for ArrayValue class."""
 
     def test_array_constructor_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test that array constructor is not supported in SQLite."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
-        array_expr = ArrayExpression(
+        array_expr = ArrayValue(
             sqlite_dialect_3_8_0,
             "CONSTRUCTOR",
             elements=[
@@ -178,7 +178,7 @@ class TestArrayExpression:
         """Test that array access is not supported in SQLite."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
-        array_access = ArrayExpression(
+        array_access = ArrayValue(
             sqlite_dialect_3_8_0,
             "ACCESS",
             base_expr=Column(sqlite_dialect_3_8_0, "tags"),

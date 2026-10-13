@@ -4,14 +4,14 @@ Literal identifiers in SQL expressions.
 """
 
 from typing import TYPE_CHECKING
-from .bases import SQLValueExpression
+from .bases import SQLValue
 from .mixins import ComparisonMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class Identifier(ComparisonMixin, SQLValueExpression):
+class Identifier(ComparisonMixin, SQLValue):
     """Represents a generic SQL identifier (e.g., table name, column name, alias).
 
     Per-role quoting fields (all default to ``True``):

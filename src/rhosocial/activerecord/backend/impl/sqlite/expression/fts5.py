@@ -10,7 +10,7 @@ For FTS5 MATCH predicates, use SQLiteMatchPredicate from the predicates module.
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLPredicate, SQLValueExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression, SQLPredicate, SQLValue, SQLQueryAndParams
 from rhosocial.activerecord.backend.expression.objects import Table
 
 if TYPE_CHECKING:
@@ -81,7 +81,7 @@ class SQLiteFTS5CreateVirtualTable(BaseExpression):
         return self.dialect.format_fts5_create_virtual_table(self)
 
 
-class SQLiteFTS5RankExpression(SQLValueExpression):
+class SQLiteFTS5RankExpression(SQLValue):
     """FTS5 BM25 ranking expression for relevance scoring in ORDER BY clauses."""
 
     def __init__(
@@ -105,7 +105,7 @@ class SQLiteFTS5RankExpression(SQLValueExpression):
         return self.dialect.format_fts5_rank_expression(self)
 
 
-class SQLiteFTS5HighlightExpression(SQLValueExpression):
+class SQLiteFTS5HighlightExpression(SQLValue):
     """FTS5 highlight() function expression for marking matched terms."""
 
     def __init__(
@@ -131,7 +131,7 @@ class SQLiteFTS5HighlightExpression(SQLValueExpression):
         return self.dialect.format_fts5_highlight_expression(self)
 
 
-class SQLiteFTS5SnippetExpression(SQLValueExpression):
+class SQLiteFTS5SnippetExpression(SQLValue):
     """FTS5 snippet() function expression for showing context around matched terms."""
 
     def __init__(

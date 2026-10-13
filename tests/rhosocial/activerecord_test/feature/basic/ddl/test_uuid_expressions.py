@@ -18,7 +18,7 @@ import pytest
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.protocols import UUIDSupport
 from rhosocial.activerecord.backend.expression import (
-    UUIDCastExpression,
+    UUIDCastFunction,
     UUIDConstantExpression,
     UUIDGenerationExpression,
     Literal,
@@ -67,7 +67,7 @@ def test_sqlite_reports_no_uuid_operations(probe):
     [
         lambda d: UUIDGenerationExpression(d),
         lambda d: UUIDConstantExpression(d, "nil"),
-        lambda d: UUIDCastExpression(d, Literal(d, "x")),
+        lambda d: UUIDCastFunction(d, Literal(d, "x")),
     ],
     ids=["generation", "constant", "cast"],
 )
@@ -123,7 +123,7 @@ def test_constant_rejects_an_unknown_kind():
 
 def test_cast_substitutes_the_operand_and_keeps_its_parameters():
     dialect = _dialect(_FULL)
-    expr = UUIDCastExpression(dialect, Literal(dialect, "not-a-uuid"))
+    expr = UUIDCastFunction(dialect, Literal(dialect, "not-a-uuid"))
     assert expr.to_sql() == ("CAST(? AS UUID)", ("not-a-uuid",))
 
 
@@ -134,7 +134,7 @@ def test_constant_and_cast_stay_unsupported_when_only_generation_is_declared():
     with pytest.raises(UnsupportedFeatureError, match="UUID constants"):
         UUIDConstantExpression(dialect, "nil").to_sql()
     with pytest.raises(UnsupportedFeatureError, match="UUID cast"):
-        UUIDCastExpression(dialect, Literal(dialect, "x")).to_sql()
+        UUIDCastFunction(dialect, Literal(dialect, "x")).to_sql()
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +147,7 @@ def test_constant_and_cast_stay_unsupported_when_only_generation_is_declared():
     [
         lambda d: UUIDGenerationExpression(d),
         lambda d: UUIDConstantExpression(d, "nil"),
-        lambda d: UUIDCastExpression(d, Literal(d, "x")),
+        lambda d: UUIDCastFunction(d, Literal(d, "x")),
     ],
     ids=["generation", "constant", "cast"],
 )
@@ -164,6 +164,6 @@ def test_format_methods_are_declared_for_dispatch():
     assert UUIDGenerationExpression(_dialect()).format_method == "format_uuid_generation"
     assert UUIDConstantExpression(_dialect(), "nil").format_method == "format_uuid_constant"
     assert (
-        UUIDCastExpression(_dialect(), Literal(_dialect(), "x")).format_method
+        UUIDCastFunction(_dialect(), Literal(_dialect(), "x")).format_method
         == "format_uuid_cast"
     )

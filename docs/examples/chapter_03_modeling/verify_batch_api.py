@@ -12,7 +12,7 @@ Correct import paths confirmed by this script:
   - BatchDQLResult    ← from rhosocial.activerecord.backend.result
   - InsertStatement  ← from rhosocial.activerecord.backend.expression
   - QueryStatement   ← from rhosocial.activerecord.backend.expression.statements
-  - WildcardExpression← from rhosocial.activerecord.backend.expression
+  - Wildcard← from rhosocial.activerecord.backend.expression
   - TableExpression   ← from rhosocial.activerecord.backend.expression
   - ValuesSource      ← from rhosocial.activerecord.backend.expression
   - Column, Literal   ← from rhosocial.activerecord.backend.expression
@@ -136,7 +136,7 @@ def assert_import_paths() -> None:
     # Expression types (DQL)
     try_import("rhosocial.activerecord.backend.expression.statements", "QueryStatement")
     try_import("rhosocial.activerecord.backend.expression.query_sources", "WithStatement")
-    try_import("rhosocial.activerecord.backend.expression", "WildcardExpression")
+    try_import("rhosocial.activerecord.backend.expression", "Wildcard")
     try_import("rhosocial.activerecord.backend.expression.query_parts", "OrderByClause")
     try_import("rhosocial.activerecord.backend.expression.query_parts", "LimitOffsetClause")
 
@@ -259,7 +259,7 @@ def demonstrate_batch_dql() -> None:
     from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
     from rhosocial.activerecord.backend.expression.statements import QueryStatement
     from rhosocial.activerecord.backend.expression import (
-        WildcardExpression,
+        Wildcard,
         TableExpression,
     )
     from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
@@ -290,7 +290,7 @@ def demonstrate_batch_dql() -> None:
     # Build SELECT * FROM items ORDER BY id
     query_expr = QueryStatement(
         dialect,
-        select=[WildcardExpression(dialect)],
+        select=[Wildcard(dialect)],
         from_=TableExpression(dialect, "items"),
         order_by=OrderByClause(
             dialect,

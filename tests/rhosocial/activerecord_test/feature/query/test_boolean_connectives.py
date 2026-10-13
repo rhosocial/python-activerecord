@@ -4,7 +4,7 @@
 ``p1 & p2`` combines predicates for a WHERE clause. A truth *value* needs the
 same three operators with a different result: ``(flag & other)`` must be
 something a SELECT list can carry, so it stays a boolean value
-(:class:`BooleanLogicExpression`) with the same SQL. One implementation,
+(:class:`LogicalValue`) with the same SQL. One implementation,
 dispatched by the receiver, which is what these tests pin.
 """
 
@@ -12,8 +12,8 @@ dispatched by the receiver, which is what these tests pin.
 import pytest
 
 from rhosocial.activerecord.backend.expression import BooleanColumn
-from rhosocial.activerecord.backend.expression.bases import SQLPredicate, SQLValueExpression
-from rhosocial.activerecord.backend.expression.core import BooleanLogicExpression
+from rhosocial.activerecord.backend.expression.bases import SQLPredicate, SQLValue
+from rhosocial.activerecord.backend.expression.core import LogicalValue
 from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
 
 
@@ -29,8 +29,8 @@ def test_a_boolean_values_connectives_keep_the_value_type(dialect):
     other = BooleanColumn(dialect, "other")
 
     combined = flag & other
-    assert isinstance(combined, BooleanLogicExpression)
-    assert isinstance(combined, SQLValueExpression)
+    assert isinstance(combined, LogicalValue)
+    assert isinstance(combined, SQLValue)
     assert not isinstance(combined, SQLPredicate)
 
     sql, params = combined.to_sql()
@@ -41,10 +41,10 @@ def test_a_value_can_be_negated_and_chained(dialect):
     flag = BooleanColumn(dialect, "flag")
     other = BooleanColumn(dialect, "other")
 
-    assert isinstance(~flag, BooleanLogicExpression)
+    assert isinstance(~flag, LogicalValue)
 
     chained = (flag & other) | flag
-    assert isinstance(chained, BooleanLogicExpression)
+    assert isinstance(chained, LogicalValue)
     assert "OR" in chained.to_sql()[0]
 
 
@@ -55,7 +55,7 @@ def test_a_predicate_combination_stays_a_predicate(dialect):
     combined = flag.is_true() & other.is_true()
     assert isinstance(combined, LogicalPredicate)
     assert isinstance(combined, SQLPredicate)
-    assert not isinstance(combined, SQLValueExpression)
+    assert not isinstance(combined, SQLValue)
 
     assert isinstance(~flag.is_true(), LogicalPredicate)
 

@@ -3,12 +3,12 @@
 
 from typing import Union, Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLValueExpression
+from ..bases import BaseExpression, SQLValue
 from ..core import (
     Column,
-    TimestampValueExpression,
-    NumericValueExpression,
-    StringValueExpression,
+    TimestampValue,
+    NumericValue,
+    StringValue,
     FunctionCall,
     Literal,
 )
@@ -29,20 +29,20 @@ def _cast_class_for(value_class):
     Built once per value class and kept, so ``type(x)`` does not differ between
     two casts that produce the same thing.
 
-    ``CastExpression`` comes first: it supplies the node's own state and
+    ``CastFunction`` comes first: it supplies the node's own state and
     ``format_method``. ``DeclaredValueType`` supplies the rendering, because the
     value class's own ``to_sql`` is a wrapper delegating to a node this does not
     hold.
     """
     from ..advanced_functions import DeclaredValueType
-    from ..core import CastExpression
+    from ..core import CastFunction
 
     try:
         return _CAST_VALUE_CLASSES[value_class]
     except KeyError:
         combined = type(
             f"Cast{value_class.__name__}",
-            (CastExpression, DeclaredValueType, value_class),
+            (CastFunction, DeclaredValueType, value_class),
             {
                 "__doc__": (
                     f"A CAST to a type this value class represents, so it is "
@@ -123,44 +123,44 @@ def _type_value_classes():
 
     return {
         # Whole numbers, whatever the width.
-        IntegerType: core.IntegerValueExpression,
-        TinyIntType: core.IntegerValueExpression,
-        SmallIntType: core.IntegerValueExpression,
-        BigIntType: core.IntegerValueExpression,
+        IntegerType: core.IntegerValue,
+        TinyIntType: core.IntegerValue,
+        SmallIntType: core.IntegerValue,
+        BigIntType: core.IntegerValue,
         # Fractional numbers.
-        DecimalType: core.NumericValueExpression,
-        FloatType: core.NumericValueExpression,
-        RealType: core.NumericValueExpression,
-        DoubleType: core.NumericValueExpression,
+        DecimalType: core.NumericValue,
+        FloatType: core.NumericValue,
+        RealType: core.NumericValue,
+        DoubleType: core.NumericValue,
         # Text. An enum is text: its values are labels.
-        CharType: core.StringValueExpression,
-        VarCharType: core.StringValueExpression,
-        TextType: core.StringValueExpression,
-        EnumType: core.StringValueExpression,
+        CharType: core.StringValue,
+        VarCharType: core.StringValue,
+        TextType: core.StringValue,
+        EnumType: core.StringValue,
         # Bytes.
-        BinaryType: core.BinaryValueExpression,
-        VarBinaryType: core.BinaryValueExpression,
-        BlobType: core.BinaryValueExpression,
-        BooleanType: core.BooleanValueExpression,
+        BinaryType: core.BinaryValue,
+        VarBinaryType: core.BinaryValue,
+        BlobType: core.BinaryValue,
+        BooleanType: core.BooleanValue,
         # Documents.
-        JsonType: core.JSONValueExpression,
-        JsonBType: core.JSONValueExpression,
+        JsonType: core.JSONValue,
+        JsonBType: core.JSONValue,
         # An XML document: a value with its own surface, not a string.
-        XmlType: core.XMLValueExpression,
+        XmlType: core.XMLValue,
         # Sequences.
-        ArrayType: core.ArrayValueExpression,
+        ArrayType: core.ArrayValue,
         # A UUID is a UUID.
-        UUIDType: core.UUIDValueExpression,
+        UUIDType: core.UUIDValue,
         # Temporal. Each gets its own class because they are four types; a
         # timestamp is not a date, and CURRENT_DATE() is not
         # CURRENT_TIMESTAMP().
-        DateType: core.DateValueExpression,
-        DateTimeType: core.TimestampValueExpression,
-        TimestampType: core.TimestampValueExpression,
-        TimestampTzType: core.TimestampValueExpression,
-        TimeType: core.TimeValueExpression,
-        TimeTzType: core.TimeValueExpression,
-        IntervalType: core.IntervalValueExpression,
+        DateType: core.DateValue,
+        DateTimeType: core.TimestampValue,
+        TimestampType: core.TimestampValue,
+        TimestampTzType: core.TimestampValue,
+        TimeType: core.TimeValue,
+        TimeTzType: core.TimeValue,
+        IntervalType: core.IntervalValue,
     }
 
 
@@ -171,11 +171,11 @@ def cast(
     dialect: "SQLDialectBase",
     expr: Union[str, "BaseExpression"],
     target_type: "DataType",
-) -> "SQLValueExpression":
+) -> "SQLValue":
     """
     Creates a type cast around an expression.
 
-    ``CAST(expr AS type)`` is a proper AST node (``CastExpression``) that
+    ``CAST(expr AS type)`` is a proper AST node (``CastFunction``) that
     wraps the given expression; the cast() method on the expression builds
     exactly this node.
 
@@ -193,17 +193,17 @@ def cast(
             parameter, so a string there is SQL code rather than SQL data.
 
     Returns:
-        A new CastExpression node wrapping the given expression, typed by the
+        A new CastFunction node wrapping the given expression, typed by the
         target type -- see below.
 
     Raises:
         TypeError: If target_type is not a DataType.
     """
     from ..advanced_functions import DeclaredValueType
-    from ..core import CastExpression, Column
+    from ..core import CastFunction, Column
 
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    node = CastExpression(dialect, target_expr, target_type)
+    node = CastFunction(dialect, target_expr, target_type)
     value_class = _value_class_for(target_type)
     if value_class is None:
         return node
@@ -212,7 +212,7 @@ def cast(
     # is built as an instance of that class -- it is not a wrapper holding one,
     # hence DeclaredValueType's rendering rather than the wrapper's delegation.
     combined = _cast_class_for(value_class)
-    # The state is already set by CastExpression.__init__ above; re-point the
+    # The state is already set by CastFunction.__init__ above; re-point the
     # instance's class rather than rebuilding it, so nothing is re-validated.
     node.__class__ = combined
     return node
@@ -220,7 +220,7 @@ def cast(
 
 def to_char(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], format: Optional[str] = None
-) -> "StringValueExpression":
+) -> "StringValue":
     """
     Creates a TO_CHAR function call.
 
@@ -237,18 +237,18 @@ def to_char(
         format: Optional format string for conversion.
 
     Returns:
-        A StringValueExpression wrapping TO_CHAR
+        A StringValue wrapping TO_CHAR
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return StringValueExpression(dialect, FunctionCall(dialect, 'TO_CHAR', target_expr, format_expr))
-    return StringValueExpression(dialect, FunctionCall(dialect, 'TO_CHAR', target_expr))
+        return StringValue(dialect, FunctionCall(dialect, 'TO_CHAR', target_expr, format_expr))
+    return StringValue(dialect, FunctionCall(dialect, 'TO_CHAR', target_expr))
 
 
 def to_number(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], format: Optional[str] = None
-) -> "NumericValueExpression":
+) -> "NumericValue":
     """
     Creates a TO_NUMBER function call.
 
@@ -265,18 +265,18 @@ def to_number(
         format: Optional format string for conversion.
 
     Returns:
-        A NumericValueExpression wrapping TO_NUMBER
+        A NumericValue wrapping TO_NUMBER
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return NumericValueExpression(dialect, FunctionCall(dialect, 'TO_NUMBER', target_expr, format_expr))
-    return NumericValueExpression(dialect, FunctionCall(dialect, 'TO_NUMBER', target_expr))
+        return NumericValue(dialect, FunctionCall(dialect, 'TO_NUMBER', target_expr, format_expr))
+    return NumericValue(dialect, FunctionCall(dialect, 'TO_NUMBER', target_expr))
 
 
 def to_date(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], format: Optional[str] = None
-) -> "TimestampValueExpression":
+) -> "TimestampValue":
     """
     Creates a TO_DATE function call.
 
@@ -293,10 +293,10 @@ def to_date(
         format: Optional format string for conversion.
 
     Returns:
-        A TimestampValueExpression wrapping TO_DATE
+        A TimestampValue wrapping TO_DATE
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     if format is not None:
         format_expr = Literal(dialect, format)
-        return TimestampValueExpression(dialect, FunctionCall(dialect, 'TO_DATE', target_expr, format_expr))
-    return TimestampValueExpression(dialect, FunctionCall(dialect, 'TO_DATE', target_expr))
+        return TimestampValue(dialect, FunctionCall(dialect, 'TO_DATE', target_expr, format_expr))
+    return TimestampValue(dialect, FunctionCall(dialect, 'TO_DATE', target_expr))

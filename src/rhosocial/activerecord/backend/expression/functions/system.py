@@ -4,7 +4,7 @@
 from typing import TYPE_CHECKING
 
 from ..core import (
-    StringValueExpression,
+    StringValue,
     FunctionCall,
 )
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def current_user(dialect: "SQLDialectBase") -> "StringValueExpression":
+def current_user(dialect: "SQLDialectBase") -> "StringValue":
     """
     Creates a CURRENT_USER niladic value function.
 
@@ -25,10 +25,10 @@ def current_user(dialect: "SQLDialectBase") -> "StringValueExpression":
     Returns:
         A FunctionCall instance representing the CURRENT_USER value function
     """
-    return StringValueExpression(dialect, FunctionCall(dialect, 'CURRENT_USER', niladic=True))
+    return StringValue(dialect, FunctionCall(dialect, 'CURRENT_USER', niladic=True))
 
 
-def session_user(dialect: "SQLDialectBase") -> "StringValueExpression":
+def session_user(dialect: "SQLDialectBase") -> "StringValue":
     """
     Creates a SESSION_USER niladic value function.
 
@@ -41,10 +41,10 @@ def session_user(dialect: "SQLDialectBase") -> "StringValueExpression":
     Returns:
         A FunctionCall instance representing the SESSION_USER value function
     """
-    return StringValueExpression(dialect, FunctionCall(dialect, 'SESSION_USER', niladic=True))
+    return StringValue(dialect, FunctionCall(dialect, 'SESSION_USER', niladic=True))
 
 
-def system_user(dialect: "SQLDialectBase") -> "StringValueExpression":
+def system_user(dialect: "SQLDialectBase") -> "StringValue":
     """
     Creates a SYSTEM_USER niladic value function.
 
@@ -57,4 +57,4 @@ def system_user(dialect: "SQLDialectBase") -> "StringValueExpression":
     Returns:
         A FunctionCall instance representing the SYSTEM_USER value function
     """
-    return StringValueExpression(dialect, FunctionCall(dialect, 'SYSTEM_USER', niladic=True))
+    return StringValue(dialect, FunctionCall(dialect, 'SYSTEM_USER', niladic=True))

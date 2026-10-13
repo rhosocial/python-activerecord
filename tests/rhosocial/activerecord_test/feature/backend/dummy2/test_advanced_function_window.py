@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     FunctionCall,
     QueryStatement,
-    CaseExpression,
+    CaseFunction,
     ComparisonPredicate,
     ExistsPredicate,
     AnyPredicate,
@@ -29,7 +29,7 @@ from rhosocial.activerecord.backend.expression.types import DecimalType
 class TestAdvancedFunctionWindow:
     """Tests for advanced SQL functions and window functions."""
 
-    # --- CaseExpression ---
+    # --- CaseFunction ---
     def test_case_searched_expression(self, dummy_dialect: DummyDialect):
         """Tests a searched CASE expression (CASE WHEN ... THEN ... ELSE ... END)."""
         condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
@@ -37,7 +37,7 @@ class TestAdvancedFunctionWindow:
         condition2 = ComparisonPredicate(dummy_dialect, "<=", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
         result2 = Literal(dummy_dialect, "minor")
 
-        case_expr = CaseExpression(
+        case_expr = CaseFunction(
             dummy_dialect,
             cases=[(condition1, result1), (condition2, result2)],
             else_result=Literal(dummy_dialect, "unknown"),
@@ -50,7 +50,7 @@ class TestAdvancedFunctionWindow:
     def test_case_simple_expression(self, dummy_dialect: DummyDialect):
         """Tests a simple CASE expression (CASE value WHEN ... THEN ... ELSE ... END)."""
         value_expr = Column(dummy_dialect, "status_code")
-        case_expr = CaseExpression(
+        case_expr = CaseFunction(
             dummy_dialect,
             value=value_expr,
             cases=[
@@ -397,11 +397,11 @@ class TestAdvancedFunctionWindow:
             window_clause.to_sql()
 
     def test_case_expression_with_empty_cases_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that CaseExpression with empty cases list raises ValueError."""
-        from rhosocial.activerecord.backend.expression import CaseExpression
+        """Tests that CaseFunction with empty cases list raises ValueError."""
+        from rhosocial.activerecord.backend.expression import CaseFunction
 
-        # Create a CaseExpression with empty cases list
-        case_expr = CaseExpression(
+        # Create a CaseFunction with empty cases list
+        case_expr = CaseFunction(
             dummy_dialect,
             cases=[],  # Empty list should raise an error
         )

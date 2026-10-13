@@ -30,7 +30,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    WildcardExpression,
+    Wildcard,
     FunctionCall,
     ComparisonPredicate,
     LogicalPredicate,
@@ -66,10 +66,10 @@ from rhosocial.activerecord.backend.expression.graph import (
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     AllPredicate,
     AnyPredicate,
-    ArrayExpression,
-    CaseExpression,
+    ArrayOperation,
+    CaseFunction,
     ExistsPredicate,
-    JSONDocumentExpression,
+    JSONDocumentValue,
     OrderedSetAggregation,
     WindowClause,
     WindowDefinition,
@@ -115,11 +115,11 @@ EXPRESSION_TEST_CASES = [
     dict(name="Literal", cls=Literal, params_func=lambda d: dict(dialect=d, value=42)),
     dict(name="Literal_string", cls=Literal, params_func=lambda d: dict(dialect=d, value="hello")),
     dict(name="Literal_none", cls=Literal, params_func=lambda d: dict(dialect=d, value=None)),
-    dict(name="WildcardExpression", cls=WildcardExpression, params_func=lambda d: dict(dialect=d)),
+    dict(name="Wildcard", cls=Wildcard, params_func=lambda d: dict(dialect=d)),
     dict(
         name="FunctionCall",
         cls=FunctionCall,
-        params_func=lambda d: dict(dialect=d, func_name="COUNT", args=(WildcardExpression(d),)),
+        params_func=lambda d: dict(dialect=d, func_name="COUNT", args=(Wildcard(d),)),
     ),
     dict(
         name="FunctionCallDistinct",
@@ -289,7 +289,7 @@ EXPRESSION_TEST_CASES = [
             dialect=d,
             expr=Column(d, "x"),
             op=">",
-            array_expr=ArrayExpression(d, operation="ARRAY", elements=[Literal(d, 1)]),
+            array_expr=ArrayOperation(d, operation="ARRAY", elements=[Literal(d, 1)]),
         ),
     ),
     dict(
@@ -299,17 +299,17 @@ EXPRESSION_TEST_CASES = [
             dialect=d,
             expr=Column(d, "x"),
             op=">",
-            array_expr=ArrayExpression(d, operation="ARRAY", elements=[Literal(d, 1)]),
+            array_expr=ArrayOperation(d, operation="ARRAY", elements=[Literal(d, 1)]),
         ),
     ),
     dict(
-        name="ArrayExpression",
-        cls=ArrayExpression,
+        name="ArrayOperation",
+        cls=ArrayOperation,
         params_func=lambda d: dict(dialect=d, operation="ARRAY", elements=[Literal(d, 1), Literal(d, 2)]),
     ),
     dict(
-        name="CaseExpression",
-        cls=CaseExpression,
+        name="CaseFunction",
+        cls=CaseFunction,
         params_func=lambda d: dict(
             dialect=d, cases=[(ComparisonPredicate(d, "=", Column(d, "status"), Literal(d, 1)), Literal(d, "active"))]
         ),
@@ -320,8 +320,8 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(dialect=d, subquery=Subquery(d, "SELECT 1")),
     ),
     dict(
-        name="JSONDocumentExpression",
-        cls=JSONDocumentExpression,
+        name="JSONDocumentValue",
+        cls=JSONDocumentValue,
         params_func=lambda d: dict(dialect=d, column=Column(d, "data"), path="$.key", operation="->"),
     ),
     dict(

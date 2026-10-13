@@ -24,22 +24,22 @@ from rhosocial.activerecord.backend.expression.type_name import (
     validate_type_name,
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    JSONTextExpression,
-    JSONDocumentExpression,
+    JSONTextValue,
+    JSONDocumentValue,
 )
 from rhosocial.activerecord.backend.expression.core import (
-    NumericValueExpression,
-    IntegerValueExpression,
-    StringValueExpression,
-    BooleanValueExpression,
-    BinaryValueExpression,
-    UUIDValueExpression,
-    JSONValueExpression,
-    ArrayValueExpression,
-    TimestampValueExpression,
-    DateValueExpression,
-    TimeValueExpression,
-    IntervalValueExpression,
+    NumericValue,
+    IntegerValue,
+    StringValue,
+    BooleanValue,
+    BinaryValue,
+    UUIDValue,
+    JSONValue,
+    ArrayValue,
+    TimestampValue,
+    DateValue,
+    TimeValue,
+    IntervalValue,
 )
 
 #: Payloads that turn a cast target into a second statement, a subquery, or a

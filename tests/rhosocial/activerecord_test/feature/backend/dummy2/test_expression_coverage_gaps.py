@@ -33,7 +33,7 @@ class TestColumnSchemaName:
 
 
 class TestLiteralCastTypes:
-    """Literal cast goes through the CastExpression AST node."""
+    """Literal cast goes through the CastFunction AST node."""
 
     def test_literal_with_single_cast(self, dummy_dialect):
         lit = Literal(dummy_dialect, 42)
@@ -49,7 +49,7 @@ class TestLiteralCastTypes:
 
 
 class TestSubqueryCastTypes:
-    """Subquery cast goes through the CastExpression AST node."""
+    """Subquery cast goes through the CastFunction AST node."""
 
     def test_subquery_with_cast(self, dummy_dialect):
         subquery = Subquery(dummy_dialect, "SELECT id FROM users")
@@ -59,7 +59,7 @@ class TestSubqueryCastTypes:
 
 
 class TestBinaryArithmeticCastTypes:
-    """Arithmetic cast goes through the CastExpression AST node."""
+    """Arithmetic cast goes through the CastFunction AST node."""
 
     def test_arithmetic_with_cast(self, dummy_dialect):
         left = Column(dummy_dialect, "price")

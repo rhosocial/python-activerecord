@@ -24,7 +24,7 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     QueryStatement,
     Subquery,
-    WildcardExpression,
+    Wildcard,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
@@ -41,7 +41,7 @@ from rhosocial.activerecord.backend.expression.query_parts import (
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     ExistsPredicate,
-    CaseExpression,
+    CaseFunction,
 )
 from rhosocial.activerecord.backend.expression.functions.string import concat_op
 from rhosocial.activerecord.backend.expression.functions.type_conversion import cast
@@ -336,7 +336,7 @@ def build_flight_paths(d):
     )
     main = QueryStatement(
         d,
-        select=[WildcardExpression(d)],
+        select=[Wildcard(d)],
         from_=NamedRelationRef(d, Table(d, "FlightPaths")),
         where=Column(d, "destination") == Literal(d, "JFK"),
         order_by=OrderByClause(d, [Column(d, "price")]),
@@ -386,7 +386,7 @@ def build_game_of_life(d):
     )
     nsub = Subquery(d, neighbors, alias="n")
     l_x_null = Column(d, "x", "l").is_null()
-    alive = CaseExpression(
+    alive = CaseFunction(
         d,
         cases=[
             (l_x_null & (Column(d, "cnt", "n") == Literal(d, 3)), Literal(d, 1)),

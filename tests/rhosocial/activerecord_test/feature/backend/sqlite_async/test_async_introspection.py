@@ -12,13 +12,13 @@ import sqlite3
 import pytest
 
 from rhosocial.activerecord.backend.introspection.types import (
-    DatabaseInfo,
-    TableInfo,
-    ColumnInfo,
+    IntrospectionDatabaseInfo,
+    IntrospectionTableInfo,
+    IntrospectionColumnInfo,
     IndexInfo,
-    ForeignKeyInfo,
-    ViewInfo,
-    TriggerInfo,
+    IntrospectionForeignKeyInfo,
+    IntrospectionViewInfo,
+    IntrospectionTriggerInfo,
     ColumnNullable,
 )
 
@@ -28,10 +28,10 @@ class TestAsyncDatabaseIntrospection:
 
     @pytest.mark.asyncio
     async def test_async_get_database_info(self, async_sqlite_backend):
-        """Test async get_database_info returns valid DatabaseInfo."""
+        """Test async get_database_info returns valid IntrospectionDatabaseInfo."""
         db_info = await async_sqlite_backend.introspector.get_database_info()
 
-        assert isinstance(db_info, DatabaseInfo)
+        assert isinstance(db_info, IntrospectionDatabaseInfo)
         assert db_info.name == "main"
         assert db_info.vendor == "SQLite"
         assert db_info.version == sqlite3.sqlite_version
@@ -88,7 +88,7 @@ class TestAsyncTableIntrospection:
         """Test async get_table_info returns complete table information."""
         table_info = await async_backend_with_tables.introspector.get_table_info("users")
 
-        assert isinstance(table_info, TableInfo)
+        assert isinstance(table_info, IntrospectionTableInfo)
         assert table_info.name == "users"
         assert table_info.columns is not None
         assert len(table_info.columns) == 5
@@ -138,7 +138,7 @@ class TestAsyncColumnIntrospection:
         """Test async get_column_info returns specific column."""
         column = await async_backend_with_tables.introspector.get_column_info("users", "email")
 
-        assert isinstance(column, ColumnInfo)
+        assert isinstance(column, IntrospectionColumnInfo)
         assert column.name == "email"
         assert column.nullable == ColumnNullable.NOT_NULL
 
@@ -210,7 +210,7 @@ class TestAsyncForeignKeyIntrospection:
         assert len(fks) == 1
 
         fk = fks[0]
-        assert isinstance(fk, ForeignKeyInfo)
+        assert isinstance(fk, IntrospectionForeignKeyInfo)
         assert fk.referenced_table == "users"
         assert "user_id" in fk.columns
         assert "id" in fk.referenced_columns
@@ -251,7 +251,7 @@ class TestAsyncViewIntrospection:
         """Test async get_view_info returns view definition."""
         view = await async_backend_with_view.introspector.get_view_info("user_posts_summary")
 
-        assert isinstance(view, ViewInfo)
+        assert isinstance(view, IntrospectionViewInfo)
         assert view.name == "user_posts_summary"
         assert view.definition is not None
 
@@ -292,7 +292,7 @@ class TestAsyncTriggerIntrospection:
         """Test async get_trigger_info returns trigger definition."""
         trigger = await async_backend_with_trigger.introspector.get_trigger_info("update_user_timestamp")
 
-        assert isinstance(trigger, TriggerInfo)
+        assert isinstance(trigger, IntrospectionTriggerInfo)
         assert trigger.name == "update_user_timestamp"
         assert trigger.table_name == "users"
         assert trigger.definition is not None
@@ -346,7 +346,7 @@ class TestAsyncConcurrentIntrospection:
             async_backend_with_tables.introspector.list_views(),
         )
 
-        assert isinstance(results[0], DatabaseInfo)
+        assert isinstance(results[0], IntrospectionDatabaseInfo)
         assert isinstance(results[1], list)
         assert isinstance(results[2], list)
         assert isinstance(results[3], list)

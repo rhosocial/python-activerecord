@@ -52,7 +52,7 @@ def dialect() -> DummyDialect:
     return DummyDialect()
 
 
-class TestCollateExpression:
+class TestCollateFunction:
     """Collation expression support (standard SQL COLLATE)."""
 
     def test_column_collate(self, dialect):

@@ -6,7 +6,7 @@ Core SQL expression components like columns, literals, function calls, and subqu
 import copy
 from typing import Any, Optional, Tuple, TYPE_CHECKING, Union
 
-from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression, is_sql_query_and_params
+from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValue, is_sql_query_and_params
 from .column_types import ColumnBase
 from .mixins import (
     AliasableMixin,
@@ -42,7 +42,7 @@ class Literal(
     ComparisonMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents a literal value in a SQL query.
 
@@ -118,14 +118,14 @@ class Column(ColumnBase):
         return "format_column"
 
 
-class TemporalValueExpression(
+class TemporalValue(
     WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     DateTimeMixin,
     TemporalArithmeticMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Shared base for the four temporal value types.
 
@@ -176,20 +176,20 @@ class TemporalValueExpression(
         return self.call.to_sql()
 
 
-class DateValueExpression(TemporalValueExpression):
+class DateValue(TemporalValue):
     """A date with no time component. ``CURRENT_DATE`` answers with one."""
 
 
-class TimeValueExpression(TemporalValueExpression):
+class TimeValue(TemporalValue):
     """A time of day. ``CURRENT_TIME`` answers with one."""
 
 
-class TimestampValueExpression(TemporalValueExpression):
+class TimestampValue(TemporalValue):
     """A date and a time together. ``NOW()`` and ``CURRENT_TIMESTAMP`` answer
     with one, and adding an interval to it gives another."""
 
 
-class IntervalValueExpression(TemporalValueExpression):
+class IntervalValue(TemporalValue):
     """A span of time rather than a point in it.
 
     An interval is not a timestamp, which is why it is its own type here and
@@ -200,13 +200,13 @@ class IntervalValueExpression(TemporalValueExpression):
     """
 
 
-class JSONValueExpression(
+class JSONValue(
     WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     JSONAccessorMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """A JSON document that is not a column reference.
 
@@ -243,14 +243,14 @@ class JSONValueExpression(
         return self.call.to_sql()
 
 
-class ArrayValueExpression(
+class ArrayValue(
     WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     ArrayMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """A sequence that is not a column reference.
 
@@ -286,20 +286,20 @@ class ArrayValueExpression(
         return self.call.to_sql()
 
 
-class BooleanValueExpression(
+class BooleanValue(
     WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     BooleanLogicMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """A true/false value that is not a column reference.
 
     A boolean is a value, not a predicate, so it can be aliased, projected and
     compared. Its connectives keep the value type
-    (:class:`BooleanLogicExpression`), so ``(a & b)`` is still selectable;
+    (:class:`LogicalValue`), so ``(a & b)`` is still selectable;
     its comparisons yield predicates."""
 
 
@@ -330,15 +330,19 @@ class BooleanValueExpression(
         return self.call.to_sql()
 
 
-class BooleanLogicExpression(
+class LogicalValue(
     AliasableMixin,
     ComparisonMixin,
     BooleanLogicMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
-    """``a AND b`` / ``a OR b`` / ``NOT a`` as a boolean **value**.
+    """A boolean value expression used in SELECT lists.
+
+    Renders TRUE/FALSE or boolean logic (AND/OR/NOT) as a **value** that can
+    appear in a SELECT column list. Not a predicate — does not belong in
+    WHERE/HAVING clauses.
 
     A predicate and this expression render the same SQL; what differs is what
     the caller may do with the result. Combining predicates stays a predicate
@@ -364,13 +368,13 @@ class BooleanLogicExpression(
         return "format_logical_predicate"
 
 
-class BinaryValueExpression(
+class BinaryValue(
     WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Raw bytes that are not a column reference.
 
@@ -406,20 +410,20 @@ class BinaryValueExpression(
         return self.call.to_sql()
 
 
-class XMLValueExpression(
+class XMLValue(
     WrappedCallMixin,
     AliasableMixin,
     NotComparableMixin,
     NullTestMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """An XML document that is not a column reference.
 
     Returned by the SQL/XML constructors, by the XML access operations, and by
     a cast to :class:`~...types.XmlType`. Same wrapper shape as
-    :class:`BinaryValueExpression` -- it holds the call it was built from and
+    :class:`BinaryValue` -- it holds the call it was built from and
     forwards its alias -- with one difference: an XML value cannot be compared.
 
     That is the whole surface of XML on the backends that have it. PostgreSQL
@@ -460,13 +464,13 @@ class XMLValueExpression(
         return self.call.to_sql()
 
 
-class UUIDValueExpression(
+class UUIDValue(
     WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """A UUID that is not a column reference.
 
@@ -502,7 +506,7 @@ class UUIDValueExpression(
         return self.call.to_sql()
 
 
-class NumericValueExpression(
+class NumericValue(
     WrappedCallMixin,
     AliasableMixin,
     ArithmeticMixin,
@@ -510,7 +514,7 @@ class NumericValueExpression(
     NumericValueMixin,
     TranscendentalMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """A fractional-valued expression that is not a column reference.
 
@@ -552,7 +556,7 @@ class NumericValueExpression(
             return call.to_sql()
         return self.call.to_sql()
 
-class IntegerValueExpression(
+class IntegerValue(
     WrappedCallMixin,
     AliasableMixin,
     ArithmeticMixin,
@@ -560,7 +564,7 @@ class IntegerValueExpression(
     NumericValueMixin,
     TranscendentalMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
 
     """An integer-valued expression that is not a column reference.
@@ -604,7 +608,7 @@ class IntegerValueExpression(
             return call.to_sql()
         return self.call.to_sql()
 
-class StringValueExpression(
+class StringValue(
     WrappedCallMixin,
     AliasableMixin,
     ComparisonMixin,
@@ -613,7 +617,7 @@ class StringValueExpression(
     StringValueMixin,
     TypeCastingMixin,
     NotANumberMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
 
     """A string-valued expression that is not a column reference.
@@ -629,7 +633,7 @@ class StringValueExpression(
     about the object. What it shares with a string column is the *value type*,
     which is what decides which operations are offered.
 
-    The class mirrors :class:`~...expression.advanced_functions.JSONDocumentExpression`,
+    The class mirrors :class:`~...expression.advanced_functions.JSONDocumentValue`,
     which plays the same role for the JSON family.
     """
 
@@ -666,7 +670,7 @@ class FunctionCall(
     StringPatternPredicateMixin,
     TypeCastingMixin,
     ResultTypeMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents a SQL function call, scalar or aggregate, such as LOWER, CONCAT, COUNT, SUM.
 
@@ -757,13 +761,13 @@ class FunctionCall(
         return self
 
 
-class CastExpression(
+class CastFunction(
     AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     StringPatternPredicateMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Represents a SQL type cast as a proper AST node.
 
@@ -789,7 +793,7 @@ class CastExpression(
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        expression: "SQLValueExpression",
+        expression: "SQLValue",
         target_type: "DataType",
         *,
         alias: Optional[str] = None,
@@ -815,10 +819,10 @@ class CastExpression(
         self.alias = alias
 
     def __repr__(self) -> str:
-        return f"CastExpression({self.expression!r} AS {self.target_type!r})"
+        return f"CastFunction({self.expression!r} AS {self.target_type!r})"
 
 
-class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValueExpression):
+class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValue):
     """Represents a subquery in a SQL expression."""
 
     @property
@@ -869,7 +873,7 @@ class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixi
                 self.query_params = ()
 
 
-class QualifiedIdentifierExpression(BaseExpression):
+class QualifiedIdentifier(BaseExpression):
     """Represents a schema-qualified identifier (e.g., schema.table_name).
 
     Per-role quoting fields (all default to ``True``):
@@ -896,7 +900,7 @@ class QualifiedIdentifierExpression(BaseExpression):
         self.name = name
 
 
-class WildcardExpression(SQLValueExpression):
+class Wildcard(SQLValue):
     """Represents a wildcard expression (SELECT *) in a SQL query.
 
     Per-role quoting fields (all default to ``True``):

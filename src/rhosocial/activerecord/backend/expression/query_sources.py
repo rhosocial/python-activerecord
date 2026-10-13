@@ -10,7 +10,7 @@ lateral expressions, and common table expressions.
 from dataclasses import dataclass
 from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING
 
-from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
+from .bases import BaseExpression, SQLQueryAndParams, SQLValue
 from .core import Subquery
 from .mixins import ArithmeticMixin, ComparisonMixin
 from .sources import TableSource
@@ -277,7 +277,7 @@ class CTEClause(BaseExpression):
         return "format_cte_clause"
 
 
-class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
+class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
     """A query with a ``WITH`` clause: ``WITH [RECURSIVE] cte [, ...] query``.
 
     The executable unit of the production -- what ``to_sql()`` yields can
@@ -300,7 +300,7 @@ class WithStatement(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
     query needs no wrapper at all. The former ``WithQueryExpression`` --
     whose only difference was the class name -- is retired.
 
-    The value protocols (``SQLValueExpression`` and the arithmetic /
+    The value protocols (``SQLValue`` and the arithmetic /
     comparison mixins) stay because a WITH query is still a query: it can
     be a set-operation operand or the body of another CTE.
 
@@ -440,7 +440,7 @@ class TableFunctionExpression(TableSource, BaseExpression):
         table_func = TableFunctionExpression(
             dialect,
             "UNNEST",
-            ArrayExpression(dialect, [1, 2, 3]),
+            ArrayOperation(dialect, [1, 2, 3]),
             alias="numbers",
             column_names=["num"]
         )
@@ -449,7 +449,7 @@ class TableFunctionExpression(TableSource, BaseExpression):
         table_func = TableFunctionExpression(
             dialect,
             "UNNEST",
-            ArrayExpression(dialect, [1, 2, 3]),
+            ArrayOperation(dialect, [1, 2, 3]),
             column_names=["num"]
         )
     """

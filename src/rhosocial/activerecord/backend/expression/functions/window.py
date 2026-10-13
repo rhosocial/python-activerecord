@@ -5,7 +5,7 @@ from typing import Union, Optional, Any, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..column_types import value_class_of
-from ..core import Column, FunctionCall, Literal, IntegerValueExpression
+from ..core import Column, FunctionCall, Literal, IntegerValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -22,7 +22,7 @@ def _typed(call: FunctionCall, target: BaseExpression):
 
     ``ROW_NUMBER``, ``RANK`` and ``DENSE_RANK`` are the exception -- they count
     or place rows rather than borrow a value, and are always whole numbers -- so
-    they always wrap in :class:`IntegerValueExpression` and never come here.
+    they always wrap in :class:`IntegerValue` and never come here.
 
     A target that says nothing -- a ``Literal``, an untyped ``Column`` -- leaves
     the call untyped, which is the honest answer: the database decides.
@@ -35,19 +35,19 @@ def _typed(call: FunctionCall, target: BaseExpression):
 
 def row_number(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "FunctionCall":
     """Creates a ROW_NUMBER window function call."""
-    return IntegerValueExpression(
+    return IntegerValue(
         dialect, FunctionCall(dialect, "ROW_NUMBER", alias=alias)
     )
 
 
 def rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "FunctionCall":
     """Creates a RANK window function call."""
-    return IntegerValueExpression(dialect, FunctionCall(dialect, "RANK", alias=alias))
+    return IntegerValue(dialect, FunctionCall(dialect, "RANK", alias=alias))
 
 
 def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "FunctionCall":
     """Creates a DENSE_RANK window function call."""
-    return IntegerValueExpression(
+    return IntegerValue(
         dialect, FunctionCall(dialect, "DENSE_RANK", alias=alias)
     )
 

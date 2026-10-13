@@ -44,7 +44,7 @@ from ..interface.model import IActiveRecord, IAsyncActiveRecord
 from ..interface.update import IUpdateBehavior
 from ..interface import ModelEvent
 from ..backend.result import QueryResult
-from ..backend.expression import SQLPredicate, SQLValueExpression
+from ..backend.expression import SQLPredicate, SQLValue
 from ..backend.errors import DatabaseError
 from ..base.fields import UseConstraint
 from pydantic import Field
@@ -164,7 +164,7 @@ class OptimisticLockMixin(IUpdateBehavior):
         # predicate this is. A silently-always-false check would drop the lock.
         return [ComparisonPredicate(dialect, "=", column, Literal(dialect, self._version_snapshot))]
 
-    def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
+    def get_update_expressions(self) -> Dict[str, SQLValue]:
         """Add the version increment to the UPDATE SET clause.
 
         The key is the *field name*; the update pipeline maps it to the

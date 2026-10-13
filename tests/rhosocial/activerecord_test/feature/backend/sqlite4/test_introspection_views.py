@@ -8,7 +8,7 @@ for retrieving view metadata.
 
 
 from rhosocial.activerecord.backend.introspection.types import (
-    ViewInfo,
+    IntrospectionViewInfo,
 )
 
 
@@ -30,11 +30,11 @@ class TestListViews:
         assert "user_posts_summary" in view_names
 
     def test_list_views_returns_view_info(self, backend_with_view):
-        """Test that list_views returns ViewInfo objects."""
+        """Test that list_views returns IntrospectionViewInfo objects."""
         views = backend_with_view.introspector.list_views()
 
         for view in views:
-            assert isinstance(view, ViewInfo)
+            assert isinstance(view, IntrospectionViewInfo)
 
     def test_list_views_schema(self, backend_with_view):
         """Test that schema is correctly set."""
@@ -68,7 +68,7 @@ class TestGetViewInfo:
         view_info = backend_with_view.introspector.get_view_info("user_posts_summary")
 
         assert view_info is not None
-        assert isinstance(view_info, ViewInfo)
+        assert isinstance(view_info, IntrospectionViewInfo)
         assert view_info.name == "user_posts_summary"
         assert view_info.schema == "main"
 

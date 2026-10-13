@@ -227,26 +227,26 @@ sql, params = intersect_op.to_sql()
 
 Expressions for working with JSON data.
 
-### JSONDocumentExpression / JSONTextExpression
+### JSONDocumentValue / JSONTextValue
 
 Represents JSON path extraction. The operator picks the class: ``->``
-yields a document and is a ``JSONDocumentExpression``, ``->>`` yields text and
-is a ``JSONTextExpression``. Two classes rather than one class with a spelling
+yields a document and is a ``JSONDocumentValue``, ``->>`` yields text and
+is a ``JSONTextValue``. Two classes rather than one class with a spelling
 parameter, because the two results are different kinds of value -- a document
 can be indexed into again, text cannot.
 
 ```python
 from rhosocial.activerecord.backend.expression import (
-    JSONDocumentExpression,
-    JSONTextExpression,
+    JSONDocumentValue,
+    JSONTextValue,
 )
 
 col = Column(dialect, "data")
 # Extract value from JSON path as text
-json_extract = JSONTextExpression(dialect, col, "$.user.name", operation="->>")
+json_extract = JSONTextValue(dialect, col, "$.user.name", operation="->>")
 
 # A nested path is still a document, so it can be walked further
-nested = JSONDocumentExpression(dialect, col, "$.user", operation="->")
+nested = JSONDocumentValue(dialect, col, "$.user", operation="->")
 
 sql, params = json_extract.to_sql()
 # sql: '"data"->>?', or dialect-specific equivalent like 'JSON_EXTRACT("data", ?)'

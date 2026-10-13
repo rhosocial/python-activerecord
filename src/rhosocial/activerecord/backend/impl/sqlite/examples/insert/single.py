@@ -5,7 +5,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression import InsertStatement, ValuesSource
 from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
-from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression
+from rhosocial.activerecord.backend.expression.core import Literal, Wildcard
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,
@@ -72,7 +72,7 @@ backend.execute(sql, params)
 
 verify_query = QueryStatement(
     dialect=dialect,
-    select=[WildcardExpression(dialect)],
+    select=[Wildcard(dialect)],
     from_=NamedRelationRef(dialect, Table(dialect, "users")),
 )
 sql, params = verify_query.to_sql()

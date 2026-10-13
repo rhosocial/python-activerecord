@@ -7,15 +7,15 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     Subquery,
     ComparisonPredicate,
-    CaseExpression,
+    CaseFunction,
     ExistsPredicate,
     AnyPredicate,
     AllPredicate,
     WindowSpecification,
     WindowFrameSpecification,
-    ArrayExpression,
-    JSONDocumentExpression,
-    JSONTextExpression,
+    ArrayOperation,
+    JSONDocumentValue,
+    JSONTextValue,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import (
@@ -27,7 +27,7 @@ from rhosocial.activerecord.backend.expression.types import (
 class TestAdvancedExpressions:
     """Tests for advanced SQL expression types."""
 
-    # --- CaseExpression ---
+    # --- CaseFunction ---
     def test_case_searched_expression(self, dummy_dialect: DummyDialect):
         """Tests a searched CASE expression (CASE WHEN ... THEN ... ELSE ... END)."""
         condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
@@ -35,7 +35,7 @@ class TestAdvancedExpressions:
         condition2 = ComparisonPredicate(dummy_dialect, "<=", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
         result2 = Literal(dummy_dialect, "minor")
 
-        case_expr = CaseExpression(
+        case_expr = CaseFunction(
             dummy_dialect,
             cases=[(condition1, result1), (condition2, result2)],
             else_result=Literal(dummy_dialect, "unknown"),
@@ -48,7 +48,7 @@ class TestAdvancedExpressions:
     def test_case_simple_expression(self, dummy_dialect: DummyDialect):
         """Tests a simple CASE expression (CASE value WHEN ... THEN ... ELSE ... END)."""
         value_expr = Column(dummy_dialect, "status_code")
-        case_expr = CaseExpression(
+        case_expr = CaseFunction(
             dummy_dialect,
             value=value_expr,
             cases=[
@@ -175,7 +175,7 @@ class TestAdvancedExpressions:
         assert sql == expected
         assert params == ()
 
-    # --- JSONDocumentExpression ---
+    # --- JSONDocumentValue ---
     @pytest.mark.parametrize(
         "col_name, path, operation, expected_sql, expected_params",
         [
@@ -188,15 +188,15 @@ class TestAdvancedExpressions:
     ):
         """Tests JSON path extraction operations."""
         json_col = Column(dummy_dialect, col_name)
-        json_expr = JSONDocumentExpression(dummy_dialect, json_col, path, operation=operation)
+        json_expr = JSONDocumentValue(dummy_dialect, json_col, path, operation=operation)
         sql, params = json_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params
 
-    # --- ArrayExpression ---
+    # --- ArrayOperation ---
     def test_array_constructor(self, dummy_dialect: DummyDialect):
         """Tests array constructor (ARRAY[...])."""
-        array_expr = ArrayExpression(
+        array_expr = ArrayOperation(
             dummy_dialect,
             "CONSTRUCTOR",
             elements=[Literal(dummy_dialect, 1), Literal(dummy_dialect, "apple"), Column(dummy_dialect, "item_count")],
@@ -207,7 +207,7 @@ class TestAdvancedExpressions:
 
     def test_array_access(self, dummy_dialect: DummyDialect):
         """Tests array element access (array[index])."""
-        array_access_expr = ArrayExpression(
+        array_access_expr = ArrayOperation(
             dummy_dialect, "ACCESS", base_expr=Column(dummy_dialect, "tags"), index_expr=Literal(dummy_dialect, 0)
         )
         sql, params = array_access_expr.to_sql()

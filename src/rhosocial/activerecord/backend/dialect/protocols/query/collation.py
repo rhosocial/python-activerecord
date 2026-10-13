@@ -9,7 +9,7 @@ tests enforce.
 from typing import Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ....expression.collation import CollateExpression
+    from ....expression.collation import CollateFunction
 
 
 @runtime_checkable
@@ -20,10 +20,10 @@ class CollationSupport(Protocol):
         """Whether expression-level COLLATE is supported."""
         ...  # pragma: no cover
 
-    def validate_collation_name(self, expr: "CollateExpression") -> str:
+    def validate_collation_name(self, expr: "CollateFunction") -> str:
         """Validate a collation expression and return its SQL representation."""
         ...  # pragma: no cover
 
-    def format_collate_expression(self, expr: "CollateExpression") -> Tuple[str, tuple]:
+    def format_collate_expression(self, expr: "CollateFunction") -> Tuple[str, tuple]:
         """Format expression-level COLLATE."""
         ...  # pragma: no cover

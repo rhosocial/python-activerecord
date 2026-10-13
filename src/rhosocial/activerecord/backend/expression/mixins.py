@@ -42,22 +42,22 @@ from typing import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-    from .bases import BaseExpression, SQLValueExpression, SQLPredicate
+    from .bases import BaseExpression, SQLValue, SQLPredicate
     # Annotations only. The classes themselves are imported inside the methods
     # that need them, because core imports this module.
     from .core import (
-        ArrayValueExpression,
-        BinaryValueExpression,
-        BooleanValueExpression,
-        TimestampValueExpression,
-        IntegerValueExpression,
-        JSONValueExpression,
-        NumericValueExpression,
-        StringValueExpression,
-        UUIDValueExpression,
-        XMLValueExpression,
+        ArrayValue,
+        BinaryValue,
+        BooleanValue,
+        TimestampValue,
+        IntegerValue,
+        JSONValue,
+        NumericValue,
+        StringValue,
+        UUIDValue,
+        XMLValue,
     )
-    from .core import CastExpression, FunctionCall
+    from .core import CastFunction, FunctionCall
     from .datetime import (
         DatePartExpression,
         DateTimeAddExpression,
@@ -66,7 +66,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DateTruncExpression,
         ExtractExpression,
     )
-    from .advanced_functions import JSONDocumentExpression, JSONTextExpression
+    from .advanced_functions import JSONDocumentValue, JSONTextValue
 
 T = TypeVar("T")
 _ResultT = TypeVar("_ResultT")
@@ -94,7 +94,7 @@ class WrappedCallMixin:
     """Forwards what the node says that the wrapper's type does not.
 
     A typed value wraps the call it was built from -- ``min(name)`` is a
-    ``StringValueExpression`` holding a ``FunctionCall`` -- so that
+    ``StringValue`` holding a ``FunctionCall`` -- so that
     the result says what it is rather than what produced it. The wrapper offers
     the operations its *type* supports, and those are the ones a caller reaches
     for.
@@ -114,8 +114,8 @@ class WrappedCallMixin:
     grammar -- and it is forwarded. From that point down is either something
     the wrapper already has, or a capability its type deliberately left off:
     ``StringPatternPredicateMixin`` and ``ResultTypeMixin`` reach a
-    ``FunctionCall`` that a ``StringValueExpression`` or an
-    ``IntegerValueExpression`` never claimed, and handing those back would undo
+    ``FunctionCall`` that a ``StringValue`` or an
+    ``IntegerValue`` never claimed, and handing those back would undo
     the typing that made the class worth having: ``length().like("1%")`` would
     be offered again, and the mistake would travel to the database.
 
@@ -133,7 +133,7 @@ class WrappedCallMixin:
 
     Example:
         >>> agg = count(dialect, "price")
-        >>> type(agg).__name__             # IntegerValueExpression
+        >>> type(agg).__name__             # IntegerValue
         >>> type(agg.filter(pred)).__name__# FunctionCall
         >>> hasattr(agg, "like")           # False: a count is not text
     """
@@ -251,7 +251,7 @@ class NullTestMixin:
         >>> predicate = col.is_null()  # Generates: "email IS NULL"
     """
 
-    def is_null(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_null(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS NULL predicate for this expression.
 
@@ -266,7 +266,7 @@ class NullTestMixin:
 
         return IsNullPredicate(self._dialect, self)
 
-    def is_not_null(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_not_null(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS NOT NULL predicate for this expression.
 
@@ -313,7 +313,7 @@ class ComparisonMixin(NullTestMixin):
         >>> col1.is_distinct_from(0)  # NULL-safe: "age IS DISTINCT FROM ?"
     """
 
-    def is_distinct_from(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def is_distinct_from(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """NULL-safe inequality: true when the two differ, NULL included.
 
         ``a != b`` answers NULL when either side is NULL, so a query filtering
@@ -340,12 +340,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import DistinctFromPredicate
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return DistinctFromPredicate(self._dialect, self, other_expr, is_not=False)
 
-    def is_not_distinct_from(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def is_not_distinct_from(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """NULL-safe equality: true when the two match, two NULLs included.
 
         The counterpart of :meth:`is_distinct_from` -- ``IS NOT DISTINCT FROM``
@@ -363,12 +363,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import DistinctFromPredicate
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return DistinctFromPredicate(self._dialect, self, other_expr, is_not=True)
 
-    def __eq__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __eq__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the equality operator (==) to generate SQL equality predicate.
 
@@ -387,12 +387,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, "=", self, other_expr)
 
-    def __ne__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __ne__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the inequality operator (!=) to generate SQL inequality predicate.
 
@@ -404,12 +404,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, "!=", self, other_expr)
 
-    def __gt__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __gt__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the greater-than operator (>) to generate SQL comparison predicate.
 
@@ -421,12 +421,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, ">", self, other_expr)
 
-    def __ge__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __ge__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the greater-or-equal operator (>=) to generate SQL comparison predicate.
 
@@ -438,12 +438,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, ">=", self, other_expr)
 
-    def __lt__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __lt__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the less-than operator (<) to generate SQL comparison predicate.
 
@@ -455,12 +455,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, "<", self, other_expr)
 
-    def __le__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLPredicate":
+    def __le__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLPredicate":
         """
         Implement the less-or-equal operator (<=) to generate SQL comparison predicate.
 
@@ -472,12 +472,12 @@ class ComparisonMixin(NullTestMixin):
         """
         from .core import Literal
         from .predicates import ComparisonPredicate
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return ComparisonPredicate(self._dialect, "<=", self, other_expr)
 
-    def is_true(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_true(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS TRUE predicate for this expression.
 
@@ -496,7 +496,7 @@ class ComparisonMixin(NullTestMixin):
 
         return IsBooleanPredicate(self._dialect, self, value=True, is_not=False)
 
-    def is_not_true(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_not_true(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS NOT TRUE predicate for this expression.
 
@@ -515,7 +515,7 @@ class ComparisonMixin(NullTestMixin):
 
         return IsBooleanPredicate(self._dialect, self, value=True, is_not=True)
 
-    def is_false(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_false(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS FALSE predicate for this expression.
 
@@ -534,7 +534,7 @@ class ComparisonMixin(NullTestMixin):
 
         return IsBooleanPredicate(self._dialect, self, value=False, is_not=False)
 
-    def is_not_false(self: "SQLValueExpression") -> "SQLPredicate":
+    def is_not_false(self: "SQLValue") -> "SQLPredicate":
         """
         Generate an IS NOT FALSE predicate for this expression.
 
@@ -553,7 +553,7 @@ class ComparisonMixin(NullTestMixin):
 
         return IsBooleanPredicate(self._dialect, self, value=False, is_not=True)
 
-    def in_(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
+    def in_(self: "SQLValue", values: List[Any]) -> "SQLPredicate":
         """
         Generate an IN predicate for this expression with a list of values.
 
@@ -589,7 +589,7 @@ class ComparisonMixin(NullTestMixin):
 
         return InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
 
-    def not_in(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
+    def not_in(self: "SQLValue", values: List[Any]) -> "SQLPredicate":
         """
         Generate a NOT IN predicate for this expression with a list of values.
 
@@ -606,7 +606,7 @@ class ComparisonMixin(NullTestMixin):
             self._dialect, "NOT", InPredicate(self._dialect, self, Literal(self._dialect, tuple(values)))
         )
 
-    def between(self: "SQLValueExpression", low: Any, high: Any) -> "SQLPredicate":
+    def between(self: "SQLValue", low: Any, high: Any) -> "SQLPredicate":
         """
         Generate a BETWEEN predicate for this expression with low and high bounds.
 
@@ -651,7 +651,7 @@ class ArithmeticMixin:
         >>> complex_expr = (col1 + col2) * 1.1  # Generates: "(price + discount) * ?"
     """
 
-    def __add__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __add__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
         Implement the addition operator (+) to generate SQL arithmetic expression.
 
@@ -662,7 +662,7 @@ class ArithmeticMixin:
             other: Right operand, can be another expression or a literal value
 
         Returns:
-            SQLValueExpression representing the addition operation
+            SQLValue representing the addition operation
 
         Example:
             >>> col = Column(dialect, "price")
@@ -670,12 +670,12 @@ class ArithmeticMixin:
         """
         from .core import Literal
         from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return BinaryArithmeticExpression(self._dialect, "+", self, other_expr)
 
-    def __sub__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __sub__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
         Implement the subtraction operator (-) to generate SQL arithmetic expression.
 
@@ -683,16 +683,16 @@ class ArithmeticMixin:
             other: Right operand, can be another expression or a literal value
 
         Returns:
-            SQLValueExpression representing the subtraction operation
+            SQLValue representing the subtraction operation
         """
         from .core import Literal
         from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return BinaryArithmeticExpression(self._dialect, "-", self, other_expr)
 
-    def __mul__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __mul__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
         Implement the multiplication operator (*) to generate SQL arithmetic expression.
 
@@ -700,16 +700,16 @@ class ArithmeticMixin:
             other: Right operand, can be another expression or a literal value
 
         Returns:
-            SQLValueExpression representing the multiplication operation
+            SQLValue representing the multiplication operation
         """
         from .core import Literal
         from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return BinaryArithmeticExpression(self._dialect, "*", self, other_expr)
 
-    def __truediv__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __truediv__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """Division, rendered as the portable ``/`` — and what ``/`` means is
         **the backend's**, not this operator's.
 
@@ -741,12 +741,12 @@ class ArithmeticMixin:
         """
         from .core import Literal
         from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return BinaryArithmeticExpression(self._dialect, "/", self, other_expr)
 
-    def __mod__(self: "SQLValueExpression", other: Union["SQLValueExpression", Any]) -> "SQLValueExpression":
+    def __mod__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
         Implement the modulo operator (%) to generate SQL arithmetic expression.
 
@@ -754,13 +754,13 @@ class ArithmeticMixin:
             other: Right operand, can be another expression or a literal value
 
         Returns:
-            SQLValueExpression representing the modulo operation
+            SQLValue representing the modulo operation
         """
         from .core import Literal
         from .operators import BinaryArithmeticExpression
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return BinaryArithmeticExpression(self._dialect, "%", self, other_expr)
 
 
@@ -886,40 +886,40 @@ class TemporalArithmeticMixin(NotANumberMixin):
     # -- classification ------------------------------------------------------
 
     def _is_interval_value(self) -> bool:
-        from .core import IntervalValueExpression
+        from .core import IntervalValue
 
-        return isinstance(self, IntervalValueExpression)
+        return isinstance(self, IntervalValue)
 
     def _is_interval_operand(self, other) -> bool:
-        from .bases import SQLValueExpression
-        from .core import IntervalValueExpression
+        from .bases import SQLValue
+        from .core import IntervalValue
 
-        if isinstance(other, IntervalValueExpression):
+        if isinstance(other, IntervalValue):
             return True
-        if isinstance(other, SQLValueExpression):
+        if isinstance(other, SQLValue):
             return False
         return isinstance(other, datetime.timedelta)
 
     def _is_temporal_operand(self, other) -> bool:
-        from .bases import SQLValueExpression
-        from .core import IntervalValueExpression
+        from .bases import SQLValue
+        from .core import IntervalValue
 
-        if isinstance(other, SQLValueExpression):
+        if isinstance(other, SQLValue):
             # Both a temporal *column* and a temporal *value* carry
             # DateTimeMixin; an interval does too, and is excluded first.
             return isinstance(other, DateTimeMixin) and not isinstance(
-                other, IntervalValueExpression
+                other, IntervalValue
             )
         return isinstance(other, (datetime.date, datetime.time, datetime.datetime))
 
     def _is_number_operand(self, other) -> bool:
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
 
         if isinstance(other, bool):
             return False
         if isinstance(other, (int, float, decimal.Decimal)):
             return True
-        if isinstance(other, SQLValueExpression):
+        if isinstance(other, SQLValue):
             return not self._is_temporal_operand(other) and not self._is_interval_operand(other)
         return False
 
@@ -956,11 +956,11 @@ class TemporalArithmeticMixin(NotANumberMixin):
         )
 
     def _build(self, symbol: str, other):
-        from .bases import SQLValueExpression
+        from .bases import SQLValue
         from .core import Literal
         from .operators import BinaryArithmeticExpression
 
-        other_expr = other if isinstance(other, SQLValueExpression) else Literal(self._dialect, other)
+        other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
         return BinaryArithmeticExpression(self._dialect, symbol, self, other_expr)
 
     def _temporal_refusal(self, symbol: str, other, reason: str) -> AttributeError:
@@ -1041,7 +1041,7 @@ class _LogicalOperators:
     The receiver decides the result class, and that is the whole difference: a
     predicate stays a predicate -- combining predicates is how ``WHERE``
     clauses are built -- while a truth *value* keeps its value type
-    (:class:`~...core.BooleanLogicExpression`), so the result can be aliased
+    (:class:`~...core.LogicalValue`), so the result can be aliased
     into a ``SELECT`` list, compared, cast, and combined further. Both render
     through the same dialect entry point (``format_logical_predicate``).
 
@@ -1060,22 +1060,22 @@ class _LogicalOperators:
         return self._logical_operation("NOT")
 
     def _logical_operation(self, op: str, *others):
-        from .bases import SQLPredicate, SQLValueExpression
+        from .bases import SQLPredicate, SQLValue
         from .core import Literal
         from .predicates import LogicalPredicate
 
         operands = [
             other
-            if isinstance(other, (SQLValueExpression, SQLPredicate))
+            if isinstance(other, (SQLValue, SQLPredicate))
             else Literal(self._dialect, other)
             for other in others
         ]
         if isinstance(self, SQLPredicate):
             return LogicalPredicate(self._dialect, op, self, *operands)
 
-        from .core import BooleanLogicExpression
+        from .core import LogicalValue
 
-        return BooleanLogicExpression(self._dialect, op, self, *operands)
+        return LogicalValue(self._dialect, op, self, *operands)
 
 
 class LogicalMixin(_LogicalOperators):
@@ -1121,7 +1121,7 @@ class BooleanLogicMixin(_LogicalOperators):
     ``AND`` it has no meaning for. Both share the private
     :class:`_LogicalOperators` implementation and differ only in the result
     class -- this one keeps the value type
-    (:class:`~...core.BooleanLogicExpression`), so ``(a & b)`` can be aliased
+    (:class:`~...core.LogicalValue`), so ``(a & b)`` can be aliased
     into a ``SELECT`` list, while :class:`LogicalMixin` keeps the predicate.
 
     ``is_true`` / ``is_false`` are **not** redeclared here. They already come
@@ -1201,70 +1201,70 @@ class ResultTypeMixin:
         """
         return cls(self.dialect, self)
 
-    def as_text(self) -> "StringValueExpression":
+    def as_text(self) -> "StringValue":
         """This yields text, whatever the data turns out to be."""
-        from .core import StringValueExpression
+        from .core import StringValue
 
-        return self._retype(StringValueExpression)
+        return self._retype(StringValue)
 
-    def as_number(self) -> "NumericValueExpression":
+    def as_number(self) -> "NumericValue":
         """This yields a fractional number."""
-        from .core import NumericValueExpression
+        from .core import NumericValue
 
-        return self._retype(NumericValueExpression)
+        return self._retype(NumericValue)
 
-    def as_integer(self) -> "IntegerValueExpression":
+    def as_integer(self) -> "IntegerValue":
         """This yields a whole number."""
-        from .core import IntegerValueExpression
+        from .core import IntegerValue
 
-        return self._retype(IntegerValueExpression)
+        return self._retype(IntegerValue)
 
-    def as_datetime(self) -> "TimestampValueExpression":
+    def as_datetime(self) -> "TimestampValue":
         """This yields a date or a time."""
-        from .core import TimestampValueExpression
+        from .core import TimestampValue
 
-        return self._retype(TimestampValueExpression)
+        return self._retype(TimestampValue)
 
-    def as_boolean(self) -> "BooleanValueExpression":
+    def as_boolean(self) -> "BooleanValue":
         """This yields a truth value.
 
         This names the value, not a projection. SQL Server has no boolean scalar
         type at all, so a predicate cannot appear in a select list there; where
         one is needed, the dialect has to produce a zero-or-one column.
         """
-        from .core import BooleanValueExpression
+        from .core import BooleanValue
 
-        return self._retype(BooleanValueExpression)
+        return self._retype(BooleanValue)
 
-    def as_array(self) -> "ArrayValueExpression":
+    def as_array(self) -> "ArrayValue":
         """This yields a sequence."""
-        from .core import ArrayValueExpression
+        from .core import ArrayValue
 
-        return self._retype(ArrayValueExpression)
+        return self._retype(ArrayValue)
 
-    def as_json(self) -> "JSONValueExpression":
+    def as_json(self) -> "JSONValue":
         """This yields a JSON document."""
-        from .core import JSONValueExpression
+        from .core import JSONValue
 
-        return self._retype(JSONValueExpression)
+        return self._retype(JSONValue)
 
-    def as_uuid(self) -> "UUIDValueExpression":
+    def as_uuid(self) -> "UUIDValue":
         """This yields a UUID."""
-        from .core import UUIDValueExpression
+        from .core import UUIDValue
 
-        return self._retype(UUIDValueExpression)
+        return self._retype(UUIDValue)
 
-    def as_binary(self) -> "BinaryValueExpression":
+    def as_binary(self) -> "BinaryValue":
         """This yields bytes."""
-        from .core import BinaryValueExpression
+        from .core import BinaryValue
 
-        return self._retype(BinaryValueExpression)
+        return self._retype(BinaryValue)
 
-    def as_xml(self) -> "XMLValueExpression":
+    def as_xml(self) -> "XMLValue":
         """This yields an XML document."""
-        from .core import XMLValueExpression
+        from .core import XMLValue
 
-        return self._retype(XMLValueExpression)
+        return self._retype(XMLValue)
 
 
 def _literal(dialect, value):
@@ -1284,7 +1284,7 @@ def _literal(dialect, value):
 class NumericValueMixin:
     """Operations on a **fractional**-valued expression.
 
-    Distinct from the integer value family (:class:`IntegerValueExpression`)
+    Distinct from the integer value family (:class:`IntegerValue`)
     because ``ceil``/``floor``/``truncate`` of a whole number is a whole
     number, while ``sqrt``/``log``/``abs`` of one may not be. SQL makes the
     same distinction: a backend
@@ -1532,7 +1532,7 @@ class StringToIntegerMixin:
     number. ``"name".length()`` is a legal string operation whose result is a
     number, and that number must not carry string operations —
     ``LENGTH(name).upper()`` is a type error in every backend; putting the
-    result in its own family (:class:`IntegerValueExpression`) is what makes
+    result in its own family (:class:`IntegerValue`) is what makes
     the rule checkable instead of a convention. Because the receiver is a
     string, the mixin is attached to the string classes only: an integer never
     grows these methods, so ``LENGTH(name).length()`` cannot be constructed.
@@ -1543,9 +1543,9 @@ class StringToIntegerMixin:
     """
 
     if TYPE_CHECKING:  # pragma: no cover
-        from .core import IntegerValueExpression
+        from .core import IntegerValue
 
-    def position(self, substring: str) -> "IntegerValueExpression":
+    def position(self, substring: str) -> "IntegerValue":
         """1-based position of *substring*. ``POSITION(substring IN expr)``
 
         The needle comes first here, matching the standard spelling, while
@@ -1570,14 +1570,14 @@ class StringToIntegerMixin:
             args: Positional arguments forwarded to the factory.
 
         Returns:
-            An :class:`IntegerValueExpression`.
+            An :class:`IntegerValue`.
         """
         from . import functions as _functions
 
         factory = getattr(_functions, factory_name)
         return factory(self._dialect, self, *args)
 
-    def length(self) -> "IntegerValueExpression":
+    def length(self) -> "IntegerValue":
         """Length of the string, in **whatever unit the backend's ``LENGTH`` uses**.
 
         ``LENGTH(expr)`` — and that unit is not characters everywhere, which is
@@ -1613,19 +1613,19 @@ class StringToIntegerMixin:
         """
         return self._integer_op("length")
 
-    def ascii(self) -> "IntegerValueExpression":
+    def ascii(self) -> "IntegerValue":
         """Code of the first character. ``ASCII(expr)``"""
         return self._integer_op("ascii")
 
-    def octet_length(self) -> "IntegerValueExpression":
+    def octet_length(self) -> "IntegerValue":
         """Length in bytes. ``OCTET_LENGTH(expr)``"""
         return self._integer_op("octet_length")
 
-    def bit_length(self) -> "IntegerValueExpression":
+    def bit_length(self) -> "IntegerValue":
         """Length in bits. ``BIT_LENGTH(expr)``"""
         return self._integer_op("bit_length")
 
-    def strpos(self, substring: str) -> "IntegerValueExpression":
+    def strpos(self, substring: str) -> "IntegerValue":
         """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``
 
         The mirror spelling of :meth:`position`: haystack first, as every
@@ -1664,7 +1664,7 @@ class StringValueMixin:
             kwargs: Keyword arguments forwarded to the factory.
 
         Returns:
-            A :class:`~...expression.core.StringValueExpression`.
+            A :class:`~...expression.core.StringValue`.
         """
         from . import functions as _functions
 
@@ -1850,7 +1850,7 @@ class StringPatternPredicateMixin:
         >>> both = col.like("A%") & (col.ilike("%x%") | col.like("B%"))
     """
 
-    def like(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
+    def like(self: "SQLValue", pattern: str) -> "SQLPredicate":
         """
         Generate a LIKE predicate for pattern matching.
 
@@ -1882,7 +1882,7 @@ class StringPatternPredicateMixin:
 
         return LikePredicate(self._dialect, "LIKE", self, Literal(self._dialect, pattern))
 
-    def ilike(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
+    def ilike(self: "SQLValue", pattern: str) -> "SQLPredicate":
         """
         Generate a case-insensitive pattern-matching predicate.
 
@@ -1915,7 +1915,7 @@ class StringPatternPredicateMixin:
 class TypeCastingMixin:
     """Provides type casting capability to SQL value expressions.
 
-    A type cast is a proper AST node (:class:`CastExpression`) whose single
+    A type cast is a proper AST node (:class:`CastFunction`) whose single
     child is the wrapped expression — never decoration state stored on the
     casted expression. ``cast()`` therefore **wraps** ``self`` in a new node,
     exactly like every other operator-overload in this package builds a new
@@ -1935,7 +1935,7 @@ class TypeCastingMixin:
     >>> # PostgreSQL generates: "price"::money::numeric::float8
     """
 
-    def cast(self: "SQLValueExpression", target_type: str) -> "CastExpression":
+    def cast(self: "SQLValue", target_type: str) -> "CastFunction":
         """Wrap this expression in a CAST node targeting *target_type*.
 
         Args:
@@ -1944,7 +1944,7 @@ class TypeCastingMixin:
             type string.
 
         Returns:
-            A new :class:`CastExpression` node wrapping this expression,
+            A new :class:`CastFunction` node wrapping this expression,
             inheriting this expression's dialect binding state.
 
         Note:
@@ -1952,7 +1952,7 @@ class TypeCastingMixin:
             format_cast_expression method. PostgreSQL uses expr::type syntax,
             while other databases use CAST(expr AS type) syntax.
         """
-        from .core import CastExpression
+        from .core import CastFunction
 
         # Alias decorates the outermost rendered form: wrapping an aliased
         # expression in a CAST moves the alias onto the CAST node, so
@@ -1961,7 +1961,7 @@ class TypeCastingMixin:
         # is only mutated when it is itself a temporary copy (the as_()
         # convention returns copies), so shared nodes stay untouched.
         alias = getattr(self, "alias", None)
-        node = CastExpression(self._dialect, self, target_type, alias=alias)
+        node = CastFunction(self._dialect, self, target_type, alias=alias)
         if alias is not None and hasattr(self, "alias"):
             self.alias = None
         return node
@@ -2132,7 +2132,7 @@ class JSONAccessorMixin:
     """Path access for a value known to hold JSON.
 
     Mixed into **both** :class:`~...expression.column_types.JSONColumn` and
-    :class:`~...expression.advanced_functions.JSONDocumentExpression` — the latter is
+    :class:`~...expression.advanced_functions.JSONDocumentValue` — the latter is
     what :meth:`json_path` returns, so without it on both, chaining
     ``col.json_value("a").json_value("b")`` would break at the second call.
 
@@ -2153,17 +2153,17 @@ class JSONAccessorMixin:
         >>> col.json_value("a").json_value("b")   # -> "settings"->'$.a'->'$.b'
     """
 
-    def _json_path(self, keys, as_text: bool, mode) -> "SQLValueExpression":
+    def _json_path(self, keys, as_text: bool, mode) -> "SQLValue":
         from .advanced_functions import (
-            JSONDocumentExpression,
-            JSONTextExpression,
+            JSONDocumentValue,
+            JSONTextValue,
         )
 
         alias = getattr(self, "alias", None)
         # The two operations yield different types, so they build different
         # nodes: `->>` is text and offers the text operations, `->` is a
         # document and offers the path accessors again.
-        node_class = JSONTextExpression if as_text else JSONDocumentExpression
+        node_class = JSONTextValue if as_text else JSONDocumentValue
         node = node_class(
             self._dialect,
             self,
@@ -2176,7 +2176,7 @@ class JSONAccessorMixin:
             self.alias = None
         return node
 
-    def json_path(self, *keys, mode=None) -> "JSONTextExpression":
+    def json_path(self, *keys, mode=None) -> "JSONTextValue":
         """Extract a scalar at *keys* (renders ``->>``).
 
         Args:
@@ -2191,7 +2191,7 @@ class JSONAccessorMixin:
         """
         return self._json_path(keys, as_text=True, mode=mode)
 
-    def json_value(self, *keys, mode=None) -> "JSONDocumentExpression":
+    def json_value(self, *keys, mode=None) -> "JSONDocumentValue":
         """Extract JSON at *keys* (renders ``->``), preserving the JSON type.
 
         Chainable: the result is itself a JSON expression, so further

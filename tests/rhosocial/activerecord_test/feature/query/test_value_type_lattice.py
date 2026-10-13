@@ -16,7 +16,7 @@ family.
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    IntegerValueExpression,
+    IntegerValue,
 )
 
 
@@ -57,7 +57,7 @@ def name(dialect):
 def test_number_returning_operation_yields_an_integer(name, method, args, function):
     """These read a string and produce a count or a code."""
     result = getattr(name, method)(*args)
-    assert isinstance(result, IntegerValueExpression)
+    assert isinstance(result, IntegerValue)
     assert function in result.to_sql()[0]
 
 
@@ -98,7 +98,7 @@ def test_string_result_keeps_the_string_surface(name, method):
     """The result is a string and *says* so by offering the next operation.
 
     What is asserted is the surface, not one class: most of these return a
-    StringValueExpression, but a node with its own dialect hook -- TRIM, whose
+    StringValue, but a node with its own dialect hook -- TRIM, whose
     standard spelling is a syntax error on SQLite -- is its own class and
     carries the same mixins, which is what makes ``col.trim().upper()`` legal.
     """
@@ -147,7 +147,7 @@ def test_number_result_keeps_integer_operations(name):
 def test_string_then_number(name):
     """upper() is a string, length() of it is a number."""
     result = name.upper().length()
-    assert isinstance(result, IntegerValueExpression)
+    assert isinstance(result, IntegerValue)
     assert "LENGTH" in result.to_sql()[0] and "UPPER" in result.to_sql()[0]
 
 

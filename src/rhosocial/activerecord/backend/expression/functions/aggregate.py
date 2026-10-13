@@ -7,10 +7,10 @@ from ..bases import BaseExpression
 from ..column_types import value_class_of
 from ..core import (
     Column,
-    WildcardExpression,
+    Wildcard,
     FunctionCall,
-    IntegerValueExpression,
-    NumericValueExpression,
+    IntegerValue,
+    NumericValue,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -28,9 +28,9 @@ def _typed(call: FunctionCall, target: BaseExpression):
     :func:`~...expression.column_types.value_class_of`.
 
     ``COUNT`` is the exception and always wraps in
-    :class:`IntegerValueExpression`, because a count is a count however wide the
+    :class:`IntegerValue`, because a count is a count however wide the
     thing counted. So is ``AVG``, which always wraps in
-    :class:`NumericValueExpression` because averaging whole numbers gives a
+    :class:`NumericValue` because averaging whole numbers gives a
     fraction; neither of those two goes through here.
 
     A target that says nothing -- a ``Literal``, an untyped ``Column`` -- leaves
@@ -54,7 +54,7 @@ def count(
 
     Usage rules:
     - To generate COUNT(*), pass "*" as a string: count(dialect, "*")
-    - To generate COUNT(*), pass a WildcardExpression: count(dialect, WildcardExpression(dialect))
+    - To generate COUNT(*), pass a Wildcard: count(dialect, Wildcard(dialect))
     - To generate COUNT(column), pass a Column object: count(dialect, Column(dialect, "column_name"))
     - To generate COUNT(?), pass a literal value: count(dialect, "literal_value")
 
@@ -71,13 +71,13 @@ def count(
     """
     # Check if the passed expression is the string "*"
     if expr == "*" and isinstance(expr, str):
-        target_expr = WildcardExpression(dialect)
-    # Check if the passed expression is a WildcardExpression
-    elif isinstance(expr, WildcardExpression):
+        target_expr = Wildcard(dialect)
+    # Check if the passed expression is a Wildcard
+    elif isinstance(expr, Wildcard):
         target_expr = expr
     else:
         target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return IntegerValueExpression(
+    return IntegerValue(
         dialect,
         FunctionCall(dialect, "COUNT", target_expr, is_distinct=is_distinct, alias=alias, is_aggregate=True),
     )
@@ -144,7 +144,7 @@ def avg(
         A FunctionCall instance representing the AVG function
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return NumericValueExpression(
+    return NumericValue(
         dialect,
         FunctionCall(dialect, "AVG", target_expr, is_distinct=is_distinct, alias=alias, is_aggregate=True),
     )

@@ -27,7 +27,7 @@ class MyExpression(BaseExpression):
     # 无需手动实现 get_params()，默认实现会自动提取
 ```
 
-核心中的 `CollateExpression` 就是 `**kwargs` 的例子：它把 `**collation_options` 收集进 `self.collation_options: dict`，于是 `get_params()` 会把 `binary`、`pad` 等作为顶层参数返回，重建时再把它们当关键字参数传回。
+核心中的 `CollateFunction` 就是 `**kwargs` 的例子：它把 `**collation_options` 收集进 `self.collation_options: dict`，于是 `get_params()` 会把 `binary`、`pad` 等作为顶层参数返回，重建时再把它们当关键字参数传回。
 
 若某个参数按约定无法解析，会跳过并发出警告。这条警告就是诊断信号——它意味着 `__init__` 把状态存在了 `get_params()` 看不到的名字上，而修复永远在 `__init__` 里。
 

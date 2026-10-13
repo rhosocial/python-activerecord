@@ -462,7 +462,7 @@ class FullTextSearchSupport(Protocol):
 **Step 2: Define the Expression** (`mysql/expression/match_against.py`)
 
 ```python
-class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValueExpression):
+class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValue):
     def __init__(
         self,
         dialect: MySQLDialect,

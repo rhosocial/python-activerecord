@@ -10,8 +10,8 @@ Quick start::
         IntrospectorBackendMixin,
         SyncIntrospectorExecutor,
         AsyncIntrospectorExecutor,
-        DatabaseInfo, TableInfo, ColumnInfo, IndexInfo,
-        ForeignKeyInfo, ViewInfo, TriggerInfo,
+        IntrospectionDatabaseInfo, IntrospectionTableInfo, IntrospectionColumnInfo, IndexInfo,
+        IntrospectionForeignKeyInfo, IntrospectionViewInfo, IntrospectionTriggerInfo,
     )
 """
 
@@ -21,14 +21,14 @@ from .types import (
     ColumnNullable,
     IndexType,
     ReferentialAction,
-    DatabaseInfo,
-    TableInfo,
-    ColumnInfo,
+    IntrospectionDatabaseInfo,
+    IntrospectionTableInfo,
+    IntrospectionColumnInfo,
     IndexInfo,
     IndexColumnInfo,
-    ForeignKeyInfo,
-    ViewInfo,
-    TriggerInfo,
+    IntrospectionForeignKeyInfo,
+    IntrospectionViewInfo,
+    IntrospectionTriggerInfo,
 )
 from .errors import (
     IntrospectionError,
@@ -56,14 +56,14 @@ __all__ = [
     "IndexType",
     "ReferentialAction",
     # Data structures
-    "DatabaseInfo",
-    "TableInfo",
-    "ColumnInfo",
+    "IntrospectionDatabaseInfo",
+    "IntrospectionTableInfo",
+    "IntrospectionColumnInfo",
     "IndexInfo",
     "IndexColumnInfo",
-    "ForeignKeyInfo",
-    "ViewInfo",
-    "TriggerInfo",
+    "IntrospectionForeignKeyInfo",
+    "IntrospectionViewInfo",
+    "IntrospectionTriggerInfo",
     # Exceptions
     "IntrospectionError",
     "IntrospectionNotSupportedError",

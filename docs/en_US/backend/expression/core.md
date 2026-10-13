@@ -17,7 +17,7 @@ This section details the fundamental building blocks of the Expression System, i
   - [TableExpression](#tableexpression)
   - [Column](#column)
   - [Literal](#literal)
-  - [WildcardExpression](#wildcardexpression)
+  - [Wildcard](#wildcardexpression)
   - [Subquery](#subquery)
 - [Operators](#operators)
   - [Identifier](#identifier)
@@ -99,12 +99,12 @@ class SQLPredicate(mixins.LogicalMixin, BaseExpression):
     pass
 ```
 
-### SQLValueExpression
+### SQLValue
 
-`SQLValueExpression` represents an expression that evaluates to a scalar value (e.g., columns, literals, function results).
+`SQLValue` represents an expression that evaluates to a scalar value (e.g., columns, literals, function results).
 
 ```python
-class SQLValueExpression(BaseExpression):
+class SQLValue(BaseExpression):
     pass
 ```
 
@@ -117,7 +117,7 @@ The `rhosocial.activerecord.backend.expression.core` module defines the fundamen
 Represents a literal value in a SQL query. It handles parameter binding automatically.
 
 ```python
-class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", value: Any, *, inline_literals: bool = False): ...
     
     # Default: bind-parameter mode
@@ -182,7 +182,7 @@ pred.to_sql()  # -> ("'a' = ?", ("b",))
 Represents a column reference, optionally with a table qualifier and an alias.
 
 ```python
-class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None): ...
 
     # Example: users.name
@@ -209,7 +209,7 @@ Represents a generic scalar function call.
 When `niladic=True` and no arguments are provided, the function call generates SQL without parentheses (e.g., `CURRENT_TIMESTAMP` instead of `CURRENT_TIMESTAMP()`). Per SQL:2003, certain value functions are niladic and must not use parentheses when invoked without arguments. When a niladic function has arguments (e.g., `CURRENT_TIMESTAMP(6)`), parentheses are included as normal.
 
 ```python
-class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression", is_distinct: bool = False, alias: Optional[str] = None, niladic: bool = False): ...
 ```
 
@@ -229,12 +229,12 @@ FunctionCall(dialect, 'NOW')
 # -> ('NOW()', ())
 ```
 
-### WildcardExpression
+### Wildcard
 
 Represents a wildcard (`*`) or table wildcard (`table.*`). PREFER this over `Literal("*")`.
 
 ```python
-class WildcardExpression(bases.SQLValueExpression):
+class Wildcard(bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None): ...
 ```
 
@@ -243,7 +243,7 @@ class WildcardExpression(bases.SQLValueExpression):
 Represents a subquery expression. It can wrap a SQL string, a `(sql, params)` tuple, or another expression.
 
 ```python
-class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", query_input: Union[str, tuple, "BaseExpression"], query_params: Optional[tuple] = None, alias: Optional[str] = None): ...
 
     # Example: (SELECT id FROM users WHERE age > ?)
@@ -388,18 +388,18 @@ from rhosocial.activerecord.backend.expression import Literal
 lit = Literal(dialect, 100)
 ```
 
-### WildcardExpression
+### Wildcard
 
 Represents `*` or `table.*`.
 
 ```python
-from rhosocial.activerecord.backend.expression import WildcardExpression
+from rhosocial.activerecord.backend.expression import Wildcard
 
 # SELECT *
-wildcard = WildcardExpression(dialect)
+wildcard = Wildcard(dialect)
 
 # SELECT users.*
-wildcard = WildcardExpression(dialect, table="users")
+wildcard = Wildcard(dialect, table="users")
 ```
 
 ### Subquery
@@ -422,7 +422,7 @@ The `rhosocial.activerecord.backend.expression.operators` module provides classe
 Represents a generic SQL identifier (e.g., table name, column name).
 
 ```python
-class Identifier(mixins.ComparisonMixin, bases.SQLValueExpression):
+class Identifier(mixins.ComparisonMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", name: str): ...
 ```
 
@@ -460,8 +460,8 @@ class UnaryExpression(bases.BaseExpression):
 Represents binary arithmetic operations with operator precedence handling.
 
 ```python
-class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValueExpression", right: "bases.SQLValueExpression"): ...
+class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValue):
+    def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValue", right: "bases.SQLValue"): ...
 ```
 
 ### Raw Expressions
@@ -473,7 +473,7 @@ class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin,
 Represents a raw SQL string as a value expression.
 
 ```python
-class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()): ...
 ```
 

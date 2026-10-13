@@ -18,7 +18,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import NumericColumn
 from rhosocial.activerecord.backend.expression.core import (
-    NumericValueExpression,
+    NumericValue,
 )
 
 
@@ -90,21 +90,21 @@ class TestResultTypes:
     def test_abs_keeps_the_operand_type(self, price):
         """ABS of a fraction is a fraction; ABS of a whole number is a whole
         number, which is why these are two classes rather than one."""
-        assert isinstance(price.abs(), NumericValueExpression)
+        assert isinstance(price.abs(), NumericValue)
 
     def test_sign_is_a_number(self, price):
         """Sign is -1, 0 or 1, but the backends do not answer integers for it:
         measured on PostgreSQL, an integer argument comes back double and a
         numeric one numeric, so the result carries the numeric surface."""
-        assert isinstance(price.sign(), NumericValueExpression)
+        assert isinstance(price.sign(), NumericValue)
 
     def test_sqrt_is_a_number(self, price):
-        assert isinstance(price.sqrt(), NumericValueExpression)
+        assert isinstance(price.sqrt(), NumericValue)
 
     @pytest.mark.parametrize("method", ["ceil", "floor"])
     def test_rounding_keeps_the_operand_type(self, price, method):
         """CEIL(numeric) is numeric in every backend; CEIL(integer) is not."""
-        assert isinstance(getattr(price, method)(), NumericValueExpression)
+        assert isinstance(getattr(price, method)(), NumericValue)
 
 
 class TestChaining:

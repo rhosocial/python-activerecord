@@ -26,7 +26,7 @@ other. See ``expression/types/__init__.py`` for the DDL-side boundary.
 
 from typing import Optional, TYPE_CHECKING
 
-from .bases import SQLValueExpression
+from .bases import SQLValue
 from .mixins import (
     AliasableMixin,
     ArithmeticMixin,
@@ -57,7 +57,7 @@ class ColumnBase(
     AliasableMixin,
     NullTestMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
     metaclass=ABCMeta,
 ):
     """Common base for every column expression.
@@ -199,7 +199,7 @@ class TimestampColumn(ComparisonMixin, TemporalArithmeticMixin, DateTimeMixin, C
 
     Renamed from ``DateTimeColumn``: the column layer models *values*, and the
     value a ``DATETIME``/``TIMESTAMP`` column hands back is a point in time —
-    ``TimestampValueExpression``'s family. ``datetime`` is one vendor's spelling
+    ``TimestampValue``'s family. ``datetime`` is one vendor's spelling
     for it (and the name of the Python type); the four storage flavours the
     vendors really offer — civil date, civil time, instant, instant with zone —
     are the DDL layer's ``DataType`` distinction and never read from here.
@@ -386,7 +386,7 @@ def value_class_of(expr: object):
 #:
 #: ``TimestampColumn`` is the one judgement call: a column declared
 #: ``DATETIME`` or ``TIMESTAMP`` holds a date and a time together, which is
-#: what ``TimestampValueExpression`` is. A ``DATE`` or ``TIME`` column is a
+#: what ``TimestampValue`` is. A ``DATE`` or ``TIME`` column is a
 #: different storage type in DDL and this module has no column class for
 #: either -- the distinction between the four temporal types is made where
 #: the value is known (see :class:`~...expression.datetime.ExtractExpression`),
@@ -395,19 +395,19 @@ def _value_classes():
     from . import core
 
     return {
-        IntegerColumn: core.IntegerValueExpression,
-        NumericColumn: core.NumericValueExpression,
-        StringColumn: core.StringValueExpression,
-        JSONColumn: core.JSONValueExpression,
-        ArrayColumn: core.ArrayValueExpression,
-        BooleanColumn: core.BooleanValueExpression,
-        BinaryColumn: core.BinaryValueExpression,
-        UUIDColumn: core.UUIDValueExpression,
-        TimestampColumn: core.TimestampValueExpression,
+        IntegerColumn: core.IntegerValue,
+        NumericColumn: core.NumericValue,
+        StringColumn: core.StringValue,
+        JSONColumn: core.JSONValue,
+        ArrayColumn: core.ArrayValue,
+        BooleanColumn: core.BooleanValue,
+        BinaryColumn: core.BinaryValue,
+        UUIDColumn: core.UUIDValue,
+        TimestampColumn: core.TimestampValue,
         # XML is a value like the rest: the operations that hand one back (a
         # column, xmlagg, a cast to XmlType) are typed, they just offer the
         # surface an XML value has -- see XMLColumn.
-        XMLColumn: core.XMLValueExpression,
+        XMLColumn: core.XMLValue,
     }
 
 

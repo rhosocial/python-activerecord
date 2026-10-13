@@ -8,7 +8,7 @@ from ..backend.expression import (
     functions,
     statements,
     BaseExpression,
-    WildcardExpression,
+    Wildcard,
     Column,
 )
 from ..backend.expression.objects import Table
@@ -67,7 +67,7 @@ class AggregateQueryMixin:
         dialect = backend.dialect
 
         if isinstance(column, str) and column == "*":
-            column_arg = WildcardExpression(dialect)
+            column_arg = Wildcard(dialect)
         else:
             column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
 
@@ -458,7 +458,7 @@ class AsyncAggregateQueryMixin:
         backend = self.backend()
         dialect = backend.dialect
         if isinstance(column, str) and column == "*":
-            column_arg = WildcardExpression(dialect)
+            column_arg = Wildcard(dialect)
         else:
             column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
 

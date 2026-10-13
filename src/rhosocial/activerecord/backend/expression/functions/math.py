@@ -8,7 +8,7 @@ from ..column_types import IntegerColumn, NumericColumn
 from ..core import FunctionCall, Literal
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..core import IntegerValueExpression, NumericValueExpression
+    from ..core import IntegerValue, NumericValue
     from ...dialect import SQLDialectBase
 
 
@@ -17,21 +17,21 @@ if TYPE_CHECKING:  # pragma: no cover
 #: and possibly a fraction for a float one. Overloads say so in the type rather
 #: than leaving the caller to read an attribute back off the instance.
 @overload
-def abs_(dialect: "SQLDialectBase", expr: IntegerColumn) -> "IntegerValueExpression": ...
+def abs_(dialect: "SQLDialectBase", expr: IntegerColumn) -> "IntegerValue": ...
 
 
 @overload
-def abs_(dialect: "SQLDialectBase", expr: NumericColumn) -> "NumericValueExpression": ...
+def abs_(dialect: "SQLDialectBase", expr: NumericColumn) -> "NumericValue": ...
 
 
 @overload
 def abs_(dialect: "SQLDialectBase", expr: "BaseExpression") -> Union[
-    "IntegerValueExpression", "NumericValueExpression"
+    "IntegerValue", "NumericValue"
 ]: ...
 
 
 def abs_(dialect: "SQLDialectBase", expr: "BaseExpression") -> Union[
-    "IntegerValueExpression", "NumericValueExpression"
+    "IntegerValue", "NumericValue"
 ]:
     """
     Creates an ABS scalar function call.
@@ -49,7 +49,7 @@ def abs_(dialect: "SQLDialectBase", expr: "BaseExpression") -> Union[
     Returns:
         A FunctionCall instance representing the ABS function
     """
-    from ..core import IntegerValueExpression, NumericValueExpression
+    from ..core import IntegerValue, NumericValue
 
     target_expr = expr
     call = FunctionCall(dialect, "ABS", target_expr)
@@ -57,8 +57,8 @@ def abs_(dialect: "SQLDialectBase", expr: "BaseExpression") -> Union[
     # The column says which before anything runs, so this is a question about
     # the type rather than about an attribute read back from the instance.
     if isinstance(expr, IntegerColumn):
-        return IntegerValueExpression(dialect, call)
-    return NumericValueExpression(dialect, call)
+        return IntegerValue(dialect, call)
+    return NumericValue(dialect, call)
 
 
 #: ABS, ROUND, CEIL, FLOOR and TRUNCATE keep a whole number whole, so their
@@ -67,18 +67,18 @@ def abs_(dialect: "SQLDialectBase", expr: "BaseExpression") -> Union[
 #: than leaving the caller to read an attribute back off the instance.
 @overload
 def round_(dialect: "SQLDialectBase", expr: IntegerColumn,
-            decimals: Optional[int] = ...) -> "IntegerValueExpression": ...
+            decimals: Optional[int] = ...) -> "IntegerValue": ...
 
 
 @overload
 def round_(dialect: "SQLDialectBase", expr: NumericColumn,
-            decimals: Optional[int] = ...) -> "NumericValueExpression": ...
+            decimals: Optional[int] = ...) -> "NumericValue": ...
 
 
 @overload
 def round_(dialect: "SQLDialectBase", expr: "BaseExpression",
             decimals: Optional[int] = ...) -> Union[
-    "IntegerValueExpression", "NumericValueExpression"
+    "IntegerValue", "NumericValue"
 ]: ...
 
 
@@ -101,7 +101,7 @@ def round_(
     Returns:
         A FunctionCall instance representing the ROUND function
     """
-    from ..core import IntegerValueExpression, NumericValueExpression
+    from ..core import IntegerValue, NumericValue
 
     target_expr = expr
     args = [target_expr]
@@ -109,8 +109,8 @@ def round_(
         args.append(Literal(dialect, decimals))
     call = FunctionCall(dialect, "ROUND", *args)
     if isinstance(expr, IntegerColumn):
-        return IntegerValueExpression(dialect, call)
-    return NumericValueExpression(dialect, call)
+        return IntegerValue(dialect, call)
+    return NumericValue(dialect, call)
 
 
 #: ABS, ROUND, CEIL, FLOOR and TRUNCATE keep a whole number whole, so their
@@ -118,16 +118,16 @@ def round_(
 #: and possibly a fraction for a float one. Overloads say so in the type rather
 #: than leaving the caller to read an attribute back off the instance.
 @overload
-def ceil(dialect: "SQLDialectBase", expr: IntegerColumn) -> "IntegerValueExpression": ...
+def ceil(dialect: "SQLDialectBase", expr: IntegerColumn) -> "IntegerValue": ...
 
 
 @overload
-def ceil(dialect: "SQLDialectBase", expr: NumericColumn) -> "NumericValueExpression": ...
+def ceil(dialect: "SQLDialectBase", expr: NumericColumn) -> "NumericValue": ...
 
 
 @overload
 def ceil(dialect: "SQLDialectBase", expr: "BaseExpression") -> Union[
-    "IntegerValueExpression", "NumericValueExpression"
+    "IntegerValue", "NumericValue"
 ]: ...
 
 
@@ -148,12 +148,12 @@ def ceil(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
         A FunctionCall instance representing the CEIL function
     """
     target_expr = expr
-    from ..core import IntegerValueExpression, NumericValueExpression
+    from ..core import IntegerValue, NumericValue
 
     call = FunctionCall(dialect, "CEIL", target_expr)
     if isinstance(expr, IntegerColumn):
-        return IntegerValueExpression(dialect, call)
-    return NumericValueExpression(dialect, call)
+        return IntegerValue(dialect, call)
+    return NumericValue(dialect, call)
 
 
 #: ABS, ROUND, CEIL, FLOOR and TRUNCATE keep a whole number whole, so their
@@ -161,16 +161,16 @@ def ceil(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
 #: and possibly a fraction for a float one. Overloads say so in the type rather
 #: than leaving the caller to read an attribute back off the instance.
 @overload
-def floor(dialect: "SQLDialectBase", expr: IntegerColumn) -> "IntegerValueExpression": ...
+def floor(dialect: "SQLDialectBase", expr: IntegerColumn) -> "IntegerValue": ...
 
 
 @overload
-def floor(dialect: "SQLDialectBase", expr: NumericColumn) -> "NumericValueExpression": ...
+def floor(dialect: "SQLDialectBase", expr: NumericColumn) -> "NumericValue": ...
 
 
 @overload
 def floor(dialect: "SQLDialectBase", expr: "BaseExpression") -> Union[
-    "IntegerValueExpression", "NumericValueExpression"
+    "IntegerValue", "NumericValue"
 ]: ...
 
 
@@ -191,15 +191,15 @@ def floor(dialect: "SQLDialectBase", expr: "BaseExpression") -> "FunctionCall":
         A FunctionCall instance representing the FLOOR function
     """
     target_expr = expr
-    from ..core import IntegerValueExpression, NumericValueExpression
+    from ..core import IntegerValue, NumericValue
 
     call = FunctionCall(dialect, "FLOOR", target_expr)
     if isinstance(expr, IntegerColumn):
-        return IntegerValueExpression(dialect, call)
-    return NumericValueExpression(dialect, call)
+        return IntegerValue(dialect, call)
+    return NumericValue(dialect, call)
 
 
-def sqrt(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
+def sqrt(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValue":
     """
     Creates a SQRT scalar function call.
 
@@ -216,15 +216,15 @@ def sqrt(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpr
         A FunctionCall instance representing the SQRT function
     """
     target_expr = expr
-    from ..core import NumericValueExpression
+    from ..core import NumericValue
 
-    return NumericValueExpression(
+    return NumericValue(
         dialect, FunctionCall(dialect, "SQRT", target_expr))
 
 
 def power(
     dialect: "SQLDialectBase", base: "BaseExpression", exponent: "BaseExpression"
-) -> "NumericValueExpression":
+) -> "NumericValue":
     """
     Creates a POWER scalar function call.
 
@@ -245,13 +245,13 @@ def power(
     """
     base_expr = base
     exp_expr = exponent
-    from ..core import NumericValueExpression
+    from ..core import NumericValue
 
-    return NumericValueExpression(
+    return NumericValue(
         dialect, FunctionCall(dialect, "POWER", base_expr, exp_expr))
 
 
-def exp(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
+def exp(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValue":
     """
     Creates an EXP scalar function call.
 
@@ -268,9 +268,9 @@ def exp(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpre
         A FunctionCall instance representing the EXP function
     """
     target_expr = expr
-    from ..core import NumericValueExpression
+    from ..core import NumericValue
 
-    return NumericValueExpression(
+    return NumericValue(
         dialect, FunctionCall(dialect, "EXP", target_expr))
 
 
@@ -278,7 +278,7 @@ def log(
     dialect: "SQLDialectBase",
     expr: "BaseExpression",
     base: Optional["BaseExpression"] = None,
-) -> "NumericValueExpression":
+) -> "NumericValue":
     """
     Creates a LOG scalar function call.
 
@@ -309,17 +309,17 @@ def log(
     target_expr = expr
     if base is not None:
         base_expr = base
-        from ..core import NumericValueExpression
+        from ..core import NumericValue
 
-        return NumericValueExpression(
+        return NumericValue(
             dialect, FunctionCall(dialect, "LOG", target_expr, base_expr))
-    from ..core import NumericValueExpression
+    from ..core import NumericValue
 
-    return NumericValueExpression(
+    return NumericValue(
         dialect, FunctionCall(dialect, "LOG", target_expr))
 
 
-def sin(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
+def sin(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValue":
     """
     Creates a SIN scalar function call.
 
@@ -336,13 +336,13 @@ def sin(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpre
         A FunctionCall instance representing the SIN function
     """
     target_expr = expr
-    from ..core import NumericValueExpression
+    from ..core import NumericValue
 
-    return NumericValueExpression(
+    return NumericValue(
         dialect, FunctionCall(dialect, "SIN", target_expr))
 
 
-def cos(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
+def cos(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValue":
     """
     Creates a COS scalar function call.
 
@@ -359,13 +359,13 @@ def cos(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpre
         A FunctionCall instance representing the COS function
     """
     target_expr = expr
-    from ..core import NumericValueExpression
+    from ..core import NumericValue
 
-    return NumericValueExpression(
+    return NumericValue(
         dialect, FunctionCall(dialect, "COS", target_expr))
 
 
-def tan(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
+def tan(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValue":
     """
     Creates a TAN scalar function call.
 
@@ -382,9 +382,9 @@ def tan(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpre
         A FunctionCall instance representing the TAN function
     """
     target_expr = expr
-    from ..core import NumericValueExpression
+    from ..core import NumericValue
 
-    return NumericValueExpression(
+    return NumericValue(
         dialect, FunctionCall(dialect, "TAN", target_expr))
 
 
@@ -392,7 +392,7 @@ def mod(
     dialect: "SQLDialectBase",
     dividend: "BaseExpression",
     divisor: "BaseExpression",
-) -> "NumericValueExpression":
+) -> "NumericValue":
     """
     Creates a MOD function call (modulo operation).
 
@@ -412,13 +412,13 @@ def mod(
     """
     dividend_expr = dividend
     divisor_expr = divisor
-    from ..core import NumericValueExpression
+    from ..core import NumericValue
 
-    return NumericValueExpression(
+    return NumericValue(
         dialect, FunctionCall(dialect, "MOD", dividend_expr, divisor_expr))
 
 
-def sign(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpression":
+def sign(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValue":
     """
     Creates a SIGN function call.
 
@@ -439,9 +439,9 @@ def sign(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpr
         A FunctionCall instance representing the SIGN function
     """
     target_expr = expr
-    from ..core import NumericValueExpression
+    from ..core import NumericValue
 
-    return NumericValueExpression(
+    return NumericValue(
         dialect, FunctionCall(dialect, "SIGN", target_expr))
 
 
@@ -451,18 +451,18 @@ def sign(dialect: "SQLDialectBase", expr: "BaseExpression") -> "NumericValueExpr
 #: than leaving the caller to read an attribute back off the instance.
 @overload
 def truncate(dialect: "SQLDialectBase", expr: IntegerColumn,
-             precision: Optional[int] = ...) -> "IntegerValueExpression": ...
+             precision: Optional[int] = ...) -> "IntegerValue": ...
 
 
 @overload
 def truncate(dialect: "SQLDialectBase", expr: NumericColumn,
-             precision: Optional[int] = ...) -> "NumericValueExpression": ...
+             precision: Optional[int] = ...) -> "NumericValue": ...
 
 
 @overload
 def truncate(dialect: "SQLDialectBase", expr: "BaseExpression",
              precision: Optional[int] = ...) -> Union[
-    "IntegerValueExpression", "NumericValueExpression"
+    "IntegerValue", "NumericValue"
 ]: ...
 
 
@@ -496,7 +496,7 @@ def truncate(
         a numeric call -- present from 12.2, absent before -- so a gate there
         has to key on the rendered name rather than the function name.
     """
-    from ..core import IntegerValueExpression, NumericValueExpression
+    from ..core import IntegerValue, NumericValue
 
     target_expr = expr
     args = [target_expr]
@@ -504,5 +504,5 @@ def truncate(
         args.append(Literal(dialect, precision))
     call = FunctionCall(dialect, "TRUNCATE", *args)
     if isinstance(expr, IntegerColumn):
-        return IntegerValueExpression(dialect, call)
-    return NumericValueExpression(dialect, call)
+        return IntegerValue(dialect, call)
+    return NumericValue(dialect, call)

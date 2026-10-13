@@ -24,37 +24,37 @@ from rhosocial.activerecord.backend.expression import functions as F
 from rhosocial.activerecord.backend.expression import IntegerColumn, NumericColumn
 from rhosocial.activerecord.backend.expression.column_types import value_class_of
 from rhosocial.activerecord.backend.expression.core import (
-    ArrayValueExpression,
-    BinaryValueExpression,
-    BooleanValueExpression,
-    DateValueExpression,
-    IntegerValueExpression,
-    IntervalValueExpression,
-    JSONValueExpression,
-    NumericValueExpression,
-    StringValueExpression,
-    TimeValueExpression,
-    TimestampValueExpression,
-    UUIDValueExpression,
-    XMLValueExpression,
+    ArrayValue,
+    BinaryValue,
+    BooleanValue,
+    DateValue,
+    IntegerValue,
+    IntervalValue,
+    JSONValue,
+    NumericValue,
+    StringValue,
+    TimeValue,
+    TimestampValue,
+    UUIDValue,
+    XMLValue,
 )
 from rhosocial.activerecord.backend.expression import functions as math_functions
 
 #: Every value class the lattice holds, for the "declares nothing" assertions.
 TYPED_VALUE_CLASSES = (
-    ArrayValueExpression,
-    BinaryValueExpression,
-    BooleanValueExpression,
-    DateValueExpression,
-    IntegerValueExpression,
-    IntervalValueExpression,
-    JSONValueExpression,
-    NumericValueExpression,
-    StringValueExpression,
-    TimeValueExpression,
-    TimestampValueExpression,
-    UUIDValueExpression,
-    XMLValueExpression,
+    ArrayValue,
+    BinaryValue,
+    BooleanValue,
+    DateValue,
+    IntegerValue,
+    IntervalValue,
+    JSONValue,
+    NumericValue,
+    StringValue,
+    TimeValue,
+    TimestampValue,
+    UUIDValue,
+    XMLValue,
 )
 
 
@@ -205,14 +205,14 @@ def test_a_hand_written_column_has_no_family(dialect):
 @pytest.mark.parametrize(
     "key, expected",
     [
-        ("string", StringValueExpression),
-        ("int", IntegerValueExpression),
-        ("float", NumericValueExpression),
-        ("bool", BooleanValueExpression),
-        ("json", JSONValueExpression),
-        ("bytes", BinaryValueExpression),
-        ("uuid", UUIDValueExpression),
-        ("datetime", TimestampValueExpression),
+        ("string", StringValue),
+        ("int", IntegerValue),
+        ("float", NumericValue),
+        ("bool", BooleanValue),
+        ("json", JSONValue),
+        ("bytes", BinaryValue),
+        ("uuid", UUIDValue),
+        ("datetime", TimestampValue),
     ],
 )
 def test_each_annotation_lands_in_its_type(columns, key, expected):

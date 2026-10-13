@@ -5,7 +5,7 @@ Interface for model update behavior customization.
 
 from abc import ABC
 from typing import Any, Dict, List
-from ..backend.expression import SQLValueExpression, SQLPredicate
+from ..backend.expression import SQLValue, SQLPredicate
 
 
 class IUpdateBehavior(ABC):
@@ -70,7 +70,7 @@ class IUpdateBehavior(ABC):
         """
         return None  # Return None by default if not overridden
 
-    def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
+    def get_update_expressions(self) -> Dict[str, SQLValue]:
         """
         Get additional field expressions to include in UPDATE SET clause.
 
@@ -80,7 +80,7 @@ class IUpdateBehavior(ABC):
         or setting audit information.
 
         Returns:
-            Dict[str, SQLValueExpression]: Mapping of field names to SQL expression objects.
+            Dict[str, SQLValue]: Mapping of field names to SQL expression objects.
             If no additional expressions are needed, return an empty dict or None,
             which will be automatically skipped during updates.
 
@@ -115,7 +115,7 @@ class IUpdateBehavior(ABC):
             The field proxy is more commonly used in conditions (get_update_conditions)
             For expressions, you can still use field proxy for the column reference:
             def get_update_expressions(self):
-                # This generates SQLValueExpression objects automatically
+                # This generates SQLValue objects automatically
                 return {
                     'version': (self.__class__.c.version + 1),  # Uses field proxy for arithmetic
                     'updated_at': 'CURRENT_TIMESTAMP',  # SQL function string

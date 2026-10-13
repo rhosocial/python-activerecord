@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.expression import (
     ComparisonPredicate,
     FunctionCall,
     JSONPathMode,
-    ArrayExpression,
+    ArrayOperation,
 )
 from rhosocial.activerecord.backend.expression.functions import count, sum_
 from rhosocial.activerecord.backend.expression.types import (
@@ -136,7 +136,7 @@ class TestArrayType:
         assert "ArrayType" in repr(ArrayType(None, IntegerType()))
 
     def test_array_expression_constructor(self, dialect):
-        expr = ArrayExpression(
+        expr = ArrayOperation(
             dialect,
             "CONSTRUCTOR",
             elements=[Literal(dialect, 1), Literal(dialect, 2)],

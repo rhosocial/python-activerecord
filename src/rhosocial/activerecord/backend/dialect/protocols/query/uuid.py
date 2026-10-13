@@ -10,7 +10,7 @@ from typing import Protocol, TYPE_CHECKING, Tuple, runtime_checkable
 
 if TYPE_CHECKING:  # pragma: no cover
     from ....expression.uuid import (
-        UUIDCastExpression,
+        UUIDCastFunction,
         UUIDConstantExpression,
         UUIDGenerationExpression,
     )
@@ -72,11 +72,11 @@ class UUIDSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_uuid_cast(self, expr: "UUIDCastExpression") -> Tuple[str, Tuple]:
+    def format_uuid_cast(self, expr: "UUIDCastFunction") -> Tuple[str, Tuple]:
         """Render a text-to-UUID conversion.
 
         Args:
-            expr: UUIDCastExpression node.
+            expr: UUIDCastFunction node.
 
         Returns:
             Tuple of (SQL string, parameters tuple).

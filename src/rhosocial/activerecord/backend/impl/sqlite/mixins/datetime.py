@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression.mixins import AliasableMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
-    from rhosocial.activerecord.backend.expression.collation import CollateExpression
+    from rhosocial.activerecord.backend.expression.collation import CollateFunction
 
 _COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -121,7 +121,7 @@ class SQLiteDateTimeMixin:
         """SQLite supports expression-level COLLATE."""
         return True
 
-    def validate_collation_name(self, expr: "CollateExpression") -> str:
+    def validate_collation_name(self, expr: "CollateFunction") -> str:
         """Validate SQLite collation names and return their SQL representation."""
         if "schema" in expr.collation_options:
             raise UnsupportedFeatureError(self.name, "schema-qualified COLLATE")

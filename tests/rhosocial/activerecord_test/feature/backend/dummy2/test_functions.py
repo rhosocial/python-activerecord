@@ -526,7 +526,7 @@ class TestConditionalFunctionFactories:
         """Test CASE function."""
         func = case(dummy_dialect)
         assert func.dialect is dummy_dialect
-        # The CaseExpression class is tested in other test files
+        # The CaseFunction class is tested in other test files
 
     def test_case_with_alias(self, dummy_dialect: DummyDialect):
         """Test CASE function with alias."""
@@ -658,13 +658,13 @@ class TestTypeConversionFunctionFactories:
 
     def test_cast_function(self, dummy_dialect: DummyDialect):
         """Test CAST function."""
-        from rhosocial.activerecord.backend.expression.core import CastExpression, Column
+        from rhosocial.activerecord.backend.expression.core import CastFunction, Column
         from rhosocial.activerecord.backend.expression.types import CustomType
 
         func = cast(dummy_dialect, Column(dummy_dialect, "value"),
                  CustomType(dummy_dialect, raw="INTEGER"))
-        # cast() wraps the (string-as-column) expression in a CastExpression node
-        assert isinstance(func, CastExpression)
+        # cast() wraps the (string-as-column) expression in a CastFunction node
+        assert isinstance(func, CastFunction)
         assert func.target_type.raw == "INTEGER"
         assert isinstance(func.expression, Column)
         sql, params = func.to_sql()

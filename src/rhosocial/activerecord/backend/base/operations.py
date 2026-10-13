@@ -14,7 +14,7 @@ from ..expression.objects import Table
 from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause, ValuesSource
 from ..expression.predicates import InPredicate, ComparisonPredicate
-from ..expression.advanced_functions import CaseExpression
+from ..expression.advanced_functions import CaseFunction
 from ..options import (
     ExecutionOptions,
     InsertOptions,
@@ -348,7 +348,7 @@ class SQLOperationsMixin:
                 condition = ComparisonPredicate(self.dialect, "=", pk_col, Literal(self.dialect, pk_val))
                 result_expr = Literal(self.dialect, field_val)
                 cases.append((condition, result_expr))
-            case_expr = CaseExpression(self.dialect, cases=cases)
+            case_expr = CaseFunction(self.dialect, cases=cases)
             assignments[field_name] = case_expr
 
         pk_literals = Literal(self.dialect, options.pk_values)
@@ -669,7 +669,7 @@ class AsyncSQLOperationsMixin:
                 condition = ComparisonPredicate(self.dialect, "=", pk_col, Literal(self.dialect, pk_val))
                 result_expr = Literal(self.dialect, field_val)
                 cases.append((condition, result_expr))
-            case_expr = CaseExpression(self.dialect, cases=cases)
+            case_expr = CaseFunction(self.dialect, cases=cases)
             assignments[field_name] = case_expr
 
         pk_literals = Literal(self.dialect, options.pk_values)

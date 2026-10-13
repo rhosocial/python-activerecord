@@ -9,10 +9,10 @@ from typing import Any, List, Optional, Tuple
 
 from ...expression import bases
 from ...expression.core import (
-    CastExpression,
-    QualifiedIdentifierExpression,
+    CastFunction,
+    QualifiedIdentifier,
     Subquery,
-    WildcardExpression,
+    Wildcard,
 )
 from ...expression.literals import Identifier
 from ...expression.mixins import AliasableMixin
@@ -45,8 +45,8 @@ class ExpressionMixin(FunctionCallMixin):
         """
         return self.format_identifier(expr.name, expr.name_need_quote), ()
 
-    def format_wildcard(self, expr: WildcardExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.WildcardExpression`.
+    def format_wildcard(self, expr: Wildcard) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.Wildcard`.
 
         Args:
             expr: Wildcard expression optionally carrying a table and schema.
@@ -65,8 +65,8 @@ class ExpressionMixin(FunctionCallMixin):
             wildcard_sql = "*"
         return wildcard_sql, ()
 
-    def format_qualified_identifier(self, expr: QualifiedIdentifierExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.QualifiedIdentifierExpression`.
+    def format_qualified_identifier(self, expr: QualifiedIdentifier) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.QualifiedIdentifier`.
 
         Args:
             expr: Qualified identifier optionally carrying a schema.
@@ -82,7 +82,7 @@ class ExpressionMixin(FunctionCallMixin):
             )
         return self.format_identifier(expr.name, expr.name_need_quote), ()
 
-    def format_literal_expression(self, expr: "bases.SQLValueExpression") -> Tuple[str, tuple]:
+    def format_literal_expression(self, expr: "bases.SQLValue") -> Tuple[str, tuple]:
         """Format a :class:`~...expression.core.Literal`.
 
         Args:
@@ -108,8 +108,8 @@ class ExpressionMixin(FunctionCallMixin):
 
         return sql, params
 
-    def format_cast_expression(self, expr: CastExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.CastExpression` node.
+    def format_cast_expression(self, expr: CastFunction) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.CastFunction` node.
 
         Args:
             expr: Cast expression exposing ``expression``, ``target_type`` and
@@ -347,7 +347,7 @@ class ExpressionMixin(FunctionCallMixin):
         return sql, tuple(all_params)
 
     def format_case_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.advanced_functions.CaseExpression` node.
+        """Format a :class:`~...expression.advanced_functions.CaseFunction` node.
 
         Args:
             expr: CASE expression exposing optional ``value``, ``cases`` (a

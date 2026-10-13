@@ -14,7 +14,7 @@ Represents standard comparison operations between two expressions.
 
 ```python
 class ComparisonPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"): ...
+    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValue", right: "SQLValue"): ...
 ```
 
 **Parameters:**
@@ -59,7 +59,7 @@ Represents pattern matching operations (`LIKE`, `ILIKE`).
 
 ```python
 class LikePredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValueExpression", pattern: "SQLValueExpression"): ...
+    def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValue", pattern: "SQLValue"): ...
 ```
 
 **Parameters:**
@@ -81,7 +81,7 @@ Represents set membership tests (`IN`).
 
 ```python
 class InPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "SQLValueExpression", values: "bases.BaseExpression"): ...
+    def __init__(self, dialect: "SQLDialectBase", expr: "SQLValue", values: "bases.BaseExpression"): ...
 ```
 
 **Parameters:**

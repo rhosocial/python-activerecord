@@ -27,7 +27,7 @@ class MyExpression(BaseExpression):
     # No need to manually implement get_params(), default implementation auto-extracts
 ```
 
-`CollateExpression` is the `**kwargs` case in core: it collects `**collation_options` into `self.collation_options: dict`, so `get_params()` returns `binary`, `pad` and the rest as top-level parameters and reconstruction passes them back as keywords.
+`CollateFunction` is the `**kwargs` case in core: it collects `**collation_options` into `self.collation_options: dict`, so `get_params()` returns `binary`, `pad` and the rest as top-level parameters and reconstruction passes them back as keywords.
 
 A parameter the convention cannot resolve is skipped with a warning. That warning is the diagnostic — it means `__init__` stores state under a name `get_params()` cannot see — and the repair is always in `__init__`.
 

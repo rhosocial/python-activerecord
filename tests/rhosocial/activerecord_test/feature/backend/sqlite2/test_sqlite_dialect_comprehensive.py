@@ -105,7 +105,7 @@ class TestSQLiteDialectComprehensive:
     def test_formatting_methods_unsupported_comprehensive(self, operation, method_name, expected_error_part):
         """Comprehensive test for unsupported formatting methods"""
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
+        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
 
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
@@ -117,7 +117,7 @@ class TestSQLiteDialectComprehensive:
             if method_name == "format_grouping_clause":
                 method(GroupingClause(dialect, operation, []))
             elif method_name == "format_array_expression":
-                mock_expr = MagicMock(spec=ArrayExpression)
+                mock_expr = MagicMock(spec=ArrayValue)
                 mock_expr.operation = "CONSTRUCTOR"
                 mock_expr.elements = []
                 mock_expr.base_expr = None

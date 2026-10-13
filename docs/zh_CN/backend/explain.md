@@ -84,13 +84,13 @@ for row in result.rows:
 
 ```python
 from rhosocial.activerecord.backend.expression.core import (
-    TableExpression, WildcardExpression,
+    TableExpression, Wildcard,
 )
 from rhosocial.activerecord.backend.expression.statements import QueryStatement
 
 query = QueryStatement(
     dialect,
-    select=[WildcardExpression(dialect)],
+    select=[Wildcard(dialect)],
     from_=TableExpression(dialect, "users"),
 )
 result = backend.explain(query)

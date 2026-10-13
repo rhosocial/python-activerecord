@@ -8,7 +8,7 @@ for retrieving table metadata.
 
 
 from rhosocial.activerecord.backend.introspection.types import (
-    TableInfo,
+    IntrospectionTableInfo,
     TableType,
 )
 
@@ -58,11 +58,11 @@ class TestListTables:
         assert len(system_tables) > 0
 
     def test_list_tables_returns_table_info(self, backend_with_tables):
-        """Test that list_tables returns TableInfo objects."""
+        """Test that list_tables returns IntrospectionTableInfo objects."""
         tables = backend_with_tables.introspector.list_tables()
 
         for table in tables:
-            assert isinstance(table, TableInfo)
+            assert isinstance(table, IntrospectionTableInfo)
             assert isinstance(table.table_type, TableType)
             assert table.schema == "main"
 
@@ -90,7 +90,7 @@ class TestGetTableInfo:
         table_info = backend_with_tables.introspector.get_table_info("users")
 
         assert table_info is not None
-        assert isinstance(table_info, TableInfo)
+        assert isinstance(table_info, IntrospectionTableInfo)
         assert table_info.name == "users"
         assert table_info.schema == "main"
         assert table_info.table_type == TableType.BASE_TABLE

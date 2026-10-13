@@ -10,9 +10,9 @@ from typing import Dict, Tuple, TYPE_CHECKING
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression import bases
     from rhosocial.activerecord.backend.expression.advanced_functions import (
-        LpadExpression,
-        RepeatExpression,
-        RpadExpression,
+        LpadFunction,
+        RepeatFunction,
+        RpadFunction,
     )
 
 
@@ -174,7 +174,7 @@ class SQLiteFunctionMixin:
             pad,
         )
 
-    def format_repeat_expression(self, expr: "RepeatExpression") -> Tuple[str, tuple]:
+    def format_repeat_expression(self, expr: "RepeatFunction") -> Tuple[str, tuple]:
         """Emulate ``REPEAT``, which SQLite does not have.
 
         Each ``00`` pair in ``HEX(ZEROBLOB(count))`` is one copy slot, so
@@ -195,7 +195,7 @@ class SQLiteFunctionMixin:
         )
         return call.to_sql()
 
-    def format_lpad_expression(self, expr: "LpadExpression") -> Tuple[str, tuple]:
+    def format_lpad_expression(self, expr: "LpadFunction") -> Tuple[str, tuple]:
         """Emulate ``LPAD``, which SQLite does not have.
 
         Two branches, because SQLite alone answers "already long enough" and
@@ -206,7 +206,7 @@ class SQLiteFunctionMixin:
         long, so the tail it contributes is the whole left-hand side.
         """
         from rhosocial.activerecord.backend.expression.advanced_functions import (
-            CaseExpression,
+            CaseFunction,
         )
         from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
         from rhosocial.activerecord.backend.expression.operators import (
@@ -225,7 +225,7 @@ class SQLiteFunctionMixin:
         pad_branch = FunctionCall(
             self, "SUBSTR", padded, UnaryExpression(self, "-", expr.length)
         )
-        case = CaseExpression(
+        case = CaseFunction(
             self,
             cases=[(ComparisonPredicate(self, "<=", expr.length, length_call), truncate_branch)],
             else_result=pad_branch,
@@ -233,7 +233,7 @@ class SQLiteFunctionMixin:
         )
         return case.to_sql()
 
-    def format_rpad_expression(self, expr: "RpadExpression") -> Tuple[str, tuple]:
+    def format_rpad_expression(self, expr: "RpadFunction") -> Tuple[str, tuple]:
         """Emulate ``RPAD``, which SQLite does not have.
 
         One branch is enough: the padding is appended on the right and the

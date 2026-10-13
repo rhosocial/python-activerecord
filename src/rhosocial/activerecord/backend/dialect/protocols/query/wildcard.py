@@ -15,5 +15,5 @@ class WildcardSupport(Protocol):
     """Protocol for wildcard expression support (SELECT *)."""
 
     def format_wildcard(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
-        """Format a WildcardExpression node (* or table.* or schema.table.*)."""
+        """Format a Wildcard node (* or table.* or schema.table.*)."""
         ...  # pragma: no cover

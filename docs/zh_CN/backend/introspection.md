@@ -38,13 +38,13 @@ backend/introspection/
 
 ## 数据结构
 
-### DatabaseInfo
+### IntrospectionDatabaseInfo
 
 数据库基本信息：
 
 ```python
 @dataclass
-class DatabaseInfo:
+class IntrospectionDatabaseInfo:
     name: str                      # 数据库名称
     version: str                   # 版本字符串
     version_tuple: Tuple[int, ...] # 版本元组
@@ -57,13 +57,13 @@ class DatabaseInfo:
     extra: Dict[str, Any]          # 额外信息
 ```
 
-### TableInfo
+### IntrospectionTableInfo
 
 表信息：
 
 ```python
 @dataclass
-class TableInfo:
+class IntrospectionTableInfo:
     name: str                    # 表名
     schema: str                  # Schema 名称
     table_type: TableType        # 表类型
@@ -73,13 +73,13 @@ class TableInfo:
     extra: Dict[str, Any]        # 额外信息
 ```
 
-### ColumnInfo
+### IntrospectionColumnInfo
 
 列信息：
 
 ```python
 @dataclass
-class ColumnInfo:
+class IntrospectionColumnInfo:
     name: str                         # 列名
     table_name: str                   # 所属表名
     data_type: str                    # 数据类型
@@ -110,13 +110,13 @@ class IndexInfo:
     extra: Dict[str, Any]          # 额外信息
 ```
 
-### ForeignKeyInfo
+### IntrospectionForeignKeyInfo
 
 外键信息：
 
 ```python
 @dataclass
-class ForeignKeyInfo:
+class IntrospectionForeignKeyInfo:
     name: str                           # 外键名
     table_name: str                     # 所属表名
     columns: List[str]                  # 外键列
@@ -128,13 +128,13 @@ class ForeignKeyInfo:
     extra: Dict[str, Any]               # 额外信息
 ```
 
-### ViewInfo
+### IntrospectionViewInfo
 
 视图信息：
 
 ```python
 @dataclass
-class ViewInfo:
+class IntrospectionViewInfo:
     name: str                    # 视图名
     schema: str                  # Schema 名称
     definition: str              # 视图定义 SQL
@@ -143,13 +143,13 @@ class ViewInfo:
     extra: Dict[str, Any]        # 额外信息
 ```
 
-### TriggerInfo
+### IntrospectionTriggerInfo
 
 触发器信息：
 
 ```python
 @dataclass
-class TriggerInfo:
+class IntrospectionTriggerInfo:
     name: str                    # 触发器名
     table_name: str              # 关联表名
     event: TriggerEvent          # 触发事件

@@ -35,16 +35,16 @@ from rhosocial.activerecord.backend.expression import (
     XMLColumn,
 )
 from rhosocial.activerecord.backend.expression.core import (
-    ArrayValueExpression,
-    BinaryValueExpression,
-    BooleanValueExpression,
-    IntegerValueExpression,
-    JSONValueExpression,
-    NumericValueExpression,
-    StringValueExpression,
-    TimestampValueExpression,
-    UUIDValueExpression,
-    XMLValueExpression,
+    ArrayValue,
+    BinaryValue,
+    BooleanValue,
+    IntegerValue,
+    JSONValue,
+    NumericValue,
+    StringValue,
+    TimestampValue,
+    UUIDValue,
+    XMLValue,
 )
 from rhosocial.activerecord.backend.expression.mixins import NotANumberMixin
 
@@ -80,16 +80,16 @@ def _operations(cls):
 
 
 FAMILIES = [
-    (StringColumn, StringValueExpression),
-    (NumericColumn, NumericValueExpression),
-    (IntegerColumn, IntegerValueExpression),
-    (BooleanColumn, BooleanValueExpression),
-    (TimestampColumn, TimestampValueExpression),
-    (BinaryColumn, BinaryValueExpression),
-    (UUIDColumn, UUIDValueExpression),
-    (JSONColumn, JSONValueExpression),
-    (ArrayColumn, ArrayValueExpression),
-    (XMLColumn, XMLValueExpression),
+    (StringColumn, StringValue),
+    (NumericColumn, NumericValue),
+    (IntegerColumn, IntegerValue),
+    (BooleanColumn, BooleanValue),
+    (TimestampColumn, TimestampValue),
+    (BinaryColumn, BinaryValue),
+    (UUIDColumn, UUIDValue),
+    (JSONColumn, JSONValue),
+    (ArrayColumn, ArrayValue),
+    (XMLColumn, XMLValue),
 ]
 
 

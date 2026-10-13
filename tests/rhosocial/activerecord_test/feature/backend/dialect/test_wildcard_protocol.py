@@ -28,16 +28,16 @@ def test_format_wildcard_works():
     """Test that format_wildcard method works in wildcard-only dialect."""
     dialect = WildcardOnlyDialect()
 
-    from rhosocial.activerecord.backend.expression.core import WildcardExpression
+    from rhosocial.activerecord.backend.expression.core import Wildcard
 
     # Test with no table
-    result = dialect.format_wildcard(WildcardExpression(dialect))
+    result = dialect.format_wildcard(Wildcard(dialect))
     assert isinstance(result, tuple)
     assert len(result) == 2
     assert result[0] == "*"
 
     # Test with table
-    result = dialect.format_wildcard(WildcardExpression(dialect, table="users"))
+    result = dialect.format_wildcard(Wildcard(dialect, table="users"))
     assert isinstance(result, tuple)
     assert len(result) == 2
     assert "users" in result[0]

@@ -12,12 +12,12 @@ from .mixins import (
 )
 
 from .advanced_functions import DeclaredValueType
-from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
+from .bases import BaseExpression, SQLQueryAndParams, SQLValue
 from .core import (
-    IntegerValueExpression,
-    IntervalValueExpression,
-    NumericValueExpression,
-    TimestampValueExpression,
+    IntegerValue,
+    IntervalValue,
+    NumericValue,
+    TimestampValue,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -136,11 +136,11 @@ def validate_interval_value(value: Union[int, float]) -> Union[int, float]:
     return value
 
 
-class _TemporalValueExpression(
+class _TemporalValue(
     AliasableMixin,
     ComparisonMixin,
     TypeCastingMixin,
-    SQLValueExpression,
+    SQLValue,
 ):
     """Shared base for the temporal operation nodes.
 
@@ -153,7 +153,7 @@ class _TemporalValueExpression(
     type's class alongside this one. Two consequences, both wanted:
 
     * What the operation yields is readable off the object — ``EXTRACT`` is a
-      :class:`~...expression.core.NumericValueExpression` because it derives
+      :class:`~...expression.core.NumericValue` because it derives
       from one, not because a tag said so and a tag could disagree with the
       class it sat on.
     * The operations follow from it. ``extract("year") + 1`` composes because a
@@ -169,14 +169,14 @@ class _TemporalValueExpression(
     """
 
 
-class ExtractExpression(_TemporalValueExpression, DeclaredValueType, NumericValueExpression):
+class ExtractExpression(_TemporalValue, DeclaredValueType, NumericValue):
     """``EXTRACT(field FROM source)`` -- a number.
 
     Numeric rather than integral because ``EXTRACT(EPOCH FROM ts)`` is
     fractional. Widening here is deliberate: claiming a whole number would offer
     ``bit_length`` on a value that may be a million and a half.
 
-    It is a :class:`~...expression.core.NumericValueExpression` because that is
+    It is a :class:`~...expression.core.NumericValue` because that is
     what it is, and that is why ``extract("year") + 1`` composes. The class
     declares the type rather than a tag recording it, so ``isinstance`` answers
     from the class alone.
@@ -200,7 +200,7 @@ class ExtractExpression(_TemporalValueExpression, DeclaredValueType, NumericValu
         return "format_extract_expression"
 
 
-class DatePartExpression(_TemporalValueExpression, DeclaredValueType, NumericValueExpression):
+class DatePartExpression(_TemporalValue, DeclaredValueType, NumericValue):
     """The SQL-standard spelling of :class:`ExtractExpression`, and a number too.
 
     Separate because a backend may render it differently, and because a caller
@@ -227,7 +227,7 @@ class DatePartExpression(_TemporalValueExpression, DeclaredValueType, NumericVal
         return "format_date_part_expression"
 
 
-class DateTruncExpression(_TemporalValueExpression, DeclaredValueType, TimestampValueExpression):
+class DateTruncExpression(_TemporalValue, DeclaredValueType, TimestampValue):
     """Truncating a timestamp to a field gives a timestamp.
 
     Not an integer: the parts are dropped, not rounded away, so what comes back
@@ -253,7 +253,7 @@ class DateTruncExpression(_TemporalValueExpression, DeclaredValueType, Timestamp
         return "format_date_trunc_expression"
 
 
-class IntervalExpression(_TemporalValueExpression, DeclaredValueType, IntervalValueExpression):
+class IntervalExpression(_TemporalValue, DeclaredValueType, IntervalValue):
     """A structured interval value -- a span of time, its own type.
 
     Not a timestamp and not a number: `
@@ -280,7 +280,7 @@ ow() + INTERVAL '1 day'`` is a
         return "format_interval_expression"
 
 
-class DateTimeAddExpression(_TemporalValueExpression, DeclaredValueType, TimestampValueExpression):
+class DateTimeAddExpression(_TemporalValue, DeclaredValueType, TimestampValue):
     """Adding an interval to a timestamp gives a timestamp.
 
     Shifting time keeps it time. The result is a point in time, not a count of
@@ -307,7 +307,7 @@ ow().date_add(1, "day").date_trunc("day")`` chain.
         return "format_datetime_add_expression"
 
 
-class DateTimeSubtractExpression(_TemporalValueExpression, DeclaredValueType, TimestampValueExpression):
+class DateTimeSubtractExpression(_TemporalValue, DeclaredValueType, TimestampValue):
     """Subtracting an interval from a timestamp gives a timestamp.
 
     The mirror of :class:`DateTimeAddExpression`, and the same answer: going back
@@ -332,7 +332,7 @@ class DateTimeSubtractExpression(_TemporalValueExpression, DeclaredValueType, Ti
         return "format_datetime_subtract_expression"
 
 
-class DateTimeDiffExpression(_TemporalValueExpression, DeclaredValueType, IntegerValueExpression):
+class DateTimeDiffExpression(_TemporalValue, DeclaredValueType, IntegerValue):
     """The difference between two timestamps, counted in whole units.
 
     This is the one temporal operation that is not a temporal value: `

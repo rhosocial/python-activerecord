@@ -89,7 +89,7 @@ instance.  It handles pagination internally and yields one `BatchDQLResult` page
 
 ```python
 from rhosocial.activerecord.backend.expression.statements import QueryStatement
-from rhosocial.activerecord.backend.expression import WildcardExpression, TableExpression
+from rhosocial.activerecord.backend.expression import Wildcard, TableExpression
 from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
 from rhosocial.activerecord.backend.expression import Column
 
@@ -97,7 +97,7 @@ from rhosocial.activerecord.backend.expression import Column
 dialect = User.backend().dialect
 query_expr = QueryStatement(
     dialect,
-    select=[WildcardExpression(dialect)],
+    select=[Wildcard(dialect)],
     from_=TableExpression(dialect, "users"),
     order_by=OrderByClause(dialect, expressions=[(Column(dialect, "id"), "ASC")]),
 )

@@ -8,7 +8,7 @@ Covers:
 - SQLDialectBase.is_reserved_word (case-insensitive)
 - Reserved word warning emission
 - Per-role need_quote properties on Column, NamedRelationRef,
-  QualifiedIdentifierExpression, WildcardExpression, Identifier
+  QualifiedIdentifier, Wildcard, Identifier
 - Format methods (format_column, format_table, format_wildcard,
   format_identifier_expression, format_qualified_identifier)
 """
@@ -20,8 +20,8 @@ import pytest
 from rhosocial.activerecord.backend.warnings import IdentifierQuotingWarning
 from rhosocial.activerecord.backend.expression import (
     Column,
-    QualifiedIdentifierExpression,
-    WildcardExpression,
+    QualifiedIdentifier,
+    Wildcard,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.literals import Identifier
@@ -226,18 +226,18 @@ class TestRelationSourceIdentifierQuoting:
         assert source.alias_need_quote is False
 
 
-class TestQualifiedIdentifierExpressionIdentifierQuoting:
-    """Test QualifiedIdentifierExpression per-role need_quote properties."""
+class TestQualifiedIdentifierIdentifierQuoting:
+    """Test QualifiedIdentifier per-role need_quote properties."""
 
     def test_defaults_all_true(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users")
+        qi = QualifiedIdentifier(d, schema="public", name="users")
         assert qi.name_need_quote is True
         assert qi.schema_need_quote is True
 
     def test_all_false(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users",
+        qi = QualifiedIdentifier(d, schema="public", name="users",
                                            name_need_quote=False,
                                            schema_need_quote=False)
         assert qi.name_need_quote is False
@@ -245,7 +245,7 @@ class TestQualifiedIdentifierExpressionIdentifierQuoting:
 
     def test_schema_need_quote_independent(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users",
+        qi = QualifiedIdentifier(d, schema="public", name="users",
                                            name_need_quote=True,
                                            schema_need_quote=False)
         assert qi.schema_need_quote is False
@@ -253,37 +253,37 @@ class TestQualifiedIdentifierExpressionIdentifierQuoting:
 
     def test_no_schema(self):
         d = SQLiteDialect()
-        qi = QualifiedIdentifierExpression(d, name="users",
+        qi = QualifiedIdentifier(d, name="users",
                                            name_need_quote=False)
         assert qi.name_need_quote is False
 
 
-class TestWildcardExpressionIdentifierQuoting:
-    """Test WildcardExpression per-role need_quote properties."""
+class TestWildcardIdentifierQuoting:
+    """Test Wildcard per-role need_quote properties."""
 
     def test_defaults_all_true(self):
         d = SQLiteDialect()
-        w = WildcardExpression(d, table="users")
+        w = Wildcard(d, table="users")
         assert w.table_need_quote is True
         assert w.schema_need_quote is True
 
     def test_all_false(self):
         d = SQLiteDialect()
-        w = WildcardExpression(d, table="users",
+        w = Wildcard(d, table="users",
                                table_need_quote=False, schema_need_quote=False)
         assert w.table_need_quote is False
         assert w.schema_need_quote is False
 
     def test_table_need_quote_independent(self):
         d = SQLiteDialect()
-        w = WildcardExpression(d, table="users", schema_name="public",
+        w = Wildcard(d, table="users", schema_name="public",
                                table_need_quote=False, schema_need_quote=True)
         assert w.table_need_quote is False
         assert w.schema_need_quote is True
 
     def test_schema_need_quote_independent(self):
         d = SQLiteDialect()
-        w = WildcardExpression(d, table="users", schema_name="public",
+        w = Wildcard(d, table="users", schema_name="public",
                                table_need_quote=True, schema_need_quote=False)
         assert w.schema_need_quote is False
         assert w.table_need_quote is True
@@ -430,32 +430,32 @@ class TestFormatMethodDirectPropertyAccess:
 
     def test_format_wildcard_unquoted(self):
         d = DummyDialect()
-        w = WildcardExpression(d, table="users", table_need_quote=False)
+        w = Wildcard(d, table="users", table_need_quote=False)
         sql, params = d.format_wildcard(w)
         assert sql == "users.*"
 
     def test_format_wildcard_quoted(self):
         d = DummyDialect()
-        w = WildcardExpression(d, table="users", table_need_quote=True)
+        w = Wildcard(d, table="users", table_need_quote=True)
         sql, params = d.format_wildcard(w)
         assert sql == '"users".*'
 
     def test_format_wildcard_no_table(self):
         d = DummyDialect()
-        w = WildcardExpression(d)
+        w = Wildcard(d)
         sql, params = d.format_wildcard(w)
         assert sql == "*"
 
     def test_format_wildcard_schema_and_table(self):
         d = DummyDialect()
-        w = WildcardExpression(d, table="users", schema_name="public",
+        w = Wildcard(d, table="users", schema_name="public",
                                table_need_quote=False, schema_need_quote=False)
         sql, params = d.format_wildcard(w)
         assert sql == "public.users.*"
 
     def test_format_wildcard_schema_and_table_quoted(self):
         d = DummyDialect()
-        w = WildcardExpression(d, table="users", schema_name="public",
+        w = Wildcard(d, table="users", schema_name="public",
                                table_need_quote=True, schema_need_quote=True)
         sql, params = d.format_wildcard(w)
         assert sql == '"public"."users".*'
@@ -497,7 +497,7 @@ class TestFormatMethodDirectPropertyAccess:
 
     def test_format_qualified_identifier_unquoted(self):
         d = DummyDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users",
+        qi = QualifiedIdentifier(d, schema="public", name="users",
                                            name_need_quote=False,
                                            schema_need_quote=False)
         sql, params = d.format_qualified_identifier(qi)
@@ -505,7 +505,7 @@ class TestFormatMethodDirectPropertyAccess:
 
     def test_format_qualified_identifier_quoted(self):
         d = DummyDialect()
-        qi = QualifiedIdentifierExpression(d, schema="public", name="users",
+        qi = QualifiedIdentifier(d, schema="public", name="users",
                                            name_need_quote=True,
                                            schema_need_quote=True)
         sql, params = d.format_qualified_identifier(qi)
@@ -513,7 +513,7 @@ class TestFormatMethodDirectPropertyAccess:
 
     def test_format_qualified_identifier_no_schema(self):
         d = DummyDialect()
-        qi = QualifiedIdentifierExpression(d, name="users",
+        qi = QualifiedIdentifier(d, name="users",
                                            name_need_quote=False)
         sql, params = d.format_qualified_identifier(qi)
         assert sql == "users"
@@ -543,7 +543,7 @@ class TestFormatMethodDirectPropertyAccess:
 
     def test_format_wildcard_table_need_quote_independent(self):
         d = DummyDialect()
-        w = WildcardExpression(d, table="users", schema_name="public",
+        w = Wildcard(d, table="users", schema_name="public",
                                table_need_quote=False, schema_need_quote=True)
         sql, params = d.format_wildcard(w)
         assert sql == '"public".users.*'

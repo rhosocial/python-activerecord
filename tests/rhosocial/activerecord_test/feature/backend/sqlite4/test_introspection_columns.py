@@ -8,7 +8,7 @@ for retrieving column metadata.
 
 
 from rhosocial.activerecord.backend.introspection.types import (
-    ColumnInfo,
+    IntrospectionColumnInfo,
     ColumnNullable,
 )
 
@@ -17,14 +17,14 @@ class TestListColumns:
     """Tests for list_columns method."""
 
     def test_list_columns_returns_column_info(self, backend_with_tables):
-        """Test that list_columns returns ColumnInfo objects."""
+        """Test that list_columns returns IntrospectionColumnInfo objects."""
         columns = backend_with_tables.introspector.list_columns("users")
 
         assert isinstance(columns, list)
         assert len(columns) > 0
 
         for col in columns:
-            assert isinstance(col, ColumnInfo)
+            assert isinstance(col, IntrospectionColumnInfo)
 
     def test_list_columns_all_columns_present(self, backend_with_tables):
         """Test that all columns are returned."""
@@ -60,7 +60,7 @@ class TestGetColumnInfo:
         col = backend_with_tables.introspector.get_column_info("users", "email")
 
         assert col is not None
-        assert isinstance(col, ColumnInfo)
+        assert isinstance(col, IntrospectionColumnInfo)
         assert col.name == "email"
         assert col.table_name == "users"
 

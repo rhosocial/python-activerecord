@@ -36,7 +36,7 @@ def test_no_array_dialect_does_not_support_features():
 def test_format_array_expression_behavior():
     """Test that format_array_expression behaves appropriately in no-array dialect."""
     from unittest.mock import MagicMock
-    from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
+    from rhosocial.activerecord.backend.expression.advanced_functions import ArrayOperation
 
     dialect = NoArrayDialect()
 
@@ -45,8 +45,8 @@ def test_format_array_expression_behavior():
     assert dialect.supports_array_access() is False
 
     # The method should still execute without throwing an error for basic operations
-    # Create a mock ArrayExpression to pass to format_array_expression
-    mock_expr = MagicMock(spec=ArrayExpression)
+    # Create a mock ArrayValue to pass to format_array_expression
+    mock_expr = MagicMock(spec=ArrayValue)
     mock_expr.operation = "CONSTRUCTOR"
     mock_expr.elements = None
     mock_expr.base_expr = None

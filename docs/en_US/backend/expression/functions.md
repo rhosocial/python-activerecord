@@ -15,7 +15,7 @@ construction-time `is_aggregate` fact. It supports `FILTER (WHERE ...)`
 clauses and `OVER (...)` window clauses.
 
 ```python
-class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringPatternPredicateMixin, mixins.TypeCastingMixin, mixins.ResultTypeMixin, bases.SQLValueExpression):
+class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringPatternPredicateMixin, mixins.TypeCastingMixin, mixins.ResultTypeMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", func_name: str, *args,
                  is_distinct: bool = False, alias: Optional[str] = None,
                  niladic: bool = False, filter_predicate: "SQLPredicate" = None,
@@ -659,7 +659,7 @@ sql, params = t.to_sql()
 Creates a `CASE` expression.
 
 ```python
-def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseExpression": ...
+def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseFunction": ...
 ```
 
 **Example:**

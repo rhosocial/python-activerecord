@@ -79,7 +79,7 @@ def require_exclusive_options(flag_a: bool, flag_b: bool, name_a: str, name_b: s
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-    from .collation import CollateExpression
+    from .collation import CollateFunction
 
 
 @runtime_checkable
@@ -424,7 +424,7 @@ class SQLPredicate(LogicalMixin, AliasableMixin, BaseExpression):
     pass
 
 
-class SQLValueExpression(BaseExpression):
+class SQLValue(BaseExpression):
     """
     Abstract base class for SQL expressions that return a non-boolean value
     (e.g., integer, string, date).
@@ -443,7 +443,7 @@ class SQLValueExpression(BaseExpression):
         self,
         collation: Union[str, Enum],
         **collation_options: Any,
-    ) -> "CollateExpression":
+    ) -> "CollateFunction":
         """
         Apply an explicit SQL COLLATE clause to this value expression.
 
@@ -452,6 +452,6 @@ class SQLValueExpression(BaseExpression):
         type supports collation. Callers must apply it only to expressions that
         are valid for the target backend, typically text/string expressions.
         """
-        from .collation import CollateExpression
+        from .collation import CollateFunction
 
-        return CollateExpression(self.dialect, self, collation, **collation_options)
+        return CollateFunction(self.dialect, self, collation, **collation_options)

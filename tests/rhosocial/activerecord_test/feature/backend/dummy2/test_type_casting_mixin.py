@@ -2,13 +2,13 @@
 """
 Tests for the TypeCastingMixin functionality in core expression classes.
 
-A type cast is a proper AST node (CastExpression) whose single child is the
+A type cast is a proper AST node (CastFunction) whose single child is the
 wrapped expression. cast() wraps and returns the new node; chained calls
 nest like any other expression.
 """
 
 from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall
-from rhosocial.activerecord.backend.expression.core import CastExpression
+from rhosocial.activerecord.backend.expression.core import CastFunction
 from rhosocial.activerecord.backend.expression.types import CustomType
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -65,10 +65,10 @@ class TestTypeCastingMixin:
         assert params == ()
 
     def test_cast_returns_wrapping_node(self, dummy_dialect: DummyDialect):
-        """Test that cast() returns a CastExpression node wrapping self."""
+        """Test that cast() returns a CastFunction node wrapping self."""
         col = Column(dummy_dialect, "value")
         result = col.cast(CustomType(col.dialect, raw="INTEGER"))
-        assert isinstance(result, CastExpression)
+        assert isinstance(result, CastFunction)
         assert result.expression is col
         # CustomType is what a backend type name maps to; the raw spelling is
         # what reaches the SQL, and it is checked by the rendered statement below.
@@ -200,8 +200,8 @@ class TestTypeCastingMixin:
         col = Column(dummy_dialect, "value")
         first = col.cast(CustomType(col.dialect, raw="INTEGER"))
         second = first.cast(CustomType(first.dialect, raw="VARCHAR"))
-        assert isinstance(first, CastExpression)
-        assert isinstance(second, CastExpression)
+        assert isinstance(first, CastFunction)
+        assert isinstance(second, CastFunction)
         assert second.expression is first
         assert first.expression is col
         assert first.target_type.raw == "INTEGER"

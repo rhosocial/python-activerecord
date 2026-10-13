@@ -63,35 +63,35 @@ class TestColumn:
 
 
 class TestWildcard:
-    """Tests for WildcardExpression class."""
+    """Tests for Wildcard class."""
 
     def test_wildcard_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test basic WildcardExpression functionality."""
-        from rhosocial.activerecord.backend.expression import WildcardExpression
+        """Test basic Wildcard functionality."""
+        from rhosocial.activerecord.backend.expression import Wildcard
 
-        wildcard = WildcardExpression(sqlite_dialect_3_8_0)
+        wildcard = Wildcard(sqlite_dialect_3_8_0)
         sql, params = wildcard.to_sql()
         assert sql == "*"
         assert params == ()
 
     def test_wildcard_with_table(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test WildcardExpression with table qualifier."""
-        from rhosocial.activerecord.backend.expression import WildcardExpression
+        """Test Wildcard with table qualifier."""
+        from rhosocial.activerecord.backend.expression import Wildcard
 
-        wildcard = WildcardExpression(sqlite_dialect_3_8_0, table="users")
+        wildcard = Wildcard(sqlite_dialect_3_8_0, table="users")
         sql, params = wildcard.to_sql()
         assert sql == '"users".*'
         assert params == ()
 
     def test_wildcard_in_query(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test WildcardExpression used in a QueryStatement."""
+        """Test Wildcard used in a QueryStatement."""
         from rhosocial.activerecord.backend.expression import (
-            WildcardExpression,
+            Wildcard,
             QueryStatement,
         )
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
-        wildcard = WildcardExpression(sqlite_dialect_3_8_0)
+        wildcard = Wildcard(sqlite_dialect_3_8_0)
         query = QueryStatement(
             sqlite_dialect_3_8_0, select=[wildcard], from_=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"))
         )
@@ -100,14 +100,14 @@ class TestWildcard:
         assert params == ()
 
     def test_wildcard_with_table_in_query(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test qualified WildcardExpression used in a QueryStatement."""
+        """Test qualified Wildcard used in a QueryStatement."""
         from rhosocial.activerecord.backend.expression import (
-            WildcardExpression,
+            Wildcard,
             QueryStatement,
         )
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
-        wildcard = WildcardExpression(sqlite_dialect_3_8_0, table="users")
+        wildcard = Wildcard(sqlite_dialect_3_8_0, table="users")
         query = QueryStatement(
             sqlite_dialect_3_8_0, select=[wildcard], from_=NamedRelationRef(sqlite_dialect_3_8_0, Table(sqlite_dialect_3_8_0, "users"))
         )

@@ -11,8 +11,8 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    JSONDocumentExpression,
-    ArrayExpression,
+    JSONDocumentValue,
+    ArrayOperation,
     OrderedSetAggregation,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -112,32 +112,32 @@ class TestAliasableMixin:
         assert params == ()
 
     def test_json_expression_alias_initialization(self, dummy_dialect: DummyDialect):
-        """Test JSONDocumentExpression with alias specified during initialization."""
-        json_expr = JSONDocumentExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name", alias="name_field")
+        """Test JSONDocumentValue with alias specified during initialization."""
+        json_expr = JSONDocumentValue(dummy_dialect, Column(dummy_dialect, "data"), "$.name", alias="name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
         assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'
         assert params == ()
 
     def test_json_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
-        """Test JSONDocumentExpression with alias specified using as_() method."""
-        json_expr = JSONDocumentExpression(dummy_dialect, Column(dummy_dialect, "data"), "$.name").as_("name_field")
+        """Test JSONDocumentValue with alias specified using as_() method."""
+        json_expr = JSONDocumentValue(dummy_dialect, Column(dummy_dialect, "data"), "$.name").as_("name_field")
         assert json_expr.alias == "name_field"
         sql, params = json_expr.to_sql()
         assert sql == 'JSON_EXTRACT("data", \'$.name\') AS "name_field"'
         assert params == ()
 
     def test_array_expression_alias_initialization(self, dummy_dialect: DummyDialect):
-        """Test ArrayExpression with alias specified during initialization."""
-        arr = ArrayExpression(dummy_dialect, "CONSTRUCTOR", elements=[Column(dummy_dialect, "a")], alias="arr_alias")
+        """Test ArrayValue with alias specified during initialization."""
+        arr = ArrayOperation(dummy_dialect, "CONSTRUCTOR", elements=[Column(dummy_dialect, "a")], alias="arr_alias")
         assert arr.alias == "arr_alias"
         sql, params = arr.to_sql()
         assert sql == 'ARRAY["a"] AS "arr_alias"'
         assert params == ()
 
     def test_array_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
-        """Test ArrayExpression with alias specified using as_() method."""
-        arr = ArrayExpression(dummy_dialect, "CONSTRUCTOR", elements=[Column(dummy_dialect, "a")]).as_("arr_alias")
+        """Test ArrayValue with alias specified using as_() method."""
+        arr = ArrayOperation(dummy_dialect, "CONSTRUCTOR", elements=[Column(dummy_dialect, "a")]).as_("arr_alias")
         assert arr.alias == "arr_alias"
         sql, params = arr.to_sql()
         assert sql == 'ARRAY["a"] AS "arr_alias"'

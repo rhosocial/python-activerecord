@@ -38,13 +38,13 @@ The introspection system follows the project's sync/async parity principle:
 
 ## Data Structures
 
-### DatabaseInfo
+### IntrospectionDatabaseInfo
 
 Basic database information:
 
 ```python
 @dataclass
-class DatabaseInfo:
+class IntrospectionDatabaseInfo:
     name: str                      # Database name
     version: str                   # Version string
     version_tuple: Tuple[int, ...] # Version tuple
@@ -57,13 +57,13 @@ class DatabaseInfo:
     extra: Dict[str, Any]          # Additional info
 ```
 
-### TableInfo
+### IntrospectionTableInfo
 
 Table information:
 
 ```python
 @dataclass
-class TableInfo:
+class IntrospectionTableInfo:
     name: str                    # Table name
     schema: str                  # Schema name
     table_type: TableType        # Table type
@@ -73,13 +73,13 @@ class TableInfo:
     extra: Dict[str, Any]        # Additional info
 ```
 
-### ColumnInfo
+### IntrospectionColumnInfo
 
 Column information:
 
 ```python
 @dataclass
-class ColumnInfo:
+class IntrospectionColumnInfo:
     name: str                         # Column name
     table_name: str                   # Owner table name
     data_type: str                    # Data type
@@ -110,13 +110,13 @@ class IndexInfo:
     extra: Dict[str, Any]          # Additional info
 ```
 
-### ForeignKeyInfo
+### IntrospectionForeignKeyInfo
 
 Foreign key information:
 
 ```python
 @dataclass
-class ForeignKeyInfo:
+class IntrospectionForeignKeyInfo:
     name: str                           # Foreign key name
     table_name: str                     # Owner table name
     columns: List[str]                  # Foreign key columns
@@ -128,13 +128,13 @@ class ForeignKeyInfo:
     extra: Dict[str, Any]               # Additional info
 ```
 
-### ViewInfo
+### IntrospectionViewInfo
 
 View information:
 
 ```python
 @dataclass
-class ViewInfo:
+class IntrospectionViewInfo:
     name: str                    # View name
     schema: str                  # Schema name
     definition: str              # View definition SQL
@@ -143,13 +143,13 @@ class ViewInfo:
     extra: Dict[str, Any]        # Additional info
 ```
 
-### TriggerInfo
+### IntrospectionTriggerInfo
 
 Trigger information:
 
 ```python
 @dataclass
-class TriggerInfo:
+class IntrospectionTriggerInfo:
     name: str                    # Trigger name
     table_name: str              # Associated table name
     event: TriggerEvent          # Trigger event

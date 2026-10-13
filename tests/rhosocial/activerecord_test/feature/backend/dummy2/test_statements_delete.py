@@ -761,9 +761,9 @@ class TestDeleteStatements:
 
     def test_format_case_expression_with_empty_conditions_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_case_expression raises ValueError for a CASE node without WHEN/THEN pairs."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+        from rhosocial.activerecord.backend.expression.advanced_functions import CaseFunction
 
-        case_expr = CaseExpression(dummy_dialect, cases=[])
+        case_expr = CaseFunction(dummy_dialect, cases=[])
         with pytest.raises(
             ValueError, match=r"CASE expression must have at least one WHEN/THEN condition-result pair."
         ):

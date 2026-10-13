@@ -4,7 +4,7 @@
 from enum import Enum
 from typing import List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate, SQLValueExpression
+from ..bases import BaseExpression, SQLPredicate, SQLValue
 from ..core import Subquery
 from ..objects import Table
 from ..sources import TableSource
@@ -39,7 +39,7 @@ class SelectModifier(Enum):
     ALL = "ALL"
 
 
-class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
+class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
     """
     Represents a complete SELECT query expression with all clauses supported by the framework.
 

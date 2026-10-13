@@ -14,7 +14,7 @@
 
 ```python
 class ComparisonPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"): ...
+    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValue", right: "SQLValue"): ...
 ```
 
 **参数:**
@@ -59,7 +59,7 @@ class LogicalPredicate(bases.SQLPredicate):
 
 ```python
 class LikePredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValueExpression", pattern: "SQLValueExpression"): ...
+    def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValue", pattern: "SQLValue"): ...
 ```
 
 **参数:**
@@ -81,7 +81,7 @@ class LikePredicate(bases.SQLPredicate):
 
 ```python
 class InPredicate(bases.SQLPredicate):
-    def __init__(self, dialect: "SQLDialectBase", expr: "SQLValueExpression", values: "bases.BaseExpression"): ...
+    def __init__(self, dialect: "SQLDialectBase", expr: "SQLValue", values: "bases.BaseExpression"): ...
 ```
 
 **参数:**

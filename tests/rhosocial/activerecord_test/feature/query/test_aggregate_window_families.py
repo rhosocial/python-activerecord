@@ -47,7 +47,7 @@ def columns(dialect):
 def test_count_is_always_a_whole_number(dialect, columns):
     """However wide the thing counted, the answer is a number of rows."""
     for column in columns.values():
-        assert isinstance(F.count(dialect, column), IntegerValueExpression)
+        assert isinstance(F.count(dialect, column), IntegerValue)
 
 
 def test_count_takes_arithmetic_and_not_string_operations(dialect, columns):
@@ -66,7 +66,7 @@ def test_avg_is_numeric_whatever_it_averages(dialect, columns):
     one. SQL Server is the exception that returns an integer here, which is
     exactly why it is not something to build an operation surface on."""
     for column in columns.values():
-        assert isinstance(F.avg(dialect, column), NumericValueExpression)
+        assert isinstance(F.avg(dialect, column), NumericValue)
 
 
 # ---------------------------------------------------------------------------
@@ -79,9 +79,9 @@ def test_a_reduction_keeps_the_input_family(dialect, columns, factory):
     """SUM of a float column is fractional and MIN of a string column is a
     string, which can still be compared and matched."""
     reduce_it = getattr(F, factory)
-    assert isinstance(reduce_it(dialect, columns["int"]), IntegerValueExpression)
-    assert isinstance(reduce_it(dialect, columns["float"]), NumericValueExpression)
-    assert isinstance(reduce_it(dialect, columns["str"]), StringValueExpression)
+    assert isinstance(reduce_it(dialect, columns["int"]), IntegerValue)
+    assert isinstance(reduce_it(dialect, columns["float"]), NumericValue)
+    assert isinstance(reduce_it(dialect, columns["str"]), StringValue)
 
 
 @pytest.mark.parametrize("factory", ["sum_", "min_", "max_"])
@@ -89,7 +89,7 @@ def test_a_literal_input_has_no_family_to_keep(dialect, factory):
     """A literal does not declare a kind, so the result is unknown rather than
     guessed. Unknown is safe: the node is handed back untouched."""
     result = getattr(F, factory)(dialect, 1)
-    assert not isinstance(result, ArrayValueExpression) and not isinstance(result, BinaryValueExpression) and not isinstance(result, BooleanValueExpression) and not isinstance(result, DateValueExpression) and not isinstance(result, IntegerValueExpression) and not isinstance(result, IntervalValueExpression) and not isinstance(result, JSONValueExpression) and not isinstance(result, NumericValueExpression) and not isinstance(result, StringValueExpression) and not isinstance(result, TimeValueExpression) and not isinstance(result, TimestampValueExpression) and not isinstance(result, UUIDValueExpression)
+    assert not isinstance(result, ArrayValue) and not isinstance(result, BinaryValue) and not isinstance(result, BooleanValue) and not isinstance(result, DateValue) and not isinstance(result, IntegerValue) and not isinstance(result, IntervalValue) and not isinstance(result, JSONValue) and not isinstance(result, NumericValue) and not isinstance(result, StringValue) and not isinstance(result, TimeValue) and not isinstance(result, TimestampValue) and not isinstance(result, UUIDValue)
     assert isinstance(result, FunctionCall)
 
 
@@ -105,12 +105,12 @@ def test_min_of_a_string_column_is_still_a_string(dialect, columns):
 
 
 def test_building_a_json_aggregate_gives_json(dialect, columns):
-    assert isinstance(F.json_objectagg(dialect, columns["int"], columns["str"]), JSONValueExpression)
-    assert isinstance(F.json_arrayagg(dialect, columns["json"]), JSONValueExpression)
+    assert isinstance(F.json_objectagg(dialect, columns["int"], columns["str"]), JSONValue)
+    assert isinstance(F.json_arrayagg(dialect, columns["json"]), JSONValue)
 
 
 def test_collecting_into_an_array_gives_an_array(dialect, columns):
-    assert isinstance(F.array_agg(dialect, columns["int"]), ArrayValueExpression)
+    assert isinstance(F.array_agg(dialect, columns["int"]), ArrayValue)
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +121,7 @@ def test_collecting_into_an_array_gives_an_array(dialect, columns):
 @pytest.mark.parametrize("factory", ["row_number", "rank", "dense_rank"])
 def test_a_rank_is_a_whole_number(dialect, factory):
     for windowed in (getattr(F, factory)(dialect),):
-        assert isinstance(windowed, IntegerValueExpression)
+        assert isinstance(windowed, IntegerValue)
         assert hasattr(windowed, "__add__")
         assert not hasattr(windowed, "upper")
 
@@ -142,13 +142,13 @@ def test_a_value_from_another_row_keeps_its_family(dialect, columns, factory, ex
     it had. Now the class says it, and the operations come with it.
     """
     windowed = getattr(F, factory)(dialect, columns["str"], *extra)
-    assert isinstance(windowed, StringValueExpression)
+    assert isinstance(windowed, StringValue)
     assert hasattr(windowed, "like")
     assert not hasattr(windowed, "sqrt")
 
 
 def test_lag_over_a_float_column_is_fractional(dialect, columns):
-    assert isinstance(F.lag(dialect, columns["float"]), NumericValueExpression)
+    assert isinstance(F.lag(dialect, columns["float"]), NumericValue)
 
 
 # ---------------------------------------------------------------------------
@@ -167,13 +167,13 @@ def test_a_typed_aggregate_reports_its_family_for_introspection(dialect, columns
     anyway.
     """
     result = F.count(dialect, columns["int"])
-    assert isinstance(result, IntegerValueExpression)
+    assert isinstance(result, IntegerValue)
 
 
 def test_a_typed_window_reports_its_family_for_introspection(dialect, columns):
     """Same for a window function: the class, not the removed ``family`` tag."""
     result = F.lag(dialect, columns["int"])
-    assert isinstance(result, IntegerValueExpression)
+    assert isinstance(result, IntegerValue)
 
 
 def test_an_untyped_aggregate_reports_no_family(dialect, columns):
@@ -185,23 +185,23 @@ def test_an_untyped_aggregate_reports_no_family(dialect, columns):
     statement without the tag that could contradict it.
     """
     result = FunctionCall(dialect, "COUNT", columns["int"], is_aggregate=True)
-    assert not isinstance(result, ArrayValueExpression) and not isinstance(result, BinaryValueExpression) and not isinstance(result, BooleanValueExpression) and not isinstance(result, DateValueExpression) and not isinstance(result, IntegerValueExpression) and not isinstance(result, IntervalValueExpression) and not isinstance(result, JSONValueExpression) and not isinstance(result, NumericValueExpression) and not isinstance(result, StringValueExpression) and not isinstance(result, TimeValueExpression) and not isinstance(result, TimestampValueExpression) and not isinstance(result, UUIDValueExpression)
+    assert not isinstance(result, ArrayValue) and not isinstance(result, BinaryValue) and not isinstance(result, BooleanValue) and not isinstance(result, DateValue) and not isinstance(result, IntegerValue) and not isinstance(result, IntervalValue) and not isinstance(result, JSONValue) and not isinstance(result, NumericValue) and not isinstance(result, StringValue) and not isinstance(result, TimeValue) and not isinstance(result, TimestampValue) and not isinstance(result, UUIDValue)
 
 
 
 from rhosocial.activerecord.backend.expression.core import (
-    NumericValueExpression,
-    IntegerValueExpression,
-    StringValueExpression,
-    BooleanValueExpression,
-    BinaryValueExpression,
-    UUIDValueExpression,
-    JSONValueExpression,
-    ArrayValueExpression,
-    TimestampValueExpression,
-    DateValueExpression,
-    TimeValueExpression,
-    IntervalValueExpression,
+    NumericValue,
+    IntegerValue,
+    StringValue,
+    BooleanValue,
+    BinaryValue,
+    UUIDValue,
+    JSONValue,
+    ArrayValue,
+    TimestampValue,
+    DateValue,
+    TimeValue,
+    IntervalValue,
 )
 def test_declaring_a_family_does_not_change_the_sql(dialect, columns):
     """Typing is a surface decision, never a rendering one."""

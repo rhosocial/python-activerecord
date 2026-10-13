@@ -6,8 +6,8 @@ from typing import Union, Optional, TYPE_CHECKING
 from ..bases import BaseExpression
 from ..core import (
     Column,
-    ArrayValueExpression,
-    IntegerValueExpression,
+    ArrayValue,
+    IntegerValue,
     FunctionCall,
     Literal,
 )
@@ -26,25 +26,25 @@ def array_agg(
 
     The result is always an array -- gathering values produces a list of them,
     whatever the gathered type was -- so this wraps in
-    :class:`ArrayValueExpression` rather than reading a type off the argument.
+    :class:`ArrayValue` rather than reading a type off the argument.
     """
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return ArrayValueExpression(
+    return ArrayValue(
         dialect,
         FunctionCall(dialect, "ARRAY_AGG", target_expr, is_distinct=is_distinct, alias=alias, is_aggregate=True),
     )
 
 
-def unnest(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "ArrayValueExpression":
+def unnest(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "ArrayValue":
     """Creates an UNNEST function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
-    return ArrayValueExpression(dialect, FunctionCall(dialect, 'UNNEST', target_expr))
+    return ArrayValue(dialect, FunctionCall(dialect, 'UNNEST', target_expr))
 
 
 def array_length(
     dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], dimension: int = 1
-) -> "IntegerValueExpression":
+) -> "IntegerValue":
     """Creates an ARRAY_LENGTH function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     dimension_expr = Literal(dialect, dimension)
-    return IntegerValueExpression(dialect, FunctionCall(dialect, 'ARRAY_LENGTH', target_expr, dimension_expr))
+    return IntegerValue(dialect, FunctionCall(dialect, 'ARRAY_LENGTH', target_expr, dimension_expr))

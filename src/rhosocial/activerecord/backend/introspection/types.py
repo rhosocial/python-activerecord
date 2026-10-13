@@ -72,7 +72,7 @@ class ReferentialAction(Enum):
 
 
 @dataclass
-class DatabaseInfo:
+class IntrospectionDatabaseInfo:
     """Database information."""
 
     name: str
@@ -98,7 +98,7 @@ class IndexColumnInfo:
 
 
 @dataclass
-class ColumnInfo:
+class IntrospectionColumnInfo:
     """Column information.
 
     ``parsed_data_type`` is the column's type as a
@@ -166,7 +166,7 @@ class IndexInfo:
 
 
 @dataclass
-class ForeignKeyInfo:
+class IntrospectionForeignKeyInfo:
     """Foreign key information."""
 
     name: str
@@ -184,7 +184,7 @@ class ForeignKeyInfo:
 
 
 @dataclass
-class ViewInfo:
+class IntrospectionViewInfo:
     """View information."""
 
     name: str
@@ -194,12 +194,12 @@ class ViewInfo:
     is_insertable: Optional[bool] = None
     check_option: Optional[str] = None
     comment: Optional[str] = None
-    columns: List[ColumnInfo] = field(default_factory=list)
+    columns: List[IntrospectionColumnInfo] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
-class TriggerInfo:
+class IntrospectionTriggerInfo:
     """Trigger information."""
 
     name: str
@@ -215,7 +215,7 @@ class TriggerInfo:
 
 
 @dataclass
-class TableInfo:
+class IntrospectionTableInfo:
     """Table information."""
 
     name: str
@@ -227,7 +227,7 @@ class TableInfo:
     auto_increment: Optional[int] = None
     create_time: Optional[str] = None
     update_time: Optional[str] = None
-    columns: List[ColumnInfo] = field(default_factory=list)
+    columns: List[IntrospectionColumnInfo] = field(default_factory=list)
     indexes: List[IndexInfo] = field(default_factory=list)
-    foreign_keys: List[ForeignKeyInfo] = field(default_factory=list)
+    foreign_keys: List[IntrospectionForeignKeyInfo] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict)
