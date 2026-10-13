@@ -7,11 +7,27 @@ from typing import Any, Callable, List, Optional, Type, Union, TYPE_CHECKING
 
 from ..backend.expression.statements.ddl_table import (
     ColumnConstraint,
-    ColumnConstraintType,
-    GeneratedColumnExpression,
+    ColumnConstraintBranch,
+    ColumnForeignKeyConstraint,
+    ColumnGeneratedConstraint,
+    ColumnPrimaryKeyConstraint,
     IndexDefinition,
 )
 from ..backend.type_adapter import SQLTypeAdapter
+
+if TYPE_CHECKING:
+    from ..backend.expression.bases import BaseExpression, SQLDialectBase, SQLPredicate
+    from ..backend.expression.column_types import ColumnBase
+    from ..backend.expression.statements.ddl_table import (
+        ReferentialAction,
+    )
+    from ..backend.expression.types import DataType
+    from .ddl import ColumnAttribute
+
+
+
+
+
 
 if TYPE_CHECKING:
     from ..backend.expression.bases import BaseExpression, SQLDialectBase, SQLPredicate
@@ -86,7 +102,6 @@ class UseAdapter:
         class User(ActiveRecord):
             # This field will use MyCustomAdapter to convert datetime to str
             custom_field: Annotated[
-                datetime,
                 UseAdapter(MyCustomAdapter(), str)
             ]
     """
@@ -225,7 +240,6 @@ class UseColumnType:
     """
 
     def __init__(self, *column_classes: Type["ColumnBase"]):
-        from ..backend.expression.column_types import ColumnBase
 
         if not column_classes:
             raise TypeError(
@@ -347,24 +361,25 @@ class UseIndex(DDLAnnotation):
 
 
 class UseConstraint(DDLAnnotation):
-    """Marker for ``Annotated[T, UseConstraint(constraint_type, ...)]``.
+    """Marker for ``Annotated[T, UseConstraint(branch, ...)]``.
 
     Declares a constraint applied directly to the annotated column in the
     generated CREATE TABLE statement.
 
-    Rejected constraint types (declaration raises immediately):
+    The first argument is the constraint's **branch** -- the node class that
+    says which kind this is (``ColumnNotNullConstraint``,
+    ``ColumnCheckConstraint``, ``ColumnForeignKeyConstraint``, …) -- and the
+    keyword arguments are that branch's own fields. Which fields those are is
+    therefore readable from the class, and a field that belongs to another
+    branch cannot be passed here at all.
 
-    - ``PRIMARY_KEY`` — the **only** constraint the marker refuses on
-      semantic grounds: the primary key has a single source, the
-      ``__primary_key__`` constant (accessed through ``primary_key()``);
-      a single-column PK lands on the column, a composite PK becomes a
+    Rejected branches (declaration raises immediately):
+
+    - ``ColumnPrimaryKeyConstraint`` — the **only** branch the marker refuses
+      on semantic grounds: the primary key has a single source, the
+      ``__primary_key__`` constant (accessed through ``primary_key()``); a
+      single-column PK lands on the column, a composite PK becomes a
       table-level constraint.
-    - ``IDENTITY`` / ``COLLATE`` — migrated to the column-attribute channel:
-      declare ``UseColumnAttributes(IdentityAttribute(...))`` or
-      ``UseColumnAttributes(CollationAttribute(...))`` instead.
-
-    Accepted constraint types: NOT NULL / UNIQUE / CHECK / FOREIGN KEY /
-    DEFAULT.
 
     For table-level constraints (CHECK spanning multiple columns, composite
     UNIQUE, composite FOREIGN KEY), declare ``__table_constraints__`` on the
@@ -380,8 +395,7 @@ class UseConstraint(DDLAnnotation):
         )
 
         status: Annotated[str, UseConstraint(
-            ColumnConstraintType.CHECK,
-            check_condition=lambda d: InPredicate(
+            condition=lambda d: InPredicate(
                 d, Column(d, "status"), Literal(d, ("open", "paid"))
             ),
         )]
@@ -389,13 +403,12 @@ class UseConstraint(DDLAnnotation):
 
     def __init__(
         self,
-        constraint_type: "ColumnConstraintType",
+        branch: type,
         *,
         name: Optional[str] = None,
-        check_condition: Optional[Union["SQLPredicate", "Callable"]] = None,
-        foreign_key_reference: Optional[tuple] = None,
-        default_value: Any = None,
-        is_auto_increment: bool = False,
+        condition: Optional[Union["SQLPredicate", "Callable"]] = None,
+        references: Optional[tuple] = None,
+        value: Any = None,
         on_delete: Optional["ReferentialAction"] = None,
         on_update: Optional["ReferentialAction"] = None,
         match_type: Optional[Any] = None,
@@ -403,32 +416,47 @@ class UseConstraint(DDLAnnotation):
         initially_deferred: Optional[bool] = None,
         enforced: Optional[bool] = None,
     ):
-        # check_condition may be a ready SQLPredicate or a lazy
+        # ``condition`` may be a ready SQLPredicate or a lazy
         # ``(dialect) -> SQLPredicate`` factory; the generator resolves it.
         # The marker is constructed at model-declaration time (no dialect
-        # yet) — the constraint node defers binding and the DDL generator
+        # yet) -- the constraint node defers binding and the DDL generator
         # binds it through the dialect setter.
-        if constraint_type == ColumnConstraintType.PRIMARY_KEY:
+
+        if not (isinstance(branch, type) and issubclass(branch, ColumnConstraintBranch)):
+            raise TypeError(
+                f"UseConstraint takes a ColumnConstraintBranch class, got {branch!r}"
+            )
+        if branch is ColumnPrimaryKeyConstraint:
             raise ValueError(
-                "UseConstraint does not accept PRIMARY_KEY: the primary key "
-                "has a single source, the __primary_key__ constant (or a "
-                "primary_key() override). A single-column PK lands on the "
+                "UseConstraint does not accept ColumnPrimaryKeyConstraint: the "
+                "primary key has a single source, the __primary_key__ constant "
+                "(or a primary_key() override). A single-column PK lands on the "
                 "column automatically; a composite PK becomes a table-level "
                 "constraint."
             )
-        self.constraint = ColumnConstraint(None,
-            constraint_type=constraint_type,
+        branch_fields = {
+            "condition": condition,
+            "references": references,
+            "value": value,
+            "on_delete": on_delete,
+            "on_update": on_update,
+            "match_type": match_type,
+        }
+        if branch is ColumnForeignKeyConstraint and not references:
+            raise ValueError(
+                "A ColumnForeignKeyConstraint needs references: the tuple of "
+                "(Table, [column names]) it points at."
+            )
+        # Only the fields this branch declares are passed; the rest would be
+        # a field the branch has no use for, which is exactly the kind of
+        # request the branch nodes exist to make impossible.
+        import inspect as _inspect
+
+        accepted = set(_inspect.signature(branch.__init__).parameters) - {"self", "dialect"}
+        self.constraint = ColumnConstraint(
+            None,
+            branch=branch(None, **{k: v for k, v in branch_fields.items() if k in accepted and v is not None}),
             name=name,
-            check_condition=check_condition,
-            foreign_key_reference=foreign_key_reference,
-            default_value=default_value,
-            is_auto_increment=is_auto_increment,
-            on_delete=on_delete,
-            on_update=on_update,
-            # A ForeignKeyMatchType or its string spelling; the constraint node
-            # keeps it as given and the dialect normalizes at render time, the
-            # same as the constraint-type fields.
-            match_type=match_type,
             # The AR-layer marker keeps its tri-state until the AR layer's
             # exposure of the split is decided (out of scope for this round);
             # translate it to the expression layer's two parameters.
@@ -441,7 +469,7 @@ class UseConstraint(DDLAnnotation):
         )
 
     def __repr__(self) -> str:
-        return f"UseConstraint({self.constraint.constraint_type.name})"
+        return f"UseConstraint({type(self.constraint.branch).__name__})"
 
 
 class UseColumnAttributes(DDLAnnotation):
@@ -459,6 +487,7 @@ class UseColumnAttributes(DDLAnnotation):
     """
 
     def __init__(self, *attributes: "ColumnAttribute"):
+
         from .ddl import ColumnAttribute
 
         if not attributes:
@@ -511,18 +540,18 @@ class UseGeneratedColumn(DDLAnnotation):
     from *expr*. Equivalent to overriding :meth:`generated_column`, but
     declarative.
 
-    *expr* is either a ready :class:`GeneratedColumnExpression` or a lazy
-    ``(dialect) -> GeneratedColumnExpression`` factory. A factory is the
+    *expr* is either a ready :class:`ColumnGeneratedConstraint` or a lazy
+    ``(dialect) -> ColumnGeneratedConstraint`` factory. A factory is the
     usual form: the annotation is evaluated at class-definition time, before
     any dialect exists, so a generated column that references other columns
     must build its expression once the deriver supplies the dialect.
     """
 
     def __init__(self, expression: Any):
-        if not callable(expression) and not isinstance(expression, GeneratedColumnExpression):
+        if not callable(expression) and not isinstance(expression, ColumnGeneratedConstraint):
             raise TypeError(
-                "UseGeneratedColumn expects a GeneratedColumnExpression or a "
-                "(dialect) -> GeneratedColumnExpression factory, got "
+                "UseGeneratedColumn expects a ColumnGeneratedConstraint or a "
+                "(dialect) -> ColumnGeneratedConstraint factory, got "
                 f"{type(expression).__name__}."
             )
         self.expression = expression

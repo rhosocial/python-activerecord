@@ -1,3 +1,27 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.core import Column, WildcardExpression
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    QueryStatement,
+    LimitOffsetClause,
+    OrderByClause,
+)
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    CreateTableStatement,
+    InsertStatement,
+    ValuesSource,
+    DropTableStatement,
+)
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 Pagination using LIMIT/OFFSET - SQLite.
 
@@ -10,27 +34,11 @@ This example demonstrates:
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableStatement,
-    InsertStatement,
-    ValuesSource,
-    DropTableStatement,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
 create_table = CreateTableStatement(
     dialect=dialect,
@@ -40,8 +48,8 @@ create_table = CreateTableStatement(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "title", TextType()),
@@ -77,14 +85,6 @@ for title, author in articles:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    QueryStatement,
-    LimitOffsetClause,
-    OrderByClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Column, WildcardExpression  # noqa: E402
-from .....expression.objects import Table
 
 # 1. Basic LIMIT - get first N rows
 query_limit = QueryStatement(

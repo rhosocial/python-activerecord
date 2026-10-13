@@ -1,3 +1,25 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
+    SQLiteSchemaDiffer,
+)
+from rhosocial.activerecord.backend.schema import (  # noqa: E402
+    SyncSchemaSnapshotBuilder,
+)
+from rhosocial.activerecord.backend.expression.types import (
+    IntegerType, TextType,
+)
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    ColumnDefinition,
+    ColumnConstraint,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 Schema diff: detect a newly added table.
 
@@ -8,15 +30,6 @@ so the default SQLiteSchemaDiffer is sufficient for all comparisons.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import (
-    CreateTableStatement, ColumnDefinition,
-    ColumnConstraint, ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.expression.types import (
-    IntegerType, TextType,
-)
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
@@ -26,13 +39,6 @@ dialect = backend.dialect
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.schema import (  # noqa: E402
-    SyncSchemaSnapshotBuilder,
-)
-from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
-    SQLiteSchemaDiffer,
-)
-from .....expression.objects import Table
 
 # Capture snapshot of the empty database
 builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
@@ -42,11 +48,11 @@ snapshot_before = builder.build(schema="main")
 expr = CreateTableStatement(
     dialect=dialect, table=Table(dialect, 'users'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
-            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
         ColumnDefinition(dialect, "name", TextType(),
-            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL)]),
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ColumnDefinition(dialect, "email", TextType(),
-            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.UNIQUE)]),
+            constraints=[ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect))]),
     ]
 )
 sql, params = expr.to_sql()

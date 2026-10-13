@@ -1,19 +1,21 @@
-"""
-CTE (Common Table Expressions): basic and recursive.
-"""
-
-# ============================================================
-# SECTION: Setup (necessary for execution, reference only)
-# ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
-
-config = SQLiteConnectionConfig(database=":memory:")
-backend = SQLiteBackend(config)
-dialect = backend.dialect
-
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression import JoinClause
+from rhosocial.activerecord.backend.expression.predicates import IsNullPredicate
+from rhosocial.activerecord.backend.expression import SetOperationStatement
+from rhosocial.activerecord.backend.expression.core import FunctionCall
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    CTEClause,
+    WithStatement,
+    GroupByHavingClause,
+)
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression.core import Literal, Column
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
     CreateTableStatement,
@@ -21,13 +23,22 @@ from rhosocial.activerecord.backend.expression import (
     ValuesSource,
     BinaryArithmeticExpression,
 )
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+"""
+CTE (Common Table Expressions): basic and recursive.
+"""
+
+# ============================================================
+# SECTION: Setup (necessary for execution, reference only)
+# ============================================================
+
+config = SQLiteConnectionConfig(database=":memory:")
+backend = SQLiteBackend(config)
+dialect = backend.dialect
+
 
 create_table = CreateTableStatement(
     dialect=dialect,
@@ -37,15 +48,15 @@ create_table = CreateTableStatement(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "manager_id", IntegerType()),
@@ -78,12 +89,6 @@ for manager_id, name, dept in employees_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CTEClause,
-    WithStatement,
-    GroupByHavingClause,
-)
-from rhosocial.activerecord.backend.expression.core import FunctionCall  # noqa: E402
 
 # --- Example 1: Basic CTE (WITH clause) ---
 # Compute average salary per department, then filter departments above a threshold.
@@ -124,8 +129,6 @@ print(f"Basic CTE SQL: {sql}")
 print(f"Params: {params}")
 
 # --- Example 2: Recursive CTE for hierarchical data (org chart) ---
-from rhosocial.activerecord.backend.expression import SetOperationStatement  # noqa: E402
-from rhosocial.activerecord.backend.expression.predicates import IsNullPredicate  # noqa: E402
 
 # Base case: top-level employees (no manager)
 # The CTE columns parameter defines column names, so we don't need AS aliases
@@ -144,9 +147,6 @@ base_query = QueryStatement(
 
 # Recursive case: employees whose manager is already in org_chart
 # Use a JOIN between the CTE result and employees table
-from rhosocial.activerecord.backend.expression import JoinClause  # noqa: E402
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from .....expression.objects import Table
 
 join_expr = JoinClause(
     dialect=dialect,

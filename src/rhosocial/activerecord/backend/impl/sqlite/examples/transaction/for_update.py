@@ -1,3 +1,32 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+)
+from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.core import Literal, Column
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    QueryStatement,
+    CreateTableStatement,
+    DropTableStatement,
+    InsertStatement,
+    ValuesSource,
+    UpdateStatement,
+    WhereClause,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 FOR UPDATE row locking with SQLite limitations.
 
@@ -8,32 +37,7 @@ This example demonstrates:
 4. How to check dialect capability before using FOR UPDATE
 """
 
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import (
-    QueryStatement,
-    CreateTableStatement,
-    DropTableStatement,
-    InsertStatement,
-    ValuesSource,
-    UpdateStatement,
-    WhereClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Literal, Column
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.expression.transaction import BeginTransactionStatement
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
-from .....expression.objects import Table
+
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
@@ -53,12 +57,12 @@ create_table = CreateTableStatement(
         ColumnDefinition(dialect, 
             "id",
             IntegerType(),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
-            constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
         ),
         ColumnDefinition(dialect, "balance", FloatType()),
     ],
@@ -72,7 +76,6 @@ insert = InsertStatement(
     into=Table(dialect, 'accounts'),
     columns=["name", "balance"],
     source=ValuesSource(
-        dialect,
         [
             [Literal(dialect, "Alice"), Literal(dialect, 1000)],
             [Literal(dialect, "Bob"), Literal(dialect, 500)],
@@ -97,7 +100,6 @@ print(f"Basic FOR UPDATE SQL: {sql}")
 
 # FOR UPDATE with OF columns
 for_update_of = ForUpdateClause(
-    dialect,
     of_columns=[Column(dialect, "id"), "balance"],
 )
 sql, params = for_update_of.to_sql()
@@ -124,7 +126,6 @@ query_with_for_update = QueryStatement(
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
-            dialect,
             "=",
             Column(dialect, "name"),
             Literal(dialect, "Alice"),
@@ -166,7 +167,6 @@ if dialect.supports_for_update():
         where=WhereClause(
             dialect,
             condition=ComparisonPredicate(
-                dialect,
                 "=",
                 Column(dialect, "name"),
                 Literal(dialect, "Alice"),
@@ -189,7 +189,6 @@ else:
             where=WhereClause(
                 dialect,
                 condition=ComparisonPredicate(
-                    dialect,
                     "=",
                     Column(dialect, "name"),
                     Literal(dialect, "Alice"),
@@ -209,7 +208,6 @@ else:
             where=WhereClause(
                 dialect,
                 condition=ComparisonPredicate(
-                    dialect,
                     "=",
                     Column(dialect, "name"),
                     Literal(dialect, "Alice"),

@@ -1,3 +1,25 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
+    SQLiteSchemaDiffer,
+)
+from rhosocial.activerecord.backend.schema import (  # noqa: E402
+    SyncSchemaSnapshotBuilder,
+)
+from rhosocial.activerecord.backend.expression.types import (
+    IntegerType, TextType, FloatType,
+)
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    CreateIndexStatement,
+    DropIndexStatement,
+    ColumnDefinition,
+    ColumnConstraint,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 Schema diff: detect removed and added indexes between two snapshots.
 """
@@ -5,16 +27,6 @@ Schema diff: detect removed and added indexes between two snapshots.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import (
-    CreateTableStatement, CreateIndexStatement,
-    DropIndexStatement, ColumnDefinition,
-    ColumnConstraint, ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.expression.types import (
-    IntegerType, TextType, FloatType,
-)
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
@@ -24,7 +36,7 @@ dialect = backend.dialect
 expr = CreateTableStatement(
     dialect=dialect, table=Table(dialect, 'products'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
-            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
         ColumnDefinition(dialect, "name", TextType()),
         ColumnDefinition(dialect, "price", FloatType()),
     ]
@@ -39,13 +51,6 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.schema import (  # noqa: E402
-    SyncSchemaSnapshotBuilder,
-)
-from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
-    SQLiteSchemaDiffer,
-)
-from rhosocial.activerecord.backend.expression.objects import Table
 
 builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
 snapshot_before = builder.build(schema="main")

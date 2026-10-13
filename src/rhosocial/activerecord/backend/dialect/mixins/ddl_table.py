@@ -1,10 +1,15 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    TableCheckConstraint,
+    TableForeignKeyConstraint,
+)
+from ...expression.statements.ddl_alter import AlterTableAction
+from ...expression.objects import Table
+from typing import Any, List, Tuple, TYPE_CHECKING
+from enum import Enum
 # src/rhosocial/activerecord/backend/dialect/mixins/ddl_table.py
 """Dialect mixins for table DDL and constraint capability detection."""
-from enum import Enum
-from typing import Any, List, Tuple, TYPE_CHECKING
 
-from ...expression.objects import Table
-from ...expression.statements.ddl_alter import AlterTableAction
+
 
 
 def _normalize_constraint_type(constraint_type: Any, constraint_enum: type, label: str) -> Any:
@@ -503,7 +508,9 @@ class TableMixin:
             parts.append("COPY GRANTS")
         return " ".join(parts), tuple(table_params) + tuple(source_params)
 
-    def format_create_table_from_template_statement(self, expr: "CreateTableFromTemplateStatement") -> Tuple[str, tuple]:
+    def format_create_table_from_template_statement(
+        self, expr: "CreateTableFromTemplateStatement"
+    ) -> Tuple[str, tuple]:
         """Format ``CREATE TABLE ... USING TEMPLATE`` (generic reusable implementation).
 
         Renders::
@@ -604,12 +611,25 @@ class TableMixin:
             column_parts.append(col_sql)
             all_params.extend(col_params)
         all_def_parts = [", ".join(column_parts)]
+        from ...expression.statements import (
+            ConstraintValidation,
+        )
+
         for t_const in expr.table_constraints:
-            validation = t_const.validation
-            if validation is not None:
-                validation_value = validation.value if isinstance(validation, Enum) else validation
-                normalized_validation = "".join(str(validation_value).strip().upper().split())
-                if normalized_validation in {"NOTVALID", "NOVALIDATE"}:
+            # NOT VALID only means something when the constraint is *added*;
+            # CREATE TABLE validates as it goes, so it is refused here. The
+            # guard is about the trait alone: a constraint without one is
+            # rendered like any other.
+            if t_const.validation is not None and isinstance(
+                t_const.branch, (TableCheckConstraint, TableForeignKeyConstraint)
+            ):
+                validation = t_const.validation
+                value = (
+                    validation.value
+                    if isinstance(validation, ConstraintValidation)
+                    else validation
+                )
+                if "".join(str(value).strip().upper().split()) in {"NOTVALID", "NOVALIDATE"}:
                     raise ValueError("NOT VALID is only valid when adding a constraint")
             const_sql, const_params = self.format_table_constraint(t_const)
             if const_sql:
@@ -648,7 +668,6 @@ class TableMixin:
                 parts.append(partition_sql)
                 all_params.extend(partition_params)
         if expr.indexes:
-            from ..exceptions import UnsupportedFeatureError
             raise UnsupportedFeatureError(
                 self.name,
                 "inline index in CREATE TABLE",

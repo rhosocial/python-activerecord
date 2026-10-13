@@ -44,29 +44,81 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 """
 
 import re
-
-from typing import Dict, List, Tuple, Type, TYPE_CHECKING
-
-from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import Literal
-from rhosocial.activerecord.backend.expression.types import (
-    ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
-    DataType, DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
-    IntegerType, IntervalType, JsonBType, JsonType,
-    RealType, SmallIntType, TextType, TimeType, TimeTzType,
-    TimestampType, TimestampTzType, TinyIntType, UUIDType, VarBinaryType, VarCharType, XmlType,
+from rhosocial.activerecord.backend.dialect.mixins import (
+    RelationSourceMixin,
+    NamespaceMixin,
+    TableNameMixin,
+    ViewNameMixin,
+    MaterializedViewNameMixin,
+    ForeignTableNameMixin,
+    IndexNameMixin,
+    SequenceNameMixin,
+    TriggerNameMixin,
+    FunctionNameMixin,
+    ProcedureNameMixin,
+    TypeNameMixin,
+    DomainNameMixin,
+    SynonymNameMixin,
+    SchemaNameMixin,
+    DatabaseNameMixin,
+    PropertyGraphNameMixin,
+    SQLXMLMixin,
+    SQLXMLParsingMixin,
+    SQLXMLSerializationMixin,
+    SQLXMLConstructionMixin,
+    SQLXMLAggregationMixin,
+    SQLXMLQueryingMixin,
+    CollationMixin,
+    WindowFunctionMixin,
+    CTEMixin,
+    UpsertMixin,
+    LateralJoinMixin,
+    ArrayMixin,
+    JSONMixin,
+    UUIDMixin,
+    ExplainMixin,
+    MergeMixin,
+    TemporalTableMixin,
+    PivotMixin,
+    GraphMixin,
+    GraphTableMixin,
+    JoinMixin,
+    SetOperationMixin,
+    ILIKEMixin,
+    # DDL Mixins
+    TableMixin,
+    PartitionMixin,
+    ConstraintMixin,
+    CommentOnMixin,
+    ViewMixin,
+    TruncateMixin,
+    SchemaMixin,
+    IndexMixin,
+    SequenceMixin,
+    TriggerMixin,
+    FunctionMixin,
+    GeneratedColumnMixin,
+    AutoIncrementMixin,
+    IdentityColumnMixin,
+    DatabaseMixin,
+    # Introspection Mixin
+    IntrospectionMixin,
+    # New Mixins
+    PredicateMixin,
+    TrimMixin,
+    LpadMixin,
+    RepeatMixin,
+    RpadMixin,
+    ExpressionMixin,
+    DateTimeMixin,
+    DQLMixin,
+    DMLMixin,
+    DDLColumnMixin,
+    DataTypeMixin,
+    UserDefinedTypeMixin,
+    DomainMixin,
+    TransactionControlMixin,
 )
-from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
-    DomainAlterAction,
-    DomainNullability,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_type import (
-    TypeAlterAction,
-    TypeDefinition,
-)
-from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
-from .column_type import DummyColumnTypeMixin
 from rhosocial.activerecord.backend.dialect.protocols import (
     # Named-object protocols
     TableObjectSupport,
@@ -164,81 +216,28 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     DqlOrderSupport,
     PivotSupport,
 )
-from rhosocial.activerecord.backend.dialect.mixins import (
-    RelationSourceMixin,
-    NamespaceMixin,
-    TableNameMixin,
-    ViewNameMixin,
-    MaterializedViewNameMixin,
-    ForeignTableNameMixin,
-    IndexNameMixin,
-    SequenceNameMixin,
-    TriggerNameMixin,
-    FunctionNameMixin,
-    ProcedureNameMixin,
-    TypeNameMixin,
-    DomainNameMixin,
-    SynonymNameMixin,
-    SchemaNameMixin,
-    DatabaseNameMixin,
-    PropertyGraphNameMixin,
-    SQLXMLMixin,
-    SQLXMLParsingMixin,
-    SQLXMLSerializationMixin,
-    SQLXMLConstructionMixin,
-    SQLXMLAggregationMixin,
-    SQLXMLQueryingMixin,
-    CollationMixin,
-    WindowFunctionMixin,
-    CTEMixin,
-    UpsertMixin,
-    LateralJoinMixin,
-    ArrayMixin,
-    JSONMixin,
-    UUIDMixin,
-    ExplainMixin,
-    MergeMixin,
-    TemporalTableMixin,
-    PivotMixin,
-    GraphMixin,
-    GraphTableMixin,
-    JoinMixin,
-    SetOperationMixin,
-    ILIKEMixin,
-    # DDL Mixins
-    TableMixin,
-    PartitionMixin,
-    ConstraintMixin,
-    CommentOnMixin,
-    ViewMixin,
-    TruncateMixin,
-    SchemaMixin,
-    IndexMixin,
-    SequenceMixin,
-    TriggerMixin,
-    FunctionMixin,
-    GeneratedColumnMixin,
-    AutoIncrementMixin,
-    IdentityColumnMixin,
-    DatabaseMixin,
-    # Introspection Mixin
-    IntrospectionMixin,
-    # New Mixins
-    PredicateMixin,
-    TrimMixin,
-    LpadMixin,
-    RepeatMixin,
-    RpadMixin,
-    ExpressionMixin,
-    DateTimeMixin,
-    DQLMixin,
-    DMLMixin,
-    DDLColumnMixin,
-    DataTypeMixin,
-    UserDefinedTypeMixin,
-    DomainMixin,
-    TransactionControlMixin,
+from .column_type import DummyColumnTypeMixin
+from .expression import _DummyTypeAlterAction, _DummyTypeDefinition
+from rhosocial.activerecord.backend.expression.statements.ddl_type import (
+    TypeAlterAction,
+    TypeDefinition,
 )
+from rhosocial.activerecord.backend.expression.statements.ddl_domain import (
+    DomainAlterAction,
+    DomainNullability,
+)
+from rhosocial.activerecord.backend.expression.types import (
+    ArrayType, BigIntType, BinaryType, BlobType, BooleanType, CharType, CustomType,
+    DataType, DateType, DateTimeType, DecimalType, DoubleType, EnumType, FloatType,
+    IntegerType, IntervalType, JsonBType, JsonType,
+    RealType, SmallIntType, TextType, TimeType, TimeTzType,
+    TimestampType, TimestampTzType, TinyIntType, UUIDType, VarBinaryType, VarCharType, XmlType,
+)
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from typing import Dict, List, Tuple, Type, TYPE_CHECKING
+
+
 
 _COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -264,11 +263,10 @@ _COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 #: name — the part that says which values is not the part that says which type,
 #: and ``CustomType`` keeps it verbatim.
 _PARSE_CONCEPTS = (
-    BigIntType, BinaryType, BlobType, BooleanType, CharType, DateTimeType,
-    DateType, DecimalType, DoubleType, FloatType, IntegerType, JsonBType,
-    JsonType, RealType, SmallIntType, TextType, TimeType, TimeTzType,
-    TimestampType, TimestampTzType, TinyIntType, UUIDType, VarBinaryType,
-    VarCharType, XmlType,
+    BigIntType, BinaryType, BlobType, BooleanType, CharType, DateTimeType, DateType,
+    DecimalType, DoubleType, FloatType, IntegerType, JsonBType, JsonType, RealType,
+    SmallIntType, TextType, TimeType, TimeTzType, TimestampType, TimestampTzType,
+    TinyIntType, UUIDType, VarBinaryType, VarCharType, XmlType,
 )
 
 #: ``{UPPER-CASED type name: concept}``.  A concept with several spellings
@@ -1822,6 +1820,11 @@ class DummyDialect(
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
         """Format a column definition including generated columns.
 
+        Each constraint rides through :meth:`format_column_constraint` -- the
+        shared production-level formatter -- so the dummy dialect spells a
+        constraint the way every other dialect does and does not keep a second
+        implementation of the same grammar here.
+
         Args:
             col_def: Column definition object containing name, data type,
                      constraints, and optional generated column expression.
@@ -1829,55 +1832,14 @@ class DummyDialect(
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnConstraintType,
-        )
-        from rhosocial.activerecord.backend.expression import bases
-
-        all_params = []
+        all_params: list = []
 
         col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type.to_sql()[0]}"
 
         for constraint in col_def.constraints:
-            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
-                col_sql += " PRIMARY KEY"
-            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
-                col_sql += " NOT NULL"
-            elif constraint.constraint_type == ColumnConstraintType.NULL:
-                col_sql += " NULL"
-            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
-                col_sql += " UNIQUE"
-            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
-                if constraint.default_value is None:
-                    raise ValueError("DEFAULT constraint must have a default value specified.")
-                if isinstance(constraint.default_value, bases.BaseExpression):
-                    default_sql, default_params = constraint.default_value.to_sql()
-                    if default_params and isinstance(constraint.default_value, Literal):
-                        # DDL accepts no bind parameters: inline the literal.
-                        default_sql = self.inline_sql_literal(constraint.default_value.value)
-                        default_params = ()
-                    col_sql += f" DEFAULT {default_sql}"
-                    all_params.extend(default_params)
-                else:
-                    # DDL clauses accept no bind parameters: render inline.
-                    col_sql += f" DEFAULT {self.format_literal(constraint.default_value)}"
-            elif constraint.constraint_type == ColumnConstraintType.CHECK:
-                if constraint.check_condition is None:
-                    raise ValueError("CHECK constraint must have a check condition specified.")
-                # Same inline-only path as the shared implementation: DDL
-                # carries no bind parameters.
-                check_sql = self._format_ddl_check_predicate(constraint.check_condition)
-                enforcement = self._format_constraint_enforcement(constraint)
-                suffix = f" {enforcement}" if enforcement else ""
-                col_sql += f" CHECK ({check_sql}){suffix}"
-            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
-                if constraint.foreign_key_reference is None:
-                    raise ValueError("FOREIGN KEY constraint must have a foreign key reference specified.")
-                ref_table, ref_cols = constraint.foreign_key_reference
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in ref_cols)
-                enforcement = self._format_constraint_enforcement(constraint)
-                suffix = f" {enforcement}" if enforcement else ""
-                col_sql += f" REFERENCES {ref_table.to_sql()[0]}({ref_cols_str}){suffix}"
+            constraint_sql, constraint_params = self.format_column_constraint(constraint)
+            col_sql += constraint_sql
+            all_params.extend(constraint_params)
 
         if col_def.generated_expression is not None:
             gen_sql, gen_params = col_def.generated_expression.to_sql()

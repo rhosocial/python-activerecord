@@ -1,3 +1,21 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal, QueryStatement
+from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
+    IntegerType,
+    TextType,
+)
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
+    ColumnDefinition,
+)
+from rhosocial.activerecord.backend.expression import CreateTableStatement, InsertStatement, ValuesSource, ColumnConstraint
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 # src/rhosocial/activerecord/backend/impl/sqlite/examples/named_expressions/order_expressions.py
 """
 Order-related named query examples.
@@ -10,28 +28,11 @@ ActiveRecord models.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableStatement,
-    InsertStatement,
-    ValuesSource,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-)
-from rhosocial.activerecord.backend.expression.types import (  # noqa: E402
-    IntegerType,
-    TextType,
-)
 
 
 def _column(name: str, type_name: str):
@@ -39,7 +40,7 @@ def _column(name: str, type_name: str):
     data_type = IntegerType() if type_name == "INTEGER" else TextType()
     constraints = []
     if "PRIMARY KEY" in type_name:
-        constraints.append(ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY))
+        constraints.append(ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)))
     return ColumnDefinition(dialect, name=name, data_type=data_type, constraints=constraints)
 
 
@@ -82,8 +83,6 @@ for table, data in [
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import Column, ComparisonPredicate, Literal, QueryStatement
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
 
 def get_order(dialect, order_id: int):
@@ -188,9 +187,6 @@ if __name__ == "__main__":
 # ============================================================
 # SECTION: Execution (run the expression)
 # ============================================================
-from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
-from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
-from .....expression.objects import Table
 
 if __name__ == "__main__":
     query = get_order(dialect, order_id=1)

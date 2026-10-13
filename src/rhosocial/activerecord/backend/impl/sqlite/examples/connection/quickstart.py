@@ -1,3 +1,28 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint,
+    ColumnDefinition,
+)
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    DropTableStatement,
+    InsertStatement,
+    QueryStatement,
+    ValuesSource,
+    WhereClause,
+)
 """
 Quick Start: Connect to SQLite and execute queries.
 
@@ -11,28 +36,7 @@ This example demonstrates:
 # ============================================================
 # SECTION: Connection Setup
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    CreateTableStatement,
-    DropTableStatement,
-    InsertStatement,
-    QueryStatement,
-    ValuesSource,
-    WhereClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Column, Literal
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraint,
-    ColumnConstraintType,
-    ColumnDefinition,
-)
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
-from .....expression.objects import Table
+
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(connection_config=config)
@@ -59,14 +63,14 @@ def create_demo_tables():
                 "id",
                 IntegerType(),
                 constraints=[
-                    ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
-                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                    ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                    ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
                 ],
             ),
             ColumnDefinition(dialect, 
                 "name",
                 TextType(),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "status", TextType()),
         ],
@@ -82,14 +86,14 @@ def create_demo_tables():
                 "id",
                 IntegerType(),
                 constraints=[
-                    ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
-                    ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                    ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                    ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
                 ],
             ),
             ColumnDefinition(dialect, 
                 "message",
                 TextType(),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
             ),
         ],
         if_not_exists=True,
@@ -103,7 +107,6 @@ def seed_demo_data():
         into=Table(dialect, 'users'),
         columns=["name", "status"],
         source=ValuesSource(
-            dialect,
             [
                 [Literal(dialect, "Alice"), Literal(dialect, "active")],
                 [Literal(dialect, "Bob"), Literal(dialect, "inactive")],
@@ -136,7 +139,6 @@ query = QueryStatement(
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
-            dialect,
             "=",
             Column(dialect, "status"),
             Literal(dialect, "active"),
@@ -171,13 +173,11 @@ filtered_query = QueryStatement(
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
-            dialect,
             "=",
             Column(dialect, "id"),
             Literal(dialect, 1),
         )
         & ComparisonPredicate(
-            dialect,
             "=",
             Column(dialect, "status"),
             Literal(dialect, "active"),

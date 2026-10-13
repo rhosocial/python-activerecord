@@ -1,3 +1,17 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
+    SQLiteIntegerType,
+    SQLiteTextType,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    CreateTableStatement,
+    ColumnDefinition,
+    ColumnConstraint,
+    DropTableStatement,
+)
 # src/rhosocial/activerecord/backend/impl/sqlite/examples/named_migrations/expressions.py
 """
 DDL named expression functions for migration examples.
@@ -6,18 +20,7 @@ Each function receives a *dialect* and returns a DDL expression object.
 These are the building blocks used by NamedMigration up()/down() methods.
 """
 
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    CreateTableStatement,
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-    DropTableStatement,
-)
-from rhosocial.activerecord.backend.impl.sqlite.expression.types import (
-    SQLiteIntegerType,
-    SQLiteTextType,
-)
-from .....expression.objects import Table
+
 
 
 def create_users_table(dialect):
@@ -29,7 +32,7 @@ def create_users_table(dialect):
             ColumnDefinition(dialect, 
                 "id",
                 SQLiteIntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "name", SQLiteTextType(dialect)),
             ColumnDefinition(dialect, "email", SQLiteTextType(dialect)),
@@ -51,7 +54,7 @@ def create_posts_table(dialect):
             ColumnDefinition(dialect, 
                 "id",
                 SQLiteIntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "title", SQLiteTextType(dialect)),
             ColumnDefinition(dialect, "user_id", SQLiteIntegerType(dialect)),
@@ -77,7 +80,7 @@ def create_custom_table(dialect, table_name: str = "custom_table"):
             ColumnDefinition(dialect, 
                 "id",
                 SQLiteIntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY)],
+                constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))],
             ),
             ColumnDefinition(dialect, "value", SQLiteTextType(dialect)),
         ],

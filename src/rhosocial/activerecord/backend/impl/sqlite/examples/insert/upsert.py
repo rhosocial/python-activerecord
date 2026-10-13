@@ -1,3 +1,26 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression
+from rhosocial.activerecord.backend.impl.sqlite.expression.dml import (  # noqa: E402
+    SQLiteInsertStatement,
+)
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    ValuesSource,
+    QueryStatement,
+    CreateTableStatement,
+    DropTableStatement,
+)
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 """
 UPSERT (INSERT OR REPLACE / INSERT OR IGNORE) - SQLite.
 
@@ -8,34 +31,12 @@ This example demonstrates:
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
-    ValuesSource,
-    QueryStatement,
-    CreateTableStatement,
-    DropTableStatement,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.impl.sqlite.expression.dml import (  # noqa: E402
-    SQLiteInsertStatement,
-)
-from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
-from .....expression.objects import Table
 
 create_table = CreateTableStatement(
     dialect=dialect,
@@ -45,23 +46,23 @@ create_table = CreateTableStatement(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "username",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
-                ColumnConstraint(dialect, ColumnConstraintType.UNIQUE),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
+                ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "email",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "login_count", IntegerType()),
@@ -78,7 +79,6 @@ insert_initial = InsertStatement(
     into=Table(dialect, 'users'),
     columns=["username", "email", "login_count"],
     source=ValuesSource(
-        dialect,
         [
             [Literal(dialect, "alice"), Literal(dialect, "alice@example.com"), Literal(dialect, 5)],
             [Literal(dialect, "bob"), Literal(dialect, "bob@example.com"), Literal(dialect, 3)],
@@ -114,7 +114,6 @@ insert_or_replace = SQLiteInsertStatement(
     into="users",
     columns=["username", "email", "login_count"],
     source=ValuesSource(
-        dialect,
         [
             # 'alice' already exists with id=1; OR REPLACE will delete old row and insert new one
             [Literal(dialect, "alice"), Literal(dialect, "alice_new@example.com"), Literal(dialect, 0)],
@@ -134,7 +133,6 @@ insert_or_ignore = SQLiteInsertStatement(
     into="users",
     columns=["username", "email", "login_count"],
     source=ValuesSource(
-        dialect,
         [
             # 'bob' already exists; OR IGNORE will skip this row
             [Literal(dialect, "bob"), Literal(dialect, "bob_new@example.com"), Literal(dialect, 10)],

@@ -1,17 +1,15 @@
-"""
-Basic transaction control using transaction manager.
-"""
-
-# ============================================================
-# SECTION: Setup (necessary for execution, reference only)
-# ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-
-config = SQLiteConnectionConfig(database=":memory:")
-backend = SQLiteBackend(config)
-dialect = backend.dialect
-
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.core import Literal, Column
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,
     InsertStatement,
@@ -20,18 +18,20 @@ from rhosocial.activerecord.backend.expression import (
     QueryStatement,
     WhereClause,
 )
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.core import Literal, Column  # noqa: E402
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
-from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
-from .....expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+"""
+Basic transaction control using transaction manager.
+"""
+
+# ============================================================
+# SECTION: Setup (necessary for execution, reference only)
+# ============================================================
+
+config = SQLiteConnectionConfig(database=":memory:")
+backend = SQLiteBackend(config)
+dialect = backend.dialect
+
 
 create_table = CreateTableStatement(
     dialect=dialect,
@@ -41,14 +41,14 @@ create_table = CreateTableStatement(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "balance", FloatType()),
@@ -64,7 +64,6 @@ insert = InsertStatement(
     into=Table(dialect, 'accounts'),
     columns=["name", "balance"],
     source=ValuesSource(
-        dialect,
         [
             [Literal(dialect, "Alice"), Literal(dialect, 100)],
         ],
@@ -92,7 +91,6 @@ with backend.transaction():
         where=WhereClause(
             dialect,
             condition=ComparisonPredicate(
-                dialect,
                 "=",
                 Column(dialect, "name"),
                 Literal(dialect, "Alice"),
@@ -110,7 +108,6 @@ query = QueryStatement(
     where=WhereClause(
         dialect,
         condition=ComparisonPredicate(
-            dialect,
             "=",
             Column(dialect, "name"),
             Literal(dialect, "Alice"),

@@ -8,14 +8,28 @@ Demonstrates that snapshots can be saved, loaded, and compared across sessions.
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
 import json
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.expression import (
-    CreateTableStatement, ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
+    SQLiteSchemaDiffer,
+)
+from rhosocial.activerecord.backend.schema import (  # noqa: E402
+    SchemaSnapshot,
+    SyncSchemaSnapshotBuilder,
 )
 from rhosocial.activerecord.backend.expression.types import (
     IntegerType, TextType,
 )
+from rhosocial.activerecord.backend.expression import (
+    CreateTableStatement,
+    ColumnDefinition,
+    ColumnConstraint,
+)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
@@ -25,9 +39,9 @@ dialect = backend.dialect
 expr = CreateTableStatement(
     dialect=dialect, table=Table(dialect, 'books'), columns=[
         ColumnDefinition(dialect, "id", IntegerType(),
-            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.PRIMARY_KEY)]),
+            constraints=[ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect))]),
         ColumnDefinition(dialect, "title", TextType(),
-            constraints=[ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL)]),
+            constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
         ColumnDefinition(dialect, "author", TextType()),
     ]
 )
@@ -37,14 +51,6 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.schema import (  # noqa: E402
-    SchemaSnapshot,
-    SyncSchemaSnapshotBuilder,
-)
-from rhosocial.activerecord.backend.impl.sqlite.schema.differ import (  # noqa: E402
-    SQLiteSchemaDiffer,
-)
-from .....expression.objects import Table
 
 builder = SyncSchemaSnapshotBuilder(backend.introspector, dialect)
 snapshot_before = builder.build(schema="main")

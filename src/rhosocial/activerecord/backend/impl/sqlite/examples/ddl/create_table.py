@@ -1,13 +1,22 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+    ColumnUniqueConstraint,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (  # noqa: E402
+    IndexDefinition,
+)
+from rhosocial.activerecord.backend.expression import CreateTableStatement, ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, TimestampType
 """
 Create a table with primary key, auto-increment, and index.
 """
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
-from rhosocial.activerecord.backend.expression.types import IntegerType, TextType, TimestampType
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
@@ -16,39 +25,27 @@ dialect = backend.dialect
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableStatement,
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (  # noqa: E402
-    IndexDefinition,
-)
 
 columns = [
     ColumnDefinition(dialect, 
         name="id",
         data_type=IntegerType(),
         constraints=[
-            ColumnConstraint(dialect, 
-                constraint_type=ColumnConstraintType.PRIMARY_KEY,
-                is_auto_increment=True,
-            ),
+            ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
         ],
     ),
     ColumnDefinition(dialect, 
         name="name",
         data_type=TextType(),
         constraints=[
-            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.NOT_NULL),
+            ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
         ],
     ),
     ColumnDefinition(dialect, 
         name="email",
         data_type=TextType(),
         constraints=[
-            ColumnConstraint(dialect, constraint_type=ColumnConstraintType.UNIQUE),
+            ColumnConstraint(dialect, branch=ColumnUniqueConstraint(dialect)),
         ],
     ),
     ColumnDefinition(dialect, 

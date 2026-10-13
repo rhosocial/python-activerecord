@@ -1,3 +1,8 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnPrimaryKeyConstraint,
+)
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from typing import Tuple, TYPE_CHECKING
 # src/rhosocial/activerecord/backend/impl/sqlite/mixins/ddl_column.py
 """
 SQLite-specific Ddl Column implementation.
@@ -5,12 +10,11 @@ SQLite-specific Ddl Column implementation.
 This module provides the SQLiteDDLColumnMixin class.
 """
 
-from typing import Tuple, TYPE_CHECKING
-from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-        ColumnConstraint,
+        ColumnPrimaryKeyConstraint,
         ColumnDefinition,
         DefaultValueClause,
     )
@@ -27,7 +31,9 @@ class SQLiteDDLColumnMixin:
     refuse those qualifiers without a per-dialect copy.
     """
 
-    def format_primary_key_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
+    def format_column_primary_key_constraint(
+        self, constraint: "ColumnPrimaryKeyConstraint"
+    ) -> Tuple[str, tuple]:
         """SQLite's PRIMARY KEY, which is where ``AUTOINCREMENT`` lives.
 
         ``AUTOINCREMENT`` is part of SQLite's primary-key grammar -- it follows
@@ -38,7 +44,7 @@ class SQLiteDDLColumnMixin:
         whether the column is an ``INTEGER`` is a fact only the column
         definition holds.
         """
-        sql, params = super().format_primary_key_constraint(constraint)
+        sql, params = super().format_column_primary_key_constraint(constraint)
         if constraint.is_auto_increment:
             sql += " AUTOINCREMENT"
         return sql, params
@@ -85,9 +91,6 @@ class SQLiteDDLColumnMixin:
         A flag on any other constraint used to be dropped without a word, which
         left a table whose key does not autoincrement and no trace of why.
         """
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnConstraintType,
-        )
         from rhosocial.activerecord.backend.expression.types.integer import (
             IntegerType,
         )
@@ -95,22 +98,11 @@ class SQLiteDDLColumnMixin:
         flagged = [
             constraint
             for constraint in col_def.constraints
-            if constraint.is_auto_increment
+            if isinstance(constraint.branch, ColumnPrimaryKeyConstraint)
+            and constraint.branch.is_auto_increment
         ]
         if not flagged:
             return
-        for constraint in flagged:
-            if (
-                constraint.constraint_type
-                is not ColumnConstraintType.PRIMARY_KEY
-            ):
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "AUTOINCREMENT on a non-primary-key column constraint",
-                    "SQLite spells AUTOINCREMENT only as part of "
-                    "INTEGER PRIMARY KEY AUTOINCREMENT; declare it on the "
-                    "primary key constraint.",
-                )
         if not isinstance(col_def.data_type, IntegerType):
             raise UnsupportedFeatureError(
                 self.name,

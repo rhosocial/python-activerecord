@@ -1,3 +1,19 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression import (
+    InsertStatement,
+    ValuesSource,
+    ReturningClause,
+    Column,
+)
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression import CreateTableStatement
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 """
 Insert a record and return the auto-generated ID using RETURNING clause.
 """
@@ -5,19 +21,11 @@ Insert a record and return the auto-generated ID using RETURNING clause.
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import CreateTableStatement  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
 create_table = CreateTableStatement(
     dialect=dialect,
@@ -27,15 +35,15 @@ create_table = CreateTableStatement(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "name",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
     ],
@@ -47,14 +55,6 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    InsertStatement,
-    ValuesSource,
-    ReturningClause,
-    Column,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from .....expression.objects import Table
 
 insert_expr = InsertStatement(
     dialect=dialect,

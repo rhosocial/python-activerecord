@@ -24,25 +24,12 @@ from typing import (
     TYPE_CHECKING,
 )
 
-try:
-    from typing import Annotated
-except ImportError:  # Python 3.8
-    from typing_extensions import Annotated
-
-from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexStatement, DropIndexStatement
-from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause
-from rhosocial.activerecord.backend.expression.statements.ddl_table import (
-    ColumnConstraint,
-    ColumnConstraintType,
-    ColumnDefinition,
-    CreateTableStatement,
-    CreateTableOptions,
-    DropTableStatement,
-    GeneratedColumnExpression,
-    IndexDefinition,
-    StorageOptionsExpression,
-    TableConstraint,
-    TableConstraintType,
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnGeneratedConstraint,
+    ColumnNotNullConstraint,
+    ColumnNullableConstraint,
+    ColumnPrimaryKeyConstraint,
+    TablePrimaryKeyConstraint,
 )
 from .fields import (
     DDLAnnotation,
@@ -54,6 +41,24 @@ from .fields import (
     UseIndex,
     UseSqlType,
 )
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    ColumnConstraint,
+    ColumnDefinition,
+    CreateTableStatement,
+    CreateTableOptions,
+    DropTableStatement,
+    IndexDefinition,
+    StorageOptionsExpression,
+    TableConstraint,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_partition import PartitionClause
+from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexStatement, DropIndexStatement
+
+try:
+    from typing import Annotated
+except ImportError:  # Python 3.8
+    from typing_extensions import Annotated
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -64,8 +69,7 @@ if TYPE_CHECKING:  # pragma: no cover
 DDLColumnDataType = Union["UseSqlType", "DataType", Sequence["DataType"]]
 DDLColumnType = Union["UseColumnType", Type["ColumnBase"], Sequence[Type["ColumnBase"]]]
 DDLGeneratedColumn = Union[
-    GeneratedColumnExpression,
-    Callable[["SQLDialectBase"], GeneratedColumnExpression],
+    Callable[["SQLDialectBase"], ColumnGeneratedConstraint],
 ]
 
 PEP604_UNION_TYPE = getattr(types, "UnionType", None)
@@ -136,7 +140,6 @@ class ColumnOptions:
     """Dialect-free declaration for backend-specific column options."""
 
     def column_definition_class(self) -> Type["ColumnDefinition"]:
-        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
 
         return ColumnDefinition
 
@@ -386,17 +389,17 @@ class DDLSource(Protocol):
         ...
 
     def table_options(
-        self,
+        cls,
     ) -> Optional[Union[CreateTableOptions, Sequence[CreateTableOptions]]]:
         ...
 
     def table_storage_options(
-        self,
+        cls,
     ) -> Optional[Union[StorageOptionsExpression, Sequence[StorageOptionsExpression]]]:
         ...
 
     def table_partition(
-        self,
+        cls,
     ) -> Optional[Union[PartitionClause, Sequence[PartitionClause]]]:
         ...
 
@@ -471,13 +474,13 @@ class DDLSourceMixin:
             explicit_primary_keys = [
                 constraint
                 for constraint in declarations
-                if constraint.constraint_type == TableConstraintType.PRIMARY_KEY
+                if isinstance(constraint.branch, TablePrimaryKeyConstraint)
             ]
             if explicit_primary_keys:
                 matching_primary_keys = [
                     constraint
                     for constraint in explicit_primary_keys
-                    if list(constraint.columns or []) == primary_key_columns
+                    if list(constraint.branch.columns or []) == primary_key_columns
                 ]
                 if not matching_primary_keys:
                     raise ValueError(
@@ -486,12 +489,10 @@ class DDLSourceMixin:
                     )
             else:
                 declarations.append(
-                    TableConstraint(
+TableConstraint(
                         cast(Any, None),
-                        TableConstraintType.PRIMARY_KEY,
-                        columns=primary_key_columns,
-                    )
-                )
+                        branch=TablePrimaryKeyConstraint(cast(Any, None), primary_key_columns),
+                    )                )
         return declarations
 
     @classmethod
@@ -602,29 +603,29 @@ class DDLSourceMixin:
         if metadata is None:
             return []
         constraints = [marker.constraint for marker in metadata.constraints]
-        declared_types = {constraint.constraint_type for constraint in constraints}
-        explicit_not_null = ColumnConstraintType.NOT_NULL in declared_types
-        explicit_nullable = ColumnConstraintType.NULL in declared_types
+        declared_types = {type(constraint.branch) for constraint in constraints}
+        explicit_not_null = ColumnNotNullConstraint in declared_types
+        explicit_nullable = ColumnNullableConstraint in declared_types
         source = cast(Any, cls)
         pk_member = cls.column_name(field) in source.primary_key_columns()
         if pk_member and not source.is_composite_pk():
             constraints.append(
-                ColumnConstraint(cast(Any, None), ColumnConstraintType.PRIMARY_KEY)
+                ColumnConstraint(cast(Any, None), branch=ColumnPrimaryKeyConstraint(cast(Any, None)))
             )
         if pk_member:
             if explicit_nullable:
                 constraints = [
                     constraint
                     for constraint in constraints
-                    if constraint.constraint_type != ColumnConstraintType.NULL
+                    if not isinstance(constraint.branch, ColumnNullableConstraint)
                 ]
             if not explicit_not_null:
                 constraints.append(
-                    ColumnConstraint(cast(Any, None), ColumnConstraintType.NOT_NULL)
+                    ColumnConstraint(cast(Any, None), branch=ColumnNotNullConstraint(cast(Any, None)))
                 )
         elif not explicit_not_null and not explicit_nullable and not metadata.is_optional:
             constraints.append(
-                ColumnConstraint(cast(Any, None), ColumnConstraintType.NOT_NULL)
+                ColumnConstraint(cast(Any, None), branch=ColumnNotNullConstraint(cast(Any, None)))
             )
         return constraints
 

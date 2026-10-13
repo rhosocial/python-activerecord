@@ -1,31 +1,42 @@
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnNotNullConstraint,
+    ColumnPrimaryKeyConstraint,
+)
+from .....expression.objects import Table
+from rhosocial.activerecord.backend.expression.advanced_functions import (  # noqa: E402
+    WindowSpecification,
+)
+from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression import (
+    QueryStatement,
+    Column,
+    FunctionCall,
+    OrderByClause,
+)
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
+    CreateTableStatement,
+    InsertStatement,
+    ValuesSource,
+)
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 """
 Window functions: ROW_NUMBER, LAG, LEAD.
 """
 
 # ============================================================
 # SECTION: Setup (necessary for execution, reference only)
-from rhosocial.activerecord.backend.expression.types import FloatType, IntegerType, TextType
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (  # noqa: E402
-    CreateTableStatement,
-    InsertStatement,
-    ValuesSource,
-)
-from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
-from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
-    ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
-)
 
 create_table = CreateTableStatement(
     dialect=dialect,
@@ -35,15 +46,15 @@ create_table = CreateTableStatement(
             "id",
             IntegerType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True),
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnPrimaryKeyConstraint(dialect, is_auto_increment=True)),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, 
             "salesperson",
             TextType(),
             constraints=[
-                ColumnConstraint(dialect, ColumnConstraintType.NOT_NULL),
+                ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect)),
             ],
         ),
         ColumnDefinition(dialect, "region", TextType()),
@@ -75,17 +86,6 @@ for row in sales_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
-    QueryStatement,
-    Column,
-    FunctionCall,
-    OrderByClause,
-)
-from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.advanced_functions import (  # noqa: E402
-    WindowSpecification,
-)
-from .....expression.objects import Table
 
 window_spec = WindowSpecification(
     dialect,
@@ -94,7 +94,6 @@ window_spec = WindowSpecification(
 )
 
 window_func = FunctionCall(
-    dialect,
     "ROW_NUMBER",
     window_spec=window_spec,
     alias="row_num",
@@ -106,7 +105,6 @@ query = QueryStatement(
         Column(dialect, "salesperson"),
         Column(dialect, "amount"),
         Column(dialect, "sale_date"),
-        window_func,
     ],
     from_=NamedRelationRef(dialect, Table(dialect, "sales")),
     order_by=OrderByClause(
