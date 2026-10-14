@@ -240,6 +240,12 @@ class UseColumnType:
     """
 
     def __init__(self, *column_classes: Type["ColumnBase"]):
+        # Resolved here rather than at module level: the module keeps backend
+        # imports lazy, and this is the only runtime use of the name. The
+        # annotation above is a string, so it needed nothing at runtime -- the
+        # issubclass check below did, and it raised NameError the moment a
+        # marker was declared (see 0245b299).
+        from ..backend.expression.column_types import ColumnBase
 
         if not column_classes:
             raise TypeError(
