@@ -412,13 +412,15 @@ def test_a_type_the_core_does_not_hold_is_reported_unknown():
     assert not is_typed_as_one_of_these(instance)
 
 
-def test_every_typed_expression_declares_a_family_from_the_lattice():
+def test_every_typed_value_declares_a_family_from_the_lattice():
     """Each result class states its own family, and it has to be one the
     lattice knows -- otherwise it offers operations nothing downstream expects.
 
     This replaced a test that every family but XML had a wrapper in a registry.
     There is no registry now: a factory constructs the class it means, so there
-    is no table left to be complete."""
+    is no table left to be complete. The family is named by the ``Value``
+    suffix (规范 4.9), and the scan follows that suffix -- so a rename that
+    moves the family fails here rather than quietly emptying the set."""
     import inspect
 
     from rhosocial.activerecord.backend.expression import core
@@ -426,10 +428,10 @@ def test_every_typed_expression_declares_a_family_from_the_lattice():
     declared = {
         name: cls
         for name, cls in inspect.getmembers(core, inspect.isclass)
-        if name.endswith("ValueExpression") and name != "SQLValue"
+        if name.endswith("Value") and name != "SQLValue"
     }
-    assert declared, "the typed expressions moved"
-    # Every typed expression declares its type by being a class, so the only
+    assert declared, "the typed values moved"
+    # Every typed value declares its type by being a class, so the only
     # thing left to check is that each one is still reachable and distinct.
     assert len(set(declared.values())) == len(declared), "two names bind one class"
 
