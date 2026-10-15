@@ -129,7 +129,58 @@ find /tmp -name "test_activerecord_*.sqlite" -delete   # macOS/Linux
 Get-ChildItem -Path $env:TEMP -Name "test_activerecord_*.sqlite" | Remove-Item   # PowerShell
 ```
 
-## 8. Authoring Tests
+## 8. Windows / PowerShell 7
+
+`scripts/preflight.sh` and `scripts/install-git-hooks.sh` are POSIX. On Windows use their
+counterparts, which share helpers via `scripts/_devlib.ps1`:
+
+| Task | Command |
+|------|---------|
+| Environment report | `./scripts/dev.ps1 doctor` |
+| Serial test run | `./scripts/dev.ps1 test` |
+| Test run with pytest arguments | `./scripts/dev.ps1 test -k cte` |
+| Parallel test run (opt-in, §5) | `./scripts/dev.ps1 test -Parallel` |
+| Import check, no tests run | `./scripts/dev.ps1 collect` |
+| Coverage | `./scripts/dev.ps1 cov -Parallel` |
+| Lint / format / types | `./scripts/dev.ps1 lint` / `fmt` / `type` |
+| Pre-flight (lint + import + collect) | `./scripts/dev.ps1 preflight` |
+| Pre-push bundle | `./scripts/dev.ps1 verify` |
+| Install / remove the pre-commit hook | `./scripts/dev.ps1 hooks [-Remove]` |
+| Create a changelog fragment | `./scripts/dev.ps1 fragment <pr> <type> "<text>"` |
+| Changelog rules locally (§ mirrors CI) | `./scripts/dev.ps1 changelog-check` |
+| Redis service for `-m redis` | `./scripts/dev.ps1 redis up` / `down` / `status` |
+| Remove stray temp databases and caches | `./scripts/dev.ps1 clean [-Dry]` |
+
+Notes:
+
+- **Serial by default.** `test` runs serially; `-Parallel` is the opt-in and adds
+  `-n auto --dist=loadgroup -p rhosocial.activerecord.testsuite.conftest`, matching §5 and CI.
+  Parallel execution is a supported and encouraged mode — iron rule 1 requires the plugin and the
+  `serial` marker, it does not mandate a serial run.
+- **`PYTHONPATH` is set for you**, as absolute `<root>/src;<root>/tests` (Windows path
+  separator). An existing `PYTHONPATH` is preserved after ours.
+- **Overrides**: `AR_VENV=<dir>` selects the virtualenv (default `.venv3.14`), `AR_RUFF=<file>`
+  pins an executable. `doctor` reports both.
+- **The git hook is a POSIX sh script** even when installed from PowerShell, because git for
+  Windows runs hooks through its bundled shell. It prefers `preflight.ps1` and falls back to
+  `preflight.sh`.
+- **`doctor` checks the things that silently break a Windows run**: tool availability, the
+  resolved testsuite path (it is an editable install and may point into a worktree), Redis
+  reachability, hook installation, and whether `fcntl` is importable (see below).
+
+### fcntl and pooled databases
+
+`rhosocial-activerecord-testsuite`'s `core/pool.py` locks per-slot files with `fcntl.flock` while
+the database pool is active — that is, parallel runs with a positive `--db-pool-size`. `fcntl` is
+POSIX-only, so on Windows run DB scenarios in parallel with `--db-pool-size 0`: pooling stays off,
+each test takes its own unique database name, and no cross-process slot lock is needed.
+
+A serial Windows run used to fail after *every* test with `ModuleNotFoundError: No module named
+'fcntl'` — the teardown hook releases slots unconditionally and imported `fcntl` at function entry,
+although a serial run never holds a slot. Fixed in testsuite `458af92`: the release path returns
+before the import.
+
+## 9. Authoring Tests
 
 **Writing/adding tests is covered by the `dev-testing-contributor` skill** — load it for: testsuite
 vs backend division of responsibilities, provider pattern & composite fixtures (tuples), protocol
