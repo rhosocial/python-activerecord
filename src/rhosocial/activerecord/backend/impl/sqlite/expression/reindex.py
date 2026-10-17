@@ -7,7 +7,7 @@ This module provides SQLiteReindexStatement for rebuilding indexes.
 
 from typing import Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression
 from ....expression.objects import Index, Table
 
 if TYPE_CHECKING:
@@ -15,6 +15,17 @@ if TYPE_CHECKING:
 
 
 class SQLiteReindexStatement(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression.
+
+        Declared rather than reached through a ``to_sql`` override: the node
+        names its formatter and the dialect supplies it. A node that calls the
+        dialect itself keeps the lookup inside the node, which is the direction
+        this architecture removes.
+        """
+        return "format_reindex_statement"
     """SQLite REINDEX statement expression.
 
     REINDEX is a SQLite-specific statement for rebuilding indexes.
@@ -76,11 +87,3 @@ class SQLiteReindexStatement(BaseExpression):
             )
         self.table = table
         self.expressions = expressions
-
-    def to_sql(self) -> SQLQueryAndParams:
-        """Generate SQL for REINDEX statement.
-
-        Returns:
-            Tuple of (SQL string, empty parameters tuple).
-        """
-        return self._dialect.format_reindex_statement(self)
