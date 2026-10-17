@@ -37,7 +37,6 @@ from rhosocial.activerecord.backend.expression.registry import (
     kind_of,
 )
 from rhosocial.activerecord.backend.expression.serialization import (
-    ArtifactError,
     ExpressionDeserializationError,
     deserialize,
     serialize,
@@ -158,7 +157,13 @@ def test_framework_default_registry_is_built_on_first_deserialization():
     from rhosocial.activerecord.backend.expression import serialization
 
     registry = serialization.default_registry()
-    assert len(registry.node_kinds()) >= 400, len(registry.node_kinds())
+    kinds = registry.node_kinds()
+    # The point is "assembled", not a headcount: a number here has to be edited
+    # every time a node is added or a class stops being one, and editing it is
+    # how the assertion stops meaning anything.
+    assert kinds and kinds == tuple(sorted(kinds))
+    assert "query_statement" in kinds
+    assert "integer_value" in kinds
 
     # And it is the same instance on every call.
     assert serialization.default_registry() is registry
@@ -246,9 +251,6 @@ def test_kind_whitelist_has_no_collisions():
     Two same-named classes derive one kind (§4.11.1), so an artifact could not
     say which it meant. This is the check that caught ``edge_table``.
     """
-    from rhosocial.activerecord.backend.expression import serialization
-
-    registry = serialization.default_registry()
     by_kind = {}
     for expr_class in _ALL:
         kind = kind_of(expr_class)

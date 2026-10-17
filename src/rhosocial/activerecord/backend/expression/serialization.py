@@ -285,6 +285,19 @@ class ArtifactError(ExpressionDeserializationError):
     """Raised when an artifact cannot be read. Always names the kind."""
 
 
+def _declares_a_formatter(cls):
+    """Whether *cls* resolves to a concrete ``format_method``.
+
+    Asked by definition site, not by presence on ``vars(cls)``: a base such as
+    ``DeclaredValueType`` supplies one for its subclasses, and that is a real
+    declaration. Only the sentinel on :class:`BaseExpression` means "none".
+    """
+    for klass in cls.__mro__:
+        if "format_method" in vars(klass):
+            return klass is not BaseExpression
+    return False
+
+
 def _populate_default_registry(registry):
     """Register the framework's expressions into a registry instance.
 
@@ -332,6 +345,18 @@ def _populate_default_registry(registry):
                     continue
                 if issubclass(obj, BaseExpression):
                     if obj is BaseExpression or getattr(obj, "__abstractmethods__", None):
+                        continue
+                    # A leading underscore is *not* a reason to skip: the
+                    # dummy backend's own nodes are named that way and they
+                    # round-trip like any other. Whatever is concrete and can
+                    # render is a kind.
+                    # A class that cannot name a formatter is not a node (§4.8),
+                    # so it is not a kind. The test is the *resolved*
+                    # ``format_method``: a base that supplies none inherits
+                    # BaseExpression's sentinel, and registering it would put a
+                    # name in the whitelist that no artifact could ever carry
+                    # usefully -- it resolves, then raises on render.
+                    if not _declares_a_formatter(obj):
                         continue
                     ordered.append(obj)
                 elif issubclass(obj, __import__("enum").Enum):

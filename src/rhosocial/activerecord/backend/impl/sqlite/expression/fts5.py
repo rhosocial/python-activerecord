@@ -10,7 +10,7 @@ For FTS5 MATCH predicates, use SQLiteMatchPredicate from the predicates module.
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLPredicate, SQLValue, SQLQueryAndParams
+from ....expression.bases import BaseExpression, SQLPredicate, SQLValue
 from rhosocial.activerecord.backend.expression.objects import Table
 
 if TYPE_CHECKING:
@@ -18,6 +18,11 @@ if TYPE_CHECKING:
 
 
 class SQLiteFTS5MatchPredicate(SQLPredicate):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_fts5_match_expression"
     """SQLite FTS5 MATCH predicate expression.
 
     Wraps the parameters for an FTS5 MATCH expression so the format method
@@ -42,12 +47,12 @@ class SQLiteFTS5MatchPredicate(SQLPredicate):
         self.query = query
         self.columns = columns
         self.negate = negate
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_fts5_match_expression(self)
-
-
 class SQLiteFTS5CreateVirtualTable(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_fts5_create_virtual_table"
     """FTS5 CREATE VIRTUAL TABLE statement expression."""
 
     def __init__(
@@ -76,12 +81,12 @@ class SQLiteFTS5CreateVirtualTable(BaseExpression):
         self.content = content
         self.content_rowid = content_rowid
         self.tokenize = tokenize
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_fts5_create_virtual_table(self)
-
-
 class SQLiteFTS5RankExpression(SQLValue):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_fts5_rank_expression"
     """FTS5 BM25 ranking expression for relevance scoring in ORDER BY clauses."""
 
     def __init__(
@@ -100,12 +105,12 @@ class SQLiteFTS5RankExpression(SQLValue):
         self.table = table
         self.weights = weights
         self.bm25_params = bm25_params
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_fts5_rank_expression(self)
-
-
 class SQLiteFTS5HighlightExpression(SQLValue):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_fts5_highlight_expression"
     """FTS5 highlight() function expression for marking matched terms."""
 
     def __init__(
@@ -126,12 +131,12 @@ class SQLiteFTS5HighlightExpression(SQLValue):
         self.column = column
         self.prefix_marker = prefix_marker
         self.suffix_marker = suffix_marker
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_fts5_highlight_expression(self)
-
-
 class SQLiteFTS5SnippetExpression(SQLValue):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_fts5_snippet_expression"
     """FTS5 snippet() function expression for showing context around matched terms."""
 
     def __init__(
@@ -156,6 +161,3 @@ class SQLiteFTS5SnippetExpression(SQLValue):
         self.suffix_marker = suffix_marker
         self.context_tokens = context_tokens
         self.ellipsis = ellipsis
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_fts5_snippet_expression(self)

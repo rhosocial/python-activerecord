@@ -8,7 +8,7 @@ including virtual table creation, point-in-polygon queries, and area calculation
 
 from typing import List, Optional, TYPE_CHECKING
 
-from ....expression.bases import BaseExpression, SQLQueryAndParams
+from ....expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.objects import Table
 
 if TYPE_CHECKING:
@@ -16,6 +16,11 @@ if TYPE_CHECKING:
 
 
 class SQLiteGeopolyCreateVirtualTable(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_geopoly_create_virtual_table"
     """Geopoly CREATE VIRTUAL TABLE statement expression."""
 
     def __init__(
@@ -39,12 +44,12 @@ class SQLiteGeopolyCreateVirtualTable(BaseExpression):
             )
         self.content_table = content_table
         self.extra_columns = extra_columns or []
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_geopoly_create_virtual_table(self)
-
-
 class SQLiteGeopolyContainsExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_geopoly_contains_query"
     """Geopoly point-in-polygon query expression."""
 
     def __init__(
@@ -63,12 +68,12 @@ class SQLiteGeopolyContainsExpression(BaseExpression):
         self.table = table
         self.longitude = longitude
         self.latitude = latitude
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_geopoly_contains_query(self)
-
-
 class SQLiteGeopolyAreaExpression(BaseExpression):
+
+    @property
+    def format_method(self) -> str:
+        """The dialect method that renders this expression."""
+        return "format_geopoly_area_expression"
     """Geopoly area calculation expression."""
 
     def __init__(
@@ -83,6 +88,3 @@ class SQLiteGeopolyAreaExpression(BaseExpression):
                 f"got {type(table).__name__}"
             )
         self.table = table
-
-    def to_sql(self) -> SQLQueryAndParams:
-        return self.dialect.format_geopoly_area_expression(self)

@@ -26,7 +26,7 @@ class SQLiteAttachExpression(BaseExpression):
         dialect itself keeps the lookup inside the node, which is the direction
         this architecture removes.
         """
-        return "format_attach_expression"
+        return "format_attach_statement"
     """SQLite ATTACH DATABASE statement expression.
 
     ATTACH DATABASE attaches another database file to the current
@@ -75,7 +75,7 @@ class SQLiteDetachExpression(BaseExpression):
         dialect itself keeps the lookup inside the node, which is the direction
         this architecture removes.
         """
-        return "format_detach_expression"
+        return "format_detach_statement"
     """SQLite DETACH DATABASE statement expression.
 
     DETACH DATABASE detaches a previously attached database schema from
