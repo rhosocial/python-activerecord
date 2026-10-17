@@ -23,9 +23,9 @@
   - [Identifier](#identifier)
   - [SQLOperation](#sqloperation)
   - [BinaryExpression](#binaryexpression)
-  - [BinaryArithmeticExpression](#binaryarithmeticexpression)
+  - [ArithmeticOperation](#arithmeticoperation)
   - [UnaryExpression](#unaryexpression)
-  - [RawSQLExpression](#rawsqlexpression)
+  - [RawSQL](#rawsqlexpression)
   - [RawSQLPredicate](#rawsqlpredicate)
 
 ## 基类 (Base Classes)
@@ -456,12 +456,14 @@ class UnaryExpression(bases.BaseExpression):
     def __init__(self, dialect: "SQLDialectBase", op: str, operand: "bases.BaseExpression", pos: str = 'before'): ...
 ```
 
-### BinaryArithmeticExpression
+### ArithmeticOperation
 
 表示具有运算符优先级处理的二元算术运算。
 
+`op` 取**运算词**而非符号：`add` / `sub` / `mul` / `div` / `mod`。方言格式化函数再把词映射成该后端书写的字符（见 `OPERATOR_SYMBOLS`），因此工件里承载的是语言中立的词，而不是某个词法器写下的符号。词集封闭，未知词在构造处即被拒绝。
+
 ```python
-class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValue):
+class ArithmeticOperation(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValue", right: "bases.SQLValue"): ...
 ```
 
@@ -469,12 +471,12 @@ class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin,
 
 **警告**：这些类应谨慎使用，因为它们允许原始 SQL 注入。确保所有输入都是受信任的或已正确清理。
 
-#### RawSQLExpression
+#### RawSQL
 
 表示作为值表达式的原始 SQL 字符串。
 
 ```python
-class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
+class RawSQL(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()): ...
 ```
 

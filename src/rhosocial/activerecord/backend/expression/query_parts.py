@@ -206,48 +206,109 @@ class OrderByClause(BaseExpression):
         return "format_order_by_clause"
 
 
-class OrderByExpression(BaseExpression):
+class SortDirection(str, Enum):
+    """The two sort directions. ``str`` so a member *is* the word it renders."""
+
+    ASC = "ASC"
+    DESC = "DESC"
+
+    #: A member *is* the word it carries: str() and f-string interpolation must
+    #: yield the value, not ``ClassName.MEMBER``, or the rendered SQL and the
+    #: artifact would carry the Python spelling. ``(str, Enum)`` alone does not
+    #: give that -- ``Enum.__str__`` wins -- so it is stated here once.
+    __str__ = str.__str__
+
+    @classmethod
+    def parse(cls, word: str) -> "SortDirection":
+        """The member for *word*, raising ``ValueError`` if it is not one."""
+        try:
+            return cls(word.strip().upper())
+        except ValueError:
+            raise ValueError(
+                f"Invalid ORDER BY direction: {word!r}. Must be 'ASC' or 'DESC'."
+            ) from None
+
+
+class NullsOrder(str, Enum):
+    """Where nulls sit in an ordering."""
+
+    FIRST = "first"
+    LAST = "last"
+
+    #: A member *is* the word it carries: str() and f-string interpolation must
+    #: yield the value, not ``ClassName.MEMBER``, or the rendered SQL and the
+    #: artifact would carry the Python spelling. ``(str, Enum)`` alone does not
+    #: give that -- ``Enum.__str__`` wins -- so it is stated here once.
+    __str__ = str.__str__
+
+    @classmethod
+    def parse(cls, word: str) -> "NullsOrder":
+        """The member for *word*, raising ``ValueError`` if it is not one."""
+        try:
+            return cls(word.strip().lower())
+        except ValueError:
+            raise ValueError(
+                f"Invalid null ordering: {word!r}. Must be 'first' or 'last'."
+            ) from None
+
+
+class OrderByItem(BaseExpression):
     """A single sort element within an ORDER BY clause.
 
-    Carries the sort expression, its optional direction (``ASC`` / ``DESC``)
-    and the optional null-ordering (``NULLS FIRST`` / ``NULLS LAST``).
+    This is the *entry*, not the clause: the operand, its direction
+    (``ASC`` / ``DESC``) and its null-ordering together make one item, and
+    the ``ORDER BY`` clause holding a list of them is :class:`OrderByClause`
+    -- a different node with a different formatter. The two are not
+    interchangeable: only this one carries the direction and null-order
+    triple, and the clause is what a statement renders.
+
+    Per the spec's naming table (§4.9) an ordering entry is the "expression"
+    category -- it independently holds something, is not part of a statement
+    and does not execute on its own -- which is why ``Item`` and not
+    ``Clause`` names it. ``order_by_clause`` stays registered as a read alias
+    of ``order_by_item`` for artifacts published by the other three ports.
+
+    ``nulls`` is a single enum-style parameter: ``"first"`` / ``"last"`` spell
+    ``NULLS FIRST`` / ``NULLS LAST``, and ``None`` (the default) leaves null
+    ordering to the engine. The former ``nulls_first`` / ``nulls_last`` boolean
+    pair is gone.
 
     Examples:
         # Ascending, nulls first
-        OrderByExpression(dialect, Column(dialect, "name"), nulls_first=True)
+        OrderByItem(dialect, Column(dialect, "name"), nulls="first")
 
         # Descending
-        OrderByExpression(dialect, Column(dialect, "created_at"), "DESC")
+        OrderByItem(dialect, Column(dialect, "created_at"), "DESC")
     """
-
-    _VALID_DIRECTIONS = frozenset({"ASC", "DESC"})
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        expression: "BaseExpression",
-        direction: Optional[str] = None,
-        nulls_first: bool = False,
-        nulls_last: bool = False,
+        operand: "BaseExpression",
+        direction: Optional[SortDirection] = None,
+        nulls: Optional[NullsOrder] = None,
     ):
         super().__init__(dialect)
         if direction is not None:
-            direction = direction.upper()
-            if direction not in self._VALID_DIRECTIONS:
-                raise ValueError(
-                    f"Invalid ORDER BY direction: {direction!r}. Must be 'ASC' or 'DESC'."
-                )
-        if nulls_first and nulls_last:
-            raise ValueError("Only one of 'nulls_first' or 'nulls_last' may be set.")
-        self.expression = expression
+            direction = (
+                SortDirection(direction)
+                if isinstance(direction, SortDirection)
+                else SortDirection.parse(direction)
+            )
+        if nulls is not None:
+            nulls = (
+                NullsOrder(nulls)
+                if isinstance(nulls, NullsOrder)
+                else NullsOrder.parse(nulls)
+            )
+        self.operand = operand
         self.direction = direction
-        self.nulls_first = nulls_first
-        self.nulls_last = nulls_last
+        self.nulls = nulls
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_order_by_expression"
+        return "format_order_by_item"
 
 
 class LimitOffsetClause(BaseExpression):

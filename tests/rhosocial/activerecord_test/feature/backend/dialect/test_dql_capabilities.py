@@ -2,7 +2,6 @@
 """Tests for DQL capability switches, silent-skip fixes and expression gaps.
 
 Covers:
-- Set-operation FOR UPDATE fail-fast (Q02)
 - FETCH FIRST ... WITH TIES (G01)
 - ORDER BY ... NULLS FIRST/LAST (G02)
 - typed ForUpdateClause LockStrength (G03-G06)
@@ -17,18 +16,11 @@ from rhosocial.activerecord.backend.expression import (
     LimitOffsetClause,
     LockStrength,
     OrderByClause,
-    OrderByExpression,
+    OrderByItem,
 )
-from rhosocial.activerecord.backend.expression.statements import QueryStatement
-from rhosocial.activerecord.backend.expression.query_sources import SetOperationStatement
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyDialect
 
 pytestmark = [pytest.mark.feature, pytest.mark.backend]
-
-
-class NoSetOpForUpdate(DummyDialect):
-    def supports_set_operation_for_update(self) -> bool:
-        return False
 
 
 class NoFetchWithTies(DummyDialect):
@@ -44,32 +36,6 @@ class NoNullsFirstLast(DummyDialect):
 class NoShare(DummyDialect):
     def supports_for_share(self) -> bool:
         return False
-
-
-def _set_op(dialect, **kwargs):
-    return SetOperationStatement(
-        dialect,
-        left=QueryStatement(dialect, select=[Column(dialect, "id")], from_="t1"),
-        right=QueryStatement(dialect, select=[Column(dialect, "id")], from_="t2"),
-        operation="UNION",
-        **kwargs,
-    )
-
-
-class TestSetOperationForUpdate:
-    """Q02: set-operation FOR UPDATE is gated, not silently rendered/dropped."""
-
-    def test_for_update_raises_when_unsupported(self):
-        dialect = NoSetOpForUpdate()
-        expr = _set_op(dialect, for_update_clause=ForUpdateClause(dialect))
-        with pytest.raises(UnsupportedFeatureError, match="FOR UPDATE in set operations"):
-            expr.to_sql()
-
-    def test_for_update_renders_when_supported(self):
-        dialect = DummyDialect()
-        expr = _set_op(dialect, for_update_clause=ForUpdateClause(dialect))
-        sql, _ = expr.to_sql()
-        assert sql.endswith("FOR UPDATE")
 
 
 class TestFetchWithTies:
@@ -108,7 +74,7 @@ class TestNullsFirstLast:
         dialect = DummyDialect()
         clause = OrderByClause(
             dialect,
-            expressions=[OrderByExpression(dialect, Column(dialect, "name"), nulls_first=True)],
+            expressions=[OrderByItem(dialect, Column(dialect, "name"), nulls="first")],
         )
         sql, _ = dialect.format_order_by_clause(clause)
         assert sql == 'ORDER BY "name" NULLS FIRST'
@@ -117,7 +83,7 @@ class TestNullsFirstLast:
         dialect = DummyDialect()
         clause = OrderByClause(
             dialect,
-            expressions=[OrderByExpression(dialect, Column(dialect, "name"), "DESC", nulls_last=True)],
+            expressions=[OrderByItem(dialect, Column(dialect, "name"), "DESC", nulls="last")],
         )
         sql, _ = dialect.format_order_by_clause(clause)
         assert sql == 'ORDER BY "name" DESC NULLS LAST'
@@ -126,20 +92,20 @@ class TestNullsFirstLast:
         dialect = NoNullsFirstLast()
         clause = OrderByClause(
             dialect,
-            expressions=[OrderByExpression(dialect, Column(dialect, "name"), nulls_first=True)],
+            expressions=[OrderByItem(dialect, Column(dialect, "name"), nulls="first")],
         )
         with pytest.raises(UnsupportedFeatureError, match="NULLS FIRST/LAST"):
             dialect.format_order_by_clause(clause)
 
-    def test_mutually_exclusive_nulls(self):
+    def test_invalid_nulls_word(self):
         dialect = DummyDialect()
         with pytest.raises(ValueError):
-            OrderByExpression(dialect, Column(dialect, "x"), nulls_first=True, nulls_last=True)
+            OrderByItem(dialect, Column(dialect, "x"), nulls="sideways")
 
     def test_invalid_direction(self):
         dialect = DummyDialect()
         with pytest.raises(ValueError):
-            OrderByExpression(dialect, Column(dialect, "x"), "SIDEWAYS")
+            OrderByItem(dialect, Column(dialect, "x"), "SIDEWAYS")
 
 
 class TestForUpdateStrength:

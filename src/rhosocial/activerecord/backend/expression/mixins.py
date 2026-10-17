@@ -17,7 +17,7 @@ Example Usage:
     col1 > 5      # Creates ComparisonPredicate with col1's dialect
 
     # Arithmetic operations
-    col1 + col2   # Creates BinaryArithmeticExpression with col1's dialect
+    col1 + col2   # Creates ArithmeticOperation with col1's dialect
 
     # Logical operations
     (col1 == 1) & (col2 == 2)  # Creates LogicalPredicate with left predicate's dialect
@@ -29,35 +29,20 @@ ensuring consistent SQL generation across the expression tree.
 import copy
 import datetime
 import decimal
-import functools
 from typing import (
     Any,
     List,
     Optional,
-    Protocol,
     TYPE_CHECKING,
     TypeVar,
     Union,
 )
-
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .bases import BaseExpression, SQLValue, SQLPredicate
     # Annotations only. The classes themselves are imported inside the methods
     # that need them, because core imports this module.
-    from .core import (
-        ArrayValue,
-        BinaryValue,
-        BooleanValue,
-        TimestampValue,
-        IntegerValue,
-        JSONValue,
-        NumericValue,
-        StringValue,
-        UUIDValue,
-        XMLValue,
-    )
-    from .core import CastFunction, FunctionCall
+    from .core import CastExpression, FunctionCall
     from .datetime import (
         DatePartExpression,
         DateTimeAddExpression,
@@ -67,125 +52,21 @@ if TYPE_CHECKING:  # pragma: no cover
         ExtractExpression,
     )
     from .advanced_functions import JSONDocumentValue, JSONTextValue
+    from .declared import (
+        ArrayAnnotation,
+        BinaryAnnotation,
+        BooleanAnnotation,
+        IntegerAnnotation,
+        JSONAnnotation,
+        NumberAnnotation,
+        TemporalAnnotation,
+        TextAnnotation,
+        UUIDAnnotation,
+        XMLAnnotation,
+    )
 
 T = TypeVar("T")
 _ResultT = TypeVar("_ResultT")
-
-
-class _ValueExpression(Protocol[_ResultT]):
-    """How a value expression class is built, as far as ``_retype`` cares.
-
-    Not ``type[BaseExpression]``: the value classes are built from a dialect
-    and the call they wrap, while ``BaseExpression`` takes only a dialect, so
-    bounding to it makes the two-argument construction an error. What every
-    ``as_*`` method needs is exactly this.
-
-    The wrapped node is typed loosely on purpose. A mixin cannot say what class
-    it is mixed into, so naming FunctionCall here would need ``self`` annotated
-    as one, which mypy only allows if this class subclasses it. The return type
-    is what the chain is checked against, and that is exact; the node being
-    passed is the one already in hand.
-    """
-
-    def __call__(self, dialect: "SQLDialectBase", call: Any) -> _ResultT: ...
-
-
-class WrappedCallMixin:
-    """Forwards what the node says that the wrapper's type does not.
-
-    A typed value wraps the call it was built from -- ``min(name)`` is a
-    ``StringValue`` holding a ``FunctionCall`` -- so that
-    the result says what it is rather than what produced it. The wrapper offers
-    the operations its *type* supports, and those are the ones a caller reaches
-    for.
-
-    Some things are not operations at all. ``count(x).filter(pred)`` is a filter
-    on the aggregate, not an operation on an integer; ``window_spec`` belongs to
-    the call; ``alias`` is state both share. Those belong to the node, and the
-    only one that knows how to attach a filter is the aggregate. Rather than
-    restate every node-specific member on every value type, an attribute the
-    wrapper has no answer for is looked up on the node it holds.
-
-    **Where that lookup stops is the whole of this class.** The two
-    hierarchies meet: the node is built from the same base classes and the same
-    mixins, and a wrapper's bases say exactly what it kept. So the lookup walks
-    the node's MRO and stops at the first class the wrapper also carries.
-    Above that point is the node's own contribution -- its state and its own
-    grammar -- and it is forwarded. From that point down is either something
-    the wrapper already has, or a capability its type deliberately left off:
-    ``StringPatternPredicateMixin`` and ``ResultTypeMixin`` reach a
-    ``FunctionCall`` that a ``StringValue`` or an
-    ``IntegerValue`` never claimed, and handing those back would undo
-    the typing that made the class worth having: ``length().like("1%")`` would
-    be offered again, and the mistake would travel to the database.
-
-    The boundary is found by comparing the two MROs, so there is no set of
-    names to keep current: a method added to a capability mixin stops being
-    forwarded the moment it is declared, and a method added to a node class
-    becomes forwardable without anything being edited here. What the wrapper
-    withholds is what the wrapper's own bases withhold, which is the one
-    statement this class has to make.
-
-    The wrapper keeps the type either way: a forwarded call that returns the
-    node hands back a node, so ``count(x).filter(...)`` is an untyped
-    ``FunctionCall`` again -- which is honest, because that is what the
-    filter produces and nothing about adding one re-types the result.
-
-    Example:
-        >>> agg = count(dialect, "price")
-        >>> type(agg).__name__             # IntegerValue
-        >>> type(agg.filter(pred)).__name__# FunctionCall
-        >>> hasattr(agg, "like")           # False: a count is not text
-    """
-
-    def __getattr__(self, name):
-        # Only reached for attributes this class does not define, so `call`
-        # itself is already set here. Going through the instance dict rather
-        # than `getattr` keeps a missing `call` from recursing into itself --
-        # and a class that mixes this in without holding a node (the CASE whose
-        # branches agree the answer) refuses everything, which is what a node
-        # it does not have can honestly say.
-        try:
-            node = object.__getattribute__(self, "call")
-        except AttributeError:
-            raise AttributeError(
-                f"{type(self).__name__} has no attribute {name!r}"
-            ) from None
-        if name in _ruled_on(type(self), type(node)):
-            raise AttributeError(
-                f"{type(self).__name__} has no attribute {name!r}. The "
-                f"{type(node).__name__} it wraps does, and a typed value offers "
-                f"the operations its own type supports rather than the "
-                f"operations of the node that happens to produce it."
-            ) from None
-        try:
-            return getattr(node, name)
-        except AttributeError:
-            raise AttributeError(
-                f"{type(self).__name__} has no attribute {name!r}"
-            ) from None
-
-
-@functools.lru_cache(maxsize=None)
-def _ruled_on(wrapper_cls: type, node_cls: type) -> frozenset:
-    """What *node_cls* offers that *wrapper_cls*'s own bases already answer for.
-
-    The two hierarchies meet at the first class of the node's MRO that the
-    wrapper also carries, and from there down the node is either repeating the
-    wrapper or offering a capability the wrapper's type declined. Both are
-    names the wrapper has already spoken for, so forwarding either would give
-    back what the typing withheld.
-
-    Cached on the two classes because it is asked on every attribute miss, and
-    it depends on nothing but the two MROs.
-    """
-    node_mro = node_cls.__mro__
-    wrapper_mro = frozenset(wrapper_cls.__mro__)
-    meet = next((i for i, k in enumerate(node_mro) if k in wrapper_mro), len(node_mro))
-    ruled_on = set()
-    for klass in node_mro[meet:]:
-        ruled_on.update(vars(klass))
-    return frozenset(ruled_on)
 
 
 class AliasableMixin:
@@ -571,6 +452,10 @@ class ComparisonMixin(NullTestMixin):
         from .core import Literal
         from .predicates import InPredicate
 
+        # An ActiveQuery renders as an IN subquery. The capability is asked of
+        # the declared protocol rather than looked for by name: `values` is
+        # either an ActiveQuery, which has the method, or a plain sequence of
+        # values, which cannot have it.
         to_query_expression = getattr(values, "to_query_expression", None)
         if callable(to_query_expression):
             # An ActiveQuery-like object: render as an IN subquery. The
@@ -656,7 +541,7 @@ class ArithmeticMixin:
         Implement the addition operator (+) to generate SQL arithmetic expression.
 
         This method enables expressions like: `Column(...) + value` or `Column(...) + Column(...)`
-        The resulting BinaryArithmeticExpression uses the left operand's dialect for SQL generation.
+        The resulting ArithmeticOperation uses the left operand's dialect for SQL generation.
 
         Args:
             other: Right operand, can be another expression or a literal value
@@ -669,11 +554,11 @@ class ArithmeticMixin:
             >>> expr = col + 10  # Generates: "price + ?" with params (10,)
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
+        from .operators import ArithmeticOperation
         from .bases import SQLValue
 
         other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "+", self, other_expr)
+        return ArithmeticOperation(self._dialect, "add", self, other_expr)
 
     def __sub__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
@@ -686,11 +571,11 @@ class ArithmeticMixin:
             SQLValue representing the subtraction operation
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
+        from .operators import ArithmeticOperation
         from .bases import SQLValue
 
         other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "-", self, other_expr)
+        return ArithmeticOperation(self._dialect, "sub", self, other_expr)
 
     def __mul__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
@@ -703,11 +588,11 @@ class ArithmeticMixin:
             SQLValue representing the multiplication operation
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
+        from .operators import ArithmeticOperation
         from .bases import SQLValue
 
         other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "*", self, other_expr)
+        return ArithmeticOperation(self._dialect, "mul", self, other_expr)
 
     def __truediv__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """Division, rendered as the portable ``/`` — and what ``/`` means is
@@ -740,11 +625,11 @@ class ArithmeticMixin:
         backends rather than a silent property of the model.
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
+        from .operators import ArithmeticOperation
         from .bases import SQLValue
 
         other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "/", self, other_expr)
+        return ArithmeticOperation(self._dialect, "div", self, other_expr)
 
     def __mod__(self: "SQLValue", other: Union["SQLValue", Any]) -> "SQLValue":
         """
@@ -757,11 +642,11 @@ class ArithmeticMixin:
             SQLValue representing the modulo operation
         """
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
+        from .operators import ArithmeticOperation
         from .bases import SQLValue
 
         other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, "%", self, other_expr)
+        return ArithmeticOperation(self._dialect, "mod", self, other_expr)
 
 
 class NotANumberMixin:
@@ -886,15 +771,12 @@ class TemporalArithmeticMixin(NotANumberMixin):
     # -- classification ------------------------------------------------------
 
     def _is_interval_value(self) -> bool:
-        from .core import IntervalValue
-
-        return isinstance(self, IntervalValue)
+        return isinstance(self, IntervalMixin)
 
     def _is_interval_operand(self, other) -> bool:
         from .bases import SQLValue
-        from .core import IntervalValue
 
-        if isinstance(other, IntervalValue):
+        if isinstance(other, IntervalMixin):
             return True
         if isinstance(other, SQLValue):
             return False
@@ -902,13 +784,12 @@ class TemporalArithmeticMixin(NotANumberMixin):
 
     def _is_temporal_operand(self, other) -> bool:
         from .bases import SQLValue
-        from .core import IntervalValue
 
         if isinstance(other, SQLValue):
-            # Both a temporal *column* and a temporal *value* carry
+            # Both a temporal *column* and a temporal *node* carry
             # DateTimeMixin; an interval does too, and is excluded first.
             return isinstance(other, DateTimeMixin) and not isinstance(
-                other, IntervalValue
+                other, IntervalMixin
             )
         return isinstance(other, (datetime.date, datetime.time, datetime.datetime))
 
@@ -955,13 +836,26 @@ class TemporalArithmeticMixin(NotANumberMixin):
             symbol, other, "a temporal value combines with an interval, not with a number"
         )
 
+    #: The Python operator symbols the temporal dunders hand down, mapped to
+    #: the operation words the node's contract uses. The symbols stay in the
+    #: refusal messages (they name the Python operator the caller wrote); the
+    #: node gets the word.
+    #:
+    #: The words are :class:`~...expression.operators.ArithmeticOperator`
+    #: values, written as strings because this table is a class attribute and
+    #: ``operators`` imports the mixins this one is mixed into -- importing the
+    #: enum back at module level would be circular. :class:`ArithmeticOperation`
+    #: normalises the string to the member at construction, so the wire value is
+    #: unchanged.
+    _OPERATOR_WORDS = {"+": "add", "-": "sub", "*": "mul"}
+
     def _build(self, symbol: str, other):
         from .bases import SQLValue
         from .core import Literal
-        from .operators import BinaryArithmeticExpression
+        from .operators import ArithmeticOperation
 
         other_expr = other if isinstance(other, SQLValue) else Literal(self._dialect, other)
-        return BinaryArithmeticExpression(self._dialect, symbol, self, other_expr)
+        return ArithmeticOperation(self._dialect, self._OPERATOR_WORDS[symbol], self, other_expr)
 
     def _temporal_refusal(self, symbol: str, other, reason: str) -> AttributeError:
         return AttributeError(
@@ -1178,112 +1072,91 @@ class ResultTypeMixin:
         #: rather than ``_dialect``: reading it validates that one is bound.
         dialect: "SQLDialectBase"
 
-    def _retype(self, cls: _ValueExpression[_ResultT]) -> _ResultT:
-        """Re-wrap this expression as a value expression of *cls*.
+    def _annotate(self, cls) -> _ResultT:
+        """This expression, declared to yield *cls*.
 
-        Only the Python class changes. The node, and therefore the SQL, is left
-        exactly as it was -- the statement was already correct; what was missing
-        was the knowledge of what it yields.
+        Only the declared type changes. The node underneath -- and therefore the
+        SQL -- is left exactly as it was, because the statement was already
+        correct and what was missing was the knowledge of what it yields.
 
-        Generic in the class rather than returning BaseExpression, so the
-        declared return type of each ``as_*`` method is the class it names.
-        Returning the base type would leave the checker unable to tell that
-        ``as_text()`` is text, which is the whole point of the method.
-
-        Returns the class it is given, not a base type, so each ``as_*`` method
-        declares what the chain continues as.
+        Generic in the class so the declared return type of each ``as_*`` method
+        is the class it names: returning a base type would leave a checker
+        unable to tell that ``as_text()`` is text, which is the whole point of
+        the method.
 
         Args:
-            cls: The expression class that carries those operations.
+            cls: One of the annotation classes in
+                :mod:`~...expression.declared`, each of which carries exactly one
+                surface.
 
         Returns:
-            A value expression of *cls*.
+            An expression of *cls*.
         """
         return cls(self.dialect, self)
 
-    def as_text(self) -> "StringValue":
+    def as_text(self) -> "TextAnnotation":
         """This yields text, whatever the data turns out to be."""
-        from .core import StringValue
+        from .declared import TextAnnotation
 
-        return self._retype(StringValue)
+        return self._annotate(TextAnnotation)
 
-    def as_number(self) -> "NumericValue":
+    def as_number(self) -> "NumberAnnotation":
         """This yields a fractional number."""
-        from .core import NumericValue
+        from .declared import NumberAnnotation
 
-        return self._retype(NumericValue)
+        return self._annotate(NumberAnnotation)
 
-    def as_integer(self) -> "IntegerValue":
+    def as_integer(self) -> "IntegerAnnotation":
         """This yields a whole number."""
-        from .core import IntegerValue
+        from .declared import IntegerAnnotation
 
-        return self._retype(IntegerValue)
+        return self._annotate(IntegerAnnotation)
 
-    def as_datetime(self) -> "TimestampValue":
-        """This yields a date or a time."""
-        from .core import TimestampValue
+    def as_datetime(self) -> "TemporalAnnotation":
+        """This yields a date, a time or a date-time."""
+        from .declared import TemporalAnnotation
 
-        return self._retype(TimestampValue)
+        return self._annotate(TemporalAnnotation)
 
-    def as_boolean(self) -> "BooleanValue":
-        """This yields a truth value.
+    def as_boolean(self) -> "BooleanAnnotation":
+        """This yields a truth value."""
+        from .declared import BooleanAnnotation
 
-        This names the value, not a projection. SQL Server has no boolean scalar
-        type at all, so a predicate cannot appear in a select list there; where
-        one is needed, the dialect has to produce a zero-or-one column.
-        """
-        from .core import BooleanValue
+        return self._annotate(BooleanAnnotation)
 
-        return self._retype(BooleanValue)
-
-    def as_array(self) -> "ArrayValue":
+    def as_array(self) -> "ArrayAnnotation":
         """This yields a sequence."""
-        from .core import ArrayValue
+        from .declared import ArrayAnnotation
 
-        return self._retype(ArrayValue)
+        return self._annotate(ArrayAnnotation)
 
-    def as_json(self) -> "JSONValue":
+    def as_json(self) -> "JSONAnnotation":
         """This yields a JSON document."""
-        from .core import JSONValue
+        from .declared import JSONAnnotation
 
-        return self._retype(JSONValue)
+        return self._annotate(JSONAnnotation)
 
-    def as_uuid(self) -> "UUIDValue":
+    def as_uuid(self) -> "UUIDAnnotation":
         """This yields a UUID."""
-        from .core import UUIDValue
+        from .declared import UUIDAnnotation
 
-        return self._retype(UUIDValue)
+        return self._annotate(UUIDAnnotation)
 
-    def as_binary(self) -> "BinaryValue":
+    def as_binary(self) -> "BinaryAnnotation":
         """This yields bytes."""
-        from .core import BinaryValue
+        from .declared import BinaryAnnotation
 
-        return self._retype(BinaryValue)
+        return self._annotate(BinaryAnnotation)
 
-    def as_xml(self) -> "XMLValue":
+    def as_xml(self) -> "XMLAnnotation":
         """This yields an XML document."""
-        from .core import XMLValue
+        from .declared import XMLAnnotation
 
-        return self._retype(XMLValue)
-
-
-def _literal(dialect, value):
-    """Wrap a bare number as the Literal the factories now require.
-
-    The factories take expressions, so a caller who writes ``col.power(3)`` has
-    to end up with an expression somewhere. Doing it here keeps the arithmetic
-    methods taking plain numbers, which is what a caller means by them, and puts
-    the construction in one place instead of at every call site.
-    """
-    from .bases import BaseExpression
-    from .core import Literal
-
-    return value if isinstance(value, BaseExpression) else Literal(dialect, value)
+        return self._annotate(XMLAnnotation)
 
 
 class NumericValueMixin:
     """Operations on a **fractional**-valued expression.
-
     Distinct from the integer value family (:class:`IntegerValue`)
     because ``ceil``/``floor``/``truncate`` of a whole number is a whole
     number, while ``sqrt``/``log``/``abs`` of one may not be. SQL makes the
@@ -1308,22 +1181,43 @@ class NumericValueMixin:
         >>> col.mod(3)                 # MOD("price", 3)
     """
 
-    def _numeric_op(self, factory_name: str, *args, **kwargs):
-        """Call a math factory, which tags its own result type.
+    @staticmethod
+    def _number_operand(dialect, value):
+        """A numeric operand as the value node its host type declares.
 
-        Args:
-            factory_name: Name of the function in ``functions.math``.
-            args: Positional arguments forwarded to the factory.
-            kwargs: Keyword arguments forwarded to the factory.
+        An ``int`` is an integer and a ``Decimal`` is exact, and the two are not
+        interchangeable: ``MOD(x, 3)`` with a floating-point divisor stops being
+        an integer modulus. So the host type picks the node rather than one type
+        standing in for both. An expression is returned untouched.
 
-        Returns:
-            A numeric- or integer-valued expression, depending on what the
-            operation returns.
+        This was a module-level ``_literal``, which put a free function where the
+        rest of the layer is classes, and it built a ``Literal`` -- a container
+        with no type of its own -- for an operand whose type is knowable.
         """
-        from . import functions as _functions
+        # Imported here, as the rest of this module does: values imports bases,
+        # and bases reaches this module, so a top-level import would close a
+        # cycle. ``BaseExpression`` is needed at run time and not only for
+        # typing, because the isinstance below is the whole test.
+        from . import values
+        from .bases import BaseExpression
 
-        factory = getattr(_functions, factory_name)
-        return factory(self._dialect, self, *args, **kwargs)
+        if isinstance(value, BaseExpression):
+            return value
+        if isinstance(value, int):
+            return values.IntegerValue(dialect, value)
+        return values.DecimalValue(dialect, decimal.Decimal(str(value)))
+
+    @staticmethod
+    def _math_functions():
+        """The math factory module, imported on first use.
+
+        Local because ``functions.math`` imports the mixins this one is mixed
+        into. Handed back as a module so there is one import site per class
+        rather than one per method.
+        """
+        from .functions import math as _module
+
+        return _module
 
     # --- sign-preserving ---
 
@@ -1333,7 +1227,7 @@ class NumericValueMixin:
         Keeps the operand's family: absolute value of an integer is an
         integer, and of a double is a double.
         """
-        return self._numeric_op("abs_")
+        return self._math_functions().abs_(self._dialect, self)
 
     def sign(self) -> "NumericValueMixin":
         """Sign of the value: -1, 0 or 1. ``SIGN(col)``
@@ -1345,7 +1239,7 @@ class NumericValueMixin:
         that carries the numeric surface stays usable for the arithmetic that
         follows it, which an integer-tagged result would forbid.
         """
-        return self._numeric_op("sign")
+        return self._math_functions().sign(self._dialect, self)
 
     # --- rounding ---
 
@@ -1389,15 +1283,15 @@ class NumericValueMixin:
         inherit whichever one the server, its version and the column type happen
         to give.
         """
-        return self._numeric_op("round_", decimals)
+        return self._math_functions().round_(self._dialect, self, decimals)
 
     def ceil(self) -> "NumericValueMixin":
         """Smallest integer not below the value. ``CEIL(col)``"""
-        return self._numeric_op("ceil")
+        return self._math_functions().ceil(self._dialect, self)
 
     def floor(self) -> "NumericValueMixin":
         """Largest integer not above the value. ``FLOOR(col)``"""
-        return self._numeric_op("floor")
+        return self._math_functions().floor(self._dialect, self)
 
     def truncate(self, precision: Optional[int] = None) -> "NumericValueMixin":
         """Truncate toward zero. ``TRUNCATE(col[, n])``
@@ -1413,13 +1307,13 @@ class NumericValueMixin:
         ``ROUND(x, n, 1)``. A dialect override therefore renames rather than
         re-implements.
         """
-        return self._numeric_op("truncate", precision)
+        return self._math_functions().truncate(self._dialect, self, precision)
 
     # --- roots, powers, logarithms ---
 
     def mod(self, divisor: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
         """Remainder of division by *divisor*. ``MOD(col, n)``"""
-        return self._numeric_op("mod", _literal(self._dialect, divisor))
+        return self._math_functions().mod(self._dialect, self, self._number_operand(self._dialect, divisor))
 
     def sqrt(self) -> "NumericValueMixin":
         """Square root. ``SQRT(col)``
@@ -1429,7 +1323,7 @@ class NumericValueMixin:
         (an interest factor), which is why this mixin is the part a money
         column can reuse.
         """
-        return self._numeric_op("sqrt")
+        return self._math_functions().sqrt(self._dialect, self)
 
     def power(self, exponent: Union[int, float, "BaseExpression"]) -> "NumericValueMixin":
         """Raise to *exponent*. ``POWER(col, n)``
@@ -1438,7 +1332,7 @@ class NumericValueMixin:
         belongs with the algebraic operations rather than the transcendental
         ones.
         """
-        return self._numeric_op("power", _literal(self._dialect, exponent))
+        return self._math_functions().power(self._dialect, self, self._number_operand(self._dialect, exponent))
 
 
 class TranscendentalMixin:
@@ -1470,22 +1364,43 @@ class TranscendentalMixin:
         >>> col.sin()                # SIN("x")
     """
 
-    def _transcendental_op(self, factory_name: str, *args, **kwargs):
-        """Call a math factory, which tags its own result type.
+    @staticmethod
+    def _math_functions():
+        """The math factory module, imported on first use.
 
-        Args:
-            factory_name: Name of the function in ``functions.math``.
-            args: Positional arguments forwarded to the factory.
-            kwargs: Keyword arguments forwarded to the factory.
-
-        Returns:
-            A real-valued expression; none of these preserves the operand's
-            family.
+        Local because ``functions.math`` imports the mixins this one is mixed
+        into. Handed back as a module so there is one import site per class
+        rather than one per method.
         """
-        from . import functions as _functions
+        from .functions import math as _module
 
-        factory = getattr(_functions, factory_name)
-        return factory(self._dialect, self, *args, **kwargs)
+        return _module
+
+    @staticmethod
+    def _number_operand(dialect, value):
+        """A numeric operand as the value node its host type declares.
+
+        An ``int`` is an integer and a ``Decimal`` is exact, and the two are not
+        interchangeable: ``MOD(x, 3)`` with a floating-point divisor stops being
+        an integer modulus. So the host type picks the node rather than one type
+        standing in for both. An expression is returned untouched.
+
+        This was a module-level ``_literal``, which put a free function where the
+        rest of the layer is classes, and it built a ``Literal`` -- a container
+        with no type of its own -- for an operand whose type is knowable.
+        """
+        # Imported here, as the rest of this module does: values imports bases,
+        # and bases reaches this module, so a top-level import would close a
+        # cycle. ``BaseExpression`` is needed at run time and not only for
+        # typing, because the isinstance below is the whole test.
+        from . import values
+        from .bases import BaseExpression
+
+        if isinstance(value, BaseExpression):
+            return value
+        if isinstance(value, int):
+            return values.IntegerValue(dialect, value)
+        return values.DecimalValue(dialect, decimal.Decimal(str(value)))
 
     # --- roots, powers, logarithms ---
     #
@@ -1493,7 +1408,7 @@ class TranscendentalMixin:
 
     def exp(self) -> "NumericValueMixin":
         """e raised to the power of the value. ``EXP(col)``"""
-        return self._transcendental_op("exp")
+        return self._math_functions().exp(self._dialect, self)
 
     def log(self, base: Optional[Union[int, float, "BaseExpression"]] = None) -> "NumericValueMixin":
         """Natural logarithm, or logarithm to *base*. ``LOG(col[, base])``
@@ -1507,27 +1422,26 @@ class TranscendentalMixin:
         and Snowflake's. The meaning is fixed here; a dialect override swaps the
         spelling or the argument order, never the semantics.
         """
-        base_expr = None if base is None else _literal(self._dialect, base)
-        return self._transcendental_op("log", base_expr)
+        base_expr = None if base is None else self._number_operand(self._dialect, base)
+        return self._math_functions().log(self._dialect, self, base_expr)
 
     # --- trigonometry ---
 
     def sin(self) -> "NumericValueMixin":
         """Sine. ``SIN(col)``"""
-        return self._transcendental_op("sin")
+        return self._math_functions().sin(self._dialect, self)
 
     def cos(self) -> "NumericValueMixin":
         """Cosine. ``COS(col)``"""
-        return self._transcendental_op("cos")
+        return self._math_functions().cos(self._dialect, self)
 
     def tan(self) -> "NumericValueMixin":
         """Tangent. ``TAN(col)``"""
-        return self._transcendental_op("tan")
+        return self._math_functions().tan(self._dialect, self)
 
 
 class StringToIntegerMixin:
     """Operations that read a **string** and produce an integer.
-
     Named for both ends of the direction: these accept a string and *return* a
     number. ``"name".length()`` is a legal string operation whose result is a
     number, and that number must not carry string operations —
@@ -1545,7 +1459,18 @@ class StringToIntegerMixin:
     if TYPE_CHECKING:  # pragma: no cover
         from .core import IntegerValue
 
-    def position(self, substring: str) -> "IntegerValue":
+    @staticmethod
+    def _string_functions():
+        """The string factory module, imported on first use.
+
+        Local because ``functions.string`` imports the mixins this one is mixed
+        into.
+        """
+        from .functions import string as _module
+
+        return _module
+
+    def position(self, substring: str) -> "BaseExpression":
         """1-based position of *substring*. ``POSITION(substring IN expr)``
 
         The needle comes first here, matching the standard spelling, while
@@ -1556,28 +1481,11 @@ class StringToIntegerMixin:
         ClickHouse and BigQuery put the haystack first, MySQL and MariaDB
         ``LOCATE``, Oracle and Firebird ``INSTR``.
         """
-        from .functions import string as _string
-
-        return _string.position(self._dialect, substring, self)
+        return self._string_functions().position(self._dialect, substring, self)
 
     # --- operations that read a string and produce a number ---
 
-    def _integer_op(self, factory_name: str, *args):
-        """Call a string factory whose result is an integer.
-
-        Args:
-            factory_name: Name of the function in ``functions.string``.
-            args: Positional arguments forwarded to the factory.
-
-        Returns:
-            An :class:`IntegerValue`.
-        """
-        from . import functions as _functions
-
-        factory = getattr(_functions, factory_name)
-        return factory(self._dialect, self, *args)
-
-    def length(self) -> "IntegerValue":
+    def length(self) -> "BaseExpression":
         """Length of the string, in **whatever unit the backend's ``LENGTH`` uses**.
 
         ``LENGTH(expr)`` — and that unit is not characters everywhere, which is
@@ -1611,28 +1519,28 @@ class StringToIntegerMixin:
         literal, where the framework refuses the non-portable spelling instead
         of rendering it and hoping.
         """
-        return self._integer_op("length")
+        return self._string_functions().length(self._dialect, self)
 
-    def ascii(self) -> "IntegerValue":
+    def ascii(self) -> "BaseExpression":
         """Code of the first character. ``ASCII(expr)``"""
-        return self._integer_op("ascii")
+        return self._string_functions().ascii(self._dialect, self)
 
-    def octet_length(self) -> "IntegerValue":
+    def octet_length(self) -> "BaseExpression":
         """Length in bytes. ``OCTET_LENGTH(expr)``"""
-        return self._integer_op("octet_length")
+        return self._string_functions().octet_length(self._dialect, self)
 
-    def bit_length(self) -> "IntegerValue":
+    def bit_length(self) -> "BaseExpression":
         """Length in bits. ``BIT_LENGTH(expr)``"""
-        return self._integer_op("bit_length")
+        return self._string_functions().bit_length(self._dialect, self)
 
-    def strpos(self, substring: str) -> "IntegerValue":
+    def strpos(self, substring: str) -> "BaseExpression":
         """1-based position of *substring*, or 0. ``STRPOS(expr, substring)``
 
         The mirror spelling of :meth:`position`: haystack first, as every
         native ``STRPOS``/``LOCATE``/``INSTR``/``CHARINDEX`` takes it. On
         backends with no such function a dialect renders the other spelling.
         """
-        return self._integer_op("strpos", substring)
+        return self._string_functions().strpos(self._dialect, self, substring)
 
 
 class StringValueMixin:
@@ -1655,43 +1563,40 @@ class StringValueMixin:
         >>> col.length() > 5              # LENGTH("name") > ?
     """
 
-    def _string_op(self, factory_name: str, *args, **kwargs):
-        """Call a string factory and tag the result as a string value.
-
-        Args:
-            factory_name: Name of the function in ``functions.string``.
-            args: Positional arguments forwarded to the factory.
-            kwargs: Keyword arguments forwarded to the factory.
-
-        Returns:
-            A :class:`~...expression.core.StringValue`.
-        """
-        from . import functions as _functions
-
-        factory = getattr(_functions, factory_name)
-        return factory(self._dialect, self, *args, **kwargs)
 
     # --- case ---
 
+    @staticmethod
+    def _string_functions():
+        """The string factory module, imported on first use.
+
+        A local import because ``functions.string`` imports the mixins this one
+        is mixed into. Handing back the module (rather than each factory) keeps
+        one import site instead of twelve.
+        """
+        from .functions import string as _module
+
+        return _module
+
     def upper(self) -> "StringValueMixin":
         """Upper-case the string. ``UPPER(col)``"""
-        return self._string_op("upper")
+        return self._string_functions().upper(self._dialect, self)
 
     def lower(self) -> "StringValueMixin":
         """Lower-case the string. ``LOWER(col)``"""
-        return self._string_op("lower")
+        return self._string_functions().lower(self._dialect, self)
 
     def initcap(self) -> "StringValueMixin":
         """Capitalise the first letter of each word. ``INITCAP(col)``"""
-        return self._string_op("initcap")
+        return self._string_functions().initcap(self._dialect, self)
 
     def reverse(self) -> "StringValueMixin":
         """Reverse the string. ``REVERSE(col)``"""
-        return self._string_op("reverse")
+        return self._string_functions().reverse(self._dialect, self)
 
     def translate(self, from_chars: str, to_chars: str) -> "StringValueMixin":
         """Replace characters pairwise. ``TRANSLATE(col, from, to)``"""
-        return self._string_op("translate", from_chars, to_chars)
+        return self._string_functions().translate(self._dialect, self, from_chars, to_chars)
 
     # --- slicing and padding ---
 
@@ -1703,7 +1608,7 @@ class StringValueMixin:
         yields an empty string on others and is read as 1 on Oracle (see
         :func:`~...functions.string.substring`).
         """
-        return self._string_op("substring", start, length)
+        return self._string_functions().substring(self._dialect, self, start, length)
 
     def left(self, n: int) -> "StringValueMixin":
         """First *n* characters. ``LEFT(col, n)``
@@ -1713,7 +1618,7 @@ class StringValueMixin:
         the backends answer four different ways to it (see
         :func:`~...functions.string.left`).
         """
-        return self._string_op("left", n)
+        return self._string_functions().left(self._dialect, self, n)
 
     def right(self, n: int) -> "StringValueMixin":
         """Last *n* characters. ``RIGHT(col, n)``
@@ -1721,7 +1626,7 @@ class StringValueMixin:
         ``n >= 0``, with 0 and over-length agreeing everywhere; a negative
         count is refused, same as :meth:`left`.
         """
-        return self._string_op("right", n)
+        return self._string_functions().right(self._dialect, self, n)
 
     def lpad(self, length: int, pad: Optional[str] = None) -> "StringValueMixin":
         """Left-pad to *length*. ``LPAD(col, length, pad)``
@@ -1731,7 +1636,7 @@ class StringValueMixin:
         MariaDB fills with spaces. An empty pad is refused -- the backends
         answer it as untouched string, empty string or NULL.
         """
-        return self._string_op("lpad", length, pad)
+        return self._string_functions().lpad(self._dialect, self, length, pad)
 
     def rpad(self, length: int, pad: Optional[str] = None) -> "StringValueMixin":
         """Right-pad to *length*. ``RPAD(col, length, pad)``
@@ -1739,7 +1644,7 @@ class StringValueMixin:
         The mirror of :meth:`lpad`: ``length >= 0``, a non-empty *pad*, an
         omitted pad spelled as one space, an empty pad refused.
         """
-        return self._string_op("rpad", length, pad)
+        return self._string_functions().rpad(self._dialect, self, length, pad)
 
     def repeat(self, count: int) -> "StringValueMixin":
         """Repeat the string *count* times. ``REPEAT(col, count)``
@@ -1747,17 +1652,17 @@ class StringValueMixin:
         A negative *count* is the empty string rather than a refusal -- the
         native answer on PostgreSQL, MySQL, MariaDB and ClickHouse alike.
         """
-        return self._string_op("repeat", count)
+        return self._string_functions().repeat(self._dialect, self, count)
 
     def overlay(self, replacement: str, start: int, length: Optional[int] = None) -> "StringValueMixin":
         """Overwrite a span. ``OVERLAY(col PLACING replacement FROM start [FOR length])``"""
-        return self._string_op("overlay", replacement, start, length)
+        return self._string_functions().overlay(self._dialect, self, replacement, start, length)
 
     # --- search and replace ---
 
     def replace(self, pattern: str, replacement: str) -> "StringValueMixin":
         """Replace every occurrence. ``REPLACE(col, pattern, replacement)``"""
-        return self._string_op("replace", pattern, replacement)
+        return self._string_functions().replace(self._dialect, self, pattern, replacement)
 
     # --- whitespace ---
 
@@ -1773,7 +1678,7 @@ class StringValueMixin:
                 and ``ORA-30001`` on Oracle.
             direction: One of ``BOTH`` (default), ``LEADING``, ``TRAILING``.
         """
-        return self._string_op("trim", chars=chars, direction=direction)
+        return self._string_functions().trim(self._dialect, self, chars=chars, direction=direction)
 
     # --- combination ---
 
@@ -1785,11 +1690,14 @@ class StringValueMixin:
         spelling offered here.
         """
         from .functions import string as _string
+        from .bases import SQLValue
         from .core import Literal
 
         operands = [self]
         for other in others:
-            operands.append(other if hasattr(other, "to_sql") else Literal(self._dialect, other))
+            operands.append(
+                other if isinstance(other, SQLValue) else Literal(self._dialect, other)
+            )
         return _string.concat(self._dialect, *operands)
 
     def concat_using_operator(self, *others) -> "StringValueMixin":
@@ -1804,23 +1712,27 @@ class StringValueMixin:
         it renders the same thing but reads more clearly at the call site.
         """
         from .functions import string as _string
+        from .bases import SQLValue
         from .core import Literal
 
         operands = [self]
         for other in others:
             operands.append(
-                other if hasattr(other, "to_sql") else Literal(self._dialect, other)
+                other if isinstance(other, SQLValue) else Literal(self._dialect, other)
             )
         return _string.concat_op(self._dialect, *operands)
 
     def coalesce(self, *others) -> "StringValueMixin":
         """First non-null value. ``COALESCE(col, ...)``"""
         from .functions import string as _string
+        from .bases import SQLValue
         from .core import Literal
 
         operands = [self]
         for other in others:
-            operands.append(other if hasattr(other, "to_sql") else Literal(self._dialect, other))
+            operands.append(
+                other if isinstance(other, SQLValue) else Literal(self._dialect, other)
+            )
         return _string.coalesce(self._dialect, *operands)
 
 
@@ -1915,7 +1827,7 @@ class StringPatternPredicateMixin:
 class TypeCastingMixin:
     """Provides type casting capability to SQL value expressions.
 
-    A type cast is a proper AST node (:class:`CastFunction`) whose single
+    A type cast is a proper AST node (:class:`CastExpression`) whose single
     child is the wrapped expression — never decoration state stored on the
     casted expression. ``cast()`` therefore **wraps** ``self`` in a new node,
     exactly like every other operator-overload in this package builds a new
@@ -1935,7 +1847,7 @@ class TypeCastingMixin:
     >>> # PostgreSQL generates: "price"::money::numeric::float8
     """
 
-    def cast(self: "SQLValue", target_type: str) -> "CastFunction":
+    def cast(self: "SQLValue", target_type: str) -> "CastExpression":
         """Wrap this expression in a CAST node targeting *target_type*.
 
         Args:
@@ -1944,7 +1856,7 @@ class TypeCastingMixin:
             type string.
 
         Returns:
-            A new :class:`CastFunction` node wrapping this expression,
+            A new :class:`CastExpression` node wrapping this expression,
             inheriting this expression's dialect binding state.
 
         Note:
@@ -1952,7 +1864,7 @@ class TypeCastingMixin:
             format_cast_expression method. PostgreSQL uses expr::type syntax,
             while other databases use CAST(expr AS type) syntax.
         """
-        from .core import CastFunction
+        from .core import CastExpression
 
         # Alias decorates the outermost rendered form: wrapping an aliased
         # expression in a CAST moves the alias onto the CAST node, so
@@ -1960,11 +1872,33 @@ class TypeCastingMixin:
         # both render `CAST(col AS INTEGER) AS v`. The original expression
         # is only mutated when it is itself a temporary copy (the as_()
         # convention returns copies), so shared nodes stay untouched.
-        alias = getattr(self, "alias", None)
-        node = CastFunction(self._dialect, self, target_type, alias=alias)
-        if alias is not None and hasattr(self, "alias"):
+        alias = self.alias if isinstance(self, AliasableMixin) else None
+        node = CastExpression(self._dialect, self, target_type, alias=alias)
+        if alias is not None:
             self.alias = None
         return node
+
+
+class IntervalMixin:
+    """Marks a value as a **span** of time rather than a **point** in it.
+
+    A date, a time and a date-time are points: they sit somewhere on the
+    timeline. An interval is the distance between two of them, and arithmetic
+    on the two is not the same -- a point moves by an interval, a point minus a
+    point is an interval, but two points have no sum and an interval scales by a
+    number rather than being added to.
+
+    So the distinction has to be stated somewhere the arithmetic can read, and
+    this is that statement. It carries no operations of its own: an interval
+    does everything a temporal value does, plus this one fact about which it
+    is.
+
+    It exists because ``timestamp + interval`` and ``interval + interval`` are
+    different operations and the gate that refuses the invalid ones has to know
+    which it is holding. While an interval was wrapped in a value class the gate
+    could ask about the wrapper; now that an interval *is* a node, the node says
+    so by being one of these.
+    """
 
 
 class DateTimeMixin:
@@ -2043,9 +1977,9 @@ class DateTimeMixin:
         receiver is only mutated when it is itself a temporary copy (the
         ``as_()`` convention returns copies).
         """
-        alias = getattr(self, "alias", None)
+        alias = self.alias if isinstance(self, AliasableMixin) else None
         node = node_class(self._dialect, *args, alias=alias, **kwargs)
-        if alias is not None and hasattr(self, "alias"):
+        if alias is not None:
             self.alias = None
         return node
 
@@ -2159,7 +2093,7 @@ class JSONAccessorMixin:
             JSONTextValue,
         )
 
-        alias = getattr(self, "alias", None)
+        alias = self.alias if isinstance(self, AliasableMixin) else None
         # The two operations yield different types, so they build different
         # nodes: `->>` is text and offers the text operations, `->` is a
         # document and offers the path accessors again.
@@ -2172,7 +2106,7 @@ class JSONAccessorMixin:
             alias=alias,
             mode=mode,
         )
-        if alias is not None and hasattr(self, "alias"):
+        if alias is not None:
             self.alias = None
         return node
 

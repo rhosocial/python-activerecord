@@ -60,7 +60,7 @@ class BaseExplainResult(BaseModel):
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainResult
-from rhosocial.activerecord.backend.expression import RawSQLExpression
+from rhosocial.activerecord.backend.expression import RawSQL
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect()
@@ -68,7 +68,7 @@ backend = SQLiteBackend(database="mydb.sqlite3")
 backend.connect()
 
 # 获取查询的字节码解释
-expr = RawSQLExpression(dialect, "SELECT * FROM users WHERE id = 1")
+expr = RawSQL(dialect, "SELECT * FROM users WHERE id = 1")
 result = backend.explain(expr)
 
 assert isinstance(result, SQLiteExplainResult)
@@ -210,7 +210,7 @@ class SQLiteExplainQueryPlanResult(BaseExplainResult):
 ### 示例：诊断索引使用情况
 
 ```python
-from rhosocial.activerecord.backend.expression import RawSQLExpression
+from rhosocial.activerecord.backend.expression import RawSQL
 from rhosocial.activerecord.backend.expression.statements import ExplainOptions, ExplainType
 
 dialect = SQLiteDialect()
@@ -225,7 +225,7 @@ queries = {
 
 for label, sql in queries.items():
     # 字节码分析
-    result = backend.explain(RawSQLExpression(dialect, sql))
+    result = backend.explain(RawSQL(dialect, sql))
     print(f"{label}: {result.analyze_index_usage()}")
     print(f"  is_full_scan={result.is_full_scan}, "
           f"is_index_used={result.is_index_used}, "
@@ -233,7 +233,7 @@ for label, sql in queries.items():
 
     # 查询计划分析（具备相同属性）
     plan = backend.explain(
-        RawSQLExpression(dialect, sql),
+        RawSQL(dialect, sql),
         ExplainOptions(type=ExplainType.QUERY_PLAN),
     )
     for row in plan.rows:

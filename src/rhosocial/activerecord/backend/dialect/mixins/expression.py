@@ -9,7 +9,7 @@ from typing import Any, List, Optional, Tuple
 
 from ...expression import bases
 from ...expression.core import (
-    CastFunction,
+    CastExpression,
     QualifiedIdentifier,
     Subquery,
     AllColumnsWildcard,
@@ -17,11 +17,11 @@ from ...expression.core import (
 from ...expression.literals import Identifier
 from ...expression.mixins import AliasableMixin
 from ...expression.operators import (
-    BinaryArithmeticExpression,
+    ArithmeticOperation,
     BinaryExpression,
-    RawSQLExpression,
+    RawSQL,
     SQLOperation,
-    StringConcatExpression,
+    ConcatenationOperation,
     UnaryExpression,
 )
 from .function import FunctionCallMixin
@@ -110,20 +110,21 @@ class ExpressionMixin(FunctionCallMixin):
         return self.format_identifier(expr.name, expr.name_need_quote), ()
 
     def format_literal_expression(self, expr: "bases.SQLValue") -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.Literal`.
+        """Format a literal value expression (:class:`Literal` family).
 
         Args:
-            expr: Literal expression exposing ``inline_literals``, ``value``
-                and optional ``alias``.
+            expr: Literal expression exposing ``value`` and optional ``alias``.
 
         Returns:
             A ``(sql, params)`` tuple; ``params`` holds the literal value when
             it is rendered as a bind parameter, otherwise it is empty.
 
-        The construction-time ``inline_literals`` switch decides between an
-        inline (escaped, quoted) SQL atom and a bind-parameter placeholder.
+        The node's **class-level** ``inline_params`` strategy decides between
+        an inline (escaped, quoted) SQL atom and a bind-parameter placeholder.
+        The class attribute is read off the type — never off the instance —
+        so the strategy cannot be flipped per node.
         """
-        if expr.inline_literals:
+        if type(expr).inline_params:
             sql = self.format_literal(expr.value)
             params: tuple = ()
         else:
@@ -135,8 +136,8 @@ class ExpressionMixin(FunctionCallMixin):
 
         return sql, params
 
-    def format_cast_expression(self, expr: CastFunction) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.core.CastFunction` node.
+    def format_cast_expression(self, expr: CastExpression) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.core.CastExpression` node.
 
         Args:
             expr: Cast expression exposing ``expression``, ``target_type`` and
@@ -183,20 +184,12 @@ class ExpressionMixin(FunctionCallMixin):
     def format_binary_operator(self, expr: BinaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.BinaryExpression`.
 
-        String concatenation is routed to
-        :meth:`format_string_concatenation` rather than inlined, because the
-        operator token does not determine the meaning: ``||`` concatenates on
-        most backends but is logical OR on MySQL, MariaDB and SQL Server.
-
         Args:
             expr: Binary expression exposing ``left``, ``op`` and ``right``.
 
         Returns:
             A ``(sql, params)`` tuple of ``left op right``.
         """
-        if isinstance(expr, StringConcatExpression):
-            return self.format_string_concatenation(expr)
-
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
         sql = f"{left_sql} {expr.op} {right_sql}"
@@ -205,10 +198,14 @@ class ExpressionMixin(FunctionCallMixin):
             sql = f"{sql} AS {self.format_identifier(alias)}"
         return sql, left_params + right_params
 
-    def format_string_concatenation(
-        self, expr: "StringConcatExpression"
+    def format_concatenation_operation(
+        self, expr: "ConcatenationOperation"
     ) -> Tuple[str, tuple]:
-        """Render a string concatenation using this dialect's spelling.
+        """Render a :class:`~...expression.operators.ConcatenationOperation`.
+
+        The node states the *intent* — its kind is ``concatenation_operation``
+        and it carries no operator parameter; this formatter states the
+        spelling this dialect writes for that intent.
 
         Args:
             expr: The concatenation node exposing ``left`` and ``right``.
@@ -228,6 +225,11 @@ class ExpressionMixin(FunctionCallMixin):
             sql = f"{sql} AS {self.format_identifier(alias)}"
         return sql, left_params + right_params
 
+    #: The function this dialect spells concatenation with, or ``None`` for the
+    #: standard's ``||``. Declared so :meth:`string_concatenation_function` can
+    #: read it without asking whether it exists.
+    STRING_CONCATENATION: Optional[str] = None
+
     def string_concatenation_function(self) -> Optional[str]:
         """Return the function name this dialect uses for concatenation.
 
@@ -235,18 +237,20 @@ class ExpressionMixin(FunctionCallMixin):
         overriding this: MySQL, MariaDB and SQL Server read ``||`` as logical
         OR, and BigQuery does not accept it as concatenation at all.
 
-        The lookup is by name through ``getattr`` rather than by inheriting a
-        base implementation, because MRO order decides which definition wins
-        and the core mixin's position depends on how many generic mixins a
-        given dialect happens to inherit — which a backend author cannot see or
-        control. Looking the name up on the instance finds the dialect's own
-        declaration wherever it sits.
+        Declared on the mixin as ``None`` and overridden by the dialects that
+        need it, which is why this reads the attribute rather than looking a
+        name up: the field is part of the mixin's shape, so a checker sees it
+        and no one has to ask whether a given dialect happens to carry it.
+
+        A dialect that declares its own must be listed **before** this mixin in
+        its base list, or the declaration here wins -- the same override-order
+        rule as everywhere else, and the reason a backend author controls it by
+        ordering rather than by a name lookup.
 
         Returns:
             The function name, or ``None`` to use the standard's ``||``.
         """
-        declaration = getattr(self, "STRING_CONCATENATION", None)
-        return declaration if isinstance(declaration, str) else None
+        return self.STRING_CONCATENATION
 
     def format_unary_operator(self, expr: UnaryExpression) -> Tuple[str, tuple]:
         """Format a :class:`~...expression.operators.UnaryExpression`.
@@ -263,19 +267,20 @@ class ExpressionMixin(FunctionCallMixin):
             return f"{expr.op} {operand_sql}", operand_params
         return f"{operand_sql} {expr.op}", operand_params
 
-    def format_binary_arithmetic_expression(self, expr: BinaryArithmeticExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.operators.BinaryArithmeticExpression`.
+    def format_arithmetic_operation(self, expr: ArithmeticOperation) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.operators.ArithmeticOperation`.
 
         Args:
-            expr: Arithmetic expression exposing ``left``, ``op``, ``right``
-                and optional ``alias``.
+            expr: Arithmetic operation exposing ``left``, ``op`` and ``right``.
 
         Returns:
             A ``(sql, params)`` tuple; parentheses are inserted where dictated
             by the operator-precedence table.
 
-        Parenthesization follows the operator-precedence table carried on the
-        expression class (``OPERATOR_PRECEDENCE``).
+        The node's ``op`` is an operation word (``add``/``sub``/``mul``/
+        ``div``/``mod``), and the rendered SQL takes the character the word
+        maps to in the class's ``OPERATOR_SYMBOLS`` table. Parenthesization
+        follows ``OPERATOR_PRECEDENCE``, keyed by the same words.
         """
         left_sql, left_params = expr.left.to_sql()
         right_sql, right_params = expr.right.to_sql()
@@ -286,7 +291,7 @@ class ExpressionMixin(FunctionCallMixin):
         if self._needs_parens(expr.right, current_precedence):
             right_sql = f"({right_sql})"
 
-        sql = f"{left_sql} {expr.op} {right_sql}"
+        sql = f"{left_sql} {expr.OPERATOR_SYMBOLS[expr.op]} {right_sql}"
         params = left_params + right_params
         if expr.alias:
             sql = f"{sql} AS {self.format_identifier(expr.alias)}"
@@ -294,14 +299,14 @@ class ExpressionMixin(FunctionCallMixin):
 
     def _needs_parens(self, operand, current_precedence):
         """Check if an arithmetic operand needs parentheses based on precedence."""
-        from ...expression.operators import BinaryArithmeticExpression
+        from ...expression.operators import ArithmeticOperation
 
-        if isinstance(operand, BinaryArithmeticExpression):
+        if isinstance(operand, ArithmeticOperation):
             return operand.OPERATOR_PRECEDENCE.get(operand.op, 0) < current_precedence
         return False
 
-    def format_raw_sql(self, expr: RawSQLExpression) -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.operators.RawSQLExpression` / ``RawSQLPredicate``.
+    def format_raw_sql(self, expr: RawSQL) -> Tuple[str, tuple]:
+        """Format a :class:`~...expression.operators.RawSQL` / ``RawSQLPredicate``.
 
         Args:
             expr: Raw SQL expression exposing ``expression`` and ``params``.
@@ -374,7 +379,7 @@ class ExpressionMixin(FunctionCallMixin):
         return sql, tuple(all_params)
 
     def format_case_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
-        """Format a :class:`~...expression.advanced_functions.CaseFunction` node.
+        """Format a :class:`~...expression.advanced_functions.CaseExpression` node.
 
         Args:
             expr: CASE expression exposing optional ``value``, ``cases`` (a

@@ -10,7 +10,7 @@ from rhosocial.activerecord.backend.expression import (
     QueryStatement,
     Column,
     ComparisonPredicate,
-    FunctionCall,
+    functions,
     WhereClause,
     Literal,
 )
@@ -31,8 +31,8 @@ def agg_sales(dialect, month: str = ""):
     return QueryStatement(
         dialect,
         select=[
-            FunctionCall(dialect, "SUM", Column(dialect, "amount")).as_("total"),
-            FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("count"),
+            functions.sum_(dialect, Column(dialect, "amount")).as_("total"),
+            functions.count(dialect, Column(dialect, "id")).as_("count"),
         ],
         from_=NamedRelationRef(dialect, Table(dialect, "sales")),
         where=WhereClause(
@@ -55,8 +55,8 @@ def agg_refunds(dialect, month: str = ""):
     return QueryStatement(
         dialect,
         select=[
-            FunctionCall(dialect, "SUM", Column(dialect, "amount")).as_("total"),
-            FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("count"),
+            functions.sum_(dialect, Column(dialect, "amount")).as_("total"),
+            functions.count(dialect, Column(dialect, "id")).as_("count"),
         ],
         from_=NamedRelationRef(dialect, Table(dialect, "refunds")),
         where=WhereClause(
@@ -79,8 +79,8 @@ def join_sales_refunds(dialect):
         dialect,
         select=[
             Column(dialect, "s.month"),
-            FunctionCall(dialect, "SUM", Column(dialect, "s.amount")).as_("sales_total"),
-            FunctionCall(dialect, "SUM", Column(dialect, "r.amount")).as_("refunds_total"),
+            functions.sum_(dialect, Column(dialect, "s.amount")).as_("sales_total"),
+            functions.sum_(dialect, Column(dialect, "r.amount")).as_("refunds_total"),
         ],
     )
 

@@ -3,7 +3,7 @@
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    CaseFunction,
+    CaseExpression,
     ExistsPredicate,
     AnyPredicate,
     AllPredicate,
@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.expression.types import RealType
 class TestAdvancedFunctionWindow:
     """Tests for advanced SQL functions and window functions."""
 
-    # --- CaseFunction ---
+    # --- CaseExpression ---
     def test_case_searched_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests a searched CASE expression (CASE WHEN ... THEN ... ELSE ... END)."""
         condition1 = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
@@ -23,7 +23,7 @@ class TestAdvancedFunctionWindow:
         condition2 = Column(sqlite_dialect_3_8_0, "age") <= Literal(sqlite_dialect_3_8_0, 18)
         result2 = Literal(sqlite_dialect_3_8_0, "minor")
 
-        case_expr = CaseFunction(sqlite_dialect_3_8_0, cases=[(condition1, result1), (condition2, result2)])
+        case_expr = CaseExpression(sqlite_dialect_3_8_0, cases=[(condition1, result1), (condition2, result2)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
         assert params == (18, "adult", 18, "minor")
@@ -31,7 +31,7 @@ class TestAdvancedFunctionWindow:
     def test_case_simple_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests a simple CASE expression (CASE value WHEN ... THEN ... END)."""
         value = Column(sqlite_dialect_3_8_0, "status")
-        case_expr = CaseFunction(
+        case_expr = CaseExpression(
             sqlite_dialect_3_8_0,
             value=value,
             cases=[

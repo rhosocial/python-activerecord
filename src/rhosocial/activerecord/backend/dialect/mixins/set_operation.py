@@ -1,15 +1,28 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/set_operation.py
 """Set operation (UNION/INTERSECT/EXCEPT) formatting for the dialect layer.
 
-Provides the default capability probes and SQL rendering for compound queries
-that combine two query expressions.
+Provides the capability probes and SQL rendering for compound queries that
+combine two query sides. The node carries the operation as a **word form**
+(``union`` / ``union_all`` / ``intersect`` / ``except``); this formatter maps
+the word back to the SQL spelling and gates it behind the per-operation
+probes.
 """
 from typing import Tuple, TYPE_CHECKING
 
-from ...expression import bases
+from ...expression.query_sources import SetOperationKind
 
 if TYPE_CHECKING:  # pragma: no cover
-    pass
+    from ...expression.query_sources import SetOperation
+
+#: Compound-SELECT word form -> the SQL keyword this dialect spells it with.
+#: Keyed by the enum, so a word that is not one of the four cannot reach here
+#: and a fifth operation cannot be added without saying what it renders as.
+SET_OPERATION_KEYWORD = {
+    SetOperationKind.UNION: "UNION",
+    SetOperationKind.UNION_ALL: "UNION ALL",
+    SetOperationKind.INTERSECT: "INTERSECT",
+    SetOperationKind.EXCEPT: "EXCEPT",
+}
 
 
 class SetOperationMixin:
@@ -47,95 +60,38 @@ class SetOperationMixin:
         """
         return False
 
-    def supports_set_operation_order_by(self) -> bool:
-        """Whether set operations support ORDER BY clauses.
-
-        Defaults to False; dialects that support it override this.
-        """
-        return False
-
-    def supports_set_operation_limit_offset(self) -> bool:
-        """Whether set operations support LIMIT and OFFSET clauses.
-
-        Defaults to False; dialects that support it override this.
-        """
-        return False
-
-    def supports_set_operation_for_update(self) -> bool:
-        """Whether set operations support FOR UPDATE clauses.
-
-        Defaults to False; dialects that support it override this.
-        """
-        return False
-
-    def format_set_operation_statement(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
-        """Format a set operation expression (UNION, INTERSECT, EXCEPT).
+    def format_set_operation(self, expr: "SetOperation") -> Tuple[str, Tuple]:
+        """Format a set operation node (UNION, INTERSECT, EXCEPT).
 
         Args:
-            expr: Set operation expression exposing ``left``, ``right``,
-                ``operation``, ``all_``, ``alias``, ``order_by_clause``,
-                ``limit_offset_clause``, and ``for_update_clause``.
+            expr: The node exposing ``op`` (a word form), ``left`` and
+                ``right``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedFeatureError: The dialect does not support the
+                requested operation (the per-operation probe said no).
         """
-        left, right = expr.left, expr.right
-        operation = expr.operation
-        all_ = expr.all_
-        distinct = expr.distinct
-        alias = expr.alias
-        order_by_clause = expr.order_by_clause
-        limit_offset_clause = expr.limit_offset_clause
-        for_update_clause = expr.for_update_clause
-        left_sql, left_params = left.to_sql()
-        right_sql, right_params = right.to_sql()
-        if all_:
-            all_str = " ALL"
-        elif distinct:
-            all_str = " DISTINCT"
-        else:
-            all_str = ""
+        from ..exceptions import UnsupportedFeatureError
 
-        # Build the base set operation SQL
-        base_sql = f"{left_sql} {operation}{all_str} {right_sql}"
-
-        all_params = list(left_params + right_params)
-
+        probe = {
+            SetOperationKind.UNION: self.supports_union,
+            SetOperationKind.UNION_ALL: self.supports_union_all,
+            SetOperationKind.INTERSECT: self.supports_intersect,
+            SetOperationKind.EXCEPT: self.supports_except,
+        }[expr.op]
+        if not probe():
+            raise UnsupportedFeatureError(
+                self.name,
+                f"{SET_OPERATION_KEYWORD[expr.op]} operation",
+                f"{self.name} does not support {SET_OPERATION_KEYWORD[expr.op]}.",
+            )
+        left_sql, left_params = expr.left.to_sql()
+        right_sql, right_params = expr.right.to_sql()
+        base_sql = f"{left_sql} {SET_OPERATION_KEYWORD[expr.op]} {right_sql}"
         # Set operations at top level do not need outer parentheses.
         # When used as a subquery (e.g. in a FROM clause), the caller
         # (Subquery / QueryStatement / dql.py) adds the required wrapping.
-        sql_parts = [base_sql]
-
-        # Add alias if present
-        if alias:
-            sql_parts.append(f"AS {self.format_identifier(alias)}")
-
-        # Add ORDER BY clause if present
-        if order_by_clause:
-            order_by_sql, order_by_params = order_by_clause.to_sql()
-            sql_parts.append(order_by_sql)
-            all_params.extend(order_by_params)
-
-        # Add LIMIT/OFFSET clause if present
-        if limit_offset_clause:
-            limit_offset_sql, limit_offset_params = limit_offset_clause.to_sql()
-            sql_parts.append(limit_offset_sql)
-            all_params.extend(limit_offset_params)
-
-        # Add FOR UPDATE clause if present
-        if for_update_clause:
-            if not self.supports_set_operation_for_update():
-                from ..exceptions import UnsupportedFeatureError
-
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "FOR UPDATE in set operations",
-                    "This dialect does not support FOR UPDATE clauses in a set "
-                    "operation (UNION, INTERSECT, EXCEPT).",
-                )
-            for_update_sql, for_update_params = for_update_clause.to_sql()
-            sql_parts.append(for_update_sql)
-            all_params.extend(for_update_params)
-
-        sql = " ".join(sql_parts)
-        return sql, tuple(all_params)
+        return base_sql, tuple(left_params + right_params)

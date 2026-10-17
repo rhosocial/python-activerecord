@@ -6,7 +6,7 @@ example queries (Mandelbrot set, Sudoku solver).
 https://sqlite.org/lang_with.html — Outlandish Recursive Query Examples
 
 These queries are built as deep expression trees (CTEClause,
-WithStatement, SetOperationStatement, ValuesExpression, QueryStatement,
+WithStatement, SetOperation, ValuesExpression, QueryStatement,
 FunctionCall, arithmetic operators, concat_op, ExistsPredicate, etc.) and
 round-tripped through dict / JSON / XML to stress-test the serialization
 machinery with deeply nested recursive structures.
@@ -30,7 +30,7 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.query_sources import (
     CTEClause,
     WithStatement,
-    SetOperationStatement,
+    SetOperation,
     ValuesExpression,
 )
 from rhosocial.activerecord.backend.expression.query_parts import (
@@ -41,7 +41,7 @@ from rhosocial.activerecord.backend.expression.query_parts import (
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     ExistsPredicate,
-    CaseFunction,
+    CaseExpression,
 )
 from rhosocial.activerecord.backend.expression.functions.string import concat_op
 from rhosocial.activerecord.backend.expression.functions.type_conversion import cast
@@ -76,7 +76,7 @@ def build_mandelbrot(d):
             from_=NamedRelationRef(d, Table(d, cte_name)),
             where=Column(d, column) < Literal(d, limit_),
         )
-        return SetOperationStatement(d, left=base, right=rec, operation="UNION", all_=True)
+        return SetOperation(d, left=base, right=rec, op="union_all")
 
     xaxis_cte = CTEClause(
         d, name="xaxis", query=_make_axis_union("xaxis", "x", -2.0, 0.05, 1.2), columns=["x"]
@@ -110,7 +110,7 @@ def build_mandelbrot(d):
     m_cte = CTEClause(
         d,
         name="m",
-        query=SetOperationStatement(d, left=m_seed, right=m_step, operation="UNION", all_=True),
+        query=SetOperation(d, left=m_seed, right=m_step, op="union_all"),
         columns=["iter", "cx", "cy", "x", "y"],
     )
 
@@ -162,7 +162,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     digits_cte = CTEClause(
         d,
         name="digits",
-        query=SetOperationStatement(d, left=digits_seed, right=digits_step, operation="UNION", all_=True),
+        query=SetOperation(d, left=digits_seed, right=digits_step, op="union_all"),
         columns=["z", "lp"],
     )
 
@@ -226,7 +226,7 @@ def build_sudoku(d, puzzle="53..7....6..195....98....6.8...6...34..8.3..17...2..
     x_cte = CTEClause(
         d,
         name="x",
-        query=SetOperationStatement(d, left=x_seed, right=x_step, operation="UNION", all_=True),
+        query=SetOperation(d, left=x_seed, right=x_step, op="union_all"),
         columns=["s", "ind"],
     )
 
@@ -271,7 +271,7 @@ def build_bom(d):
         ],
         where=ComparisonPredicate(d, "=", Column(d, "parent_id", "c"), Column(d, "child_id", "b")),
     )
-    union = SetOperationStatement(d, left=anchor, right=step, operation="UNION", all_=True)
+    union = SetOperation(d, left=anchor, right=step, op="union_all")
     cte = CTEClause(
         d, name="BOM_Explosion", query=union, columns=["child_id", "quantity", "total_qty"]
     )
@@ -330,7 +330,7 @@ def build_flight_paths(d):
         )
         & (Column(d, "depth", "p") < Literal(d, 5)),
     )
-    union = SetOperationStatement(d, left=anchor, right=step, operation="UNION", all_=True)
+    union = SetOperation(d, left=anchor, right=step, op="union_all")
     cte = CTEClause(
         d, name="FlightPaths", query=union, columns=["destination", "price", "depth", "path"]
     )
@@ -371,8 +371,8 @@ def build_game_of_life(d):
     offsets = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
     expansion = neighbor(*offsets[0])
     for dx, dy in offsets[1:]:
-        expansion = SetOperationStatement(
-            d, left=expansion, right=neighbor(dx, dy), operation="UNION", all_=True
+        expansion = SetOperation(
+            d, left=expansion, right=neighbor(dx, dy), op="union_all"
         )
 
     nb = Subquery(d, expansion, alias="nb")
@@ -386,7 +386,7 @@ def build_game_of_life(d):
     )
     nsub = Subquery(d, neighbors, alias="n")
     l_x_null = Column(d, "x", "l").is_null()
-    alive = CaseFunction(
+    alive = CaseExpression(
         d,
         cases=[
             (l_x_null & (Column(d, "cnt", "n") == Literal(d, 3)), Literal(d, 1)),

@@ -6,8 +6,8 @@ from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression import JoinClause
 from rhosocial.activerecord.backend.expression.predicates import IsNullPredicate
-from rhosocial.activerecord.backend.expression import SetOperationStatement
-from rhosocial.activerecord.backend.expression.core import FunctionCall
+from rhosocial.activerecord.backend.expression import SetOperation
+from rhosocial.activerecord.backend.expression import functions
 from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CTEClause,
     WithStatement,
@@ -21,7 +21,7 @@ from rhosocial.activerecord.backend.expression import (
     CreateTableStatement,
     InsertStatement,
     ValuesSource,
-    BinaryArithmeticExpression,
+    ArithmeticOperation,
 )
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -101,7 +101,7 @@ dept_count_cte = CTEClause(
         dialect=dialect,
         select=[
             Column(dialect, "department"),
-            FunctionCall(dialect, "COUNT", Column(dialect, "id"), alias="headcount"),
+            functions.count(dialect, Column(dialect, "id"), alias="headcount"),
         ],
         from_=NamedRelationRef(dialect, Table(dialect, "employees")),
         group_by_having=GroupByHavingClause(
@@ -163,17 +163,17 @@ recursive_query = QueryStatement(
         Column(dialect, "name", "e"),
         Column(dialect, "manager_id", "e"),
         Column(dialect, "department", "e"),
-        BinaryArithmeticExpression(dialect, "+", Column(dialect, "level", "oc"), Literal(dialect, 1)),
+        ArithmeticOperation(dialect, "add", Column(dialect, "level", "oc"), Literal(dialect, 1)),
     ],
     from_=join_expr,
 )
 
 # Combine base and recursive with UNION ALL
-union_all = SetOperationStatement(
+union_all = SetOperation(
     dialect=dialect,
     left=base_query,
     right=recursive_query,
-    operation="UNION ALL",
+    op="union_all",
 )
 
 # Wrap in a CTE and a WITH query

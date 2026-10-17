@@ -2,9 +2,12 @@
 """
 Expression serialization and deserialization utilities.
 
-This module provides functions to serialize expression objects to JSON-compatible
-dictionaries and reconstruct them from those dictionaries. The `dialect` is
-intentionally NOT serialized - it must be supplied at deserialization time.
+The class index below is a **deserialization support table**, not the
+expression registry: the serializer never consults it (a node carries its own
+identity), and the registry (:mod:`.registry`) does registration, checking
+and dispatch of *rendering*, not of classes. Deserializing a spec resolves
+the class through this table — temporarily still keyed by fully-qualified
+class name; the kind whitelist arrives with the bare-node rewrite.
 
 Reserved special keys in serialized param dicts:
     "__tuple__"  →  Python tuple value (since tuple is not JSON native)
@@ -25,7 +28,7 @@ from dataclasses import is_dataclass
 from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING
 
 from .bases import BaseExpression
-from .codec import register_codec
+from .codec import register_codec  # noqa: F401  (re-export consumed by codec users)
 from .codec import decode_value as _codec_decode_value
 from .codec import encode_value as _codec_encode_value
 
@@ -41,6 +44,116 @@ class ExpressionDeserializationError(Exception):
 
 _DEFAULT_MAX_DEPTH = 64
 _DEFAULT_WARN_THRESHOLD = 0.8
+
+
+# ---------------------------------------------------------------------------
+# The deserialization class index (not the rendering registry — see module
+# docstring). Keyed by fully-qualified class name, with an unambiguous short
+# name fallback.
+# ---------------------------------------------------------------------------
+
+_EXPRESSION_CLASSES: Dict[str, Type[BaseExpression]] = {}
+
+
+def register_expression_class(expr_class: Type[BaseExpression]) -> None:
+    """Register an expression class so deserialization can resolve it.
+
+    Registration is keyed by the class's fully-qualified name. Registering
+    the same class again is a no-op (re-exports resolve to the same FQN);
+    a *different* class claiming an already-registered FQN is a hard error —
+    which class a spec deserializes to must never depend on registration
+    order.
+
+    Args:
+        expr_class: The expression class to register.
+
+    Raises:
+        ValueError: Another class is already registered under the same FQN.
+    """
+    fqn = f"{expr_class.__module__}.{expr_class.__name__}"
+    existing = _EXPRESSION_CLASSES.get(fqn)
+    if existing is expr_class:
+        return
+    if existing is not None:
+        raise ValueError(
+            f"expression class FQN '{fqn}' is already registered by "
+            f"{existing.__module__}.{existing.__name__}; registering "
+            f"{expr_class.__module__}.{expr_class.__name__} would make "
+            f"deserialization depend on registration order"
+        )
+    _EXPRESSION_CLASSES[fqn] = expr_class
+
+
+def registered_expression_classes() -> Dict[str, Type[BaseExpression]]:
+    """A snapshot of the deserialization class index (FQN → class)."""
+    return dict(_EXPRESSION_CLASSES)
+
+
+def _lookup_expression_class(fqn: str) -> Type[BaseExpression]:
+    """Resolve an expression class by FQN or unambiguous short name.
+
+    Lookup order:
+        1. Direct FQN lookup (e.g., "rhosocial.activerecord.backend.expression.core.Column")
+        2. Short name fallback (e.g., "Column") - only if unambiguous
+
+    Raises:
+        ExpressionDeserializationError: If class not found or ambiguous.
+    """
+    if fqn in _EXPRESSION_CLASSES:
+        return _EXPRESSION_CLASSES[fqn]
+
+    if "." not in fqn:
+        matches = [cls_ for key, cls_ in _EXPRESSION_CLASSES.items() if key.rsplit(".", 1)[-1] == fqn]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            fqns = [k for k in _EXPRESSION_CLASSES if k.rsplit(".", 1)[-1] == fqn]
+            raise ExpressionDeserializationError(f"Ambiguous short name '{fqn}': found in {fqns}. Use FQN.")
+
+    raise ExpressionDeserializationError(
+        f"Expression class '{fqn}' not found in the deserialization class "
+        f"index. Please register it first using register_expression_class()."
+    )
+
+
+def auto_register_builtins() -> None:
+    """Register every built-in expression class with the deserialization index.
+
+    Walks the whole ``backend/expression`` package tree (including
+    ``statements/``, ``collation.py``, ``datetime.py``, ``xml.py`` and
+    ``types/``) and registers every class defined there that subclasses
+    :class:`~rhosocial.activerecord.backend.expression.bases.BaseExpression`.
+    Registration is idempotent: re-exported classes resolve to the same FQN.
+    Runs once at module import; calling it again is harmless.
+    """
+    import pkgutil
+    import importlib
+
+    pkg = importlib.import_module(__name__.rsplit(".", 1)[0])
+
+    for _, modname, _ in pkgutil.walk_packages(
+        path=pkg.__path__,
+        prefix=pkg.__name__ + ".",
+        onerror=lambda x: None,
+    ):
+        try:
+            sub_mod = importlib.import_module(modname)
+        except Exception:
+            continue
+        for name in dir(sub_mod):
+            obj = getattr(sub_mod, name, None)
+            if (
+                isinstance(obj, type)
+                and obj.__module__ == modname
+                and issubclass(obj, BaseExpression)
+                and obj is not BaseExpression
+                # A class with an unimplemented abstract method cannot be
+                # constructed, so it is not a node -- it is a base other nodes
+                # build on. Registering it would put a name in the kind
+                # whitelist that nothing can ever produce.
+                and not getattr(obj, "__abstractmethods__", None)
+            ):
+                register_expression_class(obj)
 
 
 class ExpressionSerializer:
@@ -220,7 +333,7 @@ class ExpressionSerializer:
             )
 
         try:
-            expr_class = ExpressionRegistry.lookup(fqn)
+            expr_class = _lookup_expression_class(fqn)
         except ExpressionDeserializationError as e:
             raise ExpressionDeserializationError(f"Cannot find expression class '{fqn}': {e}") from e
 
@@ -500,13 +613,14 @@ def _reconstruct_by_name(
     dialect: "SQLDialectBase",
     params: Dict[str, Any],
 ) -> BaseExpression:
-    """Reconstruct an expression by class name using registry or import."""
+    """Reconstruct an expression by class name using the deserialization index."""
     try:
-        expr_class = ExpressionRegistry.lookup(type_name)
+        expr_class = _lookup_expression_class(type_name)
     except ExpressionDeserializationError as e:
         raise ExpressionDeserializationError(
-            f"Expression class '{type_name}' not found in registry. "
-            f"Please register it first using ExpressionRegistry.register()."
+            f"Expression class '{type_name}' not found in the deserialization "
+            f"class index. Please register it first using "
+            f"register_expression_class()."
         ) from e
     try:
         return _reconstruct(expr_class, dialect, params)
@@ -514,95 +628,4 @@ def _reconstruct_by_name(
         raise ExpressionDeserializationError(f"Failed to reconstruct expression '{type_name}': {e}") from e
 
 
-class ExpressionRegistry:
-    """Maps expression FQN to their classes for deserialization.
-
-    Pre-populated with all built-in expression classes.
-    Allows registration of user-defined expression subclasses.
-    """
-
-    _registry: Dict[str, Type[BaseExpression]] = {}
-
-    @classmethod
-    def register(cls, expr_class: Type[BaseExpression]) -> None:
-        """Register an expression class using its FQN as key.
-
-        Args:
-            expr_class: The expression class to register.
-        """
-        fqn = f"{expr_class.__module__}.{expr_class.__name__}"
-        cls._registry[fqn] = expr_class
-
-    @classmethod
-    def lookup(cls, fqn: str) -> Type[BaseExpression]:
-        """Look up an expression class by FQN or short class name.
-
-        Lookup order:
-            1. Direct FQN lookup (e.g., "rhosocial.activerecord.backend.expression.core.Column")
-            2. Short name fallback (e.g., "Column") - only if unambiguous
-
-        Note:
-            All expression classes must be pre-registered via ExpressionRegistry.register()
-            or automatically registered via _auto_register_builtins().
-
-        Args:
-            fqn: The fully qualified name or short class name.
-
-        Returns:
-            The expression class.
-
-        Raises:
-            ExpressionDeserializationError: If class not found or ambiguous.
-        """
-        if fqn in cls._registry:
-            return cls._registry[fqn]
-
-        if "." not in fqn:
-            matches = [cls_ for key, cls_ in cls._registry.items() if key.rsplit(".", 1)[-1] == fqn]
-            if len(matches) == 1:
-                return matches[0]
-            if len(matches) > 1:
-                fqns = [k for k in cls._registry if k.rsplit(".", 1)[-1] == fqn]
-                raise ExpressionDeserializationError(f"Ambiguous short name '{fqn}': found in {fqns}. Use FQN.")
-
-        raise ExpressionDeserializationError(
-            f"Expression class '{fqn}' not found in registry. "
-            f"Please register it first using ExpressionRegistry.register()."
-        )
-
-    @classmethod
-    def _auto_register_builtins(cls) -> None:
-        """Auto-register all built-in expression classes.
-
-        Walks the whole ``backend/expression`` package tree (including
-        ``statements/``, ``collation.py``, ``datetime.py``, ``xml.py`` and
-        ``types/``) and registers every class defined there that subclasses
-        :class:`~rhosocial.activerecord.backend.expression.bases.BaseExpression`.
-        Registration is idempotent: re-exported classes resolve to the same FQN.
-        """
-        import pkgutil
-        import importlib
-
-        pkg = importlib.import_module(__name__.rsplit(".", 1)[0])
-
-        for _, modname, _ in pkgutil.walk_packages(
-            path=pkg.__path__,
-            prefix=pkg.__name__ + ".",
-            onerror=lambda x: None,
-        ):
-            try:
-                sub_mod = importlib.import_module(modname)
-            except Exception:
-                continue
-            for name in dir(sub_mod):
-                obj = getattr(sub_mod, name, None)
-                if (
-                    isinstance(obj, type)
-                    and obj.__module__ == modname
-                    and issubclass(obj, BaseExpression)
-                    and obj is not BaseExpression
-                ):
-                    cls.register(obj)
-
-
-ExpressionRegistry._auto_register_builtins()
+auto_register_builtins()

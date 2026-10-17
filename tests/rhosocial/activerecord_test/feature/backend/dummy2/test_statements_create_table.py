@@ -288,7 +288,7 @@ class TestCreateTableStatements:
         """Tests CREATE TABLE with CHECK column constraints."""
         # Create a check predicate for age > 0 (inline literal for DDL)
         age_check = ComparisonPredicate(
-            dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 0, inline_literals=True)
+            dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 0)
         )
 
         columns = [
@@ -858,7 +858,7 @@ class TestCreateTableStatements:
                             dummy_dialect,
                             ">=",
                             Column(dummy_dialect, "amount"),
-                            Literal(dummy_dialect, 0, inline_literals=True),
+                            Literal(dummy_dialect, 0),
                         ))),
                 ],
             ),

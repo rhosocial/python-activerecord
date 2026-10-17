@@ -123,7 +123,7 @@ EXAMPLES_META = {
         "priority": 10,
     },
     "query/union.py": {
-        "title": "UNION using SetOperationStatement",
+        "title": "UNION using SetOperation",
         "dialect_protocols": [],
         "priority": 10,
     },

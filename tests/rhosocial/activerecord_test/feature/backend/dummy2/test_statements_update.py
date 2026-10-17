@@ -4,7 +4,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
+    RawSQL,
     QueryStatement,
     UpdateStatement,
     JoinClause,
@@ -54,7 +54,7 @@ class TestUpdateStatements:
             ),
             pytest.param(
                 Table(None, "orders"),
-                {"status": Literal(None, "shipped"), "updated_at": RawSQLExpression(None, "CURRENT_TIMESTAMP")},
+                {"status": Literal(None, "shipped"), "updated_at": RawSQL(None, "CURRENT_TIMESTAMP")},
                 ComparisonPredicate(None, "=", Column(None, "id"), Literal(None, 1)),
                 None,
                 'UPDATE "orders" SET "status" = ?, "updated_at" = CURRENT_TIMESTAMP WHERE "id" = ?',
@@ -327,8 +327,8 @@ class TestUpdateStatements:
                 set_dialect_recursive(expr.right_table, dialect)
                 set_dialect_recursive(expr.condition, dialect)
 
-            if isinstance(expr, LogicalPredicate):  # LogicalPredicate has 'predicates'
-                for pred in expr.predicates:
+            if isinstance(expr, LogicalPredicate):  # LogicalPredicate has 'operands'
+                for pred in expr.operands:
                     set_dialect_recursive(pred, dialect)
 
         # Apply dialect recursively to from_param
@@ -504,7 +504,7 @@ class TestUpdateStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>",  # noqa: E501
         ):
             update_expr.validate(strict=True)
 
@@ -576,7 +576,7 @@ class TestUpdateStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*MockInvalidType'>",  # noqa: E501
+            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*MockInvalidType'>",  # noqa: E501
         ):
             update_expr.validate(strict=True)
 
@@ -593,12 +593,12 @@ class TestUpdateStatements:
             dummy_dialect, table=Table(dummy_dialect, 'users'), assignments={"name": Literal(dummy_dialect, "test")}
         )
 
-        # Create a mock SetOperationStatement-like class that has a name in valid_type_names
-        class SetOperationStatement:
+        # Create a mock SetOperation-like class that has a name in valid_type_names
+        class SetOperation:
             pass
 
-        # This should not raise an error because the type name "SetOperationStatement" is in valid_type_names
-        update_expr.from_ = SetOperationStatement()
+        # This should not raise an error because the type name "SetOperation" is in valid_type_names
+        update_expr.from_ = SetOperation()
 
         # This should pass validation since the type name is in the valid list
         update_expr.validate(strict=True)  # Should not raise any exception

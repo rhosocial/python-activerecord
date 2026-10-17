@@ -40,9 +40,9 @@ class Identifier(ComparisonMixin, SQLValue):
         return f"Identifier({self.name!r})"
 
 
-# Register Identifier in the expression registry for serialization support.
-# This is done here rather than in serialization._auto_register_builtins
+# Register Identifier in the deserialization class index for serialization
+# support. This is done here rather than in serialization.auto_register_builtins
 # to avoid circular import issues during module initialization.
-from .serialization import ExpressionRegistry  # noqa: E402
+from .serialization import register_expression_class  # noqa: E402
 
-ExpressionRegistry.register(Identifier)
+register_expression_class(Identifier)

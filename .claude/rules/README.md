@@ -11,6 +11,7 @@ stands alone; read the one that concerns the change in front of you.
 | [operation-contracts.md](operation-contracts.md) | What each operation promises once the ten-backend survey measured it: the string boundary refusals, the rendering-name contracts, the temporal result types, the value-layer echo, and where version gates refuse. |
 | [static-analysis.md](static-analysis.md) | Making a checker actually check: `py.typed`, a configuration that loads, and the defects that opt out of checking silently. |
 | [anti-patterns.md](anti-patterns.md) | The catalogue, with what each one cost. Read this before adding a runtime lookup, a coercion helper, or a `__getattr__`. |
+| [python-hazards.md](python-hazards.md) | Python spelling and measured surface for the organisation's language-neutral clauses on override order, reflection and enums (expression-dialect.md §11). |
 
 Two rules decide most of the rest:
 

@@ -20,7 +20,7 @@ from rhosocial.activerecord.backend.expression import StringColumn
 from rhosocial.activerecord.backend.expression import functions as string_functions
 from rhosocial.activerecord.backend.expression.operators import (
     BinaryExpression,
-    StringConcatExpression,
+    ConcatenationOperation,
 )
 
 
@@ -55,25 +55,31 @@ def operands(dialect):
 def test_concat_op_builds_an_intent_node(dialect, operands):
     left, right = operands
     expr = string_functions.concat_op(dialect, left, right)
-    assert isinstance(expr, StringConcatExpression)
+    assert isinstance(expr, ConcatenationOperation)
 
 
-def test_intent_node_is_a_binary_expression(dialect, operands):
-    """Existing BinaryExpression handling must keep working."""
-    left, right = operands
-    expr = string_functions.concat_op(dialect, left, right)
-    assert isinstance(expr, BinaryExpression)
-    assert expr.left is left and expr.right is right
-
-
-def test_the_operator_is_not_chosen_by_the_expression(dialect, operands):
-    """``op`` is fixed, but it is the *node type* that carries the meaning.
+def test_the_intent_node_is_not_a_bare_binary_expression(dialect, operands):
+    """The node is its own kind, not a BinaryExpression with a token.
 
     A bare BinaryExpression with op ``||`` says nothing about intent, which is
     exactly why concat_op stopped producing one.
     """
     left, right = operands
-    assert StringConcatExpression(dialect, left, right).op == "||"
+    expr = string_functions.concat_op(dialect, left, right)
+    assert not isinstance(expr, BinaryExpression)
+    assert expr.left is left and expr.right is right
+
+
+def test_the_operator_is_not_a_parameter(dialect, operands):
+    """Concatenation carries no ``op``: the kind is the intent.
+
+    ``left`` and ``right`` are the node's only construction parameters, so
+    nothing about the operator token travels in the artifact.
+    """
+    left, right = operands
+    expr = ConcatenationOperation(dialect, left, right)
+    assert not hasattr(expr, "op")
+    assert set(expr.get_params()) == {"left", "right"}
 
 
 # ---------------------------------------------------------------------------
@@ -154,5 +160,5 @@ def test_logical_or_does_not_go_through_concatenation(operands):
     """OR has its own node and formatter, so the two never meet."""
     left, _ = operands
     predicate = left.like("a%") | left.like("b%")
-    assert not isinstance(predicate, StringConcatExpression)
+    assert not isinstance(predicate, ConcatenationOperation)
     assert " OR " in predicate.to_sql()[0]

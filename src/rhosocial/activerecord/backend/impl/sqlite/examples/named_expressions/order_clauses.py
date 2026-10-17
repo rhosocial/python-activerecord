@@ -14,7 +14,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     ComparisonPredicate,
     Literal,
-    FunctionCall,
+    functions,
     WhereClause,
     JoinClause,
     GroupByHavingClause,
@@ -98,7 +98,7 @@ def group_by_example(dialect, min_total: float = 100.0):
         dialect,
         select=[
             Column(dialect, "status"),
-            FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("cnt"),
+            functions.count(dialect, Column(dialect, "id")).as_("cnt"),
         ],
         from_=NamedRelationRef(dialect, Table(dialect, "orders")),
         group_by_having=GroupByHavingClause(

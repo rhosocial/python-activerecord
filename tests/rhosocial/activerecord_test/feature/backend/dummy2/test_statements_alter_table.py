@@ -109,7 +109,7 @@ class TestAlterTableStatements:
 
     def test_add_constraint_action(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD CONSTRAINT action."""
-        check_condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 0, inline_literals=True)  # Using operator overload
+        check_condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 0)  # Using operator overload
         constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_positive_age")
         add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
 
@@ -317,7 +317,7 @@ class TestAlterTableStatements:
 
     def test_add_constraint_action_direct(self, dummy_dialect: DummyDialect):
         """Tests direct ADD CONSTRAINT action creation and formatting."""
-        check_condition = Column(dummy_dialect, "balance") >= Literal(dummy_dialect, 0, inline_literals=True)
+        check_condition = Column(dummy_dialect, "balance") >= Literal(dummy_dialect, 0)
         constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_balance_positive")
         add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
         # Action now has dialect bound at construction time
@@ -465,7 +465,7 @@ class TestAlterTableStatements:
 
     def test_add_table_constraint_standard(self, dummy_dialect: DummyDialect):
         """Tests ALTER TABLE with ADD CONSTRAINT action per SQL standard."""
-        check_condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 0, inline_literals=True)
+        check_condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 0)
         constraint = TableConstraint(dummy_dialect, branch=TableCheckConstraint(dummy_dialect, check_condition), name="chk_positive_age")
         add_constraint_action = AddTableConstraint(dummy_dialect, constraint=constraint)
 
@@ -773,7 +773,7 @@ class TestAlterTableStatements:
 
         # Create a check condition: age > 0
         check_condition = ComparisonPredicate(
-            dummy_dialect, ">", ExprColumn(dummy_dialect, "age"), Literal(dummy_dialect, 0, inline_literals=True)
+            dummy_dialect, ">", ExprColumn(dummy_dialect, "age"), Literal(dummy_dialect, 0)
         )
 
         column_def = ColumnDefinition(dummy_dialect, 

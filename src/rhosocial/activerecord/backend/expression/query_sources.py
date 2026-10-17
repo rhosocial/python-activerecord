@@ -8,6 +8,7 @@ lateral expressions, and common table expressions.
 """
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING
 
 from .bases import BaseExpression, SQLQueryAndParams, SQLValue
@@ -17,23 +18,70 @@ from .sources import TableSource
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-    from .query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
     from .types import DataType
 
 
-class SetOperationStatement(TableSource, BaseExpression):
-    """Represents a set operation (UNION, INTERSECT, EXCEPT) between two queries.
+class SetOperationKind(str, Enum):
+    """The compound-SELECT word forms. The whole legal set, closed.
 
-    This class is commonly used for:
-    1. Combining results from multiple queries
-    2. Creating recursive CTEs (with UNION ALL)
-    3. Removing duplicates (UNION) or keeping all rows (UNION ALL)
-    4. Finding common rows (INTERSECT) or differences (EXCEPT)
+    ``str`` as the base so a member *is* its word: the word form is the wire
+    contract for ``SetOperation.op``, and a member compares and serialises as
+    the plain string it is, so nothing downstream has to unwrap it.
+
+    The SQL keyword is **not** here. A keyword is a dialect-layer product and
+    the node never carries one; the dialect maps these members onto whatever it
+    spells them with.
+    """
+
+    UNION = "union"
+    UNION_ALL = "union_all"
+    INTERSECT = "intersect"
+    EXCEPT = "except"
+
+    #: A member *is* the word it carries: str() and f-string interpolation must
+    #: yield the value, not ``ClassName.MEMBER``, or the rendered SQL and the
+    #: artifact would carry the Python spelling. ``(str, Enum)`` alone does not
+    #: give that -- ``Enum.__str__`` wins -- so it is stated here once.
+    __str__ = str.__str__
+
+    @classmethod
+    def parse(cls, word: str) -> "SetOperationKind":
+        """The member for *word*, raising ``ValueError`` if it is not one.
+
+        Case and surrounding space are accepted because a caller writing SQL-ish
+        text should not have to know the canonical spelling to get it right; the
+        stored form is always the member.
+        """
+        try:
+            return cls(word.strip().lower())
+        except ValueError:
+            raise ValueError(
+                f"op must be one of {', '.join(m.value for m in cls)} (word forms), "
+                f"got {word!r}"
+            ) from None
+
+
+class SetOperation(TableSource, BaseExpression):
+    """A set operation (UNION, INTERSECT, EXCEPT) between two query sides.
+
+    The node is exactly the wire contract: ``op`` + ``left`` + ``right``.
+    ``op`` carries the **word form** of the operation (``union`` / ``union_all``
+    / ``intersect`` / ``except``) — SQL symbols are dialect-layer products and
+    never enter the node; the ``all_``/``distinct`` flag pair of the former
+    ``SetOperationStatement`` is folded into the ``union_all`` word form. The
+    dialect formatter maps the word back to the spelling it gates behind the
+    ``supports_union`` / ``supports_union_all`` / ``supports_intersect`` /
+    ``supports_except`` probes.
+
+    Ordering, row limiting and locking of a compound query belong to the
+    statement-level clauses around the set operation, not to this node — the
+    former trailing-clause parameters are gone.
 
     Example Usage:
         # Basic UNION operation
-        union_expr = SetOperationStatement(
+        union_expr = SetOperation(
             dialect,
+            op=SetOperationKind.UNION,
             left=QueryStatement(
                 dialect,
                 select=[Column(dialect, "id"), Column(dialect, "name")],
@@ -44,27 +92,6 @@ class SetOperationStatement(TableSource, BaseExpression):
                 select=[Column(dialect, "id"), Column(dialect, "name")],
                 from_=NamedRelationRef(dialect, Table(dialect, "customers"))
             ),
-            operation="UNION",
-            alias="combined_users"
-        )
-
-        # UNION operation with additional clauses
-        union_expr_with_order = SetOperationStatement(
-            dialect,
-            left=QueryStatement(
-                dialect,
-                select=[Column(dialect, "id"), Column(dialect, "name")],
-                from_=NamedRelationRef(dialect, Table(dialect, "users"))
-            ),
-            right=QueryStatement(
-                dialect,
-                select=[Column(dialect, "id"), Column(dialect, "name")],
-                from_=NamedRelationRef(dialect, Table(dialect, "customers"))
-            ),
-            operation="UNION",
-            alias="combined_users",
-            order_by_clause=OrderByClause(dialect, [Column(dialect, "id")]),
-            limit_offset_clause=LimitOffsetClause(dialect, limit=10)
         )
 
         # Recursive CTE example using UNION ALL (essential for iterative algorithms like Sudoku solver)
@@ -108,63 +135,44 @@ class SetOperationStatement(TableSource, BaseExpression):
         )
 
         # Combine initial and recursive parts with UNION ALL for recursive CTE
-        recursive_union = SetOperationStatement(
+        recursive_union = SetOperation(
             dialect,
+            op=SetOperationKind.UNION_ALL,
             left=initial_query,
             right=recursive_query,
-            operation="UNION ALL",
-            alias="recursive_result"
         )
     """
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
+        op: SetOperationKind,
         left: "BaseExpression",
         right: "BaseExpression",
-        operation: str,
-        alias: Optional[str] = None,
-        all_: bool = False,
-        distinct: bool = False,
-        order_by_clause: Optional["OrderByClause"] = None,
-        limit_offset_clause: Optional["LimitOffsetClause"] = None,
-        for_update_clause: Optional["ForUpdateClause"] = None,
     ):
         """
-        Initialize a SetOperationStatement.
+        Initialize a SetOperation.
 
         Args:
             dialect: The SQL dialect to use for formatting
+            op: The compound operation, as a :class:`SetOperationKind` member.
+                A bare word is accepted and parsed; ``all_``/``distinct``
+                variants are expressed by ``UNION_ALL``.
             left: The left-hand query expression
             right: The right-hand query expression
-            operation: The set operation (e.g., "UNION", "INTERSECT", "EXCEPT")
-            alias: Optional alias for the set operation result
-            all_: Whether to spell the ALL variant (e.g., UNION ALL)
-            distinct: Whether to spell the DISTINCT variant (e.g., UNION DISTINCT)
-            order_by_clause: Optional ORDER BY clause to apply to the result set
-            limit_offset_clause: Optional LIMIT/OFFSET clause to apply to the result set
-            for_update_clause: Optional FOR UPDATE clause to apply to the result set
 
         Raises:
-            ValueError: If both ``all_`` and ``distinct`` are set.
+            ValueError: If ``op`` is not one of the four word forms.
         """
         super().__init__(dialect)
-        if all_ and distinct:
-            raise ValueError("all_ and distinct are mutually exclusive options")
+        self.op = SetOperationKind(op) if isinstance(op, SetOperationKind) else SetOperationKind.parse(op)
         self.left = left
         self.right = right
-        self.operation = operation
-        self.alias = alias
-        self.all_ = all_
-        self.distinct = distinct
-        self.order_by_clause = order_by_clause
-        self.limit_offset_clause = limit_offset_clause
-        self.for_update_clause = for_update_clause
 
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_set_operation_statement"
+        return "format_set_operation"
 
 
 class CTEClause(BaseExpression):
@@ -206,13 +214,12 @@ class CTEClause(BaseExpression):
             where=(Column(dialect, "level") < Literal(dialect, 10))
         )
 
-        # Combine using SetOperationStatement for recursive CTE
-        combined_query = SetOperationStatement(
+        # Combine using SetOperation for recursive CTE
+        combined_query = SetOperation(
             dialect,
+            op=SetOperationKind.UNION_ALL,
             left=initial_values,
             right=recursive_query,
-            operation="UNION ALL",
-            alias="recursive_union"
         )
 
         # To create a recursive CTE, use WithStatement with recursive=True

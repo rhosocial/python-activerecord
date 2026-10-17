@@ -184,9 +184,6 @@ class TestDummyProtocolSupport:
         assert dialect.supports_union_all() is True
         assert dialect.supports_intersect() is True
         assert dialect.supports_except() is True
-        assert dialect.supports_set_operation_order_by() is True
-        assert dialect.supports_set_operation_limit_offset() is True
-        assert dialect.supports_set_operation_for_update() is True
 
     # endregion
 

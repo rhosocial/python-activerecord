@@ -362,9 +362,9 @@ class TestClassifyProbeUtilities:
 
     def test_classify_clause(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _classify
-        from rhosocial.activerecord.backend.expression import RawSQLExpression
+        from rhosocial.activerecord.backend.expression import RawSQL
 
-        result = _classify(RawSQLExpression(self._dialect(), "SELECT 1"))
+        result = _classify(RawSQL(self._dialect(), "SELECT 1"))
         assert result == ["CLAUSE"]
 
     def test_classify_dql(self):
@@ -498,10 +498,10 @@ class TestClassifyProbeUtilities:
 
     def test_probe_tags_returns_clause(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        from rhosocial.activerecord.backend.expression import RawSQLExpression
+        from rhosocial.activerecord.backend.expression import RawSQL
 
         def f(dialect, x: int = 1):
-            return RawSQLExpression(dialect, "1")
+            return RawSQL(dialect, "1")
 
         result = _probe_tags(f, dialect=self._dialect())
         assert result == ["CLAUSE"]
@@ -603,10 +603,10 @@ class TestClassifyProbeUtilities:
 
     def test_probe_tags_returns_clause_by_stubbed_dialect(self):
         from rhosocial.activerecord.backend.named_expression.resolver import _probe_tags
-        from rhosocial.activerecord.backend.expression import RawSQLExpression
+        from rhosocial.activerecord.backend.expression import RawSQL
 
         def f(dialect, x: int = 1):
-            return RawSQLExpression(dialect, "1")
+            return RawSQL(dialect, "1")
 
         from rhosocial.activerecord.backend.dialect import SQLDialectBase
         result = _probe_tags(f, dialect=MagicMock(spec=SQLDialectBase))

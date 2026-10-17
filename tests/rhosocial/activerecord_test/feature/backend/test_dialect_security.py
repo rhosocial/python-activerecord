@@ -129,9 +129,9 @@ def test_column_definition_rejects_string_data_type(dialect):
 
 def test_format_cast_expression_valid(dialect):
     """A cast renders the type it was handed."""
-    from rhosocial.activerecord.backend.expression.core import CastFunction, Column
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
 
-    expr = CastFunction(dialect, Column(dialect, "column"),
+    expr = CastExpression(dialect, Column(dialect, "column"),
                           IntegerType(dialect))
     sql, params = dialect.format_cast_expression(expr)
     assert "INTEGER" in sql
@@ -144,10 +144,10 @@ def test_format_cast_expression_rejects_injection(dialect):
     sanitise a string there later. Refusing it where it enters is the only
     point at which the refusal is still guaranteed.
     """
-    from rhosocial.activerecord.backend.expression.core import CastFunction, Column
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
 
     with pytest.raises(TypeError):
-        CastFunction(dialect, Column(dialect, "column"),
+        CastExpression(dialect, Column(dialect, "column"),
                        "INTEGER; DROP TABLE users--")
 
 

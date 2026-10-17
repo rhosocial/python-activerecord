@@ -42,6 +42,7 @@ from .geopoly import (
     SQLiteGeopolyContainsExpression,
     SQLiteGeopolyAreaExpression,
 )
+from .json import SQLiteJsonExtractFunction
 
 __all__ = [
     "SQLiteColumnInfoExpression",
@@ -65,10 +66,11 @@ __all__ = [
     "SQLiteGeopolyCreateVirtualTable",
     "SQLiteGeopolyContainsExpression",
     "SQLiteGeopolyAreaExpression",
+    "SQLiteJsonExtractFunction",
 ]
 
 # Auto-register all SQLite expression classes when this module is imported
-from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
+from rhosocial.activerecord.backend.expression.serialization import register_expression_class
 
 for _expr_cls in (
     SQLiteColumnInfoExpression,
@@ -92,5 +94,6 @@ for _expr_cls in (
     SQLiteGeopolyCreateVirtualTable,
     SQLiteGeopolyContainsExpression,
     SQLiteGeopolyAreaExpression,
+    SQLiteJsonExtractFunction,
 ):
-    ExpressionRegistry.register(_expr_cls)
+    register_expression_class(_expr_cls)

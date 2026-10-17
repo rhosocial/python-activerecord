@@ -253,7 +253,7 @@ class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
                     if not _is_valid_from_source(item):
                         raise TypeError(
                             f"from_ list item at index {i} must be one of: str, NamedRelationRef, "
-                            f"Subquery, SetOperationStatement, JoinClause, ValuesExpression, "
+                            f"Subquery, SetOperation, JoinClause, ValuesExpression, "
                             f"TableFunctionExpression, LateralExpression, GraphTableExpression, "
                             f"got {type(item)}"
                         )
@@ -261,7 +261,7 @@ class QueryStatement(ArithmeticMixin, ComparisonMixin, SQLValue):
                 # For single values, validate using the same helper
                 if not _is_valid_from_source(self.from_):
                     raise TypeError(
-                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, "
+                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, GraphTableExpression, got {type(self.from_)}"
                     )

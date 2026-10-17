@@ -206,7 +206,7 @@ class SQLiteFunctionMixin:
         long, so the tail it contributes is the whole left-hand side.
         """
         from rhosocial.activerecord.backend.expression.advanced_functions import (
-            CaseFunction,
+            CaseExpression,
         )
         from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
         from rhosocial.activerecord.backend.expression.operators import (
@@ -225,7 +225,7 @@ class SQLiteFunctionMixin:
         pad_branch = FunctionCall(
             self, "SUBSTR", padded, UnaryExpression(self, "-", expr.length)
         )
-        case = CaseFunction(
+        case = CaseExpression(
             self,
             cases=[(ComparisonPredicate(self, "<=", expr.length, length_call), truncate_branch)],
             else_result=pad_branch,
@@ -328,4 +328,100 @@ class SQLiteFunctionMixin:
         if translated is not None:
             return FunctionCallMixin.format_function_call(self, translated)
         return FunctionCallMixin.format_function_call(self, expr)
+
+    # The spellings above used to be applied by rewriting ``func_name`` inside
+    # ``format_function_call``. The nodes that carry them now have their own
+    # formatter, so the differences are stated here per node instead -- which is
+    # both shorter and narrower: each override names the one spelling it
+    # changes, and a node SQLite agrees with needs nothing at all.
+
+    def format_truncate_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite's ``TRUNC`` takes one argument, so a precision is arithmetic.
+
+        The value is scaled by a power of ten, truncated toward zero and scaled
+        back, which is exact for negatives too -- truncation is symmetric there,
+        unlike rounding.
+        """
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.operators import BinaryExpression
+
+        if len(expr.arguments) < 2:
+            return self._format_function("TRUNC", expr, expr.arguments)
+
+        precision = expr.arguments[1]
+        scale = FunctionCall(self, "POW", Literal(self, 10), precision)
+        scaled = BinaryExpression(self, "*", expr.arguments[0], scale)
+        return BinaryExpression(
+            self, "/", FunctionCall(self, "TRUNC", scaled), scale
+        ).to_sql()
+
+    def format_logarithm_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite takes the **base first**: ``LOG(base, x)``.
+
+        The node holds the value first, as the standard writes it, so the two
+        are swapped here. That is a spelling difference and not a semantic one --
+        the meaning is fixed by the node.
+        """
+        if len(expr.arguments) < 2:
+            return self._format_function("LOG", expr, expr.arguments)
+        return self._format_function("LOG", expr, [expr.arguments[1], expr.arguments[0]])
+
+    def format_ascii_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite spells ``ASCII`` as ``UNICODE``."""
+        return self._format_function("UNICODE", expr, (expr.target,))
+
+    def format_position_expression(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite's native spelling is ``INSTR(haystack, needle)``.
+
+        ``INSTR`` takes the haystack first, which is the order this node already
+        holds, so the standard's reversed ``POSITION(needle IN haystack)`` needs
+        no rearranging here -- :attr:`spelling` only matters to a backend that
+        has to write the standard's form.
+        """
+        return self._format_function("INSTR", expr, (expr.haystack, expr.needle))
+
+    def format_left_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite has no ``LEFT``; ``SUBSTR(x, 1, n)`` is the same thing."""
+        from rhosocial.activerecord.backend.expression.core import Literal
+
+        return self._format_function("SUBSTR", expr, (expr.target, Literal(self, 1), expr.count))
+
+    def format_right_function(self, expr: "bases.BaseExpression") -> Tuple[str, tuple]:
+        """SQLite has no ``RIGHT``; read from a computed start instead.
+
+        ``SUBSTR(x, LENGTH(x) - n + 1, n)`` reads from the end when *n* exceeds
+        the length -- it returns the tail instead of the whole string -- so the
+        start is clamped with ``MAX(..., 1)``. Verified against MySQL, MariaDB,
+        ClickHouse and BigQuery for n = 0, 1, len-1, len, len+1.
+        """
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+        from rhosocial.activerecord.backend.expression.operators import BinaryExpression
+
+        length_call = FunctionCall(self, "LENGTH", expr.target)
+        start = BinaryExpression(
+            self,
+            "+",
+            BinaryExpression(self, "-", length_call, expr.count),
+            Literal(self, 1),
+        )
+        return self._format_function(
+            "SUBSTR",
+            expr,
+            (expr.target, FunctionCall(self, "MAX", start, Literal(self, 1)), expr.count),
+        )
+
+    def format_sqlite_json_extract_function(self, expr) -> Tuple[str, tuple]:
+        """Render ``json_extract(expression, path)``.
+
+        SQLite specific: the same concept is ``->`` / ``->>`` on PostgreSQL and
+        ``JSON_EXTRACT`` with its own path grammar on MySQL, which is why this
+        node lives in the SQLite package. The path is an expression, so it
+        binds as a parameter rather than being spliced into the SQL text.
+        """
+        expr_sql, expr_params = expr.expression.to_sql()
+        path_sql, path_params = expr.path.to_sql()
+        sql = f"JSON_EXTRACT({expr_sql}, {path_sql})"
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, tuple(expr_params) + tuple(path_params)
 

@@ -13,24 +13,23 @@ from ..column_types import (
     NumericColumn,
     StringColumn,
 )
-from ..core import (
-    ArrayValue,
-    BooleanValue,
-    TimestampValue,
-    FunctionCall,
-    IntegerValue,
-    JSONValue,
-    Literal,
-    NumericValue,
-    StringValue,
+from ..core import FunctionCall, Literal
+from ..declared import (
+    ArrayAnnotation,
+    BooleanAnnotation,
+    IntegerAnnotation,
+    JSONAnnotation,
+    NumberAnnotation,
+    TemporalAnnotation,
+    TextAnnotation,
 )
-from ..advanced_functions import CaseFunction
+from ..advanced_functions import CaseExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
-def _result_class_for(expr: object):
+def _result_annotation_for(expr: object):
     """The value class an operation over *expr* hands back, or ``None``.
 
     This is the answer to one question asked inside this module: *GREATEST* and
@@ -48,25 +47,25 @@ def _result_class_for(expr: object):
     numeric branch sees it.
     """
     if isinstance(expr, IntegerColumn):
-        return IntegerValue
+        return IntegerAnnotation
     if isinstance(expr, StringColumn):
-        return StringValue
+        return TextAnnotation
     if isinstance(expr, TimestampColumn):
-        return TimestampValue
+        return TemporalAnnotation
     if isinstance(expr, JSONColumn):
-        return JSONValue
+        return JSONAnnotation
     if isinstance(expr, ArrayColumn):
-        return ArrayValue
+        return ArrayAnnotation
     if isinstance(expr, BooleanColumn):
-        return BooleanValue
+        return BooleanAnnotation
     if isinstance(expr, NumericColumn):
-        return NumericValue
+        return NumberAnnotation
     return None
 
 
 def case(
     dialect: "SQLDialectBase", value: Optional["BaseExpression"] = None, alias: Optional[str] = None
-) -> "CaseFunction":
+) -> "CaseExpression":
     """
     Creates a CASE expression.
 
@@ -76,9 +75,9 @@ def case(
         alias: Optional alias for the result.
 
     Returns:
-        A CaseFunction instance representing the CASE expression
+        A CaseExpression instance representing the CASE expression
     """
-    return CaseFunction(dialect, value=value, alias=alias)
+    return CaseExpression(dialect, value=value, alias=alias)
 
 
 def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQLValue":
@@ -91,7 +90,7 @@ def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQ
     argument or the widest, either of which would promise a surface the
     database does not.
     """
-    classes = {_result_class_for(e) for e in exprs}
+    classes = {_result_annotation_for(e) for e in exprs}
     if len(classes) == 1 and None not in classes:
         return classes.pop()(dialect, call)
     return call
@@ -103,13 +102,13 @@ def _widest(dialect: "SQLDialectBase", call: "FunctionCall", exprs: list) -> "SQ
 @overload
 def nullif(
     dialect: "SQLDialectBase", value: IntegerColumn, null_value: Any
-) -> "IntegerValue": ...
+) -> "IntegerAnnotation": ...
 
 
 @overload
 def nullif(
     dialect: "SQLDialectBase", value: NumericColumn, null_value: Any
-) -> "NumericValue": ...
+) -> "NumberAnnotation": ...
 
 
 @overload
@@ -144,7 +143,7 @@ def nullif(
     value_expr = value if isinstance(value, BaseExpression) else Literal(dialect, value)
     null_expr = null_value if isinstance(null_value, BaseExpression) else Literal(dialect, null_value)
     call = FunctionCall(dialect, "NULLIF", value_expr, null_expr)
-    result = _result_class_for(value_expr)
+    result = _result_annotation_for(value_expr)
     if result is not None:
         return result(dialect, call)
     return call

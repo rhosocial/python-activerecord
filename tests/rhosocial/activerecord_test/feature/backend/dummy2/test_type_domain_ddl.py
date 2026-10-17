@@ -11,7 +11,11 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DomainMixin,
     UserDefinedTypeMixin,
 )
-from rhosocial.activerecord.backend.expression import FunctionCall, Literal
+from rhosocial.activerecord.backend.expression import (
+    ComparisonPredicate,
+    FunctionCall,
+    Literal,
+)
 from rhosocial.activerecord.backend.expression.serialization import (
     deserialize,
     deserialize_json,
@@ -68,7 +72,7 @@ def schema_dialect():
 
 
 def _condition(dialect):
-    return DomainValueExpression(dialect) > Literal(dialect, 0, inline_literals=True)
+    return DomainValueExpression(dialect) > Literal(dialect, 0)
 
 
 def test_legacy_names_are_same_objects():
@@ -129,7 +133,7 @@ def test_domain_lifecycle(dummy_dialect):
         dummy_dialect,
         Domain(dummy_dialect, "positive"),
         IntegerType(dummy_dialect),
-        default=Literal(dummy_dialect, 1, inline_literals=True),
+        default=Literal(dummy_dialect, 1),
         nullability=DomainNullability.NOT_NULL,
         checks=[check],
         collation="pg_catalog.default",
@@ -317,7 +321,11 @@ def test_domain_capability_gating(dummy_dialect, monkeypatch):
 
 
 def test_domain_ddl_rejects_bind_parameters(dummy_dialect):
-    default = FunctionCall(dummy_dialect, "COALESCE", Literal(dummy_dialect, 1))
+    """A DDL position refuses param carriers it cannot inline (RawSQL), while
+    scalar literals are lifted to the DDL literal class and render inline."""
+    from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
+
+    default = RawSQLPredicate(dummy_dialect, "1", (1,))
     expression = CreateDomainStatement(
         dummy_dialect,
         Domain(dummy_dialect, "domain"),
@@ -327,10 +335,16 @@ def test_domain_ddl_rejects_bind_parameters(dummy_dialect):
     with pytest.raises(ValueError, match="bind parameters"):
         expression.to_sql()
 
-    condition = DomainValueExpression(dummy_dialect) == Literal(dummy_dialect, 1)
+    condition = ComparisonPredicate(
+        dummy_dialect, "=", DomainValueExpression(dummy_dialect), RawSQLPredicate(dummy_dialect, "1", (1,))
+    )
     check = DomainCheckConstraint(dummy_dialect, condition)
     with pytest.raises(ValueError, match="bind parameters"):
         check.to_sql()
+
+    lifted = DomainValueExpression(dummy_dialect) == Literal(dummy_dialect, 1)
+    lifted_check = DomainCheckConstraint(dummy_dialect, lifted)
+    assert lifted_check.to_sql() == ("CHECK (VALUE = 1)", ())
 
 
 def test_domain_string_default_is_escaped(dummy_dialect):

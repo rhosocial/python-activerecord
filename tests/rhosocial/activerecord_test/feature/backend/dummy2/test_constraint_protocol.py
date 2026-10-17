@@ -271,7 +271,7 @@ class TestConstraintEnforcementAndValidation:
         from rhosocial.activerecord.backend.expression.types import IntegerType
 
         dialect = DummyDialect()
-        condition = ComparisonPredicate(dialect, ">", Column(dialect, "age"), Literal(dialect, 0, inline_literals=True))
+        condition = ComparisonPredicate(dialect, ">", Column(dialect, "age"), Literal(dialect, 0))
         table_constraint = TableConstraint(dialect, branch=TableCheckConstraint(dialect, condition), name="age_check", not_enforced=True)
         column_constraint = ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, condition), not_enforced=True)
         expression = CreateTableStatement(
@@ -309,7 +309,7 @@ class TestConstraintEnforcementAndValidation:
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
         dialect = SQLiteDialect()
-        condition = Column(dialect, "age") > Literal(dialect, 0, inline_literals=True)
+        condition = Column(dialect, "age") > Literal(dialect, 0)
         constraint = ColumnConstraint(dialect, branch=ColumnCheckConstraint(dialect, condition), not_enforced=True)
         with pytest.raises(UnsupportedFeatureError):
             constraint.to_sql()
@@ -404,13 +404,12 @@ class TestConstraintEnforcementAndValidation:
 class TestInPredicateInDDLCheckConstraints:
     """``IN`` must be usable inside a CHECK constraint.
 
-    PostgreSQL and MySQL both reject bind parameters in DDL, so the dialect
-    preparation pass sets ``inline_literals`` on every literal inside a CHECK
-    predicate. ``InPredicate`` used to discard that flag -- it unpacked the
-    collection and rebuilt placeholders unconditionally -- which made ``IN`` the
-    one predicate shape that could not appear in a CHECK. Since the flag was
-    dropped, the shape that silently produced a bind parameter was the ordinary
-    ``column.in_([...])`` call rather than anything unusual.
+    PostgreSQL and MySQL both reject bind parameters in DDL, and the CHECK
+    classes declare ``inline_params = True``: the dialect preparation pass
+    lifts every literal inside a CHECK predicate to ``DdlLiteral``, the class
+    whose strategy is inline. ``InPredicate`` reads that class-level strategy
+    when rendering the value list, so the ``IN`` shape participates in the
+    same lift as every other predicate.
     """
 
     def _check(self, dialect, condition):
@@ -535,15 +534,16 @@ class TestInPredicateInDDLCheckConstraints:
         )
         assert condition.to_sql() == ('"direction" IN (?, ?)', ("debit", "credit"))
 
-    def test_explicitly_inlined_literal_list_renders_inline_without_ddl(
+    def test_ddl_literal_list_renders_inline_without_ddl(
         self, dummy_dialect: DummyDialect
     ):
-        """The inline switch works on its own, not only via DDL preparation."""
-        from rhosocial.activerecord.backend.expression import Column, InPredicate, Literal
+        """The DDL-position literal class inlines on its own, not only via
+        DDL preparation."""
+        from rhosocial.activerecord.backend.expression import Column, DdlLiteral, InPredicate
 
         condition = InPredicate(
             dummy_dialect,
             Column(dummy_dialect, "direction"),
-            Literal(dummy_dialect, ("debit", "credit"), inline_literals=True),
+            DdlLiteral(dummy_dialect, ("debit", "credit")),
         )
         assert condition.to_sql() == ('"direction" IN (\'debit\', \'credit\')', ())

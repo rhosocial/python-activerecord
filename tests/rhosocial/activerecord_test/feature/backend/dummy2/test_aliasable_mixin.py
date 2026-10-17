@@ -8,7 +8,7 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, ComparisonPredicate
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
+from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.query_parts import JoinClause
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     JSONDocumentValue,
@@ -199,8 +199,8 @@ class TestAliasNonContamination:
 
     def test_reuse_in_two_contexts_no_leak(self, dummy_dialect: DummyDialect):
         # Same expression used in SELECT (aliased) and ORDER BY (unaliased).
-        dist = BinaryArithmeticExpression(
-            dummy_dialect, "<=>", Column(dummy_dialect, "embedding"),
+        dist = ArithmeticOperation(
+            dummy_dialect, "sub", Column(dummy_dialect, "embedding"),
             Literal(dummy_dialect, "[1, 2, 3]"),
         )
         select_expr = dist.as_("cosine_distance")
@@ -213,8 +213,8 @@ class TestAliasNonContamination:
         # still references the unaliased original.
         child = Column(dummy_dialect, "embedding")
         child_aliased = child.as_("emb")
-        parent = BinaryArithmeticExpression(
-            dummy_dialect, "-", Literal(dummy_dialect, 1), child
+        parent = ArithmeticOperation(
+            dummy_dialect, "sub", Literal(dummy_dialect, 1), child
         )
         parent_sql = parent.to_sql()[0]
         # The parent uses the unaliased original -> no AS inside parentheses.
@@ -225,11 +225,11 @@ class TestAliasNonContamination:
         # Aliasing the top of a multi-level tree renders AS at the top only;
         # reusing the aliased copy nested does not leak into the base.
         leaf = Column(dummy_dialect, "embedding")
-        inner = BinaryArithmeticExpression(
-            dummy_dialect, "<=>", leaf, Literal(dummy_dialect, "[1, 2, 3]")
+        inner = ArithmeticOperation(
+            dummy_dialect, "sub", leaf, Literal(dummy_dialect, "[1, 2, 3]")
         )
-        outer = BinaryArithmeticExpression(
-            dummy_dialect, "-", Literal(dummy_dialect, 1), inner
+        outer = ArithmeticOperation(
+            dummy_dialect, "sub", Literal(dummy_dialect, 1), inner
         )
         outer_aliased = outer.as_("cosine_similarity")
         # Aliased top renders with AS at the outermost position only.

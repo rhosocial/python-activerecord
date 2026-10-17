@@ -75,17 +75,17 @@ class PredicateMixin:
         """Format a logical predicate (AND/OR/NOT).
 
         Args:
-            expr: Logical expression exposing ``op`` and ``predicates``.
+            expr: Logical expression exposing ``op`` and ``operands``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        if expr.op.upper() == "NOT" and len(expr.predicates) == 1:
-            sql, params = expr.predicates[0].to_sql()
+        if expr.op.upper() == "NOT" and len(expr.operands) == 1:
+            sql, params = expr.operands[0].to_sql()
             return self._with_alias(f"NOT ({sql})", expr), params
         parts = []
         all_params: List[Any] = []
-        for predicate in expr.predicates:
+        for predicate in expr.operands:
             sql, params = predicate.to_sql()
             parts.append(sql)
             all_params.extend(params)
@@ -94,70 +94,70 @@ class PredicateMixin:
     def format_in_predicate(self, expr: InPredicate) -> Tuple[str, tuple]:
         """Format an ``IN`` predicate.
 
-        A Literal wrapping a collection renders as a value list; anything
+        A ``Literal`` wrapping a collection renders as a value list; anything
         else (e.g. a subquery) renders through its own ``to_sql()``.
 
-        The whole ``Literal`` is honoured rather than just its ``value``:
-        its ``inline_literals`` switch decides between inline rendering and
-        bind parameters, and DDL preparation sets that flag on every
-        literal it finds (PostgreSQL rejects bind parameters in DDL).
-        Dropping it here is the only reason ``IN`` could not previously be
-        used inside a CHECK constraint. Inline rendering goes through
-        ``format_literal`` so escaping and quoting match every other
-        inline literal.
+        The whole ``Literal`` is honoured rather than just its ``value``: the
+        value node's class-level ``inline_params`` strategy decides between
+        inline rendering and bind parameters. DDL positions (``CHECK``,
+        partial-index ``WHERE``) lift their contained literals to the
+        inline-strategy class before rendering, which is how ``IN`` becomes
+        usable inside a CHECK constraint. Inline rendering goes through
+        ``format_literal`` so escaping and quoting match every other inline
+        literal.
 
         Args:
-            expr: Membership expression exposing ``expr`` and ``values``.
+            expr: Membership expression exposing ``operand`` and ``values``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
         from ...expression.core import Literal
 
-        expr_sql, expr_params = expr.expr.to_sql()
+        operand_sql, expr_params = expr.operand.to_sql()
         if isinstance(expr.values, Literal) and isinstance(expr.values.value, (list, tuple, set)):
             values = expr.values.value
             if not values:
-                return self._with_alias(f"{expr_sql} IN ()", expr), expr_params
-            if expr.values.inline_literals:
+                return self._with_alias(f"{operand_sql} IN ()", expr), expr_params
+            if type(expr.values).inline_params:
                 rendered = ", ".join(self.format_literal(value) for value in values)
-                return self._with_alias(f"{expr_sql} IN ({rendered})", expr), expr_params
+                return self._with_alias(f"{operand_sql} IN ({rendered})", expr), expr_params
             placeholders = ", ".join([self.get_parameter_placeholder()] * len(values))
             return (
-                self._with_alias(f"{expr_sql} IN ({placeholders})", expr),
+                self._with_alias(f"{operand_sql} IN ({placeholders})", expr),
                 expr_params + tuple(values),
             )
         values_sql, values_params = expr.values.to_sql()
-        return self._with_alias(f"{expr_sql} IN {values_sql}", expr), expr_params + values_params
+        return self._with_alias(f"{operand_sql} IN {values_sql}", expr), expr_params + values_params
 
     def format_between_predicate(self, expr: BetweenPredicate) -> Tuple[str, tuple]:
         """Format a ``BETWEEN`` predicate.
 
         Args:
-            expr: Range expression exposing ``expr``, ``low``, and ``high``.
+            expr: Range expression exposing ``operand``, ``low``, and ``high``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        expr_sql, expr_params = expr.expr.to_sql()
+        operand_sql, expr_params = expr.operand.to_sql()
         low_sql, low_params = expr.low.to_sql()
         high_sql, high_params = expr.high.to_sql()
         return self._with_alias(
-            f"{expr_sql} BETWEEN {low_sql} AND {high_sql}", expr
+            f"{operand_sql} BETWEEN {low_sql} AND {high_sql}", expr
         ), expr_params + low_params + high_params
 
     def format_is_null_predicate(self, expr: IsNullPredicate) -> Tuple[str, tuple]:
         """Format an ``IS [NOT] NULL`` predicate.
 
         Args:
-            expr: Null check expression exposing ``expr`` and ``is_not``.
+            expr: Null check expression exposing ``operand`` and ``is_not``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        expr_sql, expr_params = expr.expr.to_sql()
+        operand_sql, expr_params = expr.operand.to_sql()
         not_str = " NOT" if expr.is_not else ""
-        return self._with_alias(f"{expr_sql} IS{not_str} NULL", expr), expr_params
+        return self._with_alias(f"{operand_sql} IS{not_str} NULL", expr), expr_params
 
     def format_distinct_from_predicate(self, expr: DistinctFromPredicate) -> Tuple[str, tuple]:
         """Format a NULL-safe ``IS [NOT] DISTINCT FROM`` predicate.
@@ -262,14 +262,14 @@ class PredicateMixin:
         """Format a ``LIKE`` predicate.
 
         Args:
-            expr: Pattern expression exposing ``expr``, ``op``, and
+            expr: Pattern expression exposing ``left``, ``op``, and
                 ``pattern``.
 
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        expr_sql, expr_params = expr.expr.to_sql()
+        left_sql, expr_params = expr.left.to_sql()
         pattern_sql, pattern_params = expr.pattern.to_sql()
         return self._with_alias(
-            f"{expr_sql} {expr.op} {pattern_sql}", expr
+            f"{left_sql} {expr.op} {pattern_sql}", expr
         ), expr_params + pattern_params

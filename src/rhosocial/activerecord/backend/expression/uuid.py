@@ -22,6 +22,7 @@ no way to generate a UUID returns ``False`` from
 back to generating one in Python, which is what ``UUIDMixin`` does today.
 """
 
+from enum import Enum
 from typing import Any, Optional, TYPE_CHECKING
 
 from ..dialect.exceptions import UnsupportedFeatureError
@@ -56,6 +57,23 @@ def _require(dialect, probe: str, feature: str, alternative: str) -> None:
         feature_name=feature,
         suggestion=alternative,
     )
+
+
+class UuidConstantKind(str, Enum):
+    """The two UUID constants that can be written as a literal.
+
+    Nothing else is accepted, so this is the whole legal set: a typo must not
+    silently render a constant that was not asked for.
+    """
+
+    NIL = "nil"
+    MAX = "max"
+
+    #: A member *is* the word it carries: str() and f-string interpolation must
+    #: yield the value, not ``ClassName.MEMBER``, or the rendered SQL and the
+    #: artifact would carry the Python spelling. ``(str, Enum)`` alone does not
+    #: give that -- ``Enum.__str__`` wins -- so it is stated here once.
+    __str__ = str.__str__
 
 
 class UUIDGenerationExpression(
@@ -112,12 +130,10 @@ class UUIDConstantExpression(
             is accepted — a typo must not silently render a literal.
     """
 
-    _KINDS = ("nil", "max")
-
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        which: str,
+        which: UuidConstantKind,
         *,
         alias: Optional[str] = None,
     ):
@@ -125,11 +141,17 @@ class UUIDConstantExpression(
         # Argument validation first: a typo is a bug in the calling code, and
         # reporting "this dialect cannot render constants" instead would hide
         # it behind an environment limit the caller cannot change.
-        normalised = str(which).lower()
-        if normalised not in self._KINDS:
-            raise ValueError(
-                f"which must be one of {self._KINDS}, got {which!r}"
+        try:
+            normalised = (
+                which
+                if isinstance(which, UuidConstantKind)
+                else UuidConstantKind(str(which).lower())
             )
+        except ValueError:
+            raise ValueError(
+                f"which must be one of "
+                f"{', '.join(k.value for k in UuidConstantKind)}, got {which!r}"
+            ) from None
         _require(
             dialect,
             "supports_uuid_constant",

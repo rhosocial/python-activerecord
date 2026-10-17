@@ -6,7 +6,7 @@ Tests cover:
   - fetchmany pagination with various page_size / row_count combinations
   - Cursor lifecycle: normal consumption, early break, exception
   - Column adapter and column mapping processing
-  - DQLExpression type coverage: QueryStatement, WithStatement, SetOperationStatement
+  - DQLExpression type coverage: QueryStatement, WithStatement, SetOperation
 
 For async tests, see sqlite_async/test_batch_dql.py.
 """
@@ -18,7 +18,7 @@ from rhosocial.activerecord.backend.expression import (
     Literal,
     AllColumnsWildcard,
     ComparisonPredicate,
-    SetOperationStatement,
+    SetOperation,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression.statements import QueryStatement
@@ -323,7 +323,7 @@ class TestBatchDQLExpressionTypes:
                 assert row["price"] > 50.0
 
     def test_set_operation_expression(self, backend_with_items):
-        """SetOperationStatement (UNION)."""
+        """SetOperation (UNION)."""
         dialect = backend_with_items.dialect
 
         left = QueryStatement(
@@ -346,7 +346,7 @@ class TestBatchDQLExpressionTypes:
                 condition=ComparisonPredicate(dialect, "=", Column(dialect, "category"), Literal(dialect, "books")),
             ),
         )
-        union_expr = SetOperationStatement(dialect, left=left, right=right, operation="UNION ALL")
+        union_expr = SetOperation(dialect, left=left, right=right, op="union_all")
 
         pages = _collect_pages(backend_with_items.execute_batch_dql(union_expr, page_size=20))
 

@@ -4,7 +4,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
+    RawSQL,
     Subquery,
     ComparisonPredicate,
     JoinClause,
@@ -120,7 +120,7 @@ class TestClauseExpressions:
     def test_recursive_cte_expression(self, dummy_dialect: DummyDialect):
         """Tests a recursive CTE."""
         cte_query_sql = """SELECT id, name, manager_id, 1 AS level FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, e.name, e.manager_id, t.level + 1 FROM employees e INNER JOIN org_tree t ON e.manager_id = t.id"""  # noqa: E501
-        cte_query = RawSQLExpression(dummy_dialect, cte_query_sql)  # Or Subquery
+        cte_query = RawSQL(dummy_dialect, cte_query_sql)  # Or Subquery
         cte_expr = CTEClause(dummy_dialect, name="org_tree", query=cte_query)
         sql, params = cte_expr.to_sql()
         # The recursive flag is now handled at the WITH clause level, not individual CTE level

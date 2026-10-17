@@ -34,17 +34,17 @@ from rhosocial.activerecord.backend.expression import (
     UUIDColumn,
     XMLColumn,
 )
-from rhosocial.activerecord.backend.expression.core import (
-    ArrayValue,
-    BinaryValue,
-    BooleanValue,
-    IntegerValue,
-    JSONValue,
-    NumericValue,
-    StringValue,
-    TimestampValue,
-    UUIDValue,
-    XMLValue,
+from rhosocial.activerecord.backend.expression.declared import (
+    ArrayAnnotation,
+    BinaryAnnotation,
+    BooleanAnnotation,
+    IntegerAnnotation,
+    JSONAnnotation,
+    NumberAnnotation,
+    TextAnnotation,
+    TemporalAnnotation,
+    UUIDAnnotation,
+    XMLAnnotation,
 )
 from rhosocial.activerecord.backend.expression.mixins import NotANumberMixin
 
@@ -67,6 +67,13 @@ OPERATORS = {
 
 _REFUSALS = {name for name, value in vars(NotANumberMixin).items() if callable(value)}
 
+#: Not operations on a value, so not part of what "the same operations" means.
+#: ``collate`` and ``validate`` are a column's storage; ``get_params`` belongs to
+#: the artifact rather than to the type; and ``surface`` is the declaration of
+#: which operations a node carries, which is the thing being compared here and so
+#: cannot also be one of the things compared.
+_NOT_OPERATIONS = {"collate", "validate", "get_params", "surface"}
+
 
 def _operations(cls):
     """The operation names *cls* offers: public callables + operator dunders."""
@@ -76,20 +83,20 @@ def _operations(cls):
             continue
         if callable(getattr(cls, name, None)):
             names.add(name)
-    return names - _REFUSALS
+    return names - _REFUSALS - _NOT_OPERATIONS
 
 
 FAMILIES = [
-    (StringColumn, StringValue),
-    (NumericColumn, NumericValue),
-    (IntegerColumn, IntegerValue),
-    (BooleanColumn, BooleanValue),
-    (TimestampColumn, TimestampValue),
-    (BinaryColumn, BinaryValue),
-    (UUIDColumn, UUIDValue),
-    (JSONColumn, JSONValue),
-    (ArrayColumn, ArrayValue),
-    (XMLColumn, XMLValue),
+    (StringColumn, TextAnnotation),
+    (NumericColumn, NumberAnnotation),
+    (IntegerColumn, IntegerAnnotation),
+    (BooleanColumn, BooleanAnnotation),
+    (TimestampColumn, TemporalAnnotation),
+    (BinaryColumn, BinaryAnnotation),
+    (UUIDColumn, UUIDAnnotation),
+    (JSONColumn, JSONAnnotation),
+    (ArrayColumn, ArrayAnnotation),
+    (XMLColumn, XMLAnnotation),
 ]
 
 

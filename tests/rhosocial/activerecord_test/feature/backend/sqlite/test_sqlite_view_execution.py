@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause, WhereClause
-from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate, RawSQLExpression
+from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate, RawSQL
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
@@ -63,7 +63,7 @@ def sqlite_backend():
             name="status",
             data_type=SQLiteTextType(dialect=dialect),
             constraints=[
-                ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, RawSQLExpression(dialect, "'active'")))
+                ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, RawSQL(dialect, "'active'")))
             ],
         ),
     ]

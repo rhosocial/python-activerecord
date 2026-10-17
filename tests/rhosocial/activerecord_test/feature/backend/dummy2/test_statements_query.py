@@ -625,7 +625,7 @@ class TestQueryStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
         ):
             query.validate(strict=True)
 
@@ -748,7 +748,7 @@ class TestQueryStatements:
         # Verify that strict=True would raise an error for the same invalid parameter
         with pytest.raises(
             TypeError,
-            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
         ):
             query.validate(strict=True)
 
@@ -806,7 +806,7 @@ class TestQueryStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ list item at index 1 must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, JoinClause, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
+            match=r"from_ list item at index 1 must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class 'int'>",  # noqa: E501
         ):
             query.validate(strict=True)
 
@@ -828,7 +828,7 @@ class TestQueryStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"from_ list item at index 1 must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, JoinClause, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class '.*FunctionCall.*'>",  # noqa: E501
+            match=r"from_ list item at index 1 must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, ValuesExpression, TableFunctionExpression, LateralExpression, GraphTableExpression, got <class '.*FunctionCall.*'>",  # noqa: E501
         ):
             query.validate(strict=True)
 

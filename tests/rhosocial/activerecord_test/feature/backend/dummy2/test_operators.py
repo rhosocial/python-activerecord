@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression.operators import (
     SQLOperation,
     BinaryExpression,
     UnaryExpression,
-    RawSQLExpression,
+    RawSQL,
     RawSQLPredicate,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -129,12 +129,12 @@ class TestUnaryExpression:
         assert params == (-5,)
 
 
-class TestRawSQLExpression:
-    """Tests for RawSQLExpression representing raw SQL strings."""
+class TestRawSQL:
+    """Tests for RawSQL representing raw SQL strings."""
 
     def test_raw_sql_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic raw SQL expression."""
-        raw_sql = RawSQLExpression(dummy_dialect, "NOW()")
+        raw_sql = RawSQL(dummy_dialect, "NOW()")
 
         sql, params = raw_sql.to_sql()
 
@@ -144,7 +144,7 @@ class TestRawSQLExpression:
     def test_raw_sql_expression_with_complex_sql(self, dummy_dialect: DummyDialect):
         """Test raw SQL expression with complex SQL string."""
         complex_sql = "SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL 30 DAY"
-        raw_sql = RawSQLExpression(dummy_dialect, complex_sql)
+        raw_sql = RawSQL(dummy_dialect, complex_sql)
 
         sql, params = raw_sql.to_sql()
 
@@ -154,7 +154,7 @@ class TestRawSQLExpression:
     def test_raw_sql_expression_with_placeholders(self, dummy_dialect: DummyDialect):
         """Test raw SQL expression with parameter placeholders."""
         sql_with_placeholders = "SELECT * FROM table WHERE col = ? AND other_col = ?"
-        raw_sql = RawSQLExpression(dummy_dialect, sql_with_placeholders)
+        raw_sql = RawSQL(dummy_dialect, sql_with_placeholders)
 
         sql, params = raw_sql.to_sql()
 
@@ -162,10 +162,10 @@ class TestRawSQLExpression:
         assert params == ()
 
 
-class TestBinaryArithmeticExpression:
-    """Tests for BinaryArithmeticExpression representing binary arithmetic operations."""
+class TestArithmeticOperation:
+    """Tests for ArithmeticOperation representing binary arithmetic operations."""
 
-    def test_binary_arithmetic_expression_basic(self, dummy_dialect: DummyDialect):
+    def test_arithmetic_operation_basic(self, dummy_dialect: DummyDialect):
         """Test basic binary arithmetic expression."""
         left = NumericColumn(dummy_dialect, "price")
         right = Literal(dummy_dialect, 1.1)
@@ -178,7 +178,7 @@ class TestBinaryArithmeticExpression:
         assert sql == '"price" * ?'
         assert params == (1.1,)
 
-    def test_binary_arithmetic_expression_with_functions(self, dummy_dialect: DummyDialect):
+    def test_arithmetic_operation_with_functions(self, dummy_dialect: DummyDialect):
         """Test binary arithmetic with function calls."""
         left = FunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount"))
         right = Literal(dummy_dialect, 2)
@@ -191,7 +191,7 @@ class TestBinaryArithmeticExpression:
         assert sql == 'SUM("amount") / ?'
         assert params == (2,)
 
-    def test_binary_arithmetic_different_operators(self, dummy_dialect: DummyDialect):
+    def test_arithmetic_operation_different_operators(self, dummy_dialect: DummyDialect):
         """Test binary arithmetic with different operators."""
         left = NumericColumn(dummy_dialect, "quantity")
         right = NumericColumn(dummy_dialect, "unit_price")
@@ -223,8 +223,8 @@ class TestBinaryArithmeticExpression:
         assert params == ()
 
 
-class TestBinaryArithmeticExpressionPrecedence:
-    """Tests for BinaryArithmeticExpression operator precedence and parentheses handling."""
+class TestArithmeticOperationPrecedence:
+    """Tests for ArithmeticOperation operator precedence and parentheses handling."""
 
     def test_multiplication_precedence_over_addition(self, dummy_dialect: DummyDialect):
         """Test that multiplication has higher precedence than addition."""

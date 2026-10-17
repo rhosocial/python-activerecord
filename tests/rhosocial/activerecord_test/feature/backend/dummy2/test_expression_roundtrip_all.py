@@ -108,11 +108,14 @@ from rhosocial.activerecord.backend.expression.statements import (
     dml,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
+from rhosocial.activerecord.backend.expression.query_sources import SetOperation
+from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.serialization import (
-    ExpressionRegistry,
+    auto_register_builtins,
     deserialize,
     deserialize_json,
     deserialize_xml,
+    registered_expression_classes,
     serialize,
     serialize_json,
     serialize_xml,
@@ -141,7 +144,7 @@ from rhosocial.activerecord.backend.expression.datetime import (
 from rhosocial.activerecord.backend.expression.core import Column, Literal
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CaseFunction,
+    CaseExpression,
     WindowClause,
     WindowDefinition,
     WindowSpecification,
@@ -181,19 +184,19 @@ CORE_EXPR_PKG = "rhosocial.activerecord.backend.expression"
 def _collect_matrix_classes():
     """Every concrete expression class the core package defines.
 
-    Collected by walking the package, not by reading ``ExpressionRegistry``:
-    the registry is process-global and *grows* as other test modules import
-    their own backends, so reading it makes this matrix's contents depend on
-    which files pytest happened to import first. Several sqlite backend
-    classes appear in the registry once ``impl.sqlite.expression`` is loaded,
-    and they would then be rendered with the Dummy dialect -- which is not a
-    meaningful thing to assert. Walking the package is deterministic.
+    Collected by walking the package, not by reading the deserialization
+    class index: the index is process-global and *grows* as other test
+    modules import their own backends, so reading it makes this matrix's
+    contents depend on which files pytest happened to import first. Several
+    sqlite backend classes appear in the index once ``impl.sqlite.expression``
+    is loaded, and they would then be rendered with the Dummy dialect -- which
+    is not a meaningful thing to assert. Walking the package is deterministic.
 
     ``ddl_alter`` exports four aliases of two classes (``AlterConstraint`` and
     ``ValidateConstraint`` each have two spellings). They are the same objects,
     so the first name wins and the matrix does not test a class four times.
     """
-    ExpressionRegistry._auto_register_builtins()
+    auto_register_builtins()
     collected = collect_expression_classes(CORE_EXPR_PKG)
     by_identity: Dict[int, str] = {}
     for fqn, cls in sorted(collected.items()):
@@ -553,8 +556,8 @@ def register_specials():
 
     # -- expressions that need at least one member --------------------------
     register_special_constructor(
-        "advanced_functions.CaseFunction",
-        lambda d: CaseFunction(
+        "advanced_functions.CaseExpression",
+        lambda d: CaseExpression(
             d,
             cases=[(_column_predicate(d), Literal(d, 1))],
             else_result=Literal(d, 0),
@@ -680,6 +683,27 @@ def register_specials():
         lambda d: ILikePredicate(d, Column(d, "a"), "%x%"),
     )
 
+    # -- set operations -----------------------------------------------------
+    # The op word form is validated against the wire enum, so the heuristic
+    # "x" guess is refused; hand it a real word form instead.
+    register_special_constructor(
+        "query_sources.SetOperation",
+        lambda d: SetOperation(
+            d,
+            op="union",
+            left=QueryStatement(d, select=[Column(d, "id")], from_=_table_obj(d)),
+            right=QueryStatement(d, select=[Column(d, "id")], from_=Table(d, "other")),
+        ),
+    )
+
+    # -- operators ----------------------------------------------------------
+    # Same refusal shape: the arithmetic op is validated against the wire word
+    # forms (add/sub/mul/div/mod), so the heuristic "x" guess is refused.
+    register_special_constructor(
+        "operators.ArithmeticOperation",
+        lambda d: ArithmeticOperation(d, "add", Column(d, "a"), Column(d, "b")),
+    )
+
 
 register_specials()
 
@@ -733,6 +757,50 @@ UNCONSTRUCTIBLE = (
     # construction. There is no value the filler could offer that is both a valid
     # constant and not a guess about which one the caller wanted.
     "rhosocial.activerecord.backend.expression.uuid.UUIDConstantExpression",
+    # Shared base of the two extract nodes. It holds the field, the source and
+    # the spelling, and is not itself rendered -- listing it says so rather than
+    # leaving the introspective constructor to build a node with no answer type.
+    "rhosocial.activerecord.backend.expression.datetime._ExtractBase",
+    # Field-named extraction (YEAR/MONTH/DAY/HOUR/MINUTE/SECOND). Its `field`
+    # and `spelling` must agree -- `spelling="YEAR"` with `field="month"` is a
+    # node that claims two different questions -- and the generic constructor has
+    # no way to know they are one fact stated twice.
+    "rhosocial.activerecord.backend.expression.datetime.ExtractFieldExpression",
+    # Typed value nodes carrying a host value. Each takes the dialect and one
+    # `value` that must be of that node's own conceptual type -- a `date` for
+    # date_value, `bytes` for binary_value -- and the constructor has no way to
+    # synthesise one that is neither wrong nor a guess at the caller's intent.
+    # The guess's string is refused at construction, which is the point: these
+    # types exist so a wrong value fails here rather than at the driver.
+    "rhosocial.activerecord.backend.expression.values.BinaryValue",
+    "rhosocial.activerecord.backend.expression.values.BooleanValue",
+    "rhosocial.activerecord.backend.expression.values.DateValue",
+    "rhosocial.activerecord.backend.expression.values.DecimalValue",
+    "rhosocial.activerecord.backend.expression.values.IntervalValue",
+    "rhosocial.activerecord.backend.expression.values.StringValue",
+    "rhosocial.activerecord.backend.expression.values.TimeValue",
+    "rhosocial.activerecord.backend.expression.values.TimestampValue",
+    "rhosocial.activerecord.backend.expression.values.UUIDValue",
+    # Aggregate nodes. The generic constructor cannot supply an array or a JSON
+    # value for the operand, and these declare their result type through their
+    # mixins rather than by inheriting the wrapper -- so a filler string is not
+    # an acceptable stand-in for either.
+    # Text function nodes whose own contract refuses the filler's value. The
+    # generic constructor has no way to know a position is 1-based or a count
+    # non-negative, so it offers values the node declines at construction --
+    # which is the contract working, not a gap in the constructor.
+    # ChrFunction: its `code` is a character code; the filler's text is not a whole number and the node refuses it.
+    "rhosocial.activerecord.backend.expression.functions.string.ChrFunction",
+    # LeftFunction: its `count` must be >= 0 and the filler's is negative.
+    "rhosocial.activerecord.backend.expression.functions.string.LeftFunction",
+    # OverlayExpression: its `start` is 1-based and the filler's is below 1, which the node refuses at construction.
+    "rhosocial.activerecord.backend.expression.functions.string.OverlayExpression",
+    # RightFunction: its `count` must be >= 0 and the filler's is negative.
+    "rhosocial.activerecord.backend.expression.functions.string.RightFunction",
+    # SpaceFunction: its `count` is a number of spaces and the filler's is negative.
+    "rhosocial.activerecord.backend.expression.functions.string.SpaceFunction",
+    # SubstringExpression: its `start` is 1-based and the filler's is below 1, which the node refuses at construction.
+    "rhosocial.activerecord.backend.expression.functions.string.SubstringExpression",
 )
 # XMLTABLE used to be a fifth entry, needing a row source document, a COLUMNS list
 # of typed projections and a pass-through clause. Its `columns` and `passing`
@@ -957,7 +1025,7 @@ class TestMatrixIntegrity:
         being named would become a silent skip. Both fail here.
         """
         dialect = dummy_dialect
-        ExpressionRegistry._auto_register_builtins()
+        auto_register_builtins()
         actual = tuple(
             sorted(
                 fqn
@@ -1021,7 +1089,7 @@ class TestMatrixIntegrity:
         rather than the registry because the registry also holds whatever
         backends other test modules happened to import.
         """
-        ExpressionRegistry._auto_register_builtins()
+        auto_register_builtins()
         expected = set(_collect_matrix_classes())
         stray = [fqn for fqn in REGISTERED if not fqn.startswith(f"{CORE_EXPR_PKG}.")]
         assert not stray, f"classes outside the core package are in the matrix: {stray}"
@@ -1043,15 +1111,16 @@ class TestMatrixIntegrity:
         renders but the registry cannot resolve would round-trip into the
         wrong thing or nothing at all.
         """
-        ExpressionRegistry._auto_register_builtins()
-        unresolved = sorted(set(REGISTERED) - set(ExpressionRegistry._registry))
+        auto_register_builtins()
+        unresolved = sorted(set(REGISTERED) - set(registered_expression_classes()))
         assert not unresolved, (
-            f"the matrix covers classes the registry cannot resolve: {unresolved}"
+            f"the matrix covers classes the deserialization index cannot "
+            f"resolve: {unresolved}"
         )
 
     def test_coverage_report(self, dummy_dialect):
         """Surface what the matrix covers, so coverage stays transparent."""
-        ExpressionRegistry._auto_register_builtins()
+        auto_register_builtins()
         constructible = [fqn for fqn in REGISTERED
                          if make_instance(REGISTERED[fqn], dummy_dialect)[0] is not None]
         assert constructible

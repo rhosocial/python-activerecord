@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
+    RawSQL,
     QueryStatement,
     DeleteStatement,
     JoinClause,
@@ -56,8 +56,10 @@ class TestDeleteStatements:
             self.set_dialect_recursive(expr.left, dialect)
         if hasattr(expr, "right"):
             self.set_dialect_recursive(expr.right, dialect)
-        if hasattr(expr, "expr"):  # For predicates
+        if hasattr(expr, "expr"):  # For predicates that still name it `expr`
             self.set_dialect_recursive(expr.expr, dialect)
+        if hasattr(expr, "operand"):  # For predicates (is_null / in / between)
+            self.set_dialect_recursive(expr.operand, dialect)
         if hasattr(expr, "value") and isinstance(
             expr.value, bases.BaseExpression
         ):  # For Literal, if value is an expression
@@ -86,8 +88,8 @@ class TestDeleteStatements:
             self.set_dialect_recursive(expr.right_table, dialect)
             self.set_dialect_recursive(expr.condition, dialect)
 
-        if isinstance(expr, LogicalPredicate):  # LogicalPredicate has 'predicates'
-            for pred in expr.predicates:
+        if isinstance(expr, LogicalPredicate):  # LogicalPredicate has 'operands'
+            for pred in expr.operands:
                 self.set_dialect_recursive(pred, dialect)
 
         # Handle specific expression types that have left/right attributes
@@ -169,7 +171,7 @@ class TestDeleteStatements:
                     None,
                     select=[Column(None, "id")],
                     from_="archived_products",
-                    where=ComparisonPredicate(None, "<", Column(None, "deleted_at"), RawSQLExpression(None, "NOW()")),
+                    where=ComparisonPredicate(None, "<", Column(None, "deleted_at"), RawSQL(None, "NOW()")),
                 ),
                 ComparisonPredicate(None, "=", Column(None, "id", "products"), Column(None, "id")),
                 None,
@@ -272,7 +274,7 @@ class TestDeleteStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"using must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryStatement, got <class 'int'>",  # noqa: E501
+            match=r"using must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryStatement, got <class 'int'>",  # noqa: E501
         ):
             delete_expr = DeleteStatement(dummy_dialect, tables=Table(dummy_dialect, 'users'), using=unsupported_source, where=where)
             delete_expr.to_sql()
@@ -435,7 +437,7 @@ class TestDeleteStatements:
 
         with pytest.raises(
             TypeError,
-            match=r"using must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryStatement, got <class 'int'>",  # noqa: E501
+            match=r"using must be one of: str, NamedRelationRef, Subquery, SetOperation, JoinClause, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryStatement, got <class 'int'>",  # noqa: E501
         ):
             delete_expr.validate(strict=True)
 
@@ -761,9 +763,9 @@ class TestDeleteStatements:
 
     def test_format_case_expression_with_empty_conditions_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_case_expression raises ValueError for a CASE node without WHEN/THEN pairs."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import CaseFunction
+        from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
 
-        case_expr = CaseFunction(dummy_dialect, cases=[])
+        case_expr = CaseExpression(dummy_dialect, cases=[])
         with pytest.raises(
             ValueError, match=r"CASE expression must have at least one WHEN/THEN condition-result pair."
         ):

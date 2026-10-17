@@ -12,7 +12,7 @@ from rhosocial.activerecord.backend.expression import (
     ColumnDefinition,
     ColumnConstraint,
     ForeignKeyConstraint,
-    RawSQLExpression,
+    RawSQL,
 )
 from typing import Callable, Dict
 from decimal import Decimal
@@ -329,13 +329,13 @@ def create_nodes_table(dialect, table_name: str = "nodes") -> CreateTableStateme
             ColumnDefinition(dialect, "name", VarCharType(dialect, 100),
                 constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))]),
             ColumnDefinition(dialect, "parent_id", IntegerType(dialect),
-                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, RawSQLExpression(dialect, "NULL")))]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, RawSQL(dialect, "NULL")))]),
             ColumnDefinition(dialect, "value", DecimalType(dialect, precision=10, scale=2),
                 constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, Decimal("0.00")))]),
             ColumnDefinition(dialect, "created_at", TimestampType(dialect),
-                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, RawSQLExpression(dialect, "CURRENT_TIMESTAMP")))]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, RawSQL(dialect, "CURRENT_TIMESTAMP")))]),
             ColumnDefinition(dialect, "updated_at", TimestampType(dialect),
-                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, RawSQLExpression(dialect, "CURRENT_TIMESTAMP")))]),
+                constraints=[ColumnConstraint(dialect, branch=ColumnDefaultConstraint(dialect, RawSQL(dialect, "CURRENT_TIMESTAMP")))]),
         ],
         table_constraints=[
             ForeignKeyConstraint(dialect, 

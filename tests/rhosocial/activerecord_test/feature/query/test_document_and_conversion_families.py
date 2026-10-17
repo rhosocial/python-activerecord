@@ -13,40 +13,50 @@ import pytest
 
 from rhosocial.activerecord.backend.expression import functions as F, FunctionCall, Literal, XMLColumn
 from rhosocial.activerecord.backend.expression.bases import SQLValue
-from rhosocial.activerecord.backend.expression.advanced_functions import CaseFunction
-from rhosocial.activerecord.backend.expression.core import (
-    ArrayValue,
-    BinaryValue,
-    BooleanValue,
-    DateValue,
-    IntegerValue,
-    IntervalValue,
-    JSONValue,
-    NumericValue,
-    StringValue,
-    TimeValue,
-    TimestampValue,
-    UUIDValue,
-    XMLValue,
+from rhosocial.activerecord.backend.expression.column_types import annotation_for
+from rhosocial.activerecord.backend.expression.type_name import is_valid_type_name
+from rhosocial.activerecord.backend.expression.types import (
+    CustomType,
+    JsonType,
+    VarCharType,
+    XmlType,
+)
+from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
+from rhosocial.activerecord.backend.expression.declared import (
+    ArrayAnnotation,
+    BinaryAnnotation,
+    BooleanAnnotation,
+    IntegerAnnotation,
+    JSONAnnotation,
+    NumberAnnotation,
+    TemporalAnnotation,
+    TextAnnotation,
+    UUIDAnnotation,
+    XMLAnnotation,
+)
+from rhosocial.activerecord.backend.expression.surfaces import (
+    ArraySurface,
+    JSONSurface,
+    NumericSurface,
+    TemporalSurface,
+    TextSurface,
+    XMLSurface,
 )
 
 #: Every value class the lattice holds. "No typed result" is asserted by saying
 #: the result is none of these, so the list has to be the whole set: an
 #: assertion that forgets a class would pass for the wrong reason.
 TYPED_VALUE_CLASSES = (
-    ArrayValue,
-    BinaryValue,
-    BooleanValue,
-    DateValue,
-    IntegerValue,
-    IntervalValue,
-    JSONValue,
-    NumericValue,
-    StringValue,
-    TimeValue,
-    TimestampValue,
-    UUIDValue,
-    XMLValue,
+    ArrayAnnotation,
+    BinaryAnnotation,
+    BooleanAnnotation,
+    IntegerAnnotation,
+    JSONAnnotation,
+    NumberAnnotation,
+    TemporalAnnotation,
+    TextAnnotation,
+    UUIDAnnotation,
+    XMLAnnotation,
 )
 
 
@@ -60,9 +70,6 @@ def is_typed_as_one_of_these(result):
     while the answer they are about became possible.
     """
     return isinstance(result, TYPED_VALUE_CLASSES)
-from rhosocial.activerecord.backend.expression.column_types import value_class_of
-from rhosocial.activerecord.backend.expression.type_name import is_valid_type_name
-from rhosocial.activerecord.backend.expression.types import VarCharType, JsonType, CustomType, XmlType
 
 
 @pytest.fixture
@@ -93,22 +100,22 @@ def columns(dialect):
 
 
 def test_arrow_extraction_gives_a_document(dialect, columns):
-    assert isinstance(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a")), JSONValue)
+    assert isinstance(F.json_extract(dialect, columns["json"], Literal(dialect, "$.a")), JSONSurface)
 
 
 def test_double_arrow_extraction_gives_text(dialect, columns):
     """`->>` is a narrowing: a document becomes a string and cannot widen back."""
-    assert isinstance(F.json_extract_text(dialect, columns["json"], "$.a"), StringValue)
+    assert isinstance(F.json_extract_text(dialect, columns["json"], "$.a"), TextSurface)
 
 
 def test_a_built_document_is_a_document(dialect, columns):
-    assert isinstance(F.json_build_object(dialect, "k", 1), JSONValue)
-    assert isinstance(F.json_array_elements(dialect, columns["json"]), JSONValue)
+    assert isinstance(F.json_build_object(dialect, "k", 1), JSONSurface)
+    assert isinstance(F.json_array_elements(dialect, columns["json"]), JSONSurface)
 
 
 def test_a_document_offers_the_json_accessors(dialect, columns):
     built = F.json_build_object(dialect, "k", 1)
-    assert isinstance(built, JSONValue)
+    assert isinstance(built, JSONSurface)
     assert hasattr(built, "json_path")
     assert not hasattr(built, "upper")
 
@@ -121,7 +128,7 @@ def test_text_reports_a_string_family(dialect, columns):
     over-offer on this one class, not a claim that text is a document.
     """
     text = F.json_extract_text(dialect, columns["json"], "$.a")
-    assert isinstance(text, StringValue)
+    assert isinstance(text, TextSurface)
     assert text.to_sql()[0].endswith("->>'$.a'")
 
 
@@ -131,12 +138,11 @@ def test_text_reports_a_string_family(dialect, columns):
 
 
 def test_a_sequence_is_a_sequence(dialect, columns):
-    assert isinstance(F.unnest(dialect, columns["array"]), ArrayValue)
-    assert isinstance(F.unnest(dialect, columns["array"]), ArrayValue)
+    assert isinstance(F.unnest(dialect, columns["array"]), ArraySurface)
 
 
 def test_measuring_a_sequence_gives_a_whole_number(dialect, columns):
-    assert isinstance(F.array_length(dialect, columns["array"], 1), IntegerValue)
+    assert isinstance(F.array_length(dialect, columns["array"], 1), NumericSurface)
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +151,7 @@ def test_measuring_a_sequence_gives_a_whole_number(dialect, columns):
 
 
 def test_greatest_answers_with_what_its_arguments_answer_with(dialect, columns):
-    assert isinstance(F.greatest(dialect, columns["int"], columns["int"]), IntegerValue)
+    assert isinstance(F.greatest(dialect, columns["int"], columns["int"]), IntegerAnnotation)
 
 
 def test_greatest_of_mixed_kinds_is_unknown(dialect, columns):
@@ -155,11 +161,11 @@ def test_greatest_of_mixed_kinds_is_unknown(dialect, columns):
 
 
 def test_least_agrees_with_greatest(dialect, columns):
-    assert isinstance(F.least(dialect, columns["float"], columns["float"]), NumericValue)
+    assert isinstance(F.least(dialect, columns["float"], columns["float"]), NumberAnnotation)
 
 
 def test_nullif_keeps_the_value_it_tests(dialect, columns):
-    assert isinstance(F.nullif(dialect, columns["str"], None), StringValue)
+    assert isinstance(F.nullif(dialect, columns["str"], None), TextAnnotation)
 
 
 # ---------------------------------------------------------------------------
@@ -170,16 +176,16 @@ def test_nullif_keeps_the_value_it_tests(dialect, columns):
 def test_a_consensus_needs_exactly_one(dialect, columns):
     """A CASE over disagreeing branches is legal SQL that answers with neither
     kind, so neither surface may be offered."""
-    mixed = CaseFunction(dialect, cases=[(columns["int"], columns["int"])],
+    mixed = CaseExpression(dialect, cases=[(columns["int"], columns["int"])],
                            else_result=columns["float"])
     assert not is_typed_as_one_of_these(mixed)
 
 
 def test_an_argument_without_a_family_does_not_break_a_consensus(dialect, columns):
     """A literal says nothing, so it neither agrees nor disagrees."""
-    with_literal = CaseFunction(dialect, cases=[(columns["int"], Literal(dialect, 1))],
+    with_literal = CaseExpression(dialect, cases=[(columns["int"], Literal(dialect, 1))],
                                  else_result=columns["int"])
-    assert isinstance(with_literal, IntegerValue)
+    assert isinstance(with_literal, NumericSurface)
 
 
 # ---------------------------------------------------------------------------
@@ -228,13 +234,13 @@ def test_an_unknown_sql_type_is_still_a_name():
 
 
 def test_cast_takes_its_type_from_the_target_type(dialect, columns):
-    """The cast answers with the class of the type it was handed."""
+    """The cast answers with the surface of the type it was handed."""
     assert isinstance(
         F.cast(dialect, columns["int"], VarCharType(dialect, length=10)),
-        StringValue,
+        TextSurface,
     )
     assert isinstance(
-        F.cast(dialect, columns["int"], JsonType(dialect)), JSONValue
+        F.cast(dialect, columns["int"], JsonType(dialect)), JSONSurface
     )
 
 
@@ -255,15 +261,26 @@ def test_an_unmodelled_target_type_yields_no_typed_result(dialect, columns):
 
 
 def test_to_char_gives_text(dialect, columns):
-    assert isinstance(F.to_char(dialect, columns["int"]), StringValue)
+    assert isinstance(F.to_char(dialect, columns["int"]), TextSurface)
 
 
 def test_to_number_gives_a_number(dialect, columns):
-    assert isinstance(F.to_number(dialect, columns["int"]), NumericValue)
+    assert isinstance(F.to_number(dialect, columns["int"]), NumericSurface)
 
 
-def test_to_date_gives_a_timestamp(dialect, columns):
-    assert isinstance(F.to_date(dialect, columns["int"]), TimestampValue)
+def test_to_date_gives_a_date(dialect, columns):
+    """``TO_DATE`` answers with a **date**, not a timestamp.
+
+    Every backend's ``TO_DATE`` produces a calendar date, so typing it as a
+    timestamp offered the time-of-day operations on a value that has no time of
+    day. Asserting the date here is what stops that coming back.
+    """
+    node = F.to_date(dialect, columns["int"])
+    assert isinstance(node, TemporalSurface)
+    # A date and a date-time carry the same surface -- the operations are the
+    # same -- so "not a timestamp" is a statement about the node's class, which
+    # is where the distinction now lives.
+    assert type(node).__name__ == "ToDateFunction"
 
 
 # ---------------------------------------------------------------------------
@@ -274,8 +291,12 @@ def test_to_date_gives_a_timestamp(dialect, columns):
 @pytest.mark.parametrize("factory", ["current_user", "session_user", "system_user"])
 def test_the_session_identity_is_a_name(dialect, factory):
     result = getattr(F, factory)(dialect)
-    assert isinstance(result, StringValue)
+    # What makes it a *name* is the surface it carries, not the class it is:
+    # a node is its own class now, so the old ``isinstance(result,
+    # StringValue)`` would be asserting the wrapper this family no longer has.
+    # Text answers text operations and refuses numeric ones.
     assert hasattr(result, "upper")
+    assert not hasattr(result, "sqrt")
 
 
 # ---------------------------------------------------------------------------
@@ -307,10 +328,10 @@ def test_the_xml_document_nodes_are_xml_values(dialect):
         X.XMLQueryExpression,
     )
     other_families = tuple(
-        cls for cls in TYPED_VALUE_CLASSES if cls is not XMLValue
+        cls for cls in TYPED_VALUE_CLASSES if cls is not XMLSurface
     )
     for cls in document_nodes:
-        assert issubclass(cls, XMLValue), cls.__name__
+        assert issubclass(cls, XMLSurface), cls.__name__
         assert issubclass(cls, SQLValue), cls.__name__
         # It is an XML value and none of the other typed classes: a document
         # is not text that can be upper-cased, not JSON to navigate, not a
@@ -327,10 +348,10 @@ def test_xmlserialize_yields_the_character_value_it_names(dialect):
     """
     from rhosocial.activerecord.backend.expression import xml as X
 
-    assert issubclass(X.XMLSerializeExpression, StringValue)
+    assert issubclass(X.XMLSerializeExpression, TextSurface)
     serialized = F.xmlserialize(dialect, "<root/>", "VARCHAR(100)")
-    assert isinstance(serialized, StringValue)
-    assert not isinstance(serialized, XMLValue)
+    assert isinstance(serialized, TextSurface)
+    assert not isinstance(serialized, XMLSurface)
 
 
 def test_xmlexists_is_a_predicate_not_a_value():
@@ -339,21 +360,30 @@ def test_xmlexists_is_a_predicate_not_a_value():
     from rhosocial.activerecord.backend.expression.bases import SQLPredicate
 
     assert issubclass(X.XMLExistsPredicate, SQLPredicate)
-    assert not issubclass(X.XMLExistsPredicate, XMLValue)
+    assert not issubclass(X.XMLExistsPredicate, XMLSurface)
 
 
 def test_a_cast_to_xml_is_an_xml_value(dialect, columns):
     """The cast takes its type from the target: ``CAST(x AS XML)`` is XML."""
     result = F.cast(dialect, columns["str"], XmlType(dialect))
-    assert isinstance(result, XMLValue)
-    assert not isinstance(result, StringValue)
+    assert isinstance(result, XMLSurface)
+    assert not isinstance(result, TextSurface)
 
 
 def test_a_function_that_declares_no_result_can_say_xml(dialect):
-    """``as_xml()`` is how a caller states what a generic call yields."""
+    """``as_xml()`` is how a caller states what a generic call yields.
+
+    It returns an *annotation*: the XML surface, and nothing else. The text
+    surface is not merely unused here, it is gone -- which is the point of
+    stating the type, since ``.like()`` on an XML document is not a question any
+    backend answers. The SQL is untouched: only the declared type moved.
+    """
+    from rhosocial.activerecord.backend.expression.declared import XMLAnnotation
+
     call = FunctionCall(dialect, "MYSTERY_FUNC")
     typed = call.as_xml()
-    assert isinstance(typed, XMLValue)
+    assert isinstance(typed, XMLAnnotation)
+    assert not hasattr(typed, "like")
     assert typed.to_sql() == call.to_sql()
 
 
@@ -402,13 +432,13 @@ def test_a_type_the_core_does_not_hold_is_reported_unknown():
     """
     class ExtensionValue(SQLValue):
         # A name on the class, which is what declaring a type used to mean. It
-        # confers nothing: nothing reads it, and value_class_of answers from the
+        # confers nothing: nothing reads it, and annotation_for answers from the
         # MRO, where this class appears under no mapped name.
         declared_type = "network"
 
     instance = ExtensionValue.__new__(ExtensionValue)
     assert ExtensionValue.declared_type == "network"
-    assert value_class_of(instance) is None
+    assert annotation_for(instance) is None
     assert not is_typed_as_one_of_these(instance)
 
 
@@ -442,8 +472,9 @@ def test_every_temporal_type_is_reachable():
     They were one class with a label saying which it was; now each is its own,
     so this pins that they are all still there.
     """
-    from rhosocial.activerecord.backend.expression import core
+
+    from rhosocial.activerecord.backend.expression import values
 
     for name in ("TimestampValue", "DateValue",
                  "TimeValue", "IntervalValue"):
-        assert hasattr(core, name), name
+        assert hasattr(values, name), name

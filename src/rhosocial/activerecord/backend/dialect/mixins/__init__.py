@@ -66,6 +66,7 @@ from .object_synonym_name import SynonymNameMixin
 from .datetime import DateTimeMixin
 from .dql import DQLMixin
 from .dml import DMLMixin
+from .typed_value import TypedValueMixin
 from .ddl_column import DDLColumnMixin
 from .data_type import DataTypeMixin
 from .column_type import ColumnTypeMixin
@@ -137,6 +138,7 @@ __all__ = [
     "DateTimeMixin",
     "DQLMixin",
     "DMLMixin",
+    "TypedValueMixin",
     "DDLColumnMixin",
     "DataTypeMixin",
     "ColumnTypeMixin",

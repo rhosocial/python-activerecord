@@ -3,7 +3,7 @@
 
 from typing import TYPE_CHECKING
 
-from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
+from rhosocial.activerecord.backend.expression.serialization import register_expression_class
 from rhosocial.activerecord.backend.expression.statements.ddl_type import (
     TypeAlterAction,
     TypeDefinition,
@@ -44,8 +44,8 @@ class _DummyTypeAlterAction(TypeAlterAction):
         self.new_name = new_name
 
 
-ExpressionRegistry.register(_DummyTypeDefinition)
-ExpressionRegistry.register(_DummyTypeAlterAction)
+register_expression_class(_DummyTypeDefinition)
+register_expression_class(_DummyTypeAlterAction)
 
 
 __all__ = ["_DummyTypeDefinition", "_DummyTypeAlterAction"]

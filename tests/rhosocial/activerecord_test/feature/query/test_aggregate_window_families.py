@@ -1,10 +1,12 @@
 # tests/rhosocial/activerecord_test/feature/query/test_aggregate_window_families.py
 """What aggregating and windowing a value gives back.
 
-COUNT and SUM look alike and are not: one counts, the other adds, and the
-count is a whole number however wide the thing being counted is. MIN and MAX
-are the opposite — they hand back something of the input's kind, so the
-minimum of a string column is a string and can still be compared and matched.
+Each aggregate is its own node class now, so the identity of the function
+travels on the node instead of inside a generic name string: COUNT is a
+CountFunction, SUM a SumFunction, and so on. A count is a whole number however
+wide the thing counted is; an average is numeric whatever it averages; MIN and
+MAX hand back something of the operand's kind, which the node cannot know, so
+they offer only the operations every value has.
 
 A window function is either a count or a value from another row, and confusing
 the two is how a name column ends up arithmetic. ROW_NUMBER counts; LAG
@@ -14,7 +16,28 @@ borrows.
 # tests/rhosocial/activerecord_test/feature/query/test_aggregate_window_families.py
 import pytest
 
-from rhosocial.activerecord.backend.expression import FunctionCall
+from rhosocial.activerecord.backend.expression.declared import (
+    IntegerAnnotation,
+    NumberAnnotation,
+    TextAnnotation,
+)
+from rhosocial.activerecord.backend.expression import (
+    AvgFunction,
+    CountFunction,
+    FunctionCall,
+    MaxFunction,
+    MinFunction,
+    SumFunction,
+)
+from rhosocial.activerecord.backend.expression.surfaces import (
+    ArraySurface,
+    BooleanSurface,
+    JSONSurface,
+    NumericSurface,
+    OpaqueSurface,
+    TemporalSurface,
+    TextSurface,
+)
 from rhosocial.activerecord.backend.expression import functions as F
 
 
@@ -47,7 +70,7 @@ def columns(dialect):
 def test_count_is_always_a_whole_number(dialect, columns):
     """However wide the thing counted, the answer is a number of rows."""
     for column in columns.values():
-        assert isinstance(F.count(dialect, column), IntegerValue)
+        assert isinstance(F.count(dialect, column), CountFunction)
 
 
 def test_count_takes_arithmetic_and_not_string_operations(dialect, columns):
@@ -66,37 +89,53 @@ def test_avg_is_numeric_whatever_it_averages(dialect, columns):
     one. SQL Server is the exception that returns an integer here, which is
     exactly why it is not something to build an operation surface on."""
     for column in columns.values():
-        assert isinstance(F.avg(dialect, column), NumericValue)
+        assert isinstance(F.avg(dialect, column), AvgFunction)
 
 
 # ---------------------------------------------------------------------------
-# Adding, minimising and maximising keep the input's kind
+# Adding, minimising and maximising are their own node classes
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("factory", ["sum_", "min_", "max_"])
-def test_a_reduction_keeps_the_input_family(dialect, columns, factory):
-    """SUM of a float column is fractional and MIN of a string column is a
-    string, which can still be compared and matched."""
+@pytest.mark.parametrize(
+    "factory, node_class",
+    [("sum_", SumFunction), ("min_", MinFunction), ("max_", MaxFunction)],
+)
+def test_a_reduction_is_its_own_node_class(dialect, columns, factory, node_class):
+    """The reduction's identity is the node class, not a name string.
+
+    SUM / MIN / MAX used to be guessed into a value family from the operand's
+    column class; now each is its own node, and the operand kind does not
+    change which node comes back.
+    """
     reduce_it = getattr(F, factory)
-    assert isinstance(reduce_it(dialect, columns["int"]), IntegerValue)
-    assert isinstance(reduce_it(dialect, columns["float"]), NumericValue)
-    assert isinstance(reduce_it(dialect, columns["str"]), StringValue)
+    for column in columns.values():
+        assert isinstance(reduce_it(dialect, column), node_class)
 
 
-@pytest.mark.parametrize("factory", ["sum_", "min_", "max_"])
-def test_a_literal_input_has_no_family_to_keep(dialect, factory):
-    """A literal does not declare a kind, so the result is unknown rather than
-    guessed. Unknown is safe: the node is handed back untouched."""
+@pytest.mark.parametrize(
+    "factory, node_class",
+    [("sum_", SumFunction), ("min_", MinFunction), ("max_", MaxFunction)],
+)
+def test_a_literal_input_is_still_the_classed_node(dialect, factory, node_class):
+    """A literal operand does not change which node comes back.
+
+    The reduction is classed by the function, not inferred from the operand
+    kind, so a literal -- which declares no kind -- yields the same node a
+    column would.
+    """
     result = getattr(F, factory)(dialect, 1)
-    assert not isinstance(result, ArrayValue) and not isinstance(result, BinaryValue) and not isinstance(result, BooleanValue) and not isinstance(result, DateValue) and not isinstance(result, IntegerValue) and not isinstance(result, IntervalValue) and not isinstance(result, JSONValue) and not isinstance(result, NumericValue) and not isinstance(result, StringValue) and not isinstance(result, TimeValue) and not isinstance(result, TimestampValue) and not isinstance(result, UUIDValue)
-    assert isinstance(result, FunctionCall)
+    assert isinstance(result, node_class)
 
 
-def test_min_of_a_string_column_is_still_a_string(dialect, columns):
+def test_min_does_not_guess_the_operand_family(dialect, columns):
+    """MIN hands back something of the operand's kind, which the node cannot
+    know, so it offers only the operations every value has rather than
+    guessing a family from the operand."""
     result = F.min_(dialect, columns["str"])
-    assert hasattr(result, "like")
-    assert not hasattr(result, "sqrt")
+    assert isinstance(result, MinFunction)
+    assert not isinstance(result, (NumberAnnotation, TextAnnotation))
+    assert hasattr(result, "is_null")
 
 
 # ---------------------------------------------------------------------------
@@ -105,12 +144,12 @@ def test_min_of_a_string_column_is_still_a_string(dialect, columns):
 
 
 def test_building_a_json_aggregate_gives_json(dialect, columns):
-    assert isinstance(F.json_objectagg(dialect, columns["int"], columns["str"]), JSONValue)
-    assert isinstance(F.json_arrayagg(dialect, columns["json"]), JSONValue)
+    assert isinstance(F.json_objectagg(dialect, columns["int"], columns["str"]), JSONSurface)
+    assert isinstance(F.json_arrayagg(dialect, columns["json"]), JSONSurface)
 
 
 def test_collecting_into_an_array_gives_an_array(dialect, columns):
-    assert isinstance(F.array_agg(dialect, columns["int"]), ArrayValue)
+    assert isinstance(F.array_agg(dialect, columns["int"]), ArraySurface)
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +160,7 @@ def test_collecting_into_an_array_gives_an_array(dialect, columns):
 @pytest.mark.parametrize("factory", ["row_number", "rank", "dense_rank"])
 def test_a_rank_is_a_whole_number(dialect, factory):
     for windowed in (getattr(F, factory)(dialect),):
-        assert isinstance(windowed, IntegerValue)
+        assert isinstance(windowed, NumericSurface)
         assert hasattr(windowed, "__add__")
         assert not hasattr(windowed, "upper")
 
@@ -142,13 +181,13 @@ def test_a_value_from_another_row_keeps_its_family(dialect, columns, factory, ex
     it had. Now the class says it, and the operations come with it.
     """
     windowed = getattr(F, factory)(dialect, columns["str"], *extra)
-    assert isinstance(windowed, StringValue)
+    assert isinstance(windowed, TextAnnotation)
     assert hasattr(windowed, "like")
     assert not hasattr(windowed, "sqrt")
 
 
 def test_lag_over_a_float_column_is_fractional(dialect, columns):
-    assert isinstance(F.lag(dialect, columns["float"]), NumericValue)
+    assert isinstance(F.lag(dialect, columns["float"]), NumberAnnotation)
 
 
 # ---------------------------------------------------------------------------
@@ -167,13 +206,13 @@ def test_a_typed_aggregate_reports_its_family_for_introspection(dialect, columns
     anyway.
     """
     result = F.count(dialect, columns["int"])
-    assert isinstance(result, IntegerValue)
+    assert isinstance(result, CountFunction)
 
 
 def test_a_typed_window_reports_its_family_for_introspection(dialect, columns):
     """Same for a window function: the class, not the removed ``family`` tag."""
     result = F.lag(dialect, columns["int"])
-    assert isinstance(result, IntegerValue)
+    assert isinstance(result, IntegerAnnotation)
 
 
 def test_an_untyped_aggregate_reports_no_family(dialect, columns):
@@ -185,24 +224,18 @@ def test_an_untyped_aggregate_reports_no_family(dialect, columns):
     statement without the tag that could contradict it.
     """
     result = FunctionCall(dialect, "COUNT", columns["int"], is_aggregate=True)
-    assert not isinstance(result, ArrayValue) and not isinstance(result, BinaryValue) and not isinstance(result, BooleanValue) and not isinstance(result, DateValue) and not isinstance(result, IntegerValue) and not isinstance(result, IntervalValue) and not isinstance(result, JSONValue) and not isinstance(result, NumericValue) and not isinstance(result, StringValue) and not isinstance(result, TimeValue) and not isinstance(result, TimestampValue) and not isinstance(result, UUIDValue)
-
-
-
-from rhosocial.activerecord.backend.expression.core import (
-    NumericValue,
-    IntegerValue,
-    StringValue,
-    BooleanValue,
-    BinaryValue,
-    UUIDValue,
-    JSONValue,
-    ArrayValue,
-    TimestampValue,
-    DateValue,
-    TimeValue,
-    IntervalValue,
-)
+    assert not isinstance(
+        result,
+        (
+            ArraySurface,
+            BooleanSurface,
+            JSONSurface,
+            NumericSurface,
+            OpaqueSurface,
+            TemporalSurface,
+            TextSurface,
+        ),
+    )
 def test_declaring_a_family_does_not_change_the_sql(dialect, columns):
     """Typing is a surface decision, never a rendering one."""
     assert F.count(dialect, columns["int"]).to_sql()[0] == "COUNT(\"i\")"

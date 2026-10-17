@@ -8,8 +8,15 @@ columns back into rows. Both are supported natively by SQL Server, Oracle
     PIVOT (agg(value_column) FOR pivot_column IN (v1, v2, ...)) [alias]
     UNPIVOT [INCLUDE|EXCLUDE NULLS] (value_column FOR pivot_column IN (c1, c2)) [alias]
 
-Dialects override ``format_pivot_value`` / ``format_pivot_expression`` /
-``format_unpivot_expression`` for their own extensions.
+The ``*Expression`` suffix is dropped on purpose: SQL writes these two in one
+word and there is nothing left over for a suffix to say, so the spec's naming
+table records the core spelling as ``Pivot`` / ``Unpivot``. They are still
+nodes with a formatter, not clause wrappers -- ``format_pivot_value`` renders
+one member of an ``IN (...)`` list and is deliberately not renamed, since it is
+a value helper rather than a node formatter.
+
+Dialects override ``format_pivot_value`` / ``format_pivot`` /
+``format_unpivot`` for their own extensions.
 """
 from typing import List, Optional, Union, TYPE_CHECKING
 
@@ -19,11 +26,11 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class PivotExpression(BaseExpression):
+class Pivot(BaseExpression):
     """A PIVOT clause expression (row-to-column transformation).
 
     Example:
-        >>> PivotExpression(
+        >>> Pivot(
         ...     dialect, "SUM", "amount", "month", ["Jan", "Feb"], alias="p"
         ... )
     """
@@ -49,10 +56,10 @@ class PivotExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_pivot_expression"
+        return "format_pivot"
 
 
-class UnpivotExpression(BaseExpression):
+class Unpivot(BaseExpression):
     """An UNPIVOT clause expression (column-to-row transformation).
 
     ``include_nulls`` / ``exclude_nulls`` are the two spellings of the null
@@ -83,4 +90,4 @@ class UnpivotExpression(BaseExpression):
     @property
     def format_method(self) -> str:
         """The dialect formatting method that renders this expression."""
-        return "format_unpivot_expression"
+        return "format_unpivot"

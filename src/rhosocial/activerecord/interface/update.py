@@ -87,13 +87,13 @@ class IUpdateBehavior(ABC):
         Example:
             def get_update_expressions(self):
                 from ..backend.expression import Column, Literal, FunctionCall
-                from ..backend.expression.operators import BinaryArithmeticExpression
+                from ..backend.expression.operators import ArithmeticOperation
                 # Method 1: Using explicit expression objects
                 return {
                     # Increment version in database (for optimistic locking)
-                    'version': BinaryArithmeticExpression(
+                    'version': ArithmeticOperation(
                         self.backend().dialect,
-                        '+',
+                        'add',
                         Column(self.backend().dialect, 'version'),
                         Literal(self.backend().dialect, 1)
                     ),

@@ -17,9 +17,11 @@ The split this file pins:
 # tests/rhosocial/activerecord_test/feature/query/test_string_value_operations.py
 import pytest
 
+from rhosocial.activerecord.backend.expression.surfaces import TextSurface
+
 from rhosocial.activerecord.backend.expression import (
     LikePredicate,
-    StringValue,
+    UpperFunction,
     build_json_path,
 )
 from rhosocial.activerecord.backend.expression import functions as string_functions
@@ -80,8 +82,8 @@ def test_string_operation_renders_its_function(
 
 
 def test_string_operations_return_a_typed_string_value(name):
-    """The result must be a string value, not a bare function call."""
-    assert isinstance(name.upper(), StringValue)
+    """The result must be a string-valued node, not a bare function call."""
+    assert isinstance(name.upper(), UpperFunction)
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +157,7 @@ def test_predicate_still_combines(name):
 def test_numeric_result_is_not_a_string_value(dialect, name, factory):
     """``LENGTH(x) LIKE '3'`` is a type error; the surface must not offer it."""
     result = getattr(string_functions, factory)(dialect, name)
-    assert not isinstance(result, StringValue)
+    assert not isinstance(result, TextSurface)
 
 
 @pytest.mark.parametrize(
@@ -173,7 +175,7 @@ def test_string_column_offers_them_but_the_result_is_not_a_string(name, method, 
     """
     assert hasattr(name, method), f"StringColumn lost a legal operation {method}()"
     result = getattr(name, method)(*args)
-    assert not isinstance(result, StringValue)
+    assert not isinstance(result, TextSurface)
 
 
 # ---------------------------------------------------------------------------
@@ -182,9 +184,9 @@ def test_string_column_offers_them_but_the_result_is_not_a_string(name, method, 
 
 
 def test_free_functions_still_work_and_are_now_typed(dialect, name):
-    """Existing call sites keep working; they gain the string type."""
+    """Existing call sites keep working; they gain a string-valued node."""
     result = string_functions.upper(dialect, name)
-    assert isinstance(result, StringValue)
+    assert isinstance(result, UpperFunction)
     assert result.like("A%").to_sql()[0].endswith("LIKE ?")
 
 

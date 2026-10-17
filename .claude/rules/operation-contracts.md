@@ -114,7 +114,7 @@ never a silent substitution of a different question:
   `TrimExpression` -- the core factory builds the node, `TrimMixin` renders the
   standard form, and SQLite overrides `format_trim_expression` because it parses
   no `trim(... from ...)` syntax at all. `ILikePredicate` and `ArrayExpression`
-  follow the same shape. A factory reaching for `RawSQLExpression` (or a
+  follow the same shape. A factory reaching for `RawSQL` (or a
   `WildcardExpression` standing in for `COUNT(*)`'s star) is a bug in review
   terms, not a shortcut.
 - Capability statements: this file, plus the docstring of the method that

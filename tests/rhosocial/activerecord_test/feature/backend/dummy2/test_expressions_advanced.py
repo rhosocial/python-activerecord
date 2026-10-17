@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     FunctionCall,
     Subquery,
     ComparisonPredicate,
-    CaseFunction,
+    CaseExpression,
     ExistsPredicate,
     AnyPredicate,
     AllPredicate,
@@ -27,7 +27,7 @@ from rhosocial.activerecord.backend.expression.types import (
 class TestAdvancedExpressions:
     """Tests for advanced SQL expression types."""
 
-    # --- CaseFunction ---
+    # --- CaseExpression ---
     def test_case_searched_expression(self, dummy_dialect: DummyDialect):
         """Tests a searched CASE expression (CASE WHEN ... THEN ... ELSE ... END)."""
         condition1 = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
@@ -35,7 +35,7 @@ class TestAdvancedExpressions:
         condition2 = ComparisonPredicate(dummy_dialect, "<=", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
         result2 = Literal(dummy_dialect, "minor")
 
-        case_expr = CaseFunction(
+        case_expr = CaseExpression(
             dummy_dialect,
             cases=[(condition1, result1), (condition2, result2)],
             else_result=Literal(dummy_dialect, "unknown"),
@@ -48,7 +48,7 @@ class TestAdvancedExpressions:
     def test_case_simple_expression(self, dummy_dialect: DummyDialect):
         """Tests a simple CASE expression (CASE value WHEN ... THEN ... ELSE ... END)."""
         value_expr = Column(dummy_dialect, "status_code")
-        case_expr = CaseFunction(
+        case_expr = CaseExpression(
             dummy_dialect,
             value=value_expr,
             cases=[

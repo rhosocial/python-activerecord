@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from ..expression import (
         QueryStatement,
         WithStatement,
-        SetOperationStatement,
+        SetOperation,
     )
 
 
@@ -69,7 +69,7 @@ HomogeneousDMLList = Union[
 DQLExpression = Union[
     "QueryStatement",
     "WithStatement",
-    "SetOperationStatement",
+    "SetOperation",
 ]
 
 
@@ -260,7 +260,7 @@ class BatchExecutionMixin:
 
         Args:
             expression: A DQL expression (QueryStatement, WithStatement,
-                       or SetOperationStatement).
+                       or SetOperation).
             page_size: Number of rows per page. Default: 1000.
             column_adapters: Optional type adapters for processing columns.
             column_mapping: Optional mapping from column names to field names.

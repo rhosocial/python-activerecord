@@ -222,7 +222,7 @@ sql, params = s2.to_sql()
 Creates a `TRIM` scalar function call.
 
 ```python
-def trim(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], chars: Optional[Union[str, "bases.BaseExpression"]] = None, direction: str = "BOTH") -> "operators.RawSQLExpression": ...
+def trim(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], chars: Optional[Union[str, "bases.BaseExpression"]] = None, direction: str = "BOTH") -> "operators.RawSQL": ...
 ```
 
 **Example:**
@@ -659,7 +659,7 @@ sql, params = t.to_sql()
 Creates a `CASE` expression.
 
 ```python
-def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseFunction": ...
+def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseExpression": ...
 ```
 
 **Example:**

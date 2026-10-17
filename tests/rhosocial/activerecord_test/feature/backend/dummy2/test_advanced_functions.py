@@ -5,7 +5,7 @@ Tests for the advanced SQL function expression components in advanced_functions.
 
 from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CaseFunction,
+    CaseExpression,
     ExistsPredicate,
     AnyPredicate,
     AllPredicate,
@@ -18,15 +18,15 @@ from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
 
-class TestCaseFunction:
-    """Tests for CaseFunction class."""
+class TestCaseExpression:
+    """Tests for CaseExpression class."""
 
     def test_case_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic CASE expression functionality."""
         # Create a basic CASE expression with one condition-result pair
         condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
         result = Literal(dummy_dialect, "adult")
-        case_expr = CaseFunction(dummy_dialect, cases=[(condition, result)])
+        case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
         assert "WHEN" in sql
@@ -38,7 +38,7 @@ class TestCaseFunction:
         # Create a basic CASE expression with one condition-result pair
         condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         result = Literal(dummy_dialect, "ACTIVE_USER")
-        case_expr = CaseFunction(dummy_dialect, value=value_expr, cases=[(condition, result)])
+        case_expr = CaseExpression(dummy_dialect, value=value_expr, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
         assert "WHEN" in sql
@@ -48,7 +48,7 @@ class TestCaseFunction:
         """Test CASE expression with cases."""
         condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
         result = Literal(dummy_dialect, "adult")
-        case_expr = CaseFunction(dummy_dialect, cases=[(condition, result)])
+        case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
         assert "WHEN" in sql
@@ -59,7 +59,7 @@ class TestCaseFunction:
         condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
         result = Literal(dummy_dialect, "adult")
         else_result = Literal(dummy_dialect, "minor")
-        case_expr = CaseFunction(dummy_dialect, cases=[(condition, result)], else_result=else_result)
+        case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)], else_result=else_result)
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
         assert "ELSE" in sql
@@ -69,7 +69,7 @@ class TestCaseFunction:
         condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         result = Literal(dummy_dialect, 1)
         else_result = Literal(dummy_dialect, 0)
-        case_expr = CaseFunction(
+        case_expr = CaseExpression(
             dummy_dialect, cases=[(condition, result)], else_result=else_result, alias="status_flag"
         )
         sql, params = case_expr.to_sql()
@@ -77,7 +77,7 @@ class TestCaseFunction:
         assert "status_flag" in sql
 
 
-class TestCastFunction:
+class TestCastExpression:
     """Tests for cast functionality using cast() method."""
 
     def test_cast_expression_basic(self, dummy_dialect: DummyDialect):

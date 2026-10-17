@@ -60,7 +60,7 @@ Using `pydantic.BaseModel` avoids a reverse dependency from the backend layer ba
 ```python
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.explain import SQLiteExplainResult
-from rhosocial.activerecord.backend.expression import RawSQLExpression
+from rhosocial.activerecord.backend.expression import RawSQL
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 dialect = SQLiteDialect()
@@ -68,7 +68,7 @@ backend = SQLiteBackend(database="mydb.sqlite3")
 backend.connect()
 
 # Explain the bytecode for a query
-expr = RawSQLExpression(dialect, "SELECT * FROM users WHERE id = 1")
+expr = RawSQL(dialect, "SELECT * FROM users WHERE id = 1")
 result = backend.explain(expr)
 
 assert isinstance(result, SQLiteExplainResult)
@@ -210,7 +210,7 @@ Returns one of four string labels:
 ### Example: Diagnosing Index Usage
 
 ```python
-from rhosocial.activerecord.backend.expression import RawSQLExpression
+from rhosocial.activerecord.backend.expression import RawSQL
 
 dialect = SQLiteDialect()
 backend = SQLiteBackend(database="mydb.sqlite3")
@@ -224,7 +224,7 @@ queries = {
 
 for label, sql in queries.items():
     # Bytecode analysis
-    result = backend.explain(RawSQLExpression(dialect, sql))
+    result = backend.explain(RawSQL(dialect, sql))
     print(f"{label}: {result.analyze_index_usage()}")
     print(f"  is_full_scan={result.is_full_scan}, "
           f"is_index_used={result.is_index_used}, "
@@ -232,7 +232,7 @@ for label, sql in queries.items():
 
     # Query plan analysis (same properties available)
     plan = backend.explain(
-        RawSQLExpression(dialect, sql),
+        RawSQL(dialect, sql),
         ExplainOptions(type=ExplainType.QUERY_PLAN),
     )
     for row in plan.rows:

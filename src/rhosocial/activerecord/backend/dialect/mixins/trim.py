@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/dialect/mixins/trim.py
 """Dialect mixin for the TRIM family of string expressions.
 
-One node, one formatter: :class:`~...expression.advanced_functions.TrimFunction`
+One node, one formatter: :class:`~...expression.advanced_functions.TrimExpression`
 renders through :meth:`format_trim_expression`, and the default is the standard
 ``TRIM([BOTH|LEADING|TRAILING] [chars] FROM expr)`` form. A dialect that spells
 it differently overrides the formatter rather than assembling SQL by hand --
@@ -11,13 +11,13 @@ at all.
 from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ...expression.advanced_functions import TrimFunction
+    from ...expression.advanced_functions import TrimExpression
 
 
 class TrimMixin:
     """Mixin rendering the standard TRIM expression."""
 
-    def format_trim_expression(self, expr: "TrimFunction") -> Tuple[str, Tuple]:
+    def format_trim_expression(self, expr: "TrimExpression") -> Tuple[str, Tuple]:
         """Format a ``TRIM`` node in the standard SQL form.
 
         Args:

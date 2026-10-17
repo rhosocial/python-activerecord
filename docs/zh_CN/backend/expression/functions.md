@@ -220,7 +220,7 @@ sql, params = s2.to_sql()
 创建 `TRIM` 标量函数调用。
 
 ```python
-def trim(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], chars: Optional[Union[str, "bases.BaseExpression"]] = None, direction: str = "BOTH") -> "operators.RawSQLExpression": ...
+def trim(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], chars: Optional[Union[str, "bases.BaseExpression"]] = None, direction: str = "BOTH") -> "operators.RawSQL": ...
 ```
 
 **示例:**
@@ -657,7 +657,7 @@ sql, params = t.to_sql()
 创建 `CASE` 表达式。
 
 ```python
-def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseFunction": ...
+def case(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "core.CaseExpression": ...
 ```
 
 **示例:**

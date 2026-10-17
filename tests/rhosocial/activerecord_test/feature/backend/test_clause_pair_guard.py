@@ -77,9 +77,8 @@ from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
     CTEClause,
-    SetOperationStatement,
 )
-from rhosocial.activerecord.backend.expression.pivot import UnpivotExpression
+from rhosocial.activerecord.backend.expression.pivot import Unpivot
 from rhosocial.activerecord.backend.expression.objects import (
     Function,
     MaterializedView,
@@ -346,8 +345,8 @@ PAIR_CASES = (
         r"CONTINUE IDENTITY\b",
     ),
     PairCase(
-        "UnpivotExpression.include_nulls",
-        lambda d, **kw: UnpivotExpression(
+        "Unpivot.include_nulls",
+        lambda d, **kw: Unpivot(
             d, value_column="v", pivot_column="k", columns=["a", "b"], **kw
         ),
         "include_nulls",
@@ -452,20 +451,6 @@ PAIR_CASES = (
         "initially_immediate",
         r"INITIALLY DEFERRED\b",
         r"INITIALLY IMMEDIATE\b",
-    ),
-    PairCase(
-        "SetOperationStatement.all_",
-        lambda d, **kw: SetOperationStatement(
-            d,
-            left=QueryStatement(d, select=[Column(d, "a")], from_=_table(d, "t1")),
-            right=QueryStatement(d, select=[Column(d, "a")], from_=_table(d, "t2")),
-            operation="UNION",
-            **kw,
-        ),
-        "all_",
-        "distinct",
-        r"\bALL\b",
-        r"\bDISTINCT\b",
     ),
     PairCase(
         "BeginTransactionStatement.deferrable",
@@ -758,7 +743,7 @@ class TestGuardIsNotVacuous:
             "DropTableStatement.cascade",
             "TruncateStatement.cascade",
             "TruncateStatement.restart_identity",
-            "UnpivotExpression.include_nulls",
+            "Unpivot.include_nulls",
             "AlterConstraint.enforced",
             "CreateMaterializedViewStatement.with_data",
             "RefreshMaterializedViewStatement.with_data",
@@ -768,7 +753,6 @@ class TestGuardIsNotVacuous:
             "TableConstraint.initially_deferred",
             "TableConstraint.enforced",
             "ColumnConstraint.enforced",
-            "SetOperationStatement.all_",
             "BeginTransactionStatement.deferrable",
             "BeginTransactionStatement.wait",
             "SetTransactionExpression.wait",

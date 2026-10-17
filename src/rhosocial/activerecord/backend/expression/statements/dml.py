@@ -15,7 +15,7 @@ from ..sources import NamedRelationRef
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
     from .dql import QueryStatement
-    from ..query_sources import ValuesExpression, TableFunctionExpression, LateralExpression, SetOperationStatement
+    from ..query_sources import ValuesExpression, TableFunctionExpression, LateralExpression, SetOperation
     from ..query_parts import JoinClause
 
 
@@ -166,7 +166,7 @@ class ReturningClause(BaseExpression):
         # RETURNING * to return all columns
         returning_clause = ReturningClause(
             dialect,
-            expressions=[RawSQLExpression(dialect, "*")]  # Use RawSQL for asterisk
+            expressions=[RawSQL(dialect, "*")]  # Use RawSQL for asterisk
         )
     """
 
@@ -207,13 +207,13 @@ class DeleteStatement(BaseExpression):
             Union[
                 "NamedRelationRef",
                 "Subquery",
-                "SetOperationStatement",
+                "SetOperation",
                 "JoinClause",
                 List[
                     Union[
                         "NamedRelationRef",
                         "Subquery",
-                        "SetOperationStatement",
+                        "SetOperation",
                         "JoinClause",
                         "ValuesExpression",
                         "TableFunctionExpression",
@@ -278,7 +278,7 @@ class DeleteStatement(BaseExpression):
                 # For complex types, check their type names
                 using_type_name = type(self.using).__name__
                 valid_type_names = [
-                    "SetOperationStatement",
+                    "SetOperation",
                     "JoinClause",
                     "ValuesExpression",
                     "TableFunctionExpression",
@@ -287,7 +287,7 @@ class DeleteStatement(BaseExpression):
                 ]
                 if using_type_name not in valid_type_names:
                     raise TypeError(
-                        f"using must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, "
+                        f"using must be one of: str, NamedRelationRef, Subquery, SetOperation, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, QueryStatement, got {type(self.using)}"
                     )
@@ -338,13 +338,13 @@ class UpdateStatement(BaseExpression):
                 # More advanced SQL dialects (e.g., PostgreSQL) allow richer FROM sources.
                 "NamedRelationRef",
                 "Subquery",
-                "SetOperationStatement",
+                "SetOperation",
                 "JoinClause",
                 List[
                     Union[
                         "NamedRelationRef",
                         "Subquery",
-                        "SetOperationStatement",
+                        "SetOperation",
                         "JoinClause",
                         "ValuesExpression",
                         "TableFunctionExpression",
@@ -408,7 +408,7 @@ class UpdateStatement(BaseExpression):
                 # For complex types, check their type names
                 from_type_name = type(self.from_).__name__
                 valid_type_names = [
-                    "SetOperationStatement",
+                    "SetOperation",
                     "JoinClause",
                     "ValuesExpression",
                     "TableFunctionExpression",
@@ -416,7 +416,7 @@ class UpdateStatement(BaseExpression):
                 ]
                 if from_type_name not in valid_type_names:
                     raise TypeError(
-                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperationStatement, "
+                        f"from_ must be one of: str, NamedRelationRef, Subquery, SetOperation, "
                         f"JoinClause, list, ValuesExpression, TableFunctionExpression, "
                         f"LateralExpression, got {type(self.from_)}"
                     )
@@ -484,7 +484,7 @@ class ValuesSource(InsertDataSource):
 
     Currently, the type hint for these expressions is `BaseExpression`.
     This generic type allows for various expression types (e.g., `Literal`, `Column`,
-    `RawSQLExpression`, scalar `QueryStatement` as subqueries) to be used as values.
+    `RawSQL`, scalar `QueryStatement` as subqueries) to be used as values.
     It is a pragmatic choice given the current stage of framework development.
 
     However, it's important to note that statement-level expressions (such as

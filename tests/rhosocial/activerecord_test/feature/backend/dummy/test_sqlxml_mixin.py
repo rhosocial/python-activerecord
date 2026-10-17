@@ -6,18 +6,17 @@ import pytest
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.mixins import SQLXMLMixin
+from rhosocial.activerecord.backend.expression.surfaces import TextSurface, XMLSurface
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     OrderByClause,
     PassingClause,
-    StringValue,
     XMLParseDocumentType,
     XMLParseExpression,
     XMLPassingMechanism,
     XMLStandaloneOption,
     XMLTableColumn,
-    XMLValue,
     xmlagg,
     xmlattributes,
     xmlcomment,
@@ -97,9 +96,9 @@ class TestSQLXMLMixin:
     def test_xml_document_factories_return_xml_values(self, dummy_dialect: DummyDialect):
         """The document constructors declare the value class they produce.
 
-        Each one builds an XML document, so the result is an
-        ``XMLValue`` -- the class is the statement, not a tag, and
-        the SQL assertions elsewhere in this file are unchanged by it.
+        Each one builds an XML document, so the result carries the XML surface
+        -- the class is the statement, not a tag, and the SQL assertions
+        elsewhere in this file are unchanged by it.
         """
         expressions = [
             xmlparse(dummy_dialect, "<root/>"),
@@ -113,14 +112,14 @@ class TestSQLXMLMixin:
             xmlquery(dummy_dialect, "/root"),
         ]
         for expr in expressions:
-            assert isinstance(expr, XMLValue), type(expr).__name__
+            assert isinstance(expr, XMLSurface), type(expr).__name__
 
     def test_xmlserialize_factory_returns_the_text_value(self, dummy_dialect: DummyDialect):
         """Serialization yields the character value it names, not XML again."""
         expr = xmlserialize(dummy_dialect, "<root/>", "TEXT")
 
-        assert isinstance(expr, StringValue)
-        assert not isinstance(expr, XMLValue)
+        assert isinstance(expr, TextSurface)
+        assert not isinstance(expr, XMLSurface)
 
     def test_xmlserialize_generates_standard_sql(self, dummy_dialect: DummyDialect):
         expr = xmlserialize(dummy_dialect, Column(dummy_dialect, "payload"), "VARCHAR(100)")

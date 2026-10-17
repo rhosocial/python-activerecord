@@ -6,7 +6,7 @@ Tests for the advanced SQL function expression components in advanced_functions.
 import pytest
 from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CaseFunction,
+    CaseExpression,
     ExistsPredicate,
     AnyPredicate,
     AllPredicate,
@@ -19,15 +19,15 @@ from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.expression.types import IntegerType
 
 
-class TestCaseFunction:
-    """Tests for CaseFunction class."""
+class TestCaseExpression:
+    """Tests for CaseExpression class."""
 
     def test_case_expression_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic CASE expression functionality."""
         # Create a basic CASE expression with one condition-result pair
         condition = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result = Literal(sqlite_dialect_3_8_0, "adult")
-        case_expr = CaseFunction(sqlite_dialect_3_8_0, cases=[(condition, result)])
+        case_expr = CaseExpression(sqlite_dialect_3_8_0, cases=[(condition, result)])
 
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
@@ -40,7 +40,7 @@ class TestCaseFunction:
         condition2 = Column(sqlite_dialect_3_8_0, "age") > Literal(sqlite_dialect_3_8_0, 18)
         result2 = Literal(sqlite_dialect_3_8_0, "adult")
 
-        case_expr = CaseFunction(
+        case_expr = CaseExpression(
             sqlite_dialect_3_8_0,
             cases=[(condition1, result1), (condition2, result2)],
             else_result=Literal(sqlite_dialect_3_8_0, "minor"),
@@ -53,7 +53,7 @@ class TestCaseFunction:
     def test_case_expression_simple_case(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test simple CASE expression with value."""
         value = Column(sqlite_dialect_3_8_0, "status_code")
-        case_expr = CaseFunction(
+        case_expr = CaseExpression(
             sqlite_dialect_3_8_0,
             value=value,
             cases=[

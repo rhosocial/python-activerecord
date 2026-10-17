@@ -9,7 +9,7 @@ from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
     FunctionCall,
-    RawSQLExpression,
+    RawSQL,
     QueryStatement,
     UpdateStatement,
     DeleteStatement,
@@ -24,8 +24,8 @@ class TestSQLiteDateTimeFunctions:
 
     def test_current_timestamp_in_insert(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test CURRENT_TIMESTAMP in INSERT operations."""
-        # Using RawSQLExpression for CURRENT_TIMESTAMP
-        raw_timestamp = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
+        # Using RawSQL for CURRENT_TIMESTAMP
+        raw_timestamp = RawSQL(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
 
         insert_expr = InsertStatement(
             sqlite_dialect_3_8_0,
@@ -44,7 +44,7 @@ class TestSQLiteDateTimeFunctions:
 
     def test_current_timestamp_in_update(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test CURRENT_TIMESTAMP in UPDATE operations."""
-        raw_timestamp = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
+        raw_timestamp = RawSQL(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
 
         update_expr = UpdateStatement(
             sqlite_dialect_3_8_0,
@@ -112,7 +112,7 @@ class TestSQLiteDateTimeFunctions:
     def test_multiple_datetime_functions_in_single_query(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test multiple datetime functions in a single query."""
         # Various datetime functions
-        current_timestamp = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
+        current_timestamp = RawSQL(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
         now_func = FunctionCall(sqlite_dialect_3_8_0, "DATETIME", Literal(sqlite_dialect_3_8_0, "now"))
         today_func = FunctionCall(sqlite_dialect_3_8_0, "DATE", Literal(sqlite_dialect_3_8_0, "now"))
         time_func = FunctionCall(sqlite_dialect_3_8_0, "TIME", Literal(sqlite_dialect_3_8_0, "now"))
@@ -124,7 +124,7 @@ class TestSQLiteDateTimeFunctions:
         )
 
         sql, params = query_expr.to_sql()
-        assert "CURRENT_TIMESTAMP" in sql  # RawSQLExpression should appear directly
+        assert "CURRENT_TIMESTAMP" in sql  # RawSQL should appear directly
         assert "DATETIME(" in sql  # FunctionCall should appear with parameter placeholder
         assert "DATE(" in sql  # FunctionCall should appear with parameter placeholder
         assert "TIME(" in sql  # FunctionCall should appear with parameter placeholder
@@ -134,7 +134,7 @@ class TestSQLiteDateTimeFunctions:
     def test_datetime_with_returning_clause(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test datetime functions with RETURNING clause."""
         if sqlite_dialect_3_8_0.supports_returning_insert():
-            raw_timestamp = RawSQLExpression(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
+            raw_timestamp = RawSQL(sqlite_dialect_3_8_0, "CURRENT_TIMESTAMP")
 
             update_expr = UpdateStatement(
                 sqlite_dialect_3_8_0,

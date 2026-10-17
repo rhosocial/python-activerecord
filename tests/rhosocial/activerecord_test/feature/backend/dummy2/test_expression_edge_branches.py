@@ -19,7 +19,7 @@ from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
+    RawSQL,
     QualifiedIdentifier,
     AllColumnsWildcard,
 )
@@ -50,7 +50,7 @@ from rhosocial.activerecord.backend.expression.introspection import (
     ViewInfoExpression,
     ViewListExpression,
 )
-from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
+from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.statements import (
     OnConflictClause,
     PartitionClause,
@@ -100,8 +100,8 @@ class TestCoreExpressionBranches:
         assert "*" in sql
         assert params == ()
 
-    def test_binary_arithmetic_with_cast(self, dialect):
-        expr = BinaryArithmeticExpression(dialect, "+", Column(dialect, "price"), Literal(dialect, 10))
+    def test_arithmetic_operation_with_cast(self, dialect):
+        expr = ArithmeticOperation(dialect, "add", Column(dialect, "price"), Literal(dialect, 10))
         casted = expr.cast(DecimalType(dialect))
         aliased = casted.as_("total")
         sql, params = aliased.to_sql()
@@ -109,7 +109,7 @@ class TestCoreExpressionBranches:
         assert "total" in sql
 
     def test_raw_sql_expression(self, dialect):
-        expr = RawSQLExpression(dialect, "NOW()")
+        expr = RawSQL(dialect, "NOW()")
         sql, params = expr.to_sql()
         assert sql == "NOW()"
         assert params == ()

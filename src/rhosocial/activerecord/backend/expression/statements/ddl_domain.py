@@ -52,7 +52,14 @@ class DomainValueExpression(
 
 
 class DomainCheckConstraint(BaseExpression):
-    """A domain ``CHECK`` constraint with an optional constraint name."""
+    """A domain ``CHECK`` constraint with an optional constraint name.
+
+    A CHECK position accepts no bind parameters, so the class declares
+    ``inline_params = True``; the dialect renders the condition inline-only
+    and refuses any residual bind value.
+    """
+
+    inline_params: bool = True
 
     @property
     def format_method(self) -> str:

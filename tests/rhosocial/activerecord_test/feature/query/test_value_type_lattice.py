@@ -16,7 +16,7 @@ family.
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    IntegerValue,
+    CharLengthFunction,
 )
 
 
@@ -55,9 +55,19 @@ def name(dialect):
     ids=["length", "ascii", "octet_length", "bit_length", "strpos", "position"],
 )
 def test_number_returning_operation_yields_an_integer(name, method, args, function):
-    """These read a string and produce a count or a code."""
+    """These read a string and produce a count or a code.
+
+    Each is now a node of its own -- ``CharLengthFunction``,
+    ``AsciiFunction``, ``OctetLengthFunction``, ``BitLengthFunction``,
+    ``PositionExpression`` -- so what the six share is asserted as the
+    **surface** rather than as a class: arithmetic is available and the string
+    surface is not. Asserting ``isinstance(result, IntegerAnnotation)`` would pin
+    the wrapper these operations used to be returned in, which is exactly what
+    the per-function classes removed.
+    """
     result = getattr(name, method)(*args)
-    assert isinstance(result, IntegerValue)
+    assert hasattr(result, "__add__")
+    assert not hasattr(result, "upper")
     assert function in result.to_sql()[0]
 
 
@@ -80,15 +90,22 @@ def test_the_whole_string_surface_offers_them(name):
 #: test can call them all the same way. `substr` also takes an optional length
 #: and `trim` optional characters and a direction; passing the minimum is
 #: enough to reach the return, which is what is under test here.
+#:
+#: The placeholders are typed, not a repeated ``"x"``. Positions and counts are
+#: integers and text operands are strings, and a call that got them wrong used
+#: to pass silently -- a literal carrier accepted any value -- which is how
+#: ``substr("x")`` came to mean "substring starting one character in" nowhere.
+#: The typed value nodes now refuse it, which is the point of them.
 _REQUIRED_ARGS = {
-    "upper": 0, "lower": 0, "trim": 0, "initcap": 0,
-    "substr": 1, "left": 1, "right": 1, "concat": 1,
-    "replace": 2,
+    "upper": [], "lower": [], "trim": [], "initcap": [],
+    "substr": [1], "left": [1], "right": [1],
+    "concat": ["x"],
+    "replace": ["a", "b"],
 }
 
 
 def _call(name, method):
-    return getattr(name, method)(*(["x"] * _REQUIRED_ARGS[method]))
+    return getattr(name, method)(*_REQUIRED_ARGS[method])
 
 
 @pytest.mark.parametrize(
@@ -147,7 +164,7 @@ def test_number_result_keeps_integer_operations(name):
 def test_string_then_number(name):
     """upper() is a string, length() of it is a number."""
     result = name.upper().length()
-    assert isinstance(result, IntegerValue)
+    assert isinstance(result, CharLengthFunction)
     assert "LENGTH" in result.to_sql()[0] and "UPPER" in result.to_sql()[0]
 
 

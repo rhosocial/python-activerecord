@@ -8,10 +8,14 @@ All SQL formatting logic lives in Mixin classes in mixins.py.
 
 import re
 import warnings as _warnings
-from typing import Any, ClassVar, Dict, FrozenSet, Optional, Tuple, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, FrozenSet, Optional, Tuple, Union
 
-from .exceptions import DialectNotAdaptedException, ProtocolNotImplementedError, UnsupportedFeatureError
 from ..warnings import IdentifierQuotingWarning
+from .exceptions import (
+    DialectNotAdaptedException,
+    ProtocolNotImplementedError,
+    UnsupportedFeatureError,
+)
 
 if TYPE_CHECKING:
     import datetime as _dt
@@ -59,6 +63,7 @@ class SQLDialectBase:
     def version(self) -> Tuple[int, int, int]:
         if self._version is None:
             from .exceptions import DialectNotAdaptedException
+
             raise DialectNotAdaptedException(self.name)
         return self._version
 
@@ -84,15 +89,16 @@ class SQLDialectBase:
         return self.get_parameter_placeholder(position)
 
     def inline_sql_literal(self, value: Any) -> str:
-        """Render a Python scalar as a safe, inline SQL literal.
+        """Render a Python value as a safe, inline SQL literal.
 
         DDL clauses (CHECK / DEFAULT / partition boundaries / partial-index
         WHERE) accept no bind parameters, so their literal values render
         inline with dialect-controlled escaping — this is the single point
-        of control for that rendering.
+        of control for that rendering, backed by the three-level literal
+        construction (built-in scalars → backend overrides → the
+        literal-construction protocol; no ``str()`` fallback).
         """
         return self.format_literal(value)
-
 
     def get_isolation_level_name(self, level) -> str:
         level_name = level.name if hasattr(level, "name") else str(level)
@@ -133,15 +139,21 @@ class SQLDialectBase:
     def require_protocol(self, protocol_type: type, _feature_name: str, required_by: str) -> None:
         if not isinstance(self, protocol_type):
             raise ProtocolNotImplementedError(
-                dialect_name=self.name, protocol_name=protocol_type.__name__, required_by=required_by
+                dialect_name=self.name,
+                protocol_name=protocol_type.__name__,
+                required_by=required_by,
             )
 
-    def check_feature_support(self, check_method: str, feature_name: str, suggestion: Optional[str] = None) -> None:
+    def check_feature_support(
+        self, check_method: str, feature_name: str, suggestion: Optional[str] = None
+    ) -> None:
         is_supported = False
         if hasattr(self, check_method):
             is_supported = getattr(self, check_method)()
         if not is_supported:
-            raise UnsupportedFeatureError(dialect_name=self.name, feature_name=feature_name, suggestion=suggestion)
+            raise UnsupportedFeatureError(
+                dialect_name=self.name, feature_name=feature_name, suggestion=suggestion
+            )
 
     # ------------------------------------------------------------------
     # Version floors for named features (functions above all)
@@ -182,7 +194,9 @@ class SQLDialectBase:
             The floor as a ``(major, minor, patch)`` tuple, or ``None`` when
             this dialect records no floor for *func_name*.
         """
-        floors: Optional[Dict[str, Tuple[int, int, int]]] = getattr(self, "function_version_floors", None)
+        floors: Optional[Dict[str, Tuple[int, int, int]]] = getattr(
+            self, "function_version_floors", None
+        )
         if not floors:
             return None
         floor = floors.get(func_name)
@@ -285,17 +299,48 @@ class SQLDialectBase:
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
+    def escape_sql_string(self, value: str) -> str:
+        """Public string-escape helper for inline literal construction.
+
+        This is the helper the literal-construction protocol must use for
+        every string component it embeds in the literal text it returns:
+        single quotes are doubled so the component is safe inside a
+        single-quoted SQL string. Hand-concatenated quoting is a violation
+        of the protocol.
+        """
+        return self._escape_sql_string(value)
+
     def format_literal(
         self, value: "Optional[Union[bool, int, float, Decimal, _dt.datetime, _dt.date]]"
     ) -> str:
-        """Render a Python scalar as a safe inline SQL literal.
+        """Render a value as a safe inline SQL literal — the three-level
+        construction.
 
         Used by DDL clauses (CHECK / DEFAULT / partition boundaries /
         partial-index WHERE / generated columns), which accept no bind
-        parameters. Only scalar types with portable inline forms are handled
-        here; backends override for type-specific forms (e.g. bytes, native
-        date literals). This is the single point of control for inline literal
-        rendering.
+        parameters, and by every inline-strategy literal node. Construction
+        is attempted at three levels, in order, and an unrenderable value
+        fails explicitly — there is no ``str()`` fallback:
+
+        1. **Dialect base class built-ins** — the host scalars whose inline
+           form is portable or dialect-spelled: ``NULL`` and booleans render
+           as keywords, numbers as numeric text (with a range check: ``NaN``
+           and ``±Inf`` must never reach SQL text — ``float('inf')``
+           stringifies as ``'inf'`` and would degrade to an identifier), and
+           date/time values as ISO-8601 strings through the escape helper.
+           Note ``bool`` is an ``int`` subclass, so the boolean dispatch runs
+           before the numeric check.
+        2. **Backend overrides** — host types whose literal form is
+           backend-specific (``bytes`` BLOB literals, ``UUID``,
+           ``timedelta`` intervals, arrays, JSON). The base class does *not*
+           guess them; a backend dialect must override this method for the
+           value types it supports, and leave the failure explicit for the
+           ones it does not.
+        3. **The literal-construction protocol** — a user-defined or
+           backend-specific value type implements
+           :class:`SQLLiteral`: the returned text is embedded verbatim as an
+           atom. The protocol is a rendering duty, distinct from
+           ``DataType`` column-type declaration.
 
         The returned literal is an **escaped atom** (string values are quoted
         and escaped), so any placeholder character inside it cannot be
@@ -318,21 +363,44 @@ class SQLDialectBase:
                 raise ValueError("non-finite Decimal cannot be inlined into SQL")
             return str(value)
         if isinstance(value, (int, float)):
-            if isinstance(value, float) and value != value:  # NaN
-                raise ValueError("NaN cannot be inlined into SQL")
-            return repr(value) if isinstance(value, float) else str(value)
+            if isinstance(value, float):
+                if value != value:  # NaN
+                    raise ValueError("NaN cannot be inlined into SQL")
+                if value == float("inf") or value == float("-inf"):
+                    raise ValueError("Inf cannot be inlined into SQL")
+                return repr(value)
+            return str(value)
         if isinstance(value, _dt.datetime):
             escaped = self._escape_sql_string(value.isoformat(sep=" "))
             return f"'{escaped}'"
         if isinstance(value, _dt.date):
             escaped = self._escape_sql_string(value.isoformat())
             return f"'{escaped}'"
+        if isinstance(value, _dt.time):
+            # A time of day is a portable quoted form like the other two, and
+            # isoformat keeps the offset an aware time carries. It needs its own
+            # branch because it shares neither base class with datetime/date.
+            escaped = self._escape_sql_string(value.isoformat())
+            return f"'{escaped}'"
         if isinstance(value, str):
             escaped = self._escape_sql_string(value)
             return f"'{escaped}'"
+        # Level 3: the value type defines its own literal construction.
+        from ..expression.bases import SQLLiteral
+
+        if isinstance(value, SQLLiteral):
+            text = value.__sql_literal__(self)
+            if not isinstance(text, str) or not text:
+                raise TypeError(
+                    f"{self.name}: {value!r} implements the literal-construction "
+                    f"protocol but returned {type(text).__name__}, expected a "
+                    f"non-empty inline literal string."
+                )
+            return text
         raise TypeError(
             f"{self.name}: value {value!r} of type {type(value).__name__} "
-            f"has no inline SQL literal form; use a backend-specific literal."
+            f"has no inline SQL literal form; use a backend-specific literal "
+            f"or implement the literal-construction protocol."
         )
 
     @staticmethod

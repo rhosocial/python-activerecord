@@ -3,7 +3,8 @@ from rhosocial.activerecord.backend.expression.statements import (
     ColumnPrimaryKeyConstraint,
 )
 from .....expression.objects import Table
-from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression import functions
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
@@ -79,14 +80,14 @@ query = QueryStatement(
     dialect=dialect,
     select=[
         Column(dialect, "user_id"),
-        FunctionCall(dialect, "SUM", Column(dialect, "amount"), alias="total_amount"),
-        FunctionCall(dialect, "COUNT", Column(dialect, "id"), alias="order_count"),
+        functions.sum_(dialect, Column(dialect, "amount"), alias="total_amount"),
+        functions.count(dialect, Column(dialect, "id"), alias="order_count"),
     ],
     from_=NamedRelationRef(dialect, Table(dialect, "orders")),
     group_by_having=GroupByHavingClause(
         dialect,
         group_by=[Column(dialect, "user_id")],
-        having=FunctionCall(dialect, "SUM", Column(dialect, "amount")) > Literal(dialect, 100),
+        having=functions.sum_(dialect, Column(dialect, "amount")) > Literal(dialect, 100),
     ),
 )
 

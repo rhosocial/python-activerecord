@@ -107,7 +107,7 @@ class TestGeneratedColumnBasic:
                             "+",
                             BinaryExpression(
                                 dummy_dialect, "+", Column(dummy_dialect, "first_name"),
-                                Literal(dummy_dialect, " ", inline_literals=True),
+                                Literal(dummy_dialect, " "),
                             ),
                             Column(dummy_dialect, "last_name"),
                         )

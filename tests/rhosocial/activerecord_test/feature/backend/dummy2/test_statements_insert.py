@@ -3,7 +3,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
+    RawSQL,
     ComparisonPredicate,
     QueryStatement,
     InsertStatement,
@@ -181,12 +181,12 @@ class TestInsertStatements:
                 OnConflictClause(
                     None,
                     conflict_target=["p_id"],
-                    update_assignments={"qty": RawSQLExpression(None, "excluded.qty")},
+                    update_assignments={"qty": RawSQL(None, "excluded.qty")},
                     update_where=ComparisonPredicate(
                         None,
                         "<",
                         Column(None, "qty", "products"),
-                        RawSQLExpression(None, "excluded.qty"),
+                        RawSQL(None, "excluded.qty"),
                     )
                 ),
                 2,
@@ -415,7 +415,7 @@ class TestInsertStatements:
         """Tests an INSERT statement with a RETURNING clause."""
         source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
         returning_clause = ReturningClause(
-            dummy_dialect, expressions=[Column(dummy_dialect, "id"), RawSQLExpression(dummy_dialect, "created_at")]
+            dummy_dialect, expressions=[Column(dummy_dialect, "id"), RawSQL(dummy_dialect, "created_at")]
         )
         insert_expr = InsertStatement(
             dummy_dialect, into=Table(dummy_dialect, 'users'), columns=["name"], source=source, returning=returning_clause
@@ -445,7 +445,7 @@ class TestInsertStatements:
             conflict_target=[Column(dummy_dialect, "id")],
             update_assignments={
                 "name": Column(dummy_dialect, "name", "excluded"),
-                "updated_at": RawSQLExpression(dummy_dialect, "CURRENT_TIMESTAMP"),
+                "updated_at": RawSQL(dummy_dialect, "CURRENT_TIMESTAMP"),
             },
         )
         insert_expr = InsertStatement(
@@ -653,8 +653,8 @@ class TestInsertStatements:
         on_conflict = OnConflictClause(
             dummy_dialect,
             conflict_target=[
-                RawSQLExpression(dummy_dialect, 'lower("email")')
-            ],  # Using RawSQLExpression for the target
+                RawSQL(dummy_dialect, 'lower("email")')
+            ],  # Using RawSQL for the target
             do_nothing=True,
         )
         insert_expr = InsertStatement(
@@ -680,7 +680,7 @@ class TestInsertStatements:
             conflict_target=["id"],
             update_assignments={
                 "name": Column(dummy_dialect, "name", "excluded"),  # col1 = excluded.col1
-                "score": RawSQLExpression(
+                "score": RawSQL(
                     dummy_dialect,
                     f"{dummy_dialect.format_identifier('users')}.{dummy_dialect.format_identifier('score')} + {dummy_dialect.format_identifier('excluded')}.{dummy_dialect.format_identifier('new_score')}",  # noqa: E501
                 ),

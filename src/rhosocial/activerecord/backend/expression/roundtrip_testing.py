@@ -11,9 +11,9 @@ expression class in a given package subtree:
     )
 
 A backend-specific test then scans ``impl.<backend>.expression``, registers
-each class into :class:`ExpressionRegistry` (so deserialization can find it),
-constructs an instance, and asserts the spec round-trips through the dict /
-JSON / XML encodings with ``get_params()`` equality and ``to_sql()``
+each class into the deserialization class index (so deserialization can find
+it), constructs an instance, and asserts the spec round-trips through the
+dict / JSON / XML encodings with ``get_params()`` equality and ``to_sql()``
 consistency where the selected dialect supports it.
 """
 
@@ -25,7 +25,7 @@ from typing import Any, Callable, Dict, Optional, Type
 
 from .bases import BaseExpression
 from .serialization import (
-    ExpressionRegistry,
+    register_expression_class,
     deserialize,
     deserialize_json,
     deserialize_xml,
@@ -156,7 +156,7 @@ def construct_expression(fqn: str, cls: Type[BaseExpression], dialect: Any):
 
 def register_all(classes: Dict[str, Type[BaseExpression]]) -> None:
     for cls in classes.values():
-        ExpressionRegistry.register(cls)
+        register_expression_class(cls)
 
 
 def roundtrip_expression(fqn, instance, dialect) -> None:

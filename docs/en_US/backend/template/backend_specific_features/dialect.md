@@ -154,8 +154,8 @@ The following expression classes are shared across all backends. They live in `r
 | `IsNullPredicate` | `IS NULL`, `IS NOT NULL` |
 | `LogicalPredicate` | `AND`, `OR`, `NOT` |
 | `BinaryExpression` | Binary operators |
-| `BinaryArithmeticExpression` | `+`, `-`, `*`, `/`, `%` |
-| `CaseFunction` | `CASE WHEN ... THEN ... END` |
+| `ArithmeticOperation` | `add`, `sub`, `mul`, `div`, `mod` (written as `+`, `-`, `*`, `/`, `%`) |
+| `CaseExpression` | `CASE WHEN ... THEN ... END` |
 | `JSONDocumentValue` | JSON path, yielding a document (`->`) |
 | `JSONTextValue` | JSON path, yielding text (`->>`) |
 | `ArrayValue` | Array operators |

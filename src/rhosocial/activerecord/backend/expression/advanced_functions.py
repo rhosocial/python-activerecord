@@ -21,8 +21,6 @@ from .mixins import (
 from .bases import BaseExpression, SQLPredicate, SQLValue
 from .core import (
     Column,
-    JSONValue,
-    StringValue,
     Subquery,
 )
 
@@ -31,6 +29,11 @@ from .query_parts import OrderByClause
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
+
+from .surfaces import (
+    JSONSurface,
+    TextSurface,
+)
 
 class DeclaredValueType:
     """Render this node itself rather than the call a value class would wrap.
@@ -80,13 +83,13 @@ class JSONPathMode(Enum):
         raise TypeError(f"mode must be None, str, or JSONPathMode; got {type(value).__name__}")
 
 
-#: Value class -> the class standing for both a CASE and that value class.
-#: Populated on first use by :meth:`CaseFunction._class_for`; see there for
+#: Annotation class -> the class standing for both a CASE and that annotation.
+#: Populated on first use by :meth:`CaseExpression._class_for`; see there for
 #: why it is built at all and why it is kept.
-_CASE_VALUE_CLASSES = {}
+_CASE_ANNOTATION_CLASSES = {}
 
 
-class CaseFunction(
+class CaseExpression(
     DeclaredValueType,
     ArithmeticMixin,
     ComparisonMixin,
@@ -94,10 +97,18 @@ class CaseFunction(
 ):
     """Represents a CASE expression (e.g., CASE WHEN condition THEN result ELSE result END).
 
+    The ``Expression`` suffix is not a fallback spelling: it transcribes the
+    standard production this node stands for -- ISO/IEC 9075-2
+    ``<case expression>``. Per spec §4.9 (the "scalar expression special forms"
+    row) a CASE is a scalar-expression production rather than a routine
+    invocation, so it is neither a ``*Function`` nor a ``*Clause``; the name is
+    kept verbatim from the standard, which is the ``*Expression`` suffix's only
+    exemption class now that the suffix is retired.
+
     A CASE answers with whatever its branches answer with, so the branches
     decide it -- not the factory, which is handed the whole list rather than the
     individual results. What each branch is is read off its own class, so
-    :func:`~...expression.column_types.value_class_of` is the question asked of
+    :func:`~...expression.column_types.annotation_for` is the question asked of
     each one.
 
     **Agreement is over the branches, and a branch that says nothing is not a
@@ -135,10 +146,10 @@ class CaseFunction(
         if cases is None and else_result is None and value is None:
             return super().__new__(cls)
 
-        from .column_types import value_class_of
+        from .column_types import annotation_for
 
         branches = [result for _condition, result in cases] + [else_result]
-        declared = {value_class_of(branch) for branch in branches} - {None}
+        declared = {annotation_for(branch) for branch in branches} - {None}
         if len(declared) != 1:
             return super().__new__(cls)
         agreed = declared.pop()
@@ -148,33 +159,40 @@ class CaseFunction(
         return object.__new__(combined)
 
     @classmethod
-    def _class_for(cls, value_class):
-        """The class standing for both this CASE and *value_class*.
+    def _class_for(cls, annotation):
+        """The class standing for both this CASE and *annotation*.
 
-        Built once per value class and kept, because building it per expression
+        Built once per annotation and kept, because building it per expression
         would make ``type(x)`` differ between two CASE expressions that answer
         with the same thing -- which is the thing being fixed.
 
-        The bases are ordered so that ``CaseFunction`` supplies the CASE
-        state and ``format_method``, :class:`DeclaredValueType` supplies the
-        rendering, and *value_class* supplies the operations and the value type.
-        The value class's own ``to_sql`` is deliberately *not* reached: it is a
-        wrapper delegating to a node this does not hold.
+        The bases are ordered so that ``CaseExpression`` supplies the CASE state,
+        :class:`DeclaredValueType` supplies the rendering, and the annotation's
+        **surface** supplies the operations. The surface rather than the
+        annotation itself, because this class already derives from
+        ``DeclaredValueType`` and the annotation derives from it too: asking for
+        both leaves two orders to satisfy and no linearization. A surface adds
+        only mixins, so it settles cleanly.
+
+        What this gives up is the annotation's own ``format_method`` -- the one
+        that renders the node the annotation holds. That is the point: a CASE
+        holds branches, not a node, so it must render as itself.
         """
+        surface = annotation.surface
         try:
-            return _CASE_VALUE_CLASSES[value_class]
+            return _CASE_ANNOTATION_CLASSES[annotation]
         except KeyError:
             combined = type(
-                f"Case{value_class.__name__}",
-                (cls, DeclaredValueType, value_class),
+                f"Case{surface.__name__}",
+                (cls, DeclaredValueType, surface),
                 {
                     "__doc__": (
                         f"A CASE whose branches agree the answer is a "
-                        f"{value_class.__name__}, so it is one."
+                        f"{annotation.__name__}, so it is one."
                     )
                 },
             )
-            _CASE_VALUE_CLASSES[value_class] = combined
+            _CASE_ANNOTATION_CLASSES[annotation] = combined
             return combined
 
     def __init__(
@@ -341,7 +359,7 @@ class WindowClause(BaseExpression):
 
 class JSONDocumentValue(
     DeclaredValueType,
-    JSONValue,
+    JSONSurface,
     ArithmeticMixin,
     JSONAccessorMixin,
     SQLValue,
@@ -361,7 +379,7 @@ class JSONDocumentValue(
     yield different types, and a single class could only offer the union of
     their operations to both.
 
-    It is a :class:`~...expression.core.JSONValue` because that is what
+    It is a :class:`~...expression.surfaces.JSONSurface` because that is what
     a document is. It is not a *wrapper* holding one -- it has its own formatter
     and its own fields -- so it says so with
     :class:`DeclaredValueType` rather than inheriting the delegation.
@@ -393,7 +411,7 @@ class JSONDocumentValue(
 
 class JSONTextValue(
     JSONDocumentValue,
-    StringValue,
+    TextSurface,
 ):
     """A JSON path access that yielded **text** -- ``->>``.
 
@@ -407,7 +425,7 @@ class JSONTextValue(
     Text is the narrower of the two, so chaining continues: ``->>`` yields a
     scalar and a scalar cannot be navigated further. ``->`` yields a document
     and can be, which is why this is the class that gains
-    :class:`~...expression.core.StringValue` and its operations.
+    :class:`~...expression.surfaces.TextSurface` and its operations.
 
     One consequence of inheriting the document class is that the JSON accessors
     stay reachable here too: ``DeclaredValueType`` renders the node and this
@@ -453,7 +471,7 @@ class ArrayOperation(
         return "format_array_expression"
 
 
-class TrimFunction(
+class TrimExpression(
     AliasableMixin,
     ComparisonMixin,
     StringToIntegerMixin,
@@ -464,6 +482,13 @@ class TrimFunction(
     SQLValue,
 ):
     """Represents a ``TRIM`` expression as a node, not as assembled SQL.
+
+    Like :class:`CaseExpression` and :class:`CastExpression`, the ``Expression``
+    suffix transcribes the standard production: ISO/IEC 9075-2 writes TRIM as
+    the scalar-expression special form ``<trim function>`` / ``<trim
+    specification>`` rather than as a ``<routine invocation>``. Per spec §4.9
+    TRIM belongs to the same exemption class, which is why it is not a
+    ``*Function`` node.
 
     The node exists for one reason: the standard form is a syntax error on
     SQLite, so the spelling has to be a dialect decision. When the factory
@@ -479,7 +504,7 @@ class TrimFunction(
         direction: ``BOTH`` (default), ``LEADING`` or ``TRAILING``.
 
     Example:
-        >>> TrimFunction(dialect, Column(dialect, "name"), Literal(dialect, "x")).to_sql()
+        >>> TrimExpression(dialect, Column(dialect, "name"), Literal(dialect, "x")).to_sql()
         ("TRIM(BOTH ? FROM \"name\")", ('x',))
     """
 

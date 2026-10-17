@@ -117,6 +117,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     ViewMixin,
     TriggerMixin,
     SetOperationMixin,
+    TypedValueMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
@@ -126,7 +127,7 @@ if TYPE_CHECKING:
         ArrayValue,
         JSONDocumentValue,
         OrderedSetAggregation,
-        TrimFunction,
+        TrimExpression,
     )
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.predicates import DistinctFromPredicate
@@ -155,7 +156,6 @@ from .mixins import (
     SQLiteDateTimeMixin,
     SQLiteDDLColumnMixin,
     SQLiteDMLMixin,
-    SQLiteSetOperationMixin,
     SQLiteViewMixin,
     SQLiteTriggerMixin,
     SQLiteTransactionMixin,
@@ -164,6 +164,9 @@ from .mixins import (
     SQLiteRTreeMixin,
     SQLiteGeopolyMixin,
     SQLiteTypeSupportMixin,
+    # Value literals: SQLite's blob spelling, overriding the base's
+    # format_binary_value / format_uuid_value by MRO position.
+    SQLiteTypedValueMixin,
     # Column types. SQLite states its own full table: the four sequence entries
     # take JSONColumn (there is no array type here) and float/Decimal both take
     # NumericColumn. There is no generic table in core to compose.
@@ -259,7 +262,6 @@ class SQLiteDialect(
     SQLiteDateTimeMixin,
     SQLiteDDLColumnMixin,
     SQLiteDMLMixin,
-    SQLiteSetOperationMixin,
     SQLiteViewMixin,
     SQLiteTriggerMixin,
     SQLitePragmaMixin,
@@ -273,6 +275,10 @@ class SQLiteDialect(
     SQLiteGeopolyMixin,
     # DataType formatting and parsing
     SQLiteTypeSupportMixin,
+    # Value literals: SQLite's spellings ahead of the base's tier-1 rendering.
+    # This order is what resolves format_binary_value and format_uuid_value.
+    SQLiteTypedValueMixin,
+    TypedValueMixin,
     UserDefinedTypeMixin,
     DomainMixin,
     # Collation mixin (after SQLite mixins so that SQLiteDateTimeMixin.supports_collate_expression takes priority)
@@ -703,7 +709,7 @@ class SQLiteDialect(
             f"{left_sql} IS{not_str} DISTINCT FROM {right_sql}", expr
         ), left_params + right_params
 
-    def format_trim_expression(self, expr: "TrimFunction") -> Tuple[str, tuple]:
+    def format_trim_expression(self, expr: "TrimExpression") -> Tuple[str, tuple]:
         """Render TRIM as SQLite's function form.
 
         SQLite parses no ``trim(<chars> from <string>)`` syntax at all -- the
@@ -999,19 +1005,6 @@ class SQLiteDialect(
         """Whether EXCEPT operation is supported."""
         # EXCEPT is supported in SQLite since version 3.7.6 (2011-02-25)
         return self.version >= (3, 7, 6)
-
-    def supports_set_operation_order_by(self) -> bool:
-        """Whether set operations support ORDER BY clauses."""
-        return True
-
-    def supports_set_operation_limit_offset(self) -> bool:
-        """Whether set operations support LIMIT and OFFSET clauses."""
-        return True
-
-    def supports_set_operation_for_update(self) -> bool:
-        """Whether set operations support FOR UPDATE clauses."""
-        # SQLite doesn't support FOR UPDATE in set operations
-        return False
 
     def supports_fetch_with_ties(self) -> bool:
         """SQLite does not support FETCH ... WITH TIES."""

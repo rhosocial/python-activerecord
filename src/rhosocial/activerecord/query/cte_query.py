@@ -151,18 +151,18 @@ class CTEQuery(
         # Convert the query to an appropriate expression
         if isinstance(query, str):
             # If query is a string, we'll need to handle it differently
-            # For now, we'll create a RawSQLExpression
-            from ..backend.expression.operators import RawSQLExpression
+            # For now, we'll create a RawSQL
+            from ..backend.expression.operators import RawSQL
 
-            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, query))
+            query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, query))
         elif bases.is_sql_query_and_params(query):
-            # If query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
-            from ..backend.expression.operators import RawSQLExpression
+            # If query is a SQLQueryAndParams (str, tuple), create a RawSQL with parameters
+            from ..backend.expression.operators import RawSQL
 
             sql_string, params = query
             # If params is None, use an empty tuple
             params = params if params is not None else ()
-            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, sql_string), params)
+            query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, sql_string), params)
         elif isinstance(query, IAsyncQuery):
             # Reject async queries to prevent sync/async mixing.
             # Although to_sql() is itself a sync/async-agnostic pure computation
@@ -176,16 +176,16 @@ class CTEQuery(
         elif isinstance(query, IQuery):
             # Accept sync IQuery. to_sql() is a sync, sync/async-agnostic pure
             # computation that returns SQL and params, so it is safe to inline.
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
             sql, params = query.to_sql()
-            query_expr = RawSQLExpression(dialect, sql, params)
+            query_expr = RawSQL(dialect, sql, params)
         elif isinstance(query, statements.QueryStatement):
-            # If query is a QueryStatement, convert it to a RawSQLExpression to avoid extra parentheses
-            from ..backend.expression.operators import RawSQLExpression
+            # If query is a QueryStatement, convert it to a RawSQL to avoid extra parentheses
+            from ..backend.expression.operators import RawSQL
 
             sql, params = query.to_sql()
-            query_expr = RawSQLExpression(dialect, sql, params)
+            query_expr = RawSQL(dialect, sql, params)
         else:
             # For other types, raise an error as they are not supported
             raise TypeError(
@@ -288,9 +288,9 @@ class CTEQuery(
         """
         if self._explain_enabled:
             dialect = self.backend().dialect
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
-            query_expr = RawSQLExpression(dialect, *self.to_sql())
+            query_expr = RawSQL(dialect, *self.to_sql())
 
             explain_options = statements.ExplainOptions(**self._explain_options)
             explain_expr = statements.ExplainStatement(dialect, query_expr, explain_options)
@@ -472,27 +472,27 @@ class AsyncCTEQuery(
         # Convert the query to an appropriate expression
         if isinstance(query, str):
             # If query is a string, we'll need to handle it differently
-            # For now, we'll create a RawSQLExpression
-            from ..backend.expression.operators import RawSQLExpression
+            # For now, we'll create a RawSQL
+            from ..backend.expression.operators import RawSQL
 
-            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, query))
+            query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, query))
         elif bases.is_sql_query_and_params(query):
-            # If query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
-            from ..backend.expression.operators import RawSQLExpression
+            # If query is a SQLQueryAndParams (str, tuple), create a RawSQL with parameters
+            from ..backend.expression.operators import RawSQL
 
             sql_string, params = query
             # If params is None, use an empty tuple
             params = params if params is not None else ()
-            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, sql_string), params)
+            query_expr = RawSQL(dialect, convert_qmark_placeholder(dialect, sql_string), params)
         elif isinstance(query, IAsyncQuery):
             # Accept async IAsyncQuery (including AsyncActiveQuery and
             # AsyncSetOperationQuery). to_sql() is a sync, sync/async-agnostic
             # pure computation that returns SQL and params, so it is safe to
             # inline here regardless of the query's async execution surface.
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
             sql, params = query.to_sql()
-            query_expr = RawSQLExpression(dialect, sql, params)
+            query_expr = RawSQL(dialect, sql, params)
         elif isinstance(query, IQuery):
             # Reject sync queries to prevent sync/async mixing. The async query
             # types are dispatched above via IAsyncQuery; anything reaching here
@@ -502,11 +502,11 @@ class AsyncCTEQuery(
                 "Use CTEQuery for sync queries."
             )
         elif isinstance(query, statements.QueryStatement):
-            # If query is a QueryStatement, convert it to a RawSQLExpression to avoid extra parentheses
-            from ..backend.expression.operators import RawSQLExpression
+            # If query is a QueryStatement, convert it to a RawSQL to avoid extra parentheses
+            from ..backend.expression.operators import RawSQL
 
             sql, params = query.to_sql()
-            query_expr = RawSQLExpression(dialect, sql, params)
+            query_expr = RawSQL(dialect, sql, params)
         else:
             # For other types, raise an error as they are not supported
             raise TypeError(
@@ -609,9 +609,9 @@ class AsyncCTEQuery(
         """
         if self._explain_enabled:
             dialect = self.backend().dialect
-            from ..backend.expression.operators import RawSQLExpression
+            from ..backend.expression.operators import RawSQL
 
-            query_expr = RawSQLExpression(dialect, *self.to_sql())
+            query_expr = RawSQL(dialect, *self.to_sql())
 
             explain_options = statements.ExplainOptions(**self._explain_options)
             explain_expr = statements.ExplainStatement(dialect, query_expr, explain_options)

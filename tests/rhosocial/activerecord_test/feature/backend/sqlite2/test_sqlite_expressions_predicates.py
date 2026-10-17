@@ -3,7 +3,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column,
     Literal,
-    RawSQLExpression,
+    RawSQL,
     Subquery,
     ComparisonPredicate,
     LogicalPredicate,
@@ -24,7 +24,7 @@ class TestPredicateExpressions:
             ((Column, ("age",)), "=", (Literal, (18,)), '"age" = ?', (18,)),
             ((Column, ("price",)), ">", (Literal, (100.0,)), '"price" > ?', (100.0,)),
             ((Column, ("status",)), "!=", (Literal, ("inactive",)), '"status" != ?', ("inactive",)),
-            ((RawSQLExpression, ("NOW()",)), "<", (Column, ("end_date",)), 'NOW() < "end_date"', ()),
+            ((RawSQL, ("NOW()",)), "<", (Column, ("end_date",)), 'NOW() < "end_date"', ()),
         ],
     )
     def test_comparison_predicate(

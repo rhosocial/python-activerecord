@@ -50,7 +50,7 @@ from rhosocial.activerecord.backend.expression.query_parts import (
     JoinClause,
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
-    SetOperationStatement,
+    SetOperation,
     ValuesExpression,
 )
 from rhosocial.activerecord.backend.expression.statements.dql import QueryStatement
@@ -68,7 +68,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
     AllPredicate,
     AnyPredicate,
     ArrayOperation,
-    CaseFunction,
+    CaseExpression,
     ExistsPredicate,
     JSONDocumentValue,
     OrderedSetAggregation,
@@ -80,7 +80,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import (
 from rhosocial.activerecord.backend.expression.core import Subquery
 from rhosocial.activerecord.backend.expression.literals import Identifier
 from rhosocial.activerecord.backend.expression.operators import (
-    BinaryArithmeticExpression,
+    ArithmeticOperation,
     SQLOperation,
 )
 from rhosocial.activerecord.backend.expression.query_parts import (
@@ -102,7 +102,7 @@ from rhosocial.activerecord.backend.expression.transaction import (
 from rhosocial.activerecord.backend.expression.operators import (
     BinaryExpression,
     UnaryExpression,
-    RawSQLExpression,
+    RawSQL,
     RawSQLPredicate,
 )
 from rhosocial.activerecord.backend.expression import serialization
@@ -144,7 +144,7 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(
             dialect=d,
             op="AND",
-            predicates=(
+            operands=(
                 ComparisonPredicate(d, "=", Column(d, "a"), Literal(d, 1)),
                 ComparisonPredicate(d, "=", Column(d, "b"), Literal(d, 2)),
             ),
@@ -153,15 +153,15 @@ EXPRESSION_TEST_CASES = [
     dict(
         name="LikePredicate",
         cls=LikePredicate,
-        params_func=lambda d: dict(dialect=d, op="LIKE", expr=Column(d, "name"), pattern=Literal(d, "A%")),
+        params_func=lambda d: dict(dialect=d, op="LIKE", left=Column(d, "name"), pattern=Literal(d, "A%")),
     ),
     dict(
         name="InPredicate",
         cls=InPredicate,
-        params_func=lambda d: dict(dialect=d, expr=Column(d, "category"), values=Literal(d, ["A", "B", "C"])),
+        params_func=lambda d: dict(dialect=d, operand=Column(d, "category"), values=Literal(d, ["A", "B", "C"])),
     ),
     dict(
-        name="IsNullPredicate", cls=IsNullPredicate, params_func=lambda d: dict(dialect=d, expr=Column(d, "deleted_at"))
+        name="IsNullPredicate", cls=IsNullPredicate, params_func=lambda d: dict(dialect=d, operand=Column(d, "deleted_at"))
     ),
     dict(
         name="IsBooleanPredicate",
@@ -171,7 +171,7 @@ EXPRESSION_TEST_CASES = [
     dict(
         name="BetweenPredicate",
         cls=BetweenPredicate,
-        params_func=lambda d: dict(dialect=d, expr=Column(d, "age"), low=Literal(d, 18), high=Literal(d, 65)),
+        params_func=lambda d: dict(dialect=d, operand=Column(d, "age"), low=Literal(d, 18), high=Literal(d, 65)),
     ),
     dict(
         name="FunctionCallAggregate",
@@ -206,11 +206,11 @@ EXPRESSION_TEST_CASES = [
         ),
     ),
     dict(
-        name="SetOperationStatement",
-        cls=SetOperationStatement,
+        name="SetOperation",
+        cls=SetOperation,
         params_func=lambda d: dict(
             dialect=d,
-            operation="UNION",
+            op="union",
             left=QueryStatement(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "users"))),
             right=QueryStatement(d, select=[Column(d, "id")], from_=NamedRelationRef(d, Table(d, "admins"))),
         ),
@@ -264,8 +264,8 @@ EXPRESSION_TEST_CASES = [
     #     GraphVertex(d, variable="v2", table=NodeTable(d, "users")),
     # )),
     dict(
-        name="RawSQLExpression",
-        cls=RawSQLExpression,
+        name="RawSQL",
+        cls=RawSQL,
         params_func=lambda d: dict(dialect=d, expression="SELECT 1", params=(1,)),
     ),
     dict(
@@ -310,8 +310,8 @@ EXPRESSION_TEST_CASES = [
         params_func=lambda d: dict(dialect=d, operation="ARRAY", elements=[Literal(d, 1), Literal(d, 2)]),
     ),
     dict(
-        name="CaseFunction",
-        cls=CaseFunction,
+        name="CaseExpression",
+        cls=CaseExpression,
         params_func=lambda d: dict(
             dialect=d, cases=[(ComparisonPredicate(d, "=", Column(d, "status"), Literal(d, 1)), Literal(d, "active"))]
         ),
@@ -428,9 +428,9 @@ EXPRESSION_TEST_CASES = [
     # They are tested in backend-specific test files (e.g., sqlite).
     # operators
     dict(
-        name="BinaryArithmeticExpression",
-        cls=BinaryArithmeticExpression,
-        params_func=lambda d: dict(dialect=d, op="+", left=Column(d, "a"), right=Column(d, "b")),
+        name="ArithmeticOperation",
+        cls=ArithmeticOperation,
+        params_func=lambda d: dict(dialect=d, op="add", left=Column(d, "a"), right=Column(d, "b")),
     ),
     dict(
         name="SQLOperation",

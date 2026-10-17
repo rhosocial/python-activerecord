@@ -315,7 +315,7 @@ def test_sudoku_modulo_division_expression(sqlite_backend):
 
     # Test division: (ind-1)/9
     ind_col = NumericColumn(dialect, "ind", table="x")
-    div_expr = (ind_col - Literal(dialect, 1)) / Literal(dialect, 9)  # Uses BinaryArithmeticExpression internally
+    div_expr = (ind_col - Literal(dialect, 1)) / Literal(dialect, 9)  # Uses ArithmeticOperation internally
     sql, params = div_expr.to_sql()
 
     assert "/" in sql
@@ -323,7 +323,7 @@ def test_sudoku_modulo_division_expression(sqlite_backend):
     print(f"Division expression: {sql} with params {params}")
 
     # Test modulo: ((ind-1)%9)
-    mod_expr = (ind_col - Literal(dialect, 1)) % Literal(dialect, 9)  # Uses BinaryArithmeticExpression internally
+    mod_expr = (ind_col - Literal(dialect, 1)) % Literal(dialect, 9)  # Uses ArithmeticOperation internally
     sql, params = mod_expr.to_sql()
 
     assert "%" in sql
@@ -438,7 +438,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         FunctionCall,
         CTEClause,
         WithStatement,
-        SetOperationStatement,
+        SetOperation,
         concat_op,
     )
     from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
@@ -525,9 +525,9 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect, select=[cast_expr, lp_plus_one], from_=digits_table, where=(lp_column < Literal(dialect, 9))
     )
 
-    # Use SetOperationStatement to build the UNION ALL
-    digits_union = SetOperationStatement(
-        dialect=dialect, left=initial_digits_values, right=recursive_query, operation="UNION", all_=True, alias=None
+    # Use SetOperation to build the UNION ALL
+    digits_union = SetOperation(
+        dialect=dialect, left=initial_digits_values, right=recursive_query, op="union_all"
     )
 
     digits_cte = CTEClause(dialect=dialect, name="digits", query=digits_union, columns=["z", "lp"])
@@ -618,9 +618,9 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         where=(ind_column > Literal(dialect, 0)) & not_exists_expr,  # Add the NOT EXISTS constraint
     )
 
-    # Use SetOperationStatement to build the UNION ALL for x CTE
-    x_union = SetOperationStatement(
-        dialect=dialect, left=initial_x_query, right=recursive_x_query, operation="UNION", all_=True, alias=None
+    # Use SetOperation to build the UNION ALL for x CTE
+    x_union = SetOperation(
+        dialect=dialect, left=initial_x_query, right=recursive_x_query, op="union_all"
     )
 
     x_cte = CTEClause(dialect=dialect, name="x", query=x_union, columns=["s", "ind"])
@@ -784,7 +784,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             FunctionCall,
             CTEClause,
             WithStatement,
-            SetOperationStatement,
+            SetOperation,
         )
         from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 
@@ -815,14 +815,12 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect=dialect, select=[x_plus_increment], from_=xaxis_table, where=(x_col < Literal(dialect, 1.2))
         )
 
-        # Use SetOperationStatement to build the UNION ALL
-        xaxis_union = SetOperationStatement(
+        # Use SetOperation to build the UNION ALL
+        xaxis_union = SetOperation(
             dialect=dialect,
             left=initial_xaxis_values,
             right=recursive_xaxis_query,
-            operation="UNION",
-            all_=True,
-            alias=None,
+            op="union_all",
         )
 
         xaxis_cte = CTEClause(dialect=dialect, name="xaxis", query=xaxis_union, columns=["x"])
@@ -842,14 +840,12 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect=dialect, select=[y_plus_increment], from_=yaxis_table, where=(y_col < Literal(dialect, 1.0))
         )
 
-        # Use SetOperationStatement to build the UNION ALL
-        yaxis_union = SetOperationStatement(
+        # Use SetOperation to build the UNION ALL
+        yaxis_union = SetOperation(
             dialect=dialect,
             left=initial_yaxis_values,
             right=recursive_yaxis_query,
-            operation="UNION",
-            all_=True,
-            alias=None,
+            op="union_all",
         )
 
         yaxis_cte = CTEClause(dialect=dialect, name="yaxis", query=yaxis_union, columns=["y"])
@@ -894,9 +890,9 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect=dialect, select=[new_iter, cx_col, cy_col, new_x, new_y], from_=m_table, where=where_condition
         )
 
-        # Use SetOperationStatement to build the UNION ALL for m CTE
-        m_union = SetOperationStatement(
-            dialect=dialect, left=initial_m_query, right=recursive_m_query, operation="UNION", all_=True, alias=None
+        # Use SetOperation to build the UNION ALL for m CTE
+        m_union = SetOperation(
+            dialect=dialect, left=initial_m_query, right=recursive_m_query, op="union_all"
         )
 
         m_cte = CTEClause(dialect=dialect, name="m", query=m_union, columns=["iter", "cx", "cy", "x", "y"])

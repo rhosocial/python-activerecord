@@ -5,7 +5,12 @@ These functions are available in SQLite 3.38.0+ with the json1 extension.
 """
 
 from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression.serialization import (
+    deserialize,
+    serialize,
+)
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteJsonExtractFunction
 from rhosocial.activerecord.backend.impl.sqlite.functions.json import (
     json,
     json_array,
@@ -87,6 +92,20 @@ class TestSQLiteJSONFunctions:
         sql, params = result.to_sql()
         assert "JSON_EXTRACT(" in sql
         assert params == ("$.a",)
+
+    def test_json_extract_is_the_classed_node(self, sqlite_dialect_3_38_0: SQLiteDialect):
+        """Single-path extraction is its own node, not a generic call.
+
+        The SQLite-specific node is defined in this package and registered for
+        deserialization there; its manifest params are ``expression`` and
+        ``path``.
+        """
+        result = json_extract(
+            sqlite_dialect_3_38_0, Column(sqlite_dialect_3_38_0, "data"), Literal(sqlite_dialect_3_38_0, "$.a")
+        )
+        assert isinstance(result, SQLiteJsonExtractFunction)
+        assert set(result.get_params()) == {"expression", "path"}
+        assert deserialize(serialize(result), sqlite_dialect_3_38_0).to_sql() == result.to_sql()
 
     def test_json_extract_multiple_paths(self, sqlite_dialect_3_38_0: SQLiteDialect):
         """Test json_extract() with multiple paths."""

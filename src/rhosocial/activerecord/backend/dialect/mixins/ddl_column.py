@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .ddl_table import normalize_foreign_key_match_type
 from ...expression.objects import Index, Table
-from ...expression.core import Literal
+from ...expression.core import DdlLiteral, Literal
 from ...expression.bases import BaseExpression, ToSQLProtocol
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from copy import copy
@@ -400,7 +400,7 @@ class DDLColumnMixin:
                 f"{self.name} does not support generated (computed) columns.",
             )
 
-        inner_sql, inner_params = constraint.expression.to_sql()
+        inner_sql = self._format_ddl_condition(constraint.expression)
 
         if constraint.storage_type == GeneratedColumnType.STORED:
             if not self.supports_stored_generated_columns():
@@ -419,7 +419,7 @@ class DDLColumnMixin:
                 )
             storage = " VIRTUAL"
 
-        return f" GENERATED ALWAYS AS ({inner_sql}){storage}", inner_params
+        return f" GENERATED ALWAYS AS ({inner_sql}){storage}", ()
 
     def _format_constraint_enforcement(self, constraint: "ColumnConstraint") -> str:
         """Render the ``[NOT] ENFORCED`` trait a constraint asked for.
@@ -497,46 +497,65 @@ class DDLColumnMixin:
             raise UnsupportedFeatureError(self.name, "NOT VALID constraint")
         return " NOT VALID"
 
-    def _prepare_ddl_check_predicate(
+    def _prepare_ddl_condition(
         self,
         value: Any,
         memo: Optional[Dict[int, Any]] = None,
     ) -> Any:
+        """Bind ``self`` to a copy of a DDL-side condition tree and lift its
+        data-position literals to the DDL-position literal class.
+
+        DDL syntax positions (``CHECK``, partial-index ``WHERE``) accept no
+        bind parameters, and the classes that own those positions declare
+        ``inline_params = True``. A caller composes the condition from
+        ordinary DQL nodes, whose literals render as bind parameters, so this
+        pass adapts the tree: every node is copied and dialect-bound (the
+        caller's tree is never mutated), and each ``Literal`` is lifted to
+        :class:`~...expression.core.DdlLiteral`, the class whose strategy is
+        inline. Whether a value inlines is still a decision of its **class** —
+        this pass swaps the node for the class that owns the position rather
+        than flipping any instance.
+        """
         if memo is None:
             memo = {}
         if isinstance(value, BaseExpression):
             identity = id(value)
             if identity in memo:
                 return memo[identity]
+            if isinstance(value, Literal):
+                bound = DdlLiteral(self, value.value, alias=value.alias)
+                memo[identity] = bound
+                return bound
             bound = copy(value)
             memo[identity] = bound
             bound.dialect = self
             for name, child in value.__dict__.items():
                 if name == "_dialect":
                     continue
-                setattr(bound, name, self._prepare_ddl_check_predicate(child, memo))
-            if isinstance(value, Literal):
-                bound.inline_literals = True
+                setattr(bound, name, self._prepare_ddl_condition(child, memo))
             return bound
         if isinstance(value, list):
-            return [self._prepare_ddl_check_predicate(child, memo) for child in value]
+            return [self._prepare_ddl_condition(child, memo) for child in value]
         if isinstance(value, tuple):
-            return tuple(self._prepare_ddl_check_predicate(child, memo) for child in value)
+            return tuple(self._prepare_ddl_condition(child, memo) for child in value)
         if isinstance(value, set):
-            return {self._prepare_ddl_check_predicate(child, memo) for child in value}
+            return {self._prepare_ddl_condition(child, memo) for child in value}
         if isinstance(value, dict):
             return {
-                self._prepare_ddl_check_predicate(key, memo): self._prepare_ddl_check_predicate(
+                self._prepare_ddl_condition(key, memo): self._prepare_ddl_condition(
+                    child,
+                    memo,
                 )
                 for key, child in value.items()
             }
         return value
 
-    def _format_ddl_check_predicate(self, predicate: Any) -> str:
-        prepared = self._prepare_ddl_check_predicate(predicate)
+    def _format_ddl_condition(self, predicate: Any) -> str:
+        """Render a DDL-side condition tree: inline text, no bind values."""
+        prepared = self._prepare_ddl_condition(predicate)
         check_sql, check_params = prepared.to_sql()
         if check_params:
-            raise ValueError("DDL CHECK predicates must not contain bind parameters")
+            raise ValueError("DDL condition must not contain bind parameters")
         return check_sql
 
     def format_column_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, Tuple]:
@@ -720,31 +739,34 @@ class DDLColumnMixin:
 
         if not self.supports_check_constraint():
             raise UnsupportedFeatureError(self.name, "CHECK column constraint")
-        check_sql = self._format_ddl_check_predicate(constraint.condition)
+        check_sql = self._format_ddl_condition(constraint.condition)
         return f" CHECK ({check_sql})", ()
 
     def format_default_value_clause(self, expr: "DefaultValueClause") -> Tuple[str, Tuple]:
         """Format the value clause of a ``DEFAULT`` constraint.
 
-        Scalars are inlined with dialect-controlled escaping; a
-        ``BaseExpression`` value renders through its own ``to_sql`` (a
-        parameterised ``Literal`` is inlined so DDL carries no bind params).
+        ``DefaultValueClause`` is a DDL-position class (``inline_params``
+        is ``True``), so the clause renders **inline only** and never
+        produces a bind value: a scalar is inlined with dialect-controlled
+        escaping; an expression value renders through the DDL condition
+        preparer, which lifts its data-position literals to the inline
+        class; anything that still carries bind parameters is refused.
 
         Args:
             expr: The ``DefaultValueClause`` carrying the value.
 
         Returns:
             A ``(sql, params)`` tuple (params is always empty for DDL).
+
+        Raises:
+            ValueError: The expression value still carries bind parameters
+                (e.g. a ``RawSQL`` with bound values), which a DEFAULT
+                position cannot accept.
         """
         from ...dialect.base import SQLDialectBase
         value = expr.value
         if isinstance(value, BaseExpression):
-            value_sql, value_params = value.to_sql()
-            if value_params and isinstance(value, Literal):
-                # A parameterized literal inside DDL: re-render inline.
-                value_sql = self.inline_sql_literal(value.value)
-                value_params = ()
-            return value_sql, tuple(value_params)
+            return self._format_ddl_condition(value), ()
         if isinstance(value, str):
             escaped = SQLDialectBase._escape_sql_string(value)
             return f"'{escaped}'", ()
@@ -755,7 +777,8 @@ class DDLColumnMixin:
     ) -> Tuple[str, Tuple]:
         """Format a column-level ``DEFAULT`` branch.
 
-        The value is always rendered inline (DDL carries no bind parameters);
+        The value is always rendered inline (DDL carries no bind parameters;
+        ``ColumnDefaultConstraint`` declares ``inline_params = True``);
         value rendering is delegated to :meth:`format_default_value_clause`.
 
         Args:
@@ -771,8 +794,8 @@ class DDLColumnMixin:
             value_clause = value
         else:
             value_clause = DefaultValueClause(self, value)
-        value_sql, value_params = self.format_default_value_clause(value_clause)
-        return f" DEFAULT {value_sql}", tuple(value_params)
+        value_sql, _ = self.format_default_value_clause(value_clause)
+        return f" DEFAULT {value_sql}", ()
 
     def format_references_clause(self, expr: "ReferencesClause") -> Tuple[str, Tuple]:
         """Format a ``REFERENCES`` clause (shared by column/table foreign keys).
@@ -977,7 +1000,7 @@ class DDLColumnMixin:
         """
         if constraint.condition is None:
             raise ValueError("CHECK constraint must have a check condition specified.")
-        check_sql = self._format_ddl_check_predicate(constraint.condition)
+        check_sql = self._format_ddl_condition(constraint.condition)
         return f"CHECK ({check_sql})", ()
 
     def format_table_foreign_key_constraint(
@@ -1065,11 +1088,11 @@ class DDLColumnMixin:
             UnsupportedFeatureError: The dialect refuses the named prefix, the
                 trait, or the branch's construct.
         """
+        from ..exceptions import UnsupportedFeatureError
+
         parts = []
         if expr.name:
             if not self.supports_constraint_naming():
-                from ..exceptions import UnsupportedFeatureError
-
                 raise UnsupportedFeatureError(
                     self.name, "CONSTRAINT name on a table constraint"
                 )
@@ -1084,7 +1107,6 @@ class DDLColumnMixin:
             or expr.initially_immediate
         )
         if wants_deferral:
-
             if not self.supports_deferrable_constraint():
                 raise UnsupportedFeatureError(
                     self.name, "DEFERRABLE / INITIALLY constraint trait"
@@ -1234,14 +1256,17 @@ class DDLColumnMixin:
                 from ...dialect.base import SQLDialectBase
                 column_part += f" '{SQLDialectBase._escape_sql_string(action.new_value)}'"
             elif isinstance(action.new_value, ToSQLProtocol):
-                value_sql, value_params = action.new_value.to_sql()
-                if value_params:
-                    # Parameterized literal inside DDL → render inline.
-                    if isinstance(action.new_value, Literal):
-                        value_sql = self.inline_sql_literal(action.new_value.value)
-                        value_params = ()
-                column_part += f" {value_sql}"
-                all_params.extend(value_params)
+                if isinstance(action.new_value, Literal):
+                    # A literal at a DDL position renders inline through the
+                    # controlled path; the DDL position carries no bind values.
+                    column_part += f" {self.inline_sql_literal(action.new_value.value)}"
+                else:
+                    value_sql, value_params = action.new_value.to_sql()
+                    if value_params:
+                        raise ValueError(
+                            "ALTER COLUMN value must render without bind parameters"
+                        )
+                    column_part += f" {value_sql}"
             else:
                 column_part += f" {self.inline_sql_literal(action.new_value)}"
         if action.cascade:
@@ -1338,7 +1363,8 @@ class DDLColumnMixin:
                 self.name, "DROP CONSTRAINT IF EXISTS",
                 f"{self.name} does not support DROP CONSTRAINT IF EXISTS."
             )
-        result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
+        if_exists = "IF EXISTS " if action.if_exists else ""
+        result = f"DROP CONSTRAINT {if_exists}{self.format_identifier(action.constraint_name)}"
         if action.cascade:
             result += " CASCADE"
         return result, ()

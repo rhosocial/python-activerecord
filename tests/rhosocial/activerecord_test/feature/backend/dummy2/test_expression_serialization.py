@@ -22,8 +22,9 @@ from rhosocial.activerecord.backend.expression.serialization import (
     serialize,
     deserialize,
     ExpressionFactory,
-    ExpressionRegistry,
     ExpressionDeserializationError,
+    _EXPRESSION_CLASSES,
+    _lookup_expression_class,
 )
 from rhosocial.activerecord.backend.expression.types import IntegerType
 from rhosocial.activerecord.backend.expression.query_parts import (
@@ -47,8 +48,87 @@ from rhosocial.activerecord.backend.expression import (
     IsNullPredicate,
     IsBooleanPredicate,
     BetweenPredicate,
+    ArithmeticOperation,
+    ConcatenationOperation,
+)
+from rhosocial.activerecord.backend.expression.functions.aggregate import (
+    AvgFunction,
+    CountFunction,
+    MaxFunction,
+    MinFunction,
+    SumFunction,
+)
+from rhosocial.activerecord.backend.expression.functions.string import (
+    CharLengthFunction,
+    LowerFunction,
+    UpperFunction,
 )
 
+
+
+class TestOperationNodeWireShapes:
+    """The operation nodes' serialized param sets match the golden vectors.
+
+    The cross-language wire format (artifact-wire-format §4.1, golden v5)
+    fixes the parameter sets: ``arithmetic_operation`` carries exactly
+    ``{op, left, right}`` with ``op`` in word form, and
+    ``concatenation_operation`` carries exactly ``{left, right}`` — the
+    concatenation carries no operator parameter at all, because the kind is
+    the intent.
+    """
+
+    def test_arithmetic_operation_params_match_golden_v5(self, dummy_dialect):
+        expr = ArithmeticOperation(
+            dummy_dialect, "add", Column(dummy_dialect, "views"), Literal(dummy_dialect, 1)
+        )
+        # Golden v5: {"type":"arithmetic_operation","params":{"op":"add","left":…,"right":…}}
+        assert set(expr.get_params()) == {"op", "left", "right"}
+        assert expr.get_params()["op"] == "add"
+        assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
+
+    def test_arithmetic_operation_word_forms_are_closed(self, dummy_dialect):
+        with pytest.raises(ValueError, match="operation words"):
+            ArithmeticOperation(dummy_dialect, "+", Column(dummy_dialect, "a"), Column(dummy_dialect, "b"))
+
+    def test_concatenation_operation_params_match_golden_v5(self, dummy_dialect):
+        expr = ConcatenationOperation(
+            dummy_dialect, Column(dummy_dialect, "title"), Literal(dummy_dialect, "!")
+        )
+        assert set(expr.get_params()) == {"left", "right"}
+        assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
+
+    # -- standard function nodes (golden v4 and the function manifest) --------
+
+    @pytest.mark.parametrize(
+        "node_class",
+        [CountFunction, SumFunction, AvgFunction, MinFunction, MaxFunction],
+    )
+    def test_aggregate_nodes_carry_operand_and_distinct(self, dummy_dialect, node_class):
+        # golden v4: {"type":"count_function","params":{"operand":…,"distinct":false}}
+        expr = node_class(dummy_dialect, Column(dummy_dialect, "views"), distinct=True)
+        assert set(expr.get_params()) == {"operand", "distinct"}
+        assert expr.get_params()["distinct"] is True
+        assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
+
+    def test_count_star_operand_is_the_row_count_wildcard(self, dummy_dialect):
+        # golden v4: COUNT(*) -> {"operand":{"type":"row_count_wildcard",…}}
+        expr = CountFunction(dummy_dialect, RowCountWildcard(dummy_dialect))
+        assert isinstance(expr.get_params()["operand"], RowCountWildcard)
+        assert expr.to_sql() == ("COUNT(*)", ())
+
+    @pytest.mark.parametrize("node_class", [UpperFunction, LowerFunction])
+    def test_scalar_string_nodes_carry_only_the_operand(self, dummy_dialect, node_class):
+        expr = node_class(dummy_dialect, Column(dummy_dialect, "title"))
+        assert set(expr.get_params()) == {"operand"}
+        assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
+
+    def test_char_length_carries_the_unit_but_writes_none(self, dummy_dialect):
+        expr = CharLengthFunction(dummy_dialect, Column(dummy_dialect, "title"), unit="octet")
+        assert set(expr.get_params()) == {"operand", "unit"}
+        assert expr.get_params()["unit"] == "octet"
+        # The unit records the semantics; it never reaches the SQL (wire #33).
+        assert expr.to_sql() == ('LENGTH("title")', ())
+        assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
 
 class TestAtomExpressionRoundtrip:
@@ -107,7 +187,7 @@ class TestPredicateRoundtrip:
         assert deserialize(serialize(combined), dummy_dialect).to_sql() == combined.to_sql()
 
     def test_logical_predicate_with_multiple_predicates(self, dummy_dialect):
-        """Test LogicalPredicate with VAR_POSITIONAL *predicates parameter."""
+        """Test LogicalPredicate with VAR_POSITIONAL *operands parameter."""
         p1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1))
         p2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "b"), Literal(dummy_dialect, 2))
         p3 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "c"), Literal(dummy_dialect, 3))
@@ -198,13 +278,13 @@ class TestQueryExpressionRoundtrip:
         assert query.to_sql() == restored.to_sql()
 
 
-class TestRawSQLExpressionRoundtrip:
-    """RawSQLExpression and RawSQLPredicate round-trip tests."""
+class TestRawSQLRoundtrip:
+    """RawSQL and RawSQLPredicate round-trip tests."""
 
     def test_raw_sql_expression_roundtrip(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
+        from rhosocial.activerecord.backend.expression.operators import RawSQL
 
-        expr = RawSQLExpression(dummy_dialect, expression="SELECT 1 FROM users WHERE id = ?", params=(1,))
+        expr = RawSQL(dummy_dialect, expression="SELECT 1 FROM users WHERE id = ?", params=(1,))
         spec = serialize(expr)
         restored = deserialize(spec, dummy_dialect)
         assert expr.to_sql() == restored.to_sql()
@@ -278,12 +358,12 @@ class TestErrorHandling:
         class NotAnExpression:
             pass
 
-        ExpressionRegistry._registry["test.module.NotAnExpression"] = NotAnExpression
+        _EXPRESSION_CLASSES["test.module.NotAnExpression"] = NotAnExpression
         try:
             with pytest.raises(ExpressionDeserializationError, match="not a BaseExpression subclass"):
                 deserialize({"type": "test.module.NotAnExpression", "params": {}}, dummy_dialect)
         finally:
-            ExpressionRegistry._registry.pop("test.module.NotAnExpression", None)
+            _EXPRESSION_CLASSES.pop("test.module.NotAnExpression", None)
 
     def test_reconstruct_by_name_type_error(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.serialization import _reconstruct_by_name
@@ -291,7 +371,7 @@ class TestErrorHandling:
         with pytest.raises(ExpressionDeserializationError, match="Failed to reconstruct"):
             _reconstruct_by_name("Column", dummy_dialect, {"invalid_param": 123})
 
-    def test_registry_ambiguous_short_name(self):
+    def test_class_index_ambiguous_short_name(self):
         class CustomExpression(BaseExpression):
             def __init__(self, dialect, name):
                 self._name = name
@@ -300,14 +380,15 @@ class TestErrorHandling:
                 return "custom"
 
         try:
-            ExpressionRegistry._registry["module1.CustomExpression"] = CustomExpression
-            ExpressionRegistry._registry["module2.CustomExpression"] = CustomExpression
+            _EXPRESSION_CLASSES["module1.CustomExpression"] = CustomExpression
+            _EXPRESSION_CLASSES["module2.CustomExpression"] = CustomExpression
+
+            from rhosocial.activerecord.backend.expression.serialization import _lookup_expression_class
 
             with pytest.raises(ExpressionDeserializationError, match="Ambiguous short name"):
-                ExpressionRegistry.lookup("CustomExpression")
+                _lookup_expression_class("CustomExpression")
         finally:
-            ExpressionRegistry._registry.pop("module1.CustomExpression", None)
-            ExpressionRegistry._registry.pop("module2.CustomExpression", None)
+            _EXPRESSION_CLASSES.pop("module1.CustomExpression", None)
 
     def test_serialize_deserialize_tuple_in_params(self, dummy_dialect):
         col = Column(dummy_dialect, "status")
@@ -425,9 +506,9 @@ class TestErrorHandling:
             serializer.deserialize(current_spec, dummy_dialect)
 
     def test_expression_serializer_raw_sql_with_tuple_params(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
+        from rhosocial.activerecord.backend.expression.operators import RawSQL
 
-        expr = RawSQLExpression(dummy_dialect, "SELECT * FROM t WHERE id IN (?, ?)", (1, 2))
+        expr = RawSQL(dummy_dialect, "SELECT * FROM t WHERE id IN (?, ?)", (1, 2))
         spec = serialize(expr)
         assert "__tuple__" in str(spec["params"])
 
@@ -487,7 +568,7 @@ class TestErrorHandling:
     def test_reconstruct_varargs_branch(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.serialization import _reconstruct
 
-        params = {"op": "AND", "predicates": [1, 2, 3]}
+        params = {"op": "AND", "operands": [1, 2, 3]}
         result = _reconstruct(LogicalPredicate, dummy_dialect, params)
         assert result is not None
 
@@ -520,9 +601,9 @@ class TestErrorHandling:
         assert "params" in spec
 
     def test_deserialize_tuple_in_params(self, dummy_dialect):
-        from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
+        from rhosocial.activerecord.backend.expression.operators import RawSQL
 
-        expr = RawSQLExpression(dummy_dialect, "SELECT ?", (1, 2, 3))
+        expr = RawSQL(dummy_dialect, "SELECT ?", (1, 2, 3))
         spec = serialize(expr)
 
         assert "params" in spec and "params" in spec["params"]
@@ -542,7 +623,7 @@ class TestErrorHandling:
 
         restored = deserialize(spec, dummy_dialect)
         assert restored.op == "AND"
-        assert len(restored.predicates) == 2
+        assert len(restored.operands) == 2
 
 
 class TestExpressionFactoryAndRegistry:
@@ -584,39 +665,39 @@ class TestExpressionFactoryAndRegistry:
 
     def test_expression_factory_from_spec_invalid_module(self, dummy_dialect):
         factory = ExpressionFactory(dummy_dialect)
-        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
+        with pytest.raises(ExpressionDeserializationError, match="not found in the deserialization"):
             factory._create_from_spec({"type": "fake.module.that.does.not.exist.NonExistent", "params": {}})
 
 
-class TestExpressionRegistry:
-    """Test ExpressionRegistry."""
+class TestDeserializationClassIndex:
+    """Test the deserialization class index (FQN → class)."""
 
-    def test_registry_lookup_found(self):
+    def test_lookup_found(self):
 
-        result = ExpressionRegistry.lookup("Column")
+        result = _lookup_expression_class("Column")
         assert result is Column
 
-    def test_registry_lookup_not_found(self):
-        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
-            ExpressionRegistry.lookup("NonExistentClass")
+    def test_lookup_not_found(self):
+        with pytest.raises(ExpressionDeserializationError, match="not found in the deserialization"):
+            _lookup_expression_class("NonExistentClass")
 
-    def test_registry_lookup_registered_class(self):
-        result = ExpressionRegistry.lookup("Column")
+    def test_lookup_registered_class(self):
+        result = _lookup_expression_class("Column")
         assert result is not None
 
     def test_reconstruct_by_name_not_found(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.serialization import _reconstruct_by_name
 
-        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
+        with pytest.raises(ExpressionDeserializationError, match="not found in the deserialization"):
             _reconstruct_by_name("NonExistentExpression", dummy_dialect, {})
 
-    def test_registry_lookup_not_found_2(self):
-        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
-            ExpressionRegistry.lookup("SomeClass")
+    def test_lookup_not_found_2(self):
+        with pytest.raises(ExpressionDeserializationError, match="not found in the deserialization"):
+            _lookup_expression_class("SomeClass")
 
-    def test_registry_lookup_not_found_3(self):
-        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
-            ExpressionRegistry.lookup("NonExistentClass")
+    def test_lookup_not_found_3(self):
+        with pytest.raises(ExpressionDeserializationError, match="not found in the deserialization"):
+            _lookup_expression_class("NonExistentClass")
 
 
 class TestExpressionFactory:
@@ -964,7 +1045,7 @@ class TestCastChainDeserializationError:
                 "__cast__": ["INTEGER"],
             },
         }
-        # The __cast__ special key was removed: casts are CastFunction AST
+        # The __cast__ special key was removed: casts are CastExpression AST
         # nodes now, so an unknown __cast__ init parameter fails reconstruction.
         with pytest.raises(ExpressionDeserializationError):
             ExpressionSerializer().deserialize(spec, dummy_dialect)

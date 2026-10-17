@@ -82,10 +82,10 @@ def test_sqlite_format_storage_options_string_escaping(dialect):
 
 def test_sqlite_format_cast_expression_valid(dialect):
     """A CAST target is a DataType, and the dialect renders what it says."""
-    from rhosocial.activerecord.backend.expression.core import CastFunction, Column
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
     from rhosocial.activerecord.backend.expression.types import TextType
 
-    expr = CastFunction(dialect, Column(dialect, "column"), TextType(dialect))
+    expr = CastExpression(dialect, Column(dialect, "column"), TextType(dialect))
     sql, params = dialect.format_cast_expression(expr)
     assert "TEXT" in sql
 
@@ -97,10 +97,10 @@ def test_sqlite_format_cast_expression_rejects_injection(dialect):
     rendered into the statement text. That is why a string is not accepted at
     all rather than being escaped: there is nothing to escape it into, since it
     is code and not data."""
-    from rhosocial.activerecord.backend.expression.core import CastFunction, Column
+    from rhosocial.activerecord.backend.expression.core import CastExpression, Column
 
     with pytest.raises(TypeError, match="takes a DataType instance"):
-        CastFunction(dialect, Column(dialect, "column"), "TEXT; DROP TABLE users--")
+        CastExpression(dialect, Column(dialect, "column"), "TEXT; DROP TABLE users--")
 
 
 # ============================================================

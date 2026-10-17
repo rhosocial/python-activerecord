@@ -265,9 +265,7 @@ class DomainMixin:
             raise UnsupportedFeatureError(self.name, "DOMAIN CHECK")
         if expr.name is not None and not self.supports_named_domain_checks():
             raise UnsupportedFeatureError(self.name, "named DOMAIN CHECK")
-        condition_sql, condition_params = expr.condition.to_sql()
-        if condition_params:
-            raise ValueError("DOMAIN CHECK must render without bind parameters")
+        condition_sql = self._format_ddl_condition(expr.condition)
         if expr.name is None:
             sql = f"CHECK ({condition_sql})"
         else:
@@ -275,7 +273,7 @@ class DomainMixin:
                 f"CONSTRAINT {self.format_identifier(expr.name)} "
                 f"CHECK ({condition_sql})"
             )
-        return sql, tuple(condition_params)
+        return sql, ()
 
     def format_domain_alter_action(
         self,

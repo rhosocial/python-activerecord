@@ -73,7 +73,7 @@ class TestCreateDropIndexStatements:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "status"),
-            Literal(dummy_dialect, "active", inline_literals=True)
+            Literal(dummy_dialect, "active")
         )
         create_index = CreateIndexStatement(
             dummy_dialect, index=Index(dummy_dialect, "idx_active_users"), table=Table(dummy_dialect, "users"), columns=["email"], where=where_condition
@@ -196,7 +196,7 @@ class TestCreateDropIndexStatements:
             dummy_dialect,
             "=",
             Column(dummy_dialect, "active"),
-            Literal(dummy_dialect, True, inline_literals=True)
+            Literal(dummy_dialect, True)
         )
         create_index = CreateIndexStatement(
             dummy_dialect,

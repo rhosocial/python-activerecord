@@ -15,6 +15,7 @@ json_each
 from typing import Union, Optional, Any, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.expression import bases, core
+from ..expression.json import SQLiteJsonExtractFunction
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.dialect import SQLDialectBase
@@ -132,6 +133,13 @@ def json_extract(
     """
     doc_expr = json_doc
     path_expr = path
+    if not paths:
+        # Single-path extraction is modelled by the SQLite-specific node, so
+        # the function's identity travels on the kind, not on a name string.
+        return SQLiteJsonExtractFunction(dialect, doc_expr, path_expr)
+    # The variadic form (several paths -> one JSON array) is not modelled by
+    # the single-path node; it stays on the generic call node, the escape hatch
+    # for shapes the node layer does not yet carry (catalog §3.4).
     args = [doc_expr, path_expr]
     for p in paths:
         args.append(p)
@@ -511,7 +519,7 @@ def json_object_retrieve(
     """
     val_expr = json_val
     path_expr = path
-    return core.FunctionCall(dialect, "JSON_EXTRACT", val_expr, path_expr)
+    return SQLiteJsonExtractFunction(dialect, val_expr, path_expr)
 
 
 def json_object_length(

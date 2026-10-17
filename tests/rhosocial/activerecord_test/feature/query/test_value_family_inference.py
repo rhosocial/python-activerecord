@@ -14,47 +14,38 @@ rather than the class, or "integer in, integer out" cannot be expressed and
 
 # tests/rhosocial/activerecord_test/feature/query/test_value_family_inference.py
 import datetime
-import decimal
 import uuid
 
 import pytest
 
-from rhosocial.activerecord.backend.expression import Column, FunctionCall, Literal
+from rhosocial.activerecord.backend.expression import Column, FunctionCall
 from rhosocial.activerecord.backend.expression import functions as F
-from rhosocial.activerecord.backend.expression import IntegerColumn, NumericColumn
-from rhosocial.activerecord.backend.expression.column_types import value_class_of
-from rhosocial.activerecord.backend.expression.core import (
-    ArrayValue,
-    BinaryValue,
-    BooleanValue,
-    DateValue,
-    IntegerValue,
-    IntervalValue,
-    JSONValue,
-    NumericValue,
-    StringValue,
-    TimeValue,
-    TimestampValue,
-    UUIDValue,
-    XMLValue,
+from rhosocial.activerecord.backend.expression.column_types import annotation_for
+from rhosocial.activerecord.backend.expression.declared import (
+    ArrayAnnotation,
+    BinaryAnnotation,
+    BooleanAnnotation,
+    IntegerAnnotation,
+    JSONAnnotation,
+    NumberAnnotation,
+    TemporalAnnotation,
+    TextAnnotation,
+    UUIDAnnotation,
+    XMLAnnotation,
 )
-from rhosocial.activerecord.backend.expression import functions as math_functions
 
 #: Every value class the lattice holds, for the "declares nothing" assertions.
 TYPED_VALUE_CLASSES = (
-    ArrayValue,
-    BinaryValue,
-    BooleanValue,
-    DateValue,
-    IntegerValue,
-    IntervalValue,
-    JSONValue,
-    NumericValue,
-    StringValue,
-    TimeValue,
-    TimestampValue,
-    UUIDValue,
-    XMLValue,
+    ArrayAnnotation,
+    BinaryAnnotation,
+    BooleanAnnotation,
+    IntegerAnnotation,
+    JSONAnnotation,
+    NumberAnnotation,
+    TemporalAnnotation,
+    TextAnnotation,
+    UUIDAnnotation,
+    XMLAnnotation,
 )
 
 
@@ -88,12 +79,12 @@ def columns(dialect):
 # ---------------------------------------------------------------------------
 
 
-def test_every_column_class_has_a_value_class(columns):
+def test_every_column_class_has_an_annotation(columns):
     """The map is complete, so no column class is silently untyped.
 
     There is no registry of family *names* to be complete any more -- a type is
     a class. But there is a table from column class to value class (see
-    ``column_types.value_class_of``), and a column class missing from it would
+    ``column_types.annotation_for``), and a column class missing from it would
     make every operation over that column quietly untyped, which is the failure
     this file exists to catch. So it is checked here instead of assumed.
     """
@@ -111,7 +102,7 @@ def test_every_column_class_has_a_value_class(columns):
     assert declared, "the typed column classes moved"
     for name in sorted(declared):
         column = getattr(CT, name).__new__(getattr(CT, name))
-        assert value_class_of(column) is not None, f"{name} has no value class"
+        assert annotation_for(column) is not None, f"{name} has no annotation"
     # The base is now an ABC, so there is no "untyped column object" left to
     # map -- not being able to build one is the stronger form of the same
     # invariant.  The untyped column that *can* be built is the bare ``Column``,
@@ -119,16 +110,16 @@ def test_every_column_class_has_a_value_class(columns):
     assert inspect.isabstract(CT.ColumnBase), "the typed base must not be instantiable"
     from rhosocial.activerecord.backend.expression import Column as BareColumn
 
-    assert value_class_of(BareColumn.__new__(BareColumn)) is None
+    assert annotation_for(BareColumn.__new__(BareColumn)) is None
 
 
-def test_every_core_data_type_has_a_value_class_or_is_explicitly_impossible():
+def test_every_core_data_type_has_an_annotation_or_is_explicitly_impossible():
     """The DDL-type -> value-class map is closed, so a cast cannot go silently
     untyped.
 
     There is a second completeness question beside the column one above, and it
     is asked of the *target* side of a cast: ``cast`` answers from the class of
-    the ``DataType`` it was handed (``type_conversion._type_value_classes()``),
+    the ``DataType`` it was handed (``type_conversion._type_annotations()``),
     so a core type missing from that table would make every cast to it come
     back untyped and the operations its value supports invisible. A type added
     to the core without a map entry must therefore be a test failure here, not
@@ -147,7 +138,7 @@ def test_every_core_data_type_has_a_value_class_or_is_explicitly_impossible():
 
     from rhosocial.activerecord.backend.expression import types as core_types
     from rhosocial.activerecord.backend.expression.functions.type_conversion import (
-        _type_value_classes,
+        _type_annotations,
     )
 
     core_prefix = "rhosocial.activerecord.backend.expression.types"
@@ -168,7 +159,7 @@ def test_every_core_data_type_has_a_value_class_or_is_explicitly_impossible():
     }
     assert declared, "the core types moved"
 
-    mapping = _type_value_classes()
+    mapping = _type_annotations()
     # The exception, stated rather than merely skipped. ``CustomType`` is the
     # escape hatch for a type nobody here has heard of; mapping it to any value
     # class would offer operations the database may reject. Asserting it stays
@@ -184,8 +175,8 @@ def test_every_core_data_type_has_a_value_class_or_is_explicitly_impossible():
         if klass is core_types.CustomType:
             continue
         assert any(base in mapping for base in klass.__mro__), (
-            f"{name} has no value class: add it to "
-            f"functions/type_conversion._type_value_classes(), or add it to "
+            f"{name} has no annotation: add it to "
+            f"functions/type_conversion._type_annotations(), or add it to "
             f"the deliberate-exception list here with the reason it cannot "
             f"honestly have one"
         )
@@ -205,24 +196,24 @@ def test_a_hand_written_column_has_no_family(dialect):
 @pytest.mark.parametrize(
     "key, expected",
     [
-        ("string", StringValue),
-        ("int", IntegerValue),
-        ("float", NumericValue),
-        ("bool", BooleanValue),
-        ("json", JSONValue),
-        ("bytes", BinaryValue),
-        ("uuid", UUIDValue),
-        ("datetime", TimestampValue),
+        ("string", TextAnnotation),
+        ("int", IntegerAnnotation),
+        ("float", NumberAnnotation),
+        ("bool", BooleanAnnotation),
+        ("json", JSONAnnotation),
+        ("bytes", BinaryAnnotation),
+        ("uuid", UUIDAnnotation),
+        ("datetime", TemporalAnnotation),
     ],
 )
 def test_each_annotation_lands_in_its_type(columns, key, expected):
-    """The annotation picks the column class, and the class picks the value class.
+    """The annotation picks the column class, and the class picks the annotation.
 
     This used to compare against a family *name* read off an attribute. The
     attribute is gone and the class is the whole of it, so the assertion is the
-    class an operation over that column now returns.
+    annotation an operation over that column now returns.
     """
-    assert value_class_of(columns[key]) is expected
+    assert annotation_for(columns[key]) is expected
 
 
 def test_a_disagreement_yields_no_type(dialect, columns):

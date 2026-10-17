@@ -1,5 +1,5 @@
 """
-UNION using SetOperationStatement - SQLite.
+UNION using SetOperation - SQLite.
 
 This example demonstrates:
 1. UNION (distinct)
@@ -60,11 +60,11 @@ print(f"Insert SQL: {sql}")
 backend.execute(sql, params)
 
 # ============================================================
-# SECTION: UNION (using SetOperationStatement)
+# SECTION: UNION (using SetOperation)
 # ============================================================
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
-    SetOperationStatement,
+    SetOperation,
 )
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from .....expression.objects import Table
@@ -82,10 +82,10 @@ query2 = QueryStatement(
 )
 
 # Union
-union_expr = SetOperationStatement(
+union_expr = SetOperation(
     dialect=dialect,
     left=query1,
-    operation="UNION",
+    op="union",
     right=query2,
 )
 sql, params = union_expr.to_sql()
@@ -99,11 +99,10 @@ print(f"Result: {result.data}")
 # ============================================================
 # SECTION: UNION ALL
 # ============================================================
-union_all = SetOperationStatement(
+union_all = SetOperation(
     dialect=dialect,
     left=query1,
-    operation="UNION",
-    all_=True,
+    op="union_all",
     right=query2,
 )
 sql, params = union_all.to_sql()
@@ -123,6 +122,6 @@ backend.disconnect()
 # SECTION: Summary
 # ============================================================
 # Key points:
-# 1. Use SetOperationStatement with operation='UNION'
-# 2. Use operation='UNION', all_=True for UNION ALL
+# 1. Use SetOperation with op='union'
+# 2. Use op='union_all' for UNION ALL
 # 3. UNION removes duplicates, UNION ALL keeps all

@@ -1,55 +1,130 @@
 # src/rhosocial/activerecord/backend/expression/functions/window.py
 """Window function factories."""
 
+from abc import abstractmethod
 from typing import Union, Optional, Any, TYPE_CHECKING
 
+from ..advanced_functions import DeclaredValueType
 from ..bases import BaseExpression
-from ..column_types import value_class_of
-from ..core import Column, FunctionCall, Literal, IntegerValue
+from ..column_types import annotation_for
+from ..core import Column, FunctionCall, Literal
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
 
 
+from ..surfaces import NumericSurface
+
+
 def _typed(call: FunctionCall, target: BaseExpression):
-    """Wrap *call* in the value class matching *target*, when there is one.
+    """Wrap *call* in the annotation matching *target*, when there is one.
 
     A window function that borrows a value hands that value back: ``LAG`` over a
     string answers with a string, over a float with a number. The column class
     already says which, so it is read off the class rather than off an attribute
     duplicating it -- see
-    :func:`~...expression.column_types.value_class_of`.
+    :func:`~...expression.column_types.annotation_for`.
 
     ``ROW_NUMBER``, ``RANK`` and ``DENSE_RANK`` are the exception -- they count
     or place rows rather than borrow a value, and are always whole numbers -- so
-    they always wrap in :class:`IntegerValue` and never come here.
+    they are their own node carrying :class:`NumericSurface` and never come
+    here.
 
     A target that says nothing -- a ``Literal``, an untyped ``Column`` -- leaves
     the call untyped, which is the honest answer: the database decides.
     """
-    value_class = value_class_of(target)
-    if value_class is not None:
-        return value_class(call._dialect, call)
+    annotation = annotation_for(target)
+    if annotation is not None:
+        return annotation(call._dialect, call)
     return call
 
+class _WindowRank(
+    DeclaredValueType,
+    NumericSurface,
+):
+    # DeclaredValueType first: it is what keeps this node's own rendering ahead
+    # of NumericSurface's declaration that a surface cannot render.
+    """Shared base for the ranking window functions.
 
-def row_number(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "FunctionCall":
+    None of them takes an operand: the rank is over the window the node is placed
+    in, so what is being ranked is said by the clause around it, not by an
+    argument. An alias is still carried, because a ranked column in a select
+    list usually gets a name.
+    """
+
+    #: The function name. Overridden per subclass; the base does not render.
+    function_name: str = ""
+
+    def __init__(self, dialect: "SQLDialectBase", alias: Optional[str] = None):
+        BaseExpression.__init__(self, dialect)
+        self.alias = alias
+
+    @property
+    @abstractmethod
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression.
+
+        Abstract, so this base is not mistaken for a node: it declares no
+        function name of its own, and a subclass that did not supply one would
+        have nothing to write.
+        """
+        raise NotImplementedError
+
+
+class RowNumberFunction(_WindowRank):
+    """``ROW_NUMBER()`` -- the row's position, counting from 1 with no ties."""
+
+    kind_name = "row_number_function"
+    function_name = "ROW_NUMBER"
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_row_number_function"
+
+
+class RankFunction(_WindowRank):
+    """``RANK()`` -- the position, counting ties as one rank.
+
+    ``1, 2, 2, 4`` rather than ``1, 2, 2, 3``: that skipping is what
+    distinguishes it from :class:`DenseRankFunction`, and it is why they are two
+    nodes rather than one with a flag.
+    """
+
+    kind_name = "rank_function"
+    function_name = "RANK"
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_rank_function"
+
+
+class DenseRankFunction(_WindowRank):
+    """``DENSE_RANK()`` -- the position with no gaps between ties."""
+
+    kind_name = "dense_rank_function"
+    function_name = "DENSE_RANK"
+
+    @property
+    def format_method(self) -> str:
+        """The dialect formatting method that renders this expression."""
+        return "format_dense_rank_function"
+
+
+def row_number(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "RowNumberFunction":
     """Creates a ROW_NUMBER window function call."""
-    return IntegerValue(
-        dialect, FunctionCall(dialect, "ROW_NUMBER", alias=alias)
-    )
+    return RowNumberFunction(dialect, alias)
 
 
-def rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "FunctionCall":
+def rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "RankFunction":
     """Creates a RANK window function call."""
-    return IntegerValue(dialect, FunctionCall(dialect, "RANK", alias=alias))
+    return RankFunction(dialect, alias)
 
 
-def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "FunctionCall":
+def dense_rank(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "DenseRankFunction":
     """Creates a DENSE_RANK window function call."""
-    return IntegerValue(
-        dialect, FunctionCall(dialect, "DENSE_RANK", alias=alias)
-    )
+    return DenseRankFunction(dialect, alias)
 
 
 def lag(

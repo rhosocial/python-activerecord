@@ -486,10 +486,10 @@ class TestQueryParts:
 
     def test_order_by_with_complex_expressions(self, dummy_dialect: DummyDialect):
         """Test ORDER BY with complex expressions like CASE."""
-        from rhosocial.activerecord.backend.expression.advanced_functions import CaseFunction
+        from rhosocial.activerecord.backend.expression.advanced_functions import CaseExpression
 
         # Create a complex CASE expression
-        case_expr = CaseFunction(
+        case_expr = CaseExpression(
             dummy_dialect,
             value=None,  # Simple CASE (not searched case)
             cases=[

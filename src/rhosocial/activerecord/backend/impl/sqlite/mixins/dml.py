@@ -42,16 +42,11 @@ class SQLiteDMLMixin:
         if isinstance(expr.source, DefaultValuesSource):
             source_sql = "DEFAULT VALUES"
         elif isinstance(expr.source, ValuesSource):
-            all_rows_sql = []
-            for row in expr.source.values_list:
-                row_sql, row_params = [], []
-                for val in row:
-                    s, p = val.to_sql()
-                    row_sql.append(s)
-                    row_params.extend(p)
-                all_rows_sql.append(f"({', '.join(row_sql)})")
-                all_params.extend(row_params)
-            source_sql = "VALUES " + ", ".join(all_rows_sql)
+            # Delegate to the base formatter so the cell-vs-bare-value
+            # distinction is decided once, in format_insert_values_source,
+            # rather than re-implemented here.
+            source_sql, values_params = self.format_insert_values_source(expr.source)
+            all_params.extend(values_params)
         elif isinstance(expr.source, SelectSource):
             s_sql, s_params = expr.source.select_query.to_sql()
             source_sql = s_sql

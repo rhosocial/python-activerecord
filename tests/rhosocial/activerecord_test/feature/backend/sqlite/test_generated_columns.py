@@ -10,7 +10,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.impl.sqlite.expression.types import SQLiteIntegerType, SQLiteRealType, SQLiteTextType
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from rhosocial.activerecord.backend.expression import RawSQLExpression
+from rhosocial.activerecord.backend.expression import RawSQL
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     GeneratedColumnType,
@@ -56,7 +56,7 @@ class TestGeneratedColumnsFormatting:
             data_type=SQLiteTextType(dialect=dialect),
             generated_expression=ColumnGeneratedConstraint(
                 dialect,
-                expression=RawSQLExpression(dialect, '"first_name" || \' \' || "last_name"'),
+                expression=RawSQL(dialect, '"first_name" || \' \' || "last_name"'),
                 storage_type=GeneratedColumnType.VIRTUAL,
             ),
         )
@@ -76,7 +76,7 @@ class TestGeneratedColumnsFormatting:
             data_type=SQLiteRealType(dialect=dialect),
             generated_expression=ColumnGeneratedConstraint(
                 dialect,
-                expression=RawSQLExpression(dialect, '"price" * "quantity"'),
+                expression=RawSQL(dialect, '"price" * "quantity"'),
                 storage_type=GeneratedColumnType.STORED,
             ),
         )
@@ -96,7 +96,7 @@ class TestGeneratedColumnsFormatting:
             data_type=SQLiteIntegerType(dialect),
             generated_expression=ColumnGeneratedConstraint(
                 dialect,
-                expression=RawSQLExpression(dialect, '"base_value" + 1'),
+                expression=RawSQL(dialect, '"base_value" + 1'),
             ),
         )
 
@@ -115,7 +115,7 @@ class TestGeneratedColumnsFormatting:
             constraints=[ColumnConstraint(dialect, branch=ColumnNotNullConstraint(dialect))],
             generated_expression=ColumnGeneratedConstraint(
                 dialect,
-                expression=RawSQLExpression(dialect, '"raw_status"'),
+                expression=RawSQL(dialect, '"raw_status"'),
             ),
         )
 
@@ -133,7 +133,7 @@ class TestGeneratedColumnsFormatting:
             name="computed", data_type=SQLiteTextType(dialect=dialect),
             generated_expression=ColumnGeneratedConstraint(
                 dialect,
-                expression=RawSQLExpression(dialect, '"source"'),
+                expression=RawSQL(dialect, '"source"'),
             ),
         )
 
@@ -166,7 +166,7 @@ class TestGeneratedColumnsInCreateTable:
                 data_type=SQLiteRealType(dialect=dialect),
                 generated_expression=ColumnGeneratedConstraint(
                     dialect,
-                    expression=RawSQLExpression(dialect, '"price" * "quantity"'),
+                    expression=RawSQL(dialect, '"price" * "quantity"'),
                     storage_type=GeneratedColumnType.STORED,
                 ),
             ),
@@ -194,7 +194,7 @@ class TestGeneratedColumnsInCreateTable:
                 data_type=SQLiteTextType(dialect=dialect),
                 generated_expression=ColumnGeneratedConstraint(
                     dialect,
-                    expression=RawSQLExpression(dialect, '"first_name" || \' \' || "last_name"'),
+                    expression=RawSQL(dialect, '"first_name" || \' \' || "last_name"'),
                     storage_type=GeneratedColumnType.VIRTUAL,
                 ),
             ),

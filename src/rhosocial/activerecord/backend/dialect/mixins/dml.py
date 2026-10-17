@@ -98,19 +98,17 @@ class DMLMixin:
         """
         from ...expression.column_types import ColumnBase
         from ...expression.core import AllColumnsWildcard, FunctionCall, Subquery
-        from ...expression.mixins import WrappedCallMixin
-        from ...expression.operators import RawSQLExpression
+        from ...expression.functions.aggregate import AggregateFunction
+        from ...expression.operators import RawSQL
 
         all_params: List[Any] = []
         expr_parts: List[str] = []
         for expr in clause.expressions:
-            # The aggregate factories return the typed wrapper around a
-            # ``FunctionCall``, so both the wrapper and the node have to be
-            # unwrapped before the flag means anything. Unwrapping is the
-            # contract (``WrappedCallMixin.call``); asking the attribute and
-            # hoping the object has one is not.
-            node = expr.call if isinstance(expr, WrappedCallMixin) else expr
-            if (isinstance(node, FunctionCall) and node.is_aggregate) or isinstance(expr, Subquery):
+            if (
+                (isinstance(expr, FunctionCall) and expr.is_aggregate)
+                or isinstance(expr, AggregateFunction)
+                or isinstance(expr, Subquery)
+            ):
                 raise UnsupportedFeatureError(
                     self.name,
                     "aggregate/subquery in RETURNING",
@@ -134,7 +132,7 @@ class DMLMixin:
                             "This dialect does not support OLD/NEW row references "
                             "in a RETURNING clause.",
                         )
-            elif not isinstance(expr, RawSQLExpression):
+            elif not isinstance(expr, RawSQL):
                 if not self.supports_returning_expressions():
                     raise UnsupportedFeatureError(
                         self.name,
@@ -222,6 +220,13 @@ class DMLMixin:
     def format_insert_values_source(self, expr: "ValuesSource") -> Tuple[str, tuple]:
         """Render a ``VALUES`` list as an INSERT's data source.
 
+        A cell is either an expression (rendered through its own ``to_sql()``)
+        or a plain host value, which becomes a bind parameter directly -- the
+        node stores what the caller gave it and this formatter decides how each
+        cell renders. A bare value's driver compatibility is the caller's
+        concern: a scalar always binds, and an object the driver rejects
+        surfaces at ``execute`` rather than being silently re-rendered here.
+
         Args:
             expr: The :class:`ValuesSource` holding the rows to insert.
 
@@ -234,9 +239,12 @@ class DMLMixin:
         for row in expr.values_list:
             cells_sql, cell_params = [], []
             for value in row:
-                cell_sql, cell_value_params = value.to_sql()
+                if isinstance(value, BaseExpression):
+                    cell_sql, value_params = value.to_sql()
+                else:
+                    cell_sql, value_params = self.p(), (value,)
                 cells_sql.append(cell_sql)
-                cell_params.extend(cell_value_params)
+                cell_params.extend(value_params)
             rows_sql.append(f"({', '.join(cells_sql)})")
             all_params.extend(cell_params)
         return "VALUES " + ", ".join(rows_sql), tuple(all_params)

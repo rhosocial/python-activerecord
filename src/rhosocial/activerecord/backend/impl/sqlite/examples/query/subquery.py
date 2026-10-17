@@ -5,7 +5,8 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from .....expression.objects import Table
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
-from rhosocial.activerecord.backend.expression.core import Subquery, Literal, FunctionCall
+from rhosocial.activerecord.backend.expression.core import Subquery, Literal
+from rhosocial.activerecord.backend.expression import functions
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
 from rhosocial.activerecord.backend.expression import (
     QueryStatement,
@@ -123,7 +124,7 @@ for emp in employees:
 # Subquery in WHERE clause: find employees with salary above average
 avg_salary_subquery = QueryStatement(
     dialect=dialect,
-    select=[FunctionCall(dialect, "AVG", Column(dialect, "salary"))],
+    select=[functions.avg(dialect, Column(dialect, "salary"))],
     from_=NamedRelationRef(dialect, Table(dialect, "employees")),
 )
 

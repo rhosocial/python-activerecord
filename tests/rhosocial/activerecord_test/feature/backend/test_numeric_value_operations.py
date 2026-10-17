@@ -17,9 +17,7 @@ one -- asserting integer here would have been wrong for every ``float`` column.
 import pytest
 
 from rhosocial.activerecord.backend.expression import NumericColumn
-from rhosocial.activerecord.backend.expression.core import (
-    NumericValue,
-)
+from rhosocial.activerecord.backend.expression.surfaces import NumericSurface
 
 
 @pytest.fixture
@@ -89,22 +87,28 @@ class TestArgumentsAreBound:
 class TestResultTypes:
     def test_abs_keeps_the_operand_type(self, price):
         """ABS of a fraction is a fraction; ABS of a whole number is a whole
-        number, which is why these are two classes rather than one."""
-        assert isinstance(price.abs(), NumericValue)
+        number, which is why these are two classes rather than one.
+
+        Asserted on the node's own class rather than on a value class: the
+        operations are the same either way -- they always were -- so what
+        distinguishes the two is which node was chosen, and the node is where
+        that now lives.
+        """
+        assert type(price.abs()).__name__ == "AbsoluteFunction"
 
     def test_sign_is_a_number(self, price):
         """Sign is -1, 0 or 1, but the backends do not answer integers for it:
         measured on PostgreSQL, an integer argument comes back double and a
         numeric one numeric, so the result carries the numeric surface."""
-        assert isinstance(price.sign(), NumericValue)
+        assert isinstance(price.sign(), NumericSurface)
 
     def test_sqrt_is_a_number(self, price):
-        assert isinstance(price.sqrt(), NumericValue)
+        assert isinstance(price.sqrt(), NumericSurface)
 
     @pytest.mark.parametrize("method", ["ceil", "floor"])
     def test_rounding_keeps_the_operand_type(self, price, method):
         """CEIL(numeric) is numeric in every backend; CEIL(integer) is not."""
-        assert isinstance(getattr(price, method)(), NumericValue)
+        assert isinstance(getattr(price, method)(), NumericSurface)
 
 
 class TestChaining:

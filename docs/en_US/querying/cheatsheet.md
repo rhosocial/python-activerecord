@@ -418,7 +418,7 @@ result = User.__backend__.execute(
 users = [User(**row) for row in result.rows]
 ```
 
-> ⚠️ **Strong warning:** Do **not** use raw SQL (including `RawSQLExpression`, `RawSQLPredicate`, or directly executing SQL strings) unless absolutely necessary. It easily opens **security holes such as SQL injection** and reduces portability across database backends. Prefer FieldProxy expressions (`User.c.field`) which build type-safe, automatically parameterized queries. Only consider raw SQL in extreme cases the standard expression system cannot express (e.g., database-private features) — and always use parameter placeholders, never concatenate user input.
+> ⚠️ **Strong warning:** Do **not** use raw SQL (including `RawSQL`, `RawSQLPredicate`, or directly executing SQL strings) unless absolutely necessary. It easily opens **security holes such as SQL injection** and reduces portability across database backends. Prefer FieldProxy expressions (`User.c.field`) which build type-safe, automatically parameterized queries. Only consider raw SQL in extreme cases the standard expression system cannot express (e.g., database-private features) — and always use parameter placeholders, never concatenate user input.
 
 ---
 

@@ -8,6 +8,7 @@ individual clause formatters reused elsewhere.
 from typing import Any, List, Tuple, TYPE_CHECKING
 
 from ...expression.bases import ToSQLProtocol
+from ...expression.query_parts import SortDirection
 
 if TYPE_CHECKING:
     from ...expression import bases
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
         GroupByHavingClause,
         LimitOffsetClause,
         OrderByClause,
-        OrderByExpression,
+        OrderByItem,
         QualifyClause,
         WhereClause,
     )
@@ -157,8 +158,6 @@ class DQLMixin:
         condition_sql, condition_params = clause.condition.to_sql()
         return f"WHERE {condition_sql}", condition_params
 
-    _VALID_ORDER_DIRECTIONS = frozenset({"ASC", "DESC"})
-
     def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
         """Format an ORDER BY clause.
 
@@ -179,8 +178,7 @@ class DQLMixin:
                 expr, direction = item
                 expr_sql, expr_params = expr.to_sql()
                 direction = direction.upper()
-                if direction not in self._VALID_ORDER_DIRECTIONS:
-                    raise ValueError(f"Invalid ORDER BY direction: {direction!r}. Must be 'ASC' or 'DESC'.")
+                direction = SortDirection.parse(direction)
                 expr_parts.append(f"{expr_sql} {direction}")
                 all_params.extend(expr_params)
             else:
@@ -189,11 +187,11 @@ class DQLMixin:
                 all_params.extend(expr_params)
         return f"ORDER BY {', '.join(expr_parts)}", tuple(all_params)
 
-    def format_order_by_expression(self, expr: "OrderByExpression") -> Tuple[str, tuple]:
+    def format_order_by_item(self, expr: "OrderByItem") -> Tuple[str, tuple]:
         """Format a single sort element of an ORDER BY clause.
 
         Args:
-            expr: An :class:`OrderByExpression` carrying the sort expression,
+            expr: An :class:`OrderByItem` carrying the sort operand,
                 optional direction and optional null ordering.
 
         Returns:
@@ -205,11 +203,11 @@ class DQLMixin:
         """
         from ..exceptions import UnsupportedFeatureError
 
-        expr_sql, expr_params = expr.expression.to_sql()
-        parts = [expr_sql]
+        operand_sql, expr_params = expr.operand.to_sql()
+        parts = [operand_sql]
         if expr.direction is not None:
             parts.append(expr.direction)
-        if expr.nulls_first or expr.nulls_last:
+        if expr.nulls is not None:
             if not self.supports_nulls_first_last():
                 raise UnsupportedFeatureError(
                     self.name,
@@ -217,7 +215,7 @@ class DQLMixin:
                     "This dialect does not support explicit NULLS FIRST/LAST "
                     "ordering in an ORDER BY clause.",
                 )
-            parts.append("NULLS FIRST" if expr.nulls_first else "NULLS LAST")
+            parts.append("NULLS FIRST" if expr.nulls == "first" else "NULLS LAST")
         return " ".join(parts), tuple(expr_params)
 
     def format_group_by_having_clause(self, clause: "GroupByHavingClause") -> Tuple[str, tuple]:
@@ -289,7 +287,7 @@ class DQLMixin:
                         part_sql, part_params = source.to_sql()
                         if source.__class__.__name__ == "ValuesExpression" and source.alias is None:
                             part_sql = f"({part_sql})"
-                        if source.__class__.__name__ == "SetOperationStatement" and source.alias is None:
+                        if source.__class__.__name__ == "SetOperation":
                             part_sql = f"({part_sql})"
                     from_parts.append(part_sql)
                     from_expr_params.extend(part_params)
@@ -298,7 +296,7 @@ class DQLMixin:
                 from_expr_sql, from_expr_params = expr.from_.to_sql()
                 if expr.from_.__class__.__name__ == "ValuesExpression" and expr.from_.alias is None:
                     from_expr_sql = f"({from_expr_sql})"
-                if expr.from_.__class__.__name__ == "SetOperationStatement" and expr.from_.alias is None:
+                if expr.from_.__class__.__name__ == "SetOperation":
                     from_expr_sql = f"({from_expr_sql})"
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)

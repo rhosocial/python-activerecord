@@ -113,6 +113,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     DateTimeMixin,
     DQLMixin,
     DMLMixin,
+    TypedValueMixin,
     DDLColumnMixin,
     DataTypeMixin,
     UserDefinedTypeMixin,
@@ -434,6 +435,9 @@ class DummyDialect(
     DateTimeMixin,
     DQLMixin,
     DMLMixin,
+    # Value literals: the typed value nodes render through this, and the Dummy
+    # dialect has no backend-specific spelling to add on top of it.
+    TypedValueMixin,
     DataTypeMixin,
     DummyColumnTypeMixin,
     UserDefinedTypeMixin,
@@ -1106,15 +1110,6 @@ class DummyDialect(
         return True
 
     def supports_except(self) -> bool:
-        return True
-
-    def supports_set_operation_order_by(self) -> bool:
-        return True
-
-    def supports_set_operation_limit_offset(self) -> bool:
-        return True
-
-    def supports_set_operation_for_update(self) -> bool:
         return True
 
     def supports_ilike(self) -> bool:

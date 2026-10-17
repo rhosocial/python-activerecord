@@ -106,28 +106,49 @@ class ToSQLProtocol(Protocol):
         """
         ...
 
-    @property
-    def inline_literals(self) -> bool:  # pragma: no cover
-        """
-        Whether this expression renders its literal values **inline** (as SQL
-        text) instead of as bind parameters.
+    inline_params: bool  # pragma: no cover
+    """
+    Whether this expression class renders its literal values **inline** (as
+    SQL text) instead of as bind parameters.
 
-        **Defaults to ``False``** (bind parameters) — inline SQL text is a
-        severe SQL-injection hazard whenever the content can be influenced by
-        end users. Only content that is fully developer-declared and never
-        exposed to end users (e.g. schema DDL derived by ActiveRecord) should
-        enable it, and developers must think carefully before doing so.
-        """
-        ...
+    This is a **class-level rendering strategy**, decided once when the class
+    is defined — never per instance and never per call site. DDL syntax
+    positions (``DEFAULT`` / ``CHECK`` / partition boundaries / index
+    expressions) accept no bind parameters, so the classes that belong to
+    those positions declare ``True``; DQL/DML data positions keep ``False``
+    (bind parameters, the injection-safe default). See ``BaseExpression``.
+    """
 
-    @inline_literals.setter
-    def inline_literals(self, value: bool) -> bool:  # pragma: no cover
-        """
-        Enable/disable inline literal rendering for this expression.
 
-        Disabled by default; enabling is a deliberate, security-relevant
-        choice (see the getter's documentation).
-        """
+@runtime_checkable
+class SQLLiteral(Protocol):
+    """The literal-construction protocol (the third level of inline literal
+    construction).
+
+    A **value type definer** implements this protocol so instances of the
+    type can render themselves as a complete inline SQL literal. It exists
+    for user-defined and backend-specific value types that no dialect
+    build-in whitelist knows (``Point``, ``inet``, an Interval wrapper, ...):
+    whoever defines the type owns its literal spelling.
+
+    The contract:
+
+    - ``__sql_literal__(dialect)`` returns the **complete** inline literal
+      text, quotes included — the dialect embeds it verbatim;
+    - every string component inside that text must be escaped through the
+      dialect's **public** escape helpers (:meth:`SQLDialectBase.escape_sql_string`
+      or :meth:`SQLDialectBase.format_literal`); hand-concatenated quoting is
+      a violation;
+    - the dialect embeds the returned text as an atom, so the implementation
+      must keep placeholder-looking characters inside quoted string data.
+
+    This protocol is a **rendering** duty. It is not :class:`DataType` and
+    has no relationship to DDL column-type declaration: a type may implement
+    one, the other, or both, and implementing one never implies the other.
+    """
+
+    def __sql_literal__(self, dialect: "SQLDialectBase") -> str:  # pragma: no cover
+        """Return the complete inline SQL literal text for this value."""
         ...
 
 
@@ -141,8 +162,8 @@ class BaseExpression:
 
     - :attr:`dialect` property — validated binding (constructor-optional,
       late binding via the setter; **per-node only, no propagation**);
-    - :attr:`inline_literals` property — inline-literal switch (defaults to
-      ``False`` for injection safety).
+    - :attr:`inline_params` class attribute — the inline-literal rendering
+      strategy (defaults to ``False`` for injection safety).
 
     Rendering is **centralised** and **stateless**: :meth:`to_sql` is
     implemented once, here, and is the only rendering entry point. A concrete
@@ -163,7 +184,6 @@ class BaseExpression:
         be supplied later through the :attr:`dialect` property (e.g. model
         declaration time has no dialect; DDL generation binds one).
         """
-        self._inline_literals = False
         self.dialect = dialect
 
     @property
@@ -336,11 +356,19 @@ class BaseExpression:
         """
         pass  # pragma: no cover
 
-    inline_literals: bool = False
-    """Default implementation of the :class:`ToSQLProtocol` contract (see
-    its documentation for the security rationale): **False** — bind
-    parameters are the safe default. Subclasses may override the class-level
-    default; instances toggle it through the protocol setter."""
+    inline_params: bool = False
+    """Class-level inline-literal rendering strategy (see
+    :class:`ToSQLProtocol` for the contract): **False** — bind parameters are
+    the safe default, and DQL/DML data positions keep it. A class that belongs
+    to a DDL syntax position (``DEFAULT`` / ``CHECK`` / partition boundaries /
+    index expressions — positions that accept no bind parameters) declares
+    ``True`` when it is defined, and its formatter then renders contained
+    values as dialect-controlled inline literals.
+
+    Whether inlining happens is decided by the **class**, once: the syntax
+    position may not overrule it, and it may not be flipped per instance —
+    formatters read ``type(expr).inline_params``, so an instance-level
+    assignment has no effect on rendering."""
 
     def get_params(self) -> Dict[str, Any]:
         """Introspection-based default implementation.

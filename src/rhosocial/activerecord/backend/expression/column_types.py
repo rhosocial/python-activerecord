@@ -167,7 +167,7 @@ class IntegerColumn(NumericColumn):
     is the *result* — SQL keeps ``CEIL`` of a whole number a whole number, while
     ``SQRT`` of one generally is not — and the result type is settled by the
     operation's own declaration at run time (the math factories tag their
-    results through ``value_class_of``), not by a mixin arranged in the MRO.
+    results through ``annotation_for``), not by a mixin arranged in the MRO.
 
     ``TranscendentalMixin`` is inherited and not withheld: ``log(2)`` is a legal
     query the database will answer, and an integer behaving differently from the
@@ -340,78 +340,92 @@ class XMLColumn(NotComparableMixin, NotANumberMixin, ColumnBase):
 
 
 
-def value_class_of(expr: object):
-    """The value class an operation handing *expr* back should be typed as.
+def annotation_for(expr: object):
+    """The annotation typing an operation that hands *expr* back.
 
     ``MIN`` of an integer column is an integer; ``MIN`` of a string column is a
     string, and can still be compared and matched. ``LAG`` over a name is a
-    name. So when an operation answers with the thing it was given, this is
-    what it asks. It is read off the column *class* because that is where the
-    type already lives -- there is no tag to read and no attribute that
-    duplicates the class.
+    name. So when an operation answers with the thing it was given, this is what
+    it asks. It is read off the column *class* because that is where the type
+    already lives -- there is no tag to read and no attribute that duplicates the
+    class.
 
     Resolution walks the MRO, so a column class that narrows an existing one
     (``IntegerColumn`` under ``NumericColumn``) is found under its own name and
-    a backend's own column class resolves through whichever core class it
-    derives from.
+    a backend's own column class resolves through whichever core class it derives
+    from. That walk is why the map is keyed by class rather than by name: a
+    backend subclass gets the right answer without saying anything about itself.
 
-    ``None`` is a real answer rather than a failure. A ``Literal`` and an
+    ``None`` is a real answer rather than a failure. A bare ``Literal`` and an
     untyped ``Column`` say nothing about what a database would hand back, so an
-    operation over them stays untyped instead of guessing: the caller who needs
-    a specific type says so with ``cast()``.
+    operation over them stays untyped instead of guessing: the caller who needs a
+    specific type says so with ``cast()`` or by annotating the call.
 
     The table is built on first use and kept. This module is imported by
-    :mod:`..core`, so building it at import time would need the value classes
-    from the module that imports this one.
+    :mod:`..core`, so building it at import time would need the annotations from
+    the module that imports this one.
     """
-    global _COLUMN_VALUE_CLASSES
-    if _COLUMN_VALUE_CLASSES is None:
-        _COLUMN_VALUE_CLASSES = _value_classes()
+    global _COLUMN_ANNOTATIONS
+    if _COLUMN_ANNOTATIONS is None:
+        _COLUMN_ANNOTATIONS = _annotations()
 
     for klass in type(expr).__mro__:
-        value_class = _COLUMN_VALUE_CLASSES.get(klass)
-        if value_class is not None:
-            return value_class
+        annotation = _COLUMN_ANNOTATIONS.get(klass)
+        if annotation is not None:
+            return annotation
     return None
 
 
-#: Column class -> the value class an operation handing that column back is
-#: typed as. Resolution walks the MRO, so a column class that narrows an
-#: existing one is found under its own name: an ``IntegerColumn`` is a whole
-#: number even though it is also a ``NumericColumn``.
+#: Column class -> the annotation typing an operation that hands that column
+#: back. Resolution walks the MRO, so a column class that narrows an existing
+#: one is found under its own name: an ``IntegerColumn`` stays a whole number
+#: even though it is also a ``NumericColumn``.
 #:
 #: Every concrete column class this module declares is in here. The test that
 #: says so lives beside the map and is why a class added without an entry is a
 #: test failure rather than a silently untyped operation.
 #:
-#: ``TimestampColumn`` is the one judgement call: a column declared
-#: ``DATETIME`` or ``TIMESTAMP`` holds a date and a time together, which is
-#: what ``TimestampValue`` is. A ``DATE`` or ``TIME`` column is a
-#: different storage type in DDL and this module has no column class for
-#: either -- the distinction between the four temporal types is made where
-#: the value is known (see :class:`~...expression.datetime.ExtractExpression`),
-#: not by guessing here.
-def _value_classes():
-    from . import core
+#: ``TimestampColumn`` is the one judgement call: a column declared ``DATETIME``
+#: or ``TIMESTAMP`` holds a date and a time together, which is what a timestamp
+#: is. A ``DATE`` or ``TIME`` column is a different storage type in DDL and this
+#: module has no column class for either -- the distinction between the temporal
+#: types is made where the value is known (see
+#: :class:`~...expression.datetime.ExtractExpression`), not by guessing here.
+def _annotations():
+    from .declared import (
+        ArrayAnnotation,
+        BinaryAnnotation,
+        BooleanAnnotation,
+        IntegerAnnotation,
+        JSONAnnotation,
+        NumberAnnotation,
+        TemporalAnnotation,
+        TextAnnotation,
+        UUIDAnnotation,
+        XMLAnnotation,
+    )
 
     return {
-        IntegerColumn: core.IntegerValue,
-        NumericColumn: core.NumericValue,
-        StringColumn: core.StringValue,
-        JSONColumn: core.JSONValue,
-        ArrayColumn: core.ArrayValue,
-        BooleanColumn: core.BooleanValue,
-        BinaryColumn: core.BinaryValue,
-        UUIDColumn: core.UUIDValue,
-        TimestampColumn: core.TimestampValue,
+        IntegerColumn: IntegerAnnotation,
+        NumericColumn: NumberAnnotation,
+        StringColumn: TextAnnotation,
+        JSONColumn: JSONAnnotation,
+        ArrayColumn: ArrayAnnotation,
+        BooleanColumn: BooleanAnnotation,
+        # A DATETIME or TIMESTAMP column holds a date and a time together.
+        TimestampColumn: TemporalAnnotation,
         # XML is a value like the rest: the operations that hand one back (a
         # column, xmlagg, a cast to XmlType) are typed, they just offer the
-        # surface an XML value has -- see XMLColumn.
-        XMLColumn: core.XMLValue,
+        # surface an XML document has -- see XMLColumn.
+        XMLColumn: XMLAnnotation,
+        # A BinaryColumn and a UUIDColumn answer with the operations they have
+        # in common and nothing else, so both land on the opaque annotation.
+        BinaryColumn: BinaryAnnotation,
+        UUIDColumn: UUIDAnnotation,
     }
 
 
-_COLUMN_VALUE_CLASSES = None
+_COLUMN_ANNOTATIONS = None
 
 
 __all__ = [
@@ -426,5 +440,5 @@ __all__ = [
     "JSONColumn",
     "ArrayColumn",
     "XMLColumn",
-    "value_class_of",
+    "annotation_for",
 ]

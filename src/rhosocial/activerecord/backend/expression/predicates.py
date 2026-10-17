@@ -39,10 +39,10 @@ class LogicalPredicate(SQLPredicate):
         """The dialect formatting method that renders this expression."""
         return "format_logical_predicate"
 
-    def __init__(self, dialect: "SQLDialectBase", op: str, *predicates: "SQLPredicate"):
+    def __init__(self, dialect: "SQLDialectBase", op: str, *operands: "SQLPredicate"):
         super().__init__(dialect)
         self.op = op
-        self.predicates = list(predicates)
+        self.operands = list(operands)
 
 
 class LikePredicate(SQLPredicate):
@@ -53,10 +53,10 @@ class LikePredicate(SQLPredicate):
         """The dialect formatting method that renders this expression."""
         return "format_like_predicate"
 
-    def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValue", pattern: "SQLValue"):
+    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValue", pattern: "SQLValue"):
         super().__init__(dialect)
         self.op = op
-        self.expr = expr
+        self.left = left
         self.pattern = pattern
 
 
@@ -68,9 +68,9 @@ class InPredicate(SQLPredicate):
         """The dialect formatting method that renders this expression."""
         return "format_in_predicate"
 
-    def __init__(self, dialect: "SQLDialectBase", expr: "SQLValue", values: "BaseExpression"):
+    def __init__(self, dialect: "SQLDialectBase", operand: "SQLValue", values: "BaseExpression"):
         super().__init__(dialect)
-        self.expr = expr
+        self.operand = operand
         self.values = values
 
 
@@ -85,12 +85,12 @@ class BetweenPredicate(SQLPredicate):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        expr: "BaseExpression",
+        operand: "BaseExpression",
         low: "BaseExpression",
         high: "BaseExpression",
     ):
         super().__init__(dialect)
-        self.expr = expr
+        self.operand = operand
         self.low = low
         self.high = high
 
@@ -125,9 +125,9 @@ class IsNullPredicate(SQLPredicate):
         """The dialect formatting method that renders this expression."""
         return "format_is_null_predicate"
 
-    def __init__(self, dialect: "SQLDialectBase", expr: "BaseExpression", is_not: bool = False):
+    def __init__(self, dialect: "SQLDialectBase", operand: "BaseExpression", is_not: bool = False):
         super().__init__(dialect)
-        self.expr = expr
+        self.operand = operand
         self.is_not = is_not
 
 

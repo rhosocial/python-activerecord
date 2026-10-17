@@ -6,7 +6,7 @@ Targets: core.py:69,177 / bases.py:16 / executable.py:35 / operators.py:153
 
 from rhosocial.activerecord.backend.expression import Column, Literal, Subquery
 from rhosocial.activerecord.backend.expression.sources import NamedRelationRef
-from rhosocial.activerecord.backend.expression.operators import BinaryArithmeticExpression
+from rhosocial.activerecord.backend.expression.operators import ArithmeticOperation
 from rhosocial.activerecord.backend.expression.objects import Table
 from rhosocial.activerecord.backend.expression.types import (
     CustomType,
@@ -33,7 +33,7 @@ class TestColumnSchemaName:
 
 
 class TestLiteralCastTypes:
-    """Literal cast goes through the CastFunction AST node."""
+    """Literal cast goes through the CastExpression AST node."""
 
     def test_literal_with_single_cast(self, dummy_dialect):
         lit = Literal(dummy_dialect, 42)
@@ -49,7 +49,7 @@ class TestLiteralCastTypes:
 
 
 class TestSubqueryCastTypes:
-    """Subquery cast goes through the CastFunction AST node."""
+    """Subquery cast goes through the CastExpression AST node."""
 
     def test_subquery_with_cast(self, dummy_dialect):
         subquery = Subquery(dummy_dialect, "SELECT id FROM users")
@@ -58,13 +58,13 @@ class TestSubqueryCastTypes:
         assert "CAST" in sql or "TEXT" in sql
 
 
-class TestBinaryArithmeticCastTypes:
-    """Arithmetic cast goes through the CastFunction AST node."""
+class TestArithmeticOperationCastTypes:
+    """Arithmetic cast goes through the CastExpression AST node."""
 
     def test_arithmetic_with_cast(self, dummy_dialect):
         left = Column(dummy_dialect, "price")
         right = Literal(dummy_dialect, 10)
-        expr = BinaryArithmeticExpression(dummy_dialect, "+", left, right)
+        expr = ArithmeticOperation(dummy_dialect, "add", left, right)
         casted = expr.cast(DecimalType(dummy_dialect))
         sql, params = casted.to_sql()
         assert "CAST" in sql or "DECIMAL" in sql

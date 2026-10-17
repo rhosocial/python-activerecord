@@ -30,6 +30,10 @@ class DefaultValueClause(BaseExpression):
     a ``BaseExpression`` (e.g. a function call or literal) — keeping the
     value/inline logic in one place. It is a self-contained expression so the
     value's escaping/inlining can be overridden per backend.
+
+    A ``DEFAULT`` position accepts no bind parameters, so the class declares
+    ``inline_params = True``: the clause renders inline only and never
+    produces a bind value.
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnCheckConstraint,
     ColumnConstraintBranch,
@@ -48,6 +52,8 @@ from rhosocial.activerecord.backend.expression.statements import (
     TableUniqueConstraint,
 )
     """
+
+    inline_params: bool = True
 
     @property
     def format_method(self) -> str:
@@ -503,7 +509,14 @@ class ColumnNullableConstraint(ColumnConstraintBranch):
 
 
 class ColumnCheckConstraint(ColumnConstraintBranch):
-    """``CHECK (<condition>)``."""
+    """``CHECK (<condition>)``.
+
+    A CHECK position accepts no bind parameters, so the class declares
+    ``inline_params = True``; the dialect renders the condition inline-only
+    and refuses any residual bind value.
+    """
+
+    inline_params: bool = True
 
     def __init__(
         self,
@@ -530,7 +543,12 @@ class ColumnDefaultConstraint(ColumnConstraintBranch):
     Not an ENFORCABLE kind: SQL:2016 gives the enforcement trait to PRIMARY
     KEY, UNIQUE, FOREIGN KEY and CHECK only, so this branch carries no way to
     ask for it.
+
+    A DEFAULT position accepts no bind parameters, so the class declares
+    ``inline_params = True``; the value renders inline only.
     """
+
+    inline_params: bool = True
 
     def __init__(
         self,
@@ -592,7 +610,12 @@ class ColumnGeneratedConstraint(ColumnConstraintBranch):
     The column-level counterpart of the generated-column production. It is a
     constraint branch rather than a free-standing node, so it rides wherever a
     column constraint rides and answers to the same level's prefix.
+
+    A generated-column expression is a DDL position, so the class declares
+    ``inline_params = True``; the expression renders inline-only.
     """
+
+    inline_params: bool = True
 
     def __init__(
         self,
@@ -808,7 +831,14 @@ class TableUniqueConstraint(TableConstraintBranch):
 
 
 class TableCheckConstraint(TableConstraintBranch):
-    """A table-level ``CHECK (<condition>)``."""
+    """A table-level ``CHECK (<condition>)``.
+
+    A CHECK position accepts no bind parameters, so the class declares
+    ``inline_params = True``; the dialect renders the condition inline-only
+    and refuses any residual bind value.
+    """
+
+    inline_params: bool = True
 
     def __init__(
         self,
@@ -1522,7 +1552,12 @@ class StorageOptionsExpression(BaseExpression):
     Holds a mapping of option names to values.  The dialect formatter renders
     each pair as ``key = <value>`` where the value is inlined via
     ``inline_sql_literal``.
+
+    Storage options are a DDL position, so the class declares
+    ``inline_params = True``: values render inline only.
     """
+
+    inline_params: bool = True
 
     def __init__(
         self,

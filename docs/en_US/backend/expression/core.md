@@ -23,9 +23,9 @@ This section details the fundamental building blocks of the Expression System, i
   - [Identifier](#identifier)
   - [SQLOperation](#sqloperation)
   - [BinaryExpression](#binaryexpression)
-  - [BinaryArithmeticExpression](#binaryarithmeticexpression)
+  - [ArithmeticOperation](#arithmeticoperation)
   - [UnaryExpression](#unaryexpression)
-  - [RawSQLExpression](#rawsqlexpression)
+  - [RawSQL](#rawsqlexpression)
   - [RawSQLPredicate](#rawsqlpredicate)
 
 ## Base Classes
@@ -461,12 +461,18 @@ class UnaryExpression(bases.BaseExpression):
     def __init__(self, dialect: "SQLDialectBase", op: str, operand: "bases.BaseExpression", pos: str = 'before'): ...
 ```
 
-### BinaryArithmeticExpression
+### ArithmeticOperation
 
 Represents binary arithmetic operations with operator precedence handling.
 
+`op` names the **operation as a word** — `add` / `sub` / `mul` / `div` / `mod` —
+and the dialect formatter maps each word to the character its SQL writes (see
+`OPERATOR_SYMBOLS`). The artifact therefore carries a language-neutral word, not
+one language's spelling of the operator. The word set is closed: an unknown word
+is refused at construction.
+
 ```python
-class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValue):
+class ArithmeticOperation(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValue", right: "bases.SQLValue"): ...
 ```
 
@@ -474,12 +480,12 @@ class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin,
 
 **Warning**: These classes should be used with caution as they allow raw SQL injection. Ensure all inputs are trusted or properly sanitized.
 
-#### RawSQLExpression
+#### RawSQL
 
 Represents a raw SQL string as a value expression.
 
 ```python
-class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
+class RawSQL(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValue):
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()): ...
 ```
 
