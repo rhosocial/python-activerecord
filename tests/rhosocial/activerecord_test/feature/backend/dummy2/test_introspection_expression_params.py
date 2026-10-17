@@ -32,7 +32,7 @@ class TestIntrospectionExpressionParams:
 
     def test_introspection_expression_fluent_schema(self, dummy_dialect):
         """Test schema can be set via fluent API."""
-        expr = IntrospectionExpression(dummy_dialect).schema("public")
+        expr = IntrospectionExpression(dummy_dialect).with_schema("public")
         params = expr.get_params()
         assert params.get("schema") == "public"
 
@@ -62,7 +62,7 @@ class TestTableListExpressionParams:
 
     def test_fluent_api_override(self, dummy_dialect):
         """Test fluent API can override constructor values."""
-        expr = TableListExpression(dialect=dummy_dialect, include_views=False).include_views(True)
+        expr = TableListExpression(dialect=dummy_dialect, include_views=False).with_include_views(True)
         params = expr.get_params()
         assert params.get("include_views") is True
 
@@ -101,8 +101,8 @@ class TestTableInfoExpressionParams:
         """Test fluent API can override constructor values."""
         expr = (
             TableInfoExpression(dialect=dummy_dialect, table_name="users", include_columns=False)
-            .include_columns(True)
-            .table_name("posts")
+            .with_include_columns(True)
+            .with_table_name("posts")
         )
         params = expr.get_params()
         assert params.get("table_name") == "posts"
@@ -184,7 +184,7 @@ class TestViewListExpressionParams:
 
     def test_fluent_api_override(self, dummy_dialect):
         """Test fluent API can override constructor values."""
-        expr = ViewListExpression(dialect=dummy_dialect, include_system=False).include_system(True)
+        expr = ViewListExpression(dialect=dummy_dialect, include_system=False).with_include_system(True)
         params = expr.get_params()
         assert params.get("include_system") is True
 

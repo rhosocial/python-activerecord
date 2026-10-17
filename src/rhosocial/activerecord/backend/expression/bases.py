@@ -390,30 +390,20 @@ class BaseExpression:
             if name in ("self", "dialect"):
                 continue
 
-            private = f"_{name}"
-            if hasattr(self, private) and hasattr(self, name):
-                # Both spellings exist. A fluent-API method named like the
-                # parameter (e.g. `schema` on introspection expressions) is
-                # a *callable* — then the private attribute is the state.
-                # Otherwise the public attribute is the constructor's
-                # authoritative write (the private one is only the
-                # base-class default the protocol setter keeps).
-                public = getattr(self, name)
-                value = public if not callable(public) else getattr(self, private)
-            elif hasattr(self, private):
-                value = getattr(self, private)
-            elif hasattr(self, name):
-                value = getattr(self, name)
-            else:
-                warnings.warn(
-                    f"{self.__class__.__name__}.get_params(): cannot find attribute "
-                    f"'_{name}' or '{name}' for parameter '{name}'. "
-                    "Store it under the parameter's name in __init__ - "
-                    "get_params() is the single serialization path and is not "
-                    "meant to be overridden.",
-                    stacklevel=2,
-                )
-                continue
+            # One spelling, and it is the parameter's own name. This used to
+            # probe `_{name}` then `name` and pick between them by testing
+            # whether the public one was callable, because eighteen fluent
+            # setters were named exactly like their constructor parameters
+            # (`schema`, `table_name`, `include_columns`, `begin_type`, …) and
+            # the value could not then be written as `self.schema = ...` without
+            # shadowing the method. The setters are `with_*` now, so the
+            # parameter owns the name and there is nothing to decide.
+            #
+            # Nothing is skipped when the attribute is absent: a parameter the
+            # class did not store is a defect, and the AttributeError says which
+            # class and which parameter. The old branch warned and carried on,
+            # which put the omission in the artifact with nothing to show for it.
+            value = getattr(self, name)
 
             if param.kind == inspect.Parameter.VAR_KEYWORD:
                 # **kwargs extras must be stored as a dict on an attribute named

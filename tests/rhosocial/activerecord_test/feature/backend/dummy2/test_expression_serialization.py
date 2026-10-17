@@ -1072,8 +1072,14 @@ class TestGetParamsWarningPaths:
         assert any("VAR_KEYWORD" in str(x.message) and "not stored as a dict" in str(x.message) for x in w)
         assert params == {}
 
-    def test_missing_attribute_warns(self, dummy_dialect):
+    def test_missing_attribute_raises(self, dummy_dialect):
+        """A parameter that was never stored is an AttributeError, not a skip.
 
+        The old branch warned and dropped it, which produced an artifact that
+        reconstructs into a tree missing that argument -- a silent change of
+        meaning. Reading the parameter's own name has nothing to fall back on,
+        so the failure names the parameter.
+        """
 
         class NoAttrExpr(BaseExpression):
             def __init__(self, dialect, missing_param):
@@ -1083,8 +1089,5 @@ class TestGetParamsWarningPaths:
                 return "", ()
 
         expr = NoAttrExpr(dummy_dialect, 1)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            params = expr.get_params()
-        assert any("cannot find attribute" in str(x.message) for x in w)
-        assert params == {}
+        with pytest.raises(AttributeError, match="missing_param"):
+            expr.get_params()

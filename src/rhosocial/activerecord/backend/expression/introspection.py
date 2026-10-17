@@ -56,9 +56,9 @@ class IntrospectionExpression(BaseExpression):
             schema: Optional schema name. Defaults to None.
         """
         super().__init__(dialect)
-        self._schema: Optional[str] = schema
+        self.schema: Optional[str] = schema
 
-    def schema(self, name: str) -> "IntrospectionExpression":
+    def with_schema(self, name: str) -> "IntrospectionExpression":
         """Set the schema name for the introspection query.
 
         This method provides a fluent API for setting the schema name.
@@ -71,9 +71,9 @@ class IntrospectionExpression(BaseExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TableListExpression(dialect).schema('public')
+            >>> expr = TableListExpression(dialect).with_schema('public')
         """
-        self._schema = name
+        self.schema = name
         return self
 
 
@@ -119,7 +119,7 @@ class TableListExpression(IntrospectionExpression):
         >>> expr = TableListExpression(dialect, schema='public',
         ...     include_views=True, include_system=False)
         >>> # Or using fluent API
-        >>> expr = TableListExpression(dialect).include_views(False)
+        >>> expr = TableListExpression(dialect).with_include_views(False)
     """
 
     def __init__(
@@ -140,11 +140,11 @@ class TableListExpression(IntrospectionExpression):
             table_type: Optional table type filter. Defaults to None.
         """
         super().__init__(dialect, schema)
-        self._include_views: bool = include_views
-        self._include_system: bool = include_system
-        self._table_type: Optional[str] = table_type
+        self.include_views: bool = include_views
+        self.include_system: bool = include_system
+        self.table_type: Optional[str] = table_type
 
-    def include_views(self, value: bool = True) -> "TableListExpression":
+    def with_include_views(self, value: bool = True) -> "TableListExpression":
         """Set whether to include views in the result.
 
         Args:
@@ -154,12 +154,12 @@ class TableListExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TableListExpression(dialect).include_views(False)
+            >>> expr = TableListExpression(dialect).with_include_views(False)
         """
-        self._include_views = value
+        self.include_views = value
         return self
 
-    def include_system(self, value: bool = True) -> "TableListExpression":
+    def with_include_system(self, value: bool = True) -> "TableListExpression":
         """Set whether to include system tables in the result.
 
         System tables are database metadata tables that are typically hidden
@@ -173,12 +173,12 @@ class TableListExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TableListExpression(dialect).include_system(True)
+            >>> expr = TableListExpression(dialect).with_include_system(True)
         """
-        self._include_system = value
+        self.include_system = value
         return self
 
-    def table_type(self, ttype: str) -> "TableListExpression":
+    def with_table_type(self, ttype: str) -> "TableListExpression":
         """Filter results by a specific table type.
 
         Common table types include 'TABLE', 'VIEW', 'SYSTEM TABLE', etc.
@@ -191,9 +191,9 @@ class TableListExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TableListExpression(dialect).table_type('TABLE')
+            >>> expr = TableListExpression(dialect).with_table_type('TABLE')
         """
-        self._table_type = ttype
+        self.table_type = ttype
         return self
 
     @property
@@ -241,12 +241,12 @@ class TableInfoExpression(IntrospectionExpression):
             include_foreign_keys: Whether to include foreign key info. Defaults to True.
         """
         super().__init__(dialect, schema)
-        self._table_name = table_name
-        self._include_columns: bool = include_columns
-        self._include_indexes: bool = include_indexes
-        self._include_foreign_keys: bool = include_foreign_keys
+        self.table_name = table_name
+        self.include_columns: bool = include_columns
+        self.include_indexes: bool = include_indexes
+        self.include_foreign_keys: bool = include_foreign_keys
 
-    def table_name(self, name: str) -> "TableInfoExpression":
+    def with_table_name(self, name: str) -> "TableInfoExpression":
         """Set the table name to query.
 
         Args:
@@ -256,12 +256,12 @@ class TableInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TableInfoExpression(dialect, 'old_table').table_name('new_table')
+            >>> expr = TableInfoExpression(dialect, 'old_table').with_table_name('new_table')
         """
-        self._table_name = name
+        self.table_name = name
         return self
 
-    def include_columns(self, value: bool = True) -> "TableInfoExpression":
+    def with_include_columns(self, value: bool = True) -> "TableInfoExpression":
         """Set whether to include column information.
 
         Column information includes column names, data types, nullability,
@@ -275,12 +275,12 @@ class TableInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TableInfoExpression(dialect, 'users').include_columns(False)
+            >>> expr = TableInfoExpression(dialect, 'users').with_include_columns(False)
         """
-        self._include_columns = value
+        self.include_columns = value
         return self
 
-    def include_indexes(self, value: bool = True) -> "TableInfoExpression":
+    def with_include_indexes(self, value: bool = True) -> "TableInfoExpression":
         """Set whether to include index information.
 
         Index information includes index names, columns, uniqueness,
@@ -294,12 +294,12 @@ class TableInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TableInfoExpression(dialect, 'users').include_indexes(False)
+            >>> expr = TableInfoExpression(dialect, 'users').with_include_indexes(False)
         """
-        self._include_indexes = value
+        self.include_indexes = value
         return self
 
-    def include_foreign_keys(self, value: bool = True) -> "TableInfoExpression":
+    def with_include_foreign_keys(self, value: bool = True) -> "TableInfoExpression":
         """Set whether to include foreign key information.
 
         Foreign key information includes constraint names, referenced
@@ -313,9 +313,9 @@ class TableInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TableInfoExpression(dialect, 'users').include_foreign_keys(False)
+            >>> expr = TableInfoExpression(dialect, 'users').with_include_foreign_keys(False)
         """
-        self._include_foreign_keys = value
+        self.include_foreign_keys = value
         return self
 
     @property
@@ -356,10 +356,10 @@ class ColumnInfoExpression(IntrospectionExpression):
             include_hidden: Whether to include hidden columns. Defaults to False.
         """
         super().__init__(dialect, schema)
-        self._table_name = table_name
-        self._include_hidden: bool = include_hidden
+        self.table_name = table_name
+        self.include_hidden: bool = include_hidden
 
-    def table_name(self, name: str) -> "ColumnInfoExpression":
+    def with_table_name(self, name: str) -> "ColumnInfoExpression":
         """Set the table name to query columns for.
 
         Args:
@@ -369,12 +369,12 @@ class ColumnInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = ColumnInfoExpression(dialect, 'old').table_name('new')
+            >>> expr = ColumnInfoExpression(dialect, 'old').with_table_name('new')
         """
-        self._table_name = name
+        self.table_name = name
         return self
 
-    def include_hidden(self, value: bool = True) -> "ColumnInfoExpression":
+    def with_include_hidden(self, value: bool = True) -> "ColumnInfoExpression":
         """Set whether to include hidden columns.
 
         Hidden columns are typically internal columns used by the database
@@ -388,9 +388,9 @@ class ColumnInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = ColumnInfoExpression(dialect, 'users').include_hidden(True)
+            >>> expr = ColumnInfoExpression(dialect, 'users').with_include_hidden(True)
         """
-        self._include_hidden = value
+        self.include_hidden = value
         return self
 
     @property
@@ -428,9 +428,9 @@ class IndexInfoExpression(IntrospectionExpression):
             schema: Optional schema name. Defaults to None.
         """
         super().__init__(dialect, schema)
-        self._table_name = table_name
+        self.table_name = table_name
 
-    def table_name(self, name: str) -> "IndexInfoExpression":
+    def with_table_name(self, name: str) -> "IndexInfoExpression":
         """Set the table name to query indexes for.
 
         Args:
@@ -440,9 +440,9 @@ class IndexInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = IndexInfoExpression(dialect, 'old').table_name('new')
+            >>> expr = IndexInfoExpression(dialect, 'old').with_table_name('new')
         """
-        self._table_name = name
+        self.table_name = name
         return self
 
     @property
@@ -480,9 +480,9 @@ class ForeignKeyExpression(IntrospectionExpression):
             schema: Optional schema name. Defaults to None.
         """
         super().__init__(dialect, schema)
-        self._table_name = table_name
+        self.table_name = table_name
 
-    def table_name(self, name: str) -> "ForeignKeyExpression":
+    def with_table_name(self, name: str) -> "ForeignKeyExpression":
         """Set the table name to query foreign keys for.
 
         Args:
@@ -492,9 +492,9 @@ class ForeignKeyExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = ForeignKeyExpression(dialect, 'old').table_name('new')
+            >>> expr = ForeignKeyExpression(dialect, 'old').with_table_name('new')
         """
-        self._table_name = name
+        self.table_name = name
         return self
 
     @property
@@ -532,9 +532,9 @@ class ViewListExpression(IntrospectionExpression):
             include_system: Whether to include system views. Defaults to False.
         """
         super().__init__(dialect, schema)
-        self._include_system: bool = include_system
+        self.include_system: bool = include_system
 
-    def include_system(self, value: bool = True) -> "ViewListExpression":
+    def with_include_system(self, value: bool = True) -> "ViewListExpression":
         """Set whether to include system views.
 
         System views are database metadata views that are typically hidden
@@ -548,9 +548,9 @@ class ViewListExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = ViewListExpression(dialect).include_system(True)
+            >>> expr = ViewListExpression(dialect).with_include_system(True)
         """
-        self._include_system = value
+        self.include_system = value
         return self
 
     @property
@@ -592,10 +592,10 @@ class ViewInfoExpression(IntrospectionExpression):
             include_columns: Whether to include column information. Defaults to True.
         """
         super().__init__(dialect, schema)
-        self._view_name = view_name
-        self._include_columns: bool = include_columns
+        self.view_name = view_name
+        self.include_columns: bool = include_columns
 
-    def view_name(self, name: str) -> "ViewInfoExpression":
+    def with_view_name(self, name: str) -> "ViewInfoExpression":
         """Set the view name to query.
 
         Args:
@@ -605,12 +605,12 @@ class ViewInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = ViewInfoExpression(dialect, 'old_view').view_name('new_view')
+            >>> expr = ViewInfoExpression(dialect, 'old_view').with_view_name('new_view')
         """
-        self._view_name = name
+        self.view_name = name
         return self
 
-    def include_columns(self, value: bool = True) -> "ViewInfoExpression":
+    def with_include_columns(self, value: bool = True) -> "ViewInfoExpression":
         """Set whether to include column information.
 
         Column information includes column names, data types, and other
@@ -624,9 +624,9 @@ class ViewInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = ViewInfoExpression(dialect, 'my_view').include_columns(False)
+            >>> expr = ViewInfoExpression(dialect, 'my_view').with_include_columns(False)
         """
-        self._include_columns = value
+        self.include_columns = value
         return self
 
     @property
@@ -667,7 +667,7 @@ class TriggerListExpression(IntrospectionExpression):
             table_name: Optional table name to filter triggers. Defaults to None.
         """
         super().__init__(dialect, schema)
-        self._table_name: Optional[str] = table_name
+        self.table_name: Optional[str] = table_name
 
     def for_table(self, table_name: str) -> "TriggerListExpression":
         """Filter triggers for a specific table.
@@ -681,7 +681,7 @@ class TriggerListExpression(IntrospectionExpression):
         Example:
             >>> expr = TriggerListExpression(dialect).for_table('users')
         """
-        self._table_name = table_name
+        self.table_name = table_name
         return self
 
     @property
@@ -723,10 +723,10 @@ class TriggerInfoExpression(IntrospectionExpression):
             table_name: Optional associated table name. Defaults to None.
         """
         super().__init__(dialect, schema)
-        self._trigger_name = trigger_name
-        self._table_name: Optional[str] = table_name
+        self.trigger_name = trigger_name
+        self.table_name: Optional[str] = table_name
 
-    def trigger_name(self, name: str) -> "TriggerInfoExpression":
+    def with_trigger_name(self, name: str) -> "TriggerInfoExpression":
         """Set the trigger name to query.
 
         Args:
@@ -736,9 +736,9 @@ class TriggerInfoExpression(IntrospectionExpression):
             Self for method chaining.
 
         Example:
-            >>> expr = TriggerInfoExpression(dialect, 'old').trigger_name('new')
+            >>> expr = TriggerInfoExpression(dialect, 'old').with_trigger_name('new')
         """
-        self._trigger_name = name
+        self.trigger_name = name
         return self
 
     def for_table(self, table_name: str) -> "TriggerInfoExpression":
@@ -756,7 +756,7 @@ class TriggerInfoExpression(IntrospectionExpression):
         Example:
             >>> expr = TriggerInfoExpression(dialect, 'my_trigger').for_table('users')
         """
-        self._table_name = table_name
+        self.table_name = table_name
         return self
 
     @property

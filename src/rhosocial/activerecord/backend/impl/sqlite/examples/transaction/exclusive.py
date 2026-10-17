@@ -30,7 +30,7 @@ SQLite transaction modes.
 
 This example demonstrates:
 1. DEFERRED and IMMEDIATE transaction behavior via transaction manager settings
-2. EXCLUSIVE transaction mode via BeginTransactionStatement.begin_type()
+2. EXCLUSIVE transaction mode via BeginTransactionStatement.with_begin_type()
 3. Nested transactions with automatic savepoints
 4. WAL mode for better concurrency
 """
@@ -136,7 +136,7 @@ print(f"After IMMEDIATE transaction: {fetch_balances()}")
 # - BEGIN EXCLUSIVE: exclusive lock only for this transaction
 # - PRAGMA locking_mode=EXCLUSIVE: persistent lock across all transactions
 
-exclusive_begin = BeginTransactionStatement(dialect).begin_type("EXCLUSIVE")
+exclusive_begin = BeginTransactionStatement(dialect).with_begin_type("EXCLUSIVE")
 sql, params = exclusive_begin.to_sql()
 print(f"EXCLUSIVE BEGIN SQL: {sql}")
 
@@ -182,7 +182,7 @@ backend.disconnect()
 # Key points:
 # 1. READ_UNCOMMITTED maps to SQLite's DEFERRED transaction behavior
 # 2. SERIALIZABLE maps to SQLite's IMMEDIATE transaction behavior
-# 3. Use BeginTransactionStatement.begin_type("EXCLUSIVE") for exclusive transactions
+# 3. Use BeginTransactionStatement.with_begin_type("EXCLUSIVE") for exclusive transactions
 # 4. Or set transaction_manager.begin_type = "EXCLUSIVE" for all subsequent transactions
 # 5. Nested backend.transaction() calls use savepoints automatically
 # 6. WAL mode improves concurrent read/write behavior

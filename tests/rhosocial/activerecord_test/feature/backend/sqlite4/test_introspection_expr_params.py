@@ -45,7 +45,7 @@ class TestTableListExpressionExecution:
     def test_fluent_vs_constructor_equivalence(self, backend_with_tables):
         """Test fluent API and constructor params produce same SQL."""
         expr1 = TableListExpression(dialect=backend_with_tables.dialect, schema="main", include_views=False)
-        expr2 = TableListExpression(dialect=backend_with_tables.dialect).schema("main").include_views(False)
+        expr2 = TableListExpression(dialect=backend_with_tables.dialect).with_schema("main").with_include_views(False)
 
         sql1, params1 = expr1.to_sql()
         sql2, params2 = expr2.to_sql()
@@ -67,7 +67,7 @@ class TestTableInfoExpressionExecution:
     def test_fluent_vs_constructor_equivalence(self, backend_with_tables):
         """Test fluent API and constructor params produce same SQL."""
         expr1 = TableInfoExpression(dialect=backend_with_tables.dialect, table_name="users", schema="main")
-        expr2 = TableInfoExpression(dialect=backend_with_tables.dialect, table_name="users").schema("main")
+        expr2 = TableInfoExpression(dialect=backend_with_tables.dialect, table_name="users").with_schema("main")
 
         sql1, params1 = expr1.to_sql()
         sql2, params2 = expr2.to_sql()

@@ -30,7 +30,7 @@ class TestBeginTransactionExpression:
     def test_begin_with_isolation_level(self, dummy_dialect: DummyDialect):
         """Test BEGIN with isolation level."""
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE)
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE)
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
         assert params == ()
@@ -54,7 +54,7 @@ class TestBeginTransactionExpression:
     def test_begin_with_isolation_and_mode(self, dummy_dialect: DummyDialect):
         """Test BEGIN with isolation level and mode."""
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.isolation_level(IsolationLevel.REPEATABLE_READ).read_only()
+        expr.with_isolation_level(IsolationLevel.REPEATABLE_READ).read_only()
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL REPEATABLE READ" in sql
         assert "READ ONLY" in sql
@@ -63,7 +63,7 @@ class TestBeginTransactionExpression:
     def test_begin_deferrable(self, dummy_dialect: DummyDialect):
         """Test BEGIN with DEFERRABLE."""
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).deferrable()
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE).with_deferrable()
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
         assert "DEFERRABLE" in sql
@@ -72,7 +72,7 @@ class TestBeginTransactionExpression:
     def test_begin_not_deferrable(self, dummy_dialect: DummyDialect):
         """Test BEGIN with NOT DEFERRABLE."""
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).not_deferrable()
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE).with_not_deferrable()
         sql, params = expr.to_sql()
         assert "NOT DEFERRABLE" in sql
         assert params == ()
@@ -80,7 +80,7 @@ class TestBeginTransactionExpression:
     def test_begin_wait(self, dummy_dialect: DummyDialect):
         """Test BEGIN with the WAIT lock-wait spelling."""
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).wait()
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE).with_wait()
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
         assert sql.endswith("WAIT")
@@ -90,7 +90,7 @@ class TestBeginTransactionExpression:
     def test_begin_no_wait(self, dummy_dialect: DummyDialect):
         """Test BEGIN with the NO WAIT lock-wait spelling."""
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.no_wait()
+        expr.with_no_wait()
         sql, params = expr.to_sql()
         assert sql == "BEGIN NO WAIT"
         assert params == ()
@@ -111,7 +111,7 @@ class TestBeginTransactionExpression:
         silently ignored.
         """
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.isolation_level(IsolationLevel.READ_COMMITTED).deferrable()
+        expr.with_isolation_level(IsolationLevel.READ_COMMITTED).with_deferrable()
         sql, params = expr.to_sql()
         assert "DEFERRABLE" in sql
         assert "READ COMMITTED" in sql
@@ -119,17 +119,17 @@ class TestBeginTransactionExpression:
     def test_method_chaining(self, dummy_dialect: DummyDialect):
         """Test method chaining returns self."""
         expr = BeginTransactionStatement(dummy_dialect)
-        result = expr.isolation_level(IsolationLevel.SERIALIZABLE)
+        result = expr.with_isolation_level(IsolationLevel.SERIALIZABLE)
         assert result is expr
         result = expr.read_only()
         assert result is expr
-        result = expr.deferrable()
+        result = expr.with_deferrable()
         assert result is expr
 
     def test_get_params(self, dummy_dialect: DummyDialect):
         """Test get_params returns correct dictionary."""
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).read_only().deferrable()
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE).read_only().with_deferrable()
         params = expr.get_params()
         assert params["isolation_level"] == IsolationLevel.SERIALIZABLE
         assert params["mode"] == TransactionMode.READ_ONLY
@@ -148,7 +148,7 @@ class TestBeginTransactionExpression:
         """Test SQLite BEGIN with SERIALIZABLE isolation."""
         sqlite_dialect = SQLiteDialect()
         expr = BeginTransactionStatement(sqlite_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE)
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE)
         sql, params = expr.to_sql()
         assert sql == "BEGIN IMMEDIATE TRANSACTION"
         assert params == ()
@@ -157,7 +157,7 @@ class TestBeginTransactionExpression:
         """Test SQLite BEGIN with READ UNCOMMITTED isolation."""
         sqlite_dialect = SQLiteDialect()
         expr = BeginTransactionStatement(sqlite_dialect)
-        expr.isolation_level(IsolationLevel.READ_UNCOMMITTED)
+        expr.with_isolation_level(IsolationLevel.READ_UNCOMMITTED)
         sql, params = expr.to_sql()
         assert sql == "BEGIN DEFERRED TRANSACTION"
         assert params == ()
@@ -271,7 +271,7 @@ class TestSetTransactionExpression:
     def test_set_transaction_isolation_level(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION with isolation level."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE)
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE)
         sql, params = expr.to_sql()
         assert "SET TRANSACTION" in sql
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
@@ -298,7 +298,7 @@ class TestSetTransactionExpression:
     def test_set_transaction_session(self, dummy_dialect: DummyDialect):
         """Test SET SESSION CHARACTERISTICS AS TRANSACTION."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.session(True)
+        expr.with_session(True)
         sql, params = expr.to_sql()
         assert "SET SESSION CHARACTERISTICS AS TRANSACTION" in sql
         assert params == ()
@@ -306,7 +306,7 @@ class TestSetTransactionExpression:
     def test_set_transaction_deferrable(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION DEFERRABLE."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).deferrable()
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE).with_deferrable()
         sql, params = expr.to_sql()
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
         assert "DEFERRABLE" in sql
@@ -315,7 +315,7 @@ class TestSetTransactionExpression:
     def test_set_transaction_not_deferrable(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION NOT DEFERRABLE."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).not_deferrable()
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE).with_not_deferrable()
         sql, params = expr.to_sql()
         assert "NOT DEFERRABLE" in sql
         assert params == ()
@@ -323,7 +323,7 @@ class TestSetTransactionExpression:
     def test_set_transaction_wait(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION with the WAIT lock-wait spelling."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).wait()
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE).with_wait()
         sql, params = expr.to_sql()
         assert sql == "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE WAIT"
         assert params == ()
@@ -331,7 +331,7 @@ class TestSetTransactionExpression:
     def test_set_transaction_no_wait(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION with the NO WAIT lock-wait spelling."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.no_wait()
+        expr.with_no_wait()
         sql, params = expr.to_sql()
         assert sql == "SET TRANSACTION NO WAIT"
         assert params == ()
@@ -343,7 +343,7 @@ class TestSetTransactionExpression:
     def test_set_transaction_all_options(self, dummy_dialect: DummyDialect):
         """Test SET TRANSACTION with all options."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.session(True).isolation_level(IsolationLevel.SERIALIZABLE).read_only().deferrable()
+        expr.with_session(True).with_isolation_level(IsolationLevel.SERIALIZABLE).read_only().with_deferrable()
         sql, params = expr.to_sql()
         assert "SET SESSION CHARACTERISTICS AS TRANSACTION" in sql
         assert "ISOLATION LEVEL SERIALIZABLE" in sql
@@ -354,19 +354,19 @@ class TestSetTransactionExpression:
     def test_method_chaining(self, dummy_dialect: DummyDialect):
         """Test method chaining returns self."""
         expr = SetTransactionExpression(dummy_dialect)
-        result = expr.isolation_level(IsolationLevel.SERIALIZABLE)
+        result = expr.with_isolation_level(IsolationLevel.SERIALIZABLE)
         assert result is expr
         result = expr.read_only()
         assert result is expr
-        result = expr.session(True)
+        result = expr.with_session(True)
         assert result is expr
-        result = expr.deferrable()
+        result = expr.with_deferrable()
         assert result is expr
 
     def test_get_params(self, dummy_dialect: DummyDialect):
         """Test get_params returns correct dictionary."""
         expr = SetTransactionExpression(dummy_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE).read_only().session(True).deferrable()
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE).read_only().with_session(True).with_deferrable()
         params = expr.get_params()
         assert params["isolation_level"] == IsolationLevel.SERIALIZABLE
         assert params["mode"] == TransactionMode.READ_ONLY
@@ -403,7 +403,7 @@ class TestAllIsolationLevels:
     def test_isolation_level_names(self, dummy_dialect: DummyDialect, level, expected_name):
         """Test all isolation level names are correctly formatted."""
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.isolation_level(level)
+        expr.with_isolation_level(level)
         sql, params = expr.to_sql()
         assert expected_name in sql
 
@@ -506,7 +506,7 @@ class TestSQLiteDialectTransactionCapabilities:
     def test_begin_serializable_uses_immediate(self, sqlite_dialect: SQLiteDialect):
         """Test BEGIN with SERIALIZABLE uses IMMEDIATE keyword."""
         expr = BeginTransactionStatement(sqlite_dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE)
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE)
         sql, params = expr.to_sql()
         assert sql == "BEGIN IMMEDIATE TRANSACTION"
         assert params == ()
@@ -514,7 +514,7 @@ class TestSQLiteDialectTransactionCapabilities:
     def test_begin_read_uncommitted_uses_deferred(self, sqlite_dialect: SQLiteDialect):
         """Test BEGIN with READ_UNCOMMITTED uses DEFERRED keyword."""
         expr = BeginTransactionStatement(sqlite_dialect)
-        expr.isolation_level(IsolationLevel.READ_UNCOMMITTED)
+        expr.with_isolation_level(IsolationLevel.READ_UNCOMMITTED)
         sql, params = expr.to_sql()
         assert sql == "BEGIN DEFERRED TRANSACTION"
         assert params == ()

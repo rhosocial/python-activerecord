@@ -121,9 +121,9 @@ class AsyncSQLiteTransactionManager(AsyncTransactionManager):
 
         if self._begin_type is not None:
             # Explicit begin_type overrides isolation level mapping
-            expr.begin_type(self._begin_type)
+            expr.with_begin_type(self._begin_type)
         elif self._isolation_level is not None:
-            expr.isolation_level(self._isolation_level)
+            expr.with_isolation_level(self._isolation_level)
 
         if self._transaction_mode == TransactionMode.READ_ONLY:
             expr.read_only()

@@ -144,12 +144,12 @@ except UnsupportedFeatureError as e:
 # transaction start, preventing other writers.
 
 # BEGIN IMMEDIATE: acquires RESERVED lock (allows readers, blocks writers)
-immediate_begin = BeginTransactionStatement(dialect).begin_type("IMMEDIATE")
+immediate_begin = BeginTransactionStatement(dialect).with_begin_type("IMMEDIATE")
 sql, params = immediate_begin.to_sql()
 print(f"BEGIN IMMEDIATE SQL: {sql}")
 
 # BEGIN EXCLUSIVE: acquires EXCLUSIVE lock (blocks both readers and writers)
-exclusive_begin = BeginTransactionStatement(dialect).begin_type("EXCLUSIVE")
+exclusive_begin = BeginTransactionStatement(dialect).with_begin_type("EXCLUSIVE")
 sql, params = exclusive_begin.to_sql()
 print(f"BEGIN EXCLUSIVE SQL: {sql}")
 

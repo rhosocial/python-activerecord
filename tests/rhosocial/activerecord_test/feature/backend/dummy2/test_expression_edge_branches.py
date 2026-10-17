@@ -10,7 +10,6 @@ Covers:
   introspection to_sql() and ``date_diff`` must raise.
 """
 
-import warnings
 
 import pytest
 
@@ -58,7 +57,6 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression.functions.string import trim
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.objects import Table
 
 
 @pytest.fixture
@@ -126,7 +124,7 @@ class TestGetParamsFallback:
         class ArgsExpr(SQLValue):
             def __init__(self, dialect, *values, **kwargs):
                 super().__init__(dialect)
-                self._values = list(values)
+                self.values = list(values)
                 self.kwargs = dict(kwargs)
                 self.extra = kwargs.get("extra")
 
@@ -139,9 +137,14 @@ class TestGetParamsFallback:
         assert params["values"] == [1, 2, 3]
         assert params["extra"] == "x"
 
-    def test_get_params_missing_attribute_warns(self, dialect):
-        # A subclass whose declared __init__ parameter has no matching
-        # _name/name attribute triggers a warning.
+    def test_get_params_missing_attribute_raises(self, dialect):
+        """A parameter the class did not store is a defect, and it says so.
+
+        This used to warn and carry on, which put the omission in the artifact
+        with nothing to show for it: a serialized node that reconstructs into a
+        different tree. Reading the parameter's own name has no fallback to
+        reach for, so the AttributeError names the class and the parameter.
+        """
         from rhosocial.activerecord.backend.expression.bases import SQLValue
 
         class MissingAttrExpr(SQLValue):
@@ -153,11 +156,8 @@ class TestGetParamsFallback:
                 return "x", ()
 
         expr = MissingAttrExpr(dialect, 123)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            params = expr.get_params()
-        assert any("get_params" in str(w.message) for w in caught)
-        assert "some_param" not in params
+        with pytest.raises(AttributeError, match="some_param"):
+            expr.get_params()
 
 
 class TestTrimDirectionValidation:
@@ -302,23 +302,23 @@ class TestIntrospectionExpressionStructure:
     """Generic introspection expression construction (dialect-independent)."""
 
     def test_table_list_include_system(self, dialect):
-        expr = TableListExpression(dialect).include_system(True)
+        expr = TableListExpression(dialect).with_include_system(True)
         assert expr.get_params()["include_system"] is True
 
     def test_table_list_table_type(self, dialect):
-        expr = TableListExpression(dialect).table_type("VIEW")
+        expr = TableListExpression(dialect).with_table_type("VIEW")
         assert expr.get_params()["table_type"] == "VIEW"
 
     def test_table_info_include_indexes(self, dialect):
-        expr = TableInfoExpression(dialect, "users").include_indexes(True)
+        expr = TableInfoExpression(dialect, "users").with_include_indexes(True)
         assert expr.get_params()["include_indexes"] is True
 
     def test_table_info_include_foreign_keys(self, dialect):
-        expr = TableInfoExpression(dialect, "users").include_foreign_keys(True)
+        expr = TableInfoExpression(dialect, "users").with_include_foreign_keys(True)
         assert expr.get_params()["include_foreign_keys"] is True
 
     def test_column_info_include_hidden(self, dialect):
-        expr = ColumnInfoExpression(dialect, "users").include_hidden(True)
+        expr = ColumnInfoExpression(dialect, "users").with_include_hidden(True)
         assert expr.get_params()["include_hidden"] is True
 
     def test_index_info_table_name(self, dialect):
@@ -334,7 +334,7 @@ class TestIntrospectionExpressionStructure:
         assert "include_system" in expr.get_params()
 
     def test_view_info(self, dialect):
-        expr = ViewInfoExpression(dialect, "my_view").include_columns(True)
+        expr = ViewInfoExpression(dialect, "my_view").with_include_columns(True)
         params = expr.get_params()
         assert params["view_name"] == "my_view"
         assert params["include_columns"] is True
@@ -350,23 +350,23 @@ class TestIntrospectionExpressionStructure:
         assert "table_name" in expr.get_params()
 
     def test_table_info_table_name_setter(self, dialect):
-        expr = TableInfoExpression(dialect, "old").table_name("new")
+        expr = TableInfoExpression(dialect, "old").with_table_name("new")
         assert expr.get_params()["table_name"] == "new"
 
     def test_column_info_table_name_setter(self, dialect):
-        expr = ColumnInfoExpression(dialect, "old").table_name("new")
+        expr = ColumnInfoExpression(dialect, "old").with_table_name("new")
         assert expr.get_params()["table_name"] == "new"
 
     def test_index_info_table_name_setter(self, dialect):
-        expr = IndexInfoExpression(dialect, "old").table_name("new")
+        expr = IndexInfoExpression(dialect, "old").with_table_name("new")
         assert expr.get_params()["table_name"] == "new"
 
     def test_foreign_key_table_name_setter(self, dialect):
-        expr = ForeignKeyExpression(dialect, "old").table_name("new")
+        expr = ForeignKeyExpression(dialect, "old").with_table_name("new")
         assert expr.get_params()["table_name"] == "new"
 
     def test_view_info_view_name_setter(self, dialect):
-        expr = ViewInfoExpression(dialect, "old").view_name("new")
+        expr = ViewInfoExpression(dialect, "old").with_view_name("new")
         assert expr.get_params()["view_name"] == "new"
 
 
@@ -410,7 +410,7 @@ class TestCrossTypeDataTypes:
     def test_trigger_info_trigger_name_setter(self, dialect):
         from rhosocial.activerecord.backend.expression.introspection import TriggerInfoExpression
 
-        expr = TriggerInfoExpression(dialect, "old").trigger_name("new")
+        expr = TriggerInfoExpression(dialect, "old").with_trigger_name("new")
         assert expr.get_params()["trigger_name"] == "new"
 
 

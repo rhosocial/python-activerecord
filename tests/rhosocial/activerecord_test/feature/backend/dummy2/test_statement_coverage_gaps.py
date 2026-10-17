@@ -104,12 +104,12 @@ class TestTransactionBeginType:
 
     def test_begin_type_setter(self, dummy_dialect):
         expr = BeginTransactionStatement(dummy_dialect)
-        result = expr.begin_type("DEFERRED")
+        result = expr.with_begin_type("DEFERRED")
         assert result is expr  # Returns self for chaining
 
     def test_get_params_with_begin_type(self, dummy_dialect):
         expr = BeginTransactionStatement(dummy_dialect)
-        expr.begin_type("IMMEDIATE")
+        expr.with_begin_type("IMMEDIATE")
         params = expr.get_params()
         assert params["begin_type"] == "IMMEDIATE"
 

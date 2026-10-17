@@ -43,7 +43,7 @@ class BeginTransactionStatement(TransactionExpression):
 
     Usage:
         expr = BeginTransactionStatement(dialect)
-        expr.isolation_level(IsolationLevel.SERIALIZABLE)
+        expr.with_isolation_level(IsolationLevel.SERIALIZABLE)
         expr.read_only()
         sql, params = expr.to_sql()
     """
@@ -63,21 +63,21 @@ class BeginTransactionStatement(TransactionExpression):
         super().__init__(dialect)
         require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
         require_exclusive_options(wait, no_wait, "wait", "no_wait")
-        self._isolation_level: Optional[IsolationLevel] = isolation_level
-        self._mode: Optional[TransactionMode] = mode
+        self.isolation_level: Optional[IsolationLevel] = isolation_level
+        self.mode: Optional[TransactionMode] = mode
         # PostgreSQL-specific: deferrable mode for SERIALIZABLE transactions.
         # [NOT] DEFERRABLE is an independent transaction mode in the grammar;
         # it is rendered whenever requested, not only alongside SERIALIZABLE.
-        self._deferrable: bool = deferrable
-        self._not_deferrable: bool = not_deferrable
+        self.deferrable: bool = deferrable
+        self.not_deferrable: bool = not_deferrable
         # Firebird-specific: the lock-wait clause. WAIT and NO WAIT are two
         # spellings with one parameter each; neither set renders nothing.
-        self._wait: bool = wait
-        self._no_wait: bool = no_wait
+        self.wait: bool = wait
+        self.no_wait: bool = no_wait
         # SQLite-specific: BEGIN transaction type (DEFERRED|IMMEDIATE|EXCLUSIVE)
-        self._begin_type: Optional[str] = begin_type
+        self.begin_type: Optional[str] = begin_type
 
-    def isolation_level(self, level: IsolationLevel) -> "BeginTransactionStatement":
+    def with_isolation_level(self, level: IsolationLevel) -> "BeginTransactionStatement":
         """Set the transaction isolation level.
 
         Args:
@@ -87,7 +87,7 @@ class BeginTransactionStatement(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._isolation_level = level
+        self.isolation_level = level
         return self
 
     def read_only(self) -> "BeginTransactionStatement":
@@ -99,7 +99,7 @@ class BeginTransactionStatement(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._mode = TransactionMode.READ_ONLY
+        self.mode = TransactionMode.READ_ONLY
         return self
 
     def read_write(self) -> "BeginTransactionStatement":
@@ -110,10 +110,10 @@ class BeginTransactionStatement(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._mode = TransactionMode.READ_WRITE
+        self.mode = TransactionMode.READ_WRITE
         return self
 
-    def deferrable(self) -> "BeginTransactionStatement":
+    def with_deferrable(self) -> "BeginTransactionStatement":
         """Set deferrable mode (PostgreSQL-specific).
 
         Deferrable mode is only *effective* for SERIALIZABLE transactions, but
@@ -123,41 +123,41 @@ class BeginTransactionStatement(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._deferrable = True
-        self._not_deferrable = False
+        self.deferrable = True
+        self.not_deferrable = False
         return self
 
-    def not_deferrable(self) -> "BeginTransactionStatement":
+    def with_not_deferrable(self) -> "BeginTransactionStatement":
         """Set NOT DEFERRABLE mode (PostgreSQL-specific).
 
         Returns:
             Self for method chaining.
         """
-        self._not_deferrable = True
-        self._deferrable = False
+        self.not_deferrable = True
+        self.deferrable = False
         return self
 
-    def wait(self) -> "BeginTransactionStatement":
+    def with_wait(self) -> "BeginTransactionStatement":
         """Set the lock-wait clause to WAIT (Firebird-specific).
 
         Returns:
             Self for method chaining.
         """
-        self._wait = True
-        self._no_wait = False
+        self.wait = True
+        self.no_wait = False
         return self
 
-    def no_wait(self) -> "BeginTransactionStatement":
+    def with_no_wait(self) -> "BeginTransactionStatement":
         """Set the lock-wait clause to NO WAIT (Firebird-specific).
 
         Returns:
             Self for method chaining.
         """
-        self._no_wait = True
-        self._wait = False
+        self.no_wait = True
+        self.wait = False
         return self
 
-    def begin_type(self, begin_type: str) -> "BeginTransactionStatement":
+    def with_begin_type(self, begin_type: str) -> "BeginTransactionStatement":
         """Set the BEGIN transaction type (SQLite-specific).
 
         SQLite supports three transaction types:
@@ -171,7 +171,7 @@ class BeginTransactionStatement(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._begin_type = begin_type
+        self.begin_type = begin_type
         return self
 
     @property
@@ -215,7 +215,7 @@ class RollbackStatement(TransactionExpression):
 
     def __init__(self, dialect: "SQLDialectBase", *, savepoint: Optional[str] = None):
         super().__init__(dialect)
-        self._savepoint: Optional[str] = savepoint
+        self.savepoint: Optional[str] = savepoint
 
     def to_savepoint(self, name: str) -> "RollbackStatement":
         """Rollback to a specific savepoint.
@@ -226,7 +226,7 @@ class RollbackStatement(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._savepoint = name
+        self.savepoint = name
         return self
 
     @property
@@ -296,7 +296,7 @@ class SetTransactionExpression(TransactionExpression):
 
     Usage:
         expr = SetTransactionExpression(dialect)
-        expr.isolation_level(IsolationLevel.READ_COMMITTED)
+        expr.with_isolation_level(IsolationLevel.READ_COMMITTED)
         expr.read_only()
         sql, params = expr.to_sql()
     """
@@ -316,15 +316,15 @@ class SetTransactionExpression(TransactionExpression):
         super().__init__(dialect)
         require_exclusive_options(deferrable, not_deferrable, "deferrable", "not_deferrable")
         require_exclusive_options(wait, no_wait, "wait", "no_wait")
-        self._isolation_level: Optional[IsolationLevel] = isolation_level
-        self._mode: Optional[TransactionMode] = mode
-        self._session: bool = session
-        self._deferrable: bool = deferrable
-        self._not_deferrable: bool = not_deferrable
-        self._wait: bool = wait
-        self._no_wait: bool = no_wait
+        self.isolation_level: Optional[IsolationLevel] = isolation_level
+        self.mode: Optional[TransactionMode] = mode
+        self.session: bool = session
+        self.deferrable: bool = deferrable
+        self.not_deferrable: bool = not_deferrable
+        self.wait: bool = wait
+        self.no_wait: bool = no_wait
 
-    def isolation_level(self, level: IsolationLevel) -> "SetTransactionExpression":
+    def with_isolation_level(self, level: IsolationLevel) -> "SetTransactionExpression":
         """Set the transaction isolation level.
 
         Args:
@@ -333,7 +333,7 @@ class SetTransactionExpression(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._isolation_level = level
+        self.isolation_level = level
         return self
 
     def read_only(self) -> "SetTransactionExpression":
@@ -342,7 +342,7 @@ class SetTransactionExpression(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._mode = TransactionMode.READ_ONLY
+        self.mode = TransactionMode.READ_ONLY
         return self
 
     def read_write(self) -> "SetTransactionExpression":
@@ -351,10 +351,10 @@ class SetTransactionExpression(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._mode = TransactionMode.READ_WRITE
+        self.mode = TransactionMode.READ_WRITE
         return self
 
-    def session(self, value: bool = True) -> "SetTransactionExpression":
+    def with_session(self, value: bool = True) -> "SetTransactionExpression":
         """Set whether to use SESSION CHARACTERISTICS (PostgreSQL specific).
 
         When True, sets transaction characteristics for all subsequent
@@ -366,47 +366,47 @@ class SetTransactionExpression(TransactionExpression):
         Returns:
             Self for method chaining.
         """
-        self._session = value
+        self.session = value
         return self
 
-    def deferrable(self) -> "SetTransactionExpression":
+    def with_deferrable(self) -> "SetTransactionExpression":
         """Set DEFERRABLE mode for SERIALIZABLE transactions (PostgreSQL specific).
 
         Returns:
             Self for method chaining.
         """
-        self._deferrable = True
-        self._not_deferrable = False
+        self.deferrable = True
+        self.not_deferrable = False
         return self
 
-    def not_deferrable(self) -> "SetTransactionExpression":
+    def with_not_deferrable(self) -> "SetTransactionExpression":
         """Set NOT DEFERRABLE mode for transactions (PostgreSQL specific).
 
         Returns:
             Self for method chaining.
         """
-        self._not_deferrable = True
-        self._deferrable = False
+        self.not_deferrable = True
+        self.deferrable = False
         return self
 
-    def wait(self) -> "SetTransactionExpression":
+    def with_wait(self) -> "SetTransactionExpression":
         """Set the lock-wait clause to WAIT (Firebird-specific).
 
         Returns:
             Self for method chaining.
         """
-        self._wait = True
-        self._no_wait = False
+        self.wait = True
+        self.no_wait = False
         return self
 
-    def no_wait(self) -> "SetTransactionExpression":
+    def with_no_wait(self) -> "SetTransactionExpression":
         """Set the lock-wait clause to NO WAIT (Firebird-specific).
 
         Returns:
             Self for method chaining.
         """
-        self._no_wait = True
-        self._wait = False
+        self.no_wait = True
+        self.wait = False
         return self
 
     @property
