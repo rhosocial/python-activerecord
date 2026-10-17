@@ -37,32 +37,13 @@ from .surfaces import (
     TextSurface,
     XMLSurface,
 )
-from .bases import BaseExpression
-from .mixins import (
-    AliasableMixin,
-    ArithmeticMixin,
-    ArrayMixin,
-    ComparisonMixin,
-    DateTimeMixin,
-    JSONAccessorMixin,
-    NotANumberMixin,
-    NotComparableMixin,
-    NullTestMixin,
-    NumericValueMixin,
-    StringPatternPredicateMixin,
-    StringToIntegerMixin,
-    StringValueMixin,
-    TemporalArithmeticMixin,
-    TranscendentalMixin,
-    TypeCastingMixin,
-    BooleanLogicMixin,
-)
+from .bases import BaseExpression, SQLValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class _Annotation(BaseExpression):
+class _Annotation(SQLValue):
     """Shared state for the declared-result nodes: the node being annotated.
 
     One field, one job. It is deliberately **not** the general wrapper shape
@@ -78,11 +59,22 @@ class _Annotation(BaseExpression):
     to have ``to_sql``.
     """
 
-    #: The surface this annotation carries, named rather than inferred. A node
-    #: that adopts the annotation's operations has to reach the surface too, and
-    #: walking the MRO for it would be the reflection this package does not do:
-    #: the surface is a fact about the annotation, so the annotation says so.
-    surface: type = None
+    @classmethod
+    def surface_of(cls) -> type:
+        """The surface this annotation carries.
+
+        Read off the bases rather than declared beside them: the surface *is*
+        the third base, and a field repeating it is a second place to be wrong.
+        CASE and CAST need the name to build their combined classes, which is
+        why the question is asked of the class rather than of an instance.
+        """
+        for base in cls.__bases__:
+            if base.__name__.endswith("Surface"):
+                return base
+        raise TypeError(
+            f"{cls.__name__} carries no *Surface base; an annotation must name "
+            f"the surface its declared result has"
+        )
 
     def __init__(self, dialect: "SQLDialectBase", source: BaseExpression):
         # BaseExpression directly, not super(): the surfaces below are mixin
@@ -100,60 +92,37 @@ class _Annotation(BaseExpression):
 class TextAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    ComparisonMixin,
-    StringToIntegerMixin,
-    StringPatternPredicateMixin,
-    StringValueMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
+    TextSurface,
 ):
     """Declared to yield text: ``NULLIF(name, blank).as_text()``."""
 
-    surface = TextSurface
 
 
 
 class NumberAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    ArithmeticMixin,
-    ComparisonMixin,
-    NumericValueMixin,
-    TranscendentalMixin,
-    TypeCastingMixin,
+    NumericSurface,
 ):
     """Declared to yield a fractional number."""
 
-    surface = NumericSurface
 
 
 
 class IntegerAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    ArithmeticMixin,
-    ComparisonMixin,
-    NumericValueMixin,
-    TranscendentalMixin,
-    TypeCastingMixin,
+    NumericSurface,
 ):
     """Declared to yield a whole number."""
 
-    surface = NumericSurface
 
 
 
 class TemporalAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    ComparisonMixin,
-    DateTimeMixin,
-    TemporalArithmeticMixin,
-    TypeCastingMixin,
+    TemporalSurface,
 ):
     """Declared to yield a date, a time or a date-time.
 
@@ -161,18 +130,13 @@ class TemporalAnnotation(
     operation any of them offers.
     """
 
-    surface = TemporalSurface
 
 
 
 class BooleanAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    ComparisonMixin,
-    BooleanLogicMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
+    BooleanSurface,
 ):
     """Declared to yield a truth value.
 
@@ -181,75 +145,53 @@ class BooleanAnnotation(
     needed the dialect has to produce a zero-or-one column.
     """
 
-    surface = BooleanSurface
 
 
 
 class ArrayAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    ComparisonMixin,
-    ArrayMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
+    ArraySurface,
 ):
     """Declared to yield a sequence."""
 
-    surface = ArraySurface
 
 
 
 class JSONAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    ComparisonMixin,
-    JSONAccessorMixin,
-    TypeCastingMixin,
+    JSONSurface,
 ):
     """Declared to yield a JSON document."""
 
-    surface = JSONSurface
 
 
 
 class UUIDAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    ComparisonMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
+    OpaqueSurface,
 ):
     """Declared to yield a UUID."""
 
-    surface = OpaqueSurface
 
 
 
 class BinaryAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    ComparisonMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
+    OpaqueSurface,
 ):
     """Declared to yield bytes."""
 
-    surface = OpaqueSurface
 
 
 
 class XMLAnnotation(
     _Annotation,
     DeclaredValueType,
-    AliasableMixin,
-    NotComparableMixin,
-    NullTestMixin,
-    TypeCastingMixin,
-    NotANumberMixin,
+    XMLSurface,
 ):
     """Declared to yield an XML document.
 
@@ -257,7 +199,6 @@ class XMLAnnotation(
     backend answers the same way, so the node does not offer it.
     """
 
-    surface = XMLSurface
 
 
 

@@ -152,7 +152,7 @@ def _cast_class_for(annotation):
     """
     from ..core import CastExpression
 
-    surface = annotation.surface
+    surface = annotation.surface_of()
     try:
         return _CAST_ANNOTATION_CLASSES[annotation]
     except KeyError:

@@ -178,7 +178,7 @@ class CaseExpression(
         that renders the node the annotation holds. That is the point: a CASE
         holds branches, not a node, so it must render as itself.
         """
-        surface = annotation.surface
+        surface = annotation.surface_of()
         try:
             return _CASE_ANNOTATION_CLASSES[annotation]
         except KeyError:
